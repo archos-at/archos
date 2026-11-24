@@ -6,20 +6,11 @@ import { ArrowUpRight } from 'lucide-react'
 import { useLocale, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
-import { annotationBox, regionAround, type AnnotationView } from '@/lib/annotations/types'
-import { PageRegionThumbnail } from '@/features/knowledge/components/page-region-thumbnail'
-import type { PagePlace } from '@/features/knowledge/lib/page-place'
-import { MarkBody } from '@/features/documents/components/review/mark-body'
+import type { AnnotationView } from '@/lib/annotations/types'
+import { MarkBody, MarkPlace } from '@/features/documents'
 import { cn } from '@/lib/utils'
 
 const PLACE_MAX_HEIGHT = 280
-
-export function markRegion(mark: Pick<AnnotationView, 'page' | 'x' | 'y' | 'w' | 'h' | 'points'>): [number, number, number, number] {
-  const [x0, y0, x1, y1] = annotationBox(mark)
-  if (x1 > x0 && y1 > y0) return [x0, y0, x1 - x0, y1 - y0]
-  const around = regionAround(mark)
-  return [around.x, around.y, around.w, around.h]
-}
 
 export function InboxMarkPlace({ mark, documentName, href }: { mark: AnnotationView; documentName: string; href: string }): JSX.Element {
   const t = useTranslations(collaborationCopy)
@@ -31,12 +22,6 @@ export function InboxMarkPlace({ mark, documentName, href }: { mark: AnnotationV
       </p>
     )
   }
-  const place: PagePlace = {
-    document: { id: mark.documentId, name: documentName, shelf: 'stored' },
-    page: mark.page,
-    frame: 'page',
-    region: markRegion(mark),
-  }
   return (
     <Link
       href={href}
@@ -47,7 +32,7 @@ export function InboxMarkPlace({ mark, documentName, href }: { mark: AnnotationV
       aria-label={t('inbox.page.openPlace', { sheet, number: mark.number })}
       data-testid="inbox-mark-place"
     >
-      <PageRegionThumbnail place={place} lazy={false} maxHeight={PLACE_MAX_HEIGHT} label={sheet} fallback="none" className="bg-sheet" />
+      <MarkPlace mark={mark} documentName={documentName} label={sheet} maxHeight={PLACE_MAX_HEIGHT} className="bg-sheet" />
       <span className="text-muted-foreground flex items-center justify-between gap-3 border-t border-base px-3 py-2 text-xs">
         <span className="min-w-0 truncate">{[documentName, sheet].filter(Boolean).join(' · ')}</span>
         <ArrowUpRight aria-hidden className="size-3.5 shrink-0 group-hover/place:text-foreground" />
