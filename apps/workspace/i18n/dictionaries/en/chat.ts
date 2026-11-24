@@ -1786,6 +1786,8 @@ export const chat = {
     turningOff: 'Turning off temporary chat …',
     ownerOnly: 'Only the owner of the chat can change this.',
     switchFailed: 'The setting was not saved. Try again.',
+    welcomeTitle: 'Temporary chat',
+    welcomeBody: 'Only you see this chat, and {productName} keeps nothing from it.',
   },
   privacy: {
     onlyYou: 'Only you see this chat until you share it.',

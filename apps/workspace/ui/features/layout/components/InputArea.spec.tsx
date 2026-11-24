@@ -71,6 +71,12 @@ function mockChatState() {
   }
 }
 
+const mockTemporary = vi.hoisted(() => ({ pressed: false }))
+vi.mock('@/features/chat/conversation-privacy', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/chat/conversation-privacy')>()),
+  useTemporarySwitch: () => ({ pressed: mockTemporary.pressed, pending: false, statement: null, sendBlocked: false }),
+}))
+
 vi.mock('@/features/chat', () => ({
   useWebSocketChat: vi.fn(() => ({
     sendMessage: mockSendMessage,
@@ -226,6 +232,7 @@ describe('InputArea', () => {
     mockRestartMentionCandidates.mockClear()
     mockAwaitingPending = []
     resetThreadSharing()
+    mockTemporary.pressed = false
     vi.mocked(useFileDragDrop).mockReturnValue({
       isDragging: false,
       isUnsupportedDrag: false,
@@ -271,6 +278,20 @@ describe('InputArea', () => {
   test('a composer that mounts signed in, as after a switch, has nothing to land', () => {
     render(<InputArea isAuthenticated={true} />)
     expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a temporary chat swaps the card’s shadow for a dashed ink line, on colour alone and with no change of size', () => {
+    const { unmount } = render(<InputArea isAuthenticated={true} />)
+    const card = (): HTMLElement => screen.getByTestId('composer-root').querySelector('.\\@container') as HTMLElement
+    expect(card()).not.toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-transparent', 'shadow-md')
+    unmount()
+
+    mockTemporary.pressed = true
+    render(<InputArea isAuthenticated={true} />)
+    expect(card()).toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-foreground', 'shadow-none')
+    expect(card()).toHaveClass('transition-[outline-color,box-shadow]', 'duration-quick', 'motion-reduce:transition-none')
   })
 
   test('does not render the Auto mode selector button', () => {
