@@ -108,7 +108,6 @@ export function ProjectOverview({
             <>
               <ul
                 className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                aria-label={t('portfolio.recent')}
                 data-testid="project-overview-grid"
               >
                 {shown.slice(0, OVERVIEW_CARD_SLOTS).map((project) => (
@@ -173,7 +172,10 @@ function ProjectOverviewCard({
         <h2 className="text-name min-w-0 font-medium">
           <ProjectOpenLink project={project} />
         </h2>
-        <ProjectSettingsLink project={project} className="relative z-10 -mt-1 -mr-1 shrink-0" />
+        <ProjectSettingsLink
+          project={project}
+          className="relative z-10 -mt-1 -mr-1 shrink-0 pointer-coarse:-my-3 pointer-coarse:-mr-3"
+        />
       </div>
       {line && (
         <p
@@ -217,7 +219,7 @@ function ProjectOverviewList({
             data-testid="project-overview-row"
             data-status={getProjectStatus(project)}
             data-current={current ? '' : undefined}
-            aria-current={current ? 'page' : undefined}
+            aria-current={current ? 'true' : undefined}
           >
             <div className="min-w-0 flex-1">
               <p className="text-name min-w-0 font-medium">
@@ -236,7 +238,7 @@ function ProjectOverviewList({
             <ProjectActivity
               project={project}
               activityAt={viewerActivity[project.id]}
-              className="w-24 shrink-0 sm:w-28"
+              className="relative z-10 w-24 shrink-0 sm:w-28"
             />
             <ProjectSettingsLink project={project} className="shrink-0" />
           </Item>

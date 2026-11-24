@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Settings } from 'lucide-react'
 
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
@@ -33,6 +33,12 @@ export function PhoneProjectList({
   const [query, setQuery] = React.useState('')
   const [recentIds] = React.useState<string[]>(() => readRecentProjectIds())
   const [expanded, setExpanded] = React.useState(false)
+  const unfolded = React.useRef<HTMLDivElement>(null)
+  const showAll = (): void => {
+    setExpanded(true)
+    // The row that was pressed is gone; the first project it unfolded takes the focus.
+    requestAnimationFrame(() => unfolded.current?.querySelector<HTMLElement>('li button')?.focus())
+  }
 
   const sections = switcherSections(projects, activeProjectId, recentIds, query)
   const choose = (projectId: string): void => {
@@ -45,6 +51,7 @@ export function PhoneProjectList({
       project={project}
       current={project.id === activeProjectId}
       onChoose={() => choose(project.id)}
+      onSettings={onDone}
     />
   )
 
@@ -82,13 +89,15 @@ export function PhoneProjectList({
             )}
             {sections.rest.length > 0 &&
               (expanded ? (
-                <SwitcherGroup label={t('projectSheet.others')}>
-                  {sections.rest.map(row)}
-                </SwitcherGroup>
+                <div ref={unfolded}>
+                  <SwitcherGroup label={t('projectSheet.others')}>
+                    {sections.rest.map(row)}
+                  </SwitcherGroup>
+                </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setExpanded(true)}
+                  onClick={showAll}
                   aria-expanded={false}
                   data-testid="phone-project-list-show-all"
                   className={cn(
@@ -148,21 +157,24 @@ function SwitcherRow({
   project,
   current,
   onChoose,
+  onSettings,
 }: {
   project: ProjectSwitcherProject
   current: boolean
   onChoose: () => void
+  onSettings: () => void
 }): JSX.Element {
+  const t = useTranslations(navCopy)
   const tProjects = useTranslations(projectsCopy)
   const quiet = project.status === 'paused' || project.status === 'closed'
   return (
-    <li>
+    <li className="flex items-center pr-2">
       <button
         type="button"
         onClick={onChoose}
         aria-current={current ? 'true' : undefined}
         className={cn(
-          'flex min-h-14 w-full items-center gap-3 px-4 text-left outline-none',
+          'flex min-h-14 min-w-0 flex-1 items-center gap-3 pr-2 pl-4 text-left outline-none',
           PRESSABLE,
           FOCUS_RING_INSET,
           'active:bg-desk'
@@ -183,6 +195,20 @@ function SwitcherRow({
         )}
         {current && <Check className="text-foreground size-4 shrink-0" aria-hidden />}
       </button>
+      <Link
+        href={`/app/projects/${project.id}/settings`}
+        onClick={onSettings}
+        aria-label={t('projectSwitcher.projectSettings', { name: project.name })}
+        title={t('projectSwitcher.projectSettingsTitle')}
+        className={cn(
+          'text-muted-foreground rounded-control grid size-11 shrink-0 place-items-center outline-none',
+          PRESSABLE,
+          FOCUS_RING_INSET,
+          'active:bg-desk'
+        )}
+      >
+        <Settings className="size-4" aria-hidden />
+      </Link>
     </li>
   )
 }

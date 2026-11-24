@@ -21,6 +21,7 @@ export type SwitcherSections =
       kind: 'browse'
       shortlist: ProjectSwitcherProject[]
       rest: ProjectSwitcherProject[]
+      all: ProjectSwitcherProject[]
       fromRecents: boolean
     }
   | { kind: 'search'; matches: ProjectSwitcherProject[] }
@@ -60,7 +61,8 @@ export function switcherSections(
     kind: 'browse',
     shortlist,
     rest: ordered.filter((project) => !listed.has(project)),
-    fromRecents: shortlist.some((project) => recentSet.has(project.id)),
+    all: ordered,
+    fromRecents: shortlist.every((project) => recentSet.has(project.id)),
   }
 }
 

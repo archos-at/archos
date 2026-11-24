@@ -45,7 +45,8 @@ describe('switcherSheetSections', () => {
       kind: 'browse',
       shortlist: [PROJECTS[4], PROJECTS[0], PROJECTS[1], PROJECTS[3]],
       rest: [],
-      fromRecents: true,
+      all: [PROJECTS[4], PROJECTS[0], PROJECTS[1], PROJECTS[3]],
+      fromRecents: false,
     })
   })
 
@@ -121,9 +122,9 @@ describe('PhoneProjectList', () => {
     return container.querySelector<HTMLElement>('[data-slot="phone-project-list"]')!
   }
 
-  test('lists the recents on top, by name alone, in 56px rows', () => {
+  test('lists the recents on top, by name alone, in 56px rows; „Recently opened“ only when all of them are', () => {
     const list = open()
-    const recent = within(list).getByRole('region', { name: 'Recently opened' })
+    const recent = within(list).getByRole('region', { name: 'Projects' })
     const rows = within(recent).getAllByRole('button')
     expect(rows.map((row) => row.textContent)).toEqual([
       'Bürohaus Lände',
@@ -182,5 +183,30 @@ describe('PhoneProjectList', () => {
     expect(within(list).queryByRole('button', { name: /Show all projects/ })).toBeNull()
     await user.type(within(list).getByRole('searchbox', { name: 'Search projects' }), 'projekt 8')
     expect(within(list).getAllByRole('button', { name: /^Projekt/ }).map((row) => row.textContent)).toEqual(['Projekt 8'])
+  })
+
+  test('unfolding the rest hands the focus to the first project it shows', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<PhoneProjectList projects={MANY} activeProjectId="p0" onDone={onDone} />)
+    const list = container.querySelector<HTMLElement>('[data-slot="phone-project-list"]')!
+    await user.click(within(list).getByRole('button', { name: /Show all projects/ }))
+    await vi.waitFor(() => expect(within(list).getByRole('button', { name: 'Projekt 5' })).toHaveFocus())
+  })
+
+  test('every row carries a 44px gear to that project’s settings, which closes the sheet', async () => {
+    const user = userEvent.setup()
+    const list = open()
+    const gear = within(list).getByRole('link', { name: 'Project settings of Bürohaus Lände' })
+    expect(gear).toHaveAttribute('href', '/app/projects/b/settings')
+    expect(gear).toHaveClass('size-11')
+    await user.click(gear)
+    expect(onDone).toHaveBeenCalledTimes(1)
+  })
+
+  test('five projects opened here are „Recently opened“', () => {
+    window.localStorage.setItem(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(['p4', 'p3', 'p2', 'p1', 'p0']))
+    const { container } = render(<PhoneProjectList projects={MANY} activeProjectId="p0" onDone={onDone} />)
+    const list = container.querySelector<HTMLElement>('[data-slot="phone-project-list"]')!
+    expect(within(list).getByRole('region', { name: 'Recently opened' })).toBeInTheDocument()
   })
 })

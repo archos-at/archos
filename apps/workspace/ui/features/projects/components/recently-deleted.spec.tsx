@@ -83,4 +83,22 @@ describe('RecentlyDeleted', () => {
     expect(await screen.findByText('Neubau Wohnbau')).toBeDefined()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
+
+  test('while a restore runs, its button is busy and a second press sends nothing', async () => {
+    let finish: (value: unknown) => void = () => {}
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [entry] })
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+      .mockResolvedValue({ ok: true, status: 200, json: async () => [] })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    render(<RecentlyDeleted canManageCompliance />)
+    const restore = await screen.findByRole('button', { name: /Restore/i })
+    await userEvent.click(restore)
+    await waitFor(() => expect(restore).toHaveAttribute('aria-busy', 'true'))
+    await userEvent.click(restore)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    finish({ ok: true, status: 200, json: async () => ({}) })
+  })
 })

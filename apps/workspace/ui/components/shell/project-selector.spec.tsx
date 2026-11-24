@@ -134,7 +134,8 @@ describe('the project selector is one press', () => {
     await user.click(selector())
     const other = await screen.findByRole('link', { name: 'Project settings of Sanierung Amtshaus Favoriten' })
     expect(other).toHaveAttribute('href', '/app/projects/p-2/settings')
-    expect(other).toHaveClass('group-data-[selected=true]:opacity-100', 'pointer-coarse:opacity-100')
+    expect(other).toHaveClass('hidden', 'group-data-[selected=true]:inline-flex', 'pointer-coarse:inline-flex')
+    expect(other).toHaveAttribute('tabindex', '-1')
   })
 })
 
@@ -202,5 +203,30 @@ describe('the project selector lists the projects last worked in', () => {
     await user.click(selector())
     await user.keyboard('zzz')
     expect(within(await screen.findByTestId('project-switcher-menu')).getByTestId('project-switcher-no-match')).toBeInTheDocument()
+  })
+
+  test('an office with no project to offer says nothing about a name nobody typed', async () => {
+    const user = userEvent.setup()
+    render(
+      <I18nProvider initialLocale="en" fixedLocale>
+        <TooltipProvider>
+          <ProjectSwitcher projects={[]} />
+        </TooltipProvider>
+      </I18nProvider>
+    )
+    await user.click(selector())
+    const menu = await screen.findByTestId('project-switcher-menu')
+    expect(within(menu).queryByTestId('project-switcher-no-match')).not.toBeInTheDocument()
+    expect(within(menu).queryByTestId('project-switcher-show-all')).not.toBeInTheDocument()
+  })
+
+  test('unfolded, the list is in the order worked in, the current project back in its place', async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(['m-6', 'm-2']))
+    showMany('m-8')
+    await user.click(selector())
+    const menu = await screen.findByTestId('project-switcher-menu')
+    await user.click(within(menu).getByTestId('project-switcher-show-all'))
+    expect(projectOptions(menu)).toEqual(['6', '2', '0', '1', '3', '4', '5', '7', '8'].map((n) => `Projekt ${n}`))
   })
 })

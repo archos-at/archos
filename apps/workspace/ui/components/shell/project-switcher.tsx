@@ -52,13 +52,10 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   const [expanded, setExpanded] = React.useState(false)
   const [recentIds, setRecentIds] = React.useState<string[]>([])
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const commandRef = React.useRef<HTMLDivElement>(null)
   const sections = switcherSections(projects, activeProjectId, recentIds, query)
   const listed =
-    sections.kind === 'search'
-      ? sections.matches
-      : expanded
-        ? [...sections.shortlist, ...sections.rest]
-        : sections.shortlist
+    sections.kind === 'search' ? sections.matches : expanded ? sections.all : sections.shortlist
 
   const onOpenChange = (next: boolean): void => {
     setOpen(next)
@@ -78,7 +75,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     setQuery(next)
     const found = switcherSections(projects, activeProjectId, recentIds, next)
     const first = found.kind === 'search' ? found.matches[0] : found.shortlist[0]
-    setCursor(first?.id ?? '')
+    setCursor((found.kind === 'browse' && activeProjectId) || first?.id || '')
   }
   // cmdk sends the cursor to the top when the row under it unmounts; it stays on the first unfolded project until
   // the person moves it.
@@ -127,7 +124,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
       >
         <span className="min-w-0 flex-1 truncate">{project.name}</span>
         {quiet && project.status && (
-          <span className="text-muted-foreground shrink-0 text-xs">
+          <span className="text-muted-foreground shrink-0 text-xs group-hover:hidden group-data-[selected=true]:hidden pointer-coarse:inline">
             {tProjects(`card.status.${project.status}`)}
           </span>
         )}
@@ -139,7 +136,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
           className={cn(
             'text-muted-foreground hover:text-foreground size-7 shrink-0 pointer-coarse:size-11',
             !isCurrent &&
-              'duration-snap opacity-0 transition-opacity ease-out group-hover:opacity-100 group-data-[selected=true]:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none pointer-coarse:opacity-100'
+              'hidden group-hover:inline-flex group-data-[selected=true]:inline-flex pointer-coarse:inline-flex'
           )}
         >
           <Link
@@ -147,6 +144,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
             aria-label={t('projectSwitcher.projectSettings', { name: project.name })}
             title={t('projectSwitcher.projectSettingsTitle')}
             data-testid="project-switcher-settings"
+            tabIndex={isCurrent ? undefined : -1}
             onPointerDown={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.stopPropagation()
@@ -212,12 +210,16 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         data-testid="project-switcher-menu"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
-          inputRef.current?.focus()
+          // A touch screen would raise its keyboard over the list on every open.
+          if (window.matchMedia?.('(pointer: fine)').matches === false) commandRef.current?.focus()
+          else inputRef.current?.focus()
         }}
       >
         {/* The five projects last worked in, the current one always among them; the rest one row further, and the
             search over every project. Under a rule the two ways out. */}
         <Command
+          ref={commandRef}
+          tabIndex={-1}
           shouldFilter={false}
           loop
           value={cursor}
@@ -237,7 +239,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
             data-testid="project-switcher-search"
           />
           <CommandList className="max-h-[min(24rem,60dvh)] p-0">
-            {listed.length === 0 ? (
+            {listed.length === 0 && sections.kind === 'search' ? (
               <p
                 className="text-muted-foreground px-3 py-6 text-center text-[13px]"
                 data-testid="project-switcher-no-match"
