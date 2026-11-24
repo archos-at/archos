@@ -65,10 +65,26 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+            "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
             "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+            "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
           }
         },
         {
