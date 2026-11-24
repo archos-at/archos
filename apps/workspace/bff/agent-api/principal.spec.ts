@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { closedContext } from '@/lib/conversation-context/types'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { decisionOf, signDecision } from '@/lib/conversation-context/wire'
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -316,14 +316,14 @@ describe('The in-product agent (internal token and envelope)', () => {
   })
 
   it('carries the turn decision the agent sends, and refuses one the BFF did not sign (ADR-0192)', async () => {
-    const decided = signDecision(decisionOf(closedContext('chat', 'conv_1'), null, Date.now()), SECRET)
+    const decided = signDecision(decisionOf(closedContext('chat', 'conv_1'), { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), SECRET)
     const carried = await resolvePrincipal(
       inProduct({ ...envelope(), 'x-turn-decision': decided.header, 'x-turn-decision-signature': decided.signature }),
       { jwks },
     )
     expect(carried).toMatchObject({ actor: 'agent', decision: { conversationId: 'conv_1', kind: 'chat' } })
 
-    const forged = signDecision(decisionOf(closedContext('chat', 'conv_1'), null, Date.now()), 'forged')
+    const forged = signDecision(decisionOf(closedContext('chat', 'conv_1'), { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), 'forged')
     const { response } = challengeOf(
       await resolvePrincipal(
         inProduct({ ...envelope(), 'x-turn-decision': forged.header, 'x-turn-decision-signature': forged.signature }),

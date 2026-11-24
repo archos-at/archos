@@ -5,7 +5,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { closedContext } from './types'
+import { hmacHex } from '../turns/turn-headers.js'
+import { closedContext } from './context.fixtures'
 import {
   CONVERSATION_DECISION_WIRE_SCHEMAS,
   TURN_DECISION_MAX_AGE_MS,
@@ -35,6 +36,7 @@ function decided() {
         workspaceRead: 'all',
       },
     },
+    { organizationId: 'org_1', userId: 'user_1' },
     ANSWER,
     NOW,
   )
@@ -60,6 +62,22 @@ describe('the conversation decision on the wire', () => {
     const body = decided()
     expect(body.may).not.toHaveProperty('projectMemory')
     expect(body.audienceVersion).toBe(0)
+  })
+
+  it('signs a decision as the CommonJS signer signs the envelope: one HMAC over the same JSON', () => {
+    const body = decided()
+    const signed = signDecision(body, SECRET)
+    const json = Buffer.from(signed.header, 'base64url').toString('utf8')
+    expect(hmacHex(json, SECRET)).toBe(signed.signature)
+  })
+
+  it('writes every field the committed fixture requires, and nothing else', () => {
+    const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as {
+      $defs: { conversationDecision: { required: string[]; properties: { may: { required: string[] } } } }
+    }
+    const body = decided()
+    expect(Object.keys(body).sort()).toEqual([...fixture.$defs.conversationDecision.required].sort())
+    expect(Object.keys(body.may).sort()).toEqual([...fixture.$defs.conversationDecision.properties.may.required].sort())
   })
 
   it('verifies what it signed, within thirty minutes', () => {

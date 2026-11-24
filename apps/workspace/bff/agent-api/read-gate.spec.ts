@@ -77,6 +77,7 @@ const audienceOf = (solo: boolean): ConversationAudience => ({
   row: { exists: true, projectId: 'proj_1', createdBy: 'user_1', visibility: 'private', grantees: solo ? [] : ['user_2'], version: solo ? 2 : 3 },
   solo,
   version: solo ? 2 : 3,
+  workspaceRead: solo ? ('all' as const) : ('document+projectFacts' as const),
 })
 const reachOf = (ids: string[], solo: boolean) => ({
   projects: ids.map((id) => ({ id }) as Project),

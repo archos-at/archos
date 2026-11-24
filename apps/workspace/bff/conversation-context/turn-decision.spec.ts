@@ -14,7 +14,7 @@ import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repo
 import { recordAnswerContext } from './record'
 import { resolveConversationContext } from './resolve'
 import { decideTurn } from './turn-decision'
-import { closedContext } from './types'
+import { closedContext } from './context.fixtures'
 import { verifyDecision } from './wire'
 
 const SECRET = 'decision-secret'
@@ -41,6 +41,14 @@ describe('decideTurn', () => {
     expect(markAnswerRestrictedUse).toHaveBeenCalledWith({ db: true }, 'org_1', 's_c', ANSWER)
     expect(verifyDecision(answer.decision, answer.signature, SECRET, NOW)).toEqual(answer.body)
     expect(answer.body).toMatchObject({ conversationId: 's_c', answerMessageId: ANSWER, kind: 'chat', issuedAt: NOW })
+  })
+
+  it('signs no decision and records nothing when the audience cannot be read (fail-closed)', async () => {
+    vi.mocked(resolveConversationContext).mockRejectedValueOnce(new Error('connection reset'))
+
+    await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toThrow('connection reset')
+    expect(recordAnswerContext).not.toHaveBeenCalled()
+    expect(markAnswerRestrictedUse).not.toHaveBeenCalled()
   })
 
   it('records nothing without an answer id', async () => {

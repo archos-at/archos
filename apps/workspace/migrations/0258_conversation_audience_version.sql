@@ -16,19 +16,24 @@
 --
 -- A bump that would be lost raises. Under the runtime role an UPDATE that
 -- matches no row because of a tenant mismatch reports nothing, and a silently
--- lost bump would keep an old, wider audience valid. The one row that may
--- miss is a grant of a conversation that no longer exists: its delete
--- (`deleteOrphanedGrants`) has nothing to bump.
+-- lost bump would keep an old, wider audience valid. A grant deleted after
+-- its conversation (`deleteOrphanedGrants`, `purgeResourceCollaboration`) has
+-- nothing to bump, so its delete passes when the conversation does not exist
+-- in the caller's organization. `conversation_exists` answers only for the
+-- caller's own organization (`current_org()`), runs as the caller, and so can
+-- tell nothing about another tenant.
 --
 -- Existing rows start at 0 and need no backfill. A conversation with no row
 -- yet is version NULL in the BFF, never 0.
 ALTER TABLE "conversations" ADD COLUMN IF NOT EXISTS "audience_version" integer NOT NULL DEFAULT 0;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION conversation_exists(p_conversation_id text)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+RETURNS boolean LANGUAGE sql STABLE
 SET search_path = pg_catalog, public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM "conversations" WHERE "id" = p_conversation_id)
+  SELECT EXISTS (
+    SELECT 1 FROM "conversations" WHERE "id" = p_conversation_id AND "organization_id" = current_org()
+  )
 $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION conversation_exists(text) FROM PUBLIC;

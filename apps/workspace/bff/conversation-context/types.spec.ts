@@ -7,6 +7,7 @@ import { isShared } from '@/lib/sharing/access'
 import {
   CONTEXT_KINDS,
   isSoloAudience,
+  kindOf,
   mayPersonalMemory,
   mayPersonalShelf,
   otherProjectsOf,
@@ -49,6 +50,20 @@ describe('isShared and solo stay two predicates over one primitive', () => {
   })
 })
 
+describe('kindOf', () => {
+  it.each([
+    ['mcp', 'mcp', undefined, 'external'],
+    ['a2a', 'ui', undefined, 'external'],
+    ['platform', 'ui', undefined, 'external'],
+    [null, 'script', 'chat', 'external'],
+    [null, 'ui', undefined, 'chat'],
+    [null, 'ui', 'run', 'run'],
+    [null, 'ui', 'headless', 'headless'],
+  ] as const)('door %s (null: the built-in agent), session %s, started by %s → %s', (door, source, started, kind) => {
+    expect(kindOf(door, source, started)).toBe(kind)
+  })
+})
+
 describe('what each kind may draw on', () => {
   const table: Array<[ContextKind, string | null, boolean, boolean]> = [
     ['chat', 'conv', true, true],
@@ -67,14 +82,19 @@ describe('what each kind may draw on', () => {
   it('never grants anything personal to a run, headless job or external caller without a conversation', () => {
     for (const kind of CONTEXT_KINDS) {
       expect(mayPersonalMemory(kind, null, true)).toBe(false)
-      expect(mayPersonalShelf(mayPersonalMemory(kind, null, true), null)).toBe(false)
+      expect(mayPersonalShelf(kind, mayPersonalMemory(kind, null, true), null)).toBe(false)
     }
   })
 
-  it('draws on the personal shelf only where personal memory is allowed and the chat has no project', () => {
-    expect(mayPersonalShelf(true, null)).toBe(true)
-    expect(mayPersonalShelf(true, 'project-1')).toBe(false)
-    expect(mayPersonalShelf(false, null)).toBe(false)
+  it('draws on the personal shelf only in a chat, where personal memory is allowed and the chat has no project', () => {
+    expect(mayPersonalShelf('chat', true, null)).toBe(true)
+    expect(mayPersonalShelf('chat', true, 'project-1')).toBe(false)
+    expect(mayPersonalShelf('chat', false, null)).toBe(false)
+  })
+
+  it('never gives a run the personal shelf, even with personal memory in its solo chat: its decision outlives a share', () => {
+    expect(mayPersonalMemory('run', 'conv', true)).toBe(true)
+    expect(mayPersonalShelf('run', mayPersonalMemory('run', 'conv', true), null)).toBe(false)
   })
 
   it('reads the workspace fully when solo, only a document or project facts when shared, and not at all headless', () => {

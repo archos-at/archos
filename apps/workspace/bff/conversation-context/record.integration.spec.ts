@@ -15,7 +15,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { closedContext } from './types'
+import { closedContext } from './context.fixtures'
 
 vi.mock('server-only', () => ({}))
 

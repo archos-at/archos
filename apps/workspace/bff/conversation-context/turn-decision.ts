@@ -37,7 +37,7 @@ export async function decideTurn(
     await recordAnswerContext(party, context)
     await markAnswerRestrictedUse(getDb(), party.organizationId, party.conversationId, answerMessageId)
   }
-  const body = decisionOf(context, answerMessageId, now)
+  const body = decisionOf(context, envelope, answerMessageId, now)
   const signed = signDecision(body, secret)
   return { decision: signed.header, signature: signed.signature, body }
 }

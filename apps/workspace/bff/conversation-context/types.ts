@@ -1,5 +1,6 @@
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import type { ResourceVisibility } from '@/lib/db/schema/resource-shares'
+import type { CallDoor, SessionSource } from '@/lib/agent-api/call-door'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
 export const CONTEXT_KINDS = ['chat', 'run', 'headless', 'external'] as const
@@ -60,8 +61,17 @@ export function mayPersonalMemory(kind: ContextKind, conversationId: string | nu
   return solo && conversationId !== null && (kind === 'chat' || kind === 'run')
 }
 
-export function mayPersonalShelf(personalMemory: boolean, projectId: string | null): boolean {
-  return personalMemory && projectId === null
+export function mayPersonalShelf(kind: ContextKind, personalMemory: boolean, projectId: string | null): boolean {
+  return personalMemory && projectId === null && kind === 'chat'
+}
+
+export type AgentStart = Extract<ContextKind, 'chat' | 'run' | 'headless'>
+
+const EXTERNAL_DOORS: readonly CallDoor[] = ['mcp', 'a2a', 'platform']
+
+export function kindOf(door: CallDoor | null, source: SessionSource, started: AgentStart = 'chat'): ContextKind {
+  if ((door !== null && EXTERNAL_DOORS.includes(door)) || source === 'script') return 'external'
+  return started
 }
 
 export function workspaceReadOf(kind: ContextKind, conversationId: string | null, solo: boolean): WorkspaceRead {
@@ -82,28 +92,4 @@ export function otherProjectsOf(
 
 export function isConfined(may: Pick<ContextMay, 'restrictedCollections'>, recorded: ContextRecorded): boolean {
   return may.restrictedCollections.length > 0 || recorded.folders.length > 0 || recorded.projects.length > 0
-}
-
-export function closedContext(kind: ContextKind, conversationId: string | null): ConversationContext {
-  return {
-    kind,
-    conversationId,
-    audience: {
-      row: { exists: false, projectId: null, createdBy: null, visibility: 'private', grantees: [], version: null },
-      solo: false,
-      version: null,
-    },
-    projectId: null,
-    may: {
-      shelves: [],
-      restrictedCollections: [],
-      otherProjects: { reach: 'none', restrictedFolders: false },
-      personalMemory: false,
-      personalShelf: false,
-      projectMemory: { readableFolderIds: [] },
-      workspaceRead: 'none',
-      features: { deepResearch: false, tasks: false },
-    },
-    recorded: { folders: [], projects: [], personalShelf: false },
-  }
 }
