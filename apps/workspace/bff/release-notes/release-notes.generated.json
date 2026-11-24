@@ -129,6 +129,22 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Dark mode is calmer: cards, the chat field, the open e-mail and menus now sit just above the near-black page with a thin edge, no longer as light grey panels.",
+            "de": "Der Dark Mode wirkt ruhiger: Karten, Chatfeld, geöffnete E-Mail und Menüs heben sich jetzt mit einer feinen Kontur leicht von der fast schwarzen Seite ab und erscheinen nicht mehr als hellgraue Flächen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A button you cannot press yet, such as send in an empty chat, now recedes instead of being the brightest thing on the screen.",
+            "de": "Ein Button, den Sie noch nicht drücken können, etwa „Senden“ in einem leeren Chat, tritt jetzt optisch zurück, statt als hellstes Element am Bildschirm hervorzustechen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
