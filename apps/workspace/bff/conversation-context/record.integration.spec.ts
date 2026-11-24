@@ -55,16 +55,19 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () =>
         .where(and(eq(schema.answerContexts.organizationId, organizationId), eq(schema.answerContexts.messageId, messageId))),
     )
 
-  it('writes one row per answer, keeps it to its conversation, and merges what the turn read', async () => {
+  it('writes one row per answer, keeps it and its reads to its conversation, and merges what the turn read', async () => {
     const answer = randomUUID()
     const context = closedContext('chat', 's_ac_1')
     const decided = { ...context, audience: { ...context.audience, solo: true, version: 3 } }
-    await inOrg(ORG, () => record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_1', answerMessageId: answer }, decided))
-    await inOrg(ORG, () =>
-      record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_other', answerMessageId: answer }, decided),
-    )
-    await inOrg(ORG, () => record.recordAnswerReads(db, ORG, answer, { folders: ['f2', 'f1'], projects: ['p1'] }))
-    await inOrg(ORG, () => record.recordAnswerReads(db, ORG, answer, { folders: ['f1'], projects: [] }))
+    expect(await inOrg(ORG, () => record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_1', answerMessageId: answer }, decided))).toBe(true)
+    expect(
+      await inOrg(ORG, () =>
+        record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_other', answerMessageId: answer }, decided),
+      ),
+    ).toBe(false)
+    await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_1', answer, { folders: ['f2', 'f1'], projects: ['p1'] }))
+    await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_1', answer, { folders: ['f1'], projects: [] }))
+    await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_other', answer, { folders: ['f_elsewhere'], projects: ['p_elsewhere'] }))
 
     const [row] = await rowOf(ORG, answer)
     expect(row).toMatchObject({
@@ -76,6 +79,6 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () =>
       readFolders: ['f1', 'f2'],
       readProjects: ['p1'],
     })
-    expect(await rowOf(OTHER_ORG, answer)).toEqual([])
+    expect(await inOrg(OTHER_ORG, () => db.select().from(schema.answerContexts).where(eq(schema.answerContexts.messageId, answer)))).toEqual([])
   })
 })

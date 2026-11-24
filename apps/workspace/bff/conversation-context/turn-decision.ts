@@ -1,5 +1,5 @@
 import 'server-only'
-import { UnauthorizedError } from '@/lib/api/errors'
+import { ConflictError, UnauthorizedError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
 import { getDb } from '@/lib/db'
@@ -34,7 +34,9 @@ export async function decideTurn(
       conversationId: context.conversationId,
       answerMessageId,
     }
-    await recordAnswerContext(party, context)
+    if (!(await recordAnswerContext(party, context))) {
+      throw new ConflictError('This answer id belongs to another conversation')
+    }
     await markAnswerRestrictedUse(getDb(), party.organizationId, party.conversationId, answerMessageId)
   }
   const body = decisionOf(context, envelope, answerMessageId, now)

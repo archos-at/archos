@@ -7,7 +7,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({ db: true })) }))
 vi.mock('@/lib/conversations/restricted-use-repository', () => ({ markAnswerRestrictedUse: vi.fn() }))
-vi.mock('./record', () => ({ recordAnswerContext: vi.fn() }))
+vi.mock('./record', () => ({ recordAnswerContext: vi.fn(async () => true) }))
 vi.mock('./resolve', () => ({ resolveConversationContext: vi.fn() }))
 
 import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
@@ -56,6 +56,12 @@ describe('decideTurn', () => {
 
     expect(recordAnswerContext).not.toHaveBeenCalled()
     expect(markAnswerRestrictedUse).not.toHaveBeenCalled()
+  })
+
+  it('signs no decision for an answer id that already belongs to another conversation', async () => {
+    vi.mocked(recordAnswerContext).mockResolvedValueOnce(false)
+
+    await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toThrow(/another conversation/)
   })
 
   it('refuses to decide without a token to sign with', async () => {

@@ -16,7 +16,7 @@ export async function recordAnswerContext(
   party: AnswerParty,
   context: ConversationContext,
   executor: DbExecutor = getDb(),
-): Promise<void> {
+): Promise<boolean> {
   const decided = {
     conversationId: party.conversationId,
     userId: party.userId,
@@ -31,7 +31,7 @@ export async function recordAnswerContext(
     personalShelf: context.may.personalShelf,
     updatedAt: new Date(),
   }
-  await executor
+  const written = await executor
     .insert(answerContexts)
     .values({ organizationId: party.organizationId, messageId: party.answerMessageId, ...decided })
     .onConflictDoUpdate({
@@ -39,6 +39,8 @@ export async function recordAnswerContext(
       set: decided,
       setWhere: eq(answerContexts.conversationId, party.conversationId),
     })
+    .returning({ messageId: answerContexts.messageId })
+  return written.length > 0
 }
 
 export interface AnswerReads {
@@ -56,6 +58,7 @@ const merged = (column: SQLWrapper, added: readonly string[]) =>
 export async function recordAnswerReads(
   executor: DbExecutor,
   organizationId: string,
+  conversationId: string,
   answerMessageId: string,
   reads: AnswerReads,
 ): Promise<void> {
@@ -70,5 +73,11 @@ export async function recordAnswerReads(
       ...(reads.personalShelf ? { readPersonalShelf: true } : {}),
       updatedAt: new Date(),
     })
-    .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.messageId, answerMessageId)))
+    .where(
+      and(
+        eq(answerContexts.organizationId, organizationId),
+        eq(answerContexts.conversationId, conversationId),
+        eq(answerContexts.messageId, answerMessageId),
+      ),
+    )
 }

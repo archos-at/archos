@@ -127,13 +127,15 @@ export async function loadTurnContext(
   timing: TurnContextTiming = new TurnContextTiming(),
   decision: ConversationDecision | null = null,
 ): Promise<TurnContextResponse> {
-  const { organizationId, projectId, conversationId } = context
-  const projectAccess = await timing.time('access', () => checkAccess(session, context))
+  const { organizationId, conversationId } = context
+  const access = await timing.time('access', () => checkAccess(session, context))
   const query = input.query || undefined
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
   const goldenTurn = goldenTurnFor(organizationId, conversationId)
   const decided = await timing.time('decision', () => promptFacts(context, decision))
+  const projectId = decided.closed ? null : context.projectId
+  const projectAccess = decided.closed ? null : access
   const knowledge = goldenTurn.then(
     (golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
   )
@@ -153,7 +155,7 @@ export async function loadTurnContext(
     conversationId ? timed('cross-project', () => drewOnOtherProjects(conversationId, organizationId)) : Promise.resolve(false),
     timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
-    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, decided))),
+    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, { ...context, projectId }, projectAccess, query, decided))),
     timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null, knowledge))),
     knowledge,
     projectId
