@@ -62,18 +62,22 @@ export function visibleConversationsWhere(
   return and(orgScope, or(inProjects, unstamped) ?? sql`false`) as SQL
 }
 
+export type ConversationPlace = 'personal' | 'project'
+
+function listScope(projectId: string | undefined, place: ConversationPlace | undefined) {
+  if (place === 'personal') return { projectIds: [], withoutContainer: true }
+  if (place === 'project' && projectId) return { projectIds: [projectId], withoutContainer: false }
+  return projectId ? { projectIds: [projectId], withoutContainer: true } : null
+}
+
 export async function listVisibleConversations(
   organizationId: string,
   userId: string,
-  options: { projectId?: string; limit?: number; after?: string } = {},
+  options: { projectId?: string; place?: ConversationPlace; limit?: number; after?: string } = {},
 ): Promise<Conversation[]> {
-  const { projectId, limit = CONVERSATION_LIST_LIMIT, after } = options
+  const { projectId, place, limit = CONVERSATION_LIST_LIMIT, after } = options
   const db = getDb()
-  const scope = visibleConversationsWhere(
-    organizationId,
-    userId,
-    projectId ? { projectIds: [projectId], withoutContainer: true } : null,
-  )
+  const scope = visibleConversationsWhere(organizationId, userId, listScope(projectId, place))
 
   const afterCursor = after
     ? sql`(${conversations.updatedAt}, ${conversations.id}) < (select c.updated_at, c.id from conversations c where c.id = ${after} and c.organization_id = ${organizationId})`

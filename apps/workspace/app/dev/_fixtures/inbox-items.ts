@@ -1,6 +1,7 @@
 import type { InboxItemView } from '@/lib/inbox/types'
 import type { ProposalResponse } from '@/lib/proposals/types'
-import { MENTIONABLE, VIEWER_ID, replyToMark, withProjects } from './inbox-rows'
+import { MENTIONABLE, VIEWER_ID, markThread, replyToMark, withProjects } from './inbox-rows'
+import { a1SheetPdf } from './a1-sheet'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const now = Date.now()
@@ -842,6 +843,8 @@ const BY_FILTER: Record<string, InboxItemView[]> = {
 
 const PAGE = 12
 
+const MARK_TOPICS: Record<string, string> = { 'mark-7': 'Brüstungshöhe im 2. OG unter 1,00 m' }
+
 export const isEmptyVariant = (): boolean =>
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('variant') === 'empty'
 
@@ -880,6 +883,20 @@ export function installInboxShim(): void {
       }
       if (/^\/api\/assignments\/document\/[^/]+\/candidates/.test(url)) {
         return Response.json({ candidates: MENTIONABLE })
+      }
+      const sheet = /\/api\/documents\/([^/]+)\/file$/.exec(url)
+      if (sheet) return new Response(a1SheetPdf('C'), { headers: { 'Content-Type': 'application/pdf' } })
+      const one = /^\/api\/documents\/([^/]+)\/annotations\/([^/?]+)$/.exec(url)
+      if (one && init?.method === 'PATCH') {
+        const [, documentId, markId] = one.map(decodeURIComponent)
+        return Response.json({ annotation: { ...markThread(documentId, markId), status: 'resolved' } })
+      }
+      if (one && (init?.method ?? 'GET') === 'GET') {
+        const [, documentId, markId] = one.map(decodeURIComponent)
+        const item = ITEMS.find((entry) => entry.resourceId === documentId && entry.anchorId === markId)
+        const asks = item?.type === 'agent.asks_you'
+        const seed = { body: asks ? MARK_TOPICS[markId] ?? 'Brüstungshöhe im 2. OG prüfen' : (item?.excerpt ?? 'Anmerkung'), question: asks ? item?.excerpt : null }
+        return Response.json({ annotation: markThread(documentId, markId, seed) })
       }
       const reply = /^\/api\/documents\/([^/]+)\/annotations\/([^/?]+)\/replies$/.exec(url)
       if (reply && init?.method === 'POST') {

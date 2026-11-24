@@ -13,7 +13,7 @@ import { documentFocus } from '@/lib/turns/document-focus'
 import { chatSocketUrl, runHeadlessTurn, type HeadlessUserMessage } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { socketTurnHeaders } from '@/lib/turns/turn-headers.js'
 import { onWakeEnded } from './attention'
 import { ensureDocumentThread } from './document-thread'
 import { findDocumentAnnotation, type AnnotationRecord } from './repository'
@@ -275,7 +275,7 @@ export async function runAgentWake(
     url: chatSocketUrl(conversationId),
     conversationId,
     projectId: context.projectId,
-    headers: { ...turnContextHeaders(context, { issuedAt: Date.now(), secret }), ...HEADLESS_MODE_HEADERS },
+    headers: { ...socketTurnHeaders(context, { issuedAt: Date.now(), secret }), ...HEADLESS_MODE_HEADERS },
     message: wakeMessage({ payload, conversationId, doc, mark, text, authorName }),
     requires: WAKE_REQUIRES,
   })

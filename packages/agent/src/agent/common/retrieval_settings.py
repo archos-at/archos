@@ -1,7 +1,8 @@
 import logging
-import os
 import threading
 import time
+
+from agent.common import bff_http
 
 logger = logging.getLogger(__name__)
 
@@ -73,20 +74,9 @@ def sanitize_retrieval_settings(data: object) -> dict[str, int]:
 
 
 def _fetch_settings() -> dict[str, int]:
-    token = os.environ.get("INTERNAL_API_TOKEN")
-    if not token:
+    if not bff_http.internal_token():
         return {}
-
-    import httpx
-
-    base_url = (os.environ.get("FRONTEND_INTERNAL_URL") or "http://frontend:3000").rstrip("/")
-    response = httpx.get(
-        f"{base_url}/api/internal/retrieval-settings",
-        headers={"x-internal-token": token},
-        timeout=_REQUEST_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    payload = response.json()
+    payload = bff_http.get_json("/api/internal/retrieval-settings", timeout=_REQUEST_TIMEOUT_SECONDS)
     if not isinstance(payload, dict):
         return {}
     settings = payload.get("settings")

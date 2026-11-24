@@ -45,6 +45,33 @@ describe('InboxEntry', () => {
     expect(screen.queryByTestId('inbox-entry-due')).not.toBeInTheDocument()
   })
 
+  test.each([
+    ['names the document after the project', {}, 'Linzer Strasse housing · Ground floor plan'],
+    ['names the document after „Personal“ outside a project', { projectName: null }, 'Personal · Ground floor plan'],
+    ['leaves the document out when it is the project', { subject: 'Linzer Strasse housing' }, 'Linzer Strasse housing'],
+    ['leaves the document out when the excerpt names it', { excerpt: 'Ground floor plan: door too narrow' }, 'Linzer Strasse housing'],
+    ['leaves the document out when the sentence names it', { type: 'annotation.activity', actionable: false, answerIn: null, excerpt: null }, 'Linzer Strasse housing'],
+  ] as const)('the place line %s', (_, overrides: Partial<InboxItemView>, place) => {
+    render(<InboxEntry item={row('a', overrides)} onPick={vi.fn()} />)
+    expect(screen.getByTestId('inbox-entry-project').textContent).toBe(place)
+  })
+
+  test('says who it is from: the reason, else the sentence an excerpt took the place of, else who did it', () => {
+    const { unmount } = render(<InboxEntry item={row('a')} onPick={vi.fn()} />)
+    expect(screen.getByTestId('inbox-entry-from').textContent).toBe('Assigned by Anna Weber · Annotation 4')
+    unmount()
+
+    const news = { type: 'annotation.activity', actionable: false, answerIn: null } as const
+    const { unmount: away } = render(<InboxEntry item={row('b', { ...news, excerpt: 'Ist bestellt.' })} onPick={vi.fn()} />)
+    expect(screen.getByTestId('inbox-entry-title').textContent).toBe('Ist bestellt.')
+    expect(screen.getByTestId('inbox-entry-from').textContent).toBe('Anna Weber replied on annotation 4 in “Ground floor plan”')
+    away()
+
+    render(<InboxEntry item={row('c', { ...news, excerpt: null })} onPick={vi.fn()} />)
+    expect(screen.getByTestId('inbox-entry-title').textContent).toBe('Anna Weber replied on annotation 4 in “Ground floor plan”')
+    expect(screen.getByTestId('inbox-entry-from').textContent).toBe('Anna Weber')
+  })
+
   test('hands the entry to whoever picks it, and marks the one that is open', async () => {
     const onPick = vi.fn()
     const item = row('a')

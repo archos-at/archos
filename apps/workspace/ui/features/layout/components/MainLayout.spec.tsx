@@ -222,7 +222,7 @@ describe('MainLayout', () => {
     expect(screen.getByRole('button', { name: /header new session/i })).not.toBeDisabled()
   })
 
-  test('sessions panel only lists the active project\'s sessions (legacy unscoped fail open)', () => {
+  test('sessions panel lists only the active project\'s sessions; a chat without a project is personal (ADR-0193)', () => {
     const makeConv = (id: string, projectId?: string | null) => ({
       id,
       userId: 'user-1',
@@ -241,7 +241,7 @@ describe('MainLayout', () => {
         conversations: [
           makeConv('in-project', 'proj-a'),
           makeConv('other-project', 'proj-b'),
-          makeConv('legacy', null),
+          makeConv('personal', null),
           { ...makeConv('other-user', 'proj-a'), userId: 'user-2' },
         ],
         turns: {},
@@ -261,7 +261,7 @@ describe('MainLayout', () => {
     render(<MainLayout isAuthenticated={true} />)
 
     expect(screen.getByTestId('session-item-in-project')).toBeInTheDocument()
-    expect(screen.getByTestId('session-item-legacy')).toBeInTheDocument()
+    expect(screen.queryByTestId('session-item-personal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-project')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-user')).not.toBeInTheDocument()
   })

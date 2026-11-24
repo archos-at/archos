@@ -15,8 +15,9 @@ import { render, screen, within } from '@/test-utils'
 import { captureDownloads } from '@/test-utils/downloads'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import type { ProjectMarksResponse, ProjectMarkView } from '@/lib/annotations/project-types'
-import { SectionActionsInline } from '@/components/shell/project-section-frame'
+import { ProjectSectionFrame, SectionActionsInline } from '@/components/shell/project-section-frame'
 import { OpenPointsPanel } from './open-points-panel'
+import { TOOL_ROW_SEARCH_CLASS } from '../file-search-bar'
 
 const mark = (overrides: Partial<ProjectMarkView> = {}): ProjectMarkView => ({
   id: `${overrides.documentId ?? 'doc_a'}_${overrides.number ?? 1}`,
@@ -304,5 +305,69 @@ describe('filing the project’s Protokoll', () => {
     await user.click(screen.getByRole('button', { name: 'Export minutes' }))
     await screen.findByRole('menuitem', { name: 'PDF' })
     expect(screen.queryByTestId('open-points-export-file')).toBeNull()
+  })
+
+  describe('the search in the tool row', () => {
+    const rows = () => screen.queryAllByTestId('open-point-row').map((row) => row.textContent ?? '')
+
+    it('filters the listed points by their text, their document’s name and their assignee, and keeps the query in the address', async () => {
+      const replaceState = vi.spyOn(window.history, 'replaceState')
+      const user = userEvent.setup()
+      show()
+      const field = within(screen.getByTestId('open-points-tools')).getByRole('textbox', { name: 'Filter open points by text, document or assignee' })
+      expect(field).toHaveAttribute('placeholder', 'Search the open points …')
+      expect(field.closest('form')).toHaveClass(...TOOL_ROW_SEARCH_CLASS.split(' '))
+
+      await user.type(field, 'brandabschnitt')
+      expect(rows()).toEqual([expect.stringContaining('Brandabschnitt prüfen')])
+      expect(screen.getByTestId('open-points-search-status')).toHaveTextContent('1 match')
+      expect(replaceState).toHaveBeenLastCalledWith(null, '', `${HERE}?q=brandabschnitt`)
+
+      await user.clear(field)
+      await user.type(field, 'schnitt a-a')
+      expect(rows()).toEqual([expect.stringContaining('Höhenkote fehlt')])
+
+      await user.clear(field)
+      await user.type(field, 'huber')
+      expect(rows()).toEqual([expect.stringContaining('Fluchttür zu schmal')])
+      expect(screen.getAllByTestId('open-points-document')).toHaveLength(1)
+    })
+
+    it('fills the head’s tool row from its start on the desk, the protocol at its end', () => {
+      render(
+        <ProjectSectionFrame projectId="proj_1" projectName="Wohnhaus Lend" inboundMail>
+          <OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={PAGE} />
+        </ProjectSectionFrame>
+      )
+      const tools = screen.getByTestId('open-points-tools')
+      expect(within(screen.getByTestId('files-tool-row')).getByTestId('shelf-head-tools').firstElementChild).toBe(tools)
+      expect(tools.firstElementChild).toBe(screen.getByRole('textbox', { name: 'Filter open points by text, document or assignee' }).closest('form'))
+      expect(within(tools).getByRole('button', { name: 'Export minutes' }).closest('.ml-auto')).not.toBeNull()
+    })
+
+    it('says in its own empty state that nothing matches, and its button or Escape clears the search', async () => {
+      const user = userEvent.setup()
+      show()
+      const field = screen.getByRole('textbox', { name: 'Filter open points by text, document or assignee' })
+      await user.type(field, 'statik')
+      expect(screen.getByTestId('open-points-no-match')).toHaveTextContent('No open point matches “statik”')
+      expect(rows()).toEqual([])
+      await user.click(within(screen.getByTestId('open-points-no-match')).getByRole('button', { name: 'Clear search' }))
+      expect(field).toHaveValue('')
+      expect(rows()).toHaveLength(3)
+
+      await user.type(field, 'statik')
+      await user.keyboard('{Escape}')
+      expect(field).toHaveValue('')
+      expect(rows()).toHaveLength(3)
+    })
+
+    it('starts with the query the address holds, so a reload or the way back from a review keeps it', () => {
+      nav.params = new URLSearchParams('q=h%C3%B6henkote')
+      show()
+      expect(screen.getByRole('textbox', { name: 'Filter open points by text, document or assignee' })).toHaveValue('höhenkote')
+      expect(rows()).toEqual([expect.stringContaining('Höhenkote fehlt')])
+      expect(backOf(screen.getAllByTestId('open-point-row')[0].getAttribute('href'))).toBe(`${HERE}?q=h%C3%B6henkote`)
+    })
   })
 })

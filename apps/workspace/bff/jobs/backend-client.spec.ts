@@ -29,7 +29,6 @@ const payload: JobSubmitPayload = {
   skills: ['data-table-analysis'],
   output: 'chat',
   data_sources: null,
-  collection_scope: ['oib_knowledge', 'proj_abc'],
   project_context: null,
   project_memory: null,
   memory_reflection_enabled: false,

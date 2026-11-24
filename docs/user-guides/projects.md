@@ -61,7 +61,7 @@ Source: `apps/workspace/ui/features/projects/components/project-intake-wizard.ts
 
 ## Project-scoped chat
 
-When you start a chat from a project's **Chat** section, the conversation is tagged with the project's ID. The `buildCollectionScopeFromRequest()` function includes the project's collection (`proj_{uuid}`) in the `X-Grid-Collection-Scope` header. This limits knowledge retrieval to documents uploaded to that project.
+When you start a chat from a project's **Chat** section, the conversation is tagged with the project's ID. The turn's signed decision includes the project's collection (`proj_{uuid}`) among its shelves. This limits knowledge retrieval to documents uploaded to that project.
 
 Source: `docs/technical-reference/chat-flow.md`, `apps/workspace/bff/retrieval-scope/collection-scope-request.ts`
 

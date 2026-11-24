@@ -37,8 +37,9 @@ const mockEnsureConversationExists = vi.fn(async () => {})
 
 function mockChatState() {
   return {
+    projectId: 'project-1',
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: 'project-1', messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]

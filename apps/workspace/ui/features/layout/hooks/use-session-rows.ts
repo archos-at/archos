@@ -4,7 +4,7 @@ import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { hasFinishedRun, hasLiveRun } from '@/features/chat/lib/session-activity'
 import { conversationActivity, type ConversationActivity } from '@/lib/turns/conversation-activity'
-import { conversationMatchesProject, isHiddenJobConversation } from '@/features/chat/lib/project-scope'
+import { isHiddenJobConversation } from '@/features/chat/lib/project-scope'
 
 export interface SessionRow {
   id: string
@@ -62,13 +62,13 @@ export function useSessionRows(projectId?: string | null): SessionRow[] {
   return useChatStore(
     useShallow((s) => {
       if (!s.currentUserId) return []
-      const scope = projectId === undefined ? s.projectId : projectId
+      const side = projectId === undefined ? (s.projectId ?? null) : projectId
       return (
         s.conversations
           .filter(
             (c) =>
               c.userId === s.currentUserId &&
-              conversationMatchesProject(c, scope) &&
+              (c.projectId ?? null) === side &&
               !isHiddenJobConversation(c)
           )
           .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))

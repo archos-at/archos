@@ -103,9 +103,6 @@ export function buildRequestContextHeaders(input: RequestContextInput): Record<s
   if (input.projectId) {
     headers[REQUEST_CONTEXT_HEADER_NAMES.PROJECT_ID] = input.projectId
   }
-  if (input.collectionScope && input.collectionScope.length > 0) {
-    headers[REQUEST_CONTEXT_HEADER_NAMES.COLLECTION_SCOPE] = encodeJsonHeader(input.collectionScope)
-  }
   if (input.contextTransport !== 'bff' && input.projectContext) {
     headers[REQUEST_CONTEXT_HEADER_NAMES.PROJECT_CONTEXT] = encodeTextHeader(input.projectContext)
   }

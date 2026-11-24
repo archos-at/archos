@@ -33,10 +33,10 @@
   --ds-radius-none: 0;
   --ds-radius-md: 4px;
   --ds-radius-inline: 4px;
-  --ds-radius-control: 6px;
-  --ds-radius-surface: 10px;
+  --ds-radius-control: 4px;
+  --ds-radius-surface: 8px;
   --ds-radius-overlay: 14px;
-  --ds-radius-bubble: 18px;
+  --ds-radius-bubble: 14px;
   --ds-radius-full: 9999px;
   --ds-stroke-hairline: 1px;
   --ds-stroke-strong: 2px;

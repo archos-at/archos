@@ -117,7 +117,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Architecture Overview](technical-reference/architecture-overview.md) | Two-tier architecture, component diagram, data flow |
 | [Authentication Flow](technical-reference/authentication-flow.md) | WorkOS AuthKit sign-in, session resolution, JWT validation |
 | [Chat Flow](technical-reference/chat-flow.md) | WebSocket chat, chat store, message streaming |
-| [Collection Scoping](technical-reference/collection-scoping.md) | How `X-Grid-Collection-Scope` is computed and consumed |
+| [Collection Scoping](technical-reference/collection-scoping.md) | How a turn's collection scope is computed, signed and consumed |
 | [Conversation Persistence](technical-reference/conversation-persistence.md) | Drizzle schema, CRUD routes, store hydration |
 | [Document Ingestion](technical-reference/document-ingestion.md) | SeaweedFS upload, `/v1/ingest`, chunking, embedding, Qdrant |
 | [OIB Sync](technical-reference/oib-sync.md) | Incremental OIB PDF ingestion with a SHA-256 hash registry |
@@ -140,6 +140,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Domain cutover](deployment/domain-cutover.md) | Moving every public host to the domain in `identity.json`: config values, 301s from the former domain, WorkOS/PostHog/Search Console, order and rollback (prepared, not done) |
 | [Platform agent door runbook](deployment/platform-agent-door-runbook.md) | Switching on the operator console's MCP server for platform staff (ADR-0126), connecting a client in the GRID Platform organization, and what each refusal means |
 | [Code runner runbook](deployment/code-runner-runbook.md) | Turning on the agent's `execute` tool and its browser: the GHCR packages, a stack's `codeRunnerEnabled` and `browserRendererEnabled`, the checks (`/health`, a test run), the known failures and their fix, and turning it off at once or for good |
+| [Conversation context gate runbook](deployment/conversation-context-gate-runbook.md) | Whether slice 3b may deploy: the read-only gate script over active runs and queued jobs from before slice 2, and the `jobs.envelope_less_runs` metric after it |
 | [Ingest memory runbook](deployment/ingest-memory-runbook.md) | Verifying the bounded raster decode in production: which build is running, the OOM signature, the `[ingest-mem]` lines, queue depth. Read-only throughout |
 | [Qdrant runbook](deployment/qdrant-runbook.md) | Operating the vector store: metrics and alerts, restore from snapshots, peer replacement, rebuilds, upgrades, key rotation, the backend flip; every procedure with its drill |
 | [Qdrant payload rename runbook](deployment/qdrant-payload-rename-runbook.md) | The English payload keys (`federal_state`, `clause_id`, `guideline`, `chunking: "clause"`), what still reads the German ones, and the rewrite that lets the fallback go |

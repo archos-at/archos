@@ -31,7 +31,6 @@ from agent.common.retrieval_status import documents_loading_step
 from agent.common.turn_decision import MISSING_TRACE
 from agent.common.turn_decision import TurnDecision
 from agent.common.turn_decision import bind_turn_decision
-from agent.common.turn_decision import decision_required
 from agent.common.turn_decision import fetch_turn_decision
 from agent.common.wire_v2 import EventBody
 from agent.common.wire_v2 import RunFinishedBody
@@ -49,7 +48,6 @@ from agent.knowledge.inventory import set_inventory_drops
 from agent.knowledge.inventory import set_norm_families
 from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.restricted_use import CrossProjectTurn
-from agent.knowledge.restricted_use import begin_restricted_use
 from agent.knowledge.restricted_use import bind_cross_project_turn
 from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import nothing_drawable
@@ -421,18 +419,12 @@ async def _bind_turn_decision(request: RequestContext | None, conversation_id: s
     answer_id = turn_answer_message_id(conversation_id)
     decision = await spanned("setup.turn_decision", _decide_turn(request, conversation_id, answer_id))
     bind_turn_decision(decision)
-    record_trace_metadata(**(decision.trace_metadata() if decision is not None else MISSING_TRACE))
-    if decision is not None:
-        bind_restricted_use(restricted_use_from_decision(decision, request, answer_message_id=answer_id))
-        return
-    if decision_required():
+    if decision is None:
+        record_trace_metadata(**MISSING_TRACE)
         bind_restricted_use(nothing_drawable(request, conversation_id, answer_message_id=answer_id))
         return
-    bind_restricted_use(
-        await spanned(
-            "setup.restricted_use", begin_restricted_use(request, conversation_id, answer_message_id=answer_id)
-        )
-    )
+    record_trace_metadata(**decision.trace_metadata())
+    bind_restricted_use(restricted_use_from_decision(decision, request, answer_message_id=answer_id))
 
 
 async def _decide_turn(

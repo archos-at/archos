@@ -67,10 +67,10 @@ and gets 4px. The app's ladder has names of its own, so no name means two sizes:
 | `radius-none` | 0 | website: images, cards, fields, sections; app: list rows | – |
 | `radius-md` | 4 | website: buttons, gallery controls, AI tag, play button | – |
 | `radius-inline` | 4 | app: kbd, checkbox, a tag inside a field | `rounded-inline` (Tailwind `rounded-sm`) |
-| `radius-control` | 6 | app: buttons, fields, selects, tabs, menu and list items | `rounded-control` (`rounded-md`) |
-| `radius-surface` | 10 | app: cards, panels, list containers, toasts, tables, code blocks | `rounded-surface` (`rounded-lg`) |
+| `radius-control` | 4 | app: buttons, fields, selects, tabs, list items | `rounded-control` (`rounded-md`) |
+| `radius-surface` | 8 | app: cards, panels, list containers, toasts, tables, code blocks | `rounded-surface` (`rounded-lg`) |
 | `radius-overlay` | 14 | app: dialogs, popovers, menus, sheets, command palette | `rounded-overlay` (`rounded-xl`) |
-| `radius-bubble` | 18 | app: chat messages and the composer | `rounded-bubble` |
+| `radius-bubble` | 14 | app: chat messages and the composer | `rounded-bubble` |
 | `radius-full` | 9999 | app: chips, badges, counts, avatars, dots, switches | `rounded-full` |
 
 Until 2026-10-29 the package called 4px `radius-sm` and gave `radius-md` the app's 6px. That

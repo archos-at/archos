@@ -28,6 +28,7 @@ export default async function InboundMailPage({ params, searchParams }: InboundM
         folders={data.folders}
         status={data.status}
         outcome={data.outcome}
+        initialQuery={data.query}
         initialList={data.list}
         initialListFailed={data.list === null}
         mailId={null}

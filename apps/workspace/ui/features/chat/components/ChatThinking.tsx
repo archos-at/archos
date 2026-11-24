@@ -348,7 +348,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
             type="button"
             data-derivation-trigger
             className={cn(
-              'group relative flex min-h-12 w-full cursor-pointer items-center justify-between rounded-control px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
+              'group relative flex min-h-12 w-full cursor-pointer items-center justify-between rounded-surface px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
               FOCUS_RING_INSET
             )}
           >

@@ -111,7 +111,6 @@ const PAYLOAD: JobSubmitPayload = {
   skills: [],
   output: 'deep-research',
   data_sources: ['knowledge_layer'],
-  collection_scope: ['oib_knowledge', 'proj_proj_789'],
   project_context: CONTEXT_INPUT.projectContext ?? null,
   project_memory: CONTEXT_INPUT.projectMemory ?? null,
   memory_reflection_enabled: true,

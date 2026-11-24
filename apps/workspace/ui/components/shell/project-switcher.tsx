@@ -30,7 +30,7 @@ const TRIGGER_CLASS = 'h-10 w-full justify-between gap-1 pr-1.5 pl-3 text-left p
 const TILE_CLASS = 'size-9 min-w-0 p-0 pointer-coarse:size-11'
 
 const GROUP_CLASS =
-  'p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+  'p-1.5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
 
 const projectSettingsHref = (projectId: string): string => `/app/projects/${projectId}/settings`
 
@@ -137,7 +137,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         align="start"
         side={collapsed ? 'right' : 'bottom'}
         sideOffset={collapsed ? 22 : 6}
-        className="w-80 max-w-[calc(100vw-2rem)] rounded-[16px] p-1.5 motion-reduce:animate-none"
+        className="w-80 max-w-[calc(100vw-2rem)] p-1.5 motion-reduce:animate-none"
         data-testid="project-switcher-menu"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
@@ -146,7 +146,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
       >
         {/* As the concept draws it: one list of the projects, the current one marked with its settings at hand, and
             under a rule the two ways out. The search lives in the overview, which holds every project. */}
-        <Command ref={commandRef} tabIndex={-1} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="bg-transparent [&_[cmdk-item]]:text-[13px]">
+        <Command ref={commandRef} tabIndex={-1} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="rounded-surface bg-transparent [&_[cmdk-item]]:text-[13px]">
           <CommandList className="max-h-[min(24rem,60dvh)] p-0">
             <CommandGroup heading={t('projectSwitcher.projects')} className={GROUP_CLASS}>
               {offered.map(item)}

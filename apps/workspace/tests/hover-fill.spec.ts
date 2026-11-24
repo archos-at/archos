@@ -134,11 +134,12 @@ describe('hover is one step down the ladder', () => {
   it('one wash is one step: on a sheet the desk, on the desk the picked grey, on a picked row the pressed grey', () => {
     const light = paperBlock(tokens, ':root')
     const dark = paperBlock(tokens, '.dark')
-    const hex = (name: string): number[] => {
-      const value = light.get(`--${name}`)?.match(/^#([0-9a-f]{6})$/)?.[1]
+    const hexIn = (layer: Map<string, string>, name: string): number[] => {
+      const value = layer.get(`--${name}`)?.match(/^#([0-9a-f]{6})$/)?.[1]
       expect(value, name).toBeDefined()
       return [0, 2, 4].map((at) => parseInt((value ?? '').slice(at, at + 2), 16))
     }
+    const hex = (name: string): number[] => hexIn(light, name)
     const wash = light.get('--hover')?.match(/^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/)
     expect(wash, 'the light --hover is an ink wash').not.toBeNull()
     const [red, green, blue, alpha] = (wash ?? []).slice(1).map(Number)
@@ -146,9 +147,15 @@ describe('hover is one step down the ladder', () => {
     for (const [plane, step] of [['sheet', 'desk'], ['desk', 'selected'], ['selected', 'pressed']]) {
       washed(hex(plane)).forEach((channel, at) => expect(Math.abs(channel - hex(step)[at]), `${plane} under the pointer is ${step}`).toBeLessThanOrEqual(2))
     }
-    expect(dark.get('--hover')).toBe('rgb(245 244 242 / 0.06)')
     expect(light.get('--sheet-hover')).toBe(`color-mix(in srgb, var(--sheet) ${100 - alpha * 100}%, rgb(${red} ${green} ${blue}))`)
-    expect(dark.get('--sheet-hover')).toBe('color-mix(in srgb, var(--sheet) 94%, rgb(245 244 242))')
+    // Dark: a paper-white wash, and on the desk it is the picked grey, as light's is.
+    const darkWash = dark.get('--hover')?.match(/^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/)
+    expect(darkWash, 'the dark --hover is a paper-white wash').not.toBeNull()
+    const [darkRed, darkGreen, darkBlue, darkAlpha] = (darkWash ?? []).slice(1).map(Number)
+    hexIn(dark, 'desk')
+      .map((channel, at) => channel + ([darkRed, darkGreen, darkBlue][at] - channel) * darkAlpha)
+      .forEach((channel, at) => expect(Math.abs(channel - hexIn(dark, 'selected')[at]), 'the dark desk under the pointer is the picked grey').toBeLessThanOrEqual(2))
+    expect(dark.get('--sheet-hover')).toBe(`color-mix(in srgb, var(--sheet) ${100 - darkAlpha * 100}%, rgb(${darkRed} ${darkGreen} ${darkBlue}))`)
   })
 
   it('a folder and a file tile answer the pointer with their own sheet, and nothing is laid behind it', () => {

@@ -775,8 +775,8 @@ describe('submitAgentRun', () => {
     await submitAgentRun(spec)
 
     expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', projectId: spec.projectId })
-    const submitted = vi.mocked(submitJob).mock.calls[0][0]
-    expect(submitted.collection_scope).toEqual(['oib_knowledge', 'proj_x'])
+    expect(vi.mocked(buildRequestContextWireHeaders).mock.calls[0][0].collectionScope).toEqual(['oib_knowledge', 'proj_x'])
+    expect(vi.mocked(submitJob).mock.calls[0][0]).not.toHaveProperty('collection_scope')
   })
 
   it('refuses a run whose requester is no longer a member, and submits nothing', async () => {

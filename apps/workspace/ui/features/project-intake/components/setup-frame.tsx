@@ -289,7 +289,7 @@ export function SetupFooter({
 }
 
 export const PRIMARY_ACTION_CLASS =
-  'h-[50px] w-full rounded-xl text-base md:h-[42px] md:w-auto md:rounded-[9px] md:px-5 md:text-sm'
+  'h-[50px] w-full rounded-xl text-base md:h-[42px] md:w-auto md:rounded-[7px] md:px-5 md:text-sm'
 
 export const ASIDE_ACTION_CLASS =
   'text-muted-foreground hover:text-foreground touch-target text-[15px] underline-offset-4 hover:underline md:text-[13px] md:underline'

@@ -22,7 +22,6 @@ import { ProjectNormNotices } from './project-norm-notices'
 import { FolderBinDialog } from './folder-bin-dialog'
 import { binHrefOf } from '../lib/bin-href'
 import { useBinParam } from '../hooks/use-bin-param'
-import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 export type { FileAssignee, FileItem, FolderItem } from '../file-types'
 
@@ -74,7 +73,6 @@ export function ProjectFileWorkspace({
     setHandedArchives({ files, onTaken: () => setHandedArchives(null) })
     setMailOpen(true)
   }, [])
-  const search = useShelfSearchMode()
   const bin = useBinParam()
   const [awaitingNorms, setAwaitingNorms] = useState<ReadonlySet<string>>(() => new Set())
   const onStored = useCallback(
@@ -117,16 +115,6 @@ export function ProjectFileWorkspace({
     lifecyclePermissions,
   }
 
-  if (search.active) {
-    return (
-      <>
-        <ProjectSectionActions>
-          <ShelfSearchBack onClose={search.close} label="backToFiles" />
-        </ProjectSectionActions>
-        <SearchWorkspace surface={{ kind: 'project', projectId, folderId: search.folderId }} currentUserId={currentUserId} inset autoFocus />
-      </>
-    )
-  }
 
   return (
     <>

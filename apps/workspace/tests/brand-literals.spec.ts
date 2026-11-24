@@ -226,6 +226,7 @@ const ratio = (a: string, b: string): number => {
 
 const DATEIEN_MODULES = modulesOf(
   'ProjectSectionFrame',
+  'ShelfHead',
   'SectionNav',
   'FileBrowserPane',
   'FileWorkspace',
@@ -500,9 +501,32 @@ describe('five neutrals, three elevations', () => {
       }
       if (selector === '.dark') expect(luminance(hex('desk'))).toBeGreaterThan(luminance(hex('paper')))
       if (selector === '.dark') expect(luminance(hex('sheet'))).toBeGreaterThan(luminance(hex('selected')))
-      expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
+      if (selector === ':root') expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
       expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.04)
     }
+  })
+
+  it('in dark a sheet is one small step off the paper and a menu one off the sheet: an edge separates them, never a grey slab', () => {
+    const layer = dark()
+    const hex = (name: string): string => layer.get(`--${name}`) ?? ''
+    expect(ratio(hex('paper'), hex('sheet')), 'paper → sheet').toBeLessThanOrEqual(1.25)
+    expect(ratio(hex('sheet'), hex('popover')), 'sheet → menu').toBeLessThanOrEqual(1.15)
+    expect(hex('paper')).not.toBe('#000000')
+  })
+
+  it('in dark the open row is marked by the field’s border at 3:1, since its sheet stands barely above a picked row', () => {
+    const layer = dark()
+    expect(ratio(layer.get('--field-border') ?? '', layer.get('--selected') ?? '')).toBeGreaterThanOrEqual(3)
+    expect(literalHasRun(moduleOf('InboundMailRow'), ['data-current:bg-sheet', 'data-current:shadow-sm'])).toBe(true)
+    expect(classesOf(moduleOf('InboundMailRow'))).toContain('dark:data-current:shadow-sheet-pointer')
+  })
+
+  it('in dark text, muted text and the ring hold their contrast on the lightest step a row reaches, the pressed grey', () => {
+    const layer = dark()
+    const pressed = layer.get('--pressed') ?? ''
+    expect(ratio(layer.get('--ink') ?? '', pressed)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(layer.get('--muted-foreground') ?? '', pressed)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(layer.get('--ring') ?? '', pressed)).toBeGreaterThanOrEqual(3)
   })
 
   it('a sheet carries the 12% edge in both themes (elevation 1 opens with it)', () => {
@@ -680,7 +704,7 @@ describe('lines for lists, space for sections', () => {
   })
 
   it('the header band ends in one rule', () => {
-    const band = stringConst(parseSource(moduleOf('ProjectSectionFrame')), 'SECTION_HEADER_CLASS') ?? ''
+    const band = stringConst(parseSource(moduleOf('SECTION_HEADER_CLASS')), 'SECTION_HEADER_CLASS') ?? ''
     expect(hasRun(classesOfText(band), ['border-b', 'border-border'])).toBe(true)
   })
 
@@ -1124,7 +1148,7 @@ describe('rows, weights and the phone', () => {
   })
 
   it('the places stand under the tool row, their rule on the band’s rule (KAN-86)', () => {
-    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-4 mt-4 min-w-0 phone:mt-4')).toBe(true)
+    expect(summaryOf(moduleOf('ShelfHead')).literals.includes('-mb-4 mt-4 min-w-0 phone:mt-4')).toBe(true)
   })
 
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {

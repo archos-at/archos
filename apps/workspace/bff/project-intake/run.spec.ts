@@ -74,7 +74,6 @@ describe('submitIntakeRun', () => {
       job_id: 'intake-job-1',
       output: 'chat',
       skills: [],
-      collection_scope: ['proj_main'],
       project_context: null,
       project_memory: null,
       memory_reflection_enabled: false,
@@ -87,6 +86,7 @@ describe('submitIntakeRun', () => {
       priority: 'bulk',
       input: intakeInstruction('new', 'upload'),
     })
+    expect(payload).not.toHaveProperty('collection_scope')
     expect(payload).not.toHaveProperty('run_id')
     expect(payload).not.toHaveProperty('conversation_id')
 

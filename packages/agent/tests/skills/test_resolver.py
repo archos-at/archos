@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
+from agent_testing.bff import fake_bff
 
 from agent.common import cache as shared_cache
 from agent.skills.models import Skill
@@ -182,33 +183,12 @@ def test_cache_tty_default_is_60(resolver: SkillResolver, monkeypatch: pytest.Mo
     assert _cache_ttl_seconds() == 60.0
 
 
-class _FakeResponse:
-    def __init__(self, payload: dict[str, object]) -> None:
-        self._payload = payload
-
-    def raise_for_status(self) -> None:
-        return None
-
-    def json(self) -> dict[str, object]:
-        return self._payload
-
-
 def _capture_fetch_query(agent: str | None, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
-    captured: dict[str, str] = {}
-
-    def fake_get(url: str, *, params: dict[str, str], headers: dict[str, str], timeout: float):
-        captured.update(params)
-        captured["__url"] = url
-        captured["__token_header"] = next(iter(headers))
-        return _FakeResponse({"skills": []})
-
-    monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000")
-    import httpx
-
-    monkeypatch.setattr(httpx, "get", fake_get)
+    bff = fake_bff(monkeypatch, {"skills": []}, token="test-token")
     SkillResolver(agent=agent)._fetch_org_skills("org-42")
-    return captured
+    call = bff.calls[-1]
+    return {**call.query, "__url": f"http://frontend:3000{call.path}", "__token": call.headers["x-internal-token"]}
 
 
 def test_fetch_sends_the_snake_case_organization_id(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -217,7 +197,7 @@ def test_fetch_sends_the_snake_case_organization_id(monkeypatch: pytest.MonkeyPa
     assert "organizationId" not in query
     assert query["agent"] == "researcher"
     assert query["__url"] == "http://frontend:3000/api/internal/skills/resolve"
-    assert query["__token_header"] == "x-internal-token"
+    assert query["__token"] == "test-token"
 
 
 def test_fetch_omits_agent_entirely_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:

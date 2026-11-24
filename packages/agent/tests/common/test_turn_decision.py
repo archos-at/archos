@@ -114,7 +114,9 @@ ANSWER = "5a5a5a5a-0000-4000-8000-000000000001"
         ("s_conv_1", "5a5a5a5a-0000-4000-8000-000000000002", "user_1", "org_1", "chat", False),
         ("s_conv_1", ANSWER, "user_2", "org_1", "chat", False),
         ("s_conv_1", ANSWER, "user_1", "org_2", "chat", False),
+        ("s_conv_1", ANSWER, "user_1", "org_1", "headless", True),
         ("s_conv_1", ANSWER, "user_1", "org_1", "run", False),
+        ("s_conv_1", ANSWER, "user_1", "org_1", "external", False),
     ],
 )
 def test_fetch_refuses_a_decision_for_another_conversation_answer_asker_organization_or_kind(

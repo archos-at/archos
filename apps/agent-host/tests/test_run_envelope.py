@@ -190,7 +190,6 @@ def _skill_body(**overrides: Any) -> dict[str, Any]:
         "project_id": "proj-1",
         "run_id": "run-1",
         "owner_email": "requester@example.com",
-        "collection_scope": ["oib_knowledge", "proj_1"],
     }
     body.update(overrides)
     return body

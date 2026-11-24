@@ -65,7 +65,6 @@ class JobRequest:
     available_documents: list[dict] | None = None
     data_sources: list[str] | None = None
     auth_token: str | None = None
-    collection_scope: list[str] | None = None
     project_context: str | None = None
     project_memory: str | None = None
     platform_lessons: str | None = None
@@ -134,7 +133,6 @@ async def run_agent_job(
     available_documents: list[dict] | None = None,
     data_sources: list[str] | None = None,
     auth_token: str | None = None,
-    collection_scope: list[str] | None = None,
     project_context: str | None = None,
     project_memory: str | None = None,
     platform_lessons: str | None = None,
