@@ -4,17 +4,17 @@ A project groups one building's files, folders, chats, research runs and buildin
 
 ## Where the app opens, and the project overview
 
-Opening the app (`/app`, also the wordmark in the rail) takes you back to the last place you worked: the chat, the Ablage or the page you had open, under Persönlich or in its project. Your browser keeps that place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, or when that place no longer exists, it opens a new chat under Persönlich.
+Opening the app (`/app`, also the wordmark in the rail) opens **Neuer Chat** in the area you last worked in: the project's new chat if that was a project, a new personal chat if it was under Persönlich or anything else. It does not reopen the exact page. Your browser keeps the last place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, it opens a new personal chat.
 
-The **project overview** (`/app/projects`, „Projektübersicht“) is no longer a home page: it opens over the page you are on, from **Übersicht** at the foot of the project picker, and closes back to it. Opened directly (a link, a reload), it stands as a page of its own.
+The **project overview** (`/app/projects`, „Projektübersicht“) is no longer a home page: it opens as a window over the page you are on, from **Übersicht** at the foot of the project picker, and closes back to it. Opened directly (a link, a reload), it stands as a page of its own.
 
 - **Order.** Active projects first, the ones *you* last worked in at the top ("worked in" means a message you wrote in one of its conversations, so a colleague's busy week never reorders your overview); then paused projects, then closed ones.
-- **Cards.** Each card shows the project's name, a line with its place and its phase (or **Paused** / **Closed** for a project that is not active), its document count, when you last worked in it, and how many mails wait in its E-Mail-Eingang. The project you are in is outlined. Clicking a card opens the project in the section you last used; its gear opens the project's own Übersicht.
+- **Cards.** Each card shows the project's name, a gear to its **Projekteinstellungen**, and one line: its city and its phase („Wien · Einreichplanung“), or **Paused** / **Closed** for a project that is not active. The project you are in is outlined. Clicking a card opens the project in the section you last used.
 - **Search** („Projekt suchen …“) narrows the cards by name, place or brief.
 - **New project** sits beside the title; `/app/projects?new=1` opens the overview with its dialog already open.
 - Organization admins additionally see **Recently deleted** under the cards, from which soft-deleted projects can be restored during the grace period.
 
-The project picker in the rail lists your projects and ends in two rows, **Übersicht** (the overview above) and **Neues Projekt**. The current project's row carries a gear to its own Übersicht; choosing that row does the same.
+The project picker in the rail lists your projects in one list, **Projekte**, with no search (the overview has it). The current project's row is marked and carries a gear to its **Projekteinstellungen**; choosing that row only closes the menu. Under a rule, two equal buttons: **Übersicht** (the overview above) and **Neues Projekt**.
 
 Source: `apps/workspace/app/app/page.tsx`, `apps/workspace/ui/components/shell/landing.ts`, `apps/workspace/ui/components/projects/project-overview.tsx`, `apps/workspace/ui/components/shell/project-switcher.tsx`
 
@@ -238,7 +238,7 @@ Source: `apps/workspace/bff/authz/projects.ts:7`, `apps/workspace/app/api/projec
 
 ## Navigating between projects
 
-Open the project picker at the top of the rail under **Projekt** and choose a project, or open **Übersicht** at its foot for every project as cards ([the project overview](#where-the-app-opens-and-the-project-overview)). A card opens the project in the section you last used; its gear opens that project's own Übersicht.
+Open the project picker at the top of the rail under **Projekt** and choose a project, or open **Übersicht** at its foot for every project as cards ([the project overview](#where-the-app-opens-and-the-project-overview)). A card opens the project in the section you last used; its gear opens that project's Projekteinstellungen.
 
 On desktop, project sections (Chat, Files, History, Jobs, Skills, Bürobibliothek, Settings) are reached via the left sidebar rail; on small screens the rail is replaced by a slim top bar whose menu button opens the same navigation as a drawer.
 
