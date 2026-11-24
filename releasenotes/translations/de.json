@@ -1164,6 +1164,10 @@
     "de": "Nach einer kurzen Störung auf unserer Seite werden gerade eingelesene Dokumente nun selbstständig weiterverarbeitet, und Antworten stocken nicht mehr, während Piloti Ihre Dateien durchsucht."
   },
   {
+    "en": "After a switch, the typing dots of a reply that is still running simply stand there instead of fading in again.",
+    "de": "Nach einem Wechsel bleiben die Tipp-Punkte einer noch laufenden Antwort einfach stehen, statt wieder einzublenden."
+  },
+  {
     "en": "After a thumbs-down, the note field now opens straight away, so you can say what went wrong without first picking a reason.",
     "de": "Wenn Sie auf den Daumen nach unten klicken, öffnet sich das Notizfeld jetzt sofort. So können Sie beschreiben, was schiefgelaufen ist, ohne zuerst einen Grund auszuwählen."
   },
@@ -3344,6 +3348,10 @@
     "de": "Bewilligungsbescheide mit mehreren Auflagen werden wieder vollständig berücksichtigt."
   },
   {
+    "en": "Persönlich now lists only the chats you start there, so it starts empty instead of showing every older chat that had no project.",
+    "de": "Persönlich zeigt jetzt nur noch die Chats an, die Sie dort starten. Daher ist die Liste zunächst leer, statt alle älteren Chats ohne Projekt anzuzeigen."
+  },
+  {
     "en": "Photos and other images are now checked against your office's upload screening by what was read off them, like scanned documents. An image that matches is held for review instead of being added, and its preview appears only once it has passed.",
     "de": "Fotos und andere Bilder werden jetzt wie gescannte Dokumente anhand der ausgelesenen Inhalte mit der Upload-Prüfung Ihres Büros abgeglichen. Ein passendes Bild wird zur Überprüfung zurückgehalten, statt hinzugefügt zu werden. Die Vorschau erscheint erst, wenn es die Prüfung bestanden hat."
   },
@@ -4010,6 +4018,10 @@
   {
     "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
     "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
+  },
+  {
+    "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
+    "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
   },
   {
     "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
@@ -4818,6 +4830,10 @@
   {
     "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
     "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+  },
+  {
+    "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+    "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
   },
   {
     "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",

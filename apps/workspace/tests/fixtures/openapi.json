@@ -16477,6 +16477,10 @@
                   "temporary": {
                     "description": "True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.",
                     "type": "boolean"
+                  },
+                  "personal": {
+                    "description": "True starts the chat on the person's personal side, which lists only chats started there. Ignored with a `projectId`.",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -16522,7 +16526,7 @@
       "delete": {
         "operationId": "conversation-delete-all",
         "summary": "Delete all of the person’s own chats on one side",
-        "description": "Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats without a project, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.",
+        "description": "Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats started on the personal side, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.",
         "tags": [
           "conversations"
         ],
@@ -16537,9 +16541,9 @@
                 "personal",
                 "project"
               ],
-              "description": "`personal`: the caller's own chats without a project; `project`: the caller's own chats in `projectId`."
+              "description": "`personal`: the caller's own chats started on the personal side; `project`: the caller's own chats in `projectId`."
             },
-            "description": "`personal`: the caller's own chats without a project; `project`: the caller's own chats in `projectId`."
+            "description": "`personal`: the caller's own chats started on the personal side; `project`: the caller's own chats in `projectId`."
           },
           {
             "name": "projectId",
@@ -16610,14 +16614,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "`personal`: projectless only; `project`: `projectId`’s only.",
+              "description": "`personal`: the chats started on the personal side; `project`: `projectId`’s only.",
               "type": "string",
               "enum": [
                 "personal",
                 "project"
               ]
             },
-            "description": "`personal`: projectless only; `project`: `projectId`’s only."
+            "description": "`personal`: the chats started on the personal side; `project`: `projectId`’s only."
           },
           {
             "name": "limit",

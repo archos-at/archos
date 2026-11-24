@@ -125,6 +125,7 @@ export const conversationsClient = {
         subjectResourceType: subject?.resourceType ?? null,
         subjectResourceId: subject?.resourceId ?? null,
         ...(temporary ? { temporary: true } : {}),
+        ...(projectId ? {} : { personal: true }),
       }),
     })
     if (!res.ok) throw new Error('Failed to create conversation')

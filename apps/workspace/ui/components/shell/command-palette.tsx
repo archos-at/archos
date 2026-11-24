@@ -40,6 +40,8 @@ import { searchCopy } from '@/i18n/namespaces/search'
 import { shortcutsCopy } from '@/i18n/namespaces/shortcuts'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY, MOD } from './shortcuts'
+import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
+import { openOverviewFor } from './project-overview-entry'
 
 export function projectIdFromPathname(pathname: string): string | null {
   const match = /^\/app\/projects\/([^/]+)/.exec(pathname)
@@ -231,8 +233,8 @@ export function CommandPalette({ open, instant = true, onOpenChange, authRequire
     setTheme(isDark ? 'light' : 'dark')
   }, [theme, setTheme])
   const general: { key: string; label: string; icon: React.ComponentType<{ className?: string }>; run: () => void; jump?: string }[] = [
-    { key: 'new-project', label: tNav('projectSwitcher.newProject'), icon: Plus, run: () => router.push('/app/projects?new=1') },
-    { key: 'all-projects', label: tNav('projectSwitcher.allProjects'), icon: FolderKanban, run: () => router.push('/app/projects'), jump: 'p' },
+    { key: 'new-project', label: tNav('projectSwitcher.newProject'), icon: Plus, run: () => openOverviewFor(NEW_PROJECT_PATH, instant ? 'keyboard' : 'pointer') },
+    { key: 'all-projects', label: tNav('projectSwitcher.allProjects'), icon: FolderKanban, run: () => openOverviewFor(PROJECT_OVERVIEW_PATH, instant ? 'keyboard' : 'pointer'), jump: 'p' },
     ...(canViewOrganization ? [{ key: 'organization', label: tNav('userMenu.organization'), icon: Building2, run: () => router.push('/app/organization'), jump: 'o' }] : []),
     { key: 'profile', label: tNav('userMenu.profile'), icon: UserRound, run: () => router.push('/app/profile') },
     { key: 'toggle-theme', label: t('toggleTheme'), icon: theme === 'dark' ? Sun : Moon, run: toggleTheme },

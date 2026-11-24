@@ -14,9 +14,10 @@ import { findConversationInOrg, insertConversation } from '@/lib/conversations/r
 import type { Conversation } from '@/lib/db/schema/conversations'
 import { ensureDocumentThread } from './document-thread'
 import { documentThreadConversationId } from './wake-ids'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 
 const SESSION = { userId: 'user_anna', organizationId: 'org_1' } as AuthorizedSession
-const DOC = { id: 'doc_1', projectId: 'proj_1', filename: 'grundriss.pdf', displayName: 'Grundriss EG' }
+const DOC = { id: 'doc_1', projectId: 'proj_1', filename: 'grundriss.pdf', displayName: 'Grundriss EG', collectionName: 'proj_coll' }
 const ID = documentThreadConversationId('doc_1', 'user_anna')
 
 beforeEach(() => {
@@ -47,7 +48,22 @@ describe('ensureDocumentThread', () => {
       projectId: 'proj_1',
       subjectResourceType: 'document',
       subjectResourceId: 'doc_1',
+      startedInPersonal: false,
     })
+  })
+
+  it('starts a thread on a document of the person’s own shelf in Persönlich, so it is listed there', async () => {
+    const own = { ...DOC, projectId: null, collectionName: personalShelfCollectionName('org_1', 'user_anna') }
+
+    await ensureDocumentThread(SESSION, own)
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ projectId: null, startedInPersonal: true }))
+  })
+
+  it('does not start a thread on a shared shelf’s document without a project in Persönlich', async () => {
+    await ensureDocumentThread(SESSION, { ...DOC, projectId: null, collectionName: 'office_shelf_org_1' })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: false }))
   })
 
   it('answers the existing thread when it is already there', async () => {

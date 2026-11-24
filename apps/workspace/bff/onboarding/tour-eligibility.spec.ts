@@ -9,7 +9,7 @@ const { hasWrittenInOrganization, getUserPreferences } = vi.hoisted(() => ({
   hasWrittenInOrganization: vi.fn(),
   getUserPreferences: vi.fn(),
 }))
-vi.mock('@/lib/conversations/repository', () => ({ hasWrittenInOrganization }))
+vi.mock('./written-in-organization', () => ({ hasWrittenInOrganization }))
 vi.mock('@/lib/user-preferences/service', () => ({ getUserPreferences }))
 
 const { resolveTourEligibility } = await import('./tour-eligibility')

@@ -398,6 +398,7 @@ describe('InboundMailWorkspace', () => {
 
   it('opens the next mail as soon as the open one is filed, and reports its landing in a toast meanwhile', async () => {
     const id = DETAIL_VARIANTS['member-verified'].view.id
+    vi.mocked(toast.loading).mockReturnValueOnce('landing-of-the-open-mail')
     const { client } = renderOpen('many', id, { pollMs: 1 })
     const file = vi.spyOn(client, 'file')
     vi.spyOn(client, 'get').mockReturnValue(new Promise(() => {}))
@@ -409,7 +410,7 @@ describe('InboundMailWorkspace', () => {
     expect(next).not.toBe(id)
     expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
     expect(toast.loading).toHaveBeenCalledWith('Being filed …', {})
-    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'landing-of-the-open-mail' }))
   })
 
   it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {

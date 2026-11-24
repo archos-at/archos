@@ -40,13 +40,16 @@ export const TurnInFlightBanner: FC<{ label: string }> = ({ label }) => (
   </div>
 )
 
-export const TypingIndicator: FC = () => {
+export const TypingIndicator: FC<{ arrives?: boolean }> = ({ arrives = true }) => {
   const t = useTranslations(researchCopy)
   const label = t('chatArea.status.thinking')
   const elapsed = useElapsedSeconds(true)
   return (
     <div
-      className="animate-in fade-in-0 bg-muted duration-base flex min-h-9 w-fit items-center gap-2 rounded-bubble px-3.5 py-2.5 ease-out motion-reduce:animate-none"
+      className={cn(
+        'bg-muted flex min-h-9 w-fit items-center gap-2 rounded-bubble px-3.5 py-2.5',
+        arrives && 'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none'
+      )}
       role="status"
       aria-label={label}
     >

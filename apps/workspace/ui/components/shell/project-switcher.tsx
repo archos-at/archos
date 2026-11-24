@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { projectInitials, switcherSections, type ProjectSwitcherProject } from './project-list'
 import { readRecentProjectIds } from './recent-projects'
 import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
+import { openOverviewFor } from './project-overview-entry'
 
 export type { ProjectSwitcherProject } from './project-list'
 
@@ -101,7 +102,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   }
   const go = (href: string): void => {
     setOpen(false)
-    router.push(href)
+    if (!openOverviewFor(href)) router.push(href)
   }
   const item = (project: ProjectSwitcherProject): React.JSX.Element => {
     const isCurrent = project.id === activeProjectId

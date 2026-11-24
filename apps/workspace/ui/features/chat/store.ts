@@ -46,6 +46,7 @@ export const useChatStore = create<ChatStoreWithHydration>()(
           conversations: state.conversations,
           currentConversation: state.currentConversation,
           composerDrafts: state.composerDrafts,
+          lastChatBySide: state.lastChatBySide,
         }),
         onRehydrateStorage: () => (state) => {
           useChatStore.setState({ hasHydrated: true })
