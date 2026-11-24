@@ -1,4 +1,5 @@
 ---
+# area: documents
 operators:
   - >
     A database migration rewrites the office shelf's old name inside stored chat

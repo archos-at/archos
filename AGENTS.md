@@ -9,9 +9,9 @@ before you describe the product anywhere.
 ## Setup
 
 ```bash
-task setup                    # first, and after any pull that moves a lockfile
-.venv/bin/pre-commit install  # separate from setup; CI lints the whole repo
-task verify                   # the merge gate; task verify:fast before a push
+task setup && .venv/bin/pre-commit install  # first; task setup again after a pull that moves a lockfile
+task verify                                  # the merge gate; task verify:fast before a push
+task generate                                # after changing what a committed file is generated from
 ```
 
 Nothing here installs `task` (go-task), `uv`, `bun` or Node ([`CONTRIBUTING.md`](CONTRIBUTING.md)).

@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     Closing an Anmerkung you opened from Offene Punkte or the Postfach takes

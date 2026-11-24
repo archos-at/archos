@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     When you send a new question while Piloti is still answering the previous

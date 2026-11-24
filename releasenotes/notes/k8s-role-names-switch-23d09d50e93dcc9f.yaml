@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     On Kubernetes every caller now reaches the backend through the new chat and

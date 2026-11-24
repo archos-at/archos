@@ -1,4 +1,5 @@
 ---
+# area: office-knowledge
 fixes:
   - >
     Notes taken automatically after an answer now record how important they are,

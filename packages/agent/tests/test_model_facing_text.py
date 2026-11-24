@@ -3,11 +3,9 @@ from __future__ import annotations
 import ast
 import difflib
 import json
-import os
 
 import pytest
-from agent_testing.model_facing_text import REGENERATE
-from agent_testing.model_facing_text import REGENERATE_ENV
+from agent_testing.generated import assert_generated
 from agent_testing.model_facing_text import SCHEMA_ARGUMENT
 from agent_testing.model_facing_text import SNAPSHOT
 from agent_testing.model_facing_text import SOURCE_ROOTS
@@ -50,15 +48,9 @@ def _diff(stored: dict, current: dict) -> str:
 
 
 def test_what_the_model_reads_matches_the_snapshot(entries: dict) -> None:
-    if os.environ.get(REGENERATE_ENV):
-        SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
-        SNAPSHOT.write_text(render(entries), encoding="utf-8")
-    stored = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    assert stored == entries, (
-        f"The text the model is sent changed.\n\n{_diff(stored, entries)}\n\n"
-        f"If that is intended, regenerate the snapshot: {REGENERATE}"
-    )
-    assert SNAPSHOT.read_text(encoding="utf-8") == render(entries), f"Snapshot not in canonical form: {REGENERATE}"
+    stored = json.loads(SNAPSHOT.read_text(encoding="utf-8")) if SNAPSHOT.exists() else {}
+    changed = f"The text the model is sent changed.\n\n{_diff(stored, entries)}"
+    assert_generated(SNAPSHOT, render(entries), detail=changed)
 
 
 EXPLICIT_FIELDS = (

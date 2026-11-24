@@ -1,4 +1,5 @@
 ---
+# area: general
 features:
   - >
     The website now asks quietly whether it may set analytics cookies; until you

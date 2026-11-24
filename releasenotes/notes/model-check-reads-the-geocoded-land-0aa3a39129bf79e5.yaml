@@ -1,4 +1,5 @@
 ---
+# area: building-law
 fixes:
   - >
     The model check places a project by the Land its address search found, as

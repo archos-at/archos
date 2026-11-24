@@ -531,7 +531,7 @@ the Staging WorkOS environment.
 **Adding a flag.** Add the slug to `FEATURE_FLAGS` and to `FLAG_KINDS`
 (`lib/authz/feature-flags.ts`): `FLAG_KINDS` is a `Record` over every slug, so
 a new one does not compile until it is classified. Create it in both WorkOS
-environments; `task fe:provision:flags` checks that. A caller with a session
+environments; `task workspace:provision:flags` checks that. A caller with a session
 reads the flag from the token. A caller without one (a job's enqueue, an
 internal route, the per-turn stage read) calls `isOrgFeatureEnabled(flag,
 organizationId)` (`lib/workos/feature-flags.ts`); a per-flag `…EnabledForOrg`

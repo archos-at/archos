@@ -2,11 +2,12 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chunkerReads } from '@/test-utils/markdown-chunker'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { mailOriginIngestFacts, mailThreadIngestFacts } from './ingest-facts'
 import { VERIFIED_SENDER_TRUSTS } from './mail-threading'
 import { mailThreadEntryHeading, renderMailThread, type MailThreadRenderEntry } from './render'
@@ -46,8 +47,7 @@ function entries(): MailThreadRenderEntry[] {
 
 function expectFixture(name: string, text: string) {
   const path = resolve(FIXTURE_DIR, name)
-  if (process.env.UPDATE_FIXTURES === '1') writeFileSync(path, text, 'utf8')
-  expect(readFileSync(path, 'utf8')).toBe(text)
+  expectGenerated(path, text)
 }
 
 function ingestFacts(rows: readonly MailThreadRenderEntry[]) {

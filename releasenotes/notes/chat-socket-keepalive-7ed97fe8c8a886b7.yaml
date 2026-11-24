@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     A chat answer that is still running no longer loses its connection when the

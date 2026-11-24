@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     A link to a project you cannot open, because it was deleted or is not shared

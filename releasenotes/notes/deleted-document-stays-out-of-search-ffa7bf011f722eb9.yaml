@@ -1,4 +1,5 @@
 ---
+# area: search
 incident:
   - >
     A document deleted while it was still being read in no longer turns up in

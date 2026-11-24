@@ -1,4 +1,5 @@
 ---
+# area: projects
 features:
   - >
     Creating a project asks for its name, its address, whether it is running
