@@ -16,13 +16,13 @@ export function ShellSearchButton({ className }: { className?: string }): JSX.El
   const t = useTranslations(navCopy)
   const mod = useModifierLabel()
   const open = useShellOverlays((s) => s.paletteOpen)
-  const setOpen = useShellOverlays((s) => s.setPaletteOpen)
+  const openPalette = useShellOverlays((s) => s.openPaletteByPointer)
   return (
     <Tooltip>
       <TooltipTrigger asChild>
     <button
       type="button"
-      onClick={() => setOpen(true)}
+      onClick={openPalette}
       aria-label={t('search.open')}
       aria-haspopup="dialog"
       aria-expanded={open}
