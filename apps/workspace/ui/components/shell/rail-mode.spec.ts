@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, personalChatHref, railModeOf } from './rail-mode'
 import { projectModeHref } from './rail-mode-switch'
 
-describe('railModeOf: which side of the rail a page belongs to (ADR-0191)', () => {
+describe('railModeOf: which side of the rail a page belongs to (ADR-0193)', () => {
   it('reads the personal chat and Meine Ablage as personal', () => {
     expect(railModeOf(PERSONAL_CHAT_PATH)).toBe('personal')
     expect(railModeOf(`${PERSONAL_CHAT_PATH}?session=s_1`)).toBe('personal')

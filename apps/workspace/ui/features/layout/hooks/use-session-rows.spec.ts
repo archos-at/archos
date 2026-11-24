@@ -126,7 +126,7 @@ describe('useSessionRows', () => {
     expect(activityOf('older')).toBeNull()
   })
 
-  test('lists every chat of the person with its project and whether it is shared, for the one rail list (ADR-0191)', () => {
+  test('lists every chat of the person with its project and whether it is shared, for the one rail list (ADR-0193)', () => {
     const { conversations } = useChatStore.getState()
     useChatStore.setState({
       conversations: [...conversations, { ...conversation('in-project', new Date(2026, 8, 28)), projectId: 'p2', shared: true }],

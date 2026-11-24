@@ -56,7 +56,7 @@ describe('RailChatsProvider', () => {
     useLayoutStore.setState({ isSessionsPanelOpen: false })
   })
 
-  test('every chat of the reader, in every project and none, newest first, each opening where it belongs (ADR-0191)', () => {
+  test('every chat of the reader, in every project and none, newest first, each opening where it belongs (ADR-0193)', () => {
     useChatStore.setState({
       conversations: [...useChatStore.getState().conversations, conversation('alone', day(10), { projectId: null, shared: false })],
     })

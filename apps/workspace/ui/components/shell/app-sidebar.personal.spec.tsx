@@ -37,7 +37,7 @@ afterEach(() => {
   window.localStorage.removeItem('project.recent')
 })
 
-describe('the rail switches between Persönlich and Projekt (ADR-0191)', () => {
+describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
   test('under Persönlich: a new chat, Meine Ablage and the person’s last chats, and no project selector', () => {
     const chats = { items: [{ id: 'c1', title: 'Anfrage Huber', href: `${PERSONAL_CHAT_PATH}?session=c1`, current: false }], allHref: PERSONAL_CHAT_PATH }
     render(

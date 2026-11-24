@@ -193,7 +193,7 @@ describe('listing conversations', () => {
   })
 })
 
-describe('which listed chats are shared, for the rail’s people mark (ADR-0191)', () => {
+describe('which listed chats are shared, for the rail’s people mark (ADR-0193)', () => {
   it('marks a chat shared by its visibility or by a grant, and asks about every row at once', async () => {
     const row = (id: string, visibility: string) => ({ id, projectId: null, visibility, title: id }) as never
     vi.mocked(listVisibleConversations).mockResolvedValue([row('alone', 'private'), row('granted', 'private'), row('project', 'project')])

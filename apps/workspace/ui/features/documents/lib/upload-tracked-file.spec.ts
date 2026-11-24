@@ -57,7 +57,7 @@ describe('the upload request', () => {
   })
 })
 
-describe('an upload to Meine Ablage (ADR-0191)', () => {
+describe('an upload to Meine Ablage (ADR-0193)', () => {
   it('names the personal shelf and no project, and never a norm', async () => {
     await upload('personal', true)
     expect(sent.bodies[0].get('scope')).toBe('personal')

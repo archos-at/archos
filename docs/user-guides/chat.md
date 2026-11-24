@@ -17,7 +17,7 @@ The switch at the top of the rail, **„Persönlich | Projekt“**, chooses whic
 it shows. Under **Projekt** the project picker sits below it, then **„Neuer
 Chat“**, **„Ablage“** and the project's other sections. Under **Persönlich** it
 lists **„Neuer Chat“** and **„Meine Ablage“**; a new chat started there has no
-project, and it does not read any project's files (ADR-0191).
+project, and it does not read any project's files (ADR-0193).
 
 **„Letzte Chats“** is the same list on both sides: your own chats, newest
 first, each with its project's name on the right and a people mark when you

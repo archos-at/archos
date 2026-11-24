@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { opensHere } from './personal-chat-client'
 
-describe('the personal chat page opens only the person’s own chats without a project (ADR-0191)', () => {
+describe('the personal chat page opens only the person’s own chats without a project (ADR-0193)', () => {
   it('opens one', () => {
     expect(opensHere({ projectId: null, userId: 'u1' }, 'u1')).toBe(true)
   })
