@@ -144,3 +144,18 @@ def test_a_required_turn_without_a_decision_reads_nothing_from_a_signed_scope_th
     with patch("agent.project_context.get_signed_request_context", return_value=signed):
         assert resolve_scope(get_scoped_collections_from_context(), "s_conv_1") == []
         assert resolve_scoped_collections(config, "s_conv_1") == []
+
+
+def test_an_empty_signed_scope_outside_a_turn_stays_empty_instead_of_the_config_path(monkeypatch):
+    from knowledge_layer.search import resolve_scoped_collections
+
+    from agent.turn.inventory import resolve_scope
+
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    config = MagicMock(collection_name="oib_knowledge", use_fixed_collection=False, include_base_collection=True)
+    config.include_session_collection = True
+    config.project_collections = ["proj_config"]
+    signed = MagicMock(envelope_signature="sig", collection_scope_entries=[])
+    with patch("agent.project_context.get_signed_request_context", return_value=signed):
+        assert resolve_scoped_collections(config, "s_conv_1") == []
+        assert resolve_scope(get_scoped_collections_from_context(), "s_conv_1") == []

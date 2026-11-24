@@ -251,11 +251,11 @@ class TestScope:
         monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
         assert fallback_scope(None) == [ScopedCollection("oib_knowledge", Shelf.BASE)]
 
-    def test_a_stated_scope_wins_and_an_empty_one_falls_back_outside_a_turn(self, monkeypatch):
+    def test_a_stated_scope_wins_even_empty_and_only_no_scope_falls_back(self, monkeypatch):
         monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
         stated = [ScopedCollection("archiv_org", Shelf.OFFICE_SHELF)]
         assert resolve_scope(stated, "conv-1") == stated
-        assert resolve_scope([], "conv-1") == fallback_scope("conv-1")
+        assert resolve_scope([], "conv-1") == []
         assert resolve_scope(None, None) == fallback_scope(None)
 
     @pytest.mark.parametrize("bound", ["empty decision", "missing decision"])
