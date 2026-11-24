@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
-import { PageHeader } from '@/components/ui/page-header'
+import { ArrowLeft } from 'lucide-react'
 import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
 import { InboxWorkspace } from '@/features/collaboration/components'
 import { I18nProvider } from '@/i18n'
@@ -26,10 +26,7 @@ export default function InboxShellPreviewPage(): JSX.Element {
         <DevRailShell projectId="dev" projectName="Wohnbau Seestadt Baufeld D12" pathname={onPage ? '/app/inbox' : '/app/projects/dev/files'}>
           {onPage ? (
             <div className="listing-container flex h-full min-h-0 w-full flex-col px-6 py-6" data-testid="inbox-shell-page">
-              <PageHeader className="mb-4" title="Postfach" subtitle="Anfragen und Neuigkeiten aus Ihrem Team." />
-              <div className="min-h-0 flex-1">
-                <InboxWorkspace viewerId={VIEWER_ID} />
-              </div>
+              <InboxWorkspace viewerId={VIEWER_ID} title="Postfach" back={<span className="text-muted-foreground inline-flex items-center gap-1.5 text-sm"><ArrowLeft className="size-4" aria-hidden />Fluchtweglänge im Erdgeschoss</span>} />
             </div>
           ) : (
             <p className="text-muted-foreground m-auto text-sm" data-testid="inbox-shell-elsewhere">

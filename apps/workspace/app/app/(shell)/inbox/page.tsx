@@ -2,7 +2,6 @@ import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { BackLink, ShellContent } from '@/components/shell'
-import { PageHeader } from '@/components/ui/page-header'
 import { InboxWorkspace } from '@/features/collaboration/components'
 import { NotificationPrompt } from '@/features/notifications/components/notification-prompt'
 import { getTranslations } from '@/i18n/server'
@@ -23,11 +22,12 @@ export default async function InboxPage(): Promise<JSX.Element> {
     return (
       <ShellContent width="tool" fill>
         <div className="listing-container flex h-full min-h-0 flex-col">
-          <BackLink fallbackHref="/app/projects" fallbackLabel={t('inbox.page.back')} className="touch-target mb-4 self-start" />
-          <PageHeader className="mb-4" title={t('inbox.title')} subtitle={t('inbox.subtitle')} />
-          <div className="min-h-0 flex-1">
-            <InboxWorkspace viewerId={session.userId} offer={<NotificationPrompt />} />
-          </div>
+          <InboxWorkspace
+            viewerId={session.userId}
+            offer={<NotificationPrompt />}
+            title={t('inbox.title')}
+            back={<BackLink fallbackHref="/app/projects" fallbackLabel={t('inbox.page.back')} className="self-start" />}
+          />
         </div>
       </ShellContent>
     )

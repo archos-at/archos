@@ -2,12 +2,10 @@
 
 import type { JSX, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo } from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ArrowUpRight, CheckCheck } from 'lucide-react'
+import { CheckCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
@@ -19,7 +17,7 @@ import { ARCHIVE_UNDO_MS, useUndoableArchive } from '../hooks/use-undoable-archi
 import { newestFirstOverdueOnTop } from '../lib/inbox-entry-order'
 import { isOpenRequest } from '../lib/inbox-queue'
 import { InboxEntry } from './InboxEntry'
-import { InboxItemRow } from './InboxItemRow'
+import { InboxOpened } from './InboxOpened'
 import { InboxQueueSkeleton } from './InboxSkeleton'
 
 export const INBOX_TABS = ['waiting', 'news', 'archived'] as const
@@ -40,9 +38,11 @@ export function inboxTabOf(value: string | null | undefined): InboxTab {
 export interface InboxWorkspaceProps {
   viewerId?: string | null
   offer?: ReactNode
+  title?: string
+  back?: ReactNode
 }
 
-export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspaceProps): JSX.Element {
+export function InboxWorkspace({ viewerId = null, offer = null, title, back = null }: InboxWorkspaceProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const router = useRouter()
   const pathname = usePathname() ?? '/app/inbox'
@@ -116,27 +116,33 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
   const hasUnread = entries.some((item) => !item.read)
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4" data-testid="inbox-workspace">
-      <div className="flex min-h-8 items-center justify-between gap-2">
-        <ToggleGroup type="single" segmented variant="inverted" size="sm" value={tab} onValueChange={(value) => value && go({ tab: inboxTabOf(value) })} aria-label={t('inbox.filters.ariaLabel')}>
-          {INBOX_TABS.map((key) => (
-            <ToggleGroupItem key={key} value={key} data-testid={`inbox-tab-${key}`}>
-              {t(TAB_LABEL[key])}
-              {count(key) > 0 && <CountPill count={count(key)} className={cn(tab === key && 'bg-background/20 text-current')} />}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        {tab !== 'archived' && (
-          <Button variant="ghost" size="sm" className="text-muted-foreground shrink-0" disabled={!hasUnread || list.mutating} onClick={() => void list.markAllRead()} data-testid="inbox-mark-all-read">
-            <CheckCheck aria-hidden />
-            {t('inbox.markAllReadShort')}
-          </Button>
-        )}
+    <div className="flex h-full min-h-0 flex-col" data-testid="inbox-workspace">
+      <div className="border-base flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b pb-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          {back}
+          {title && <h1 className="text-foreground text-xl font-medium">{title}</h1>}
+        </div>
+        <div className="flex min-h-8 items-center gap-2">
+          <ToggleGroup type="single" segmented size="sm" value={tab} onValueChange={(value) => value && go({ tab: inboxTabOf(value) })} aria-label={t('inbox.filters.ariaLabel')}>
+            {INBOX_TABS.map((key) => (
+              <ToggleGroupItem key={key} value={key} data-testid={`inbox-tab-${key}`}>
+                {t(TAB_LABEL[key])}
+                {count(key) > 0 && <span className="text-muted-foreground tabular-nums" data-testid={`inbox-tab-count-${key}`}>{count(key)}</span>}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {tab !== 'archived' && (
+            <Button variant="ghost" size="sm" className="text-muted-foreground shrink-0" disabled={!hasUnread || list.mutating} onClick={() => void list.markAllRead()} data-testid="inbox-mark-all-read">
+              <CheckCheck aria-hidden />
+              {t('inbox.markAllReadShort')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {offer}
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
         <div className="scroll-fade-bottom min-h-0 overflow-y-auto pb-6" data-testid="inbox-entries">
           {list.loading ? (
             <InboxQueueSkeleton />
@@ -145,14 +151,14 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
           ) : entries.length === 0 ? (
             <EmptyState title={t(EMPTY[tab][0])} description={t(EMPTY[tab][1])} />
           ) : (
-            <ul className="flex flex-col gap-0.5">
+            <ul className="flex flex-col">
               {entries.map((item) => (
                 <li key={item.id}>
                   <InboxEntry item={item} current={item.id === picked?.id} onPick={pick} />
                 </li>
               ))}
               {list.hasMore && (
-                <li className="pt-2">
+                <li className="px-4 pt-3">
                   <Button variant="ghost" size="sm" disabled={list.loadingMore} onClick={list.loadMore}>
                     {list.loadingMore ? t('inbox.loadingMore') : t('inbox.loadMore')}
                   </Button>
@@ -162,28 +168,17 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
           )}
         </div>
 
-        <section className={cn('border-base bg-card min-h-0 overflow-y-auto rounded-surface border p-4', !picked && 'max-lg:hidden')} aria-label={t('inbox.page.opened')} data-testid="inbox-opened">
+        <section className={cn('border-base min-h-0 p-6 lg:border-l', !picked && 'max-lg:hidden')} aria-label={t('inbox.page.opened')} data-testid="inbox-opened">
           {picked ? (
-            <div className="flex flex-col gap-3">
-              <ul>
-                <InboxItemRow
-                  item={picked}
-                  viewerId={viewerId}
-                  onArchive={archive}
-                  onUnarchive={(itemId) => void list.unarchive(itemId)}
-                  onMarkRead={(itemId) => void list.markRead([itemId])}
-                  onMarkUnread={(itemId) => void list.markUnread([itemId])}
-                />
-              </ul>
-              {picked.href && (
-                <Button asChild variant="secondary" size="sm" className="self-start">
-                  <Link href={picked.href} data-testid="inbox-opened-go">
-                    <ArrowUpRight aria-hidden />
-                    {t('inbox.page.go')}
-                  </Link>
-                </Button>
-              )}
-            </div>
+            <InboxOpened
+              key={picked.id}
+              item={picked}
+              viewerId={viewerId}
+              onArchive={archive}
+              onUnarchive={(itemId) => void list.unarchive(itemId)}
+              onMarkRead={(itemId) => void list.markRead([itemId])}
+              onMarkUnread={(itemId) => void list.markUnread([itemId])}
+            />
           ) : (
             <p className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">{t('inbox.page.pick')}</p>
           )}

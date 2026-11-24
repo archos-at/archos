@@ -39,9 +39,9 @@ describe('InboxEntry', () => {
     expect(screen.getByTestId('inbox-entry')).toHaveTextContent('Assigned by Anna Weber')
   })
 
-  test('has no project line for an entry that belongs to no project, and no due label without a date', () => {
+  test('says „Personal“ for an entry that belongs to no project, and has no due label without a date', () => {
     render(<InboxEntry item={row('a', { projectName: null })} onPick={vi.fn()} />)
-    expect(screen.queryByTestId('inbox-entry-project')).not.toBeInTheDocument()
+    expect(screen.getByTestId('inbox-entry-project')).toHaveTextContent('Personal')
     expect(screen.queryByTestId('inbox-entry-due')).not.toBeInTheDocument()
   })
 

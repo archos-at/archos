@@ -208,13 +208,15 @@ export const collaboration = {
 
   inbox: {
     bell: {
-      waiting: 'Waiting for you: {count}',
       late: '{count} overdue',
-      news: 'News: {count}',
+      news: '{count, plural, one {# news item} other {# news items}}',
       open: 'Open inbox',
       back: 'Leave the inbox',
     },
     page: {
+      done: 'Mark as done',
+      review: 'Open in the review view',
+      personal: 'Personal',
       back: 'Back',
       opened: 'Opened entry',
       pick: 'Pick an entry on the left.',

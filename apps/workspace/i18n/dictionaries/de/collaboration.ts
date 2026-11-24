@@ -215,13 +215,15 @@ export const collaboration: typeof en.collaboration = {
 
   inbox: {
     bell: {
-      waiting: 'Wartet auf Sie: {count}',
       late: '{count} überfällig',
-      news: 'Neuigkeiten: {count}',
+      news: '{count, plural, one {# Neuigkeit} other {# Neuigkeiten}}',
       open: 'Postfach öffnen',
       back: 'Postfach verlassen',
     },
     page: {
+      done: 'Als erledigt markieren',
+      review: 'In der Prüfansicht öffnen',
+      personal: 'Persönlich',
       back: 'Zurück',
       opened: 'Geöffneter Eintrag',
       pick: 'Wählen Sie links einen Eintrag.',

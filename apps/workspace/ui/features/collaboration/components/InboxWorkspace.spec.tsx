@@ -195,4 +195,12 @@ describe('InboxWorkspace', () => {
     await userEvent.keyboard('e')
     expect(ids()).toEqual(['older'])
   })
+
+  test('an annotation assigned to the reader can be marked as done from the opened entry, and opens in the review view', () => {
+    serve('requests', [{ ...newer, type: 'annotation.assigned_to_you', answerIn: 'row', anchorId: 'mark-1', href: '/app/projects/p1/files/d1?mark=mark-1' }])
+    render(<InboxWorkspace />)
+    expect(screen.getByTestId('inbox-opened-done')).toHaveTextContent('Mark as done')
+    expect(screen.getByTestId('inbox-opened-go')).toHaveTextContent('Open in the review view')
+    expect(screen.getByTestId('inbox-opened-archive')).toHaveTextContent('Archive')
+  })
 })

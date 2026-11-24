@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import { useState, type MouseEvent } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Bell } from 'lucide-react'
+import { ArrowRight, Bell } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -26,15 +26,16 @@ function Glance({ onLeave }: { onLeave: (href: string) => void }): JSX.Element {
   const late = waiting.filter((item) => isOverdue(item)).length
   const open = (item: InboxItemView): void => onLeave(`${INBOX_HREF}?item=${encodeURIComponent(item.id)}`)
   return (
-    <div className="flex flex-col gap-2" data-testid="inbox-glance">
-      <p className="text-foreground px-2.5 pt-1 text-sm font-medium">
-        {t('inbox.bell.waiting', { count: list.counts.requests })}
-        {late > 0 && <span className="text-error font-medium"> · {t('inbox.bell.late', { count: late })}</span>}
+    <div className="flex flex-col" data-testid="inbox-glance">
+      <p className="border-base flex items-baseline gap-2 border-b px-4 py-3">
+        <span className="text-foreground text-base font-semibold">{t('inbox.queue.waiting')}</span>
+        <span className="text-muted-foreground text-sm tabular-nums" data-testid="inbox-glance-count">{list.counts.requests}</span>
+        {late > 0 && <span className="text-error text-sm">{t('inbox.bell.late', { count: late })}</span>}
       </p>
       {waiting.length === 0 && !list.loading ? (
-        <p className="text-muted-foreground px-2.5 pb-1 text-sm">{t('inbox.empty.needsMeDescription')}</p>
+        <p className="text-muted-foreground px-4 py-4 text-sm">{t('inbox.empty.needsMeDescription')}</p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="divide-base flex flex-col divide-y">
           {waiting.slice(0, INBOX_GLANCE_LIMIT).map((item) => (
             <li key={item.id}>
               <InboxEntry item={item} onPick={open} />
@@ -42,12 +43,13 @@ function Glance({ onLeave }: { onLeave: (href: string) => void }): JSX.Element {
           ))}
         </ul>
       )}
-      <div className="border-base flex items-center justify-between gap-2 border-t px-2.5 pt-2">
+      <div className="border-base flex items-center justify-between gap-2 border-t px-4 py-3">
         <span className="text-muted-foreground text-xs" data-testid="inbox-glance-news">
           {t('inbox.bell.news', { count: list.counts.unread })}
         </span>
-        <Link href={INBOX_HREF} onClick={() => onLeave(INBOX_HREF)} className="text-foreground text-sm font-medium hover:underline" data-testid="inbox-glance-open">
+        <Link href={INBOX_HREF} onClick={() => onLeave(INBOX_HREF)} className="text-foreground inline-flex items-center gap-1.5 text-sm font-medium hover:underline" data-testid="inbox-glance-open">
           {t('inbox.bell.open')}
+          <ArrowRight className="size-4" aria-hidden />
         </Link>
       </div>
     </div>
@@ -94,17 +96,18 @@ export function InboxBell({ compact = false, tourAnchor, pathname: pathnameOverr
           data-testid="inbox-bell"
           data-tour={tourAnchor}
           className={cn(
-            'text-muted-foreground hover:text-foreground relative flex size-8 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
+            'border-base text-foreground flex shrink-0 items-center justify-center gap-1.5 rounded-control border transition-colors duration-quick ease-out motion-reduce:transition-none',
+            compact ? 'size-8 flex-col gap-0 border-transparent pointer-coarse:size-11' : 'h-8 min-w-8 px-2 pointer-coarse:h-11',
             'hover:bg-desk in-data-[sidebar=sidebar]:hover:bg-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-            (here || open) && 'bg-sheet text-foreground shadow-xs hover:bg-sheet in-data-[sidebar=sidebar]:hover:bg-sheet',
+            (here || open) && 'bg-sheet shadow-xs hover:bg-sheet in-data-[sidebar=sidebar]:hover:bg-sheet',
             className
           )}
         >
-          <Bell className="size-4" aria-hidden />
-          <InboxBadge pending={pending} className={cn('absolute', '-right-2 -top-2')} />
+          <Bell className="size-4 shrink-0" aria-hidden />
+          <InboxBadge pending={pending} />
         </Link>
       </PopoverAnchor>
-      <PopoverContent side={compact ? 'right' : 'top'} align="end" sideOffset={8} className="w-[22rem] p-2">
+      <PopoverContent side={compact ? 'right' : 'top'} align="end" sideOffset={14} className="w-[25rem] overflow-hidden p-0">
         {open && !here && (
           <Glance
             onLeave={(href) => {
