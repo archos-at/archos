@@ -645,7 +645,10 @@ has the command.
 `/dev` route at 390x844 and 360x780 with a touch screen and fails on a page wider
 than the phone and on a control under 44x44, counting a `touch-target` catchment
 and a frame's declared `data-tap-reach`. Known exceptions are in
-`ci/phone-audit-baseline.json`, which only shrinks. CI's
+`ci/phone-audit-baseline.json`, which only shrinks. CI is the reference: each
+shard uploads what it measured as the `phone-findings-<n>` artifact, and the baseline
+is the union of those four files, because a local Chromium of another version lays
+some pages out a few pixels differently. CI's
 **Workspace phone gate** runs it in four shards when anything under `apps/workspace`
 or `packages/brand` changes; it is not part of `verify`, because a browser pass over every
 preview takes minutes. What the old `workspace:touch-audit` also caught and this

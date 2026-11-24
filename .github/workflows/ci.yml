@@ -602,6 +602,15 @@ jobs:
         env:
           # Four routes at once took `next dev` past a 16 GB machine's memory on the first seed (2026-11-24).
           PHONE_AUDIT_CONCURRENCY: '2'
+          PHONE_AUDIT_FINDINGS_OUT: ${{ runner.temp }}/phone-findings-${{ matrix.shard }}.json
+      - name: What this shard measured (the baseline is seeded from these)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-findings-${{ matrix.shard }}
+          path: ${{ runner.temp }}/phone-findings-${{ matrix.shard }}.json
+          retention-days: 7
+          if-no-files-found: ignore
 
   site:
     name: Website (Astro check, tests, build, a11y)

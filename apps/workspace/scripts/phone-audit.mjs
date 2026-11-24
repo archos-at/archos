@@ -2,7 +2,7 @@
 // The overflow is measured against the width set, not `innerWidth`: with `isMobile` the layout viewport widens to fit.
 // Never in a full-page capture: it resizes the viewport, `pointer: coarse` stops matching, and every target reads desktop-sized.
 // A link inside a sentence is exempt from the 44px floor, as WCAG 2.5.8 exempts it.
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { auditRoutes, inShard, judgeAgainstBaseline, parseArgs, previewRoutes, startDevServer } from './preview-audit.mjs'
@@ -127,7 +127,16 @@ async function auditRoute(browser, base, route, found, unrendered) {
       await page.waitForTimeout(1000)
       await page.addStyleTag({ content: '* { content-visibility: visible !important; }' })
       await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
-      const { overflow, culprit, small } = await page.evaluate(measure, { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME })
+      const args = { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME }
+      let measured = await page.evaluate(measure, args)
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await page.waitForTimeout(1500)
+        const again = await page.evaluate(measure, args)
+        const settled = JSON.stringify(again) === JSON.stringify(measured)
+        measured = again
+        if (settled) break
+      }
+      const { overflow, culprit, small } = measured
       if (overflow > 0) {
         found.set(`${route} ${phone.name} overflow`, { count: 1, sample: `${overflow}px wider than the phone; widest: ${culprit}`, help: 'the page scrolls sideways' })
       }
@@ -159,6 +168,9 @@ try {
   })
 } finally {
   server?.stop()
+}
+if (process.env.PHONE_AUDIT_FINDINGS_OUT) {
+  writeFileSync(process.env.PHONE_AUDIT_FINDINGS_OUT, `${JSON.stringify({ routes, findings: [...found.keys()].sort(), unrendered }, null, 2)}\n`)
 }
 if (unrendered.length) {
   for (const line of unrendered) console.log(`UNRENDERED ${line}`)
