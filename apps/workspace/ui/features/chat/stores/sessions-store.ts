@@ -11,9 +11,10 @@ import { forgetThreadPosition } from '@/features/layout/lib/thread-positions'
 import type { CardInteractions } from '@/features/cards/card-decision'
 import type { MessageStages } from '@/lib/conversations/message-stages'
 import { cancelRun } from '@/lib/runs/run-view-client'
-import { conversationMatchesProject, isJobConversation } from '../lib/project-scope'
 import { liveRunMessages } from '../lib/session-activity'
 import { getConversationsClient } from '../lib/conversations-client-access'
+import { markConversationErased } from '../lib/erased-conversations'
+import type { OwnConversationsDeleted } from '@/adapters/api/conversations-client'
 import { createSessionNavigationSlice } from './session-navigation'
 import { createSessionServerSyncSlice } from './session-server-sync'
 import { createConversationPersistenceSlice, forgetServerConversation } from './conversation-persistence'
@@ -47,8 +48,8 @@ export type SessionsSlice = {
   startNewSessionDraft: () => void
   ensureSession: () => string | undefined
   selectConversation: (conversationId: string) => void
-  deleteConversation: (conversationId: string) => void
-  deleteAllConversations: () => void
+  deleteConversation: (conversationId: string) => Promise<void>
+  deleteAllConversations: (side: { projectId: string | null }) => Promise<OwnConversationsDeleted>
   updateConversationTitle: (conversationId: string, title: string) => void
   maybeGenerateConversationName: (conversationId: string) => void
   saveDataSourcesToConversation: (ids: string[]) => void
@@ -93,6 +94,39 @@ const cancelLiveRuns = (
   }
 }
 
+const forgetErasedConversations = (
+  set: Parameters<StateCreator<ChatStore, [['zustand/devtools', never]], [], SessionsSlice>>[0],
+  get: () => ChatStore,
+  conversationIds: readonly string[],
+  action: string
+): void => {
+  if (conversationIds.length === 0) return
+  const erased = new Set(conversationIds)
+  for (const id of conversationIds) {
+    markConversationErased(id)
+    forgetServerConversation(id)
+    forgetThreadPosition(id)
+  }
+  const { conversations, currentConversation, composerDrafts, turns, unseenAnswers } = get()
+  const remaining = currentConversation && erased.has(currentConversation.id) ? null : currentConversation
+  const keptTurns = Object.fromEntries(Object.entries(turns).filter(([, view]) => !erased.has(view.conversationId)))
+  let keptUnseen = unseenAnswers
+  for (const id of conversationIds) keptUnseen = withoutUnseenAnswer(keptUnseen, id)
+  set(
+    {
+      conversations: conversations.filter((c) => !erased.has(c.id)),
+      composerDrafts: Object.fromEntries(Object.entries(composerDrafts).filter(([id]) => !erased.has(id))),
+      currentConversation: remaining,
+      unseenAnswers: keptUnseen,
+      turns: keptTurns,
+      ...turnStateFor(keptTurns, remaining?.id),
+      ...(remaining === currentConversation ? {} : { pendingInteraction: null }),
+    },
+    false,
+    action
+  )
+}
+
 export const initialSessionsState = {
   currentUserId: null as string | null,
   currentConversation: null as Conversation | null,
@@ -117,97 +151,20 @@ export const createSessionsSlice: StateCreator<
   ...createAnswerRecoverySlice(set, get, store),
   ...createConversationMetadataSlice(set, get, store),
 
-  deleteConversation: (conversationId: string) => {
-    const { currentConversation, conversations, composerDrafts } = get()
-
-    const conversationToDelete = conversations.find((c) => c.id === conversationId)
-    if (conversationToDelete) cancelLiveRuns([conversationToDelete], get().projectId)
-
-    const updatedConversations = conversations.filter((c) => c.id !== conversationId)
-
-    let nextComposerDrafts = composerDrafts
-    if (conversationId in composerDrafts) {
-      nextComposerDrafts = { ...composerDrafts }
-      delete nextComposerDrafts[conversationId]
-    }
-
-    forgetServerConversation(conversationId)
-    forgetThreadPosition(conversationId)
-    getConversationsClient().then((conversationsClient) => {
-      conversationsClient.delete(conversationId).catch((err) => {
-        console.warn('[deleteConversation] Failed to delete server conversation:', err)
-      })
-    })
-
-    const turns = Object.fromEntries(
-      Object.entries(get().turns).filter(([, view]) => view.conversationId !== conversationId)
-    )
-    const remaining = currentConversation?.id === conversationId ? null : currentConversation
-
-    set(
-      {
-        conversations: updatedConversations,
-        composerDrafts: nextComposerDrafts,
-        currentConversation: remaining,
-        unseenAnswers: withoutUnseenAnswer(get().unseenAnswers, conversationId),
-        turns,
-        ...turnStateFor(turns, remaining?.id),
-      },
-      false,
-      'deleteConversation'
-    )
+  deleteConversation: async (conversationId: string) => {
+    const conversationsClient = await getConversationsClient()
+    await conversationsClient.delete(conversationId)
+    const deleted = get().conversations.find((c) => c.id === conversationId)
+    if (deleted) cancelLiveRuns([deleted], get().projectId)
+    forgetErasedConversations(set, get, [conversationId], 'deleteConversation')
   },
 
-  deleteAllConversations: () => {
-    const { conversations, currentUserId, currentConversation, projectId, composerDrafts } = get()
-
-    if (!currentUserId) return
-
-    const isInScope = (c: Conversation): boolean =>
-      c.userId === currentUserId &&
-      conversationMatchesProject(c, projectId) &&
-      !isJobConversation(c)
-
-    const userConversations = conversations.filter(isInScope)
-    cancelLiveRuns(userConversations, projectId)
-
-    userConversations.forEach((conv) => {
-      forgetServerConversation(conv.id)
-      forgetThreadPosition(conv.id)
-    })
-    getConversationsClient().then(async (conversationsClient) => {
-      const results = await Promise.allSettled(
-        userConversations.map((conv) => conversationsClient.delete(conv.id))
-      )
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.warn(
-            '[deleteAllConversations] Failed to delete server conversation:',
-            userConversations[index].id,
-            result.reason
-          )
-        }
-      })
-    })
-
-    const remainingConversations = conversations.filter((c) => !isInScope(c))
-
-    const removedSessionIds = new Set(userConversations.map((c) => c.id))
-    const nextComposerDrafts = Object.fromEntries(
-      Object.entries(composerDrafts).filter(([id]) => !removedSessionIds.has(id))
-    )
-
-    const shouldClearCurrent = currentConversation && isInScope(currentConversation)
-
-    set(
-      {
-        conversations: remainingConversations,
-        composerDrafts: nextComposerDrafts,
-        currentConversation: shouldClearCurrent ? null : currentConversation,
-        pendingInteraction: null,
-      },
-      false,
-      'deleteAllConversations'
-    )
+  deleteAllConversations: async (side: { projectId: string | null }) => {
+    const conversationsClient = await getConversationsClient()
+    const result = await conversationsClient.deleteOwn(side)
+    const deleted = new Set(result.deleted)
+    cancelLiveRuns(get().conversations.filter((c) => deleted.has(c.id)), side.projectId)
+    forgetErasedConversations(set, get, result.deleted, 'deleteAllConversations')
+    return result
   },
 })

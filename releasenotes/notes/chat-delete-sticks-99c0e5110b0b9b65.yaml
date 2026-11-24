@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    „Alle Chats löschen“ now deletes the chats you started on the side you are
+    on, Persönlich or this project, and they no longer come back after a reload.
+    A chat that cannot be deleted stays in the list, with a message saying why.

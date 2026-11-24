@@ -6060,6 +6060,10 @@
     "de": "Die Übersicht befindet sich jetzt bei den anderen Projektbereichen unter dem Projektwechsler und nicht mehr unten in der Seitenleiste bei Büroablage, Suche und Postfach der Organisation."
   },
   {
+    "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+    "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
+  },
+  {
     "en": "„Alle Chats“ opened from a project's Ablage or settings now lists only that project's chats, as „Letzte Chats“ does.",
     "de": "„Alle Chats“ zeigt beim Öffnen über die Ablage oder die Einstellungen eines Projekts jetzt wie „Letzte Chats“ nur die Chats dieses Projekts an."
   },

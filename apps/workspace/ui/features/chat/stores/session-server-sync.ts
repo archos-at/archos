@@ -11,6 +11,18 @@ import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages } from './messages-store'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient, isRightsLost } from '../lib/conversations-client-access'
+import { wasOnServerBefore } from '../lib/conversation-on-server'
+import { isConversationErased } from '../lib/erased-conversations'
+import { CONVERSATION_LIST_PAGE } from '../lib/conversation-list-page'
+
+const listScopeMatcher = (
+  projectId: string | undefined,
+  place: 'personal' | 'project' | undefined
+): ((c: Conversation) => boolean) | null => {
+  if (place === 'personal') return (c) => !c.projectId
+  if (place === 'project' && projectId) return (c) => c.projectId === projectId
+  return null
+}
 
 export const hydratingConversationIds = new Set<string>()
 
@@ -53,16 +65,29 @@ export const createSessionServerSyncSlice: StateCreator<
     const since = Date.now()
     try {
       const conversationsClient = await getConversationsClient()
-      const serverConvs = await conversationsClient.list(projectId, place)
+      const requestedAt = since
+      const listed = await conversationsClient.list(projectId, place)
       if (!isLatest()) return true
+      if (!listed) return true
+      const serverConvs = listed.filter((c) => !isConversationErased(c.id))
       if (place) {
         const key = serverSideKey(place, projectId)
-        set({ serverSides: { ...get().serverSides, [key]: { ids: (serverConvs ?? []).map((c) => c.id), since } } }, false, 'serverSides')
+        set({ serverSides: { ...get().serverSides, [key]: { ids: serverConvs.map((c) => c.id), since } } }, false, 'serverSides')
       }
-      if (!serverConvs || serverConvs.length === 0) return true
 
-      const { conversations, currentUserId } = get()
-      const merged = [...conversations]
+      const { conversations, currentUserId, currentConversation: openBefore } = get()
+      const listedIds = new Set(serverConvs.map((c) => c.id))
+      const inScope = listScopeMatcher(projectId, place)
+      const goneFromServer = (c: Conversation): boolean =>
+        isConversationErased(c.id) ||
+        (inScope !== null &&
+          listed.length < CONVERSATION_LIST_PAGE &&
+          inScope(c) &&
+          !listedIds.has(c.id) &&
+          openBefore?.id !== c.id &&
+          wasOnServerBefore(c.id, requestedAt) &&
+          new Date(c.createdAt).getTime() < requestedAt)
+      const merged = conversations.filter((c) => !goneFromServer(c))
 
       for (const serverConv of serverConvs) {
         const idx = merged.findIndex((c) => c.id === serverConv.id)

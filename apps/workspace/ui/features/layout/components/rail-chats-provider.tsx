@@ -14,6 +14,7 @@ import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { useSessionRows } from '../hooks/use-session-rows'
+import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { useLayoutStore } from '../store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 
@@ -58,6 +59,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
   const deleteConversation = useChatStore((s) => s.deleteConversation)
+  const deleteFeedback = useChatDeleteFeedback()
   const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
   const t = useTranslations(researchCopy)
@@ -128,11 +130,17 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
     }
   }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, onWarmOtherSide, t, tCollab])
 
-  const confirmDelete = (): void => {
+  const confirmDelete = async (): Promise<void> => {
     if (!deleting) return
     const deletedChatPath = chatPathOf(projectOf.get(deleting) ?? null)
-    deleteConversation(deleting)
-    if (under(pathname, deletedChatPath) && deleting === openId) router.replace(deletedChatPath)
+    const wasOpen = deleting === openId
+    try {
+      await deleteConversation(deleting)
+    } catch (error) {
+      deleteFeedback.failed(error, 'one')
+      throw error
+    }
+    if (under(pathname, deletedChatPath) && wasOpen) router.replace(deletedChatPath)
     setDeleting(null)
   }
 
