@@ -1425,6 +1425,14 @@ export const files: typeof en.files = {
     loadMore: 'Weitere laden',
     loadingMore: 'Weitere werden geladen …',
     loadMoreFailed: 'Weitere konnten nicht geladen werden.',
+    search: {
+      label: 'Offene Punkte nach Text, Dokument oder Zuständigen filtern',
+      placeholder: 'In den offenen Punkten suchen …',
+      clear: 'Suche leeren',
+      results: '{count, plural, one {# Treffer} other {# Treffer}}',
+      noneTitle: 'Kein offener Punkt passt zu „{query}“',
+      noneHint: 'Gesucht wird in Text, Dokument und Zuständigen der geladenen Punkte.',
+    },
     empty: {
       noneTitle: 'Nichts offen',
       noneBody: 'In den Dokumenten dieses Projekts ist keine Anmerkung offen.',

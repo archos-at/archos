@@ -53,7 +53,7 @@ export function FindingsCard({
   return (
     <section
       aria-labelledby="profile-findings-heading"
-      className="bg-card border-border rounded-[14px] border"
+      className="bg-card border-border rounded-[12px] border"
       data-testid="profile-findings"
     >
       <Collapsible open={open} onOpenChange={setOpen}>

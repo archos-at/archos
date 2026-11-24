@@ -1,14 +1,10 @@
 'use client'
 
 import { useMemo, type JSX, type ReactNode } from 'react'
-import { CountPill } from '@/components/ui/count-pill'
-import { PageHeader } from '@/components/ui/page-header'
-import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
-import { SECTION_CONTENT_WIDTH } from '@/components/shell/section-layout'
-import { SectionPlaceLine, SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
-import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
+import { SectionPlaceScope, useSectionPlace } from '@/components/shell/section-place'
+import { SectionToolRowScope } from '@/components/shell/section-tool-row'
+import { ShelfHead } from '@/components/shell/shelf-head'
 import { useTranslations } from '@/i18n'
-import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
 import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-shelf-documents'
@@ -16,7 +12,6 @@ import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
 import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
-import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 export interface OfficeShelfWorkspaceProps {
   canManage: boolean
@@ -44,7 +39,6 @@ export function OfficeShelfWorkspace({
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
   const phone = usePhoneLayout()
-  const search = useShelfSearchMode()
 
   const shelf: FileShelf = {
     source: 'office',
@@ -71,21 +65,6 @@ export function OfficeShelfWorkspace({
     fileActions,
   }
 
-  if (search.active) {
-    return (
-      <SearchWorkspace
-        surface={{ kind: 'office_shelf', folderId: search.folderId }}
-        inset
-        autoFocus
-        leading={
-          <>
-            <ShelfSearchBack onClose={search.close} label="backToShelf" />
-            {trailingActions}
-          </>
-        }
-      />
-    )
-  }
 
   return (
     <SectionPlaceScope root={t('title')}>
@@ -125,52 +104,18 @@ export function OfficeShelfHeader({
   places?: ReactNode
 }): JSX.Element {
   const t = useTranslations(officeShelfCopy)
-  const reached = useSectionPlace()
-  const place = phone ? reached : null
-  const pathPlace = phone ? null : reached
-  const row = (
-    <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
-      {controls}
-    </div>
-  )
+  const place = useSectionPlace()
   return (
-    <>
-      <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
-        <PageHeader
-          title={
-            place ? (
-              place.title
-            ) : (
-              <span className="inline-flex min-w-0 items-center gap-2">
-                {t('title')}
-                {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
-              </span>
-            )
-          }
-          titleClassName="line-clamp-2"
-          titleTooltip={place?.title}
-          titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
-          crumb={
-            phone ? (
-              place?.phoneTrail
-            ) : organizationName ? (
-              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
-            ) : undefined
-          }
-          crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
-          titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
-          action={trailingActions}
-          actionInline
-        />
-        {!phone && <SectionToolRow className="mt-6">{row}</SectionToolRow>}
-        {places && <div className="-mb-4 mt-4 min-w-0 phone:mt-4">{places}</div>}
-        {phone && <SectionToolRow className="mt-4">{row}</SectionToolRow>}
-      </div>
-      {pathPlace && (
-        <div className={cn('shrink-0 px-4 md:px-8', SECTION_CONTENT_WIDTH)}>
-          <SectionPlaceLine place={pathPlace} />
-        </div>
-      )}
-    </>
+    <ShelfHead
+      data-testid="office-shelf-header"
+      crumb={organizationName ? [organizationName] : []}
+      title={t('title')}
+      count={count}
+      place={place}
+      phone={phone}
+      tools={controls}
+      places={places}
+      action={trailingActions}
+    />
   )
 }

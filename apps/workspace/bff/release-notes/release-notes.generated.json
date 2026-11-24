@@ -81,6 +81,22 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage keeps its head when you switch between Dateien, E-Mail-Eingang and Offene Punkte: the title stays „Ablage“, each place's own buttons share the one row of tools, and the places no longer jump. Only the content below changes, and it answers your click at once.",
+            "de": "Die Ablage behält ihren Kopf, wenn Sie zwischen Dateien, E-Mail-Eingang und Offene Punkte wechseln: Der Titel bleibt „Ablage“, die eigenen Schaltflächen jedes Bereichs stehen in derselben Werkzeugzeile, und die Bereiche springen nicht mehr. Nur der Inhalt darunter wechselt, und er reagiert sofort auf Ihren Klick."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The E-Mail-Eingang and Offene Punkte now have a search where Dateien has its own, at the start of the Ablage's row of tools: „Im E-Mail-Eingang suchen …“ finds mails by sender, subject or the name of an attachment, „In den offenen Punkten suchen …“ finds points by their text, their document or who is responsible. The list narrows as you type, Escape clears the search, and it survives a reload.",
+            "de": "Der E-Mail-Eingang und die Offenen Punkte haben jetzt eine Suche an derselben Stelle wie Dateien, am Anfang der Werkzeugzeile der Ablage: „Im E-Mail-Eingang suchen …“ findet E-Mails nach Absender, Betreff oder dem Namen eines Anhangs, „In den offenen Punkten suchen …“ findet Punkte nach ihrem Text, ihrem Dokument oder der zuständigen Person. Die Liste wird schon beim Tippen kürzer, Escape leert die Suche, und sie bleibt auch nach dem Neuladen erhalten."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
@@ -129,6 +145,22 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Dark mode is calmer: cards, the chat field, the open e-mail and menus now sit just above the near-black page with a thin edge, no longer as light grey panels.",
+            "de": "Der Dark Mode wirkt ruhiger: Karten, Chatfeld, geöffnete E-Mail und Menüs heben sich jetzt mit einer feinen Kontur leicht von der fast schwarzen Seite ab und erscheinen nicht mehr als hellgraue Flächen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A button you cannot press yet, such as send in an empty chat, now recedes instead of being the brightest thing on the screen.",
+            "de": "Ein Button, den Sie noch nicht drücken können, etwa „Senden“ in einem leeren Chat, tritt jetzt optisch zurück, statt als hellstes Element am Bildschirm hervorzustechen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
@@ -153,10 +185,34 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "„Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.",
+            "de": "„Meine Ablage“ behält ihren Kopf, wenn Sie einen Ordner öffnen, wie die Ablage eines Projekts und die Bürobibliothek: Der Titel und die Werkzeugzeile bleiben, wo sie sind, und der Weg zum Ordner steht in der Zeile unter dem Kopf. Auch während Sie in „Meine Ablage“ oder der Bürobibliothek suchen, bleibt der Kopf stehen, mit dem Weg zurück in der Werkzeugzeile."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
             "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
+            "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
+            "de": "Die Ecken in der gesamten App sind etwas enger gerundet; Menüs, Tabs und Schalter stimmen ihre inneren Rundungen auf die umgebenden Ecken ab."
           }
         },
         {

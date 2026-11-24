@@ -1406,6 +1406,14 @@ export const files = {
     loadMore: 'Load more',
     loadingMore: 'Loading more …',
     loadMoreFailed: 'More could not be loaded.',
+    search: {
+      label: 'Filter open points by text, document or assignee',
+      placeholder: 'Search the open points …',
+      clear: 'Clear search',
+      results: '{count, plural, one {# match} other {# matches}}',
+      noneTitle: 'No open point matches “{query}”',
+      noneHint: 'Searches the text, document and assignee of the points loaded so far.',
+    },
     empty: {
       noneTitle: 'Nothing open',
       noneBody: 'No annotation is open on this project’s documents.',

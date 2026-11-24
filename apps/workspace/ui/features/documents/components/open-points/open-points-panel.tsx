@@ -4,7 +4,7 @@ import { useState, type JSX } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, Check, CheckCheck, ChevronRight, FileText, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Check, CheckCheck, ChevronRight, FileText, RefreshCw, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -28,6 +28,8 @@ import { useProjectMarks } from '../../hooks/use-project-marks'
 import { reviewFilesHref } from '../../lib/open-review'
 import { MarkRowContent, markRowClassName } from '../review/mark-row'
 import { ProjectProtocolMenu } from './project-protocol-menu'
+import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from '../file-search-bar'
+import { matchesOpenPoint, OPEN_POINTS_QUERY_PARAM } from './open-point-query'
 
 type AssigneeChoice = 'all' | 'me'
 type DueChoice = 'all' | ProjectMarkDue
@@ -59,12 +61,14 @@ function choicesFromChips(
 
 const ALL_CHIP = 'all'
 
-function hrefOf(pathname: string, current: string, assignee: AssigneeChoice, due: DueChoice): string {
+function hrefOf(pathname: string, current: string, assignee: AssigneeChoice, due: DueChoice, search: string): string {
   const params = new URLSearchParams(current)
   if (assignee === 'me') params.set('assignee', ASSIGNEE_ME)
   else params.delete('assignee')
   if (due !== 'all') params.set('due', due)
   else params.delete('due')
+  if (search.trim() !== '') params.set(OPEN_POINTS_QUERY_PARAM, search)
+  else params.delete(OPEN_POINTS_QUERY_PARAM)
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
 }
@@ -92,17 +96,44 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   const searchParams = useSearchParams()
   const [assignee, setAssigneeState] = useState<AssigneeChoice>(() => choicesOf(searchParams).assignee)
   const [due, setDueState] = useState<DueChoice>(() => choicesOf(searchParams).due)
+  const [query, setQueryState] = useState(() => searchParams?.get(OPEN_POINTS_QUERY_PARAM) ?? '')
   const current = searchParams?.toString() ?? ''
-  const here = hrefOf(pathname, current, assignee, due)
+  const here = hrefOf(pathname, current, assignee, due, query)
   const choose = (next: { assignee: AssigneeChoice; due: DueChoice }) => {
     setAssigneeState(next.assignee)
     setDueState(next.due)
-    window.history.replaceState(null, '', hrefOf(pathname, current, next.assignee, next.due))
+    window.history.replaceState(null, '', hrefOf(pathname, current, next.assignee, next.due, query))
+  }
+  const search = (next: string) => {
+    setQueryState(next)
+    window.history.replaceState(null, '', hrefOf(pathname, current, assignee, due, next))
   }
   const filters = filtersOf(assignee, due)
   const list = useProjectMarks(projectId, filters, { page: initial, filters: OPEN_POINTS_DEFAULT_FILTERS })
   const filtered = assignee !== 'all' || due !== 'all'
+  const searching = query.trim() !== ''
+  const shown = searching ? list.marks.filter((mark) => matchesOpenPoint(mark, query)) : list.marks
   const phone = useMediaQuery(PHONE_QUERY)
+  const protocol = (
+    <ProjectProtocolMenu
+      projectId={projectId}
+      filters={filters}
+      filing={filing}
+      restricted={list.load === 'ready' ? list.restricted : null}
+      compact={phone}
+    />
+  )
+  const loadMore = (
+    <LoadMore
+      hasMore={list.hasMore}
+      loading={list.more === 'loading'}
+      failed={list.more === 'error'}
+      onLoadMore={list.loadMore}
+      loadMoreLabel={t('openPoints.loadMore')}
+      loadingLabel={t('openPoints.loadingMore')}
+      failedLabel={t('openPoints.loadMoreFailed')}
+    />
+  )
 
   return (
     <div className="h-full overflow-y-auto">
@@ -110,15 +141,29 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           tab had a left edge of its own. */}
       <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:gap-8 md:px-8" data-testid="open-points" /* 32px between sections (paper on a desk, principle 5); 24 on a phone */>
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
-        <ProjectSectionActions onTitleLine>
-          <ProjectProtocolMenu
-            projectId={projectId}
-            filters={filters}
-            filing={filing}
-            restricted={list.load === 'ready' ? list.restricted : null}
-            compact={phone}
-          />
+        <ProjectSectionActions onTitleLine={phone}>
+          {phone ? (
+            protocol
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-3" data-testid="open-points-tools">
+              <FileSearchField
+                className={TOOL_ROW_SEARCH_CLASS}
+                size="sm"
+                value={query}
+                onChange={search}
+                onSubmit={() => {}}
+                onClear={() => search('')}
+                placeholder={t('openPoints.search.placeholder')}
+                searchLabel={t('openPoints.search.label')}
+                resetLabel={t('openPoints.search.clear')}
+              />
+              <div className="ml-auto flex shrink-0 items-center">{protocol}</div>
+            </div>
+          )}
         </ProjectSectionActions>
+        <p role="status" className="sr-only" data-testid="open-points-search-status">
+          {searching && list.load === 'ready' ? t('openPoints.search.results', { count: shown.length }) : ''}
+        </p>
 
         {/* The Jour fixe's two questions as one row of filter chips, „Alle“ picked while none of the others is. Two
             tracks each showing „Alle“, under the tabs' track, were three choices stacked where one row answers both;
@@ -176,9 +221,25 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
             description={t(filtered ? 'openPoints.empty.filteredBody' : 'openPoints.empty.noneBody')}
             data-testid="open-points-empty"
           />
+        ) : shown.length === 0 ? (
+          <>
+            <EmptyState
+              variant="bare"
+              icon={SearchX}
+              title={t('openPoints.search.noneTitle', { query })}
+              description={t('openPoints.search.noneHint')}
+              data-testid="open-points-no-match"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => search('')}>
+                  {t('openPoints.search.clear')}
+                </Button>
+              }
+            />
+            {loadMore}
+          </>
         ) : (
           <>
-            {byDocument(list.marks).map((group) => (
+            {byDocument(shown).map((group) => (
               <section key={group.documentId} aria-label={group.documentName} className="flex flex-col" data-testid="open-points-document">
                 {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
                     edge. A line as tall as its tonal press (32px, 44px under touch): an overhanging fill reached the first
@@ -218,15 +279,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 </ul>
               </section>
             ))}
-            <LoadMore
-              hasMore={list.hasMore}
-              loading={list.more === 'loading'}
-              failed={list.more === 'error'}
-              onLoadMore={list.loadMore}
-              loadMoreLabel={t('openPoints.loadMore')}
-              loadingLabel={t('openPoints.loadingMore')}
-              failedLabel={t('openPoints.loadMoreFailed')}
-            />
+            {loadMore}
           </>
         )}
       </div>

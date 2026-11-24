@@ -1,0 +1,6 @@
+---
+# area: general
+improvements:
+  - >
+    Corners across the app are slightly tighter, and menus, tabs and switches
+    round their inner corners to match the corners around them.

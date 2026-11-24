@@ -69,7 +69,7 @@ export function NewFolderControl({
             placeholder={t('folders.namePlaceholder')}
             aria-label={t('folders.newFolderName')}
             aria-busy={isCreating}
-            className="h-8 rounded-control pl-8 pr-8"
+            className="h-8 rounded-[6px] pl-8 pr-8"
           />
           {isCreating && (
             <InputGroupAddon align="end">

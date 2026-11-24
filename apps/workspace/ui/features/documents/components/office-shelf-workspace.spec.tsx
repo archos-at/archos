@@ -120,7 +120,7 @@ describe('OfficeShelfWorkspace — library listing', () => {
     const header = await screen.findByTestId('office-shelf-header')
     expect(within(header).getByRole('heading', { level: 1, name: /Office library/ })).toBeInTheDocument()
     for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
-    expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
+    expect(within(header).getByTestId('shelf-head-tools')).toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
@@ -147,7 +147,7 @@ describe('OfficeShelfWorkspace — library listing', () => {
       )
     )
     render(<OfficeShelfWorkspace canManage />)
-    expect(await screen.findByTestId('office-shelf-document-count')).toHaveTextContent('2400')
+    expect(await screen.findByTestId('shelf-head-count')).toHaveTextContent('2400')
   })
 
   it('reads the root of the Archiv as a level, page by page, and never drains it', async () => {

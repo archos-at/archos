@@ -52,7 +52,7 @@ import { Composer } from '@/features/documents/components/review/composer'
 import { useFocusBackOnClose } from '@/features/documents/components/review/focus-return'
 import { MentionText } from './MentionText'
 import { InboxItemFace } from './InboxItemFace'
-import { MARK_CLIENT, useMarkAnswer, type InboxMarkClient } from '../hooks/use-mark-answer'
+import { MARK_CLIENT, useMarkAnswer, wakesAgent, type InboxMarkClient } from '../hooks/use-mark-answer'
 import { InboxItemCaption } from './InboxItemCaption'
 import { inboxDue } from '../lib/inbox-due'
 import { InboxReviewDecision, type InboxReviewClient } from './InboxReviewDecision'
@@ -372,7 +372,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
                 }
                 submitLabel={t('inbox.mark.send')}
                 documentId={item.resourceId}
-                mentionAgent={item.pilotiWakes === true}
+                mentionAgent={wakesAgent(item)}
                 describeFailure={() => t('inbox.mark.failed')}
                 onSubmit={sendReply}
                 onEscape={() => setReplying(false)}

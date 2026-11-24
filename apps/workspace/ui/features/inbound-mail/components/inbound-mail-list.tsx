@@ -67,6 +67,7 @@ export interface InboundMailListProps {
   startHint?: ReactNode
   query?: string
   onQueryChange?: (query: string) => void
+  searchInList?: boolean
   matchCount?: number
   now?: number
 }
@@ -93,8 +94,8 @@ function blocksOf(sections: readonly ListSection[]): Block[] {
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { status, onFilterChange, waitingCount, waitingMore = false, showFilter = true, state, query = '', onQueryChange, matchCount } = props
-  const searchable = onQueryChange !== undefined && state.kind === 'ready' && (state.items.length > 0 || query !== '')
+  const { status, onFilterChange, waitingCount, waitingMore = false, showFilter = true, state, query = '', onQueryChange, searchInList = true, matchCount } = props
+  const searchable = searchInList && onQueryChange !== undefined && state.kind === 'ready' && (state.items.length > 0 || query !== '')
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">

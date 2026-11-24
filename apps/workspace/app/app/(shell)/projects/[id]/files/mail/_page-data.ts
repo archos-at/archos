@@ -14,6 +14,7 @@ import {
   type InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { getInboundMail, listInboundMails } from '@/lib/inbound-mail/service'
+import { INBOUND_MAIL_QUERY_PARAM } from '@/lib/inbound-mail/paths'
 import { listProjectFolders } from '@/lib/projects/folder-service'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import type { FolderOption } from '@/features/inbound-mail/lib/draft'
@@ -24,6 +25,7 @@ export interface InboundMailPageData {
   folders: FolderOption[]
   status: InboundMailListStatus
   outcome: InboundMailOutcome | null
+  query: string
   list: InboundMailListView | null
   mail: InboundMailView | null
 }
@@ -83,6 +85,7 @@ export async function loadInboundMailPage(
     })),
     status,
     outcome,
+    query: typeof searchParams[INBOUND_MAIL_QUERY_PARAM] === 'string' ? searchParams[INBOUND_MAIL_QUERY_PARAM] : '',
     list,
     mail,
   }

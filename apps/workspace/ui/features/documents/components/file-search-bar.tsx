@@ -28,6 +28,9 @@ interface FileSearchBannerProps {
   bannerTestId: string
 }
 
+/** The search's box in a tool row, the same on every place of the Ablage and the Bürobibliothek: it flexes up to 576px from the row's start, the place's own tools at the row's end. */
+export const TOOL_ROW_SEARCH_CLASS = 'min-w-40 max-w-xl flex-1'
+
 type FileSearchBarProps = Omit<FileSearchFieldProps, 'runButton'> &
   FileSearchBannerProps & {
     canSearch: boolean
@@ -65,6 +68,12 @@ export function FileSearchField({
         label={searchLabel}
         clearLabel={resetLabel}
         size={size}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || value === '') return
+          event.preventDefault()
+          event.stopPropagation()
+          onClear()
+        }}
         inputClassName="pr-10 md:pr-9 border-field-border bg-sheet shadow-none hover:border-foreground/60 focus-visible:border-foreground dark:bg-background"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
