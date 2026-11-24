@@ -71,13 +71,11 @@ TOOL_DESCRIPTION = (
     "the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a "
     "person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. "
     "An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. "
-    "By default each point is moved to the one line end or corner within reach, and a point with none is refused; "
-    "pass `snap` false to measure the points exactly as given, as a person does on an empty margin or a wall's face. "
-    "To keep a measurement on the sheet, set a `line`, `path` or `polygon` mark with the same points (canvas `mark`); "
-    "the server measures it again.\n"
+    "`snap` false takes points as given. To keep a measurement, set a canvas `mark` (`line`, `path`, `polygon`) "
+    "on the same points; the server re-measures it. "
     "'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a "
     "length out yourself from a printed scale. State every number with its interval and provenance; never "
-    "recompute, round or convert one. `document` is the PDF's file name; empty means the open document."
+    "recompute, round or convert one."
 )
 
 
@@ -107,7 +105,7 @@ class DrawingMeasureInput(BaseModel):
     )
     snap: bool = Field(
         default=True,
-        description="False measures `from`, `to` and `points` exactly as given, off any linework, as a person does with Ctrl held.",
+        description="False: the points as given, off any linework.",
     )
     threshold_min: float | None = Field(
         default=None, ge=0, allow_inf_nan=False, description="A minimum to compare with, in m or m²."
