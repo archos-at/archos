@@ -9,7 +9,10 @@ import {
   phoneBackTarget,
   phoneTabBarHiddenOnRoute,
   projectPhoneTabs,
+  type PhoneTabLabel,
 } from './phone-tabs'
+import { collaborationCopy } from '@/i18n/namespaces/collaboration'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { projectSection } from './project-sections'
 
 const ALL = { canAccessOfficeShelf: true, canAccessInbox: true }
@@ -207,4 +210,41 @@ describe('under Persönlich (ADR-0193)', () => {
     expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('files')
     expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('settings')
   })
+})
+
+describe('every tab label fits its tab on a 360px phone', () => {
+  const PHONE_WIDTH = 360
+  const BAR_PADDING = 8
+  const LABEL_PADDING = 4
+  // The bar's labels are 11px below 380px; „Dokumente“ in the active tab's semibold measured 65px there in Chromium,
+  // „Meine Ablage“ 75.5px: a space is about half a glyph.
+  const GLYPH_AT_11PX_SEMIBOLD = 65 / 9
+
+  const resolve = (locale: 'de' | 'en', label: PhoneTabLabel): string => {
+    const copy = label.namespace === 'nav' ? navCopy : collaborationCopy
+    const value = label.key
+      .split('.')
+      .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], copy.messages[locale])
+    if (typeof value !== 'string') throw new Error(`no label at ${label.namespace}.${label.key}`)
+    return value
+  }
+
+  const bars = {
+    project: projectPhoneTabs('p1', '/app/projects/p1/chat', ALL),
+    personal: personalPhoneTabs('/app/personal/chat', ALL),
+    org: orgPhoneTabs('/app/projects', ALL),
+  }
+
+  for (const locale of ['de', 'en'] as const) {
+    for (const [scope, tabs] of Object.entries(bars)) {
+      it(`${locale}, ${scope} bar`, () => {
+        const room = (PHONE_WIDTH - BAR_PADDING) / tabs.length - LABEL_PADDING
+        for (const tab of tabs) {
+          const text = resolve(locale, tab.label)
+          const glyphs = text.length - text.split(' ').length / 2 + 0.5
+          expect(glyphs * GLYPH_AT_11PX_SEMIBOLD, `${tab.key} in ${locale}: „${text}“`).toBeLessThanOrEqual(room)
+        }
+      })
+    }
+  }
 })

@@ -48,13 +48,20 @@ afterEach(() => {
 const bar = (): HTMLElement => screen.getByRole('navigation', { name: 'Main navigation' })
 
 describe('PhoneTabBar — inside a project', () => {
+  test('steps its labels down to 11px below 380px, where a semibold „Dokumente“ filled its 70px tab to the pixel', () => {
+    render(<PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox />)
+    for (const label of bar().querySelectorAll('[data-slot="phone-tab-label"]')) {
+      expect(label).toHaveClass('text-xs', 'max-[380px]:text-[11px]', 'truncate')
+    }
+  })
+
   test('five tabs, labelled as the rail labels them, the current one marked', () => {
     render(<PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox />)
     const links = within(bar()).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'Chat',
       'Documents',
-      'Settings',
+      'Overview',
       expect.stringContaining('Inbox'),
     ])
     expect(within(bar()).getByRole('link', { name: 'Documents' })).toHaveAttribute(

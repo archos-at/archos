@@ -150,7 +150,7 @@ function PhoneTabItem({
       <span
         data-slot="phone-tab-label"
         className={cn(
-          'relative max-w-full truncate px-0.5 text-xs leading-none',
+          'relative max-w-full truncate px-0.5 text-xs leading-none max-[380px]:text-[11px]',
           tab.active ? 'font-semibold' : 'font-medium'
         )}
       >
