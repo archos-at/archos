@@ -55,6 +55,14 @@ The context carries no list of readers. A project-visible chat's readers are the
 project's members, and they change outside the conversation, so each turn
 resolves the audience afresh.
 
+A decision narrows, it never widens: the turn context and the agent-api read
+the audience again for the asker and keep the narrower of the two, so a chat
+shared after its turn was decided loses personal memory at once, and one decided
+shared stays shared for the turn. A conversation id erased and created again
+starts at version 0 again; a lookup decided before the erasure and recorded
+after the re-creation would compare equal. Conversation ids are the client's
+uuids, so this needs the same id twice, and the risk is accepted.
+
 The decision is never advisory. If it cannot be resolved, the turn fails closed:
 no personal memory, no personal shelf, and no project, restricted or
 other-project source. `readSoloAudience` used to swallow its errors; the turn

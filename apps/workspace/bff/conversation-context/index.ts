@@ -21,18 +21,27 @@ export async function promptFacts(
   decision: ConversationDecision | null,
 ): Promise<PromptFacts> {
   const { organizationId, userId, conversationId } = context
-  if (decision) {
-    if (decision.conversationId !== conversationId) return CLOSED
-    return { solo: decision.solo, personalMemory: decision.may.personalMemory, workspaceRead: decision.may.workspaceRead }
-  }
+  if (decision && decision.conversationId !== conversationId) return CLOSED
   if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf('chat', null, false) }
   try {
-    const { solo } = await readContextAudience(organizationId, conversationId, userId)
-    return { solo, personalMemory: mayPersonalMemory('chat', conversationId, solo), workspaceRead: workspaceReadOf('chat', conversationId, solo) }
+    const { solo: now } = await readContextAudience(organizationId, conversationId, userId)
+    const solo = now && (decision?.solo ?? true)
+    return {
+      solo,
+      personalMemory: mayPersonalMemory('chat', conversationId, solo) && (decision?.may.personalMemory ?? true),
+      workspaceRead: narrower(workspaceReadOf('chat', conversationId, solo), decision?.may.workspaceRead),
+    }
   } catch (error) {
     console.warn('[Conversation Context] The audience could not be read; the turn is closed:', error)
     return CLOSED
   }
+}
+
+const WORKSPACE_ORDER: readonly WorkspaceRead[] = ['none', 'document+projectFacts', 'all']
+
+function narrower(now: WorkspaceRead, decided: WorkspaceRead | undefined): WorkspaceRead {
+  if (!decided) return now
+  return WORKSPACE_ORDER[Math.min(WORKSPACE_ORDER.indexOf(now), WORKSPACE_ORDER.indexOf(decided))] ?? 'none'
 }
 
 export function decisionFromRequest(request: Request): ConversationDecision | null {

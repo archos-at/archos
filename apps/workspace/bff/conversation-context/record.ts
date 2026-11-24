@@ -34,7 +34,11 @@ export async function recordAnswerContext(
   await executor
     .insert(answerContexts)
     .values({ organizationId: party.organizationId, messageId: party.answerMessageId, ...decided })
-    .onConflictDoUpdate({ target: [answerContexts.organizationId, answerContexts.messageId], set: decided })
+    .onConflictDoUpdate({
+      target: [answerContexts.organizationId, answerContexts.messageId],
+      set: decided,
+      setWhere: eq(answerContexts.conversationId, party.conversationId),
+    })
 }
 
 export interface AnswerReads {
