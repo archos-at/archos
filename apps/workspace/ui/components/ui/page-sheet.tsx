@@ -33,11 +33,11 @@ export const PAGE_SHEET_WINDOW_CLASS =
 
 export type PageSheetSize = 'page' | 'window'
 
-const SLIDE_MOTION = (fromY: number | string | undefined) => ({
-  initial: { y: fromY ?? '100%' },
+const SLIDE_MOTION = {
+  initial: { y: '100%' },
   animate: { y: 0, transition: motionSheetEnter },
   exit: { y: '100%', transition: motionSheetExit },
-})
+}
 
 const WINDOW_MOTION = {
   initial: { opacity: 0, y: 8 },
@@ -54,7 +54,6 @@ interface PageSheetProps {
   headerActions?: React.ReactNode
   headerless?: boolean
   initialFocusRef?: React.RefObject<HTMLElement | null>
-  enterFrom?: { y: number; scrim: number }
   onExitComplete?: () => void
   bodyClassName?: string
   size?: PageSheetSize
@@ -70,7 +69,6 @@ export function PageSheet({
   headerActions,
   headerless = false,
   initialFocusRef,
-  enterFrom,
   onExitComplete,
   bodyClassName,
   size = 'page',
@@ -108,7 +106,7 @@ export function PageSheet({
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
                 className={asWindow ? PAGE_SHEET_WINDOW_OVERLAY_CLASS : PAGE_SHEET_OVERLAY_CLASS}
-                initial={{ opacity: enterFrom?.scrim ?? 0 }}
+                initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: motionEntrance }}
                 exit={{ opacity: 0, transition: motionSheetExit }}
               />
@@ -125,7 +123,7 @@ export function PageSheet({
               <motion.div
                 className={asWindow ? PAGE_SHEET_WINDOW_CLASS : cn(PAGE_SHEET_PANEL_CLASS, PANEL_WIDTH)}
                 data-size={size}
-                {...(slides ? SLIDE_MOTION(enterFrom?.y) : WINDOW_MOTION)}
+                {...(slides ? SLIDE_MOTION : WINDOW_MOTION)}
                 drag={slides ? 'y' : false}
                 dragListener={false}
                 dragControls={dragControls}

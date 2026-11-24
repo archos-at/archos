@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider } from '@/i18n'
 import { ProjectSwitcher } from './project-switcher'
 import { RECENT_PROJECTS_STORAGE_KEY } from './recent-projects'
+import { useProjectOverview } from './project-overview-entry'
 
 const push = vi.hoisted(() => vi.fn())
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
@@ -68,10 +69,12 @@ describe('the project selector is one press', () => {
     expect(overview.parentElement).toBe(create.parentElement)
     expect(overview.parentElement).toHaveClass('grid-cols-2')
     await user.click(overview)
-    expect(push).toHaveBeenLastCalledWith('/app/projects')
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: false, returnFocus: selector() })
     await user.click(selector())
     await user.click(await screen.findByRole('button', { name: 'New project' }))
-    expect(push).toHaveBeenLastCalledWith('/app/projects?new=1')
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: true })
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
   })
 
   test('choosing the current project only closes the menu; its gear alone opens the project settings', async () => {

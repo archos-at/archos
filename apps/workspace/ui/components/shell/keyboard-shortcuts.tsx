@@ -14,6 +14,7 @@ import {
   resolveJump,
   type ShortcutFlags,
 } from './shortcuts'
+import { openOverviewFor } from './project-overview-entry'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -121,7 +122,7 @@ export function KeyboardShortcuts({
         const href = resolveJump(event.key, flags, projectIdRef.current)
         if (href) {
           event.preventDefault()
-          router.push(href)
+          if (!openOverviewFor(href, 'keyboard')) router.push(href)
         }
         return
       }

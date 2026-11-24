@@ -2,12 +2,12 @@
 
 import type { JSX } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import { ProjectOverview } from '@/components/projects/project-overview'
-import { RoutePageSheet } from '@/components/shell/route-page-sheet'
-import { PageSheetClose } from '@/components/ui/page-sheet'
+import { Suspense, useEffect } from 'react'
+import { openProjectOverview } from '@/components/shell/project-overview-entry'
+import { ProjectOverviewWindow } from '@/components/shell/project-overview-window'
 import { I18nProvider } from '@/i18n'
 import type { Project } from '@/lib/db/schema/projects'
+import { toOverviewProject } from '@/lib/projects/overview-project'
 
 const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000)
 
@@ -96,15 +96,13 @@ const MANY: Project[] = [
 
 function ProjectOverviewPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant')
+  useEffect(() => openProjectOverview({ summon: 'keyboard' }), [])
   return (
     <div data-testid="project-overview-preview" className="bg-background text-foreground min-h-dvh">
-      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window" bodyClassName="flex flex-col overflow-hidden">
-        <ProjectOverview
-          projects={variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE}
-          viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
-          closeAction={<PageSheetClose label="Schließen" />}
-        />
-      </RoutePageSheet>
+      <ProjectOverviewWindow
+        projects={(variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE).map(toOverviewProject)}
+        viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
+      />
     </div>
   )
 }

@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { useShellOverlays } from './shell-overlays'
 import { orgPhoneTabs, personalPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
 import { railModeOf } from './rail-mode'
+import { overviewLinkClick } from './project-overview-entry'
 
 export interface PhoneTabBarProps {
   projectId: string | null
@@ -176,9 +177,11 @@ function PhoneTabItem({
     )
   }
 
+  const href = tab.href
   return (
     <Link
-      href={tab.href}
+      href={href}
+      onClick={(event) => overviewLinkClick(href, event)}
       aria-current={tab.active ? 'page' : undefined}
       data-tour={tab.tourAnchor}
       data-tour-placement="above"

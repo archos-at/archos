@@ -1,15 +1,9 @@
-import type { JSX } from 'react'
-import { type Metadata } from 'next'
-import { getTranslations } from '@/i18n/server'
-import { projectsCopy } from '@/i18n/namespaces/projects'
-import { ProjectOverviewSheet } from '../project-overview-sheet'
+import { redirect } from 'next/navigation'
+import { OVERVIEW_PARAM } from '@/components/shell/landing'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations(projectsCopy)
-  return { title: t('portfolio.title') }
-}
-
-export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }): Promise<JSX.Element> {
+/** The overview is a window of the shell, not a page: a bookmark, a refresh or a redirect to `/app/projects` lands where
+ *  `/app` would and opens it there. */
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }): Promise<never> {
   const { new: newParam } = await searchParams
-  return <ProjectOverviewSheet standalone autoOpenCreate={newParam === '1'} />
+  redirect(`/app?${OVERVIEW_PARAM}=${newParam === '1' ? 'new' : '1'}`)
 }
