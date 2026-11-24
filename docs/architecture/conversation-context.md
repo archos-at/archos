@@ -1,6 +1,6 @@
 # The conversation context
 
-Status: design, decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Not built yet. The evidence it rests on, with file and line, is in
+Status: design, decided in [ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Not built yet. The evidence it rests on, with file and line, is in
 [`audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md).
 Reviewed twice against `develop` by independent agents. Their blockers are folded
 in below.
@@ -56,13 +56,13 @@ does not.
 
 `kind` is derived from the vocabulary the code already has
 (`bff/agent-api/call-door.ts`: `CallDoor`, `SessionSource`); it is not a second
-one.
+one. A signed envelope without a kind reads as `chat` (envelopes signed before the kind existed); a kind that is present but unknown is refused, never widened.
 
 | Kind | Who | Base, office shelf, project | Restricted folders, other projects | Personal memory | Personal shelf |
 |---|---|---|---|---|---|
 | `chat` | a turn in a conversation, including a wake turn and an agent's ask in a chat | yes | what every reader may read | when `solo` | when `solo` and the chat has no project |
-| `run` | tasks and deep research; with a conversation, that chat's audience | yes | as `chat` when it has a conversation, otherwise none | as `chat` when it has a conversation, otherwise no | no: a run's decision lives up to an hour, past a share |
-| `headless` | document check, project intake, wake stop, jobs that serve no reader | the project only | none | no | no |
+| `run` | tasks and deep research; with a conversation in the run's own project, that chat's audience; a chat in another project or in none counts as no conversation | yes, with the office shelf | none, with or without a conversation: a run's decision lives up to an hour | as `chat` when it has a conversation, otherwise no | no: a run's decision lives up to an hour, past a share |
+| `headless` | document check, project intake, wake stop, jobs that serve no reader | the project only; its workspace read is the one document it serves and the project's facts | none | no | no |
 | `external` | the `mcp`, `a2a` and `platform` doors and `script` sessions; the built-in agent's door is `chat`, `run` or `headless` by what started it | yes, with the caller's rights, through the agent-api | through the agent-api's per-target checks | no | never drawn into a context; through the `mcp` door the person's own agent may upload to, list, search and read their own shelf, through `a2a` and `platform` nothing |
 
 **The predicates.** Each is defined once, in `types.ts`.
@@ -71,7 +71,7 @@ one.
 - `may.personalMemory = solo && conversationId !== null && (kind === 'chat' || kind === 'run')`.
   ADR-0180 holds for chats as it does today: a solo project chat keeps personal
   memory.
-- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0191.
+- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193.
 - `may.features = entitlement && !confined`. A turn that draws on restricted
   folders keeps deep research and tasks off, as `settle_restriction` does today.
 - `isShared` in `bff/sharing/access.ts` stays viewer-independent. It decides
@@ -194,7 +194,15 @@ eight prefixes and refuses only under `require_auth`:
 - `/v1/drafts`
 
 These routes keep their internal-token guard, and fail-closed does not touch them.
-Neither does ingestion, nor the worker identity headers. They serve no answer.
+Neither does ingestion. A job worker binds its identity (organization, project,
+user) explicitly from the job it runs, not by parsing plain headers, so a run
+without an envelope still names its organization for residency, credentials and
+cost.
+
+**A BFF route serving a turn** takes the turn's shelves from one helper: the
+verified decision when the call carries one, the envelope's signed scope
+otherwise. A socket turn's envelope carries no scope, so a route that checks only
+the envelope would refuse every chat turn.
 
 ## What it makes possible
 
@@ -268,8 +276,12 @@ What slice 1 fixes, so no builder has to guess:
 
 1. **The BFF decides and dual-writes.** `turn-decision` exists, and the socket
    envelope still carries the old `collectionScope`.
-2. **Python binds the decision before any scope read.** It falls back to the old
-   envelope scope only inside a valid signature.
+2. **Python binds the decision before any scope read.** A bound decision is the
+   only scope, and its signature alone authorizes a restricted read. Where a
+   decision is required (`require_auth`) and missing or refused, the turn reads
+   nothing. Only where no decision is required does Python fall back to the old
+   envelope scope, inside a valid signature, and a restricted collection there
+   still passes the live per-turn check (`begin_restricted_use`) until step 3.
 3. **The old fields are dropped.** That means the upgrade-time scope, the
    plain-header fallbacks and `begin_restricted_use`. The gate is a fact, not a
    clock: no run that started before step 2 was deployed is still active, and no
@@ -299,7 +311,7 @@ What slice 1 fixes, so no builder has to guess:
    the run and job readers (`jobs/access.py`, `agent_job_setup.py`,
    `run_envelope.py`), `routes/document_search.py` (an exempt route),
    `routes/skills.py` and `turn/response.py`.
-4. **ADR-0191 on top:** `may.personalShelf`, the personal admit callback,
+4. **ADR-0193 on top:** `may.personalShelf`, the personal admit callback,
    `recorded.personalShelf` and the owner's confirmation. The personal shelf's
    row policy extends the one permissive policy on `documents` (migration 0031,
    held by `rls-coverage.spec.ts`), so it is a single predicate. The builder
