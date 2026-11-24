@@ -270,6 +270,7 @@ export function ProjectSectionFrame({
             place={allFiles ? placeState : null}
             phone={phone}
             tools={actions}
+            toolsPending={allFiles}
             toolsAtEnd={actionsOnTitle}
             places={<FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />}
             placesOnPhone={!opened}
