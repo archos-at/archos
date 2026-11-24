@@ -1372,6 +1372,10 @@
     "de": "Der leere Chat im Projekt sagt jetzt in einem Satz, dass Piloti auf Zuruf auch Aktenvermerke und Entwürfe schreibt."
   },
   {
+    "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
+    "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+  },
+  {
     "en": "An entry is marked read however you reach it: from a notification on your device, or by opening its Anmerkung in the Prüfansicht.",
     "de": "Ein Eintrag wird unabhängig davon, wie Sie ihn aufrufen, als gelesen markiert: über eine Benachrichtigung auf Ihrem Gerät oder durch Öffnen der zugehörigen Anmerkung in der Prüfansicht."
   },
