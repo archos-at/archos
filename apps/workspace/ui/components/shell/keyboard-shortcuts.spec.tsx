@@ -35,7 +35,7 @@ describe('KeyboardShortcuts', () => {
   beforeEach(() => {
     push.mockClear()
     window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
-    useShellOverlays.setState({ paletteOpen: false })
+    useShellOverlays.setState({ paletteOpen: false, paletteSummon: 'keyboard' })
     pathname = '/app/projects'
     vi.stubGlobal(
       'fetch',
@@ -253,6 +253,28 @@ describe('KeyboardShortcuts', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull())
     expect(useShellOverlays.getState().paletteOpen).toBe(false)
+  })
+
+  test('a click on the search button gives the palette its entrance; ⌘K opens it in one frame', async () => {
+    render(
+      <>
+        <ShellSearchButton />
+        <KeyboardShortcuts authRequired canViewOrganization />
+      </>,
+    )
+
+    fireEvent.click(screen.getByTestId('shell-search'))
+    const clicked = await screen.findByRole('dialog')
+    expect(clicked).not.toHaveAttribute('data-instant')
+    expect(clicked.className).toContain('data-[state=open]:animate-in')
+
+    act(() => useShellOverlays.getState().setPaletteOpen(false))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    pressCmdK()
+    const keyed = await screen.findByRole('dialog')
+    expect(keyed).toHaveAttribute('data-instant', 'true')
+    expect(keyed.className).not.toMatch(/animate-in|zoom-in-95/)
   })
 
   test('with shortcuts off the keys are inert, but the search button still opens the palette', async () => {

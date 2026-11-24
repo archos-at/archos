@@ -1018,7 +1018,9 @@ times stops being a physical cue and becomes texture.
   (`DialogContent instant`; `CommandDialog` is instant by default). They are
   opened from the keyboard many times a day, and an entrance there is latency
   between the keystroke and the thing asked for. A dialog opened with a click
-  on an occasional task keeps its entrance.
+  keeps its entrance, the palette included: the search button opens it with
+  the dialog's fade and scale (`useShellOverlays().paletteSummon`), so a click
+  never lands on a panel that simply appears.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto
