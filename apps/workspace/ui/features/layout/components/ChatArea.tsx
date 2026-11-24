@@ -148,15 +148,19 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           up and newer content is below. Pinned to the wrapper (not the scroll
           content) so it stays put while the thread scrolls behind it. Above the
           status dock while it speaks. On a phone it sits at the trailing edge,
-          where a right thumb rests above the composer, 44px; centred it landed on
-          the middle of the last line being read. */}
+          where a right thumb rests, centred it landed on the middle of the last
+          line being read; and low, in the list's end gap, 36px with a 44px
+          catchment: 44px at 1rem up covered the ends of two lines. */}
         <AnimatePresence>
           {controller.showScrollButton && (
             <motion.div
-              className="pointer-events-none absolute inset-x-0 z-10 flex justify-center max-sm:justify-end max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))]"
-              style={{
-                bottom: `calc(var(--composer-h, 11rem) + ${connectionNote || (controller.shared && controller.typists.length > 0) ? '2.25rem' : '1rem'})`,
-              }}
+              className={cn(
+                'pointer-events-none absolute inset-x-0 z-10 flex justify-center max-sm:justify-end max-sm:pr-[max(1rem,env(safe-area-inset-right))] max-sm:pl-[max(1rem,env(safe-area-inset-left))]',
+                connectionNote || (controller.shared && controller.typists.length > 0)
+                  ? 'bottom-[calc(var(--composer-h,11rem)+2.25rem)]'
+                  : 'bottom-[calc(var(--composer-h,11rem)+1rem)] max-sm:bottom-[calc(var(--composer-h,11rem)+0.25rem)]'
+              )}
+              data-testid="chat-scroll-to-latest-dock"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
@@ -173,7 +177,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
                 className={cn(
                   PRESSABLE,
                   FOCUS_RING,
-                  'bg-card text-muted-foreground hover:text-foreground pointer-events-auto flex size-9 items-center justify-center rounded-control outline-none pointer-coarse:size-11 shadow-md'
+                  'bg-card text-muted-foreground hover:text-foreground touch-target pointer-events-auto flex size-9 items-center justify-center rounded-control outline-none shadow-md'
                 )}
               >
                 <ArrowDown className="size-4" aria-hidden="true" />
