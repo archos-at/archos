@@ -1156,6 +1156,10 @@
     "de": "Nachdem Sie eine Rückfrage beantwortet haben, zeigt ein Hinweis unten im Chat jetzt, dass Piloti weiterarbeitet. Bisher wirkte der Chat fertig, obwohl die Antwort noch kam."
   },
   {
+    "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+    "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
+  },
+  {
     "en": "After you mark an answer as not helpful, \"Answer again, more thoroughly\" asks the same question again, and Piloti thinks longer about that one answer. Your chat's thinking setting stays as it was.",
     "de": "Wenn Sie eine Antwort als nicht hilfreich markieren, stellt „Antwort erneut, ausführlicher“ dieselbe Frage noch einmal, und Piloti denkt bei dieser einen Antwort länger nach. Die Einstellung für die Denkzeit Ihres Chats bleibt unverändert."
   },
@@ -3944,6 +3948,10 @@
     "de": "Die @-Liste zeigt Ihre Kolleginnen und Kollegen wieder an, sobald die Verbindung zur Anmeldung wiederhergestellt ist. Zuvor konnte eine fehlgeschlagene Abfrage sie für mehrere Minuten leer lassen."
   },
   {
+    "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+    "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+  },
+  {
     "en": "The Archiv and the inbox now rise as a large panel over whatever you were looking at, instead of taking over the whole screen as a separate page. Open one from inside a project and the project stays visible underneath, so you never lose your place — close it and you are exactly where you left off.",
     "de": "Das Archiv und die Inbox erscheinen jetzt als großes Panel über der gerade geöffneten Ansicht, statt als separate Seite den ganzen Bildschirm einzunehmen. Öffnen Sie eines davon innerhalb eines Projekts, bleibt das Projekt darunter sichtbar. So verlieren Sie nicht den Überblick – beim Schließen gelangen Sie genau an die Stelle zurück, an der Sie aufgehört haben."
   },
@@ -4086,6 +4094,10 @@
   {
     "en": "The Postfach has four filters: „Für mich“ is what waits on you, „Ungelesen“ what you have not opened, „Alle“ everything, and „Archiviert“ what you put away, which you can restore. A row can be marked unread again, older entries load at the end of the list, and J, K, Enter, E and U work the list from the keyboard.",
     "de": "Das Postfach hat vier Filter: „Für mich“ zeigt, was bei Ihnen ansteht, „Ungelesen“ zeigt, was Sie noch nicht geöffnet haben, „Alle“ zeigt alles und „Archiviert“ zeigt, was Sie abgelegt haben und wiederherstellen können. Ein Eintrag kann wieder als ungelesen markiert werden, ältere Einträge werden am Ende der Liste geladen und mit J, K, Enter, E und U bedienen Sie die Liste per Tastatur."
+  },
+  {
+    "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+    "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
   },
   {
     "en": "The Postfach says who: a row shows the colleague's face and names them in the title, „Anna Weber hat in „Atrium“ geschrieben“. A row about an Anmerkung opens it with „Zur Anmerkung“, and an Anmerkung assigned to you, or Piloti's question, can be answered or resolved right in the row.",
@@ -5490,6 +5502,10 @@
   {
     "en": "When you send a new question while Piloti is still answering the previous one, the earlier answer is now stopped completely before the new one starts, so the two can no longer mix in one conversation. In the rare case that the earlier answer does not stop within a few seconds, Piloti says it is still finishing and asks you to send the question again.",
     "de": "Wenn Sie eine neue Frage senden, während Piloti noch die vorherige beantwortet, wird die frühere Antwort vollständig beendet, bevor die neue beginnt. So können sich die beiden nicht mehr in einer Unterhaltung vermischen. Falls die frühere Antwort ausnahmsweise nicht innerhalb weniger Sekunden stoppt, teilt Piloti Ihnen mit, dass sie noch abgeschlossen wird, und bittet Sie, die Frage erneut zu senden."
+  },
+  {
+    "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+    "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
   },
   {
     "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",

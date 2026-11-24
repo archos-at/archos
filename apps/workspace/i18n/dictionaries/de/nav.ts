@@ -9,7 +9,6 @@ export const nav: typeof en.nav = {
   personalNavigation: 'Persönliche Navigation',
   newChat: 'Neuer Chat',
   personalShelf: 'Meine Ablage',
-  projectTeam: 'Projektteam',
   recentChats: 'Letzte Chats',
   allChats: 'Alle Chats',
   temporaryChat: '(temporärer Chat)',
@@ -23,7 +22,6 @@ export const nav: typeof en.nav = {
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',
   resizeSidebar: 'Breite der Seitenleiste ändern',
-  resizeDock: 'Breite der Leiste neben der Seite ändern',
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
   expandSidebarHint: 'Ziehen oder klicken zum Ausklappen',
   openNavigation: 'Navigation öffnen',
@@ -72,6 +70,7 @@ export const nav: typeof en.nav = {
     },
   },
   filesPlaces: 'Orte der Ablage',
+  projectTeam: 'Projektteam',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

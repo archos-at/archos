@@ -32,6 +32,7 @@ function renderWithBytes(name: string) {
       folders={FOLDERS}
       client={client}
       onChanged={vi.fn()}
+      onFiled={vi.fn()}
       now={FIXTURE_NOW}
       pollMs={1}
     />

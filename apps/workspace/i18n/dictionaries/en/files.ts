@@ -555,6 +555,7 @@ export const files = {
   },
   bin: {
     title: 'Bin',
+    dialogDescription: 'Deleted files and folders of the project. Each row says until when it can be restored.',
     empty: 'The bin is empty.',
     emptyHint: 'Deleted folders appear here and can be restored.',
     deletedBy: 'deleted by {name} on {date}',
@@ -934,6 +935,9 @@ export const files = {
     upload: 'Upload',
     uploadFolder: 'Upload folder',
     uploadFiles: 'Choose files',
+    mails: 'E-mails',
+    importMailArchive: 'Import an Outlook archive …',
+    importMailArchiveHint: 'Attachments into folders, the text into the mail threads',
   },
   errors: {
     projectClosed: 'This project is closed and read-only. Whoever manages it can reopen it from the notice at the top or in the Overview.',
@@ -1128,6 +1132,8 @@ export const files = {
   },
   filters: {
     label: 'Filter',
+    menuItem: 'Filter and sort',
+    moreActive: 'More, {count} filters active',
     labelActive: 'Filters ({count} active)',
     reset: 'Reset filters',
     alsoShowLabel: 'Also show',

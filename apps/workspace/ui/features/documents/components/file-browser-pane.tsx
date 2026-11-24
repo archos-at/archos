@@ -369,7 +369,6 @@ export function FileBrowserPane({
         <FolderBreadcrumbRow
           searching={searching}
           itemCount={currentFolderId === null ? undefined : folderItemCount(currentFolderId)}
-          emptyLevel={levelEmpty && !searching && !slice}
           folders={folderNav.folders}
           currentFolderId={folderNav.currentFolderId}
           onNavigate={folderNav.onNavigate}
@@ -509,7 +508,7 @@ export function FileBrowserPane({
           className={cn(CONTENT_MAX, 'px-4 pt-6')}
         >
           {/* `data-empty-level`: its Hochladen is the pane's one ink press, so the phone's floating one steps out
-              (`UploadFab`) and the tool row's steps back (`useSectionPrimaryYields`). A finger cannot drop on a page. */}
+              (`UploadFab`); the tool row's is never ink. A finger cannot drop on a page. */}
           <EmptyState variant="bare" className="items-start py-0 text-left" data-empty-level=""
             icon={FolderOpen}
             title={t('browser.folderEmptyTitle')}

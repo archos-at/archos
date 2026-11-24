@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import { cn } from '@/lib/utils'
-import { Camera, ChevronDown, FolderUp, Images, Mail, Upload } from 'lucide-react'
+import { Camera, ChevronDown, FolderUp, Images, Mail, MailPlus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuItemText,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -38,6 +39,7 @@ interface ProjectUppyUploadProps {
   pickFilesRef?: MutableRefObject<(() => void) | null>
   pickFolderRef?: MutableRefObject<(() => void) | null>
   onSendByMail?: () => void
+  onImportMailArchive?: () => void
   acceptsMailArchives?: boolean
 }
 
@@ -52,6 +54,7 @@ export function ProjectUppyUpload({
   pickFilesRef,
   pickFolderRef,
   onSendByMail,
+  onImportMailArchive,
   acceptsMailArchives = false,
 }: ProjectUppyUploadProps) {
   const t = useTranslations(filesCopy)
@@ -247,13 +250,22 @@ export function ProjectUppyUpload({
               {t('upload.uploadFolder')}
             </DropdownMenuItem>
           )}
-          {onSendByMail && (
+          {(onSendByMail || onImportMailArchive) && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
-                <Mail className="size-4" aria-hidden />
-                <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
-              </DropdownMenuItem>
+              <DropdownMenuLabel>{t('upload.mails')}</DropdownMenuLabel>
+              {onSendByMail && (
+                <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
+                  <MailPlus className="size-4" aria-hidden />
+                  <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
+                </DropdownMenuItem>
+              )}
+              {onImportMailArchive && (
+                <DropdownMenuItem onSelect={onImportMailArchive} data-testid="project-upload-import-mail-archive">
+                  <Mail className="size-4" aria-hidden />
+                  <DropdownMenuItemText title={t('upload.importMailArchive')} hint={t('upload.importMailArchiveHint')} />
+                </DropdownMenuItem>
+              )}
             </>
           )}
           {/* What the grid's dashed „Dateien hierher ziehen“ tile said, where the hand already is: the page takes a drop

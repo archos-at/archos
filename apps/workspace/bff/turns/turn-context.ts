@@ -77,7 +77,7 @@ export async function resolveTurnContext(
   }
 
   const organizationId = session?.organizationId
-  const effectiveProjectId = authorizedProjectId ?? projectId
+  const effectiveProjectId = authorizedProjectId
 
   const memoryReflectionEnabled = await isMemoryReflectionEnabled(organizationId)
   const budgetStatus =

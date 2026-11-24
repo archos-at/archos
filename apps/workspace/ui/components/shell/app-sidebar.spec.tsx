@@ -40,7 +40,7 @@ vi.mock('./connection-band', () => ({
     <div data-testid="connection-band" data-appearance={appearance} />
   ),
 }))
-vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
+vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div data-testid="user-menu" /> }))
 vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 
 vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
@@ -62,18 +62,18 @@ afterEach(() => {
   useShellOverlays.setState({ paletteOpen: false })
 })
 
-describe('the Inbox entry follows canAccessInbox, in both directions', () => {
-  test('shows the bell beside the person when the reader may reach the inbox', () => {
-    const { container } = render(<AppSidebar {...baseProps} canAccessInbox />)
-    const bell = container.querySelector('[data-slot="rail-inbox-bell"]')
+describe('the inbox bell stands beside the person, for a reader who may reach the inbox', () => {
+  test('is in the rail footer next to the user menu, and is not a section of the nav', () => {
+    render(<AppSidebar {...baseProps} canAccessInbox />)
+    const bell = screen.getByTestId('inbox-bell')
     expect(bell).toHaveAttribute('href', '/app/inbox')
-    expect(bell).toHaveAccessibleName('Inbox')
-    expect(container.querySelector('[data-sidebar="footer"]')).toContainElement(bell as HTMLElement)
+    expect(bell.closest('[data-slot="rail-person"]')).toContainElement(screen.getByTestId('user-menu'))
+    expect(bell.closest('nav')).toBeNull()
   })
 
-  test('hides it when they may not', () => {
-    const { container } = render(<AppSidebar {...baseProps} canAccessInbox={false} />)
-    expect(container.querySelector('[data-slot="rail-inbox-bell"]')).toBeNull()
+  test('is absent when the reader cannot reach the inbox', () => {
+    render(<AppSidebar {...baseProps} canAccessInbox={false} />)
+    expect(screen.queryByTestId('inbox-bell')).not.toBeInTheDocument()
     expect(screen.queryByText('Inbox')).not.toBeInTheDocument()
   })
 })

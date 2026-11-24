@@ -55,7 +55,7 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
-const SUBPAGES = ['files/mail', 'files/bin', 'files/open-points'] as const
+const SUBPAGES = ['files/mail', 'files/open-points'] as const
 type Subpage = (typeof SUBPAGES)[number]
 const SUBPAGE_SET: ReadonlySet<string> = new Set(SUBPAGES)
 
@@ -85,7 +85,6 @@ export {
   SectionLevelTools,
   useInSectionToolRow,
   useSectionNewFolder,
-  useSectionPrimaryYields,
   useSectionTabActionsSlot,
   useSectionToolTier,
   type SectionToolTier,
@@ -206,7 +205,7 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
       pillId="files-places-pill"
       orientation="tabs"
       pathname={pathname}
-      track
+      words
       compactOnPhone
       data-testid="files-tabs"
     />
@@ -285,8 +284,14 @@ export function ProjectSectionFrame({
               files && !phone ? (
                 <>
                   {projectStep}
+                  {allFiles && !place && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span className="shrink-0">{t('projectTeam')}</span>
+                    </>
+                  )}
                   {!(allFiles && !place) && <ChevronRight className="size-3 shrink-0" aria-hidden />}
-                  {place ? place.trail : allFiles ? <span className="shrink-0" data-testid="files-audience">· {t('projectTeam')}</span> : <span className="shrink-0">{sectionLabel}</span>}
+                  {place ? place.trail : allFiles ? null : <span className="shrink-0">{sectionLabel}</span>}
                 </>
               ) : files && place?.phoneTrail ? (
                 place.phoneTrail
@@ -319,15 +324,16 @@ export function ProjectSectionFrame({
             }
             action={files && (phone || allFiles) ? undefined : actions}
           />
+          {toolRow && !phone && <SectionToolRow className="mt-6">{actions}</SectionToolRow>}
           {files && (
-            <div className={cn('-mb-2 mt-6 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
+            <div className={cn('-mb-4 mt-4 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}
           {/* Another section's own places (`ProjectSectionTabs`), where Dateien's stand; nothing where it has none. */}
           {!files && <div ref={setTabsSlot} className="-mb-2 mt-6 min-w-0 empty:hidden phone:mt-4" data-testid="section-tabs-slot" />}
           {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
-          {toolRow && (
+          {toolRow && phone && (
             <SectionToolRow className="mt-4">{actions}</SectionToolRow>
           )}
         </div>

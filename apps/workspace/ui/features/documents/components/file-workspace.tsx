@@ -12,6 +12,7 @@ import type { FileItem, FolderItem } from '../file-types'
 import type { DocumentWireRow } from '../lib/file-item'
 import type { FileShelf } from '../lib/file-shelf'
 import type { RootSortShelf } from '@/lib/filing/root-sort-types'
+import { activeFilterCount } from '../lib/file-filters'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { useFileWorkspaceListing } from '../hooks/use-file-workspace-listing'
 import { useFileWorkspaceChanges } from '../hooks/use-file-workspace-changes'
@@ -33,7 +34,6 @@ import { FolderPickerSheet } from './folder-picker-sheet'
 import { RootSortDialog } from './root-sort/root-sort-dialog'
 import { SelectionBar } from './selection-bar'
 import { sortedFolderDestinations } from '../lib/folder-path-label'
-import { activeFilterCount } from '../lib/file-filters'
 import { FilesHeaderControls } from './files-header-controls'
 import { usePhoneRootTools } from './phone-root-tools'
 import { FolderAccessDialog } from './folder-access-dialog'
@@ -182,6 +182,7 @@ export function FileWorkspace({
         onUpload={handleUpload}
         isUploading={isUploading}
         onSendByMail={shelf.inboundMail?.openAddress}
+        onImportMailArchive={shelf.openMailImport}
         acceptsMailArchives={Boolean(shelf.takeMailArchives)}
         {...props}
       />
@@ -224,9 +225,9 @@ export function FileWorkspace({
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
       filterCount={activeFilterCount(filters, canCollaborate)}
       shelfSource={shelf.source}
-      renderFilter={(compact, menu) => (
+      renderFilter={(compact, anchored) => (
         <FileFilterMenu
-          menu={menu}
+          anchored={anchored}
           canCollaborate={canCollaborate}
           filters={filters}
           onFiltersChange={setFilters}

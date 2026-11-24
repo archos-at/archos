@@ -11,9 +11,10 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { SectionLevelTools, useSectionNewFolder, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { cn } from '@/lib/utils'
 import type { FileView } from '../hooks/use-view-preference'
-import type { FileFilterMenuAnchor } from './file-filter-menu'
 import { FileSearchField } from './file-search-bar'
+import type { FileFilterMenuProps } from './file-filter-menu'
 
 export interface FilesHeaderControlsProps {
   phone: boolean
@@ -22,7 +23,7 @@ export interface FilesHeaderControlsProps {
   binHref?: string
   openPointsHref?: string
   inboundMail?: { href: string; waiting: number | null }
-  renderFilter: (compact: boolean, menu?: FileFilterMenuAnchor) => ReactNode
+  renderFilter: (compact: boolean, anchored?: FileFilterMenuProps['anchored']) => ReactNode
   filterCount?: number
   shelfSource?: 'project' | 'office' | 'personal'
   search: {
@@ -87,21 +88,13 @@ export function FilesHeaderControls({
       </ToggleGroupItem>
     </ToggleGroup>
   )
-  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string, marked = 0): JSX.Element => (
+  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string): JSX.Element => (
     <ActionMenu
       mode="dropdown"
       entries={[...entries]}
       trigger={
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          className="relative"
-          aria-label={marked > 0 ? `${t('workspace.more')}, ${t('filters.labelActive', { count: marked })}` : t('workspace.more')}
-          data-testid={testId}
-        >
+        <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid={testId}>
           <MoreHorizontal aria-hidden />
-          {marked > 0 && <CountPill tone="attention" aria-hidden className="absolute -right-1.5 -top-1.5" count={marked} data-testid="file-filter-count" />}
         </Button>
       }
     />
@@ -183,34 +176,58 @@ export function FilesHeaderControls({
   }
 
   if (tier !== null) {
+    const narrow = tier === 'narrow'
     const more: ActionMenuEntry[] = [
+      { type: 'label', label: t('workspace.view.label') },
       viewChoice,
       { type: 'separator' },
-      { type: 'item', id: 'filter', label: t('filters.label'), icon: SlidersHorizontal, onSelect: () => setFilterOpen(true), testId: 'files-filter-item' },
-      ...(newFolder ? [{ type: 'item' as const, id: 'new-folder', label: t('folders.newFolder'), icon: FolderPlus, onSelect: newFolder, testId: 'files-new-folder-item' }] : []),
+      {
+        type: 'item',
+        id: 'filter',
+        label: t('filters.menuItem'),
+        hint: filterCount > 0 ? t('filters.labelActive', { count: filterCount }) : undefined,
+        icon: SlidersHorizontal,
+        onSelect: () => setFilterOpen(true),
+        testId: 'files-filter-open',
+      },
+      ...(newFolder
+        ? [{ type: 'item' as const, id: 'new-folder', label: t('folders.newFolder'), icon: FolderPlus, onSelect: newFolder, testId: 'files-new-folder' }]
+        : []),
       ...(advancedEntries && advancedEntries.length > 0 ? [{ type: 'separator' as const }, ...advancedEntries] : []),
     ]
+    const moreTrigger = (
+      <ActionMenu
+        mode="dropdown"
+        entries={more}
+        trigger={
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="relative"
+            aria-label={filterCount > 0 ? t('filters.moreActive', { count: filterCount }) : t('workspace.more')}
+            data-testid="files-more"
+          >
+            <MoreHorizontal aria-hidden />
+            {filterCount > 0 && <CountPill tone="attention" aria-hidden className="absolute -right-1.5 -top-1.5" count={filterCount} />}
+          </Button>
+        }
+      />
+    )
     return (
-      <div className="flex min-w-0 flex-1 items-center gap-2 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
+      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
         {searchField('min-w-40 flex-1')}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className={cn('flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
           <SectionLevelTools />
           {binHref && (
             <Button asChild variant="secondary" size="icon" aria-label={t('workspace.openBin')} title={t('workspace.openBin')}>
-              <Link href={binHref} data-testid="files-open-bin">
+              <Link href={binHref} scroll={false} data-testid="files-open-bin">
                 <Trash2 />
               </Link>
             </Button>
           )}
           {upload}
-          <span className="relative inline-flex">
-            {moreMenu(more, 'files-advanced', filterCount)}
-            {renderFilter(true, {
-              open: filterOpen,
-              onOpenChange: setFilterOpen,
-              anchor: <span aria-hidden className="pointer-events-none absolute inset-0" />,
-            })}
-          </span>
+          {renderFilter(true, { anchor: moreTrigger, open: filterOpen, onOpenChange: setFilterOpen })}
         </div>
       </div>
     )

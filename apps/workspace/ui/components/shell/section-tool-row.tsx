@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useRef, useSta
 
 import { cn } from '@/lib/utils'
 
-const TabActionsContext = createContext<((node: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => void) | null>(null)
+const TabActionsContext = createContext<((node: ReactNode, newFolder?: () => void) => void) | null>(null)
 
 export type SectionToolTier = 'wide' | 'medium' | 'narrow'
 const TIER_FLOORS: readonly [SectionToolTier, number][] = [
@@ -16,7 +16,6 @@ const tierFor = (width: number): SectionToolTier => TIER_FLOORS.find(([, floor])
 interface LevelTools {
   tools: ReactNode
   newFolder?: () => void
-  emptyLevel?: boolean
 }
 const ToolTierContext = createContext<SectionToolTier | null>(null)
 const LevelToolsContext = createContext<LevelTools | null>(null)
@@ -35,10 +34,6 @@ export function SectionLevelTools(): ReactNode {
   return useContext(LevelToolsContext)?.tools ?? null
 }
 
-export function useSectionPrimaryYields(): boolean {
-  return useContext(LevelToolsContext)?.emptyLevel === true
-}
-
 export function useSectionNewFolder(): (() => void) | null {
   const tier = useContext(ToolTierContext)
   const level = useContext(LevelToolsContext)
@@ -53,18 +48,16 @@ export function useSectionTabActionsSlot(): boolean {
 export function ProjectSectionTabActions({
   children,
   newFolder,
-  emptyLevel = false,
 }: {
   children: ReactNode
   newFolder?: () => void
-  emptyLevel?: boolean
 }): null {
   const setTabActions = useContext(TabActionsContext)
   useLayoutEffect(() => {
     if (!setTabActions) return
-    setTabActions(children, newFolder, emptyLevel)
+    setTabActions(children, newFolder)
     return () => setTabActions(null)
-  }, [children, newFolder, emptyLevel, setTabActions])
+  }, [children, newFolder, setTabActions])
   return null
 }
 
@@ -73,7 +66,7 @@ const MeasureContext = createContext<{ ref: (element: HTMLDivElement | null) => 
 export function SectionToolRowScope({ enabled, children }: { enabled: boolean; children: ReactNode }): JSX.Element {
   const [level, setLevel] = useState<LevelTools | null>(null)
   const setTabActions = useCallback(
-    (tools: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => setLevel(tools === null ? null : { tools, newFolder, emptyLevel }),
+    (tools: ReactNode, newFolder?: () => void) => setLevel(tools === null ? null : { tools, newFolder }),
     []
   )
   const tier = useToolTier()

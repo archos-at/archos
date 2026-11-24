@@ -61,7 +61,6 @@ export function FolderBreadcrumbRow({
   mayWriteAt,
   rootToolsElsewhere = false,
   itemCount,
-  emptyLevel = false,
   searching = false,
   rootLabel,
   newFolderLabel,
@@ -70,7 +69,6 @@ export function FolderBreadcrumbRow({
   newFolderLabel?: string
   searching?: boolean
   itemCount?: number
-  emptyLevel?: boolean
   onCreateFolder?: FolderNavProps['onCreateFolder']
   children?: ReactNode
   rootToolsElsewhere?: boolean
@@ -121,7 +119,7 @@ export function FolderBreadcrumbRow({
   )
   const inRow = (
     <>
-      <ProjectSectionTabActions newFolder={folderInMenu ? openNewFolder : undefined} emptyLevel={emptyLevel}>
+      <ProjectSectionTabActions newFolder={folderInMenu ? openNewFolder : undefined}>
         {tools}
       </ProjectSectionTabActions>
       {folderInMenu && (

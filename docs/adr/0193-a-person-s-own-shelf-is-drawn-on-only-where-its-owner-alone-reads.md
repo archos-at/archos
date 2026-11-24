@@ -39,13 +39,8 @@ without being recorded.
    quota counts its bytes like any other shelf's. Only its owner reads or
    writes it, held at the database by a per-user predicate in the one permissive policy on
    `documents`, as `personal_memory`'s policy names the person, not by the app
-   layer alone. A context with no person reads none of it unless it names
-   itself a system reader (`withSystemReader`: ingestion, rendition, the
-   search projection, the document notices). Of the agent doors only the
-   person's own `mcp` agent reaches it, and only their own shelf; `a2a`,
-   `platform` and the in-product agent's tools reach nothing of it
-   (`personal-shelf-door.ts`). Leaving the office treats it as personal memory
-   is treated.
+   layer alone. Leaving the office treats it as personal memory is
+   treated.
 2. **The server decides what a turn may read, from the conversation row.** A
    chat with a project reads that project; a chat without one reads none, and
    the project the page has open is not a source. The client's `projectId` and

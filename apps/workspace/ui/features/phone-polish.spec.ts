@@ -11,44 +11,15 @@ import { AgentPrompt } from '@/features/chat/components/AgentPrompt'
 import { EffortDial, resetEffortDialDefaultRequest } from '@/features/chat/components/effort-dial/EffortDial'
 import { ViewerToolButton } from '@/features/bim/components/viewer/viewer-tool-button'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
-import { InboxSheet } from '../../app/app/(shell)/inbox/inbox-sheet'
 
 const classesOf = (text: string): string[] => text.split(/\s+/).filter(Boolean)
 
-const INBOX_PAD = 'pb-[max(1.5rem,env(safe-area-inset-bottom))]'
 const ARCHIVE_PAD = 'pb-[env(safe-area-inset-bottom)]'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/app/office-shelf',
   useSearchParams: () => new URLSearchParams(''),
-  notFound: () => {
-    throw new Error('notFound')
-  },
-}))
-
-vi.mock('@/lib/auth/require-auth', () => ({
-  withPageSession: (run: (session: { userId: string }) => unknown) => run({ userId: 'user-1' }),
-}))
-
-vi.mock('@/lib/authz/feature-flags', () => ({
-  isCollaborationEnabled: () => true,
-}))
-
-vi.mock('@/lib/inbox/registry', () => ({
-  inboxIsReachable: () => true,
-}))
-
-vi.mock('@/i18n/server', () => ({
-  getTranslations: async () => (key: string) => key,
-}))
-
-vi.mock('@/components/shell/route-page-sheet', () => ({
-  RoutePageSheet: ({ children }: { children: ReactNode }) => createElement('section', null, children),
-}))
-
-vi.mock('@/features/collaboration/components', () => ({
-  InboxList: () => createElement('div', { 'data-testid': 'inbox-list' }),
 }))
 
 vi.mock('@/features/documents/hooks/use-office-shelf-documents', () => ({
@@ -89,12 +60,6 @@ vi.mock('@/components/motion/height-arrival', async (importOriginal) => ({
 }))
 
 describe('a sheet that reaches the screen edge ends its list above the home indicator', () => {
-  it('Inbox', async () => {
-    render(await InboxSheet({ standalone: true }))
-    const list = screen.getByTestId('inbox-list')
-    expect(classesOf(list.parentElement?.className ?? '')).toContain(INBOX_PAD)
-  })
-
   describe('Archiv, which is the Dateien workspace on the office shelf', () => {
     beforeEach(() => {
       server.use(

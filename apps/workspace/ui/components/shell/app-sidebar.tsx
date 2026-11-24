@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ChevronLeft, Folder, SquarePen } from 'lucide-react'
+import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import {
@@ -26,9 +26,7 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
 import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
 import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
-import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
-import { InboxBadge } from '@/features/collaboration/components'
+import { InboxBell } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
@@ -81,8 +79,6 @@ export interface RailItemModel {
   label: string
   active: boolean
   within?: boolean
-  badgeCount: number
-  door?: StartDockDoor
   waitingCount: number | null
   waitingMore?: boolean
   shortcutKey?: string
@@ -132,8 +128,6 @@ function AppSidebarFrame({
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { state, isMobile } = useSidebar()
-  const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
   const mode: RailMode = projectId === null ? 'personal' : 'project'
@@ -161,8 +155,6 @@ function AppSidebarFrame({
         label: item.key === 'chat' ? t('newChat') : sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
         within: item.key === 'chat' && chatOpen,
-        badgeCount: item.key === 'inbox' ? inboxPending : 0,
-        door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
         waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
@@ -171,9 +163,7 @@ function AppSidebarFrame({
   )
 
   const org = groups.find((g) => g.key === 'org')
-  const inFoot = (item: RailItemModel): boolean => iconRail || (item.key !== 'search' && item.key !== 'inbox')
-  const orgGroup = org && { ...org, items: org.items.filter(inFoot) }
-  const bell = iconRail ? undefined : org?.items.find((item) => item.key === 'inbox')
+  const orgGroup = org && { ...org, items: org.items.filter((item) => iconRail || item.key !== 'search') }
   const projectItems: RailItemModel[] =
     mode === 'personal'
       ? personalRailItems(pathname, t, chatOpen)
@@ -191,13 +181,11 @@ function AppSidebarFrame({
       active={item.active}
       within={item.within}
       label={item.label}
-      badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
       waitingMore={item.waitingMore}
       tooltip={iconRail}
       shortcutKey={item.shortcutKey}
       pillId={activePillId}
-      door={item.door}
     />
   )
   const column = iconRail ? 'px-3.5' : 'px-3'
@@ -287,19 +275,58 @@ function AppSidebarFrame({
           {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} projects={projects} />}
         </SidebarContent>
 
-        <RailFooter
-          orgGroup={orgGroup}
-          bell={bell}
-          railItem={railItem}
-          iconRail={iconRail}
-          column={column}
-          user={user}
-          organizationName={organizationName}
-          authRequired={authRequired}
-          canManageOrganization={canManageOrganization}
-          canViewOrganization={canViewOrganization}
-          canManagePlatform={canManagePlatform}
-        />
+        <SidebarFooter
+          className={cn(
+            'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
+            column,
+            iconRail && 'items-center overflow-hidden'
+          )}
+        >
+          {/* The office at the foot, the project at the top: two owners at
+              the band's two ends, so neither reads as the other's and the
+              band is held at both. Stacked under the project's sections the
+              two heads fought and the lower 60% of the band stood empty. */}
+          {orgGroup && (
+            <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
+              <SidebarGroup className="p-0">
+                {/* The organisation's name as the group's label (12/16/500
+                    muted, the app's `SectionLabel` step), on the icons' edge. */}
+                {!iconRail && (
+                  <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
+                    <span className="truncate">{orgGroup.label}</span>
+                  </div>
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </nav>
+          )}
+          {/* The connection says something only when it is not fine: a row
+              above the person while it reconnects or is gone, nothing (to the
+              eye) while all is well. Nothing above it moves when it appears:
+              the space it takes is the band's empty middle. */}
+          <ConnectionBand appearance="rail" compact={iconRail} />
+          <div className={cn('flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+          <div className={cn('min-w-0', !iconRail && 'flex-1')}>
+          <SidebarUserMenu
+            user={user}
+            organizationName={organizationName}
+            authRequired={authRequired}
+            compact={iconRail}
+            avatarSizeClass="size-6"
+            menuSide={iconRail ? 'right' : 'top'}
+            menuAlign="end"
+            menuSideOffset={iconRail ? 24 : 6}
+            menuMatchTrigger={!iconRail}
+            canManageOrganization={canManageOrganization}
+            canViewOrganization={canViewOrganization}
+            canManagePlatform={canManagePlatform}
+          />
+          </div>
+          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
+          </div>
+        </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
             language like every other. `iconRail` is already the collapse
@@ -338,136 +365,30 @@ function personalRailItems(pathname: string, t: (key: string) => string, chatOpe
   ]
 }
 
-export function RailFooter({
-  orgGroup,
-  bell,
-  railItem,
-  iconRail,
-  column,
-  user,
-  organizationName,
-  authRequired,
-  canManageOrganization,
-  canViewOrganization,
-  canManagePlatform,
-}: {
-  orgGroup: RailGroupModel | undefined
-  bell?: RailItemModel
-  railItem: (item: RailItemModel) => React.JSX.Element
-  iconRail: boolean
-  column: string
-  user?: SidebarUser
-  organizationName: string | null
-  authRequired: boolean
-  canManageOrganization: boolean
-  canViewOrganization: boolean
-  canManagePlatform: boolean
-}): React.JSX.Element {
-  return (
-    <SidebarFooter
-      className={cn(
-        'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
-        column,
-        iconRail && 'items-center overflow-hidden'
-      )}
-    >
-      {/* The office at the foot, the project at the top: two owners at
-          the band's two ends, so neither reads as the other's and the
-          band is held at both. Stacked under the project's sections the
-          two heads fought and the lower 60% of the band stood empty. */}
-      {orgGroup && (
-        <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
-          <SidebarGroup className="p-0">
-            {/* The organisation's name as the group's label (12/16/500
-                muted, the app's `SectionLabel` step), on the icons' edge. */}
-            {!iconRail && (
-              <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
-                <span className="truncate">{orgGroup.label}</span>
-              </div>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </nav>
-      )}
-      {/* The connection says something only when it is not fine: a row
-          above the person while it reconnects or is gone, nothing (to the
-          eye) while all is well. Nothing above it moves when it appears:
-          the space it takes is the band's empty middle. */}
-      <ConnectionBand appearance="rail" compact={iconRail} />
-      <div className={cn('relative', iconRail ? 'w-9' : 'w-full')}>
-      {bell && <RailInboxBell item={bell} />}
-      <SidebarUserMenu
-        user={user}
-        organizationName={organizationName}
-        authRequired={authRequired}
-        compact={iconRail}
-        avatarSizeClass="size-6"
-        menuSide={iconRail ? 'right' : 'top'}
-        menuAlign="end"
-        menuSideOffset={iconRail ? 24 : 6}
-        menuMatchTrigger={!iconRail}
-        canManageOrganization={canManageOrganization}
-        canViewOrganization={canViewOrganization}
-        canManagePlatform={canManagePlatform}
-      />
-      </div>
-    </SidebarFooter>
-  )
-}
-
-function RailInboxBell({ item }: { item: RailItemModel }): React.JSX.Element {
-  const { door } = item
-  return (
-    <Link
-      href={item.href}
-      aria-label={item.label}
-      aria-current={item.active ? 'page' : undefined}
-      aria-expanded={door?.open}
-      data-dock-door={door?.panel}
-      data-tour={sectionAnchor(item.key)}
-      data-slot="rail-inbox-bell"
-      onClick={door?.onClick}
-      className={cn(
-        'text-muted-foreground hover:text-foreground hover:bg-selected absolute right-9 top-1/2 z-10 flex h-7 -translate-y-1/2 items-center gap-1 rounded-control px-1.5 transition-colors duration-quick ease-out motion-reduce:transition-none',
-        (item.active || door?.open) && 'bg-selected text-foreground'
-      )}
-    >
-      <Bell className="size-4" aria-hidden />
-      <InboxBadge pending={item.badgeCount} />
-    </Link>
-  )
-}
-
 export function RailNavItem({
   icon: Icon,
   href,
   active,
   within = false,
   label,
-  badgeCount,
   waitingCount = null,
   waitingMore = false,
   tooltip,
   shortcutKey,
   pillId,
   tourAnchor,
-  door,
 }: {
   icon: ProjectSection['icon']
   href: string
   active: boolean
   within?: boolean
   label: string
-  badgeCount: number
   waitingCount?: number | null
   waitingMore?: boolean
   tooltip: boolean
   shortcutKey?: string
   pillId: string
   tourAnchor: string
-  door?: StartDockDoor
 }) {
   return (
     <SidebarMenuItem>
@@ -481,14 +402,11 @@ export function RailNavItem({
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           active
             ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
-            : door?.open
-              ? // The Postfach docked open beside the page: open is the picked
-                'text-foreground bg-selected hover:bg-selected'
-              : // The pointer's fill is one step down from the plane it lies
-                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
+            : // The pointer's fill is one step down from the plane it lies
+              cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
-        <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
+        <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
           {active && (
             <motion.span
               layoutId={pillId}
@@ -512,18 +430,11 @@ export function RailNavItem({
           >
             {label}
           </span>
-          <InboxBadge
-            pending={badgeCount}
-            tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
+          <InboundMailWaitingBadge
+            count={waitingCount}
+            more={waitingMore}
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
-          {badgeCount <= 0 && (
-            <InboundMailWaitingBadge
-              count={waitingCount}
-              more={waitingMore}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
-            />
-          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
