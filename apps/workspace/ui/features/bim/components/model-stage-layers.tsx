@@ -82,7 +82,7 @@ export function ModelStageChromeLayer({ controller }: { controller: ModelStageCo
             the only way to close the model would be Escape.
           */}
           <div className="absolute top-3 right-3 z-40 sm:top-4 sm:right-4">
-            <ViewerSurface className="flex items-center gap-1 p-1 [&>button]:rounded-[12px]">
+            <ViewerSurface className="flex items-center gap-1 p-1 [&>button]:rounded-[10px]">
               {/*
                 The name does not change on SUCCESS. It used to, and the live
                 region says the same words at the same moment — an accessible

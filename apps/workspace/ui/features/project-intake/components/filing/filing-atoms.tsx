@@ -4,7 +4,7 @@ import type { ComponentProps, JSX, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 export function FilingCard({ className, ...rest }: ComponentProps<'section'>): JSX.Element {
-  return <section className={cn('bg-card border-border min-w-0 rounded-[14px] border', className)} {...rest} />
+  return <section className={cn('bg-card border-border min-w-0 rounded-[12px] border', className)} {...rest} />
 }
 
 export function FilingHead({ title, children }: { title: string; children?: ReactNode }): JSX.Element {

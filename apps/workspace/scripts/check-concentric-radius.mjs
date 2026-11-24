@@ -402,7 +402,9 @@ const measureRenderedNestings = ({ unevenSides }) => {
     const R = outer && outer !== document.body ? uniformRadius(outer) : 0
     if (!R) continue
     const [e, o] = [el.getBoundingClientRect(), outer.getBoundingClientRect()]
+    const scale = el.offsetWidth > 0 ? e.width / el.offsetWidth : 1
     const corners = [[e.left - o.left, e.top - o.top], [o.right - e.right, e.top - o.top], [e.left - o.left, o.bottom - e.bottom], [o.right - e.right, o.bottom - e.bottom]]
+      .map(([dx, dy]) => [dx / scale, dy / scale])
     const off = corners.map(([dx, dy]) => [Math.min(dx, dy), Math.max(dx, dy)]).find(([near, far]) =>
       near >= 0 && far - near <= unevenSides && near < R && far <= R / 2 && (r < R - far - 1 || r > R - near + 1))
     if (off) out.add(`${label(el)} "${(el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40)}" radius ${r}, ${Math.round(off[1])}px inside ${label(outer)} radius ${R}: wants ${Math.round(R - off[1])}`)
@@ -420,7 +422,12 @@ async function checkRendered(args) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   let total = 0
   for (const route of routes) {
-    await page.goto(`${option('base', 'http://localhost:3311')}${route}`, { waitUntil: 'networkidle', timeout: 180_000 })
+    const loaded = await page.goto(`${option('base', 'http://localhost:3311')}${route}`, { waitUntil: 'networkidle', timeout: 180_000 }).catch((error) => error)
+    if (loaded instanceof Error) {
+      total += 1
+      console.log(`${route}  did not load: ${loaded.message.split('\n')[0]}`)
+      continue
+    }
     await page.waitForTimeout(500)
     const findings = await page.evaluate(measureRenderedNestings, { unevenSides: UNEVEN_SIDES_PX })
     total += findings.length

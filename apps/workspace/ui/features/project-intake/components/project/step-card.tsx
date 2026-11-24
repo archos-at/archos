@@ -13,7 +13,7 @@ export function StepCard({
 }: { title: string; aside?: ReactNode; children: ReactNode } & Omit<ComponentProps<'section'>, 'title'>): JSX.Element {
   const id = useId()
   return (
-    <section aria-labelledby={id} className={cn('bg-card text-card-foreground min-w-0 rounded-[14px] border', className)} {...props}>
+    <section aria-labelledby={id} className={cn('bg-card text-card-foreground min-w-0 rounded-[12px] border', className)} {...props}>
       <div className="flex min-h-[52px] items-center justify-between gap-3 px-4 py-2.5 sm:px-[18px]">
         <h2 id={id} className="text-sm font-medium">
           {title}

@@ -141,7 +141,7 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
         </div>
       ) : (
         <section
-          className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:basis-[640px] md:self-start md:rounded-[14px] md:border md:px-9 md:py-8"
+          className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:basis-[640px] md:self-start md:rounded-[12px] md:border md:px-9 md:py-8"
           data-testid="questions-done"
         >
           {isMobile && note && <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>}

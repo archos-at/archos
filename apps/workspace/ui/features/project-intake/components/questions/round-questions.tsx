@@ -281,7 +281,7 @@ export function ContradictionQuestion({
             <div
               key={option.id}
               className={cn(
-                'border-border bg-card flex min-h-12 items-start gap-3 rounded-[10px] border px-4 py-3',
+                'border-border bg-card flex min-h-12 items-start gap-3 rounded-[8px] border px-4 py-3',
                 'transition-colors duration-quick ease-out motion-reduce:transition-none',
                 picked === option.id && 'border-primary ring-primary ring-1'
               )}

@@ -55,7 +55,7 @@ export function FolderChoiceTree({ tree, excluded, proposed, heldIn, summary, on
 
   return (
     <FilingCard aria-label={t('tree.label')} data-testid="filing-choice">
-      <div className={cn(ROW, 'bg-muted/40 rounded-t-[14px] border-t-0 font-medium')} style={indent(0)}>
+      <div className={cn(ROW, 'bg-muted/40 rounded-t-[12px] border-t-0 font-medium')} style={indent(0)}>
         {head && headState ? (
           <Checkbox
             checked={headState === 'in' ? true : headState === 'partial' ? 'indeterminate' : false}

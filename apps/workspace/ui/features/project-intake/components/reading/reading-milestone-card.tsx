@@ -77,7 +77,7 @@ export function ReadingMilestoneCard({ milestones }: { milestones: readonly Read
       as="ol"
       aria-label={t('milestones.label')}
       aria-live="polite"
-      className="bg-card border-border divide-border/70 rounded-[14px]"
+      className="bg-card border-border divide-border/70 rounded-[12px]"
       data-testid="reading-milestones"
     >
       {milestones.map((milestone) => {

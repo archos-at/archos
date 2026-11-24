@@ -77,7 +77,7 @@ export function AutomationPanel({
       {/* The two places as tabs in the section's header, under its title, where Dateien's stand
           (`ProjectSectionTabs`): they were a bar of their own under the header, with a second rule. */}
       <ProjectSectionTabs>
-        <TabsList className="mb-2 h-8 bg-desk p-0.5 rounded-[8px]" /* the track of Dateien's places: 32px on the desk */>
+        <TabsList className="mb-2 h-8 bg-desk p-0.5 rounded-[6px]" /* the track of Dateien's places: 32px on the desk */>
           <TabsTrigger value="tasks">
             <ListChecks aria-hidden />
             {t('sections.tasks')}

@@ -101,11 +101,11 @@ export function ViewerDock({
       */}
       <div className="flex w-full max-w-full items-center justify-center-safe gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {lead && (
-          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[12px]">
+          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[10px]">
             {lead}
           </ViewerSurface>
         )}
-        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[12px]">
+        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[10px]">
           {children}
           {trail && (
             <>

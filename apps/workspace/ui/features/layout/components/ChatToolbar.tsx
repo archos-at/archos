@@ -192,7 +192,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
         <Button
           variant="ghost"
           className={cn(
-            'h-11 shrink-0 gap-1.5 rounded-[8px] px-3 text-sm font-medium sm:hidden',
+            'h-11 shrink-0 gap-1.5 rounded-[6px] px-3 text-sm font-medium sm:hidden',
             isChatStarted && 'max-sm:w-12 max-sm:flex-col max-sm:gap-0 max-sm:px-0 max-sm:text-meta'
           )}
           onClick={handleMenuClick}
@@ -263,7 +263,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn('size-11 shrink-0 rounded-[8px] px-0 sm:size-7', !(canRename || canDelete) && 'sm:hidden')}
+                className={cn('size-11 shrink-0 rounded-[6px] px-0 sm:size-7', !(canRename || canDelete) && 'sm:hidden')}
                 aria-label={t('chatToolbar.moreActions')}
                 title={t('chatToolbar.moreActions')}
                 data-testid="thread-menu"
@@ -340,7 +340,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 rounded-[7px] px-2 text-xs font-medium"
+              className="h-7 gap-1.5 rounded-[5px] px-2 text-xs font-medium"
               onClick={() => setIsShareOpen(true)}
               data-testid="share-open"
             >
