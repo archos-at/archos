@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/api/internal-envelope', () => ({
   requireVerifiedContext: vi.fn(),
