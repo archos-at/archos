@@ -22,7 +22,7 @@ const personalChat = {
 
 beforeEach(() => create.mockClear())
 
-describe('a chat’s server row is stamped with its own project, never the open page’s (ADR-0191 rule 2)', () => {
+describe('a chat’s server row is stamped with its own project, never the open page’s (ADR-0193 rule 2)', () => {
   it('creates a chat without a project as one, while a project page is open', async () => {
     const state = { currentConversation: personalChat, conversations: [personalChat], projectId: 'page_project' }
     const slice = createConversationPersistenceSlice(

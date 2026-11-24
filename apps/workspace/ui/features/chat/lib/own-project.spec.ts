@@ -5,7 +5,7 @@ import { ownProjectOf } from './own-project'
 const chat = (id: string, projectId: string | null): Conversation =>
   ({ id, userId: 'u', projectId, title: '', messages: [], createdAt: new Date(), updatedAt: new Date() }) as Conversation
 
-describe('ownProjectOf: a chat names its own project, never the page’s (ADR-0191 rule 2)', () => {
+describe('ownProjectOf: a chat names its own project, never the page’s (ADR-0193 rule 2)', () => {
   it('names the project of a project chat', () => {
     expect(ownProjectOf({ currentConversation: chat('a', 'p1'), conversations: [] }, 'a')).toBe('p1')
   })
