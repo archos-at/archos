@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { MessageSquarePlus, MousePointer2, Ruler, Sparkles, Speech, SquareDashed, X, type LucideIcon } from 'lucide-react'
+import { ChevronsLeft, MessageSquarePlus, MousePointer2, Ruler, Sparkles, Speech, SquareDashed, type LucideIcon } from 'lucide-react'
 import { ToolbarIconButton } from '@/components/ui/floating-toolbar'
 import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -58,7 +58,7 @@ export function ReviewTools({
             className={cn(
               'aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:text-background',
               variant === 'intro' && 'w-auto gap-1.5 px-2 text-xs font-medium @max-5xl:w-7 @max-5xl:px-0',
-              variant === 'touch' && 'h-12 w-14 flex-col gap-0.5 pointer-coarse:size-auto pointer-coarse:h-12 pointer-coarse:w-14'
+              variant === 'touch' && 'h-12 w-auto min-w-14 flex-col gap-0.5 px-1 pointer-coarse:size-auto pointer-coarse:h-12 pointer-coarse:min-w-14'
             )}
           >
             <Icon aria-hidden />
@@ -90,7 +90,7 @@ export function ReviewTools({
           className="@max-5xl:hidden"
           onClick={onFold}
         >
-          <X aria-hidden />
+          <ChevronsLeft aria-hidden />
         </ToolbarIconButton>
       )}
     </div>

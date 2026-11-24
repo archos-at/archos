@@ -14,6 +14,9 @@ import {
   isForReader,
   isGhostMark,
   isLive,
+  isMeasurement,
+  isOpenItem,
+  isProposedItem,
   REPLY_TAKEN_UP_REASON,
   type AnnotationKind,
   type AnnotationView,
@@ -390,9 +393,9 @@ export function useDocumentReview(
 
   const counts = useMemo(
     () => ({
-      open: annotations.filter((annotation) => annotation.status === 'open').length,
-      proposed: annotations.filter((annotation) => annotation.status === 'proposed').length,
-      closed: annotations.filter((annotation) => !isLive(annotation)).length,
+      open: annotations.filter(isOpenItem).length,
+      proposed: annotations.filter(isProposedItem).length,
+      closed: annotations.filter((annotation) => !isLive(annotation) && !isMeasurement(annotation)).length,
     }),
     [annotations]
   )
@@ -401,6 +404,7 @@ export function useDocumentReview(
     () =>
       annotations.filter(
         (annotation) =>
+          !isMeasurement(annotation) &&
           (filter === 'open' ? isLive(annotation) : !isLive(annotation)) &&
           (!mine || isForReader(annotation, me))
       ),

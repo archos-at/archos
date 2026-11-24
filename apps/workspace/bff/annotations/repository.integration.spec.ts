@@ -601,11 +601,14 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     const { isForReader, isLive } = await import('./types')
     const { FOR_READER_CASES } = await import('@/test-utils/marks-for-reader')
     const COLLEAGUE = `${USER}_colleague`
+    const MEASURED_LINE = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const MEASURED = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
     const person = (who: 'reader' | 'colleague') => (who === 'reader' ? USER : COLLEAGUE)
     const placed: Array<{ given: (typeof FOR_READER_CASES)[number]; documentId: string }> = []
     for (const [index, given] of FOR_READER_CASES.entries()) {
       const documentId = await document(ids.project, `FuerSie_${index}.pdf`)
-      const [row] = await insert(documentId, [mark({ assigneeUserId: given.assignee ? person(given.assignee) : null })], {
+      const measured = given.shape ? { shape: given.shape, x: 0.1, y: 0.2, points: MEASURED_LINE, reading: MEASURED } : {}
+      const [row] = await insert(documentId, [mark({ assigneeUserId: given.assignee ? person(given.assignee) : null, ...measured })], {
         authorKind: given.authorKind,
         createdBy: person(given.setBy),
         ...(given.authorKind === 'piloti' && given.status !== 'proposed' ? { acceptedBy: COLLEAGUE } : {}),

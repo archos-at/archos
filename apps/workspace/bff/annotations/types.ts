@@ -294,11 +294,24 @@ export const LIVE_ANNOTATION_STATUSES = ['open', 'proposed'] as const satisfies 
 export const isLive = (annotation: Pick<AnnotationView, 'status'>): boolean =>
   (LIVE_ANNOTATION_STATUSES as readonly AnnotationStatus[]).includes(annotation.status)
 
+export const isMeasurement = (annotation: { shape: string }): boolean => isMeasureShape(annotation.shape)
+
+export const isOpenItem = (annotation: Pick<AnnotationView, 'status' | 'shape'>): boolean =>
+  annotation.status === 'open' && !isMeasurement(annotation)
+
+export const isProposedItem = (annotation: Pick<AnnotationView, 'status' | 'shape'>): boolean =>
+  annotation.status === 'proposed' && !isMeasurement(annotation)
+
 export function isForReader(
-  annotation: Pick<AnnotationView, 'status' | 'assigneeUserId'>,
+  annotation: Pick<AnnotationView, 'status' | 'assigneeUserId' | 'shape'>,
   readerUserId: string | null
 ): boolean {
-  return readerUserId !== null && annotation.status !== 'proposed' && annotation.assigneeUserId === readerUserId
+  return (
+    readerUserId !== null &&
+    annotation.status !== 'proposed' &&
+    !isMeasurement(annotation) &&
+    annotation.assigneeUserId === readerUserId
+  )
 }
 
 export function isGhostMark(

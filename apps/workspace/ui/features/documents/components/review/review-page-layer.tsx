@@ -29,6 +29,8 @@ import { isKeptMeasure, MeasureLayer } from './measure/measure-layer'
 import { boxOfPoints, type PagePoint } from '@/lib/annotations/measure-shapes'
 import { PageMarks } from './review-page-layer/page-marks'
 
+const LABEL_CLEARANCE_PX = 48
+
 export {
   AGENT_REST_MS,
   agentCursorLabel,
@@ -340,7 +342,8 @@ export function ReviewPageLayer({
   const anchorOf = (place: { x: number; y: number; w: number | null; h?: number | null; points?: PagePoint[] | null }) => {
     if (!place.points?.length) return placeCard(place, size)
     const [x0, y0, x1, y1] = boxOfPoints(place.points)
-    return placeCard({ x: x0, y: y0, w: Math.max(x1 - x0, 0.002), h: Math.max(y1 - y0, 0.002) }, size)
+    const [padX, padY] = size.width > 0 && size.height > 0 ? [LABEL_CLEARANCE_PX / size.width, LABEL_CLEARANCE_PX / 3 / size.height] : [0, 0]
+    return placeCard({ x: x0 - padX, y: y0 - padY, w: x1 - x0 + 2 * padX, h: y1 - y0 + 2 * padY }, size)
   }
   const threadPlace = draftHere ?? selected
   const threadAnchor = threadPlace ? anchorOf(threadPlace) : null

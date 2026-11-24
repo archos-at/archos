@@ -11,7 +11,7 @@ import { replacingDocumentOf } from './carry'
 import { findDocumentAnnotation, type AnnotationRecord, type CarryLink } from './repository'
 import { latestWakesFor, agentWorkOf } from './agent-work'
 import { wakeOfReply, wakeSpansFor, type WakeSpan } from './wake-attribution'
-import type { AnnotationReplyView, AnnotationView, CarryLinkView, CarryTargetView } from './types'
+import { isOpenItem, type AnnotationReplyView, type AnnotationView, type CarryLinkView, type CarryTargetView } from './types'
 import { mayDeleteMark, deleteRefusalOf, annotatable } from './annotation-access'
 import { isMeasureShape } from './measure-shapes'
 
@@ -133,9 +133,9 @@ interface CarryWay {
 export async function carryWayOf(
   session: AuthorizedSession,
   doc: Document,
-  records: readonly Pick<AnnotationRecord, 'status'>[]
+  records: readonly Pick<AnnotationRecord, 'status' | 'shape'>[]
 ): Promise<CarryWay | null> {
-  if (!records.some((record) => record.status === 'open')) return null
+  if (!records.some(isOpenItem)) return null
   const replacing = await replacingDocumentOf(session, doc).catch((error: unknown) => {
     console.warn(`[annotations] could not read what replaces document ${doc.id}:`, error)
     return undefined

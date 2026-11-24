@@ -12,7 +12,9 @@ export function useScaleLabel(tape: Pick<SheetTape, 'scaleOf'>): (page: number) 
       const scales = tape.scaleOf(page)
       if (!scales) return ''
       const ratio = scales.find((scale) => scale.ratio)?.ratio
-      return ratio ? t('review.measure.scaleRatio', { ratio: formatScaleRatio(ratio, locale) }) : t('review.measure.scaleNone')
+      return ratio
+        ? t('review.measure.scaleRatio', { ratio: formatScaleRatio(ratio, locale) })
+        : t('review.measure.scaleNone')
     },
     [tape, t, locale]
   )

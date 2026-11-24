@@ -24,7 +24,7 @@ import {
   updateAnnotationForAsker,
   type ChangeableField,
 } from './service'
-import type { AnnotationView, InternalAnnotationRequest, InternalMarkFields } from './types'
+import { isOpenItem, isProposedItem, type AnnotationView, type InternalAnnotationRequest, type InternalMarkFields } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 export class NoDocumentSubjectError extends UnprocessableError {
@@ -101,8 +101,8 @@ async function readRoom(session: AuthorizedSession, document: AgentDocument, age
       draft: peer.draft,
     })),
     marks: {
-      open: annotations.filter((annotation) => annotation.status === 'open').length,
-      proposed: annotations.filter((annotation) => annotation.status === 'proposed').length,
+      open: annotations.filter(isOpenItem).length,
+      proposed: annotations.filter(isProposedItem).length,
     },
   }
 }

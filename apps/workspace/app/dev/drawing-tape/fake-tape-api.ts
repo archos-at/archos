@@ -3,7 +3,7 @@
 import type { PagePoint } from '@/lib/annotations/measure-shapes'
 import type { AnnotationView } from '@/lib/annotations/types'
 import type { TapeMeasurement } from '@/lib/drawing-tape/wire'
-import { base, FILE, SHEET_HEIGHT, SHEET_WIDTH } from '../annotations/fixtures'
+import { FILE, SHEET_HEIGHT, SHEET_WIDTH } from '../annotations/fixtures'
 
 const RATIO = 100
 const METRES_PER_PT = (25.4 / 72 / 1000) * RATIO
@@ -104,27 +104,39 @@ const reading = ({ value, unit, low, high, provenance, scaleState, scaleRatio }:
   scaleRatio,
 })
 
-const kept = (number: number, shape: 'line' | 'polygon', body: string, points: PagePoint[]): AnnotationView =>
-  ({
-    ...base,
-    id: `tape-${number}`,
-    number,
-    kind: 'hint',
-    body,
-    mentions: [],
-    shape,
-    x: points[0][0],
-    y: points[0][1],
-    points,
-    reading: reading(measured(shape === 'polygon' ? 'area' : 'distance', points)),
-    canEdit: true,
-    canDelete: true,
-  }) as AnnotationView
+const seed = (shape: 'line' | 'polygon', body: string, points: PagePoint[]) => ({
+  page: 1,
+  shape,
+  x: points[0][0],
+  y: points[0][1],
+  kind: 'hint' as const,
+  body,
+  mentions: [],
+  points,
+})
 
-export const KEPT: AnnotationView[] = [
-  kept(4, 'line', 'Gangbreite', [share(250, 320), share(250, 270)]),
-  kept(5, 'polygon', 'Zimmer 1', [share(50, 80), share(190, 80), share(190, 270), share(50, 270)]),
+export const KEPT = [
+  seed('line', 'Gangbreite', [share(250, 320), share(250, 270)]),
+  seed('polygon', 'Zimmer 1', [share(50, 80), share(190, 80), share(190, 270), share(50, 270)]),
 ]
+
+const withReading = (annotation: AnnotationView): AnnotationView =>
+  annotation.points && annotation.points.length >= 2 && !annotation.reading
+    ? { ...annotation, reading: reading(measured(annotation.shape === 'polygon' ? 'area' : 'distance', annotation.points)) }
+    : annotation
+
+async function measuredResponse(response: Response): Promise<Response> {
+  if (!response.ok || !response.headers.get('Content-Type')?.includes('application/json')) return response
+  const body = (await response.json()) as { annotation?: AnnotationView; annotations?: AnnotationView[] }
+  return json(
+    {
+      ...body,
+      ...(body.annotation ? { annotation: withReading(body.annotation) } : {}),
+      ...(body.annotations ? { annotations: body.annotations.map(withReading), canMeasure: true } : {}),
+    },
+    response.status
+  )
+}
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -137,13 +149,17 @@ const NO_SCALE = {
   candidates: [],
 }
 
+let seeded: Promise<unknown> | null = null
+
 export const tapeFetch = (inner: typeof fetch) => {
-  let added: AnnotationView[] = [...KEPT]
-  let next = 40
+  const root = `/api/documents/${FILE.id}`
+  const seedOnce = () =>
+    (seeded ??= Promise.all(
+      KEPT.map((body) => inner(`${root}/annotations`, { method: 'POST', body: JSON.stringify(body) }))
+    ))
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     const method = (init?.method ?? 'GET').toUpperCase()
-    const root = `/api/documents/${FILE.id}`
     if (url.startsWith(`${root}/snap-targets`)) {
       await new Promise((resolve) => setTimeout(resolve, 250))
       return json({ targets: unscaled() ? { ...TAPE_TARGETS, scales: [] } : TAPE_TARGETS })
@@ -154,21 +170,8 @@ export const tapeFetch = (inner: typeof fetch) => {
       if (unscaled()) return json({ noNumber: NO_SCALE })
       return json({ measurement: measured(operation, points) })
     }
-    if (url.endsWith(`${root}/annotations`) && method === 'POST') {
-      const body = JSON.parse(String(init?.body)) as Partial<AnnotationView> & { points?: PagePoint[] }
-      if (body.points) {
-        const shape = body.shape === 'polygon' ? 'polygon' : 'line'
-        const created = { ...kept(next, shape, String(body.body ?? ''), body.points), shape: body.shape ?? 'line' } as AnnotationView
-        next += 1
-        added = [...added, created]
-        return json({ annotation: created }, 201)
-      }
-    }
-    const response = await inner(input, init)
-    if (url.endsWith(`${root}/annotations`) && method === 'GET' && response.ok) {
-      const listed = (await response.json()) as { annotations: AnnotationView[] }
-      return json({ ...listed, annotations: [...listed.annotations, ...added], canMeasure: true })
-    }
-    return response
+    if (!url.includes(`${root}/annotations`)) return inner(input, init)
+    await seedOnce()
+    return measuredResponse(await inner(input, init))
   }
 }

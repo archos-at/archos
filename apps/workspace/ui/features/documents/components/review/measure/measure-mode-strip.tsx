@@ -1,8 +1,13 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { Undo2 } from 'lucide-react'
-import { FloatingToolbar, ToolbarDivider, ToolbarIconButton, ToolbarTextButton } from '@/components/ui/floating-toolbar'
+import { Undo2, X } from 'lucide-react'
+import {
+  FloatingToolbar,
+  ToolbarDivider,
+  ToolbarIconButton,
+  ToolbarTextButton,
+} from '@/components/ui/floating-toolbar'
 import { Kbd } from '@/components/ui/kbd'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,11 +17,24 @@ import { TAPE_MODES, type SheetTape, type TapeMode } from '../../../hooks/use-sh
 
 export const MODE_KEYS: Record<TapeMode, string> = { distance: 'D', path: 'W', area: 'F' }
 
-export function MeasureModeStrip({ tape, scale }: { tape: SheetTape; scale: ReactNode }): JSX.Element {
+export function MeasureModeStrip({
+  tape,
+  scale,
+  onExit,
+}: {
+  tape: SheetTape
+  scale: ReactNode
+  onExit: () => void
+}): JSX.Element {
   const t = useTranslations(filesCopy)
   const placing = tape.phase === 'placing' && tape.points.length > 0
+  const undoable = placing || tape.phase !== 'placing'
   return (
-    <FloatingToolbar className="pointer-events-auto" data-testid="measure-mode-strip" aria-label={t('review.measure.label')}>
+    <FloatingToolbar
+      className="pointer-events-auto"
+      data-testid="measure-mode-strip"
+      aria-label={t('review.measure.label')}
+    >
       <ToggleGroup
         type="single"
         segmented
@@ -39,38 +57,46 @@ export function MeasureModeStrip({ tape, scale }: { tape: SheetTape; scale: Reac
                 {t(`review.measure.modes.${mode}`)}
               </ToggleGroupItem>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {t(`review.measure.modes.${mode}`)} <Kbd className="ml-1">{MODE_KEYS[mode]}</Kbd>
+            <TooltipContent side="bottom" className="max-w-56">
+              <span className="font-medium">{t(`review.measure.modes.${mode}`)}</span>{' '}
+              <Kbd className="ml-1">{MODE_KEYS[mode]}</Kbd>
+              <span className="block opacity-80">{t(`review.measure.modeHelp.${mode}`)}</span>
             </TooltipContent>
           </Tooltip>
         ))}
       </ToggleGroup>
-      {placing && (
-        <>
-          <ToolbarIconButton
-            aria-label={t('review.measure.undoPoint')}
-            title={t('review.measure.undoPoint')}
-            aria-keyshortcuts="Backspace"
-            data-testid="measure-undo-point"
-            onClick={tape.undo}
-          >
-            <Undo2 aria-hidden />
-          </ToolbarIconButton>
-          {tape.mode !== 'distance' && (
-            <ToolbarTextButton
-              disabled={!tape.canFinish}
-              aria-keyshortcuts="Enter"
-              data-testid="measure-finish"
-              className="text-foreground font-medium"
-              onClick={tape.finish}
-            >
-              {t('review.measure.finish')}
-            </ToolbarTextButton>
-          )}
-        </>
+      <ToolbarIconButton
+        aria-label={t('review.measure.undoPoint')}
+        title={t('review.measure.undoPoint')}
+        aria-keyshortcuts="Backspace"
+        data-testid="measure-undo-point"
+        disabled={!undoable || tape.phase === 'measuring'}
+        onClick={tape.undo}
+      >
+        <Undo2 aria-hidden />
+      </ToolbarIconButton>
+      {tape.mode !== 'distance' && (
+        <ToolbarTextButton
+          disabled={!tape.canFinish}
+          aria-keyshortcuts="Enter"
+          data-testid="measure-finish"
+          className="text-foreground font-medium"
+          onClick={tape.finish}
+        >
+          {t('review.measure.finish')}
+        </ToolbarTextButton>
       )}
       <ToolbarDivider />
       {scale}
+      <ToolbarDivider />
+      <ToolbarIconButton
+        aria-label={t('review.measure.exit')}
+        title={t('review.measure.exit')}
+        data-testid="measure-exit"
+        onClick={onExit}
+      >
+        <X aria-hidden />
+      </ToolbarIconButton>
     </FloatingToolbar>
   )
 }

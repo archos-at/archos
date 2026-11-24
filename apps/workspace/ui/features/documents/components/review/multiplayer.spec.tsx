@@ -234,17 +234,24 @@ describe('who is out of view', () => {
 
 describe('the list counts', () => {
   const marks = [
-    { status: 'open', assigneeUserId: null, createdBy: 'user_me' },
-    { status: 'proposed', assigneeUserId: null, createdBy: 'user_anna' },
-    { status: 'open', assigneeUserId: 'user_me', createdBy: 'user_anna' },
-    { status: 'resolved', assigneeUserId: null, createdBy: 'user_anna' },
-    { status: 'resolved', assigneeUserId: 'user_me', createdBy: 'user_anna' },
-    { status: 'proposed', assigneeUserId: 'user_me', createdBy: 'user_me' },
+    { status: 'open', shape: 'point', assigneeUserId: null, createdBy: 'user_me' },
+    { status: 'proposed', shape: 'point', assigneeUserId: null, createdBy: 'user_anna' },
+    { status: 'open', shape: 'region', assigneeUserId: 'user_me', createdBy: 'user_anna' },
+    { status: 'resolved', shape: 'point', assigneeUserId: null, createdBy: 'user_anna' },
+    { status: 'resolved', shape: 'point', assigneeUserId: 'user_me', createdBy: 'user_anna' },
+    { status: 'proposed', shape: 'point', assigneeUserId: 'user_me', createdBy: 'user_me' },
+    { status: 'open', shape: 'line', assigneeUserId: 'user_me', createdBy: 'user_me' },
+    { status: 'open', shape: 'polygon', assigneeUserId: null, createdBy: 'user_me' },
   ] as const
 
   it('counts what „For you" leaves, so a tab never promises more than the list shows', () => {
     expect(tabCounts(marks, { on: false, me: 'user_me' })).toEqual({ open: 2, proposed: 2, closed: 2 })
     expect(tabCounts(marks, { on: true, me: 'user_me' })).toEqual({ open: 1, proposed: 0, closed: 1 })
+  })
+
+  it('leaves a kept measurement out of every count: it is a fact on the sheet, not a to-do', () => {
+    const measured = marks.filter((mark) => mark.shape === 'line' || mark.shape === 'polygon')
+    expect(tabCounts(measured, { on: false, me: 'user_me' })).toEqual({ open: 0, proposed: 0, closed: 0 })
   })
 })
 

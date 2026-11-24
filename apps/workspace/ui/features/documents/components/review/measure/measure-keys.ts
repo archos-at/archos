@@ -3,7 +3,10 @@ import type { TapeMode } from '../../../hooks/use-sheet-tape'
 
 const MODE_BY_KEY: Record<string, TapeMode> = { d: 'distance', w: 'path', f: 'area' }
 
-export function measureKey(key: string, review: Pick<DocumentReview, 'tool' | 'setTool' | 'tape'>): boolean {
+export function measureKey(
+  key: string,
+  review: Pick<DocumentReview, 'tool' | 'setTool' | 'tape'>
+): boolean {
   const { tape } = review
   if (key === 'm') {
     if (!tape.available) return false

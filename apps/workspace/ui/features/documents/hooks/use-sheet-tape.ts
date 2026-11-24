@@ -5,13 +5,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MeasureShape, PagePoint } from '@/lib/annotations/measure-shapes'
 import { measureOnSheet, TapeRequestError } from '@/lib/drawing-tape/client'
-import type { MeasureRequest, MeasureResponse, TapeMeasurement, TapeNoNumber } from '@/lib/drawing-tape/wire'
+import type {
+  MeasureRequest,
+  MeasureResponse,
+  TapeMeasurement,
+  TapeNoNumber,
+} from '@/lib/drawing-tape/wire'
 import { fetchSnapTargets, type SnapTargets } from '@/lib/drawing-tape/snap-wire'
-import { buildSnapIndex, provisionalArea, provisionalLength, snapPoint, type SnapIndex, type SnapKind } from '../lib/sheet-snap'
+import {
+  buildSnapIndex,
+  provisionalArea,
+  provisionalLength,
+  snapPoint,
+  type SnapIndex,
+  type SnapKind,
+} from '../lib/sheet-snap'
 
 export const TAPE_MODES = ['distance', 'path', 'area'] as const
 export type TapeMode = (typeof TAPE_MODES)[number]
-export const TAPE_SHAPE: Record<TapeMode, MeasureShape> = { distance: 'line', path: 'path', area: 'polygon' }
+export const TAPE_SHAPE: Record<TapeMode, MeasureShape> = {
+  distance: 'line',
+  path: 'path',
+  area: 'polygon',
+}
 const FEWEST: Record<TapeMode, number> = { distance: 2, path: 2, area: 3 }
 const SNAP_RADIUS_PX = 12
 const CLOSE_RADIUS_PX = 10
@@ -53,6 +69,8 @@ export interface SheetTape {
   provisional: { value: number; unit: 'm' | 'm2' } | null
   canFinish: boolean
   scaleOf: (page: number) => SnapTargets['scales'] | null
+  unscaled: (page: number) => boolean
+  again: (place: Pick<TapePlace, 'page' | 'shape' | 'points'>) => void
   load: (page: number) => void
   pointer: (page: number, raw: PagePoint | null, size: PageSize) => void
   add: (page: number, raw: PagePoint, size: PageSize) => void
@@ -78,6 +96,8 @@ export const IDLE_TAPE: SheetTape = {
   provisional: null,
   canFinish: false,
   scaleOf: () => null,
+  unscaled: () => false,
+  again: () => undefined,
   load: () => undefined,
   pointer: () => undefined,
   add: () => undefined,
@@ -110,8 +130,13 @@ export function useSheetTape({
   const [shape, setShape] = useState(EMPTY)
   const [hover, setHover] = useState<TapeHover | null>(null)
   const [phase, setPhase] = useState<TapePhase>('placing')
-  const [answer, setAnswer] = useState<{ reading: TapeMeasurement | null; refusal: TapeNoNumber | null }>({ reading: null, refusal: null })
-  const [loaded, setLoaded] = useState<ReadonlyMap<number, { targets: SnapTargets; index: SnapIndex }>>(new Map())
+  const [answer, setAnswer] = useState<{
+    reading: TapeMeasurement | null
+    refusal: TapeNoNumber | null
+  }>({ reading: null, refusal: null })
+  const [loaded, setLoaded] = useState<
+    ReadonlyMap<number, { targets: SnapTargets; index: SnapIndex }>
+  >(new Map())
   const asked = useRef(new Set<number>())
   const ticket = useRef(0)
   const offered = available
@@ -139,7 +164,9 @@ export function useSheetTape({
       asked.current.add(page)
       targets(documentId, page)
         .then((found) =>
-          setLoaded((current) => new Map(current).set(page, { targets: found, index: buildSnapIndex(found) }))
+          setLoaded((current) =>
+            new Map(current).set(page, { targets: found, index: buildSnapIndex(found) })
+          )
         )
         .catch(() => asked.current.delete(page))
     },
@@ -189,7 +216,15 @@ export function useSheetTape({
           setAnswer({ reading: result.measurement, refusal: null })
           setPhase('measured')
           const [first] = points
-          placeDraft({ page, shape: TAPE_SHAPE[current], x: first[0], y: first[1], w: null, h: null, points })
+          placeDraft({
+            page,
+            shape: TAPE_SHAPE[current],
+            x: first[0],
+            y: first[1],
+            w: null,
+            h: null,
+            points,
+          })
         } else if ('noNumber' in result) {
           setAnswer({ reading: null, refusal: result.noNumber })
           setPhase('refused')
@@ -205,13 +240,18 @@ export function useSheetTape({
 
   const add = useCallback(
     (page: number, raw: PagePoint, size: PageSize) => {
-      if (!active || phase === 'measuring') return
+      if (!active || phase === 'measuring' || loaded.get(page)?.targets.scales.length === 0) return
       const fresh = settled || shape.page !== page
       if (fresh && settled) placeDraft(null)
       const before = fresh ? EMPTY : shape
       const found = snap(page, raw, size)
       const [first] = before.points
-      if (mode === 'area' && first && before.points.length >= FEWEST.area && near(found.at, first, size, CLOSE_RADIUS_PX)) {
+      if (
+        mode === 'area' &&
+        first &&
+        before.points.length >= FEWEST.area &&
+        near(found.at, first, size, CLOSE_RADIUS_PX)
+      ) {
         void run(page, before.points, mode)
         return
       }
@@ -223,10 +263,11 @@ export function useSheetTape({
       setAnswer({ reading: null, refusal: null })
       if (mode === 'distance' && points.length === 2) void run(page, points, mode)
     },
-    [active, phase, settled, shape, snap, mode, run, placeDraft]
+    [active, phase, settled, shape, snap, mode, run, placeDraft, loaded]
   )
 
-  const canFinish = active && phase === 'placing' && shape.page !== null && shape.points.length >= FEWEST[mode]
+  const canFinish =
+    active && phase === 'placing' && shape.page !== null && shape.points.length >= FEWEST[mode]
   const finish = useCallback(() => {
     if (canFinish && shape.page !== null) void run(shape.page, shape.points, mode)
   }, [canFinish, shape, mode, run])
@@ -254,6 +295,19 @@ export function useSheetTape({
   )
 
   const scaleOf = useCallback((page: number) => loaded.get(page)?.targets.scales ?? null, [loaded])
+  const unscaled = useCallback(
+    (page: number) => loaded.get(page)?.targets.scales.length === 0,
+    [loaded]
+  )
+  const again = useCallback(
+    ({ page, shape: kept, points }: Pick<TapePlace, 'page' | 'shape' | 'points'>) => {
+      const next = TAPE_MODES.find((candidate) => TAPE_SHAPE[candidate] === kept) ?? 'distance'
+      setModeState(next)
+      setShape({ page, points, kinds: points.map((): SnapKind => 'free') })
+      void run(page, points, next)
+    },
+    [run]
+  )
   const provisional = useMemo(() => {
     if (shape.page === null || settled) return null
     const scales = loaded.get(shape.page)?.targets.scales
@@ -283,6 +337,8 @@ export function useSheetTape({
       provisional,
       canFinish,
       scaleOf,
+      unscaled,
+      again,
       load,
       pointer,
       add,
@@ -290,6 +346,26 @@ export function useSheetTape({
       finish,
       clear,
     }),
-    [offered, active, mode, setMode, shape, hover, phase, answer, provisional, canFinish, scaleOf, load, pointer, add, undo, finish, clear]
+    [
+      offered,
+      active,
+      mode,
+      setMode,
+      shape,
+      hover,
+      phase,
+      answer,
+      provisional,
+      canFinish,
+      scaleOf,
+      unscaled,
+      again,
+      load,
+      pointer,
+      add,
+      undo,
+      finish,
+      clear,
+    ]
   )
 }

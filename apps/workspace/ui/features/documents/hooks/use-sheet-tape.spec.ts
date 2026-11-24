@@ -22,7 +22,15 @@ const TARGETS: SnapTargets = {
   segments: [0.1, 0.8, 0.9, 0.8],
   totalSegments: 1,
   truncated: false,
-  scales: [{ region: null, state: 'verified', source: 'calibration', metresPerShare: [10, 10], ratio: 100 }],
+  scales: [
+    {
+      region: null,
+      state: 'verified',
+      source: 'calibration',
+      metresPerShare: [10, 10],
+      ratio: 100,
+    },
+  ],
 }
 
 const reading = (overrides: Partial<TapeMeasurement> = {}): TapeMeasurement => ({
@@ -143,9 +151,27 @@ describe('measuring a distance', () => {
     t.click([0.5, 0.5])
     expect(t.tape().phase).toBe('measuring')
     await waitFor(() => expect(t.tape().phase).toBe('measured'))
-    expect(t.measure).toHaveBeenCalledWith('doc_1', { page: 1, operation: 'distance', points: [[0.2, 0.2], [0.5, 0.5]] })
+    expect(t.measure).toHaveBeenCalledWith('doc_1', {
+      page: 1,
+      operation: 'distance',
+      points: [
+        [0.2, 0.2],
+        [0.5, 0.5],
+      ],
+    })
     expect(t.tape().reading).toEqual(reading())
-    expect(t.placed.at(-1)).toEqual({ page: 1, shape: 'line', x: 0.2, y: 0.2, w: null, h: null, points: [[0.2, 0.2], [0.5, 0.5]] })
+    expect(t.placed.at(-1)).toEqual({
+      page: 1,
+      shape: 'line',
+      x: 0.2,
+      y: 0.2,
+      w: null,
+      h: null,
+      points: [
+        [0.2, 0.2],
+        [0.5, 0.5],
+      ],
+    })
   })
 
   it('shows a provisional length from the page scale while placing, never once measured', async () => {
@@ -171,7 +197,13 @@ describe('measuring a distance', () => {
   })
 
   it('keeps the engine refusal and places no draft', async () => {
-    const noNumber = { code: 'uncalibrated' as const, reason: 'Kein Maßstab', remedy: 'Maßstab setzen', scaleState: null, candidates: [] }
+    const noNumber = {
+      code: 'uncalibrated' as const,
+      reason: 'Kein Maßstab',
+      remedy: 'Maßstab setzen',
+      scaleState: null,
+      candidates: [],
+    }
     const t = setup({ measure: vi.fn<TapeMeasure>(async () => ({ noNumber })) })
     await t.loadPage()
     t.click([0.2, 0.2])
@@ -183,13 +215,17 @@ describe('measuring a distance', () => {
   })
 
   it('reads a 422 as a refusal and any other failure as failed', async () => {
-    const refusing = setup({ measure: vi.fn<TapeMeasure>(async () => Promise.reject(new TapeRequestError(422, 'X', 'no'))) })
+    const refusing = setup({
+      measure: vi.fn<TapeMeasure>(async () => Promise.reject(new TapeRequestError(422, 'X', 'no'))),
+    })
     refusing.click([0.2, 0.2])
     refusing.click([0.5, 0.5])
     await waitFor(() => expect(refusing.tape().phase).toBe('refused'))
     expect(refusing.tape().refusal).toBeNull()
 
-    const broken = setup({ measure: vi.fn<TapeMeasure>(async () => Promise.reject(new TypeError('network'))) })
+    const broken = setup({
+      measure: vi.fn<TapeMeasure>(async () => Promise.reject(new TypeError('network'))),
+    })
     broken.click([0.2, 0.2])
     broken.click([0.5, 0.5])
     await waitFor(() => expect(broken.tape().phase).toBe('failed'))
@@ -257,12 +293,22 @@ describe('measuring a path and an area', () => {
     expect(t.tape().provisional?.value).toBeCloseTo(5)
     act(() => t.tape().finish())
     await waitFor(() => expect(t.tape().phase).toBe('measured'))
-    expect(measure.mock.calls[0][1]).toEqual<MeasureRequest>({ page: 1, operation: 'path', points: [[0.1, 0.1], [0.3, 0.1], [0.3, 0.4]] })
+    expect(measure.mock.calls[0][1]).toEqual<MeasureRequest>({
+      page: 1,
+      operation: 'path',
+      points: [
+        [0.1, 0.1],
+        [0.3, 0.1],
+        [0.3, 0.4],
+      ],
+    })
     expect(t.placed.at(-1)?.shape).toBe('path')
   })
 
   it('closes an area by clicking near its first point, and reads a provisional area before', async () => {
-    const measure = vi.fn<TapeMeasure>(async () => ({ measurement: reading({ unit: 'm2', value: 9 }) }))
+    const measure = vi.fn<TapeMeasure>(async () => ({
+      measurement: reading({ unit: 'm2', value: 9 }),
+    }))
     const t = setup({ measure })
     await t.loadPage()
     act(() => t.tape().setMode('area'))
@@ -274,7 +320,15 @@ describe('measuring a path and an area', () => {
     expect(t.tape().canFinish).toBe(true)
     t.click([0.604, 0.103])
     await waitFor(() => expect(t.tape().phase).toBe('measured'))
-    expect(measure.mock.calls[0][1]).toEqual({ page: 1, operation: 'area', points: [[0.6, 0.1], [0.9, 0.1], [0.9, 0.4]] })
+    expect(measure.mock.calls[0][1]).toEqual({
+      page: 1,
+      operation: 'area',
+      points: [
+        [0.6, 0.1],
+        [0.9, 0.1],
+        [0.9, 0.4],
+      ],
+    })
     expect(t.placed.at(-1)).toMatchObject({ shape: 'polygon', x: 0.6, y: 0.1 })
   })
 
@@ -319,5 +373,42 @@ describe('taking points back', () => {
     act(() => t.tape().setMode('distance'))
     expect(t.tape().points).toEqual([])
     expect(t.tape().mode).toBe('distance')
+  })
+})
+
+describe('the tape on a page without a scale, and taking a discarded measurement back', () => {
+  it('places no point on a page that has no scale, and says so', async () => {
+    const t = setup({ targets: vi.fn<TapeTargets>(async () => ({ ...TARGETS, scales: [] })) })
+    await t.loadPage()
+    expect(t.tape().unscaled(1)).toBe(true)
+    t.click([0.5, 0.5])
+    expect(t.tape().points).toEqual([])
+  })
+
+  it('measures the same points again and opens the draft once more', async () => {
+    const t = setup()
+    act(() =>
+      t.tape().again({
+        page: 2,
+        shape: 'polygon',
+        points: [
+          [0.1, 0.1],
+          [0.5, 0.1],
+          [0.5, 0.5],
+        ],
+      })
+    )
+    await waitFor(() => expect(t.tape().phase).toBe('measured'))
+    expect(t.tape().mode).toBe('area')
+    expect(t.measure).toHaveBeenCalledWith('doc_1', {
+      page: 2,
+      operation: 'area',
+      points: [
+        [0.1, 0.1],
+        [0.5, 0.1],
+        [0.5, 0.5],
+      ],
+    })
+    expect(t.placed.at(-1)).toMatchObject({ page: 2, shape: 'polygon' })
   })
 })

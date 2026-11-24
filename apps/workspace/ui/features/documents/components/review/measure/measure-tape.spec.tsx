@@ -62,7 +62,16 @@ const KEPT = view({
     [0.1, 0.1],
     [0.4, 0.1],
   ],
-  reading: { value: 3, unit: 'm', low: 2.98, high: 3.02, provenance: 'vector_verified', scaleState: 'verified', scaleRatio: 100, printed: null },
+  reading: {
+    value: 3,
+    unit: 'm',
+    low: 2.98,
+    high: 3.02,
+    provenance: 'vector_verified',
+    scaleState: 'verified',
+    scaleRatio: 100,
+    printed: null,
+  },
 })
 
 beforeEach(() => {
@@ -81,7 +90,11 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('measureKey', () => {
-  const review = (tool: DocumentReview['tool'], tape: SheetTape) => ({ tool, setTool: vi.fn(), tape })
+  const review = (tool: DocumentReview['tool'], tape: SheetTape) => ({
+    tool,
+    setTool: vi.fn(),
+    tape,
+  })
 
   it('toggles the tool with m only where measuring is offered', () => {
     const off = review('select', tapeWith({ available: false }))
@@ -98,7 +111,11 @@ describe('measureKey', () => {
   it('picks a mode with d, w and f, but only with the tool in hand', () => {
     const tape = tapeWith()
     expect(measureKey('d', review('select', tape))).toBe(false)
-    for (const [key, mode] of [['d', 'distance'], ['w', 'path'], ['f', 'area']] as const) {
+    for (const [key, mode] of [
+      ['d', 'distance'],
+      ['w', 'path'],
+      ['f', 'area'],
+    ] as const) {
       expect(measureKey(key, review('measure', tape))).toBe(true)
       expect(tape.setMode).toHaveBeenLastCalledWith(mode)
     }
@@ -127,28 +144,45 @@ describe('measureKey', () => {
 describe('the mode strip', () => {
   it('names the three modes with their keys and switches on a click', async () => {
     const tape = tapeWith()
-    render(<MeasureModeStrip tape={tape} scale={<span>scale</span>} />)
+    render(<MeasureModeStrip tape={tape} onExit={() => undefined} scale={<span>scale</span>} />)
     expect(screen.getByTestId('measure-mode-distance')).toHaveTextContent('Strecke')
     expect(screen.getByTestId('measure-mode-path')).toHaveAttribute('aria-keyshortcuts', 'W')
     await userEvent.click(screen.getByTestId('measure-mode-area'))
     expect(tape.setMode).toHaveBeenCalledWith('area')
-    expect(screen.queryByTestId('measure-undo-point')).toBeNull()
+    expect(screen.getByTestId('measure-undo-point')).toBeDisabled()
+  })
+
+  it('says what each mode measures, and leaves measuring from the strip', async () => {
+    const onExit = vi.fn()
+    render(<MeasureModeStrip tape={tapeWith()} onExit={onExit} scale={null} />)
+    await userEvent.hover(screen.getByTestId('measure-mode-path'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Länge über mehrere Punkte')
+    await userEvent.click(screen.getByRole('button', { name: 'Messen beenden' }))
+    expect(onExit).toHaveBeenCalled()
   })
 
   it('offers undo while placing and Fertig for a path once it can finish', async () => {
     const tape = tapeWith({ mode: 'path', points: [[0.1, 0.1]], canFinish: false })
-    const { rerender } = render(<MeasureModeStrip tape={tape} scale={null} />)
+    const { rerender } = render(
+      <MeasureModeStrip tape={tape} onExit={() => undefined} scale={null} />
+    )
     expect(screen.getByTestId('measure-finish')).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Letzten Punkt zurücknehmen' }))
     expect(tape.undo).toHaveBeenCalled()
     const ready = { ...tape, canFinish: true }
-    rerender(<MeasureModeStrip tape={ready} scale={null} />)
+    rerender(<MeasureModeStrip tape={ready} onExit={() => undefined} scale={null} />)
     await userEvent.click(screen.getByTestId('measure-finish'))
     expect(ready.finish).toHaveBeenCalled()
   })
 
   it('has no Fertig for a distance, which finishes on its own', () => {
-    render(<MeasureModeStrip tape={tapeWith({ points: [[0.1, 0.1]] })} scale={null} />)
+    render(
+      <MeasureModeStrip
+        tape={tapeWith({ points: [[0.1, 0.1]] })}
+        onExit={() => undefined}
+        scale={null}
+      />
+    )
     expect(screen.getByTestId('measure-undo-point')).toBeInTheDocument()
     expect(screen.queryByTestId('measure-finish')).toBeNull()
   })
@@ -156,7 +190,7 @@ describe('the mode strip', () => {
 
 describe('the measure stack', () => {
   const stack = (tape: SheetTape, tool: DocumentReview['tool'] = 'measure', touch = false) =>
-    render(<MeasureStack review={{ tool, tape }} page={1} touch={touch} />)
+    render(<MeasureStack review={{ tool, setTool: vi.fn(), tape }} page={1} touch={touch} />)
   const hint = () => screen.getByTestId('review-tool-hint')
 
   it('shows nothing unless the tool is in hand and offered', () => {
@@ -165,25 +199,81 @@ describe('the measure stack', () => {
     expect(screen.queryByTestId('measure-mode-strip')).toBeNull()
   })
 
-  it('says how to place points for each mode, in touch words on a touch screen', () => {
+  it('says the next step as points are placed, in touch words on a touch screen', () => {
     const { rerender } = stack(tapeWith({ mode: 'area' }))
-    expect(hint()).toHaveTextContent('Klicken Sie die Ecken der Fläche der Reihe nach an · ↵ schließt · Esc bricht ab')
+    expect(hint()).toHaveTextContent('Klicken Sie auf eine Ecke der Fläche · Esc bricht ab')
     expect(hint()).toHaveAttribute('role', 'status')
-    rerender(<MeasureStack review={{ tool: 'measure', tape: tapeWith({ mode: 'path' }) }} page={1} touch />)
-    expect(hint()).toHaveTextContent('Tippen Sie die Ecken entlang des Wegs an')
+    const at = (count: number) =>
+      Array.from({ length: count }, (_, i): [number, number] => [0.1 * (i + 1), 0.1])
+    rerender(
+      <MeasureStack
+        review={{
+          tool: 'measure',
+          setTool: vi.fn(),
+          tape: tapeWith({ mode: 'area', page: 1, points: at(1) }),
+        }}
+        page={1}
+        touch={false}
+      />
+    )
+    expect(hint()).toHaveTextContent('Die nächste Ecke anklicken, der Reihe nach')
+    rerender(
+      <MeasureStack
+        review={{
+          tool: 'measure',
+          setTool: vi.fn(),
+          tape: tapeWith({ mode: 'area', page: 1, points: at(3) }),
+        }}
+        page={1}
+        touch={false}
+      />
+    )
+    expect(hint()).toHaveTextContent(
+      'ein Klick auf die erste Ecke oder „Fertig“ schließt die Fläche'
+    )
+    rerender(
+      <MeasureStack
+        review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ mode: 'distance' }) }}
+        page={1}
+        touch
+      />
+    )
+    expect(hint()).toHaveTextContent(
+      'Tippen Sie auf den Anfang der Strecke · Zum genauen Messen mit zwei Fingern hineinzoomen'
+    )
+  })
+
+  it('says before the first click that the page has no scale yet', () => {
+    stack(tapeWith({ unscaled: () => true }))
+    expect(hint()).toHaveTextContent('Für diese Seite ist kein Maßstab bekannt.')
+    expect(hint()).toHaveAttribute('role', 'alert')
   })
 
   it('says it is measuring, then says nothing over a reading', () => {
     const { rerender } = stack(tapeWith({ phase: 'measuring' }))
     expect(hint()).toHaveTextContent('Wird gemessen …')
-    rerender(<MeasureStack review={{ tool: 'measure', tape: tapeWith({ phase: 'measured' }) }} page={1} touch={false} />)
+    rerender(
+      <MeasureStack
+        review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ phase: 'measured' }) }}
+        page={1}
+        touch={false}
+      />
+    )
     expect(screen.queryByTestId('review-tool-hint')).toBeNull()
   })
 
   it('reads a refusal out as an alert, with the engine reason and remedy as its title', () => {
-    const refusal = { code: 'scan' as const, reason: 'Kein Vektor.', remedy: 'Vektor-PDF hochladen.', scaleState: null, candidates: [] }
+    const refusal = {
+      code: 'scan' as const,
+      reason: 'Kein Vektor.',
+      remedy: 'Vektor-PDF hochladen.',
+      scaleState: null,
+      candidates: [],
+    }
     stack(tapeWith({ phase: 'refused', refusal }))
-    expect(hint()).toHaveTextContent('Diese Seite ist ein Scan ohne Linien. Darauf lässt sich nicht messen.')
+    expect(hint()).toHaveTextContent(
+      'Diese Seite ist ein Scan ohne Linien. Darauf lässt sich nicht messen.'
+    )
     expect(hint()).toHaveAttribute('role', 'alert')
     expect(hint()).toHaveAttribute('data-code', 'scan')
     expect(hint()).toHaveAttribute('title', 'Kein Vektor. Vektor-PDF hochladen.')
@@ -192,12 +282,26 @@ describe('the measure stack', () => {
   it('falls back to the general refusal, and says a failure plainly', () => {
     const { rerender } = stack(tapeWith({ phase: 'refused' }))
     expect(hint()).toHaveTextContent('Das lässt sich hier nicht messen.')
-    rerender(<MeasureStack review={{ tool: 'measure', tape: tapeWith({ phase: 'failed' }) }} page={1} touch={false} />)
+    rerender(
+      <MeasureStack
+        review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ phase: 'failed' }) }}
+        page={1}
+        touch={false}
+      />
+    )
     expect(hint()).toHaveTextContent('Das hat nicht geklappt. Bitte noch einmal versuchen.')
   })
 
   it('labels the scale of the page being measured', () => {
-    const scaleOf = vi.fn(() => [{ region: null, state: 'verified' as const, source: 'calibration' as const, metresPerShare: [1, 1] as [number, number], ratio: 50 }])
+    const scaleOf = vi.fn(() => [
+      {
+        region: null,
+        state: 'verified' as const,
+        source: 'calibration' as const,
+        metresPerShare: [1, 1] as [number, number],
+        ratio: 50,
+      },
+    ])
     stack(tapeWith({ page: 3, scaleOf }))
     expect(screen.getByTestId('measure-scale')).toHaveTextContent('Maßstab 1:50')
     expect(scaleOf).toHaveBeenCalledWith(3)
@@ -205,9 +309,15 @@ describe('the measure stack', () => {
 })
 
 describe('the measure layer', () => {
-  const layer = (tape: SheetTape, { focused = true, annotations = [KEPT], selectedId = null as string | null } = {}) => {
+  const layer = (
+    tape: SheetTape,
+    { focused = true, annotations = [KEPT], selectedId = null as string | null } = {}
+  ) => {
     const review: MeasureLayerReview = { annotations, selectedId, select: vi.fn(), tape }
-    return { review, ...render(<MeasureLayer review={review} page={1} focused={focused} size={SIZE} />) }
+    return {
+      review,
+      ...render(<MeasureLayer review={review} page={1} focused={focused} size={SIZE} />),
+    }
   }
 
   it('captures the page only while the tool is active and the page focused', () => {
@@ -232,11 +342,11 @@ describe('the measure layer', () => {
     expect(tape.finish).toHaveBeenCalled()
   })
 
-  it('labels a kept measure with its rounded value, and selects it on a click', async () => {
+  it('labels a kept measure with its name and rounded value, and selects it on a click', async () => {
     const { review } = layer(tapeWith({ active: false }))
     const label = screen.getByTestId('measure-kept-ann_m')
-    expect(label).toHaveTextContent('3,00 m')
-    expect(label).toHaveAccessibleName('Anmerkung 4, Messung: 3,00 m')
+    expect(label).toHaveTextContent('Tür ohne Feuerwiderstandskl… · 3,00 m')
+    expect(label).toHaveAccessibleName('Anmerkung 4, Messung: Tür ohne Feuerwiderstandskl… · 3,00 m')
     await userEvent.click(label)
     expect(review.select).toHaveBeenCalledWith('ann_m')
   })
@@ -278,7 +388,10 @@ describe('the measure layer', () => {
   it('shows the engine value once measured, without ≈ or hover', () => {
     const tape = tapeWith({
       page: 1,
-      points: [[0.1, 0.1], [0.4, 0.1]],
+      points: [
+        [0.1, 0.1],
+        [0.4, 0.1],
+      ],
       kinds: ['vertex', 'vertex'],
       phase: 'measured',
       reading: { ...READING, value: 3.004, low: 3.002, high: 3.006 },
@@ -290,36 +403,58 @@ describe('the measure layer', () => {
   })
 
   it('draws nothing of the tape on a page it is not on', () => {
-    layer(tapeWith({ page: 2, points: [[0.1, 0.1], [0.4, 0.1]], provisional: { value: 3, unit: 'm' } }), { annotations: [] })
+    layer(
+      tapeWith({
+        page: 2,
+        points: [
+          [0.1, 0.1],
+          [0.4, 0.1],
+        ],
+        provisional: { value: 3, unit: 'm' },
+      }),
+      { annotations: [] }
+    )
     expect(screen.queryByTestId('measure-in-hand')).toBeNull()
     expect(screen.queryByTestId('measure-provisional')).toBeNull()
   })
 })
 
 describe('the reading', () => {
-  const lines = (reading: ShownReading, onSetScale?: () => void) => render(<MeasureReadingLines reading={reading} onSetScale={onSetScale} />)
+  const lines = (reading: ShownReading, onSetScale?: () => void) =>
+    render(<MeasureReadingLines reading={reading} onSetScale={onSetScale} />)
 
   it('gives a vector reading with its tolerance and the confirmed scale', () => {
     lines(READING)
     expect(screen.getByTestId('measure-reading-value')).toHaveTextContent('3,00 m ± 2 cm')
-    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Maßstab 1:100, bestätigt')
+    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent(
+      'Maßstab 1:100, bestätigt'
+    )
   })
 
   it('offers to set the scale under an estimated one', async () => {
     const onSetScale = vi.fn()
     lines({ ...READING, provenance: 'vector_estimated', scaleRatio: null }, onSetScale)
-    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Maßstab geschätzt')
+    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Maßstab aus dem Plan gelesen, nicht bestätigt')
     await userEvent.click(screen.getByTestId('measure-set-scale'))
     expect(onSetScale).toHaveBeenCalled()
   })
 
   it('reads a printed figure without a tolerance, and never offers a scale for it', () => {
-    const { rerender } = lines({ ...READING, provenance: 'printed_figure', printed: '3,00' }, vi.fn())
+    const { rerender } = lines(
+      { ...READING, provenance: 'printed_figure', printed: '3,00' },
+      vi.fn()
+    )
     expect(screen.getByTestId('measure-reading-value')).toHaveTextContent(/^3,00 m$/)
-    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Abgelesen von der Maßzahl 3,00')
+    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent(
+      'Abgelesen von der Maßzahl 3,00'
+    )
     expect(screen.queryByTestId('measure-set-scale')).toBeNull()
-    rerender(<MeasureReadingLines reading={{ ...READING, provenance: 'printed_figure', printed: null }} />)
-    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Abgelesen von der gedruckten Maßzahl')
+    rerender(
+      <MeasureReadingLines reading={{ ...READING, provenance: 'printed_figure', printed: null }} />
+    )
+    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent(
+      'Abgelesen von der gedruckten Maßzahl'
+    )
   })
 })
 
@@ -354,18 +489,35 @@ describe('the measurement draft', () => {
     const { note } = body(vi.fn(async () => Promise.reject(new Error('nope'))))
     await userEvent.type(note, 'Flur')
     await userEvent.click(screen.getByRole('button', { name: 'Behalten' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt. Bitte noch einmal versuchen.')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Das hat nicht geklappt. Bitte noch einmal versuchen.'
+    )
     expect(note).toHaveValue('Flur')
   })
 })
 
 describe('the draft card for a measurement', () => {
-  const draft: ReviewDraft = { page: 1, shape: 'path', x: 0.1, y: 0.1, w: null, h: null, points: [[0.1, 0.1], [0.4, 0.1]] }
+  const draft: ReviewDraft = {
+    page: 1,
+    shape: 'path',
+    x: 0.1,
+    y: 0.1,
+    w: null,
+    h: null,
+    points: [
+      [0.1, 0.1],
+      [0.4, 0.1],
+    ],
+  }
 
   it('holds the reading and keeps it as a hint, named by its shape when no note is given', async () => {
     const create = vi.fn(async () => undefined)
     const setDraft = vi.fn()
-    const review = { tape: tapeWith({ reading: READING, phase: 'measured' }), create, setDraft } as unknown as DocumentReview
+    const review = {
+      tape: tapeWith({ reading: READING, phase: 'measured' }),
+      create,
+      setDraft,
+    } as unknown as DocumentReview
     render(<DraftCard review={review} draft={draft} placement="docked" canPickAssignee={false} />)
     expect(screen.getByTestId('review-draft')).toBeInTheDocument()
     expect(screen.getByTestId('measure-reading-value')).toHaveTextContent('3,00 m ± 2 cm')

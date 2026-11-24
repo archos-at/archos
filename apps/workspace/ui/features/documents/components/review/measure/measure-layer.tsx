@@ -2,7 +2,12 @@
 
 import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
 import { MeasureEnd, MeasureLabel, MeasureLine } from '@/components/ui/measure-mark'
-import { labelAnchor, MEASURE_LABEL_AT_CLASS, measureLabelClass, type MeasureMarkPoint } from '@/components/ui/measure-mark-recipe'
+import {
+  labelAnchor,
+  MEASURE_LABEL_AT_CLASS,
+  measureLabelClass,
+  type MeasureMarkPoint,
+} from '@/components/ui/measure-mark-recipe'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { isMeasureShape, type PagePoint } from '@/lib/annotations/measure-shapes'
@@ -12,13 +17,22 @@ import type { DocumentReview } from '../../../hooks/use-document-review'
 import { TAPE_SHAPE, type PageSize } from '../../../hooks/use-sheet-tape'
 import { formatProvisional, formatRounded } from '../../../lib/tape-format'
 
-export type MeasureLayerReview = Pick<DocumentReview, 'annotations' | 'selectedId' | 'select' | 'tape'>
+export type MeasureLayerReview = Pick<
+  DocumentReview,
+  'annotations' | 'selectedId' | 'select' | 'tape'
+>
 
-const share = (element: HTMLElement, event: { clientX: number; clientY: number }): PagePoint | null => {
+const share = (
+  element: HTMLElement,
+  event: { clientX: number; clientY: number }
+): PagePoint | null => {
   const rect = element.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return null
   const clamp = (value: number) => Math.min(1, Math.max(0, value))
-  return [clamp((event.clientX - rect.left) / rect.width), clamp((event.clientY - rect.top) / rect.height)]
+  return [
+    clamp((event.clientX - rect.left) / rect.width),
+    clamp((event.clientY - rect.top) / rect.height),
+  ]
 }
 
 const px = (points: readonly PagePoint[], size: PageSize): MeasureMarkPoint[] =>
@@ -43,26 +57,48 @@ function KeptMeasure({
   const points = px(annotation.points ?? [], size)
   const closed = annotation.shape === 'polygon'
   const [x, y] = labelAnchor(points, closed)
-  const value = annotation.reading ? formatRounded(annotation.reading, locale) : null
+  const rounded = annotation.reading ? formatRounded(annotation.reading, locale) : null
+  const body = annotation.body.trim()
+  const named =
+    body &&
+    !(['line', 'path', 'polygon'] as const).some(
+      (shape) => t(`review.measure.shape.${shape}`) === body
+    )
+      ? body
+      : null
+  const value =
+    rounded && named
+      ? `${named.length > 28 ? `${named.slice(0, 27)}…` : named} · ${rounded}`
+      : rounded
   return (
     <>
-      <svg aria-hidden className="pointer-events-none absolute inset-0 z-20 size-full overflow-visible">
-        <MeasureLine points={points} closed={closed} surface="paper" data-selected={selected || undefined} />
-        {(annotation.shape === 'line' ? [points[0], points[points.length - 1]] : points).map((at, index) => (
-          <MeasureEnd key={index} at={at} kind="vertex" surface="paper" />
-        ))}
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
+      >
+        <MeasureLine
+          points={points}
+          closed={closed}
+          surface="paper"
+          data-selected={selected || undefined}
+        />
+        {(annotation.shape === 'line' ? [points[0], points[points.length - 1]] : points).map(
+          (at, index) => (
+            <MeasureEnd key={index} at={at} kind="vertex" surface="paper" />
+          )
+        )}
       </svg>
       {value && (
         <button
           type="button"
           data-testid={`measure-kept-${annotation.id}`}
           aria-pressed={selected}
-          aria-label={t('review.measure.kept', { number: annotation.number, value })}
+          aria-label={t('review.measure.kept', { number: annotation.number, value: value ?? '' })}
           onClick={onSelect}
           className={cn(
             MEASURE_LABEL_AT_CLASS,
             measureLabelClass('paper'),
-            'pointer-events-auto z-30 outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+            'focus-visible:ring-ring/60 pointer-events-auto z-30 outline-none focus-visible:ring-2',
             selected && 'bg-paper-ink text-paper-ink-foreground'
           )}
           style={{ left: x, top: y }}
@@ -107,9 +143,14 @@ export function MeasureLayer({
   const shown = px(trail, size)
   const [lx, ly] = labelAnchor(shown, closed)
   const engineValue = here && tape.reading ? formatRounded(tape.reading, locale) : null
-  const provisional = here && !engineValue && tape.provisional ? formatProvisional(tape.provisional.value, tape.provisional.unit, locale) : null
+  const provisional =
+    here && !engineValue && tape.provisional
+      ? formatProvisional(tape.provisional.value, tape.provisional.unit, locale)
+      : null
 
-  const onMove = (event: ReactPointerEvent<HTMLDivElement>) => tape.pointer(page, share(event.currentTarget, event), size)
+  const unscaled = tape.unscaled(page)
+  const onMove = (event: ReactPointerEvent<HTMLDivElement>) =>
+    tape.pointer(page, share(event.currentTarget, event), size)
   return (
     <div className="pointer-events-none absolute inset-0" data-testid={`measure-layer-${page}`}>
       {active && !blocked && (
@@ -117,7 +158,10 @@ export function MeasureLayer({
           aria-hidden
           data-testid={`measure-capture-${page}`}
           data-zoom-tap="off"
-          className="pointer-events-auto absolute inset-0 z-10 cursor-crosshair"
+          className={cn(
+            'pointer-events-auto absolute inset-0 z-10',
+            unscaled ? 'cursor-not-allowed' : 'cursor-crosshair'
+          )}
           onPointerMove={onMove}
           onPointerLeave={() => tape.pointer(page, null, size)}
           onClick={(event) => {
@@ -139,16 +183,44 @@ export function MeasureLayer({
         />
       ))}
       {(here || hover) && (
-        <svg aria-hidden className="pointer-events-none absolute inset-0 z-20 size-full overflow-visible" data-testid="measure-in-hand">
-          <MeasureLine points={shown} closed={closed} placing={placing} surface="paper" />
+        <svg
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 size-full overflow-visible"
+          data-testid="measure-in-hand"
+        >
+          <MeasureLine points={shown} closed={closed} placing surface="paper" />
           {here &&
             px(tape.points, size).map((at, index) => (
-              <MeasureEnd key={index} at={at} kind={tape.kinds[index] ?? 'free'} surface="paper" data-testid="measure-point" />
+              <MeasureEnd
+                key={index}
+                at={at}
+                kind={tape.kinds[index] ?? 'free'}
+                surface="paper"
+                data-testid="measure-point"
+              />
             ))}
           {hover && placing && (
-            <MeasureEnd at={px([hover.at], size)[0]} kind={hover.kind} surface="paper" data-testid="measure-hover" />
+            <MeasureEnd
+              at={px([hover.at], size)[0]}
+              kind={hover.kind}
+              surface="paper"
+              data-testid="measure-hover"
+            />
           )}
         </svg>
+      )}
+      {hover && placing && hover.kind !== 'free' && (
+        <span
+          aria-hidden
+          data-testid="measure-snap-tag"
+          className={cn(
+            measureLabelClass('paper'),
+            'text-meta pointer-events-none absolute z-30 -translate-y-full px-1.5 py-0'
+          )}
+          style={{ left: hover.at[0] * size.width + 10, top: hover.at[1] * size.height - 8 }}
+        >
+          {t(`review.measure.snapped.${hover.kind}`)}
+        </span>
       )}
       {(engineValue || provisional) && shown.length >= 2 && (
         <MeasureLabel
@@ -158,7 +230,9 @@ export function MeasureLayer({
           provisional={!engineValue}
           className="z-30"
           data-testid={engineValue ? 'measure-value' : 'measure-provisional'}
-          aria-label={provisional ? t('review.measure.provisionalLabel', { value: provisional }) : undefined}
+          aria-label={
+            provisional ? t('review.measure.provisionalLabel', { value: provisional }) : undefined
+          }
         >
           {engineValue ?? provisional}
         </MeasureLabel>

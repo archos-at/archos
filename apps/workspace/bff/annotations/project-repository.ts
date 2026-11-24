@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, gte, inArray, lt, lte, not, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lt, lte, not, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documentAnnotations } from '@/lib/db/schema/document-annotations'
 import { documentVersions } from '@/lib/db/schema/document-versions'
@@ -8,6 +8,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { outsideHiddenFolders } from '@/lib/documents/repository'
 import { projectShelf, shelfDocumentWhere } from '@/lib/documents/shelf'
 import { documentVisibleTo, SCREENED_ONLY, type DocumentReader } from '@/lib/documents/visibility'
+import { MEASURE_SHAPES } from './measure-shapes'
 import { MAX_PROJECT_MARKS_PAGE, type ProjectMarkOrder } from './project-types'
 import {
   carriedCopy,
@@ -84,6 +85,7 @@ function selectionWhere(organizationId: string, projectId: string, query: Select
     ...outsideHiddenFolders(query.hiddenFolderIds),
     documentVisibleTo(query.reader),
     inArray(documentAnnotations.status, [...query.statuses]),
+    notInArray(documentAnnotations.shape, [...MEASURE_SHAPES]),
     ...(query.assigneeUserId ? [eq(documentAnnotations.assigneeUserId, query.assigneeUserId)] : []),
     ...dueWhere(query.due),
   ]

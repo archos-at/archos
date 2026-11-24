@@ -9,7 +9,8 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { isGhostMark, type AnnotationView } from '@/lib/annotations/types'
+import { isMeasureShape } from '@/lib/annotations/measure-shapes'
+import { isGhostMark, isOpenItem, type AnnotationView } from '@/lib/annotations/types'
 import { documentFileUrl } from '@/lib/documents/urls'
 import { sameValue } from '@/lib/utils/same-value'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -123,7 +124,7 @@ export function DocumentReviewMode({
     rememberToolsIntro()
   }, [])
   useEffect(() => {
-    if (intro && (draft || openAsk)) foldIntro()
+    if (intro && ((draft && !draft.points) || openAsk)) foldIntro()
   }, [intro, draft, openAsk, foldIntro])
 
   const { watchMarksSetNews } = review
@@ -280,9 +281,15 @@ export function DocumentReviewMode({
     if (dockedAsk) {
       if (dockedAsk.status === 'thinking') agent.open(null)
       else agent.dismiss(dockedAsk.id)
+    } else if (draft?.points && isMeasureShape(draft.shape)) {
+      const kept = { page: draft.page, shape: draft.shape, points: draft.points }
+      setDraft(null)
+      toast(t('review.measure.discarded'), {
+        action: { label: t('review.measure.restore'), onClick: () => review.tape.again(kept) },
+      })
     } else if (draft) setDraft(null)
     else select(null)
-  }, [dockedAsk, agent, draft, setDraft, select])
+  }, [dockedAsk, agent, draft, setDraft, select, t, review.tape])
 
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
@@ -338,7 +345,7 @@ export function DocumentReviewMode({
       const current = annotations.find((annotation) => annotation.id === selectedId)
       if (!current?.canEdit) return
       if (current.status === 'proposed') decideByKey(current, 'open')
-      else if (current.status === 'open') decideByKey(current, 'resolved')
+      else if (isOpenItem(current)) decideByKey(current, 'resolved')
     } else if ((key === 'backspace' || key === 'delete') && selectedId) {
       const current = annotations.find((annotation) => annotation.id === selectedId)
       if (!current?.canEdit || current.status !== 'proposed') return

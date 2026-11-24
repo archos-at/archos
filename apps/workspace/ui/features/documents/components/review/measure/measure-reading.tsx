@@ -13,7 +13,9 @@ import { formatRounded, formatScaleRatio, formatTolerance } from '../../../lib/t
 export type ShownReading = Pick<TapeMeasurement, 'value' | 'unit' | 'low' | 'high' | 'provenance'> &
   Partial<Pick<TapeMeasurement, 'scaleRatio' | 'printed'>>
 
-export function useReadingValue(): (reading: Pick<ShownReading, 'value' | 'unit' | 'low' | 'high'>) => string {
+export function useReadingValue(): (
+  reading: Pick<ShownReading, 'value' | 'unit' | 'low' | 'high'>
+) => string {
   const { locale } = useLocale()
   return (reading) => formatRounded(reading, locale)
 }
@@ -29,12 +31,19 @@ function useBasis(): (reading: ShownReading) => string {
     }
     const estimated = reading.provenance === 'vector_estimated'
     const ratio = reading.scaleRatio ? formatScaleRatio(reading.scaleRatio, locale) : null
-    if (ratio) return t(`review.measure.basis.${estimated ? 'estimatedRatio' : 'verifiedRatio'}`, { ratio })
+    if (ratio)
+      return t(`review.measure.basis.${estimated ? 'estimatedRatio' : 'verifiedRatio'}`, { ratio })
     return t(`review.measure.basis.${estimated ? 'estimated' : 'verified'}`)
   }
 }
 
-export function MeasureReadingLines({ reading, onSetScale }: { reading: ShownReading; onSetScale?: () => void }): JSX.Element {
+export function MeasureReadingLines({
+  reading,
+  onSetScale,
+}: {
+  reading: ShownReading
+  onSetScale?: () => void
+}): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const basis = useBasis()
@@ -45,14 +54,27 @@ export function MeasureReadingLines({ reading, onSetScale }: { reading: ShownRea
       <p className="text-section text-foreground tabular-nums" data-testid="measure-reading-value">
         {reading.provenance === 'printed_figure'
           ? value
-          : t('review.measure.withTolerance', { value, tolerance: formatTolerance(reading, locale) })}
+          : t('review.measure.withTolerance', {
+              value,
+              tolerance: formatTolerance(reading, locale),
+            })}
       </p>
-      <p className="text-meta text-muted-foreground" data-testid="measure-reading-basis" data-provenance={reading.provenance}>
+      <p
+        className="text-meta text-muted-foreground"
+        data-testid="measure-reading-basis"
+        data-provenance={reading.provenance}
+      >
         {basis(reading)}
         {estimated && onSetScale && (
           <>
             {CLAUSE_JOIN}
-            <Button type="button" variant="inline" className="text-meta h-auto p-0" onClick={onSetScale} data-testid="measure-set-scale">
+            <Button
+              type="button"
+              variant="inline"
+              className="text-meta h-auto p-0"
+              onClick={onSetScale}
+              data-testid="measure-set-scale"
+            >
               {t('review.measure.setScale')}
             </Button>
           </>
@@ -115,10 +137,22 @@ export function MeasureDraftBody({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={onDiscard} data-testid="measure-discard">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onDiscard}
+          data-testid="measure-discard"
+        >
           {t('review.measure.discard')}
         </Button>
-        <BusyButton size="sm" busy={busy} busyLabel={t('review.measure.keep')} onClick={() => void keep()} data-testid="measure-keep">
+        <BusyButton
+          size="sm"
+          busy={busy}
+          busyLabel={t('review.measure.keep')}
+          onClick={() => void keep()}
+          data-testid="measure-keep"
+        >
           {t('review.measure.keep')}
         </BusyButton>
       </div>

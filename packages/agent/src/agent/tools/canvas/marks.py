@@ -8,7 +8,6 @@ from typing import Literal
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
-from pydantic import ConfigDict
 from pydantic import ValidationError
 
 from agent.common.agent_kind import is_agent_kind
@@ -36,10 +35,6 @@ Shape = Annotated[Literal["point", "region", "line", "path", "polygon"], BeforeV
 
 
 class AnnotationProposal(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={"description": "One finding: where, what kind, what is wrong, what it rests on."}
-    )
-
     page: int
     shape: Shape = "region"
     x: float = 0
