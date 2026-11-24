@@ -53,3 +53,5 @@ DROP INDEX IF EXISTS "documents_personal_owner_listing_idx";
 ALTER TABLE "project_folders" DROP COLUMN IF EXISTS "owner_user_id";
 --> statement-breakpoint
 ALTER TABLE "documents" DROP COLUMN IF EXISTS "owner_user_id";
+--> statement-breakpoint
+DROP FUNCTION IF EXISTS current_system_reader();

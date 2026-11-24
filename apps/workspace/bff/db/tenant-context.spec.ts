@@ -13,6 +13,7 @@ import {
   runWithTenantSlot,
   withOptionalTenant,
   withPlatformAccess,
+  withSystemReader,
   withTenant,
 } from './tenant-context'
 
@@ -187,5 +188,34 @@ describe('explicit scopes', () => {
       })
 
     expect(await Promise.all([observe('ORG_A'), observe('ORG_B')])).toEqual(['ORG_A', 'ORG_B'])
+  })
+})
+
+describe('the person of a tenant context, and the system reader (ADR-0191)', () => {
+  it('keeps the request’s person when a query opens the same organization without naming one', async () => {
+    const inner = await withTenant({ organizationId: 'org_1', userId: 'user_1' }, () =>
+      withTenant({ organizationId: 'org_1' }, () => getTenantContext())
+    )
+    expect(inner).toEqual({ kind: 'tenant', organizationId: 'org_1', userId: 'user_1' })
+  })
+
+  it('carries no person into another organization', async () => {
+    const inner = await withTenant({ organizationId: 'org_1', userId: 'user_1' }, () =>
+      withTenant({ organizationId: 'org_2' }, () => getTenantContext())
+    )
+    expect(inner).toEqual({ kind: 'tenant', organizationId: 'org_2', userId: null })
+  })
+
+  it('names the system reader only where no person is present', async () => {
+    expect(await withSystemReader('org_1', 'ingestion', () => getTenantContext())).toEqual({
+      kind: 'tenant',
+      organizationId: 'org_1',
+      userId: null,
+      systemReader: 'ingestion',
+    })
+    const forAPerson = await withTenant({ organizationId: 'org_1', userId: 'user_1' }, () =>
+      withSystemReader('org_1', 'ingestion', () => getTenantContext())
+    )
+    expect(forAPerson).toEqual({ kind: 'tenant', organizationId: 'org_1', userId: 'user_1' })
   })
 })

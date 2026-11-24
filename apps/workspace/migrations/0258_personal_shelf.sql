@@ -10,14 +10,16 @@
 -- The owner, and nobody else acting as a person: the policy on each table that
 -- holds a personal row's name or content adds
 --
---   owner_user_id IS NULL OR current_user_id() IS NULL OR owner_user_id = current_user_id()
+--   owner_user_id IS NULL OR owner_user_id = current_user_id() OR current_system_reader() IS NOT NULL
 --
 -- to the organization's. A query run for a colleague or an administrator
 -- matches no personal row of someone else, whatever its WHERE says, as
--- `personal_memory` (0229) holds for notes. A context with no person at all is
--- a worker (ingestion, search projection, retention), which acts for the
--- document and not for a reader; it keeps reading the row, as it reads every
--- other row of the organization.
+-- `personal_memory` (0229) holds for notes. A context with no person matches
+-- none either, unless it names itself a system reader: ingestion, rendition,
+-- the search projection and the document notices act for the document, not
+-- for a reader, and say so through `app.system_reader`, which only
+-- `withSystemReader` (`bff/db/tenant-context.ts`, the `SYSTEM_READERS`
+-- registry) sets, and only when no person is in the context.
 --
 -- The tables: `documents` and `project_folders` carry the owner. A version
 -- (`document_versions`) and a search row (`document_search_facets`) carry the
@@ -32,6 +34,13 @@
 --
 -- Idempotent: every constraint is dropped and added by name, every column added
 -- IF NOT EXISTS, and a policy is installed whole by `secure_table`.
+CREATE OR REPLACE FUNCTION current_system_reader() RETURNS text
+  LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT nullif(current_setting('app.system_reader', true), '') $$;
+--> statement-breakpoint
+COMMENT ON FUNCTION current_system_reader() IS
+  'The background path this transaction acts for, from app.system_reader (SYSTEM_READERS in bff/db/tenant-context.ts). NULL for a person or an unnamed worker, which then read no one''s personal shelf.';
+--> statement-breakpoint
 ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
 --> statement-breakpoint
 ALTER TABLE "project_folders" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
@@ -89,10 +98,10 @@ ALTER TABLE "document_search_shelves"
   );
 --> statement-breakpoint
 SELECT secure_table('documents',
-  'organization_id = current_org() AND (project_id IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_id AND p.organization_id = current_org())) AND (owner_user_id IS NULL OR current_user_id() IS NULL OR owner_user_id = current_user_id())');
+  'organization_id = current_org() AND (project_id IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_id AND p.organization_id = current_org())) AND (owner_user_id IS NULL OR owner_user_id = current_user_id() OR current_system_reader() IS NOT NULL)');
 --> statement-breakpoint
 SELECT secure_table('project_folders',
-  'organization_id = current_org() AND (owner_user_id IS NULL OR current_user_id() IS NULL OR owner_user_id = current_user_id())');
+  'organization_id = current_org() AND (owner_user_id IS NULL OR owner_user_id = current_user_id() OR current_system_reader() IS NOT NULL)');
 --> statement-breakpoint
 SELECT secure_table('document_versions',
   'organization_id = current_org() AND (project_id IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_id AND p.organization_id = current_org())) AND (project_id IS NOT NULL OR EXISTS (SELECT 1 FROM documents d WHERE d.id = document_id))');

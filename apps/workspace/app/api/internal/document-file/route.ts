@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { internalApiRoute, parseQuery } from '@/lib/api/handler'
 import { requireVerifiedContext } from '@/lib/api/internal-envelope'
-import { withOptionalTenant, withTenant } from '@/lib/db/tenant-context'
+import { withOptionalSystemReader, withTenant } from '@/lib/db/tenant-context'
 import { NotFoundError } from '@/lib/api/errors'
 import { restrictedCollectionBase } from '@/lib/authz/folder-access-rule'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
@@ -75,13 +75,14 @@ export const GET = internalApiRoute(
       if (query.organizationId && query.organizationId !== context.organizationId) {
         throw new NotFoundError('Document not found')
       }
-      return withTenant({ organizationId: context.organizationId }, async () => {
+      return withTenant({ organizationId: context.organizationId, userId: context.userId }, async () => {
         await requireReadable(query.collection, context)
         return lookUp(query, context.organizationId)
       })
     }
-    return withOptionalTenant(
+    return withOptionalSystemReader(
       query.organizationId,
+      'ingestion',
       'document addressed by collection name, with no envelope and no organization supplied',
       async () => {
         await requireReadable(query.collection, null)

@@ -3,6 +3,16 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 export const ORGANIZATION_SETTING = 'app.organization_id'
 export const USER_SETTING = 'app.user_id'
+export const SYSTEM_READER_SETTING = 'app.system_reader'
+
+export const SYSTEM_READERS = {
+  ingestion: 'the backend reads, renders and settles a document it is ingesting, for no reader',
+  rendition: 'a document is rendered or extracted for its preview, for no reader',
+  'search-projection': 'what a document is, projected into its search row, for no reader',
+  'document-notices': 'a new Fassung, a check or a due mark is told to the people who may read the document',
+} as const
+
+export type SystemReader = keyof typeof SYSTEM_READERS
 
 export const PLATFORM_ROLE = 'app_platform'
 
@@ -10,6 +20,7 @@ export interface TenantScope {
   readonly kind: 'tenant'
   readonly organizationId: string
   readonly userId: string | null
+  readonly systemReader?: SystemReader
 }
 
 export interface PlatformScope {
@@ -79,14 +90,38 @@ export function clearTenantContext(): void {
   enterTenantContext({ organizationId: null, userId: '' })
 }
 
+function personOfTenant(organizationId: string): string | null {
+  const current = getTenantContext()
+  return current?.kind === 'tenant' && current.organizationId === organizationId ? current.userId : null
+}
+
 export function withTenant<T>(
   scope: { organizationId: string; userId?: string | null },
   fn: () => PromiseLike<T> | T
 ): Promise<T> {
-  return storage.run(
-    { scope: { kind: 'tenant', organizationId: scope.organizationId, userId: scope.userId ?? null } },
-    async () => await fn()
-  )
+  const userId = scope.userId ?? personOfTenant(scope.organizationId)
+  return storage.run({ scope: { kind: 'tenant', organizationId: scope.organizationId, userId } }, async () => await fn())
+}
+
+export function withSystemReader<T>(
+  organizationId: string,
+  reader: SystemReader,
+  fn: () => PromiseLike<T> | T
+): Promise<T> {
+  const userId = personOfTenant(organizationId)
+  const scope: TenantScope = userId
+    ? { kind: 'tenant', organizationId, userId }
+    : { kind: 'tenant', organizationId, userId: null, systemReader: reader }
+  return storage.run({ scope }, async () => await fn())
+}
+
+export function withOptionalSystemReader<T>(
+  organizationId: string | null | undefined,
+  reader: SystemReader,
+  reasonWhenAbsent: string,
+  fn: () => PromiseLike<T> | T
+): Promise<T> {
+  return organizationId ? withSystemReader(organizationId, reader, fn) : withPlatformAccess(reasonWhenAbsent, fn)
 }
 
 export function withPlatformAccess<T>(reason: string, fn: () => PromiseLike<T> | T): Promise<T> {

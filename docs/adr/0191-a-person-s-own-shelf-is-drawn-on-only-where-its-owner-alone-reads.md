@@ -34,8 +34,10 @@ without being recorded.
    owner on the row, and the upload pipeline, folders, listing, filing,
    ingestion and deletion run unchanged against it. Only its owner reads or
    writes it, held by a per-user row-level policy as `personal_memory` is, not
-   by the app layer alone. Leaving the office treats it as personal memory is
-   treated.
+   by the app layer alone. A context with no person reads none of it unless it
+   names itself a system reader (`withSystemReader`: ingestion, rendition, the
+   search projection, the document notices). Leaving the office treats it as
+   personal memory is treated.
 2. **The server decides what a turn may read, from the conversation row.** A
    chat with a project reads that project; a chat without one reads none, and
    the project the page has open is not a source. The client's `projectId` and

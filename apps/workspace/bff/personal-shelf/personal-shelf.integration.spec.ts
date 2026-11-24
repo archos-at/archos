@@ -36,6 +36,7 @@ describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, 
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
+  let withSystemReader: typeof import('@/lib/db/tenant-context').withSystemReader
 
   const as = <T>(userId: string | null, run: () => Promise<T>): Promise<T> => withTenant({ organizationId: ORG, userId }, run)
   const ids = async (userId: string | null, query: ReturnType<typeof sql>): Promise<string[]> =>
@@ -46,6 +47,7 @@ describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, 
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
+    withSystemReader = context.withSystemReader
     db = (await import('@/lib/db')).getDb()
 
     await as(OWNER, async () => {
@@ -111,8 +113,18 @@ describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, 
     ).rejects.toThrow()
   })
 
-  it('lets a worker acting for no person read it, as it reads every row of the office', async () => {
-    expect(await ids(null, sql`select id from documents where id = ${DOCUMENT}`)).toEqual([DOCUMENT])
+  it('shows a context with neither a person nor a named system reader none of it', async () => {
+    expect(await ids(null, sql`select id from documents where id in (${DOCUMENT}, ${OFFICE_DOCUMENT})`)).toEqual([OFFICE_DOCUMENT])
+    expect(await ids(null, sql`select id from project_folders where id = ${FOLDER}`)).toEqual([])
+    expect(await ids(null, sql`select id from document_versions where document_id = ${DOCUMENT}`)).toEqual([])
+    expect(await ids(null, sql`select document_id as id from document_search_facets where document_id = ${DOCUMENT}`)).toEqual([])
+  })
+
+  it('lets a named system reader, acting for the document and no person, read it', async () => {
+    const read = (query: ReturnType<typeof sql>) =>
+      withSystemReader(ORG, 'ingestion', async () => [...(await db.execute(query))].map((row) => String(row.id)))
+    expect(await read(sql`select id from documents where id = ${DOCUMENT}`)).toEqual([DOCUMENT])
+    expect(await read(sql`select id from project_folders where id = ${FOLDER}`)).toEqual([FOLDER])
   })
 
   it('holds a personal row to its owner and keeps it out of every project', async () => {
