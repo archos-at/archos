@@ -79,7 +79,7 @@ describe('useChatStore', () => {
     })
 
     describe('getUserConversations', () => {
-      test("inside a project, lists that project's sessions plus unscoped legacy sessions (fail-open)", () => {
+      test("inside a project, lists only that project's sessions: a chat without a project is personal (ADR-0193)", () => {
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: 'proj-a',
@@ -97,10 +97,10 @@ describe('useChatStore', () => {
           .getUserConversations()
           .map((c) => c.id)
 
-        expect(ids).toEqual(['a-1', 'legacy-null', 'legacy-undef'])
+        expect(ids).toEqual(['a-1'])
       })
 
-      test("without a project context, lists all of the user's sessions", () => {
+      test("under Persönlich, lists only the user's chats without a project", () => {
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: null,
@@ -111,7 +111,7 @@ describe('useChatStore', () => {
           ],
         })
 
-        expect(useChatStore.getState().getUserConversations()).toHaveLength(3)
+        expect(useChatStore.getState().getUserConversations().map((c) => c.id)).toEqual(['legacy'])
       })
     })
 
@@ -153,7 +153,7 @@ describe('useChatStore', () => {
         expect(useChatStore.getState().currentConversation).toBeNull()
       })
 
-      test('allows selecting an unscoped legacy session in any project (fail-open)', () => {
+      test('refuses to activate a personal chat under a project (ADR-0193)', () => {
         const legacy = makeConv('legacy', 'user-1', null)
         useChatStore.setState({
           currentUserId: 'user-1',
@@ -164,7 +164,7 @@ describe('useChatStore', () => {
 
         useChatStore.getState().selectConversation('legacy')
 
-        expect(useChatStore.getState().currentConversation?.id).toBe('legacy')
+        expect(useChatStore.getState().currentConversation).toBeNull()
       })
     })
 
