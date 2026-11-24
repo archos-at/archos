@@ -275,8 +275,8 @@ def _refuse_a_scope_the_envelope_does_not_sign(
         return
     from ..jobs.submit import signed_job_scope
 
-    signed = signed_job_scope(request_envelope) if request_envelope else None
-    if signed is None or sorted(set(body.collection_scope)) != sorted(set(signed)):
+    signed = (signed_job_scope(request_envelope) if request_envelope else None) or []
+    if sorted(set(body.collection_scope)) != sorted(set(signed)):
         raise HTTPException(422, "The body names a collection scope the signed envelope does not")
 
 
