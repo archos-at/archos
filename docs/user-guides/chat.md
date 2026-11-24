@@ -2,7 +2,7 @@
 
 The chat talks to the agent over a WebSocket, for real-time interaction with full HITL (human-in-the-loop) support.
 
-On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and the thread header is the first thing on the screen. To see which project you are in, or to switch, open **Mehr** in the tab bar: its first entry shows the project, and **Projekt wechseln** opens the list. **Suche** is in **Mehr** too.
+On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and the thread header is the first thing on the screen. **Mehr** in the tab bar starts with the **Persönlich | Projekt** switch. Inside a project its next entry shows the project, and **Projekt wechseln** opens the list. Under Persönlich the tab bar carries **Chat** (a new personal chat), **Meine Ablage**, **Postfach** and **Mehr**, and **Mehr** lists the office's places and your account, no project. **Suche** is in **Mehr** on both sides.
 
 ## Finding past chats
 

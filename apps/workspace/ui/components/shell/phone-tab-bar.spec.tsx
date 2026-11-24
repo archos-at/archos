@@ -133,3 +133,20 @@ describe('PhoneTabBar — above a project', () => {
     expect(within(bar()).queryByRole('button')).toBeNull()
   })
 })
+
+describe('PhoneTabBar — under Persönlich (ADR-0193)', () => {
+  test('its own places: a new personal chat, Meine Ablage, the Postfach and "Mehr"', () => {
+    render(<PhoneTabBar projectId={null} pathname="/app/personal-shelf" canAccessOfficeShelf canAccessInbox />)
+    expect(bar()).toHaveAttribute('data-scope', 'personal')
+    const links = within(bar()).getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/app/personal/chat?new=1', '/app/personal-shelf', '/app/inbox'])
+    expect(within(bar()).getByRole('link', { name: 'Meine Ablage' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
+    expect(within(bar()).queryByRole('link', { name: 'Projects' })).toBeNull()
+  })
+
+  test('off both sides it keeps the office’s tabs', () => {
+    render(<PhoneTabBar projectId={null} pathname="/app/inbox" canAccessOfficeShelf canAccessInbox />)
+    expect(bar()).toHaveAttribute('data-scope', 'org')
+  })
+})

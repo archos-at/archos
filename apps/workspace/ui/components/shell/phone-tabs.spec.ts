@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   orgPhoneTabs,
+  personalPhoneTabs,
   phoneBackTarget,
   phoneTabBarHiddenOnRoute,
   projectPhoneTabs,
@@ -178,5 +179,32 @@ describe('the Postfach looks like itself', () => {
     expect(inboxTab?.icon).not.toBe(officeShelfTab?.icon)
     expect(projectSection('inbox')?.icon).not.toBe(projectSection('officeShelf')?.icon)
     expect(projectSection('inbox')?.icon.displayName).toBe('Bell')
+  })
+})
+
+describe('under Persönlich (ADR-0193)', () => {
+  it('carries its own places: a new personal chat, Meine Ablage, the Postfach and "Mehr", in that order', () => {
+    const tabs = personalPhoneTabs('/app/personal/chat', ALL)
+    expect(keys(tabs)).toEqual(['chat', 'personalShelf', 'inbox', 'more'])
+    expect(tabs.find((tab) => tab.key === 'chat')).toMatchObject({ href: '/app/personal/chat?new=1' })
+    expect(tabs.find((tab) => tab.key === 'personalShelf')).toMatchObject({
+      href: '/app/personal-shelf',
+      label: { namespace: 'nav', key: 'personalShelf' },
+    })
+  })
+
+  it('lights the place the reader is in, and "Mehr" elsewhere', () => {
+    expect(lit(personalPhoneTabs('/app/personal/chat', ALL))).toEqual(['chat'])
+    expect(lit(personalPhoneTabs('/app/personal-shelf', ALL))).toEqual(['personalShelf'])
+    expect(lit(personalPhoneTabs('/app/personal/memory', ALL))).toEqual(['more'])
+  })
+
+  it('drops the Postfach for a reader without one, and keeps "Mehr" last', () => {
+    expect(keys(personalPhoneTabs('/app/personal/chat', NONE))).toEqual(['chat', 'personalShelf', 'more'])
+  })
+
+  it('never carries a project’s places', () => {
+    expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('files')
+    expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('settings')
   })
 })

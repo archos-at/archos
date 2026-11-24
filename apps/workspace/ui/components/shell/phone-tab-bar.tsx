@@ -21,7 +21,8 @@ import { feedbackCopy } from '@/i18n/namespaces/feedback'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { useShellOverlays } from './shell-overlays'
-import { orgPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
+import { orgPhoneTabs, personalPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
+import { railModeOf } from './rail-mode'
 
 export interface PhoneTabBarProps {
   projectId: string | null
@@ -54,9 +55,13 @@ export function PhoneTabBar({
   const pillId = `phone-tab-pill-${React.useId()}`
 
   const flags = { canAccessOfficeShelf, canAccessInbox }
-  const tabs = projectId
-    ? projectPhoneTabs(projectId, pathname, flags)
-    : orgPhoneTabs(pathname, flags)
+  const scope = projectId ? 'project' : railModeOf(pathname) === 'personal' ? 'personal' : 'org'
+  const tabs =
+    scope === 'project' && projectId
+      ? projectPhoneTabs(projectId, pathname, flags)
+      : scope === 'personal'
+        ? personalPhoneTabs(pathname, flags)
+        : orgPhoneTabs(pathname, flags)
   const label = (value: PhoneTabLabel): string =>
     value.namespace === 'collaboration' ? tCollaboration(value.key) : t(value.key)
 
@@ -64,10 +69,10 @@ export function PhoneTabBar({
     <nav
       aria-label={t('tabBar.label')}
       data-slot="phone-tab-bar"
-      data-scope={projectId ? 'project' : 'org'}
+      data-scope={scope}
       className={cn(
         'w-full shrink-0 md:hidden',
-        projectId ? 'bg-desk' : 'border-border bg-background border-t',
+        scope === 'org' ? 'border-border bg-background border-t' : 'bg-desk',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
       )}
@@ -132,7 +137,7 @@ function PhoneTabItem({
             layoutId={pillId}
             data-slot="phone-tab-pill"
             aria-hidden
-            className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs absolute inset-0 rounded-control"
+            className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs in-data-[scope=personal]:bg-sheet in-data-[scope=personal]:shadow-xs absolute inset-0 rounded-control"
             transition={springGlide}
           />
         )}
