@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { ChatStore, Conversation } from '../types'
 import type { SessionsSlice } from './sessions-store'
+import { serverSideKey } from './server-sides'
 import {
   clearAwaitingServerMessages,
   isAwaitingServerMessages,
@@ -25,6 +26,25 @@ const listScopeMatcher = (
 
 export const hydratingConversationIds = new Set<string>()
 
+const SIDE_FRESH_MS = 20_000
+interface SideLoad { at: number; settled: boolean; pending: Promise<void> }
+const sideLoads = new Map<string, SideLoad>()
+
+let sideLoadsOwner: string | null = null
+
+export function forgetSideLoads(): void {
+  sideLoads.clear()
+  sideLoadsOwner = null
+}
+
+export function sideLoadsChangeHands(userId: string | null): boolean {
+  if (userId === null) return false
+  const changed = sideLoadsOwner !== null && sideLoadsOwner !== userId
+  if (changed) sideLoads.clear()
+  sideLoadsOwner = userId
+  return changed
+}
+
 export const createSessionServerSyncSlice: StateCreator<
   ChatStore,
   [['zustand/devtools', never]],
@@ -35,14 +55,25 @@ export const createSessionServerSyncSlice: StateCreator<
     | 'hydrateConversationMessages'
     | '_lockConversation'
   >
-> = (set, get) => ({
-  loadServerConversations: async (projectId?: string, place?: 'personal' | 'project') => {
+> = (set, get) => {
+  const loadSide = async (
+    projectId?: string,
+    place?: 'personal' | 'project',
+    isLatest: () => boolean = () => true,
+    anotherSideLoading: () => boolean = () => false
+  ): Promise<boolean> => {
+    const since = Date.now()
     try {
       const conversationsClient = await getConversationsClient()
-      const requestedAt = Date.now()
+      const requestedAt = since
       const listed = await conversationsClient.list(projectId, place)
-      if (!listed) return
+      if (!isLatest()) return true
+      if (!listed) return true
       const serverConvs = listed.filter((c) => !isConversationErased(c.id))
+      if (place) {
+        const key = serverSideKey(place, projectId)
+        set({ serverSides: { ...get().serverSides, [key]: { ids: serverConvs.map((c) => c.id), since } } }, false, 'serverSides')
+      }
 
       const { conversations, currentUserId, currentConversation: openBefore } = get()
       const listedIds = new Set(serverConvs.map((c) => c.id))
@@ -116,11 +147,34 @@ export const createSessionServerSyncSlice: StateCreator<
       ) {
         void get().hydrateConversationMessages(currentConversation.id)
       }
+      return true
     } catch (err) {
       console.warn('[loadServerConversations] Failed to load server conversations:', err)
+      return false
     } finally {
-      set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+      if (isLatest() && !anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
+  }
+
+  return {
+  loadServerConversations: (projectId?: string, place?: 'personal' | 'project', wantConversationId?: string) => {
+    if (!place) return loadSide(projectId, place).then(() => undefined)
+    const key = serverSideKey(place, projectId)
+    const known = sideLoads.get(key)
+    if (known && !known.settled) return known.pending
+    const hasWanted = !wantConversationId || (get().serverSides[key]?.ids.includes(wantConversationId) ?? false)
+    if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
+    const load: SideLoad = { at: Date.now(), settled: false, pending: Promise.resolve() }
+    const isLatest = () => sideLoads.get(key) === load
+    const anotherSideLoading = () => [...sideLoads.values()].some((other) => other !== load && !other.settled)
+    load.pending = loadSide(projectId, place, isLatest, anotherSideLoading).then((ok) => {
+      if (!isLatest()) return
+      if (!ok) sideLoads.delete(key)
+      else Object.assign(load, { at: Date.now(), settled: true })
+      if (!anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+    })
+    sideLoads.set(key, load)
+    return load.pending
   },
 
   hydrateConversationMessages: async (conversationId: string) => {
@@ -195,4 +249,5 @@ export const createSessionServerSyncSlice: StateCreator<
       'lockConversation'
     )
   },
-})
+}
+}

@@ -9,7 +9,7 @@ import { conversationMatchesProject, isHiddenJobConversation } from '../lib/proj
 import { turnStateFor } from './messages-store'
 import { withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createNewConversation } from './new-conversation'
-import { hydratingConversationIds } from './session-server-sync'
+import { hydratingConversationIds, sideLoadsChangeHands } from './session-server-sync'
 import type { SessionsSlice } from './sessions-store'
 
 const getDefaultEnabledDataSourceIds = (): string[] => {
@@ -86,6 +86,7 @@ export const createSessionNavigationSlice: StateCreator<
 
   setCurrentUser: (userId: string | null) => {
     const { conversations, currentConversation, projectId } = get()
+    if (sideLoadsChangeHands(userId)) set({ serverSides: {}, serverConversationsLoaded: false }, false, 'forgetServerSides')
 
     const shouldClearCurrent =
       currentConversation && (userId === null || currentConversation.userId !== userId)

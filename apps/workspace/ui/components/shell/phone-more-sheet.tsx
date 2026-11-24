@@ -61,6 +61,7 @@ export interface PhoneMoreSheetProps extends MoreFlags {
   projects?: ProjectSwitcherProject[]
   initialView?: MoreView
   user?: SidebarUser
+  navigateSide?: (href: string) => void
 }
 
 type MoreView = 'more' | 'projects'
@@ -86,6 +87,7 @@ export function PhoneMoreSheet({
   projects,
   initialView = 'more',
   user,
+  navigateSide,
   ...flags
 }: PhoneMoreSheetProps): JSX.Element {
   const t = useTranslations(navCopy)
@@ -176,7 +178,7 @@ export function PhoneMoreSheet({
         <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2', listing && 'hidden')}>
           {side && (
             <div className="px-4 pb-3" data-slot="phone-more-side">
-              <RailModeSwitch mode={side} collapsed={false} />
+              <RailModeSwitch mode={side} collapsed={false} navigate={navigateSide} />
             </div>
           )}
           {selectable && (

@@ -14,6 +14,15 @@ import {
 } from '../lib/conversation-records'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
 
+const withoutOpenConversation = (projectId: string | null) => ({
+  projectId,
+  currentConversation: null,
+  isStreaming: false,
+  isLoading: false,
+  currentUserMessageId: null,
+  pendingInteraction: null,
+})
+
 export const createConversationActions = (
   set: MessagesSet,
   get: MessagesGet
@@ -28,6 +37,7 @@ export const createConversationActions = (
   | 'dismissErrorCard'
   | 'dismissConnectionErrors'
   | 'setProjectId'
+  | 'enterSide'
   | 'retryLastUserMessage'
   | 'insertRemoteMessages'
 > => {
@@ -330,22 +340,17 @@ export const createConversationActions = (
         currentConversation?.projectId &&
         currentConversation.projectId !== projectId
       ) {
-        set(
-          {
-            projectId,
-            currentConversation: null,
-            isStreaming: false,
-            isLoading: false,
-            currentUserMessageId: null,
-            pendingInteraction: null,
-          },
-          false,
-          'setProjectId:clearCrossProjectConversation'
-        )
+        set(withoutOpenConversation(projectId), false, 'setProjectId:clearCrossProjectConversation')
         return
       }
 
       set({ projectId }, false, 'setProjectId')
+    },
+
+    enterSide: (projectId: string | null) => {
+      const open = get().currentConversation
+      const belongs = !open || (projectId === null ? !open.projectId : open.projectId === projectId)
+      set(belongs ? { projectId } : withoutOpenConversation(projectId), false, belongs ? 'enterSide' : 'enterSide:clearOtherSideConversation')
     },
 
     retryLastUserMessage: () => {

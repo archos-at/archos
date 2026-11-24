@@ -34,6 +34,7 @@ const client = vi.hoisted(() => ({
 vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: client }))
 
 import { useChatStore } from '../store'
+import { forgetSideLoads } from './session-server-sync'
 import type { Conversation } from '../types'
 import {
   chatIndexKey,
@@ -84,6 +85,7 @@ const openAndLeaveBeforeTheHistory = async (id: string) => {
 
 describe('a conversation the server listed without its messages', () => {
   beforeEach(() => {
+    forgetSideLoads()
     localStorage.clear()
     vi.clearAllMocks()
     useChatStore.setState({

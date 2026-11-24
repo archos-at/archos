@@ -347,6 +347,20 @@ describe('recordUploadedVersionOrDiscard', () => {
     expect(discardObject).toHaveBeenCalledWith(expect.any(String), stored.storageKey)
   })
 
+  it('records the chat an agent filed it from on the version, and nothing for a person’s own upload', async () => {
+    vi.mocked(insertPublishedVersion).mockImplementation(async (values) => ({
+      version: version({ ...(values as Partial<DocumentVersion>), id: 'ver_new' }),
+      superseded: [],
+    }))
+
+    await recordUploadedVersionOrDiscard(session, 'doc_1', undefined, { ...stored, originConversationId: 's_turn' })
+    await recordUploadedVersionOrDiscard(session, 'doc_1', undefined, stored)
+
+    const [fromChat, ownUpload] = vi.mocked(insertPublishedVersion).mock.calls.map(([values]) => values)
+    expect(fromChat).toMatchObject({ originConversationId: 's_turn' })
+    expect(ownUpload).toMatchObject({ originConversationId: null })
+  })
+
   it('lets any other failure through without discarding a byte', async () => {
     vi.mocked(findDocumentInOrg).mockResolvedValueOnce(document)
     const boom = new Error('boom')
