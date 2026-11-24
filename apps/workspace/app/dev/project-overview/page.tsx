@@ -65,18 +65,6 @@ const PROJECTS: Project[] = [
   makeProject('p9', 'Pfarrzentrum Klosterneuburg', 'Versammlungsstätte · GK 3 · Niederösterreich', 60 * 24 * 40, 'Stiftsplatz 1, 3400 Klosterneuburg'),
 ]
 
-const DOC_COUNTS: Record<string, number> = {
-  p1: 62,
-  p2: 29,
-  p3: 18,
-  p4: 24,
-  p5: 11,
-  p6: 3,
-  p7: 47,
-  p8: 18,
-  p9: 1,
-}
-
 const VIEWER_ACTIVITY: Record<string, string> = {
   p1: minutesAgo(12).toISOString(),
   p2: minutesAgo(60 * 3).toISOString(),
@@ -98,19 +86,15 @@ const WITH_LIFECYCLE: Project[] = PROJECTS.map((project) => {
   return project
 })
 
-const MAIL_WAITING: Record<string, number> = { p1: 3, p3: 1 }
-
 function ProjectOverviewPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant')
   return (
     <div data-testid="project-overview-preview" className="bg-background text-foreground min-h-dvh">
-      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone>
-        <div className="px-6 pb-8 pt-6">
+      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window">
+        <div className="p-6">
           <ProjectOverview
             projects={variant === 'empty' ? [] : WITH_LIFECYCLE}
-            docCounts={DOC_COUNTS}
             viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
-            mailWaiting={MAIL_WAITING}
             closeAction={<PageSheetClose label="Schließen" />}
           />
         </div>

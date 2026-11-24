@@ -20,15 +20,13 @@ export async function ProjectOverviewSheet({
   return withPageSession(async (session) => {
     const t = await getTranslations(projectsCopy)
     const tCommon = await getTranslations(commonCopy)
-    const { projects, documentCounts, viewerActivity, mailWaiting } = await getProjectsListData(session, 'newest')
+    const { projects, viewerActivity } = await getProjectsListData(session, 'newest')
     return (
-      <RoutePageSheet title={t('portfolio.title')} closeLabel={tCommon('actions.close')} headerless standalone={standalone}>
-        <div className="flex flex-col gap-8 px-6 pb-8 pt-6">
+      <RoutePageSheet title={t('portfolio.title')} closeLabel={tCommon('actions.close')} headerless standalone={standalone} size="window">
+        <div className="flex flex-col gap-8 p-6">
           <ProjectOverview
             projects={projects}
-            docCounts={documentCounts}
             viewerActivity={viewerActivity}
-            mailWaiting={mailWaiting}
             autoOpenCreate={autoOpenCreate}
             closeAction={<PageSheetClose label={tCommon('actions.close')} />}
           />

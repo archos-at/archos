@@ -29,7 +29,7 @@ const project = (id: string, name: string, over: Partial<Project> = {}, facts: R
 
 const PROJECTS = [
   project('p3', 'Volksschule Mühlgasse', { status: 'paused' }),
-  project('p1', 'Wohnbau Seestadt', {}, { site_address: 'Seestadtstraße 1, Wien', project_phase: 'Einreichplanung' }),
+  project('p1', 'Wohnbau Seestadt', {}, { site_address: 'Seestadtstraße 1, 1220 Wien', project_phase: 'Einreichplanung' }),
   project('p4', 'Dachausbau Kaiserstraße', { status: 'closed' }),
   project('p2', 'Bürohaus Lände 3', {}, { site_address: 'Erdberger Lände 3, Wien' }),
 ]
@@ -38,9 +38,7 @@ const show = (props: Partial<Parameters<typeof ProjectOverview>[0]> = {}) =>
   render(
     <ProjectOverview
       projects={PROJECTS}
-      docCounts={{ p1: 62, p2: 1 }}
       viewerActivity={{ p2: '2026-11-20T10:00:00Z', p1: '2026-11-10T10:00:00Z' }}
-      mailWaiting={{ p1: 3 }}
       {...props}
     />
   )
@@ -59,19 +57,21 @@ describe('the project overview that replaces the start page', () => {
     expect(cards().map((card) => card.getAttribute('data-status'))).toEqual(['active', 'active', 'paused', 'closed'])
   })
 
-  test('says where a project is and in which phase, or that it rests or is done', () => {
+  test('says in one line the city and the phase, or that a project rests or is done', () => {
     show()
     const lines = screen.getAllByTestId('project-overview-line').map((line) => line.textContent)
-    expect(lines).toEqual(['Erdberger Lände 3, Wien', 'Seestadtstraße 1, Wien · Einreichplanung', 'Paused', 'Closed'])
+    expect(lines).toEqual(['Wien', 'Wien · Einreichplanung', 'Paused', 'Closed'])
   })
 
-  test('keeps what the grid showed: documents, recent activity, mail waiting, and the way to the project’s own Übersicht', () => {
+  test('holds only the name, the gear to the project settings and that line: no footer', () => {
     show()
     const seestadt = cards()[1]!
-    expect(seestadt).toHaveTextContent('62 documents')
-    expect(within(seestadt).getByTestId('project-mail-waiting')).toHaveAttribute('href', '/app/projects/p1/files/mail')
-    expect(within(seestadt).getByRole('link', { name: /overview.*Wohnbau Seestadt/i })).toHaveAttribute('href', '/app/projects/p1/settings')
-    expect(within(seestadt).getByRole('time')).toBeInTheDocument()
+    const gear = within(seestadt).getByRole('link', { name: 'Project settings of Wohnbau Seestadt' })
+    expect(gear).toHaveAttribute('href', '/app/projects/p1/settings')
+    expect(gear).toHaveAttribute('title', 'Project settings')
+    expect(within(seestadt).getAllByRole('link')).toHaveLength(2)
+    expect(within(seestadt).queryByRole('time')).not.toBeInTheDocument()
+    expect(seestadt).not.toHaveTextContent(/documents?/)
   })
 
   test('marks the project the person is in', () => {

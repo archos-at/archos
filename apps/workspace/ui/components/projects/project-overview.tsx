@@ -8,25 +8,22 @@ import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
-import { RaisedCard, RaisedCardBody, RaisedCardFooter } from '@/components/ui/raised-card'
 import { SearchField } from '@/components/ui/search-field'
 import { projectIdFromPathname } from '@/components/shell/org-sections'
 import { projectMatchesQuery } from '@/features/projects/lib/project-search'
 import type { Project } from '@/lib/db/schema/projects'
-import { projectFactText, projectSiteAddress } from '@/lib/projects/site-address'
+import { projectCity, projectFactText } from '@/lib/projects/site-address'
 import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 import { TOUR_ANCHORS } from '@/lib/onboarding/product-tour'
 import { CreateProjectDialog } from './create-project-dialog'
-import { ProjectActivity, ProjectDocCount, ProjectMailWaiting, ProjectOpenLink, ProjectOverviewLink } from './project-atoms'
+import { ProjectOpenLink, ProjectSettingsLink } from './project-atoms'
 import { getProjectStatus } from './project-status'
 
 export interface ProjectOverviewProps {
   projects: Project[]
-  docCounts: Record<string, number>
   viewerActivity?: Record<string, string>
-  mailWaiting?: Record<string, number>
   autoOpenCreate?: boolean
   closeAction?: ReactNode
 }
@@ -43,9 +40,7 @@ export function overviewOrder(projects: readonly Project[], viewerActivity: Read
 
 export function ProjectOverview({
   projects,
-  docCounts,
   viewerActivity = {},
-  mailWaiting = {},
   autoOpenCreate = false,
   closeAction,
 }: ProjectOverviewProps): JSX.Element {
@@ -101,13 +96,7 @@ export function ProjectOverview({
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="project-overview-grid">
               {shown.map((project) => (
                 <li key={project.id}>
-                  <ProjectOverviewCard
-                    project={project}
-                    current={project.id === currentId}
-                    docCount={docCounts[project.id] ?? 0}
-                    activityAt={viewerActivity[project.id]}
-                    mailWaiting={mailWaiting[project.id] ?? 0}
-                  />
+                  <ProjectOverviewCard project={project} current={project.id === currentId} />
                 </li>
               ))}
             </ul>
@@ -118,51 +107,37 @@ export function ProjectOverview({
   )
 }
 
-function ProjectOverviewCard({
-  project,
-  current,
-  docCount,
-  activityAt,
-  mailWaiting,
-}: {
-  project: Project
-  current: boolean
-  docCount: number
-  activityAt?: string
-  mailWaiting: number
-}): JSX.Element {
+export function projectOverviewLine(project: Project, statusLabel: (status: 'paused' | 'closed') => string): string | null {
+  const status = getProjectStatus(project)
+  if (status !== 'active') return statusLabel(status)
+  return [projectCity(project), projectFactText(project, 'project_phase')].filter(Boolean).join(' · ') || null
+}
+
+function ProjectOverviewCard({ project, current }: { project: Project; current: boolean }): JSX.Element {
   const t = useTranslations(projectsCopy)
   const status = getProjectStatus(project)
-  const line =
-    status === 'active'
-      ? [projectSiteAddress(project), projectFactText(project, 'project_phase')].filter(Boolean).join(' · ')
-      : t(`list.filter.${status}`)
+  const line = projectOverviewLine(project, (quiet) => t(`list.filter.${quiet}`))
   return (
-    <RaisedCard
-      interactive
-      className={cn('h-full', current && 'ring-foreground ring-[1.5px]')}
+    <div
+      className={cn(
+        'bg-sheet relative flex h-[92px] flex-col justify-between rounded-[10px] p-3 shadow-sm transition-shadow duration-quick ease-out hover:shadow-md motion-reduce:transition-none',
+        current && 'ring-foreground ring-[1.5px]'
+      )}
       data-testid="project-overview-card"
       data-status={status}
       aria-current={current ? 'page' : undefined}
     >
-      <RaisedCardBody className="flex min-h-[92px] flex-col justify-between gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="min-w-0 text-sm font-medium">
-            <ProjectOpenLink project={project} />
-          </h2>
-          <ProjectOverviewLink project={project} className="-mr-1.5 -mt-1.5 shrink-0" />
-        </div>
-        {line && (
-          <p className="text-muted-foreground text-meta truncate" title={line} data-testid="project-overview-line">
-            {line}
-          </p>
-        )}
-      </RaisedCardBody>
-      <RaisedCardFooter>
-        <ProjectDocCount count={docCount} />
-        <ProjectActivity project={project} activityAt={activityAt} showLabel={false} />
-        <ProjectMailWaiting project={project} count={mailWaiting} className="-mr-2 ml-auto" />
-      </RaisedCardFooter>
-    </RaisedCard>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-name min-w-0 font-medium">
+          <ProjectOpenLink project={project} />
+        </h2>
+        <ProjectSettingsLink project={project} className="relative z-10 -mr-1 -mt-1 shrink-0" />
+      </div>
+      {line && (
+        <p className="text-muted-foreground text-meta truncate" title={line} data-testid="project-overview-line">
+          {line}
+        </p>
+      )}
+    </div>
   )
 }

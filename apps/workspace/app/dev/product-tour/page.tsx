@@ -70,7 +70,7 @@ function Preview(): JSX.Element {
           <OrgHeader {...chrome} />
           <main className="bg-background relative flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ShellContent width="wide">
-              <ProjectOverview projects={[]} docCounts={{}} viewerActivity={{}} />
+              <ProjectOverview projects={[]} viewerActivity={{}} />
             </ShellContent>
           </main>
           <PhoneTabBar projectId={null} pathname="/app/projects" canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
