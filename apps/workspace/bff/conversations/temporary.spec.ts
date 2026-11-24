@@ -8,11 +8,13 @@ vi.mock('./temporary-repository', () => ({
   updateConversationTemporaryInOrg: vi.fn(),
 }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
+vi.mock('./repository', () => ({ personalConversationHidden: vi.fn() }))
 
 import { ForbiddenError, NotFoundError, TemporaryConversationError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { isTemporaryConversation, requireConversationKeepsMemory, setConversationTemporary } from './temporary'
+import { personalConversationHidden } from './repository'
 import { readConversationTemporary, updateConversationTemporaryInOrg } from './temporary-repository'
 
 const session = { userId: 'user_1', organizationId: 'org_1', role: 'member', permissions: [] } as unknown as AuthorizedSession
@@ -38,7 +40,18 @@ describe('requireConversationKeepsMemory', () => {
   })
 
   it('lets a conversation that keeps memory through, and one whose row does not exist yet', async () => {
+    await expect(requireConversationKeepsMemory('s_kept', 'org_1')).resolves.toBeUndefined()
+    vi.mocked(readConversationTemporary).mockResolvedValue(null)
+    vi.mocked(personalConversationHidden).mockResolvedValue(false)
     await expect(requireConversationKeepsMemory('s_not_created_yet', 'org_1')).resolves.toBeUndefined()
+  })
+
+  it('refuses someone else’s personal chat the reader cannot see, whose flag would read as „not temporary“ (0269)', async () => {
+    vi.mocked(readConversationTemporary).mockResolvedValue(null)
+    vi.mocked(personalConversationHidden).mockResolvedValue(true)
+
+    await expect(requireConversationKeepsMemory('s_colleague', 'org_1')).rejects.toBeInstanceOf(NotFoundError)
+    expect(personalConversationHidden).toHaveBeenCalledWith('s_colleague')
   })
 
   it.each([

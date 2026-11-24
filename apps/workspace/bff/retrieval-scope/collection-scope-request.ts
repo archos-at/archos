@@ -1,13 +1,13 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
-import { findConversationTenancy } from '@/lib/conversations/repository'
+import { findConversationTenancy, personalConversationHidden } from '@/lib/conversations/repository'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { readableRestrictedCollections } from '@/lib/conversations/restricted-use'
 import { readConversationRow } from '@/lib/conversation-context/audience'
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import { getProjectFolderAccess } from '@/lib/authz/folder-access'
-import { ForbiddenError, isAuthzRefusal } from '@/lib/api/errors'
+import { ForbiddenError, isAuthzRefusal, NotFoundError } from '@/lib/api/errors'
 import {
   computeCollectionScope,
   encodeCollectionScopeHeader,
@@ -51,6 +51,7 @@ async function readConversationProject(
   conversationId: string
 ): Promise<string | null | typeof NO_ROW> {
   const tenancy = await findConversationTenancy(conversationId)
+  if (!tenancy && (await personalConversationHidden(conversationId))) throw new NotFoundError()
   if (!tenancy) return NO_ROW
   await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
   return tenancy.projectId

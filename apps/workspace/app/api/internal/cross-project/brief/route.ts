@@ -11,7 +11,7 @@ export const POST = internalApiRoute(
     const body = await parseJsonBody(request, crossProjectBriefRequestSchema)
     const session = await requirePinnedSession(context)
     const caller = crossProjectCaller(context, session, body.answerMessageId)
-    return withTenant({ organizationId: context.organizationId }, () => readProjectBrief(caller, body))
+    return withTenant({ organizationId: context.organizationId, userId: context.userId }, () => readProjectBrief(caller, body))
   },
   { tenancy: { fromPayload: 'the signed request-context envelope' } }
 )

@@ -98,6 +98,7 @@ describe.skipIf(!url)('tenant keys against live Postgres', () => {
     await expect(
       rolledBack(async (tx) => {
         await setSetting(tx, 'app.organization_id', ORG_LEGACY)
+        await setSetting(tx, 'app.user_id', 'user_keys')
         await tx`insert into conversations (id, organization_id, created_by)
                  values (${CONVERSATION}, ${ORG_LEGACY}, 'user_keys')`
         await asPlatform(tx)

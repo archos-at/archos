@@ -94,6 +94,20 @@ describe('readVersionForService — the conversation is part of the predicate', 
     })
   })
 
+  it('reads the thread as the agent host when no asker is named, and as the asker when one is (0269)', async () => {
+    const { getTenantContext } = await import('@/lib/db/tenant-context')
+    const scopes: unknown[] = []
+    vi.mocked(findConversationInOrg).mockImplementation(async () => {
+      scopes.push(getTenantContext())
+      return { subjectResourceType: 'document', subjectResourceId: 'doc_1' } as never
+    })
+
+    await readVersionForService('ver_1', 'org_1', 'conv_1')
+    await readVersionForService('ver_1', 'org_1', 'conv_1', { askerUserId: 'user_1', answerMessageId: null })
+
+    expect(scopes).toEqual([{ kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'agent-host' }, undefined])
+  })
+
   it('answers 404 for a conversation about a DIFFERENT document', async () => {
     vi.mocked(findConversationInOrg).mockResolvedValue({
       subjectResourceType: 'document',

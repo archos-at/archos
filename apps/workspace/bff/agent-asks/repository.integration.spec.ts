@@ -32,16 +32,18 @@ const OTHER_THREAD = `s_${randomUUID().replace(/-/g, '_')}`
 describe.skipIf(!url)('asks against Postgres', () => {
   let repo: typeof import('./repository')
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
+  let withSystemReader: typeof import('@/lib/db/tenant-context').withSystemReader
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let db: ReturnType<typeof import('@/lib/db').getDb>
 
   const as = <T>(organizationId: string, run: () => Promise<T>): Promise<T> =>
-    withTenant({ organizationId, userId: null }, run)
+    withTenant({ organizationId, userId: organizationId === ORG ? ANNA : BERT }, run)
 
   beforeAll(async () => {
     vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
+    withSystemReader = context.withSystemReader
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
     repo = await import('./repository')
@@ -157,6 +159,16 @@ describe.skipIf(!url)('asks against Postgres', () => {
     ).toBeLessThanOrEqual(repo.MAX_OPEN_ASKS_PAGE)
     const scoped = (await as(ORG, () => repo.findAsksOpenBefore(later, 1_000))).map((ask) => ask.organizationId)
     expect(new Set(scoped)).toEqual(new Set([ORG]))
+  })
+
+  it('keeps an ask on a thread without a project to its asker and the agent host, not a colleague (0269)', async () => {
+    const ask = await newAsk()
+    const colleague = <T>(run: () => Promise<T>) => withTenant({ organizationId: ORG, userId: BERT }, run)
+    expect(await colleague(() => repo.findAsk(ORG, ask.id))).toBeNull()
+    expect(await colleague(() => repo.endAsk(ORG, ask.id, { state: 'canceled' }))).toBeNull()
+    expect(await withTenant({ organizationId: ORG, userId: null }, () => repo.findAsk(ORG, ask.id))).toBeNull()
+    const ended = await withSystemReader(ORG, 'agent-host', () => repo.endAsk(ORG, ask.id, { state: 'completed' }))
+    expect(ended).toMatchObject({ state: 'completed' })
   })
 
   it('lists no documents for an ask that filed none', async () => {

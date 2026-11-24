@@ -182,7 +182,7 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
 
   it('keeps a tenant-scoped row isolated even when its optional FK is NULL', async () => {
     const id = `conv_orphan_${ORG_A}`
-    await withTenant({ organizationId: ORG_A }, () =>
+    await withTenant({ organizationId: ORG_A, userId: 'u' }, () =>
       db.execute(
         sql`insert into conversations (id, organization_id, created_by, project_id)
             values (${id}, ${ORG_A}, 'u', NULL)`

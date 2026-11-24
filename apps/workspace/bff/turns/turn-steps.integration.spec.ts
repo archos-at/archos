@@ -45,13 +45,15 @@ const FRAMES = wireFixtureLines<Record<string, unknown>>('turn-subagents.jsonl')
 describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let as: <T>(organizationId: string, run: () => Promise<T>) => Promise<T>
+  let asAnna: <T>(run: () => Promise<T>) => Promise<T>
+  let asNobody: <T>(run: () => Promise<T>) => Promise<T>
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let repo: typeof import('@/lib/conversations/repository')
   let steps: typeof import('./turn-steps')
   let view: typeof import('@/lib/conversations/message-view')
 
   const reloadedQuestion = async (): Promise<StoredThinkingStep[] | undefined> => {
-    const page = await as(ORG, () => repo.listMessagePage(THREAD, { limit: 50 }))
+    const page = await asAnna(() => repo.listMessagePage(THREAD, { limit: 50 }))
     const row = page.rows.find((message) => message.id === QUESTION)!
     const shown = view.toMessageView(row, new Map(), view.parseMessageIncludes('steps'))
     const provenance = shown.metadata?.provenance as { thinkingSteps?: StoredThinkingStep[] } | undefined
@@ -61,7 +63,9 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
   beforeAll(async () => {
     vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
-    as = (organizationId, run) => context.withTenant({ organizationId, userId: null }, run)
+    as = (organizationId, run) => context.withSystemReader(organizationId, 'agent-host', run)
+    asAnna = (run) => context.withTenant({ organizationId: ORG, userId: ANNA }, run)
+    asNobody = (run) => context.withTenant({ organizationId: ORG, userId: null }, run)
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
     repo = await import('@/lib/conversations/repository')
@@ -111,6 +115,10 @@ describe.skipIf(!url)('a turn’s Herleitung, stored by the server', () => {
     await as(ORG, () => steps.recordTurnSteps(ORG, THREAD, QUESTION, FRAMES))
 
     expect(await reloadedQuestion()).toEqual(browser)
+  })
+
+  it('writes nothing for a context with no person that names no system reader: Anna’s chat is hidden from it (0269)', async () => {
+    await expect(asNobody(() => steps.recordTurnSteps(ORG, THREAD, QUESTION, FRAMES))).rejects.toThrow()
   })
 
   it('writes nothing for another organization, nor onto an answer', async () => {

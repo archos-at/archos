@@ -71,7 +71,7 @@ export function TemporaryChatToggleView({
           data-testid="temporary-chat-word"
           data-shown={pressed}
           className={cn(
-            'ps-1.5 transition-opacity ease-out motion-reduce:transition-none',
+            'ps-1.5 transition-opacity ease-out motion-reduce:transition-none max-sm:hidden',
             pressed ? 'opacity-100 delay-(--motion-snap) duration-quick' : 'opacity-0 duration-snap'
           )}
         >

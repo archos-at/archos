@@ -68,7 +68,10 @@ export async function requireMayFileFrom(origin: ConversationOrigin, destination
   const { organizationId, projectId, folderId } = destination
   const personal = await originPersonalShelf(origin, organizationId)
   if (personal) {
-    const ownShelf = projectId === null && destination.projectCollection === personalShelfCollectionName(organizationId, personal.ownerId)
+    const ownShelf =
+      personal.ownerId !== null &&
+      projectId === null &&
+      destination.projectCollection === personalShelfCollectionName(organizationId, personal.ownerId)
     if (!ownShelf) throw confinementRefusal('personalShelf', origin.locale)
   }
   if ((await originProjects(origin, organizationId)).length > 0) throw confinementRefusal('filing', origin.locale)

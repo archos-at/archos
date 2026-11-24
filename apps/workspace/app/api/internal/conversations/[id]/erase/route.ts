@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { retryConversationErasure } from '@/lib/conversations/service'
 
 type Params = { id: string }
@@ -13,7 +13,7 @@ export const POST = internalApiRoute<Params>(
   'Internal Conversation Erase',
   async ({ request, params }) => {
     const { organizationId } = await parseJsonBody(request, eraseSchema)
-    return withTenant({ organizationId }, () => retryConversationErasure(organizationId, params.id))
+    return withSystemReader(organizationId, 'conversation-erasure', () => retryConversationErasure(organizationId, params.id))
   },
   { tenancy: { fromPayload: 'body.organizationId' } }
 )

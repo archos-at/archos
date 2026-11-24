@@ -1,5 +1,6 @@
 import 'server-only'
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
+import { NotFoundError } from '@/lib/api/errors'
 import type { DbExecutor } from '@/lib/db/executor'
 import { conversationRestrictedFolders } from '@/lib/db/schema/conversation-restricted-folders'
 import { conversationSourceProjects } from '@/lib/db/schema/conversation-source-projects'
@@ -9,6 +10,7 @@ import { projectFolders } from '@/lib/db/schema/project-folders'
 import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { taskRuns } from '@/lib/db/schema/task-model'
+import { personalConversationHidden } from './repository'
 
 export const RECORDED_FOLDERS_LIMIT = 200
 
@@ -306,6 +308,7 @@ export async function readConversationAudience(
     .from(conversations)
     .where(and(eq(conversations.id, conversationId), eq(conversations.organizationId, organizationId)))
     .limit(1)
+  if (!row && (await personalConversationHidden(conversationId, executor))) throw new NotFoundError()
   const grants = await executor
     .select({ subjectUserId: resourceShares.subjectUserId })
     .from(resourceShares)

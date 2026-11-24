@@ -39,7 +39,7 @@ export const POST = internalApiRoute(
         throw new ConflictError('A research run needs the thread it was asked in')
       }
       const conversationId = context.conversationId
-      return withTenant({ organizationId: context.organizationId }, () =>
+      return withTenant({ organizationId: context.organizationId, userId: context.userId }, () =>
         commissionResearchRun(session, {
           projectId: body.projectId,
           conversationId,
@@ -53,7 +53,7 @@ export const POST = internalApiRoute(
 
     const dueAt = parseTaskDue(body.due)
 
-    return withTenant({ organizationId: context.organizationId }, async () => {
+    return withTenant({ organizationId: context.organizationId, userId: context.userId }, async () => {
       const result = await delegateTask(session, {
         projectId: body.projectId,
         kind: body.kind,

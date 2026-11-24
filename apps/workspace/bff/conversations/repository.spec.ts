@@ -106,8 +106,8 @@ describe('listVisibleConversations — scoped to a project', () => {
     expect(sql).toContain(
       '("conversations"."project_id" is null and "conversations"."started_in_personal" and ("conversations"."created_by" = $8 or exists (',
     )
-    expect(sql).toContain('"conversations"."visibility" = $12')
-    expect(params[11]).toBe('organization')
+    expect(sql).not.toContain('"conversations"."visibility" = ')
+    expect(params).not.toContain('organization')
     expect(sql.match(/"conversations"\."visibility" <> /g)).toHaveLength(1)
   })
 
@@ -128,7 +128,7 @@ describe('listVisibleConversations — scoped to a project', () => {
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain('order by "conversations"."updated_at" desc')
-    expect(sql).toContain('limit $13')
+    expect(sql).toContain('limit $12')
     expect(params.at(-1)).toBe(CONVERSATION_LIST_LIMIT)
   })
 })
@@ -154,15 +154,15 @@ describe('listVisibleConversations — one side of the rail (ADR-0193)', () => {
 })
 
 describe('listVisibleConversations — no project scope', () => {
-  it('returns only rows the caller owns, was granted, or that are org-visible', async () => {
+  it('returns only rows the caller owns or was granted: a chat without a project is never org-visible', async () => {
     await listVisibleConversations('org_1', 'user_me')
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('"conversations"."created_by" = $2')
     expect(sql).toContain('exists (select 1 from "resource_shares"')
-    expect(sql).toContain('"conversations"."visibility" = $6')
-    expect(params).toContain('organization')
+    expect(sql).not.toContain('"conversations"."visibility"')
+    expect(params).not.toContain('organization')
     expect(sql).toContain('("conversations"."project_id" is not null or "conversations"."started_in_personal")')
     expect(sql.match(/"conversations"\."project_id"/g)).toHaveLength(1)
     expect(params).not.toContain('project')

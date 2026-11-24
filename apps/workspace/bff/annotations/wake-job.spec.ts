@@ -197,6 +197,16 @@ describe('a wake that runs', () => {
     ])
   })
 
+  it('opens the thread, writes into it and decides its context as the person, as a thread without a project is theirs alone (0269)', async () => {
+    const { withTenant } = await import('@/lib/db/tenant-context')
+    vi.mocked(withTenant).mockClear()
+    await runAgentWake('org_1', PAYLOAD, NOT_LAST)
+
+    const asAnna = vi.mocked(withTenant).mock.calls.filter(([scope]) => (scope as { userId?: string }).userId === 'user_anna')
+    expect(asAnna).toHaveLength(3)
+    expect(asAnna.map(([scope]) => scope)).toEqual(Array(3).fill({ organizationId: 'org_1', userId: 'user_anna' }))
+  })
+
   it('asks a delegated mark with what the mark says', async () => {
     const delegatedAt = new Date('2026-10-13T09:59:00Z')
     const eventId = delegationEventId(MARK_ID, delegatedAt)
