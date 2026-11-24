@@ -15,6 +15,7 @@
     "lint": "node scripts/check-static-utility-modifiers.mjs && node scripts/check-concentric-radius.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts",
     "lint:fix": "node scripts/check-static-utility-modifiers.mjs && node scripts/check-concentric-radius.mjs --fix && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts --fix",
     "a11y": "node scripts/a11y-audit.mjs",
+    "phone-audit": "node scripts/phone-audit.mjs",
     "clip-check": "node scripts/clip-check.mjs",
     "shift-check": "node scripts/shift-check.mjs",
     "lint:seams": "node scripts/depcruise.mjs app bff ui i18n shared types utils --ignore-known --output-type plugin:./scripts/module-seams-reporter.mjs",

@@ -1,0 +1,15 @@
+---
+# area: collaboration
+fixes:
+  - >
+    On a phone, the reply field under an annotation in the Postfach is as tall as
+    its Senden button, so a tap lands in it instead of beside it.
+  - >
+    On a phone, the line that folds a background check in a chat open and shut is
+    as tall as a fingertip, so it no longer takes a second try.
+  - >
+    On a phone, „Details“ under a file that could not be read is as tall as a
+    fingertip.
+  - >
+    On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the
+    way to its edge.

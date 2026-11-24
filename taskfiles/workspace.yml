@@ -19,6 +19,12 @@ tasks:
     cmds:
       - bun run a11y {{.CLI_ARGS}}
 
+  workspace:phone-audit:
+    desc: 'Every /dev preview route at 390 and 360 with a touch screen: fails on a page wider than the phone and on a control under 44x44 not in ci/phone-audit-baseline.json. Starts its own `next dev` (PHONE_AUDIT_BASE_URL uses a running one); `-- --shard 1/4` for a quarter; `-- --write-baseline` records. See scripts/phone-audit.mjs'
+    dir: '{{.UI}}'
+    cmds:
+      - bun run phone-audit {{.CLI_ARGS}}
+
   workspace:lint:
     desc: 'Lint the UI (oxlint, the repo rules included as a JS plugin) and its module seams (dependency-cruiser). CI: task workspace:lint -- --format=github'
     dir: '{{.UI}}'
