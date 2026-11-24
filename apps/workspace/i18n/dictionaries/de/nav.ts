@@ -44,7 +44,7 @@ export const nav: typeof en.nav = {
     baseKnowledge: 'Normen & Richtlinien',
     search: 'Suche',
     settings: 'Projekteinstellungen',
-    settingsShort: 'Übersicht',
+    settingsShort: 'Projekt',
     filesShort: 'Ablage',
     intake: 'Einrichtung',
     setup: 'Einrichtung',

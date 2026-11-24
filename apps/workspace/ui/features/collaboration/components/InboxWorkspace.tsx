@@ -205,7 +205,7 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
           <Button
             variant="ghost"
             size="sm"
-            className={cn('text-muted-foreground shrink-0', tab === 'archived' && 'invisible')}
+            className={cn('text-muted-foreground shrink-0', tab === 'archived' && 'invisible max-sm:hidden')}
             aria-hidden={tab === 'archived' || undefined}
             tabIndex={tab === 'archived' ? -1 : undefined}
             disabled={tab === 'archived' || !hasAnything || list.mutating}

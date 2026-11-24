@@ -42,7 +42,7 @@ export const nav = {
     baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Project settings',
-    settingsShort: 'Overview',
+    settingsShort: 'Project',
     filesShort: 'Files',
     intake: 'Setup',
     setup: 'Setup',

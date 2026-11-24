@@ -148,9 +148,9 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           up and newer content is below. Pinned to the wrapper (not the scroll
           content) so it stays put while the thread scrolls behind it. Above the
           status dock while it speaks. On a phone it sits at the trailing edge,
-          where a right thumb rests, centred it landed on the middle of the last
-          line being read; and low, in the list's end gap, 36px with a 44px
-          catchment: 44px at 1rem up covered the ends of two lines. */}
+          where a right thumb rests (centred, it covered the middle of the line
+          being read), 36px seen and 44px to a finger, 4px above the composer:
+          44px seen at 1rem up covered the ends of two lines. */}
         <AnimatePresence>
           {controller.showScrollButton && (
             <motion.div
