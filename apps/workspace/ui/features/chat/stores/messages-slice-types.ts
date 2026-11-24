@@ -28,6 +28,7 @@ export type MessagesSlice = {
   turns: Record<string, TurnView>
   unseenAnswers: Record<string, UnseenEnd>
   projectId: string | null
+  lastChatBySide: Record<string, string>
   composerPrefill: ComposerPrefill | null
   composerSubject: ComposerSubject | null
   composerExcerpt: ComposerExcerpt | null

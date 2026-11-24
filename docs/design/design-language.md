@@ -1039,6 +1039,11 @@ times stops being a physical cue and becomes texture.
   (`components/motion/reader-input`); its icon never zooms. A composer whose
   session is still being confirmed on a fresh load lands its controls without
   easing (`data-arriving` on its root), so they do not fade up from dimmed.
+  A typing indicator already running when the thread mounts is simply there,
+  and fades in only for a wait that begins in the open thread. The thread reopens
+  where the reader left it (`lib/thread-positions`), and a side reopens the chat
+  last open on it (`lastChatBySide`). Focus is not moved into the composer after
+  a switch: it stays on the switch the reader pressed.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto

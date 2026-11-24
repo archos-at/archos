@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChatThinking } from '@/features/chat'
 import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
@@ -22,6 +23,8 @@ import { turnEnding, NO_MESSAGES, welcomeEntrance } from '../chat-area/chat-area
 import type { ChatAreaController } from './use-chat-area-controller'
 
 export function ChatMessageList({ controller }: { controller: ChatAreaController }) {
+  const [typingAtMount, setTypingAtMount] = useState(controller.showTypingPlaceholder)
+  if (typingAtMount && !controller.showTypingPlaceholder) setTypingAtMount(false)
   const handback = controller.handback
   const spectatedTurn = controller.spectatedTurn
   const welcome = welcomeEntrance({
@@ -376,7 +379,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                 </AnimatePresence>
 
                 {/* Latency-gap typing indicator (before the first token arrives) */}
-                {controller.showTypingPlaceholder && <TypingIndicator />}
+                {controller.showTypingPlaceholder && <TypingIndicator arrives={!typingAtMount} />}
 
                 {/* The agent is working for SOMEONE in this thread (spec CC-13). Without
                     this an observer sees a thread where nothing appears to be happening
