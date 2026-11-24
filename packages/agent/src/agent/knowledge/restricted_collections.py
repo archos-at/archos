@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 _RESTRICTED_NAME = re.compile(r"^(?P<base>.+)_r[0-9a-f]{12}$", re.IGNORECASE)
 
-PERSONAL_SHELF_COLLECTION = re.compile(r"personal_[A-Za-z0-9-][A-Za-z0-9_-]*?__[A-Za-z0-9_-]+")
+PERSONAL_SHELF_COLLECTION = re.compile(r"personal_org_[A-Za-z0-9-]+__user_[A-Za-z0-9_-]+")
 
 
 def is_personal_shelf_collection(name: str | None) -> bool:

@@ -219,7 +219,7 @@ def collections_read(message: Any) -> set[str]:
 
 
 _RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])(?i:proj_[\w-]+?_r[0-9a-f]{12})(?![\w-])")
-_PERSONAL_IN_TEXT = re.compile(r"(?<![\w-])personal_[A-Za-z0-9-][A-Za-z0-9_-]*?__[A-Za-z0-9_-]+(?![\w-])")
+_PERSONAL_IN_TEXT = re.compile(r"(?<![\w-])personal_org_[A-Za-z0-9-]+__user_[A-Za-z0-9_-]+(?![\w-])")
 
 
 def _text_of(message: Any) -> str:

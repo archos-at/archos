@@ -199,7 +199,10 @@ def test_a_personal_shelf_named_in_a_tool_result_is_admitted_before_the_model_se
     assert _carried(message) == {PERSONAL}
 
 
-@pytest.mark.parametrize("name", ["Personal_Liste_2026.xlsx", "personal_liste_2026.xlsx", "Personal_org_1__user_1"])
+@pytest.mark.parametrize(
+    "name",
+    ["Personal_Liste_2026.xlsx", "personal_liste_2026.xlsx", "Personal_org_1__user_1", "personal_notes__v2.docx"],
+)
 def test_a_file_named_personal_is_not_taken_for_the_owners_shelf(name):
     from agent.knowledge.restricted_collections import is_restricted_collection
 
@@ -235,3 +238,15 @@ def test_a_later_turn_of_a_chat_that_read_the_owners_shelf_writes_nothing_shared
         assert shared_write_refusal() is not None
     finally:
         reset_restricted_use(token)
+
+
+def test_a_workos_shaped_personal_collection_is_the_owners_shelf():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_collections import is_restricted_collection
+    from agent.knowledge.restricted_use import _carried
+
+    name = "personal_org_01HZX3K9QW8YB2C4D5E6F7G8H9__user_01HZX3KA0B1C2D3E4F5G6H7J8K"
+    assert is_restricted_collection(name)
+    assert _carried(SimpleNamespace(content=f"aus {name}, notes__v2", response_metadata={})) == {name}
+    assert _carried(SimpleNamespace(content="personal_notes__v2.docx", response_metadata={})) == set()
