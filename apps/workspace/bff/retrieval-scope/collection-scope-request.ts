@@ -1,11 +1,11 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { restrictedCollectionsForChatScope } from '@/lib/conversations/restricted-use'
 import { getProjectFolderAccess } from '@/lib/authz/folder-access'
+import { ForbiddenError } from '@/lib/api/errors'
 import {
   computeCollectionScope,
   sessionCollectionName,
@@ -35,38 +35,30 @@ function isAuthRequired(): boolean {
   return process.env.REQUIRE_AUTH?.toLowerCase() === 'true'
 }
 
-export async function resolveActiveProjectId(
-  session: UserSession | null,
-  explicitProjectId?: string
-): Promise<string | undefined> {
-  if (explicitProjectId) {
-    return explicitProjectId
-  }
-
-  if (!session) {
-    return undefined
-  }
-
-  const prefs = await findUserPreferencesForSession(session.userId, session.organizationId)
-
-  if (prefs && typeof prefs === 'object') {
-    const activeId = prefs.active_project_id
-    if (typeof activeId === 'string' && activeId) {
-      return activeId
-    }
-  }
-
-  return undefined
-}
-
 export async function authorizeConversationScope(
   session: AuthorizedSession,
   conversationId: string
 ): Promise<boolean> {
+  return (await readConversationProject(session, conversationId)) !== NO_ROW
+}
+
+const NO_ROW = Symbol('no conversation row')
+
+async function readConversationProject(
+  session: AuthorizedSession,
+  conversationId: string
+): Promise<string | null | typeof NO_ROW> {
   const tenancy = await findConversationTenancy(conversationId)
-  if (!tenancy) return false
+  if (!tenancy) return NO_ROW
   await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
-  return true
+  return tenancy.projectId
+}
+
+export class ConversationProjectMismatchError extends ForbiddenError {
+  constructor() {
+    super('This chat belongs to another project than the request names.')
+    this.name = 'ConversationProjectMismatchError'
+  }
 }
 
 async function resolveRestrictedCollections(
@@ -114,40 +106,23 @@ export async function buildCollectionScopeFromRequest(
 
   const includeProject = context.includeProject !== false
 
-  let projectId = includeProject ? context.projectId : undefined
-  const explicitProject = Boolean(projectId)
-  if (includeProject && !projectId && session && !anonymous) {
-    projectId = await resolveActiveProjectId(session, undefined)
-  }
-
   const conversationId = context.conversationId
-
-  const conversationVerified =
+  const rowProject =
     conversationId && session && !anonymous
-      ? await authorizeConversationScope(session as AuthorizedSession, conversationId)
-      : false
+      ? await readConversationProject(session as AuthorizedSession, conversationId)
+      : NO_ROW
+  const conversationVerified = rowProject !== NO_ROW
+
+  if (conversationVerified && context.projectId && context.projectId !== rowProject) {
+    throw new ConversationProjectMismatchError()
+  }
+  const namedProject = conversationVerified ? (rowProject ?? undefined) : context.projectId
+  const projectId = includeProject ? namedProject : undefined
 
   let projectReadOnly = false
   if (projectId && session && !anonymous) {
-    if (explicitProject) {
-      const access = await requireProjectAccess(
-        session as AuthorizedSession,
-        projectId,
-        CHAT_PERMISSIONS
-      )
-      projectReadOnly = access.readsBecauseClosed
-    } else {
-      try {
-        const access = await requireProjectAccess(
-          session as AuthorizedSession,
-          projectId,
-          CHAT_PERMISSIONS
-        )
-        projectReadOnly = access.readsBecauseClosed
-      } catch {
-        projectId = undefined
-      }
-    }
+    const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
+    projectReadOnly = access.readsBecauseClosed
   }
 
   const projectCollectionName = includeProject
