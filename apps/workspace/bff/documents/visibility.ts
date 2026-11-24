@@ -44,6 +44,17 @@ function heldRowFor(reader: ShelfReader): SQL {
 }
 
 export function documentVisibleTo(reader: DocumentReader): SQL | undefined {
+  const screened = screenedRowsFor(reader)
+  if (reader.kind === 'internal') return screened
+  return and(onlyOwnPersonalRows(reader), screened)
+}
+
+function onlyOwnPersonalRows(reader: Exclude<DocumentReader, { kind: 'internal' }>): SQL {
+  const owner = 'userId' in reader ? reader.userId : null
+  return (owner ? or(ne(documents.scope, 'personal'), eq(documents.ownerUserId, owner)) : ne(documents.scope, 'personal')) as SQL
+}
+
+function screenedRowsFor(reader: DocumentReader): SQL | undefined {
   switch (reader.kind) {
     case 'internal':
     case 'reviewer':

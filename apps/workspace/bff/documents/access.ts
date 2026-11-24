@@ -45,6 +45,10 @@ export async function getAccessibleDocument(
       )
       return doc
     }
+    case 'personal': {
+      if (doc.ownerUserId !== session.userId) throw new NotFoundError()
+      return doc
+    }
     case 'project': {
       if (doc.projectId === null) throw new NotFoundError()
       await requireProjectAccess(

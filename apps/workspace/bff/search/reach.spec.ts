@@ -90,6 +90,25 @@ describe('resolveScope', () => {
   })
 })
 
+describe('the personal shelf in search (ADR-0191)', () => {
+  it('is a scope of its own, without a project', () => {
+    expect(resolveScope({ scope: 'personal', folderId: 'f1' })).toEqual({ kind: 'personal', folderId: 'f1' })
+    expect(() => resolveScope({ scope: 'personal', projectId: 'p1' })).toThrow(BadRequestError)
+  })
+
+  it('reaches the caller’s own shelf and nothing else', async () => {
+    const reach = await reachFor(session, { kind: 'personal' })
+
+    expect(reach.personal).toEqual({ collection: expect.stringContaining(session.userId.replace(/[^A-Za-z0-9_-]/g, '_')), userId: session.userId })
+    expect(reach.projects).toEqual([])
+    expect(reach.officeShelf).toBeNull()
+  })
+
+  it('is never reached for a chat’s audience', async () => {
+    await expect(reachForAudience(session, 'c1', { kind: 'personal' })).rejects.toBeInstanceOf(NotFoundError)
+  })
+})
+
 describe('reachFor the office shelf, as the Ordner searches all its folders', () => {
   it('leaves out the folders the Ordner hides, the standards tree once the office keeps its own standards', async () => {
     const reach = await reachFor(session, { kind: 'office_shelf' })

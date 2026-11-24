@@ -17,6 +17,7 @@ import {
   submitRequestSchema,
 } from '@/lib/documents/lifecycle-types'
 import { revisionCandidatesRequestSchema } from '@/lib/documents/name-probe-types'
+import { agentShelfScope } from '@/lib/documents/shelf-scope'
 import { revisionCompareBodySchema } from '@/lib/documents/revision-compare-types'
 import {
   ANNOTATION_EXPORT_FORMATS,
@@ -415,7 +416,7 @@ export const reviewOperations = [
       '(`scope: office_shelf`), lists existing documents each could be a new revision of. Read-only; feeds document-revision-link-set.',
     method: 'POST',
     path: '/api/documents/revision-candidates',
-    body: revisionCandidatesRequestSchema,
+    body: revisionCandidatesRequestSchema.extend(agentShelfScope),
     readOnly: true,
     load: () => import('@/app/api/documents/revision-candidates/route'),
   },

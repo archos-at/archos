@@ -8,7 +8,7 @@ import { collectionFileRef } from './collection-file-ref'
 import { hasPassedScreening, SCREENED_ONLY } from './document-reader'
 import { findDocumentInOrg } from './repository'
 import { documentNameKey } from './name-match'
-import { documentShelf, type DocumentShelf } from './shelf'
+import { documentShelf, shelfKey, type DocumentShelf } from './shelf'
 
 const olderIdSchema = z.guid()
 
@@ -27,7 +27,7 @@ export interface RevisionUploadTarget {
 
 function sameShelf(a: DocumentShelf, b: DocumentShelf | null): boolean {
   if (!b || a.kind !== b.kind) return false
-  return a.kind === 'office_shelf' || (b.kind === 'project' && a.projectId === b.projectId)
+  return shelfKey(a) === shelfKey(b)
 }
 
 export const REVISION_OF_IGNORED_REASONS = ['unavailable', 'different_shelf', 'archived', 'different_collection'] as const
@@ -64,7 +64,7 @@ export async function resolveRevisionOf(
 export async function resolveReleasedRevisionOf(
   organizationId: string,
   olderId: string,
-  released: Pick<Document, 'scope' | 'projectId' | 'collectionName' | 'filename'>,
+  released: Pick<Document, 'scope' | 'projectId' | 'ownerUserId' | 'collectionName' | 'filename'>,
 ): Promise<string | null> {
   const older = await findDocumentInOrg(olderId, organizationId, SCREENED_ONLY)
   const shelf = documentShelf(released)

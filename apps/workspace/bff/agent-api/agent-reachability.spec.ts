@@ -30,6 +30,26 @@ interface Exemption {
 }
 
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
+  'GET /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+  },
+  'POST /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+  },
+  'PATCH /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+  },
+  'DELETE /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+  },
+  'POST /api/personal-shelf/folders/ensure': {
+    category: 'other',
+    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+  },
   'GET /api/ris/document': {
     category: 'external-service',
     reason: 'the RIS text dialog proxies the public legal text service; an agent reads a RIS document by number or URL through law-lookup (`instrument`)',

@@ -10,6 +10,7 @@ import {
 } from '@/lib/documents/folder-wire'
 import { documentFindingsQuerySchema } from '@/lib/documents/findings-wire'
 import { documentListQuerySchema } from '@/lib/documents/list-query'
+import { agentShelfScope } from '@/lib/documents/shelf-scope'
 import { applyRootSortRequestSchema } from '@/lib/filing/root-sort-wire'
 import {
   decideFolderNormsBodySchema,
@@ -261,7 +262,7 @@ export const foldersOperations = [
       '`sort` and `dir`. Follow `nextCursor` (pass it as `cursor`) until it is null.',
     method: 'GET',
     path: '/api/documents',
-    query: documentListQuerySchema,
+    query: documentListQuerySchema.extend(agentShelfScope),
     load: () => import('@/app/api/documents/route'),
   },
   {

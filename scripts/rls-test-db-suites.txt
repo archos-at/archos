@@ -14,6 +14,7 @@ batch              bff/projects/memory-service.integration.spec.ts
 batch              bff/projects/memory-restricted.integration.spec.ts
 batch              bff/personal-memory/personal-memory.integration.spec.ts
 batch              bff/personal-memory/personal-memory-topics.integration.spec.ts
+batch              bff/personal-shelf/personal-shelf.integration.spec.ts
 batch              bff/projects/memory-topics.integration.spec.ts
 batch              bff/documents/document-versions.integration.spec.ts
 batch              bff/documents/list-page.integration.spec.ts

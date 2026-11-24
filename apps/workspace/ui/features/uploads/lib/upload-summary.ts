@@ -2,6 +2,9 @@ import type { UploadHistoryEntry, UploadSummary, UploadSummaryDocument } from '@
 import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 
+
+export const PERSONAL_SHELF_PATH = '/app/personal-shelf'
+
 export const TALLY_KEYS = ['ready', 'reading', 'quarantined', 'failed', 'stored', 'unchanged', 'excluded'] as const
 export type TallyKey = (typeof TALLY_KEYS)[number]
 export type UploadTally = Record<TallyKey, number>
@@ -99,11 +102,13 @@ export function isSettling(summary: UploadSummary): boolean {
 
 export function documentHref(summary: Pick<UploadSummary, 'scope' | 'projectId'>, documentId: string): string | null {
   if (summary.scope === 'office_shelf') return `/app/office-shelf?doc=${encodeURIComponent(documentId)}`
+  if (summary.scope === 'personal') return `${PERSONAL_SHELF_PATH}?doc=${encodeURIComponent(documentId)}`
   return summary.scope === 'project' && summary.projectId ? documentFilesHref(summary.projectId, documentId) : null
 }
 
 export function placeHref(summary: Pick<UploadSummary, 'scope' | 'projectId' | 'conversationId'>): string | null {
   if (summary.scope === 'office_shelf') return '/app/office-shelf'
+  if (summary.scope === 'personal') return PERSONAL_SHELF_PATH
   if (summary.scope === 'session') {
     return summary.conversationId ? `/app/chat?session=${encodeURIComponent(summary.conversationId)}` : null
   }

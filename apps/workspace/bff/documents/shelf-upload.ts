@@ -1,6 +1,12 @@
 import 'server-only'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { s3Client, bucketAdminS3Client, buildOfficeShelfStorageKey, buildStorageKey } from '@/lib/s3'
+import {
+  s3Client,
+  bucketAdminS3Client,
+  buildOfficeShelfStorageKey,
+  buildPersonalShelfStorageKey,
+  buildStorageKey,
+} from '@/lib/s3'
 import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import { folderReadOnlyError, getProjectFolderAccess } from '@/lib/authz/folder-access'
@@ -57,6 +63,12 @@ export interface UploadDocumentResult {
   revisionOfIgnored?: RevisionOfIgnoredReason
 }
 
+const FOLDER_SHELF_NAME: Record<DocumentShelf['kind'], string> = {
+  project: 'project',
+  office_shelf: 'the Bürobibliothek',
+  personal: 'your own shelf',
+}
+
 function uploadStorageKey(
   shelf: DocumentShelf,
   organizationId: string,
@@ -64,9 +76,14 @@ function uploadStorageKey(
   filename: string,
   folderPath: string | null,
 ): string {
-  return shelf.kind === 'project'
-    ? buildStorageKey(organizationId, shelf.projectId, documentId, filename, folderPath)
-    : buildOfficeShelfStorageKey(organizationId, documentId, filename, folderPath)
+  switch (shelf.kind) {
+    case 'project':
+      return buildStorageKey(organizationId, shelf.projectId, documentId, filename, folderPath)
+    case 'office_shelf':
+      return buildOfficeShelfStorageKey(organizationId, documentId, filename, folderPath)
+    case 'personal':
+      return buildPersonalShelfStorageKey(organizationId, shelf.userId, documentId, filename, folderPath)
+  }
 }
 
 async function uploadAuditEvent(
@@ -84,6 +101,18 @@ async function uploadAuditEvent(
     revisionOfIgnored: RevisionOfIgnoredReason | null
   },
 ): Promise<void> {
+  if (shelf.kind === 'personal') {
+    await recordAuditEvent({
+      organizationId: session.organizationId,
+      actor: { userId: session.userId, email: session.email },
+      action: 'personal_shelf.document.uploaded',
+      targetType: 'document',
+      targetId: event.documentId,
+      metadata: { fileSize: event.fileSize },
+      request,
+    })
+    return
+  }
   const located =
     shelf.kind === 'project' ? { projectId: shelf.projectId } : { collectionName: event.collectionName }
   await recordAuditEvent({
@@ -219,7 +248,7 @@ async function prepareUpload(
   if (folderId) {
     folderPath = await resolveShelfFolderPath(shelf, folderId, session.organizationId)
     if (folderPath === null) {
-      throw new NotFoundError(`Folder not found in ${shelf.kind === 'project' ? 'project' : 'Archiv'}`)
+      throw new NotFoundError(`Folder not found in ${FOLDER_SHELF_NAME[shelf.kind]}`)
     }
   }
   const originPath = sanitizeOriginPath(input.originPath)
@@ -361,7 +390,7 @@ export async function uploadToShelf(
       documentId,
       projectId: shelf.kind === 'project' ? shelf.projectId : null,
       folderId: upload.folderId,
-      filename,
+      filename: shelf.kind === 'personal' ? '' : filename,
       overridden: upload.screeningOverridden,
     },
     request,

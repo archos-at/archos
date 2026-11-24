@@ -55,6 +55,9 @@ async function assertDocumentReadable(
       if (!document.conversationId) throw new NotFoundError(notFoundMessage)
       await requireResourceAccess(session, 'conversation', document.conversationId, 'viewer')
       return
+    case 'personal':
+      if (document.ownerUserId !== session.userId) throw new NotFoundError(notFoundMessage)
+      return
     case 'project': {
       if (document.projectId === null) throw new NotFoundError(notFoundMessage)
       await requireProjectAccess(session, document.projectId, 'project:view')

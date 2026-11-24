@@ -11,8 +11,17 @@ import {
 } from '@/lib/documents/document-wire'
 import { nameProbeRequestSchema } from '@/lib/documents/name-probe-types'
 import { DOCUMENT_STATUSES } from '@/lib/documents/document-status'
-import { SHELF_SCOPES } from '@/lib/documents/shelf-scope'
-import { searchBodyInputSchema, searchBodySchema, searchExportQuerySchema, searchScopeQuerySchema, suggestBodySchema } from '@/lib/search/search-wire'
+import { agentShelfScope } from '@/lib/documents/shelf-scope'
+import {
+  SHARED_SEARCH_SCOPES,
+  searchBodyInputSchema,
+  searchBodySchema,
+  searchExportQuerySchema,
+  searchScopeQuerySchema,
+  suggestBodySchema,
+} from '@/lib/search/search-wire'
+
+const sharedSearchScope = { scope: z.enum(SHARED_SEARCH_SCOPES).optional() }
 import type { AgentOperation } from '../operation'
 import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith } from '../upload-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -29,7 +38,7 @@ const revisionOfField = z
   .optional()
   .describe('The id of the older document this file is the new revision of; the service checks the pair.')
 const uploadBody = uploadBodySchemaWith({
-  scope: z.enum(SHELF_SCOPES).optional(),
+  ...agentShelfScope,
   projectId: z.string().optional(),
   folderId: z.string().optional().describe('From project-folder-list or office-shelf-folder-list; omit for the root.'),
   revisionOf: revisionOfField,
@@ -258,7 +267,7 @@ export const documentsOperations = [
       'A passage points at a page: read the document before quoting it.',
     method: 'POST',
     path: '/api/search',
-    query: searchScopeQuerySchema,
+    query: searchScopeQuerySchema.extend(sharedSearchScope),
     body: searchBodySchema,
     readOnly: true,
     spansProjects: 'unlessScoped',
@@ -273,7 +282,7 @@ export const documentsOperations = [
       'counts, under the same scope and `filters`. `cites` values are tokens.',
     method: 'POST',
     path: '/api/search/suggest',
-    query: searchScopeQuerySchema,
+    query: searchScopeQuerySchema.extend(sharedSearchScope),
     body: suggestBodySchema,
     readOnly: true,
     spansProjects: 'unlessScoped',
@@ -288,7 +297,7 @@ export const documentsOperations = [
       'one row per document in the search order. Refused above 5000 documents: narrow the filters.',
     method: 'POST',
     path: '/api/search/export',
-    query: searchExportQuerySchema,
+    query: searchExportQuerySchema.extend(sharedSearchScope),
     body: searchBodyInputSchema,
     readOnly: true,
     spansProjects: 'unlessScoped',
@@ -304,7 +313,7 @@ export const documentsOperations = [
       'what document-list shows, plus the failed documents. Optionally filter by author kind or include archived documents.',
     method: 'GET',
     path: '/api/documents/summary',
-    query: documentSummaryQuerySchema,
+    query: documentSummaryQuerySchema.extend(agentShelfScope),
     load: () => import('@/app/api/documents/summary/route'),
   },
   {
@@ -316,7 +325,7 @@ export const documentsOperations = [
       '(`scope: office_shelf`). Use it when you know the file name but not the id; names without a match are absent. Read-only.',
     method: 'POST',
     path: '/api/documents/by-name',
-    body: byNameRequestSchema,
+    body: byNameRequestSchema.extend(agentShelfScope),
     readOnly: true,
     load: () => import('@/app/api/documents/by-name/route'),
   },
@@ -329,7 +338,7 @@ export const documentsOperations = [
       'already holds, with the existing document’s id, size and content hash so identical bytes can be skipped. Read-only.',
     method: 'POST',
     path: '/api/documents/name-matches',
-    body: nameProbeRequestSchema,
+    body: nameProbeRequestSchema.extend(agentShelfScope),
     readOnly: true,
     load: () => import('@/app/api/documents/name-matches/route'),
   },

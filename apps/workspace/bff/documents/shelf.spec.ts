@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import {
   OFFICE_SHELF,
   documentShelf,
+  personalShelf,
   projectShelf,
   shelfDocumentWhere,
   shelfFolderWhere,
@@ -38,6 +39,17 @@ describe('shelfDocumentWhere', () => {
   })
 })
 
+describe('a personal shelf (ADR-0191)', () => {
+  it('names its owner on documents and folders, so no one else’s rows match', () => {
+    const documentsOf = compile(shelfDocumentWhere(personalShelf('user_a'), 'org-1'))
+    expect(documentsOf.sql).toContain('"documents"."owner_user_id"')
+    expect(documentsOf.params).toEqual(['org-1', 'personal', 'user_a'])
+    const foldersOf = compile(shelfFolderWhere(personalShelf('user_a'), 'org-1'))
+    expect(foldersOf.sql).toContain('"project_folders"."owner_user_id"')
+    expect(foldersOf.params).toEqual(['org-1', 'personal', 'user_a'])
+  })
+})
+
 describe('shelfFolderWhere', () => {
   it('is the folder twin of the document clause', () => {
     expect(compile(shelfFolderWhere(projectShelf('proj-1'), 'org-1')).params).toEqual([
@@ -57,22 +69,35 @@ describe('shelfOwner', () => {
       organizationId: 'org-1',
       scope: 'project',
       projectId: 'proj-1',
+      ownerUserId: null,
     })
     expect(shelfOwner(OFFICE_SHELF, 'org-1')).toEqual({
       organizationId: 'org-1',
       scope: 'office_shelf',
       projectId: null,
+      ownerUserId: null,
+    })
+    expect(shelfOwner(personalShelf('user_a'), 'org-1')).toEqual({
+      organizationId: 'org-1',
+      scope: 'personal',
+      projectId: null,
+      ownerUserId: 'user_a',
     })
   })
 })
 
 describe('documentShelf', () => {
   it('reads the shelf off a stored row', () => {
-    expect(documentShelf({ scope: 'project', projectId: 'proj-1' })).toEqual(projectShelf('proj-1'))
-    expect(documentShelf({ scope: 'office_shelf', projectId: null })).toEqual(OFFICE_SHELF)
+    expect(documentShelf({ scope: 'project', projectId: 'proj-1', ownerUserId: null })).toEqual(projectShelf('proj-1'))
+    expect(documentShelf({ scope: 'office_shelf', projectId: null, ownerUserId: null })).toEqual(OFFICE_SHELF)
+  })
+
+  it('reads a personal shelf with its owner, and none without one', () => {
+    expect(documentShelf({ scope: 'personal', projectId: null, ownerUserId: 'user_a' })).toEqual(personalShelf('user_a'))
+    expect(documentShelf({ scope: 'personal', projectId: null, ownerUserId: null })).toBeNull()
   })
 
   it('has none for a session attachment, which is filed nowhere', () => {
-    expect(documentShelf({ scope: 'session', projectId: null })).toBeNull()
+    expect(documentShelf({ scope: 'session', projectId: null, ownerUserId: null })).toBeNull()
   })
 })
