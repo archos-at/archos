@@ -256,7 +256,9 @@ the per-answer record. None needs a rule of its own.
      It reads the per-answer records (`answer_contexts`) against the sources of
      the chat's ledger that this reader may not open (`unreadableSourcesOf`).
      The message list carries `withheldFrom`, the first withheld message, and
-     „Gelesen“ is cut at the same turn.
+     „Gelesen“ is cut at the same turn. The cut is taken in the order the server
+     received the messages (`messages.received_seq`, migration 0266), never the
+     client's `created_at`, so a follow-up from a slow clock cannot sort before it.
    - The whole chat stays locked, as before (`contentLocked` in
      `bff/sharing/access.ts`), in these cases:
      - an answer before the cut has no record;

@@ -419,6 +419,11 @@ const earlierThan = (conversationId: string, messageId: string | undefined) =>
     ? sql`(${messages.createdAt}, ${messages.id}) < (select m.created_at, m.id from messages m where m.id = ${messageId}::uuid and m.conversation_id = ${conversationId})`
     : undefined
 
+const receivedBefore = (conversationId: string, messageId: string | undefined) =>
+  messageId
+    ? sql`${messages.receivedSeq} < (select m.received_seq from messages m where m.id = ${messageId}::uuid and m.conversation_id = ${conversationId})`
+    : undefined
+
 export async function listMessagePage(
   conversationId: string,
   options: { limit: number; before?: string; until?: string }
@@ -431,7 +436,7 @@ export async function listMessagePage(
       and(
         eq(messages.conversationId, conversationId),
         earlierThan(conversationId, options.before),
-        earlierThan(conversationId, options.until),
+        receivedBefore(conversationId, options.until),
       ),
     )
     .orderBy(desc(messages.createdAt), desc(messages.id))
@@ -448,7 +453,7 @@ export async function listMessageRolesInOrder(
     .select({ id: messages.id, role: messages.role })
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
-    .orderBy(messages.createdAt, messages.id)
+    .orderBy(messages.receivedSeq)
     .limit(limit)
 }
 

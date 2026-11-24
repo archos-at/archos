@@ -7,9 +7,10 @@
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run bff/conversations/message-page.integration.spec.ts
  *
- * What it proves: `until` ends the page before the answer a reader who joined
- * later may not see, together with the `before` cursor, and the answers are
- * messages are listed in the order they were written.
+ * What it proves: `until` ends the page before the turn a reader who joined
+ * later may not see, in the order the server received the messages, so a
+ * follow-up with a slow client clock stays withheld; it holds with the
+ * `before` cursor; and a batched insert keeps its order (migration 0266).
  */
 import { randomUUID } from 'node:crypto'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -46,35 +47,48 @@ describe.skipIf(!url)('message page bounds against Postgres', () => {
 
   const asOwner = <T>(fn: () => PromiseLike<T>) => withTenant({ organizationId: ORG, userId: OWNER }, fn)
 
-  it('ends the page before the cut, with and without a cursor, and lists the messages in order', async () => {
+  it('ends the page before the cut in the server’s order, with and without a cursor', async () => {
     const conversationId = `s_mp_${randomUUID()}`
     await asOwner(() => db.insert(conversations).values({ id: conversationId, organizationId: ORG, createdBy: OWNER }))
-    const ids = Array.from({ length: 5 }, () => randomUUID())
-    const roles = ['user', 'assistant', 'user', 'assistant', 'user'] as const
+    const minute = (n: number) => new Date(Date.UTC(2026, 10, 24, 10, n))
+    const sent = [
+      { role: 'user', at: minute(0) },
+      { role: 'assistant', at: minute(1) },
+      { role: 'user', at: minute(2) },
+      { role: 'assistant', at: minute(3) },
+      { role: 'user', at: minute(0) },
+    ] as const
+    const ids: string[] = []
+    for (const [index, message] of sent.entries()) {
+      const id = randomUUID()
+      ids.push(id)
+      await asOwner(() =>
+        db.insert(messages).values({ id, conversationId, organizationId: ORG, role: message.role, content: `m${index}`, createdAt: message.at }),
+      )
+    }
+    const [q1, a1, q2, , slowFollowUp] = ids
+
+    const cut = await asOwner(() => repository.listMessagePage(conversationId, { limit: 50, until: q2 }))
+    expect(cut.rows.map((row) => row.id)).toEqual([q1, a1])
+    expect(cut.rows.map((row) => row.id)).not.toContain(slowFollowUp)
+
+    const paged = await asOwner(() => repository.listMessagePage(conversationId, { limit: 1, before: a1, until: q2 }))
+    expect(paged.rows.map((row) => row.id)).toEqual([q1])
+
+    const order = await asOwner(() => repository.listMessageRolesInOrder(conversationId, 10))
+    expect(order.map((row) => row.id)).toEqual(ids)
+  })
+
+  it('numbers the rows of one batched insert in the order they were sent', async () => {
+    const conversationId = `s_mp_${randomUUID()}`
+    await asOwner(() => db.insert(conversations).values({ id: conversationId, organizationId: ORG, createdBy: OWNER }))
+    const ids = Array.from({ length: 6 }, () => randomUUID())
     await asOwner(() =>
       db.insert(messages).values(
-        ids.map((id, index) => ({
-          id,
-          conversationId,
-          organizationId: ORG,
-          role: roles[index],
-          content: `m${index}`,
-          createdAt: new Date(Date.UTC(2026, 10, 24, 10, index)),
-        })),
+        ids.map((id, index) => ({ id, conversationId, organizationId: ORG, role: index % 2 ? 'assistant' : 'user', content: `m${index}` })),
       ),
     )
-    const [q1, a1, q2, a2] = ids
-
-    const cut = await asOwner(() => repository.listMessagePage(conversationId, { limit: 50, until: a2 }))
-    expect(cut.rows.map((row) => row.id)).toEqual([q1, a1, q2])
-    expect(cut.hasMore).toBe(false)
-
-    const paged = await asOwner(() => repository.listMessagePage(conversationId, { limit: 1, before: q2, until: a2 }))
-    expect(paged.rows.map((row) => row.id)).toEqual([a1])
-    expect(paged.hasMore).toBe(true)
-
-    expect(await asOwner(() => repository.listMessageRolesInOrder(conversationId, 10))).toEqual(
-      ids.map((id, index) => ({ id, role: roles[index] })),
-    )
+    const order = await asOwner(() => repository.listMessageRolesInOrder(conversationId, 10))
+    expect(order.map((row) => row.id)).toEqual(ids)
   })
 })

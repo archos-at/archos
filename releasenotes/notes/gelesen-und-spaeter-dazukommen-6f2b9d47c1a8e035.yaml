@@ -12,3 +12,6 @@ operators:
     The messages list carries withheldFrom for a reader who joined later. The
     new GET /api/conversations/{id}/answers/trail and conversation-answer-trail-list
     read each answer's recorded reads; answers before slice 1 have none.
+  - >
+    Migration 0266 adds messages.received_seq, the order in which the server
+    received each message, numbered for existing rows in created_at order.
