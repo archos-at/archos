@@ -1775,6 +1775,7 @@ export const files = {
           cancel: 'Cancel',
           save: 'Save',
           saving: 'Saving…',
+          useStandard: 'Use {ratio}',
         },
         blocked: {
           length: 'Enter the length first',

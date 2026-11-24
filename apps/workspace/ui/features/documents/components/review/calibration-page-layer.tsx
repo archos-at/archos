@@ -103,15 +103,18 @@ export function ScaleRegion({
   label,
   tone = 'quiet',
   testId,
+  draftPart,
 }: {
   region: CalibrationRegion
   label?: string | null
   tone?: 'quiet' | 'emphasis' | 'draft' | 'refused'
   testId?: string
+  draftPart?: boolean
 }): JSX.Element {
   return (
     <span
       data-testid={testId}
+      data-draft-part={draftPart ? 'frame' : undefined}
       data-tone={tone}
       className={cn(
         'pointer-events-none absolute',
@@ -122,7 +125,16 @@ export function ScaleRegion({
       )}
       style={box(region.x, region.y, region.w, region.h)}
     >
-      {label && <span className={cn(MEASURE_LABEL, 'top-0 left-2 -translate-y-1/2')}>{label}</span>}
+      {label && (
+        <span
+          className={cn(
+            MEASURE_LABEL,
+            draftPart ? 'bottom-0 left-2 translate-y-1/2' : 'top-0 left-2 -translate-y-1/2'
+          )}
+        >
+          {label}
+        </span>
+      )}
     </span>
   )
 }
@@ -165,6 +177,7 @@ function EndHandle({
   return (
     <span
       data-testid={`calibration-handle-${end}`}
+      data-draft-part="end"
       data-dragging={dragging || undefined}
       className={cn(
         'pointer-events-auto absolute z-30 size-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-full pointer-coarse:size-11',
@@ -206,7 +219,17 @@ function ShownLayer({
   }, [page, pageSize, reportPageSize])
 
   const here = draft && (draft.page === page || !draft.from) ? draft : null
+  const { draftLayer } = calibration
+  useEffect(() => {
+    const layer = layerRef.current
+    if (!here?.to || !layer) return
+    draftLayer.current = layer
+    return () => {
+      if (draftLayer.current === layer) draftLayer.current = null
+    }
+  }, [here?.to, draftLayer])
   const drawsRegion = Boolean(here?.from && here.to) && (step === 'region' || step === 'review')
+  const grabbable = setting && step !== 'region'
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -301,6 +324,7 @@ function ShownLayer({
       {draftRegion && (
         <ScaleRegion
           testId="calibration-draft-region"
+          draftPart
           region={draftRegion}
           label={dragRegion ? null : proposal.ratio}
           tone={refused ? 'refused' : 'draft'}
@@ -317,10 +341,10 @@ function ShownLayer({
           {here?.to && <EndMarker point={here.to} testId="calibration-point-to" />}
         </svg>
       )}
-      {setting && here?.from && (
+      {grabbable && here?.from && (
         <EndHandle end="from" point={here.from} layer={layerRef} calibration={calibration} />
       )}
-      {setting && here?.to && (
+      {grabbable && here?.to && (
         <EndHandle end="to" point={here.to} layer={layerRef} calibration={calibration} />
       )}
       {span?.to && length && (

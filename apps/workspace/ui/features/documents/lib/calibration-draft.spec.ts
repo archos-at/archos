@@ -6,6 +6,7 @@ import {
   proposalOf,
   regionName,
   regionPlace,
+  standardScaleOf,
   stepBack,
   stepOf,
   withPoint,
@@ -86,6 +87,27 @@ describe('what a draft amounts to', () => {
     expect(proposalOf(withRegion(twoPoints(), 1, BOX), 21, PAGE, [around, inside])).toMatchObject({ blocked: null, replaces: null })
     const same = calibrationView({ region: BOX })
     expect(proposalOf(withRegion(twoPoints(), 1, BOX), 21, PAGE, [same])).toMatchObject({ blocked: null, replaces: same })
+  })
+})
+
+describe('offering the standard scale a hand-clicked span is close to', () => {
+  const span = (lengthM: number) => ({ from: FROM, to: TO, lengthM })
+
+  it('offers 1:100 for a span that reads 1:102, with the length that makes it exactly 1:100', () => {
+    const offer = standardScaleOf(span(21.4), PAGE)
+    expect(offer).toEqual({ ratio: '1:100', lengthM: 21 })
+    expect(proposalOf(withRegion(twoPoints(), 1, BOX), 21.4, PAGE, [])).toMatchObject({ ratio: '1:102', standard: offer })
+  })
+
+  it('offers detail scales too', () => {
+    expect(standardScaleOf(span(4.08), PAGE)).toEqual({ ratio: '1:20', lengthM: 4.2 })
+  })
+
+  it('offers nothing when the span already reads a standard scale or is more than 3 % away', () => {
+    expect(standardScaleOf(span(21), PAGE)).toBeNull()
+    expect(standardScaleOf(span(21.02), PAGE)).toBeNull()
+    expect(standardScaleOf(span(15), PAGE)).toBeNull()
+    expect(proposalOf(withRegion(twoPoints(), 1, BOX), 21, PAGE, []).standard).toBeNull()
   })
 })
 

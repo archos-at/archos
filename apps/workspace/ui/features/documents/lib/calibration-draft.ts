@@ -1,4 +1,9 @@
-import { calibrationRatio, type PageSizePt } from '@/lib/drawing-calibrations/display-ratio'
+import {
+  formatRatio,
+  metresPerPoint,
+  ratioDenominator,
+  type PageSizePt,
+} from '@/lib/drawing-calibrations/display-ratio'
 import {
   inRegion,
   regionRelation,
@@ -28,8 +33,14 @@ export interface DraftState {
   readonly lengthM: number | null
 }
 
+export interface StandardScale {
+  readonly ratio: string
+  readonly lengthM: number
+}
+
 export interface CalibrationProposal {
   readonly ratio: string | null
+  readonly standard: StandardScale | null
   readonly blocked: CalibrationBlock | null
   readonly overlaps: CalibrationView | null
   readonly replaces: CalibrationView | null
@@ -108,29 +119,56 @@ export function withRegion(
   }
 }
 
+export const STANDARD_SCALES = [
+  1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000,
+] as const
+const STANDARD_REACH = 0.03
+
+type Span = { from: CalibrationPoint; to: CalibrationPoint; lengthM: number }
+
+const denominatorOf = (span: Span, page: PageSizePt): number | null => {
+  const scale = metresPerPoint(span.from, span.to, span.lengthM, page)
+  return scale === null ? null : ratioDenominator(scale)
+}
+
+export function standardScaleOf(span: Span, page: PageSizePt): StandardScale | null {
+  const drawn = denominatorOf(span, page)
+  if (drawn === null) return null
+  const off = (scale: number) => Math.abs(scale / drawn - 1)
+  const nearest = STANDARD_SCALES.reduce((best, scale) => (off(scale) < off(best) ? scale : best))
+  const ratio = formatRatio(nearest)
+  if (off(nearest) > STANDARD_REACH || formatRatio(drawn) === ratio) return null
+  const exact = (span.lengthM * nearest) / drawn
+  const millimetres = Math.round(exact * 1000) / 1000
+  const held = denominatorOf({ ...span, lengthM: millimetres }, page)
+  return { ratio, lengthM: held !== null && formatRatio(held) === ratio ? millimetres : exact }
+}
+
 export function proposalOf(
   draft: CalibrationDraft | null,
   lengthM: number | null,
   pageSize: PageSizePt | null,
   active: readonly CalibrationView[]
 ): CalibrationProposal {
-  const none = { ratio: null, overlaps: null, replaces: null, request: null }
+  const none = { ratio: null, standard: null, overlaps: null, replaces: null, request: null }
   if (!draft?.from) return { ...none, blocked: 'firstPoint' }
   const { from, to, region, page } = draft
   if (!to) return { ...none, blocked: 'secondPoint' }
   if (lengthM === null) return { ...none, blocked: 'length' }
-  const ratio = pageSize ? calibrationRatio({ from, to, lengthM }, pageSize) : null
-  if (!region) return { ...none, ratio, blocked: 'region' }
-  if (!inRegion(from, region) || !inRegion(to, region))
-    return { ...none, ratio, blocked: 'regionMisses' }
+  const drawn = pageSize ? denominatorOf({ from, to, lengthM }, pageSize) : null
+  const ratio = drawn === null ? null : formatRatio(drawn)
+  const standard = pageSize ? standardScaleOf({ from, to, lengthM }, pageSize) : null
+  const told = { ...none, ratio, standard }
+  if (!region) return { ...told, blocked: 'region' }
+  if (!inRegion(from, region) || !inRegion(to, region)) return { ...told, blocked: 'regionMisses' }
   const onPage = active.filter((entry) => entry.page === page)
   const overlaps =
     onPage.find((entry) => regionRelation(region, entry.region) === 'overlaps') ?? null
   const replaces = onPage.find((entry) => regionRelation(region, entry.region) === 'same') ?? null
-  if (overlaps) return { ...none, ratio, overlaps, blocked: 'overlaps' }
+  if (overlaps) return { ...told, overlaps, blocked: 'overlaps' }
   const request = setCalibrationRequestSchema.safeParse({ page, region, from, to, lengthM })
-  if (!request.success) return { ...none, ratio, replaces, blocked: 'length' }
-  return { ratio, blocked: null, overlaps: null, replaces, request: request.data }
+  if (!request.success) return { ...told, replaces, blocked: 'length' }
+  return { ...told, blocked: null, replaces, request: request.data }
 }
 
 export const requestOf = (entry: CalibrationView): SetCalibrationRequest => ({

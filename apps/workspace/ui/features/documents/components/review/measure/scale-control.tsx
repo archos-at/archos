@@ -1,14 +1,12 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type FormEvent, type JSX } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react'
 import { createPortal } from 'react-dom'
-import { Lock, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Lock, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { BusyButton } from '@/components/ui/busy-button'
 import { FactLine } from '@/components/ui/fact-line'
-import { FactList, FactRow } from '@/components/ui/fact-list'
 import { ToolbarIconButton, ToolbarTextButton } from '@/components/ui/floating-toolbar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { QuantityInput } from '@/components/ui/quantity-input'
 import { ROW_GLYPH_PRESS, ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { TimeAgo } from '@/components/ui/time-ago'
@@ -19,27 +17,14 @@ import { CLAUSE_JOIN, formatMetres } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useCoarsePointer } from '../../../hooks/use-coarse-pointer'
 import type { ReviewCalibration } from '../../../hooks/use-review-calibration'
-import { regionName, type CalibrationStep, type Framed } from '../../../lib/calibration-draft'
+import type { CalibrationStep } from '../../../lib/calibration-draft'
+import { LENGTH_FIELD, ReviewForm, useRegionWords, useReviewAnchor } from './scale-review'
 
-const LENGTH_FIELD = 'pointer-coarse:h-11 font-sans'
 const STEP_NUMBER: Record<Exclude<CalibrationStep, 'review'>, number> = {
   firstPoint: 1,
   secondPoint: 1,
   length: 2,
   region: 3,
-}
-
-function useRegionWords(calibration: ReviewCalibration) {
-  const t = useTranslations(filesCopy)
-  return (entry: Framed): string => {
-    const name = regionName(entry, calibration.calibrations)
-    if (name.kind === 'place') return t(`review.measure.scale.where.${name.place}`)
-    const place = t(`review.measure.scale.side.${name.place}`)
-    const ratio = calibration.ratioOf(name.within)
-    return ratio
-      ? t('review.measure.scale.detail', { ratio, place })
-      : t('review.measure.scale.detailPlain', { place })
-  }
 }
 
 function CalibrationRow({
@@ -259,135 +244,6 @@ function StepBar({
   )
 }
 
-function ReviewForm({ calibration }: { calibration: ReviewCalibration }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const words = useRegionWords(calibration)
-  const reasonId = useId()
-  const refusalId = useId()
-  const { draft, proposal, lengthM, saveFailure } = calibration
-  const refusedBy =
-    proposal.overlaps ??
-    (saveFailure?.kind === 'overlaps'
-      ? (calibration.calibrations.find((entry) => entry.id === saveFailure.overlapping) ?? null)
-      : null)
-  const refused = proposal.blocked === 'overlaps' || saveFailure?.kind === 'overlaps'
-  const refusedRatio = refusedBy ? calibration.ratioOf(refusedBy) : null
-  const region =
-    proposal.blocked === 'regionMisses' || !draft?.region
-      ? t('review.measure.scale.form.regionMisses')
-      : words({ id: proposal.replaces?.id ?? 'draft', page: draft.page, region: draft.region })
-  const replacing = proposal.replaces ? calibration.ratioOf(proposal.replaces) : null
-  const reason =
-    proposal.blocked === 'length' ||
-    proposal.blocked === 'regionMisses' ||
-    proposal.blocked === 'overlaps'
-      ? t(`review.measure.scale.blocked.${proposal.blocked}`)
-      : null
-  return (
-    <form
-      data-testid="calibration-form"
-      className="flex flex-col gap-3"
-      onSubmit={(event) => event.preventDefault()}
-    >
-      <FactList className="gap-2">
-        <FactRow label={t('review.measure.scale.form.length')} className="items-center">
-          <QuantityInput
-            value={lengthM}
-            onValueChange={(value) => calibration.setLength(value)}
-            unit={t('review.measure.scale.form.unit')}
-            label={t('review.measure.scale.form.lengthLabel')}
-            positive
-            min={0}
-            max={100_000}
-            step={0.01}
-            settleMs={150}
-            inputClassName={LENGTH_FIELD}
-            invalidMessage={() => t('review.measure.scale.form.lengthInvalid')}
-          />
-        </FactRow>
-        <FactRow
-          label={t('review.measure.scale.form.region')}
-          className="min-h-7 items-center"
-          meta={
-            replacing && (
-              <span data-testid="calibration-replaces">
-                {t('review.measure.scale.form.replaces', { ratio: replacing })}
-              </span>
-            )
-          }
-        >
-          <span
-            data-testid="calibration-region-state"
-            aria-describedby={refused ? refusalId : undefined}
-          >
-            {region}
-          </span>
-        </FactRow>
-        {refused && (
-          <FactLine
-            id={refusalId}
-            icon={TriangleAlert}
-            tone="danger"
-            role="alert"
-            testId="calibration-overlaps"
-          >
-            {refusedRatio
-              ? t('review.measure.scale.form.overlaps', { ratio: refusedRatio })
-              : t('review.measure.scale.form.overlapsPlain')}
-          </FactLine>
-        )}
-        <FactRow label={t('review.measure.scale.form.ratio')} className="items-baseline pt-1">
-          <span
-            aria-live="polite"
-            data-testid="calibration-ratio"
-            className={cn(
-              'text-pane-title tabular-nums',
-              !proposal.ratio && 'text-muted-foreground'
-            )}
-          >
-            {proposal.ratio ?? '–'}
-          </span>
-        </FactRow>
-      </FactList>
-      {saveFailure?.kind === 'failed' && (
-        <FactLine icon={TriangleAlert} tone="danger" role="alert" testId="calibration-save-failed">
-          {t('review.measure.scale.form.saveFailed')}
-        </FactLine>
-      )}
-      <span className="flex items-center gap-2">
-        <span
-          id={reasonId}
-          className="text-muted-foreground text-meta min-w-0 flex-1"
-          data-testid="calibration-save-reason"
-        >
-          {reason}
-        </span>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          data-testid="calibration-back"
-          onClick={calibration.back}
-        >
-          {t('review.measure.scale.steps.back')}
-        </Button>
-        <BusyButton
-          type="button"
-          size="sm"
-          data-testid="calibration-save"
-          blocked={proposal.request === null}
-          aria-describedby={reason ? reasonId : undefined}
-          busy={calibration.saving}
-          busyLabel={t('review.measure.scale.form.saving')}
-          onClick={() => void calibration.save()}
-        >
-          {t('review.measure.scale.form.save')}
-        </BusyButton>
-      </span>
-    </form>
-  )
-}
-
 function useEscapeStepsBack(calibration: ReviewCalibration): void {
   const { setting, back } = calibration
   useEffect(() => {
@@ -412,6 +268,7 @@ export function ScaleControl({
   const t = useTranslations(filesCopy)
   const touch = useCoarsePointer()
   useEscapeStepsBack(calibration)
+  const anchor = useReviewAnchor(calibration.draftLayer, calibration.step === 'review' && !touch)
   if (!calibration.shown) {
     return calibration.loading ? (
       <ToolbarTextButton disabled aria-busy data-testid="scale-button">
@@ -423,7 +280,7 @@ export function ScaleControl({
   const entries = calibration.onPage(shownPage)
   const { step } = calibration
   const picking = step !== null && step !== 'review' ? step : null
-  const docked = touch && picking !== null
+  const docked = touch && step !== null
   return (
     <>
       <Popover
@@ -438,9 +295,12 @@ export function ScaleControl({
             {calibration.labelFor(page)}
           </ToolbarTextButton>
         </PopoverTrigger>
+        {anchor.shown && <PopoverAnchor virtualRef={anchor.virtualRef} />}
         <PopoverContent
-          align="center"
-          sideOffset={8}
+          side={anchor.shown ? anchor.side : 'bottom'}
+          align={anchor.shown && anchor.side !== 'bottom' ? 'start' : 'center'}
+          sideOffset={anchor.shown ? 16 : 8}
+          updatePositionStrategy={anchor.shown ? 'always' : 'optimized'}
           className={
             picking
               ? 'w-auto max-w-[min(44rem,var(--radix-popover-content-available-width))] p-2 pl-3'
@@ -522,7 +382,19 @@ export function ScaleControl({
             data-testid="calibration-step-dock"
             className="bg-popover text-popover-foreground rounded-overlay fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-50 px-3 py-2 shadow-md"
           >
-            <StepBar calibration={calibration} step={picking} />
+            {picking ? (
+              <StepBar calibration={calibration} step={picking} />
+            ) : (
+              <span className="flex flex-col gap-1">
+                <span className="flex items-center justify-between gap-2">
+                  <h2 className="text-name">
+                    {t('review.measure.scale.title', { page: shownPage })}
+                  </h2>
+                  <CancelPress calibration={calibration} />
+                </span>
+                <ReviewForm calibration={calibration} compact />
+              </span>
+            )}
           </div>,
           document.body
         )}

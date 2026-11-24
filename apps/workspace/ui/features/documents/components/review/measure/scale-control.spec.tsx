@@ -21,10 +21,10 @@ const typeLength = (value: string) => {
 
 const step = () => screen.getByTestId('calibration-steps').getAttribute('data-step')
 
-async function walkTo(frame: { from: { x: number; y: number }; to: { x: number; y: number } } | 'page') {
+async function walkTo(frame: { from: { x: number; y: number }; to: { x: number; y: number } } | 'page', length = '21') {
   clickAt(0.25, 0.5)
   clickAt(0.75, 0.5)
-  typeLength('21')
+  typeLength(length)
   await userEvent.click(screen.getByRole('button', { name: 'Next' }))
   if (frame === 'page') await userEvent.click(screen.getByRole('button', { name: 'Whole page' }))
   else dragBox(frame.from, frame.to)
@@ -80,6 +80,7 @@ describe('the scale control of the measure mode', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(step()).toBe('region')
     expect(screen.getByTestId('calibration-steps')).toHaveTextContent('Step 3 of 3')
+    expect(screen.queryByTestId('calibration-handle-from')).toBeNull()
     dragBox(FRAME.from, FRAME.to)
     const form = await screen.findByTestId('calibration-form')
     expect(within(form).getByTestId('calibration-ratio')).toHaveTextContent('1:100')
@@ -92,6 +93,21 @@ describe('the scale control of the measure mode', () => {
     expect(await screen.findByRole('button', { name: 'Scale 1:100' })).toBeInTheDocument()
     expect(screen.queryByTestId('calibration-form')).toBeNull()
     expect(screen.getByTestId('calibration-said')).toHaveTextContent('Scale 1:100 set')
+  })
+
+  it('offers the standard scale a hand-clicked span is close to, and saves it exactly', async () => {
+    const { client, set } = recordingClient()
+    render(<CalibrationSheet client={client} />)
+    const popover = await openPopover()
+    await userEvent.click(within(popover).getByRole('button', { name: 'Set scale' }))
+    const form = await walkTo(FRAME, '21.4')
+    expect(within(form).getByTestId('calibration-ratio')).toHaveTextContent('1:102')
+    await userEvent.click(within(form).getByRole('button', { name: 'Use 1:100' }))
+    expect(within(form).getByTestId('calibration-ratio')).toHaveTextContent('1:100')
+    expect(within(form).queryByRole('button', { name: 'Use 1:100' })).toBeNull()
+    await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1))
+    expect(set.mock.calls[0]?.[1]).toMatchObject({ lengthM: 21 })
   })
 
   it('shows a partial overlap beside the frame before saving, and blocks the save', async () => {

@@ -1794,6 +1794,7 @@ export const files: typeof en.files = {
           cancel: 'Abbrechen',
           save: 'Speichern',
           saving: 'Speichert …',
+          useStandard: '{ratio} verwenden',
         },
         blocked: {
           length: 'Erst die Länge eingeben',

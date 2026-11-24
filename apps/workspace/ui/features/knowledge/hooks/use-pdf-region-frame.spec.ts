@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { regionZoom, unionBox } from './use-pdf-region-frame'
+import { REGION_MAX_ZOOM, regionZoom, unionBox } from './use-pdf-region-frame'
 
 const page = { width: 1000, height: 700 }
 const frame = { width: 800, height: 600 }
@@ -14,6 +14,12 @@ describe('framing a region in the viewer', () => {
   test('never zooms out, and stops at the viewer’s limit', () => {
     expect(regionZoom({ box: [0, 0, 1, 1], page, frame, zoom: 1, maxZoom: 20 })).toBe(1)
     expect(regionZoom({ box: [0.5, 0.5, 0.5001, 0.5001], page, frame, zoom: 1, maxZoom: 4 })).toBe(4)
+  })
+
+  test('frames a short span with its surroundings instead of zooming in on it alone', () => {
+    const span = { box: [0.5, 0.5, 0.51, 0.5] as [number, number, number, number], page, frame }
+    expect(regionZoom({ ...span, zoom: 1, maxZoom: 24 })).toBe(REGION_MAX_ZOOM)
+    expect(regionZoom({ ...span, zoom: 6, maxZoom: 24 })).toBe(6)
   })
 
   test('frames every region on the page together', () => {

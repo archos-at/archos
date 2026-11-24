@@ -117,7 +117,7 @@ const Scenario: FC<{
     { client }
   )
   const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, setLength } = calibration
-  const docksOnTouch = useCoarsePointer() && draft?.stopAt !== undefined
+  const docksOnTouch = useCoarsePointer() && draft !== undefined
   const seeded = useRef(false)
   useEffect(() => {
     if (!shown || !pageSizes[1] || seeded.current || docksOnTouch) return

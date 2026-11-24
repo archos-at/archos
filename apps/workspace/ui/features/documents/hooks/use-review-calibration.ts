@@ -197,6 +197,11 @@ export function useReviewCalibration(
     () => proposalOf(draft, lengthM, draft ? (pageSizes[draft.page] ?? null) : null, calibrations),
     [draft, lengthM, pageSizes, calibrations]
   )
+  const { standard } = proposal
+  const takeStandard = useCallback(() => {
+    if (standard) changeLength(standard.lengthM)
+  }, [standard, changeLength])
+  const draftLayer = useRef<HTMLElement | null>(null)
 
   const inFlight = useRef(false)
   const save = useCallback(async (): Promise<boolean> => {
@@ -307,6 +312,8 @@ export function useReviewCalibration(
       draft: setting ? draft : null,
       lengthM,
       setLength: changeLength,
+      takeStandard,
+      draftLayer,
       proposal,
       beginSetting,
       cancel,
@@ -344,6 +351,7 @@ export function useReviewCalibration(
       draft,
       lengthM,
       changeLength,
+      takeStandard,
       proposal,
       beginSetting,
       cancel,

@@ -5,6 +5,7 @@ import type { PageRegion } from '../lib/page-region'
 import { clampZoom } from '../lib/pdf-zoom'
 
 const REGION_FILL = 0.3
+export const REGION_MAX_ZOOM = 4
 
 export function regionZoom(options: {
   box: PageRegion['box']
@@ -17,7 +18,7 @@ export function regionZoom(options: {
   const wide = Math.max((box[2] - box[0]) * page.width, 1)
   const tall = Math.max((box[3] - box[1]) * page.height, 1)
   const grow = Math.min((REGION_FILL * frame.width) / wide, (REGION_FILL * frame.height) / tall)
-  return clampZoom(Math.max(zoom, zoom * grow), maxZoom)
+  return clampZoom(Math.max(zoom, Math.min(zoom * grow, REGION_MAX_ZOOM)), maxZoom)
 }
 
 export function unionBox(regions: readonly PageRegion[]): PageRegion['box'] {
