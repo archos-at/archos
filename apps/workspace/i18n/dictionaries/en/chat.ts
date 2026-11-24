@@ -130,6 +130,7 @@ export const chat = {
       project: 'Project knowledge',
       session: 'Private session',
       base: 'Base knowledge',
+      personal: 'Meine Ablage',
     },
     lanes: {
       building_law_oib: 'OIB guideline',

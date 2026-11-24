@@ -135,6 +135,7 @@ export const chat: typeof en.chat = {
       project: 'Projektwissen',
       session: 'Private Sitzung',
       base: 'Basiswissen',
+      personal: 'Meine Ablage',
     },
     lanes: {
       building_law_oib: 'OIB-Richtlinie',

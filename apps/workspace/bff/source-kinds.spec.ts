@@ -139,8 +139,8 @@ describe('the mail lanes', () => {
 })
 
 describe('Shelf (ADR-0047)', () => {
-  test('is exactly the four wire shelves', () => {
-    expect([...SHELVES]).toEqual(['office_shelf', 'project', 'session', 'base'])
+  test('is exactly the five wire shelves', () => {
+    expect([...SHELVES]).toEqual(['office_shelf', 'project', 'session', 'base', 'personal'])
   })
 
   test('accepts a shelf the wire states, case- and whitespace-tolerantly', () => {
@@ -184,6 +184,7 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
       'project',
       'base',
       'session',
+      'personal',
       'office_shelf',
       'office_shelf',
     ])
