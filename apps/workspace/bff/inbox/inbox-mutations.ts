@@ -5,6 +5,7 @@ import { publishToUser } from '@/lib/events/bus'
 import type { ShareableResourceType } from '@/lib/db/schema/resource-shares'
 import { MARKS_SET_GROUP_ANCHOR } from './registry'
 import {
+  archiveAllInboxItems,
   archiveInboxItem,
   markAllInboxItemsRead,
   markAnchorItemsRead,
@@ -12,9 +13,10 @@ import {
   markInboxItemsUnread,
   markResourceItemsRead,
   unarchiveInboxItem,
+  unarchiveInboxItemsArchivedAt,
 } from './repository'
 import { countPendingAcross, lanesFor, mutateAcross, type InboxLane } from './inbox-lanes'
-import type { InboxMutationResult } from './types'
+import type { InboxArchiveAllResult, InboxMutationResult } from './types'
 
 async function publishPending(
   session: AuthorizedSession,
@@ -43,6 +45,24 @@ export async function markAllRead(session: AuthorizedSession): Promise<InboxMuta
     markAllInboxItemsRead(lane.organizationId, session.userId, lane.types),
   )
   return publishPending(session, lanes, affected)
+}
+
+export async function archiveAll(session: AuthorizedSession): Promise<InboxArchiveAllResult> {
+  const lanes = await lanesFor(session)
+  const at = new Date()
+  const affected = await mutateAcross(session, lanes, (lane) =>
+    archiveAllInboxItems(lane.organizationId, session.userId, lane.types, at),
+  )
+  return { ...(await publishPending(session, lanes, affected)), archivedAt: at.toISOString() }
+}
+
+export async function unarchiveAll(session: AuthorizedSession, archivedAt: string): Promise<InboxMutationResult> {
+  const lanes = await lanesFor(session)
+  const at = new Date(archivedAt)
+  const restored = await mutateAcross(session, lanes, (lane) =>
+    unarchiveInboxItemsArchivedAt(lane.organizationId, session.userId, lane.types, at),
+  )
+  return publishPending(session, lanes, restored)
 }
 
 export async function archiveItem(session: AuthorizedSession, itemId: string): Promise<InboxMutationResult> {

@@ -24,6 +24,8 @@ vi.mock('./repository', () => ({
   markInboxItemsRead: vi.fn(),
   markAllInboxItemsRead: vi.fn(),
   archiveInboxItem: vi.fn(),
+  archiveAllInboxItems: vi.fn(),
+  unarchiveInboxItemsArchivedAt: vi.fn(),
   markResourceItemsRead: vi.fn(),
   markItemsInertAnchoredOn: vi.fn(),
   markItemsInertForResource: vi.fn(),
@@ -38,6 +40,7 @@ import { publishToUser } from '@/lib/events/bus'
 import { getPlatformOrganizationId, hasPlatformPermission } from '@/lib/authz/platform'
 import * as repository from './repository'
 import {
+  archiveAll,
   archiveItem,
   markAllRead,
   markAnchorItemsReadFor,
@@ -45,6 +48,7 @@ import {
   markRead,
   markResourceItemsReadFor,
   markUnread,
+  unarchiveAll,
   unarchiveItem,
 } from './service'
 import { ALL_TYPES, featureGrants, session } from './service.fixtures'
@@ -96,6 +100,24 @@ describe('mutations are scoped to the caller\'s own inbox', () => {
       ...ALL_TYPES,
     ])
     expect(publishToUser).toHaveBeenCalledWith('user_1', { kind: 'inbox.changed', pending: 0 })
+  })
+
+  it('empties the caller\'s inbox, open requests included, and undoes it by the time it answered', async () => {
+    vi.mocked(repository.archiveAllInboxItems).mockResolvedValue(20)
+    vi.mocked(repository.countPendingInboxItems).mockResolvedValue(0)
+
+    const result = await archiveAll(session)
+
+    expect(result).toEqual({ affected: 20, pending: 0, archivedAt: expect.any(String) })
+    const at = vi.mocked(repository.archiveAllInboxItems).mock.calls[0]?.[3]
+    expect(repository.archiveAllInboxItems).toHaveBeenCalledWith('org_1', 'user_1', [...ALL_TYPES], at)
+    expect(at?.toISOString()).toBe(result.archivedAt)
+    expect(publishToUser).toHaveBeenCalledWith('user_1', { kind: 'inbox.changed', pending: 0 })
+
+    vi.mocked(repository.unarchiveInboxItemsArchivedAt).mockResolvedValue(20)
+    vi.mocked(repository.countPendingInboxItems).mockResolvedValue(20)
+    expect(await unarchiveAll(session, result.archivedAt)).toEqual({ affected: 20, pending: 20 })
+    expect(repository.unarchiveInboxItemsArchivedAt).toHaveBeenCalledWith('org_1', 'user_1', [...ALL_TYPES], at)
   })
 
   it('answers 404 for archiving an item that is not the caller\'s', async () => {

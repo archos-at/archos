@@ -2168,6 +2168,19 @@
    "withheld": null,
    "reason": null
   },
+  "inbox-archive-all": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "empties the person's inbox, open requests included; an agent doing it hides from them what waits on them"
+   },
+   "reason": null
+  },
   "inbox-item-archive": {
    "kind": "catalog",
    "domain": "collaboration",
@@ -2228,6 +2241,19 @@
    "agent": true,
    "platform": false,
    "withheld": null,
+   "reason": null
+  },
+  "inbox-restore-all": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "the undo of inbox-archive-all, which an agent cannot do"
+   },
    "reason": null
   },
   "inbox-summary-get": {
