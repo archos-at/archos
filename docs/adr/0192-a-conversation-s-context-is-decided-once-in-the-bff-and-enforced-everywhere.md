@@ -66,13 +66,15 @@ keep the personal shelf in a chat after it was shared.
    rule; `0` is an ordinary version and never means alone.
 
    On a mismatch the BFF re-resolves and the turn continues under the narrower
-   context. Only a read or write that would cross the new audience is refused.
+   of the two contexts. Only a read or write that would cross the new audience is refused.
 5. **Every caller has a kind, and each kind's reach is stated.** The kinds are
    derived from the code's existing `CallDoor` and `SessionSource`:
    - `chat`: a turn in a conversation, including wake turns and asks;
    - `run`: tasks and deep research;
    - `headless`: document check, intake, jobs that serve no reader;
-   - `external`: `mcp`, `a2a` and script callers.
+   - `external`: the `mcp`, `a2a` and `platform` doors and `script` sessions.
+
+   The built-in agent's door is `chat`, `run` or `headless`, by what started it.
 
    Nothing without a conversation gets personal memory or the personal shelf,
    and neither does an external caller. A missing row reads as solo, so solo
@@ -93,6 +95,8 @@ keep the personal shelf in a chat after it was shared.
   rest of the answer and keeps its cap on concurrent upgrades.
 * The workspace block's line about shared chats is generated from the context, so
   the prompt and the code cannot disagree.
+* A turn without a conversation no longer receives personal memory, which it
+  does today (`loadPersonalMemory` loads it when `conversationId` is absent).
 * `isShared` (viewer-independent; it decides whether a chat is local-first or
   server-held, ADR-0033) and solo (relative to the asker) stay two predicates over
   one shared primitive. Merging them would move chats between storage models.
@@ -109,7 +113,9 @@ keep the personal shelf in a chat after it was shared.
   second turn.
 * The agent reads nothing when the turn's decision is missing or unsigned.
 * A stale `audience_version` narrows the turn instead of refusing it.
-* A run, headless job or external call never receives personal memory or the
+* A run without a conversation, a headless job or an external call never
+  receives personal memory or the personal shelf; a run with a conversation
+  receives personal memory only where that chat's turn would, and never the
   personal shelf.
 * The TypeScript, CommonJS and Python sides parse one generated schema fixture.
 
