@@ -11,6 +11,7 @@ import {
   FolderSearch,
   Globe,
   LayoutGrid,
+  Ruler,
   Scale,
   ScanSearch,
   Search,
@@ -18,13 +19,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
-import { PagePlaceDialog } from '@/features/knowledge/components/page-place-dialog'
-import type { PagePlace } from '@/features/knowledge/lib/page-place'
-import { useTranslations } from '@/i18n'
+import { PagePlaceDialog, type PagePlace } from '@/features/knowledge/page-clip'
+import { useLocale, useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import type { ActionVerb, StoredAction } from '@/lib/conversations/message-provenance'
 import { lookStepGroups } from '../../lib/look-steps'
+import { measuredValue, measureStepPlace } from '../../lib/measure-steps'
 import {
   isLinked,
   lookGroupRow,
@@ -34,6 +35,7 @@ import {
 } from '../../lib/work-list'
 import { firstPage, workParts, workPartsText, type WorkParts } from '../../lib/work-sentence'
 import { LookStrip, STRIP_MAX_HEIGHT, STRIP_WIDTH } from './LookStrip'
+import { MeasuredOnPage, MeasureStepRow } from './MeasureStepRow'
 
 const VERB_ICONS: Record<ActionVerb, LucideIcon> = {
   search: Search,
@@ -45,10 +47,13 @@ const VERB_ICONS: Record<ActionVerb, LucideIcon> = {
   web: Globe,
   model: Boxes,
   workspace: LayoutGrid,
+  measure: Ruler,
 }
 
+const PLACED_VERBS: ReadonlySet<ActionVerb> = new Set(['read', 'look', 'search', 'measure'])
+
 export function placeOfAction(action: StoredAction): PagePlace | null {
-  if (action.verb !== 'read' && action.verb !== 'look' && action.verb !== 'search') return null
+  if (!PLACED_VERBS.has(action.verb)) return null
   if (!action.target) return null
   const base = action.shelf === 'base'
   if (!base && !action.documentId) return null
@@ -133,8 +138,10 @@ export const WorkRowView: FC<{
   eager?: boolean
 }> = ({ row, compact = false, linking, eager }) => {
   const t = useTranslations(chatCopy)
+  const { locale } = useLocale()
   const [open, setOpen] = useState(false)
   const { action } = row
+  const measured = useMemo(() => measureStepPlace(action), [action])
   const Icon = VERB_ICONS[action.verb]
   const look = row.looks[0]
   const named = action.target ? linking?.nameOf?.(action.target) : undefined
@@ -143,11 +150,12 @@ export const WorkRowView: FC<{
     ...(row.fold ? { fold: row.fold } : {}),
     ...(look?.where ? { where: look.where } : {}),
     ...(look?.reading ? { reading: look.reading } : {}),
+    ...(action.measure ? { measured: measuredValue(action.measure, locale) } : {}),
   })
   const sentence = workPartsText(parts)
   const linkable =
     Boolean(linking) && row.callIds.some((id) => (linking?.carded ? linking.carded.has(id) : true))
-  const place = linkable ? null : placeOfAction(action)
+  const place = linkable ? null : (measured?.place ?? placeOfAction(action))
   const pressed = linkable && linking ? isLinked(linking.selection, row.callIds) : false
   const times = row.fold ? t('thinking.work.times', { count: row.fold.count }) : ''
 
@@ -234,7 +242,19 @@ export const WorkRowView: FC<{
           >
             {body}
           </button>
-          {open && <PagePlaceDialog place={place} open={open} onOpenChange={setOpen} />}
+          {open && (
+            <PagePlaceDialog
+              place={place}
+              open={open}
+              onOpenChange={setOpen}
+              zoomToRegion={Boolean(measured)}
+              overlay={
+                measured ? (
+                  <MeasuredOnPage measured={measured} label={measuredValue(measured.shape, locale)} />
+                ) : undefined
+              }
+            />
+          )}
         </>
       ) : (
         <p className={lineClass}>{body}</p>
@@ -242,18 +262,19 @@ export const WorkRowView: FC<{
       {group && !row.running && (
         <div
           className={cn(
-            'mb-2 ml-[26px] flex gap-2.5',
-            compact ? 'flex-col items-start' : 'items-end'
+            'mb-2 ml-[26px] flex min-w-0 gap-2.5',
+            compact ? 'flex-col items-start' : 'items-end max-sm:flex-col max-sm:items-start'
           )}
         >
-          <LookStrip group={group} eager={eager} className="flex gap-2" />
+          <LookStrip group={group} eager={eager} className="flex max-w-full min-w-0 gap-2 overflow-x-auto" />
           {/* The row already says where; the caption says only what a crop is not. */}
           <span className="text-muted-foreground pb-0.5 text-[13px] leading-[19px]">
             {t('thinking.work.readOff')}
           </span>
         </div>
       )}
-      {action.verb === 'look' && row.running && (
+      {measured && !row.running && <MeasureStepRow measured={measured} eager={eager} />}
+      {(action.verb === 'look' || action.verb === 'measure') && row.running && (
         <div className="mb-2 ml-[26px]">
           <div
             aria-hidden

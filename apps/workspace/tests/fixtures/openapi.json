@@ -15010,7 +15010,7 @@
       "post": {
         "operationId": "drawing-calibration-set",
         "summary": "Set the scale of a region of a PDF drawing",
-        "description": "Calibrates a region of a page of the document’s current version from two reference points and the true length between them, superseding the region’s earlier calibration. Both points lie inside `region`, which is never the whole page by default. A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.",
+        "description": "Calibrates a region of a page of the document’s current version from two reference points and the true length between them, superseding the calibration of the same region. Both points lie inside `region`, which is never the whole page by default. Regions on one page lie apart or one wholly inside another (a 1:20 detail inside a 1:100 sheet; the smaller one holds there); a region that partly overlaps an active one is refused (409, code `region-overlaps`, `overlapping` names it). A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.",
         "tags": [
           "review"
         ],
@@ -21060,7 +21060,7 @@
       "get": {
         "operationId": "project-task-run-list",
         "summary": "List the task runs of a project",
-        "description": "A project’s task runs, newest first, with status, `taskId`, review and filed document. Filter by `taskId`, `status`, `review` (`none`: awaiting task-run-review). Answers `{ runs, nextCursor }`, at most 200 a page; pass `nextCursor` as `cursor` for the next.",
+        "description": "A project’s task runs, newest first, with status, `taskId`, review and filed document. Filter by `taskId`, `kind` (`deep-research` needs the deep-research feature), `status`, `review` (`none`: awaiting task-run-review). Answers `{ runs, nextCursor }`, at most 200 a page; pass `nextCursor` as `cursor` for the next.",
         "tags": [
           "tasks"
         ],
@@ -21103,6 +21103,22 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deep-research",
+                "chat",
+                "compliance_check",
+                "submission_check",
+                "document",
+                "revision"
+              ]
             }
           },
           {

@@ -283,12 +283,6 @@ export const research = {
     researchLoadFailed: 'Deep-research runs could not be loaded.',
     noRuns: 'No deep research runs yet',
     noRunsDescription: 'Deep research runs from this project will be listed here.',
-    runStatus: {
-      running: 'Running',
-      completed: 'Report ready',
-      failed: 'Failed',
-      cancelled: 'Cancelled',
-    },
   },
 
 

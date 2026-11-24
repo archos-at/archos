@@ -41,6 +41,9 @@ import { ReviewListSheet } from './document-review/review-list-sheet'
 import { Elsewhere } from './document-review/elsewhere'
 import { ReviewTools } from './document-review/review-tools'
 import { MeasureStack } from './measure/measure-stack'
+import { ScaleControl } from './measure/scale-control'
+import { CalibrationPageLayer } from './calibration-page-layer'
+import { useReviewCalibration } from '../../hooks/use-review-calibration'
 import { measureKey, tapeInHand } from './measure/measure-keys'
 
 export { TOOLS_INTRO_KEY, toolsIntroSeen } from '../../lib/review-tools-intro'
@@ -78,6 +81,11 @@ export function DocumentReviewMode({
   protocolFiling?: ProtocolFilingTarget | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
+  const calibration = useReviewCalibration(review)
+  const { refresh } = review.tape
+  useEffect(() => {
+    refresh()
+  }, [calibration.calibrations, refresh])
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
   const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti: agent } = review
@@ -397,7 +405,16 @@ export function DocumentReviewMode({
   const followedState = followed
 
   const threadCard = (placement: CardPlacement) => {
-    if (draft) return <DraftCard review={review} draft={draft} placement={placement} canPickAssignee={canPickAssignee} />
+    if (draft)
+      return (
+        <DraftCard
+          review={review}
+          draft={draft}
+          placement={placement}
+          canPickAssignee={canPickAssignee}
+          onSetScale={calibration.beginSetting}
+        />
+      )
     if (!selected) return null
     return (
       <ThreadCard
@@ -489,7 +506,14 @@ export function DocumentReviewMode({
                   </span>
                 )}
                 <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />
-                <MeasureStack review={review} page={viewPage ?? 1} touch={touch} />
+                <MeasureStack
+                  review={review}
+                  page={viewPage ?? 1}
+                  touch={touch}
+                  scale={<ScaleControl calibration={calibration} page={viewPage ?? 1} />}
+                  onSetScale={calibration.beginSetting}
+                  settingScale={calibration.setting}
+                />
                 {toolHint && (
                   <FloatingNote role={aim ? undefined : 'status'} aria-hidden={aim ? true : undefined} data-testid="review-tool-hint">
                     {toolHint}
@@ -531,9 +555,12 @@ export function DocumentReviewMode({
                 onViewport={onViewport}
                 toolbarLead={touch ? undefined : toolsPalette(intro ? 'intro' : 'icons')}
                 pageOverlay={(page) => (
+                  <>
+                  <CalibrationPageLayer page={page} calibration={calibration} />
                   <ReviewPageLayer
                     page={page}
                     review={review}
+                    blocked={calibration.setting}
                     focused
                     onPinByKeyboard={focusNextCard}
                     aim={aim && aim.page === page ? aim : null}
@@ -546,6 +573,7 @@ export function DocumentReviewMode({
                         : ({ placement }) => (draft && draft.page !== page ? null : threadCard(placement))
                     }
                   />
+                  </>
                 )}
                 className="size-full"
               />

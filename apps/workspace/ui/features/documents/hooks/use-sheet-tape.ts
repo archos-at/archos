@@ -70,6 +70,7 @@ export interface SheetTape {
   canFinish: boolean
   scaleOf: (page: number) => SnapTargets['scales'] | null
   unscaled: (page: number) => boolean
+  refresh: () => void
   again: (place: Pick<TapePlace, 'page' | 'shape' | 'points'>) => void
   load: (page: number) => void
   pointer: (page: number, raw: PagePoint | null, size: PageSize) => void
@@ -97,6 +98,7 @@ export const IDLE_TAPE: SheetTape = {
   canFinish: false,
   scaleOf: () => null,
   unscaled: () => false,
+  refresh: () => {},
   again: () => undefined,
   load: () => undefined,
   pointer: () => undefined,
@@ -172,6 +174,12 @@ export function useSheetTape({
     },
     [documentId, targets]
   )
+
+  const refresh = useCallback(() => {
+    const pages = [...asked.current]
+    asked.current = new Set()
+    pages.forEach(load)
+  }, [load])
 
   const snap = useCallback(
     (page: number, raw: PagePoint, size: PageSize): { at: PagePoint; kind: SnapKind } => {
@@ -338,6 +346,7 @@ export function useSheetTape({
       canFinish,
       scaleOf,
       unscaled,
+      refresh,
       again,
       load,
       pointer,
@@ -359,6 +368,7 @@ export function useSheetTape({
       canFinish,
       scaleOf,
       unscaled,
+      refresh,
       again,
       load,
       pointer,

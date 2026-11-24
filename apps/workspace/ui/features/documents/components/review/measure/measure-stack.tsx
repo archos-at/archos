@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, type JSX } from 'react'
+import { Button } from '@/components/ui/button'
 import { FloatingNote } from '@/components/ui/floating-toolbar'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { DocumentReview } from '../../../hooks/use-document-review'
 import { MeasureModeStrip } from './measure-mode-strip'
-import { ScaleControl } from './scale-control'
-import { useScaleLabel } from './scale-label'
 
 const step = (tape: DocumentReview['tape']): 'start' | 'next' | 'close' => {
   const placed = tape.phase === 'placing' ? tape.points.length : 0
@@ -20,14 +19,17 @@ export function MeasureStack({
   page,
   touch,
   scale,
+  onSetScale,
+  settingScale = false,
 }: {
   review: Pick<DocumentReview, 'tool' | 'setTool' | 'tape'>
   page: number
   touch: boolean
-  scale?: JSX.Element
+  scale: JSX.Element
+  onSetScale?: (page: number) => void
+  settingScale?: boolean
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
-  const labelFor = useScaleLabel(review.tape)
   const { tape } = review
   const shownPage = tape.page ?? page
   const { load } = tape
@@ -60,9 +62,9 @@ export function MeasureStack({
         unscaled={tape.unscaled(shownPage)}
         tape={tape}
         onExit={() => review.setTool('select')}
-        scale={scale ?? <ScaleControl calibration={{ labelFor }} page={shownPage} />}
+        scale={scale}
       />
-      {note && (
+      {note && !settingScale && (
         <FloatingNote
           role={
             tape.phase === 'failed' || tape.phase === 'refused' || tape.unscaled(shownPage)
@@ -79,6 +81,17 @@ export function MeasureStack({
           }
         >
           {note}
+          {tape.unscaled(shownPage) && onSetScale && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="pointer-events-auto ml-2 h-7 pointer-coarse:h-11"
+              data-testid="measure-set-scale"
+              onClick={() => onSetScale(shownPage)}
+            >
+              {t('review.measure.scale.set')}
+            </Button>
+          )}
         </FloatingNote>
       )}
     </>

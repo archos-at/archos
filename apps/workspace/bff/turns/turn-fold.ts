@@ -7,6 +7,7 @@ import type {
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
 import { KIND_TO_SIGNAL, asShelf } from '@/lib/source-kinds'
 import { sharedPrefixChars, stoppedAnswer } from './stopped-answer'
+import { sanitizeMeasure, type StoredMeasure } from '@/lib/conversations/message-measure'
 
 type Named<N extends string> = Extract<WireEvent, { type: 'CUSTOM'; name: N }>
 type StepOf<K extends string> = Extract<Extract<WireEvent, { type: 'STEP_FINISHED' }>['step'], { kind: K }>
@@ -171,12 +172,18 @@ const storedFields = (step: StepOf<string>, previous?: StoredThinkingStep): Part
           ...(step.incomplete ? { incomplete: true } : {}),
           ...(step.missing ? { missing: true } : {}),
           ...some('counts', actionCountsOf(step.counts)),
+          ...measureOf(step.measure),
           ...(step.elapsed_ms === null ? {} : { elapsedMs: step.elapsed_ms }),
         },
       }
     default:
       return {}
   }
+}
+
+const measureOf = (shape: StepOf<'action'>['measure']): { measure?: StoredMeasure } => {
+  const measure = shape ? sanitizeMeasure(shape) : undefined
+  return measure ? { measure } : {}
 }
 
 const actionCountsOf = (counts: StepOf<'action'>['counts']): StoredActionCounts => ({

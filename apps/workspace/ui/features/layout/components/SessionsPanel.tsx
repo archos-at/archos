@@ -23,13 +23,14 @@ import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useLocale, useTranslations } from '@/i18n'
 import { researchCopy } from '@/i18n/namespaces/research'
-import type { ResearchRun } from '@/adapters/api/research-runs-client'
+import type { JobRun } from '@/adapters/api/jobs-client'
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
 import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
-import { cancelJob } from '@/adapters/api/deep-research-client'
+import { cancelRun } from '@/lib/runs/run-view-client'
+import { runThreadHref } from '@/lib/tasks/run-display'
 import { useDeepResearchRuns } from '../hooks/use-deep-research-runs'
 import { groupSessionsByDate } from '../lib/group-sessions-by-date'
 import { HISTORY_SCOPES, SCOPE_LABEL_KEY, isHistoryScope, type HistoryScope } from '../lib/history-scope'
@@ -71,7 +72,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [pendingStop, setPendingStop] = useState<ResearchRun | null>(null)
+  const [pendingStop, setPendingStop] = useState<JobRun | null>(null)
 
   useEffect(() => {
     if (!isSessionsPanelOpen) {
@@ -80,7 +81,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     }
   }, [isSessionsPanelOpen])
 
-  const { deepResearchRuns, deepResearchError, fetchDeepResearchRuns } = useDeepResearchRuns({
+  const { deepResearch, fetchDeepResearchRuns } = useDeepResearchRuns({
     isSessionsPanelOpen,
     projectId,
   })
@@ -128,11 +129,11 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   }, [])
 
   const handleConfirmStop = useCallback(async () => {
-    if (!pendingStop) return
+    if (!pendingStop || !projectId) return
     try {
-      await cancelJob(pendingStop.job_id, undefined, { projectId })
+      await cancelRun(projectId, pendingStop.id)
     } catch (err) {
-      console.warn('[SessionsPanel] Failed to stop run:', pendingStop.job_id, err)
+      console.warn('[SessionsPanel] Failed to stop run:', pendingStop.id, err)
     }
     fetchDeepResearchRuns()
   }, [pendingStop, projectId, fetchDeepResearchRuns])
@@ -166,49 +167,39 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const hasSessions = sessions.length > 0
   const isEmptyState = filteredSessions.length === 0
 
-  const sessionTitleById = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const s of sessions) {
-      const title = s.title.trim()
-      if (title) map[s.id] = title
-    }
-    return map
-  }, [sessions])
-
   const runLabel = useCallback(
-    (run: ResearchRun): string => {
-      const title = run.conversation_id ? sessionTitleById[run.conversation_id] : undefined
-      return title ?? t('runsList.untitledRun')
-    },
-    [sessionTitleById, t]
+    (run: JobRun): string => run.title.trim() || t('runsList.untitledRun'),
+    [t]
   )
 
   const runHref = useCallback(
-    (run: ResearchRun): string | null =>
-      run.conversation_id
-        ? `/app/projects/${projectId}/chat?session=${encodeURIComponent(run.conversation_id)}`
-        : null,
+    (run: JobRun): string | null => (projectId ? runThreadHref(projectId, run) : null),
     [projectId]
   )
 
+  const deepResearchRuns = useMemo(
+    () => (deepResearch.kind === 'loaded' ? deepResearch.runs : []),
+    [deepResearch]
+  )
+
   const filteredRuns = useMemo(() => {
-    const runs = deepResearchRuns ?? []
-    if (!trimmedQuery) return runs
+    if (!trimmedQuery) return deepResearchRuns
     const query = trimmedQuery.toLowerCase()
-    return runs.filter((run) => runLabel(run).toLowerCase().includes(query))
+    return deepResearchRuns.filter((run) => runLabel(run).toLowerCase().includes(query))
   }, [deepResearchRuns, trimmedQuery, runLabel])
 
-  const deepResearchEnabled = Boolean(projectId)
+  const deepResearchEnabled = Boolean(projectId) && deepResearch.kind !== 'unavailable'
   const researchScopeSelected = deepResearchEnabled && scopeFilter === 'research'
   const showChats = !deepResearchEnabled || scopeFilter !== 'research'
-  const isResearchLoading = deepResearchRuns === null && !deepResearchError
+  const isResearchLoading = deepResearch.kind === 'loading'
+  const deepResearchError = deepResearch.kind === 'failed'
 
   const showResearchSection =
     deepResearchEnabled &&
     scopeFilter !== 'chats' &&
     (researchScopeSelected || isResearchLoading || deepResearchError || filteredRuns.length > 0)
 
-  const handleStopRun = useCallback((run: ResearchRun) => {
+  const handleStopRun = useCallback((run: JobRun) => {
     setPendingStop(run)
   }, [])
 
@@ -295,9 +286,9 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   {t(SCOPE_LABEL_KEY[scope])}
                   {scope === 'research' && (
                     <CountPill
-                      className={cn((deepResearchRuns?.length ?? 0) === 0 && 'invisible')}
-                      aria-hidden={(deepResearchRuns?.length ?? 0) === 0 || undefined}
-                      count={deepResearchRuns?.length ?? 0}
+                      className={cn(deepResearchRuns.length === 0 && 'invisible')}
+                      aria-hidden={deepResearchRuns.length === 0 || undefined}
+                      count={deepResearchRuns.length}
                     />
                   )}
                 </ToggleGroupItem>
@@ -315,10 +306,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           sheet's own rise is the arrival. */}
       <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 md:px-8">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
-          {/* Deep Research (FB-10) — server-truth runs for this project, always
-              open, with a count. Includes headless/CLI jobs that have no local
-              session. Quiet under "All" when there is nothing to show; the
-              whole list under the Deep Research scope. */}
           {showResearchSection && (
             <DeepResearchSection
               filteredRuns={filteredRuns}

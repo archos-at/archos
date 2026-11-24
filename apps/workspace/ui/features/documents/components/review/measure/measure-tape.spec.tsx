@@ -190,7 +190,7 @@ describe('the mode strip', () => {
 
 describe('the measure stack', () => {
   const stack = (tape: SheetTape, tool: DocumentReview['tool'] = 'measure', touch = false) =>
-    render(<MeasureStack review={{ tool, setTool: vi.fn(), tape }} page={1} touch={touch} />)
+    render(<MeasureStack review={{ tool, setTool: vi.fn(), tape }} page={1} touch={touch} scale={<span />} />)
   const hint = () => screen.getByTestId('review-tool-hint')
 
   it('shows nothing unless the tool is in hand and offered', () => {
@@ -207,6 +207,7 @@ describe('the measure stack', () => {
       Array.from({ length: count }, (_, i): [number, number] => [0.1 * (i + 1), 0.1])
     rerender(
       <MeasureStack
+        scale={<span />}
         review={{
           tool: 'measure',
           setTool: vi.fn(),
@@ -219,6 +220,7 @@ describe('the measure stack', () => {
     expect(hint()).toHaveTextContent('Die nächste Ecke anklicken, der Reihe nach')
     rerender(
       <MeasureStack
+        scale={<span />}
         review={{
           tool: 'measure',
           setTool: vi.fn(),
@@ -233,6 +235,7 @@ describe('the measure stack', () => {
     )
     rerender(
       <MeasureStack
+        scale={<span />}
         review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ mode: 'distance' }) }}
         page={1}
         touch
@@ -249,11 +252,27 @@ describe('the measure stack', () => {
     expect(hint()).toHaveAttribute('role', 'alert')
   })
 
+  it('offers to set the scale right in that notice', async () => {
+    const onSetScale = vi.fn()
+    render(
+      <MeasureStack
+        scale={<span />}
+        review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ unscaled: () => true }) }}
+        page={2}
+        touch={false}
+        onSetScale={onSetScale}
+      />
+    )
+    screen.getByTestId('measure-set-scale').click()
+    expect(onSetScale).toHaveBeenCalledWith(2)
+  })
+
   it('says it is measuring, then says nothing over a reading', () => {
     const { rerender } = stack(tapeWith({ phase: 'measuring' }))
     expect(hint()).toHaveTextContent('Wird gemessen …')
     rerender(
       <MeasureStack
+        scale={<span />}
         review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ phase: 'measured' }) }}
         page={1}
         touch={false}
@@ -284,6 +303,7 @@ describe('the measure stack', () => {
     expect(hint()).toHaveTextContent('Das lässt sich hier nicht messen.')
     rerender(
       <MeasureStack
+        scale={<span />}
         review={{ tool: 'measure', setTool: vi.fn(), tape: tapeWith({ phase: 'failed' }) }}
         page={1}
         touch={false}
@@ -292,20 +312,6 @@ describe('the measure stack', () => {
     expect(hint()).toHaveTextContent('Das hat nicht geklappt. Bitte noch einmal versuchen.')
   })
 
-  it('labels the scale of the page being measured', () => {
-    const scaleOf = vi.fn(() => [
-      {
-        region: null,
-        state: 'verified' as const,
-        source: 'calibration' as const,
-        metresPerShare: [1, 1] as [number, number],
-        ratio: 50,
-      },
-    ])
-    stack(tapeWith({ page: 3, scaleOf }))
-    expect(screen.getByTestId('measure-scale')).toHaveTextContent('Maßstab 1:50')
-    expect(scaleOf).toHaveBeenCalledWith(3)
-  })
 })
 
 describe('the measure layer', () => {

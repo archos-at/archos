@@ -385,6 +385,16 @@ describe('the tape on a page without a scale, and taking a discarded measurement
     expect(t.tape().points).toEqual([])
   })
 
+  it('reads the page again once a scale is set, so measuring opens up without a reload', async () => {
+    const targets = vi.fn<TapeTargets>(async () => ({ ...TARGETS, scales: [] }))
+    const t = setup({ targets })
+    await t.loadPage()
+    expect(t.tape().unscaled(1)).toBe(true)
+    targets.mockImplementation(async () => TARGETS)
+    act(() => t.tape().refresh())
+    await waitFor(() => expect(t.tape().unscaled(1)).toBe(false))
+  })
+
   it('measures the same points again and opens the draft once more', async () => {
     const t = setup()
     act(() =>

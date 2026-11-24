@@ -1,6 +1,7 @@
 // The engine stood in for /dev/drawing-tape: the annotations sheet's own lines as snap targets at 1:100, and a measure
 // that answers from the same geometry, so every number on the page is the stand-in engine's, never the browser's.
 import type { PagePoint } from '@/lib/annotations/measure-shapes'
+import { fixtureClient } from '../_fixtures/drawing-calibrate'
 import type { AnnotationView } from '@/lib/annotations/types'
 import type { TapeMeasurement } from '@/lib/drawing-tape/wire'
 import { FILE, SHEET_HEIGHT, SHEET_WIDTH } from '../annotations/fixtures'
@@ -140,7 +141,11 @@ async function measuredResponse(response: Response): Promise<Response> {
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
-const unscaled = () => typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('scale') === 'none'
+const calibrations = fixtureClient([])
+let calibrated = 0
+const unscaled = () =>
+  calibrated === 0 && typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('scale') === 'none'
+const CALIBRATED_SCALE = { ...TAPE_TARGETS.scales[0], state: 'verified' as const, source: 'calibration' as const }
 const NO_SCALE = {
   code: 'uncalibrated',
   reason: 'No scale is known for this part of the sheet.',
@@ -160,9 +165,20 @@ export const tapeFetch = (inner: typeof fetch) => {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     const method = (init?.method ?? 'GET').toUpperCase()
+    if (url.startsWith(`${root}/calibrations`)) {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      if (method === 'GET') return json(await calibrations.list(FILE.id))
+      if (url.endsWith('/withdraw')) {
+        calibrated = Math.max(0, calibrated - 1)
+        return json({ calibration: await calibrations.withdraw(FILE.id, url.split('/').at(-2) ?? '') })
+      }
+      calibrated += 1
+      return json({ calibration: await calibrations.set(FILE.id, JSON.parse(String(init?.body))) })
+    }
     if (url.startsWith(`${root}/snap-targets`)) {
       await new Promise((resolve) => setTimeout(resolve, 250))
-      return json({ targets: unscaled() ? { ...TAPE_TARGETS, scales: [] } : TAPE_TARGETS })
+      const scales = unscaled() ? [] : calibrated > 0 ? [CALIBRATED_SCALE] : TAPE_TARGETS.scales
+      return json({ targets: { ...TAPE_TARGETS, scales } })
     }
     if (url.endsWith(`${root}/measure`) && method === 'POST') {
       const { operation, points } = JSON.parse(String(init?.body)) as { operation: string; points: PagePoint[] }

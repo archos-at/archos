@@ -166,9 +166,11 @@ export function ReviewPageLayer({
   aim,
   renderThread,
   renderAsk,
+  blocked = false,
 }: {
   page: number
   review: DocumentReview
+  blocked?: boolean
   focused: boolean
   onOpenMark?: (annotationId: string) => void
   onPinByKeyboard?: () => void
@@ -485,7 +487,7 @@ export function ReviewPageLayer({
         ))}
       </AnimatePresence>
 
-      <MeasureLayer review={review} page={page} focused={focused} size={size} />
+      <MeasureLayer review={review} page={page} focused={focused} size={size} blocked={blocked} />
 
       <PageCompany
         room={room}

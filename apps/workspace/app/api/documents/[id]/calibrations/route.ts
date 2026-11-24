@@ -1,6 +1,7 @@
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { listCalibrations, setCalibration } from '@/lib/drawing-calibrations/service'
-import { listCalibrationsQuerySchema, setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
+import { listCalibrationsQuerySchema } from '@/lib/drawing-calibrations/list-wire'
+import { setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
 
 type Params = { id: string }
 

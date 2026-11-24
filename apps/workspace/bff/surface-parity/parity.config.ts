@@ -179,10 +179,8 @@ export const SURFACE_CAPABILITIES = {
   calibrateScale: {
     summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
     operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
-    canvas: { gap: { slice: 'drawing-measure slice 5', reason: 'the scale popover of the review view’s measure mode is built next' } },
-    chat: {
-      gap: { slice: 'drawing-measure slice 6', reason: 'the confirm card drawing the page clip with the reference span is built next' },
-    },
+    canvas: { component: 'features/documents/components/review/measure/scale-control.tsx' },
+    chat: { card: 'operation_proposal', component: 'features/cards/components/CalibrationProposalPreview.tsx' },
   },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 

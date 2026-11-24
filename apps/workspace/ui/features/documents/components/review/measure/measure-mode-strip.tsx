@@ -94,7 +94,7 @@ export function MeasureModeStrip({
           {t('review.measure.finish')}
         </ToolbarTextButton>
       )}
-      <span className="contents pointer-coarse:max-sm:hidden">
+      <span className={unscaled ? 'contents' : 'contents pointer-coarse:max-sm:hidden'}>
         <ToolbarDivider />
         {scale}
       </span>
