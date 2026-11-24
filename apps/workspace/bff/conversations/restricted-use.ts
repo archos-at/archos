@@ -20,6 +20,7 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
+import { personalShelfUsed } from './personal-shelf-use'
 import type { DbExecutor } from '@/lib/db/executor'
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
@@ -200,6 +201,7 @@ function stillRestricting(tree: FolderTree, recorded: readonly string[]): string
 export interface ConversationRecord {
   folders: string[]
   otherProjects: string[]
+  personalShelf: boolean
 }
 
 export async function conversationRecord(
@@ -207,17 +209,18 @@ export async function conversationRecord(
   conversationId: string,
   projectId: string | null
 ): Promise<ConversationRecord> {
-  const [recorded, projects] = await Promise.all([
+  const [recorded, projects, personalShelf] = await Promise.all([
     listRecordedSourceFolders(getDb(), organizationId, conversationId),
     listRestrictingSourceProjects(getDb(), organizationId, conversationId),
+    personalShelfUsed(organizationId, conversationId),
   ])
-  if (recorded.length === 0) return { folders: [], otherProjects: projects }
+  if (recorded.length === 0) return { folders: [], otherProjects: projects, personalShelf }
   const view = await recordView(organizationId, projectId, recorded)
   const folders = stillRestricting(view.tree, recorded)
   const foreign = folders
     .filter((folderId) => view.ownerOf.get(folderId) !== projectId)
     .map((folderId) => view.ownerOf.get(folderId) ?? folderId)
-  return { folders, otherProjects: [...new Set([...projects, ...foreign])] }
+  return { folders, otherProjects: [...new Set([...projects, ...foreign])], personalShelf }
 }
 
 export async function recordedRestrictedFolders(conversationId: string, organizationId: string): Promise<string[]> {

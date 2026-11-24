@@ -78,6 +78,7 @@ const conversation = {
   subjectResourceId: null,
   temporary: false,
   audienceVersion: 0,
+  personalShelfUsedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

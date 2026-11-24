@@ -4,6 +4,7 @@ import type { DbExecutor } from '@/lib/db/executor'
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import { conversationRecord, sourceFoldersOf } from '@/lib/conversations/restricted-use'
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import { featureEntitlement } from '@/lib/turns/feature-entitlement'
 import { audienceOf, readConversationRow } from './audience'
 import {
@@ -127,21 +128,23 @@ export async function resolveConversationContext(
       : Promise.resolve([]),
   ])
   const recorded: ContextRecorded = record
-    ? { folders: record.folders, projects: record.otherProjects, personalShelf: false }
+    ? { folders: record.folders, projects: record.otherProjects, personalShelf: record.personalShelf }
     : NOTHING_RECORDED
   const confined = isConfined({ restrictedCollections }, recorded)
   const personalMemory = isAuthorized(session) && mayPersonalMemory(kind, conversationId, audience.solo)
+  const personalShelf = mayPersonalShelf(kind, personalMemory, projectId ?? audience.row.projectId)
+  const personal = personalShelf && isAuthorized(session) ? personalShelfCollectionName(session.organizationId, session.userId) : null
   return {
     kind,
     conversationId,
     audience,
     projectId,
     may: {
-      shelves,
-      restrictedCollections,
+      shelves: personal ? [...shelves, { collection: personal, shelf: 'personal' }] : shelves,
+      restrictedCollections: personal ? [...restrictedCollections, personal] : restrictedCollections,
       otherProjects: otherProjectsOf(kind, conversationId, audience.solo),
       personalMemory,
-      personalShelf: mayPersonalShelf(kind, personalMemory, projectId),
+      personalShelf,
       projectMemory: { readableFolderIds },
       workspaceRead: workspaceReadOf(kind, conversationId, audience.solo),
       features: {

@@ -10,7 +10,7 @@ vi.mock('server-only', () => ({}))
 const state = vi.hoisted(() => ({
   rows: [] as ConversationAudienceRow[],
   reads: 0,
-  record: { folders: [] as string[], otherProjects: [] as string[] },
+  record: { folders: [] as string[], otherProjects: [] as string[], personalShelf: false },
 }))
 
 vi.mock('./audience', async (original) => ({
@@ -74,7 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   state.rows = [row()]
   state.reads = 0
-  state.record = { folders: [], otherProjects: [] }
+  state.record = { folders: [], otherProjects: [], personalShelf: false }
 })
 
 describe('resolveConversationContext', () => {
@@ -113,6 +113,31 @@ describe('resolveConversationContext', () => {
     expect(first.may).toMatchObject({ personalMemory: true, personalShelf: true, workspaceRead: 'all' })
     expect(second.may).toMatchObject({ personalMemory: false, personalShelf: false, workspaceRead: 'document+projectFacts' })
     expect(second.audience.version).toBe(3)
+    const personal = 'personal_org_1__user_owner'
+    expect(first.may.shelves).toContainEqual({ collection: personal, shelf: 'personal' })
+    expect(first.may.restrictedCollections).toEqual([personal])
+    expect(first.may.features).toEqual({ deepResearch: true, tasks: true })
+    expect(second.may.shelves.map((entry) => entry.collection)).not.toContain(personal)
+    expect(second.may.restrictedCollections).toEqual([])
+  })
+
+  it('never draws on the personal shelf in a project chat whose project the reader lost (ADR-0193, rule 4)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    vi.mocked(buildCollectionScopeFromRequest).mockResolvedValueOnce({
+      scope: [],
+      scopedCollections: [],
+      headerValue: '',
+      projectId: undefined,
+      projectCollectionName: undefined,
+      conversationId: undefined,
+      verifiedConversationId: 's_c',
+      restrictedCollections: [],
+    })
+
+    const context = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+
+    expect(context.may.personalShelf).toBe(false)
+    expect(context.may.shelves).toEqual([])
   })
 
   it('keeps personal memory but not the personal shelf in a solo project chat (ADR-0180, ADR-0193)', async () => {
@@ -140,7 +165,7 @@ describe('resolveConversationContext', () => {
     expect(confined.may.features).toEqual({ deepResearch: false, tasks: false })
 
     state.rows = [row()]
-    state.record = { folders: [], otherProjects: ['p_other'] }
+    state.record = { folders: [], otherProjects: ['p_other'], personalShelf: false }
     const recorded = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
     expect(recorded.recorded.projects).toEqual(['p_other'])
     expect(recorded.may.features).toEqual({ deepResearch: false, tasks: false })
