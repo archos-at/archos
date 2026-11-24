@@ -280,6 +280,31 @@ export async function peopleWhoMayRead(
   )
 }
 
+export interface UnreadableSources {
+  folders: Set<string>
+  projects: Set<string>
+}
+
+export async function unreadableSourcesOf(session: AuthorizedSession, conversationId: string): Promise<UnreadableSources> {
+  const { organizationId } = session
+  const [recorded, projects, audience] = await Promise.all([
+    listRecordedSourceFolders(getDb(), organizationId, conversationId),
+    listRestrictingSourceProjects(getDb(), organizationId, conversationId),
+    readConversationRow(organizationId, conversationId),
+  ])
+  const opens = new Map<string, boolean>()
+  const closedProjects = new Set<string>()
+  for (const projectId of projects) {
+    if (!(await sessionMayOpenAll(session, [projectId], opens))) closedProjects.add(projectId)
+  }
+  const view = await recordView(organizationId, audience.projectId, recorded)
+  const restricting = stillRestricting(view.tree, recorded)
+  const clearances = new Map<string, FolderClearance>()
+  for (const owner of ownersOf(view, restricting)) clearances.set(owner, await clearanceOf(session, owner))
+  const closedFolders = restricting.filter((folderId) => !mayReadEvery(view, (owner) => clearances.get(owner), [folderId]))
+  return { folders: new Set(closedFolders), projects: closedProjects }
+}
+
 export interface ListedConversationRef {
   id: string
   projectId: string | null

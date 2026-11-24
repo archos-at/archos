@@ -14,7 +14,7 @@ vi.mock('@/lib/conversations/repository', () => ({
   findMessageInConversation: vi.fn(),
   insertConversation: vi.fn(),
   insertMessages: vi.fn(),
-  listAnswerIdsInOrder: vi.fn(async () => []),
+  listMessageRolesInOrder: vi.fn(async () => []),
   listMessagePage: vi.fn(),
   listVisibleConversations: vi.fn(),
   markConversationDeleting: vi.fn(),
@@ -256,13 +256,13 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
     })
 
     it('gives a reader who joined later the messages before the first answer resting on what they may not open', async () => {
-      vi.mocked(readerCut).mockResolvedValueOnce({ kind: 'until', answerId: 'a_2', readable: [] })
+      vi.mocked(readerCut).mockResolvedValueOnce({ kind: 'until', messageId: 'q_2', readableAnswers: new Set(['a_1']) })
       vi.mocked(listMessagePage).mockResolvedValueOnce({ rows: [], hasMore: false })
 
       const page = await listConversationMessages(session, CONVERSATION_ID)
 
-      expect(listMessagePage).toHaveBeenCalledWith(CONVERSATION_ID, expect.objectContaining({ until: 'a_2' }))
-      expect(page.withheldFrom).toBe('a_2')
+      expect(listMessagePage).toHaveBeenCalledWith(CONVERSATION_ID, expect.objectContaining({ until: 'q_2' }))
+      expect(page.withheldFrom).toBe('q_2')
     })
 
     it('refuses a message into it, and stores nothing', async () => {

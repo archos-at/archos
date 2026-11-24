@@ -24,7 +24,7 @@ const client = vi.hoisted(() => ({
   updateTitle: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn(),
-  listReadableMessages: vi.fn(async function (this: { listMessages: (id: string) => Promise<unknown[]> }, id: string) {
+  listReadableMessages: vi.fn(async function (this: { listMessages: (id: string) => Promise<unknown[]> }, id: string): Promise<{ messages: unknown[]; withheldFrom?: string }> {
     return { messages: await this.listMessages(id) }
   }),
   createMessage: vi.fn().mockResolvedValue({}),
@@ -135,25 +135,28 @@ describe('the list says a chat is locked', () => {
     expect(conversation('s_new')?.withheldFrom).toBeUndefined()
   })
 
-  it('shows a reader who joined later the part before the cut, and keeps it across a reload of the list', async () => {
+  it('shows a reader who joined later the part before the cut, and asks again on every reload of the list', async () => {
+    const question = (id: string) => ({ id, conversationId: 's_new', role: 'user', content: id, metadata: { messageType: 'user' }, createdAt: '2026-02-01T10:00:00Z' })
     client.list.mockResolvedValue([lockedRow('s_new')])
-    client.listMessages.mockResolvedValue([
-      { id: 'm1', conversationId: 's_new', role: 'user', content: 'Wie hoch ist die Brüstung?', metadata: { messageType: 'user' }, createdAt: '2026-02-01T10:00:00Z' },
-    ])
-    client.listReadableMessages.mockImplementationOnce(async (id: string) => ({
-      messages: await client.listMessages(id),
-      withheldFrom: 'a_2',
-    }))
+    client.listReadableMessages.mockResolvedValueOnce({ messages: [question('m1'), question('m2')], withheldFrom: 'q_3' })
     await useChatStore.getState().loadServerConversations()
     useChatStore.getState().selectConversation('s_new')
     await flush()
 
-    expect(conversation('s_new')).toMatchObject({ contentLocked: true, withheldFrom: 'a_2' })
-    expect(conversation('s_new')?.messages).toHaveLength(1)
+    expect(conversation('s_new')).toMatchObject({ contentLocked: true, withheldFrom: 'q_3' })
+    expect(conversation('s_new')?.messages).toHaveLength(2)
 
+    client.listReadableMessages.mockResolvedValueOnce({ messages: [question('m1')], withheldFrom: 'm2' })
     await useChatStore.getState().loadServerConversations()
-    expect(conversation('s_new')?.messages).toHaveLength(1)
-    expect(conversation('s_new')?.withheldFrom).toBe('a_2')
+    await flush()
+    expect(conversation('s_new')?.messages.map((message) => message.id)).toEqual(['m1'])
+    expect(conversation('s_new')?.withheldFrom).toBe('m2')
+
+    client.listReadableMessages.mockRejectedValueOnce(rightsLost())
+    await useChatStore.getState().loadServerConversations()
+    await flush()
+    expect(conversation('s_new')).toMatchObject({ contentLocked: true, messages: [] })
+    expect(conversation('s_new')?.withheldFrom).toBeUndefined()
   })
 
   it('follows the list for the chat that is OPEN, which is a separate object', async () => {

@@ -1,29 +1,50 @@
 import 'server-only'
 import { ResourceRightsLostError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import type { AnswerContext } from '@/lib/db/schema/answer-contexts'
 import { requireResourceAccess } from '@/lib/sharing/access'
-import { listAnswerIdsInOrder } from './repository'
-import { restsOnWithheld, trailsAsSeenBy, type AnswerTrail } from './answer-trail'
+import { answerReadsOf, trailsAsSeenBy, type AnswerTrail } from './answer-trail'
+import { listMessageRolesInOrder } from './repository'
+import { unreadableSourcesOf, type UnreadableSources } from './restricted-use'
 
-export type ReaderCut =
-  | { kind: 'all' }
-  | { kind: 'until'; answerId: string; readable: AnswerTrail[] }
-  | { kind: 'none' }
+export type ReaderCut = { kind: 'until'; messageId: string; readableAnswers: ReadonlySet<string> } | { kind: 'none' }
 
-const MAX_ANSWERS = 500
+const MAX_MESSAGES = 5000
+const NONE: ReaderCut = { kind: 'none' }
 
 export async function readerCut(session: AuthorizedSession, conversationId: string): Promise<ReaderCut> {
-  const answers = await listAnswerIdsInOrder(conversationId, MAX_ANSWERS + 1)
-  if (answers.length === 0 || answers.length > MAX_ANSWERS) return { kind: 'none' }
-  const trails = new Map((await trailsAsSeenBy(session, conversationId)).map((trail) => [trail.messageId, trail]))
-  const readable: AnswerTrail[] = []
-  for (const answerId of answers) {
-    const trail = trails.get(answerId)
-    if (!trail) return { kind: 'none' }
-    if (restsOnWithheld(trail)) return { kind: 'until', answerId, readable }
-    readable.push(trail)
+  const [order, reads, closed] = await Promise.all([
+    listMessageRolesInOrder(conversationId, MAX_MESSAGES + 1),
+    answerReadsOf(session, conversationId),
+    unreadableSourcesOf(session, conversationId),
+  ])
+  if (order.length > MAX_MESSAGES) return NONE
+  const recordOf = new Map(reads.map((read) => [read.messageId, read]))
+  const readableAnswers = new Set<string>()
+  let lastReadable = -1
+  for (const [index, message] of order.entries()) {
+    if (message.role !== 'assistant') continue
+    const record = recordOf.get(message.id)
+    if (!record) return NONE
+    if (restsOnClosed(record, closed)) {
+      const later = order.slice(index).flatMap((rest) => recordOf.get(rest.id) ?? [])
+      if (lastReadable < 0 || !namesEveryClosed(later, closed)) return NONE
+      return { kind: 'until', messageId: order[lastReadable + 1].id, readableAnswers }
+    }
+    readableAnswers.add(message.id)
+    lastReadable = index
   }
-  return { kind: 'none' }
+  return NONE
+}
+
+const restsOnClosed = (record: AnswerContext, closed: UnreadableSources): boolean =>
+  record.readFolders.some((folderId) => closed.folders.has(folderId)) ||
+  record.readProjects.some((projectId) => closed.projects.has(projectId))
+
+function namesEveryClosed(records: readonly AnswerContext[], closed: UnreadableSources): boolean {
+  const folders = new Set(records.flatMap((record) => record.readFolders))
+  const projects = new Set(records.flatMap((record) => record.readProjects))
+  return [...closed.folders].every((id) => folders.has(id)) && [...closed.projects].every((id) => projects.has(id))
 }
 
 export interface AnswerTrailPage {
@@ -39,8 +60,9 @@ export async function readableAnswerTrails(
   const access = await requireResourceAccess(session, 'conversation', conversationId, 'viewer', { allowLocked: true })
   const cut = access.contentLocked ? await readerCut(session, conversationId) : null
   if (cut?.kind === 'none') throw new ResourceRightsLostError('conversation')
-  const trails = cut?.kind === 'until' ? cut.readable : await trailsAsSeenBy(session, conversationId)
-  return pageOf(trails, page.limit ?? DEFAULT_PAGE, page.cursor)
+  const trails = await trailsAsSeenBy(session, conversationId)
+  const readable = cut ? trails.filter((trail) => cut.readableAnswers.has(trail.messageId)) : trails
+  return pageOf(readable, page.limit ?? DEFAULT_PAGE, page.cursor)
 }
 
 const DEFAULT_PAGE = 50

@@ -4,7 +4,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { customFolderNames, isFolderVisibleTo } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
-import { answerContexts } from '@/lib/db/schema/answer-contexts'
+import { answerContexts, type AnswerContext } from '@/lib/db/schema/answer-contexts'
 import { withTenant } from '@/lib/db/tenant-context'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { projectsOfFolders } from './restricted-use-repository'
@@ -23,15 +23,22 @@ export interface AnswerTrail {
 
 const MAX_ANSWERS = 500
 
-export async function trailsAsSeenBy(session: AuthorizedSession, conversationId: string): Promise<AnswerTrail[]> {
+export async function answerReadsOf(session: AuthorizedSession, conversationId: string): Promise<AnswerContext[]> {
   const { organizationId, userId } = session
-  return withTenant({ organizationId, userId }, async () => {
-    const rows = await getDb()
+  return withTenant({ organizationId, userId }, () =>
+    getDb()
       .select()
       .from(answerContexts)
       .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.conversationId, conversationId)))
       .orderBy(answerContexts.decidedAt, answerContexts.messageId)
-      .limit(MAX_ANSWERS)
+      .limit(MAX_ANSWERS),
+  )
+}
+
+export async function trailsAsSeenBy(session: AuthorizedSession, conversationId: string): Promise<AnswerTrail[]> {
+  const { organizationId, userId } = session
+  const rows = await answerReadsOf(session, conversationId)
+  return withTenant({ organizationId, userId }, async () => {
     const projectIds = [...new Set(rows.flatMap((row) => row.readProjects))]
     const folderIds = [...new Set(rows.flatMap((row) => row.readFolders))]
     const [projects, folders] = await Promise.all([
@@ -84,5 +91,3 @@ async function folderPlaces(session: AuthorizedSession, folderIds: readonly stri
   }
   return places
 }
-
-export const restsOnWithheld = (trail: AnswerTrail): boolean => trail.places.some((place) => 'withheld' in place)

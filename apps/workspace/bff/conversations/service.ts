@@ -206,7 +206,7 @@ export async function listConversationMessages(
   const access = await requireResourceAccess(session, 'conversation', conversationId, 'viewer', { allowLocked: true })
   const cut = access.contentLocked ? await readerCut(session, conversationId) : null
   if (cut?.kind === 'none') throw new ResourceRightsLostError('conversation')
-  const until = cut?.kind === 'until' ? cut.answerId : undefined
+  const until = cut?.kind === 'until' ? cut.messageId : undefined
 
   const limit = Math.min(Math.max(1, Math.trunc(query.limit ?? 50)), MESSAGE_PAGE_MAX)
   const [page, tenancy] = await Promise.all([

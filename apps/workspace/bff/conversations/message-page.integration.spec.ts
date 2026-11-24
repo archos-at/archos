@@ -9,7 +9,7 @@
  *
  * What it proves: `until` ends the page before the answer a reader who joined
  * later may not see, together with the `before` cursor, and the answers are
- * listed in the order they were written.
+ * messages are listed in the order they were written.
  */
 import { randomUUID } from 'node:crypto'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -46,7 +46,7 @@ describe.skipIf(!url)('message page bounds against Postgres', () => {
 
   const asOwner = <T>(fn: () => PromiseLike<T>) => withTenant({ organizationId: ORG, userId: OWNER }, fn)
 
-  it('ends the page before the cut, with and without a cursor, and lists the answers in order', async () => {
+  it('ends the page before the cut, with and without a cursor, and lists the messages in order', async () => {
     const conversationId = `s_mp_${randomUUID()}`
     await asOwner(() => db.insert(conversations).values({ id: conversationId, organizationId: ORG, createdBy: OWNER }))
     const ids = Array.from({ length: 5 }, () => randomUUID())
@@ -73,6 +73,8 @@ describe.skipIf(!url)('message page bounds against Postgres', () => {
     expect(paged.rows.map((row) => row.id)).toEqual([a1])
     expect(paged.hasMore).toBe(true)
 
-    expect(await asOwner(() => repository.listAnswerIdsInOrder(conversationId, 10))).toEqual([a1, a2])
+    expect(await asOwner(() => repository.listMessageRolesInOrder(conversationId, 10))).toEqual(
+      ids.map((id, index) => ({ id, role: roles[index] })),
+    )
   })
 })

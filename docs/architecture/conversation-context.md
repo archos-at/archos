@@ -244,22 +244,33 @@ the per-answer record. None needs a rule of its own.
    `bff/conversations/answer-trail.ts`). The record names folders and projects,
    not files.
 2. **Joining later (delivered in slice 5).** A reader who may not read the whole
-   chat sees everything before its first answer that rests on a source they may
-   not open, and nothing from that answer on. Later answers are withheld even
-   when they rest on no source of their own, because they may build on it, and
-   so are the questions after the cut. The chat ends for them with „Ab hier
-   stützt sich der Chat auf eine Quelle, die Sie nicht öffnen dürfen.“, with no
-   composer, because a turn would read the withheld answers.
-   - The cut is per reader, from the per-answer record (`answer_contexts`), in
-     `readerCut` (`bff/conversations/reader-cut.ts`). The message list carries
-     `withheldFrom`, and „Gelesen“ is cut at the same answer.
+   chat sees it up to the turn of its first answer that rests on a source they
+   may not open. That turn's question, the answer, and everything after it are
+   withheld. The question goes too, because it can be machine-written and carry
+   the source's text, as an annotation wake does. A later answer is withheld
+   even when it rests on no source of its own, because it may build on the
+   withheld one. The chat ends for them with „Ab hier stützt sich der Chat auf
+   eine Quelle, die Sie nicht öffnen dürfen.“, with no composer, because a turn
+   would read the withheld answers.
+   - The cut is per reader, in `readerCut` (`bff/conversations/reader-cut.ts`).
+     It reads the per-answer records (`answer_contexts`) against the sources of
+     the chat's ledger that this reader may not open (`unreadableSourcesOf`).
+     The message list carries `withheldFrom`, the first withheld message, and
+     „Gelesen“ is cut at the same turn.
    - The whole chat stays locked, as before (`contentLocked` in
-     `bff/sharing/access.ts`), when an answer before the cut has no record,
-     when no record names what the reader may not open, or past 500 answers.
+     `bff/sharing/access.ts`), in these cases:
+     - an answer before the cut has no record;
+     - the first answer already rests on such a source;
+     - a source the reader may not open is named by no record from the cut on.
+       This covers a folder recorded at a bin purge, a revision's subject
+       folder, and an admission made without an answer.
+     - the chat has more than 5000 messages.
      Records begin with slice 1, so an older answer cannot show what it rested
      on.
    - The refusals to widen a chat's audience are unchanged: the cut serves
      readers the audience changed under, not a way to share past a refusal.
+   - The client asks again on every reload of the chat list, so a cut that moved
+     or a chat that locked whole is not shown from memory.
 3. **A preview before sharing.** The context is resolved for the audience the
    chat would have, and the preview lists the answers that rest on sources the
    new readers may not open. The choices are „share anyway“ or „hide those“.

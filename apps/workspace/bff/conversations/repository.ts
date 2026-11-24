@@ -440,14 +440,16 @@ export async function listMessagePage(
   return { rows: newestFirst.slice(0, options.limit).reverse(), hasMore }
 }
 
-export async function listAnswerIdsInOrder(conversationId: string, limit: number): Promise<string[]> {
-  const rows = await getDb()
-    .select({ id: messages.id })
+export async function listMessageRolesInOrder(
+  conversationId: string,
+  limit: number,
+): Promise<{ id: string; role: string }[]> {
+  return getDb()
+    .select({ id: messages.id, role: messages.role })
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'assistant')))
+    .where(eq(messages.conversationId, conversationId))
     .orderBy(messages.createdAt, messages.id)
     .limit(limit)
-  return rows.map((row) => row.id)
 }
 
 export async function findMessageInConversation(

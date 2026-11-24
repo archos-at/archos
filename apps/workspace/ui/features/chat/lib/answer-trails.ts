@@ -12,6 +12,7 @@ export interface AnswerTrailView {
 
 const PAGE = 200
 const REFETCH_AFTER_MS = 10_000
+const KEEP_MS = 60_000
 const trails = new Map<string, { loading: Promise<Map<string, AnswerTrailView>>; at: number }>()
 
 async function fetchTrails(conversationId: string): Promise<Map<string, AnswerTrailView>> {
@@ -37,7 +38,8 @@ function load(conversationId: string): Promise<Map<string, AnswerTrailView>> {
 }
 
 export async function answerTrailFor(conversationId: string, messageId: string): Promise<AnswerTrailView | null> {
-  const cached = trails.get(conversationId)
+  const held = trails.get(conversationId)
+  const cached = held && Date.now() - held.at <= KEEP_MS ? held : undefined
   const known = await (cached?.loading ?? load(conversationId))
   if (known.has(messageId)) return known.get(messageId) ?? null
   const stale = cached !== undefined && Date.now() - cached.at > REFETCH_AFTER_MS

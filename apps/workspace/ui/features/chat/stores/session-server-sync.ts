@@ -63,7 +63,7 @@ export const createSessionServerSyncSlice: StateCreator<
               null),
         }
         if (idx >= 0) {
-          if (merged[idx].contentLocked && !locked) markAwaitingServerMessages(local.id)
+          if ((merged[idx].contentLocked && !locked) || withheldFrom) markAwaitingServerMessages(local.id)
           merged[idx] = local
         } else {
           if (!locked) markAwaitingServerMessages(local.id)
@@ -121,8 +121,8 @@ export const createSessionServerSyncSlice: StateCreator<
         return
       }
 
-      const { messages: merged } = mergeRemoteMessages(target.messages, messages, false)
-      const hydrated: Conversation = { ...target, messages: merged, ...(withheldFrom ? { withheldFrom } : {}) }
+      const merged = target.contentLocked ? messages : mergeRemoteMessages(target.messages, messages, false).messages
+      const hydrated: Conversation = { ...target, messages: merged, withheldFrom }
       const isCurrent = currentConversation?.id === conversationId
 
       clearAwaitingServerMessages(conversationId)
