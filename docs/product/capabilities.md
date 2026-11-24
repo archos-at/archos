@@ -44,7 +44,7 @@ person knows who sees a thing.
 | Ask about anything in the project | Chat (`/chat`) | Searches project files, Büroablage, law, web, as the question needs | — |
 | Chat without a project | Rail › Persönlich › Neuer Chat (`/app/personal/chat`) | Reads the Büroablage, law, the web where the office allows it, and Mein Gedächtnis while only the person reads the chat | — |
 | A chat reads its own project | Every chat | Searches the project the chat belongs to, never the project the page shows; a chat without a project reads none | — |
-| Find past chats | Rail › Letzte Chats (ten newest, each with its project, a people mark when shared); toolbar › Chats (panel with search) | — | — |
+| Find past chats | Rail › Letzte Chats (ten newest of the side: Persönlich the chats without a project, Projekt that project's; a people mark when shared); toolbar › Chats (panel with search) | — | — |
 | Rename, share, see who reads | Chat toolbar: title, Teilen (dialog), participants | — | — |
 | Temporary chat | Composer › Temporär | Remembers nothing from it | — |
 | Attach files, mention colleagues, dictate | Composer: Dateien anhängen, @-Erwähnung, Diktieren | — | — |
@@ -143,7 +143,7 @@ person knows who sees a thing.
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
 | Share a chat or an answer | Chat › Teilen; answer › Antwort teilen | From the next answer on, draws only on what every reader of the chat may read; personal memory stays out ([ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md)) | — |
-| Mentions | Composer › @ | — | — |
+| Mentions | Composer › @ (in a project's chat only) | — | — |
 | One inbox | Postfach (`/app/inbox`), docked beside the page on wide screens | — | — |
 | Push notifications | Profil › Benachrichtigungen | — | — |
 | Live presence | Documents and chats | — | — |
