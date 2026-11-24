@@ -5,5 +5,5 @@ import { commonCopy } from '@/i18n/namespaces/common'
 
 export default async function ProjectOverviewLoading(): Promise<JSX.Element> {
   const t = await getTranslations(commonCopy)
-  return <PageSheetSkeleton loadingLabel={t('states.loading')} />
+  return <PageSheetSkeleton loadingLabel={t('states.loading')} size="window" />
 }

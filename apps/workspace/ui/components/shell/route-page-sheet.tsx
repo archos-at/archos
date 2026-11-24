@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 
-import { PageSheet } from '@/components/ui/page-sheet'
+import { PageSheet, type PageSheetSize } from '@/components/ui/page-sheet'
 import { PAGE_SHEET_SKELETON_SLOT } from './page-sheet-skeleton'
 
 const AT_REST = { y: 0, scrim: 1 }
@@ -30,6 +30,7 @@ interface RoutePageSheetProps {
   headerActions?: React.ReactNode
   headerless?: boolean
   bodyClassName?: string
+  size?: PageSheetSize
   children: React.ReactNode
 }
 
@@ -42,6 +43,7 @@ export function RoutePageSheet({
   headerActions,
   headerless,
   bodyClassName,
+  size,
   children,
 }: RoutePageSheetProps): JSX.Element {
   const router = useRouter()
@@ -71,6 +73,7 @@ export function RoutePageSheet({
       headerActions={headerActions}
       headerless={headerless}
       bodyClassName={bodyClassName}
+      size={size}
     >
       {children}
     </PageSheet>
