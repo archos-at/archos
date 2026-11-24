@@ -363,6 +363,22 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
+            "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
+            "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }

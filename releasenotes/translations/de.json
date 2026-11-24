@@ -3068,6 +3068,10 @@
     "de": "Am Smartphone stehen „Schließen“ und „Ablegen“ nebeneinander, Hinweise werden auf eine Zeile eingeklappt, Bestätigungen lassen sich überall in ihrer Zeile abhaken und Nachrichten erscheinen unten statt über dem Betreff."
   },
   {
+    "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
+    "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
+  },
+  {
     "en": "On a phone, Piloti now has a bar at the bottom of the screen with Frag Piloti, Dateien, Übersicht and Postfach inside a project, and Projekte, Büroablage and Postfach above one. Tapping the project name at the top switches project from a sheet with the most recent projects first, and the magnifier opens search.",
     "de": "Auf dem Smartphone hat Piloti jetzt eine Leiste am unteren Bildschirmrand: Innerhalb eines Projekts finden Sie darin Frag Piloti, Dateien, Übersicht und Postfach, außerhalb eines Projekts Projekte, Büroablage und Postfach. Tippen Sie oben auf den Projektnamen, um das Projekt über ein Auswahlfenster zu wechseln, in dem die zuletzt verwendeten Projekte zuerst angezeigt werden. Über die Lupe öffnen Sie die Suche."
   },
@@ -3102,6 +3106,10 @@
   {
     "en": "On a phone, the search box or button beside a project section's heading now sits below it, so the explanation gets the full width. It used to break to one word per line.",
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
+  },
+  {
+    "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
+    "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
   },
   {
     "en": "On a phone, „Mehr“ shows who is signed in and groups its entries by the project, the office and your account.",
