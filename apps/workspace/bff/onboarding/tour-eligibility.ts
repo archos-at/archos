@@ -1,6 +1,6 @@
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { hasWrittenInOrganization } from '@/lib/conversations/repository'
+import { hasWrittenInOrganization } from './written-in-organization'
 import { getUserPreferences } from '@/lib/user-preferences/service'
 import { NO_TOURS, tourEligibility, type TourEligibility } from './product-tour'
 

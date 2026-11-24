@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, exists, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { stripJsonNullBytes } from '@/lib/text/jsonb'
@@ -13,16 +13,83 @@ import { DELETION_LIFECYCLE, deletionQueue } from '@/lib/db/schema/deletion-queu
 import { messages, type Message, type NewMessage } from '@/lib/db/schema/messages'
 import { mergeMetadataEntries } from './metadata-merge'
 import { projects } from '@/lib/db/schema/projects'
-import { type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
+import { resourceShares, type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 
 export const MESSAGE_LIST_LIMIT = 1000
 
-export {
-  CONVERSATION_LIST_LIMIT,
-  listVisibleConversations,
-  visibleConversationsWhere,
-  type ConversationPlace,
-} from './visible-conversations'
+export const CONVERSATION_LIST_LIMIT = 200
+
+function grantNamesCaller(organizationId: string, userId: string) {
+  const db = getDb()
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(resourceShares)
+      .where(
+        and(
+          eq(resourceShares.organizationId, organizationId),
+          eq(resourceShares.resourceType, 'conversation'),
+          eq(resourceShares.resourceId, conversations.id),
+          eq(resourceShares.subjectUserId, userId),
+        ),
+      ),
+  )
+}
+
+export function visibleConversationsWhere(
+  organizationId: string,
+  userId: string,
+  projects: { projectIds: readonly string[]; withoutContainer: boolean } | null,
+): SQL {
+  const orgScope = and(eq(conversations.organizationId, organizationId), isNull(conversations.deletedAt))
+  const placed = sql`${conversations.startedInPersonal}`
+  const mine = eq(conversations.createdBy, userId)
+  const granted = grantNamesCaller(organizationId, userId)
+
+  const withoutContainer = or(mine, granted, eq(conversations.visibility, 'organization'))
+  if (!projects) return and(orgScope, or(isNotNull(conversations.projectId), placed), withoutContainer) as SQL
+
+  const { projectIds } = projects
+  const inProjects =
+    projectIds.length === 0
+      ? undefined
+      : and(
+          projectIds.length === 1
+            ? eq(conversations.projectId, projectIds[0])
+            : inArray(conversations.projectId, [...projectIds]),
+          or(ne(conversations.visibility, 'private'), mine, granted),
+        )
+  const unstamped = projects.withoutContainer ? and(isNull(conversations.projectId), placed, withoutContainer) : undefined
+  return and(orgScope, or(inProjects, unstamped) ?? sql`false`) as SQL
+}
+
+export type ConversationPlace = 'personal' | 'project'
+
+function listScope(projectId: string | undefined, place: ConversationPlace | undefined) {
+  if (place === 'personal') return { projectIds: [], withoutContainer: true }
+  if (place === 'project' && projectId) return { projectIds: [projectId], withoutContainer: false }
+  return projectId ? { projectIds: [projectId], withoutContainer: true } : null
+}
+
+export async function listVisibleConversations(
+  organizationId: string,
+  userId: string,
+  options: { projectId?: string; place?: ConversationPlace; limit?: number; after?: string } = {},
+): Promise<Conversation[]> {
+  const { projectId, place, limit = CONVERSATION_LIST_LIMIT, after } = options
+  const db = getDb()
+  const scope = visibleConversationsWhere(organizationId, userId, listScope(projectId, place))
+
+  const afterCursor = after
+    ? sql`(${conversations.updatedAt}, ${conversations.id}) < (select c.updated_at, c.id from conversations c where c.id = ${after} and c.organization_id = ${organizationId})`
+    : undefined
+  return db
+    .select()
+    .from(conversations)
+    .where(and(scope, afterCursor))
+    .orderBy(desc(conversations.updatedAt), desc(conversations.id))
+    .limit(limit)
+}
 
 export async function findConversationInOrg(
   conversationId: string,
@@ -51,28 +118,11 @@ export async function listConversationIdsForProject(
   return rows.map((row) => row.id)
 }
 
-function writtenBy(userId: string) {
+export function writtenBy(userId: string) {
   return or(
     eq(messages.authorUserId, userId),
     and(isNull(messages.authorUserId), eq(messages.role, 'user'), eq(conversations.createdBy, userId)),
   )
-}
-
-export async function hasWrittenInOrganization(organizationId: string, userId: string): Promise<boolean> {
-  const db = getDb()
-  const rows = await db
-    .select({ one: sql<number>`1` })
-    .from(messages)
-    .innerJoin(
-      conversations,
-      and(
-        eq(conversations.id, messages.conversationId),
-        eq(conversations.organizationId, messages.organizationId),
-      ),
-    )
-    .where(and(eq(messages.organizationId, organizationId), writtenBy(userId)))
-    .limit(1)
-  return rows.length > 0
 }
 
 export async function lastProjectActivityByUser(
