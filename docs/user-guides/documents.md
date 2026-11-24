@@ -20,7 +20,7 @@ In a project chat that already has a file attached, **Dateien verwalten** also o
 
 Every way of uploading takes several files at once.
 
-In the Ablage, folders are the drill-down inside the listing, on the **„Dateien“** place: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. At the top level the title is „Dateien“ under the project's name; inside a folder the title is the folder's name with what it holds beside it („240 Elemente“), and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up. The „Ordner“ tab takes you back to the top level from any folder. On a phone the line above the title names the parent folder (the levels above it behind „…“) and the arrow before the title goes up one level. The level's tools stand in one row under the tabs: the search, „Filter“ and the view on the left, „Auswählen“, „Ordner anlegen“, „Hochladen“ and `⋯` on the right; on a narrower window „Ordner anlegen“ moves into the „Hochladen“ menu (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
+In the Ablage, folders are the drill-down inside the listing, on the **„Dateien“** place: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. The title stays „Ablage“ at every depth, under the project's name and who sees it („Projekt · Projektteam“). Inside a folder a line under the places names the way there („← Ablage › Abgabepläne › … › Index C“, the open folder in ink with what it holds beside it, „240 Elemente“): each step is a click back up and a drop target, ← goes up one level, and past two levels the middle folds into „…“. „Dateien“ takes you back to the top level from any folder. On a phone the folder's name is the title and the line above it names the parent folder (the levels above it behind „…“); the arrow before the title goes up one level. The level's tools stand in one row over the places: the search, then „Auswählen“, the bin, „Hochladen“ and `⋯` with the view, „Filtern und sortieren“ and „Ordner anlegen“ (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
@@ -48,8 +48,11 @@ never filed simply have no folder, and the assistant says nothing about one.
 
 ### What ARCHOS knows about a folder
 
-Above every folder's files sits one quiet line, for example „35 von 44
-Dokumenten gelesen in diesem Projekt“. It covers the folder and everything
+Under every folder's files sits one quiet line, for example „35 von 44
+Dokumenten gelesen in diesem Projekt“. When ARCHOS could not read something, a
+line in ochre above the files says so too („2 Dokumente konnten nicht gelesen
+werden. Ansehen“), so a long list does not hide it; „Ansehen“ lists those
+files. It covers the folder and everything
 inside it, subfolders included, so you can see what has been read without
 opening each folder. Click the line and the full overview opens around it; click
 it again to fold it. The choice is remembered in this browser.
@@ -109,7 +112,7 @@ The **detail view** (the list toggle) is a dense sortable table for a corpus pas
 
 A folder opens on its first hundred documents, and more load as you scroll to the end of the grid or list (a **Weitere laden** button does the same from the keyboard). A folder with thousands of documents, such as a large Bürobibliothek root, therefore opens right away instead of waiting for the whole shelf. The folder tiles, the count in the header and the folder brief are counted by the server for the whole shelf, so they stay right however little of a folder has loaded.
 
-A **search field** above the grid searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter for the semantic search. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
+A **search field** in the header, which says where it searches („In der Projektablage suchen …“, „In der Bürobibliothek suchen …“), searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter: the hits replace the list on the page, no window opens. The search over everything stays behind the magnifier in the sidebar. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
 
 Most filters and the sort order are answered by the server per folder. A few still need every document of the shelf in the browser and load them when you turn them on: the kind and tag (Kategorie) filters, the assignment filter, „Freigabe ausstehend", sorting by status, and in the folder brief the „Worum es hier geht" details and the lists its chips open. For a very large shelf these take a moment the first time.
 

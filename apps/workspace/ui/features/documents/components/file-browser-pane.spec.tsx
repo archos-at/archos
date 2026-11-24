@@ -731,3 +731,14 @@ describe('FileBrowserPane — older Fassungen in search', () => {
     expect(screen.getByText('plan_v1.pdf')).toBeInTheDocument()
   })
 })
+
+describe('FileBrowserPane — the read state (KAN-86)', () => {
+  it('says what could not be read above the list and how far it read below it', () => {
+    renderPane({ unreadHint: <p data-testid="hint">2 unread</p>, brief: <p data-testid="read-state">All read</p> })
+    const hint = screen.getByTestId('hint')
+    const readState = screen.getByTestId('read-state')
+    const firstCard = screen.getAllByTestId('file-card')[0]!
+    expect(hint.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(firstCard.compareDocumentPosition(readState) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

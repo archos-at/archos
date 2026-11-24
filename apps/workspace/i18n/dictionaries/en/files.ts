@@ -400,7 +400,8 @@ export const files = {
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
     searchPlaceholder: 'Search…',
-    searchPlaceholderEverything: 'Filter, Enter searches all…',
+    searchPlaceholderProject: 'Search the project’s documents …',
+    searchPlaceholderOffice: 'Search the office library …',
     searchLabel: 'Search files',
     noMatch: 'No files match “{query}”',
     noMatchDescription:
@@ -980,6 +981,8 @@ export const files = {
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',
+    unreadHint: '{count, plural, one {# document could not be read.} other {# documents could not be read.}}',
+    unreadHintShow: 'Show',
     states: {
       readable: '{count} read',
       reading: '{count} being read',

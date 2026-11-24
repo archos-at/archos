@@ -409,7 +409,8 @@ export const files: typeof en.files = {
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
     searchPlaceholder: 'Suchen…',
-    searchPlaceholderEverything: 'Filtern, Enter sucht alles…',
+    searchPlaceholderProject: 'In der Projektablage suchen …',
+    searchPlaceholderOffice: 'In der Bürobibliothek suchen …',
     searchLabel: 'Dateien durchsuchen',
     noMatch: 'Keine Dateien entsprechen „{query}“',
     noMatchDescription:
@@ -997,6 +998,8 @@ export const files: typeof en.files = {
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
     headlineNothingToRead: '{count, plural, one {# Dokument, nicht in der Wissensbasis} other {# Dokumente, keines in der Wissensbasis}}',
+    unreadHint: '{count, plural, one {# Dokument konnte nicht gelesen werden.} other {# Dokumente konnten nicht gelesen werden.}}',
+    unreadHintShow: 'Ansehen',
     states: {
       readable: '{count} gelesen',
       reading: '{count, plural, one {# wird gelesen} other {# werden gelesen}}',

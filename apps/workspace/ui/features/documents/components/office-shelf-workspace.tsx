@@ -93,7 +93,6 @@ export function OfficeShelfWorkspace({
       <SectionToolRowScope enabled={!phone}>
         <FileWorkspace
           shelf={shelf}
-          onOpenSearch={search.open}
           renderLevelNotice={
             normsInFolders && canManage
               ? ({ folderId, reload }) =>
