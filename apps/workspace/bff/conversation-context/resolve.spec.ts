@@ -113,7 +113,7 @@ describe('resolveConversationContext', () => {
     expect(second.audience.version).toBe(3)
   })
 
-  it('keeps personal memory but not the personal shelf in a solo project chat (ADR-0180, ADR-0191)', async () => {
+  it('keeps personal memory but not the personal shelf in a solo project chat (ADR-0180, ADR-0193)', async () => {
     state.rows = [row({ projectId: 'p1' })]
 
     const context = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
