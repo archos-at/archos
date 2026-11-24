@@ -60,6 +60,7 @@ export type MessagesSlice = {
   dismissErrorCard: (messageId: string) => void
   dismissConnectionErrors: (conversationId?: string) => void
   setProjectId: (projectId: string | null) => void
+  enterSide: (projectId: string | null) => void
   setComposerPrefill: (text: string, mentions?: DraftMention[], subject?: ComposerSubject) => void
   setComposerSubject: (subject: ComposerSubject | null) => void
   setComposerExcerpt: (excerpt: ComposerExcerpt | null) => void

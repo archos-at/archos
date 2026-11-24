@@ -4,7 +4,8 @@ improvements:
   - >
     Switching between Persönlich and Projekt is now smooth: the switch slides
     over, and the sidebar shows the other side's sections and recent chats at
-    once, without a jump or an empty list.
+    once, without a jump or an empty list. The chat you had open stays on its
+    side: the other side never shows it.
   - >
     „Letzte Chats“ in the sidebar is shorter and quieter: at most eight chats,
     under a lighter heading, and the one you have open stays among them once

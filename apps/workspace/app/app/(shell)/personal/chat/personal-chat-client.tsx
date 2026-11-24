@@ -12,7 +12,7 @@ export function opensHere(conversation: { projectId?: string | null; userId: str
 
 const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): ReactNode => {
   const { isAuthenticated, signIn } = useAuth()
-  const setProjectId = useChatStore((s) => s.setProjectId)
+  const enterSide = useChatStore((s) => s.enterSide)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
   const selectConversation = useChatStore((s) => s.selectConversation)
@@ -24,9 +24,9 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
   const pathname = usePathname()
 
   useEffect(() => {
-    setProjectId(null)
+    enterSide(null)
     void loadServerConversations(undefined, 'personal')
-  }, [setProjectId, loadServerConversations])
+  }, [enterSide, loadServerConversations])
 
   const newParam = searchParams?.get('new') ?? null
   const consumedNew = useRef(false)
