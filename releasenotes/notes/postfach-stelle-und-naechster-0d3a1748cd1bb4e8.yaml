@@ -1,0 +1,8 @@
+---
+# area: collaboration
+improvements:
+  - >
+    An entry about an annotation in the Postfach now shows the place on the plan it
+    marks, the whole annotation with its replies, and a field to answer it right
+    there. When you answer, mark it as done or archive it, the next entry opens,
+    first the next one on the same document.

@@ -22,3 +22,6 @@ export { useOfficeShelfDocuments, type StoredUpload } from './hooks/use-office-s
 export type { FileItem } from './file-types'
 export { ProjectUppyUpload as ShelfUploadControl } from './components/project-uppy-upload'
 export { FileDropOverlay } from './components/file-drop-overlay'
+export { Composer, type ComposerSend } from './components/review/composer'
+export { MarkBody } from './components/review/mark-body'
+export { MarkPlace, markRegion } from './components/review/mark-place'
