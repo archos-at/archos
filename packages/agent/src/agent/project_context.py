@@ -41,7 +41,6 @@ TOOL_CONTEXT_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 }
 
 
-COLLECTION_SCOPE_HEADER = "x-grid-collection-scope"
 MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
 BUDGET_HEADER = "x-grid-budget"
 DISABLED_SOURCES_HEADER = "x-grid-disabled-sources"

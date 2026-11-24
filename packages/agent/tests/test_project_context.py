@@ -107,7 +107,6 @@ class TestRequestContextFromContext:
             pc.ORGANIZATION_ID_HEADER: "org_1",
             pc.USER_ID_HEADER: "user_1",
             pc.PROJECT_ID_HEADER: "proj_1",
-            pc.COLLECTION_SCOPE_HEADER: _b64(json.dumps(["oib_knowledge", "proj_proj_1"])),
             pc.PROJECT_CONTEXT_HEADER: _b64("ctx text"),
             pc.MEMORY_REFLECTION_FEATURE_HEADER: "true",
         }

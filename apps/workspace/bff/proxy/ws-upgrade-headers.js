@@ -37,7 +37,6 @@ const TURN_DOOR_HEADERS = new Set(['x-turn-door', 'x-turn-session-source'])
 const SERVICE_HEADERS = new Set([
   'x-answer-message-id',
   'x-budget',
-  'x-collection-scope',
   'x-context-transport',
   'x-disabled-sources',
   'x-feature-memory-reflection',
