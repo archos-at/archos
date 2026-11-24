@@ -467,8 +467,8 @@
      the same kind of element always takes the same step. */
   --radius-inline: var(--ds-radius-inline); /* the ladder is 4 / 8 / 14 / full (design-language.md) */
   --radius-control: var(--ds-radius-control); /* 4px: buttons, inputs, selects, tabs, toggles, list items */
-  --radius-surface: var(--ds-radius-surface); /* 8px: cards, panels, list containers, toasts, tables, code blocks */
-  --radius-overlay: var(--ds-radius-overlay); /* 14px: dialogs, popovers, menus, floating bars, the command palette */
+  --radius-surface: var(--ds-radius-surface); /* 8px: cards, panels, list containers, toasts, tables, code blocks, menus */
+  --radius-overlay: var(--ds-radius-overlay); /* 14px: dialogs, popovers, floating bars, the command palette */
   --radius-bubble: var(--ds-radius-bubble); /* 14px: chat messages and the composer: the overlay step */
   /* rounded-full stays Tailwind's: chips, badges, counts, avatars, dots, switches. */
   /* Tailwind's own steps, for code not yet on a semantic name; mapped onto the ladder. */
