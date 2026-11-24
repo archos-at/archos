@@ -174,7 +174,7 @@ export const conversations = pgTable('conversations', {
 | `title` | `text` | | Auto-generated or user-set title |
 | `project_id` | `uuid` | FK → `projects.id` ON DELETE SET NULL | Scopes knowledge collection |
 | `job_id` | `uuid` | FK → `task_definitions.id` ON DELETE SET NULL (repointed by migration `0086`; was `jobs.id`, and the definition ids for job-backed rows are the same uuids) | **Provenance, not ownership**: the definition whose `output='chat'` run was materialised into this thread, or NULL when a person started it (every row before 0044, and the great majority after). `created_by` on a job conversation is still the JOB'S OWNER — a real user id, because the sharing roster, the last-owner invariant, `attributeLegacyAuthor` and audit all read that column as a person — so this column is the only thing that says "nobody typed this". Two behaviours hang off it: rendering the thread with the job's name and a job glyph instead of the owner's face, and filtering it out of the owner's personal sessions list (a weekly job is 52 threads a year) while it stays openable by URL and from the job's run history. `SET NULL`, because deleting a definition must never delete its output. **From PR 1 (ADR-0062) a standing definition owns exactly ONE thread**, and each fire appends its run message to it rather than minting a conversation per fire. The invariant is held by the thread's ID, which is derived from the definition's (`lib/tasks/task-thread.ts`, uuid5) so the primary key plus `ON CONFLICT DO NOTHING` makes „ensure the thread“ idempotent: **this column is NOT unique and cannot become unique**, because every fire before that change stamped its own conversation with the same value, and clearing the duplicates would delete the provenance the column exists for (migration `0091`'s header carries the record). That derived id is also how a reader tells the two apart: the standing thread is shown in the sessions list, the per-fire conversations stay hidden. |
-| `audience_version` | `integer` | NOT NULL, default `0` (migration 0260, ADR-0194) | Counts the changes of who may read the chat. Bumped by the database, never the app: trigger `conversations_audience_version` on a change of `visibility`, `created_by` or `project_id` (a hand-set value other than the next number is ignored), and `resource_shares_conversation_audience` on an insert, update or delete of a conversation grant. A bump that would be lost (a grant naming another organization's chat, or none) raises; only the delete of an orphaned grant passes. The BFF decides a turn under the version it read and compares it under the audience lock (`decidedUnder`, `bff/conversation-context/audience.ts`); a chat with no row yet is `null` there, never `0` |
+| `audience_version` | `integer` | NOT NULL, default `0` (migration 0261, ADR-0194) | Counts the changes of who may read the chat. Bumped by the database, never the app: trigger `conversations_audience_version` on a change of `visibility`, `created_by` or `project_id` (a hand-set value other than the next number is ignored), and `resource_shares_conversation_audience` on an insert, update or delete of a conversation grant. A bump that would be lost (a grant naming another organization's chat, or none) raises; only the delete of an orphaned grant passes. The BFF decides a turn under the version it read and compares it under the audience lock (`decidedUnder`, `bff/conversation-context/audience.ts`); a chat with no row yet is `null` there, never `0` |
 | `visibility` | `text` | NOT NULL, default `'private'` | `private` \| `project` \| `organization` (ADR-0032). Read on the hot path with the row, so access resolution costs no join. **Migration 0027 backfilled pre-existing rows with a `project_id` to `'project'`** — conversations used to be resolved org-scoped only, so any org member with an id could read any thread; `'project'` keeps access for everyone inside the project and withdraws the accidental org-wide read. Rows with a NULL `project_id` stayed `'private'` (no project membership could describe their audience). |
 | `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
 | `updated_at` | `timestamptz` | NOT NULL, `defaultNow()` | Updated on message activity |
@@ -1419,7 +1419,7 @@ conversation's creator keeps reading it.
 
 ---
 
-## answer_contexts (migration 0261, ADR-0194)
+## answer_contexts (migration 0262, ADR-0194)
 
 What one answer was allowed to read and what it read, one row per answer,
 keyed by `(organization_id, message_id)`, the id the agent mints for the turn's
@@ -1460,7 +1460,7 @@ written by the BFF BEFORE a lookup answers (`recordCrossProjectHandOut`, called
 by `POST /api/internal/cross-project/*`), under the same per-conversation lock
 as `conversation_restricted_folders` and every widening of the audience, with
 the check that the audience is still at the `audience_version` the lookup
-searched under (migration 0260). A restricted
+searched under (migration 0261). A restricted
 folder of that project is recorded beside it, in
 `conversation_restricted_folders`; this row covers what every member of the
 project reads, the root included. Judged at read time through

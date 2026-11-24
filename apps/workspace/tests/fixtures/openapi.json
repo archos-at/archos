@@ -15119,6 +15119,36 @@
                     "exclusiveMinimum": 0,
                     "maximum": 100000,
                     "description": "The true length between the two points, in metres."
+                  },
+                  "scope": {
+                    "default": "page",
+                    "description": "'page' (default): the scale holds for the region of this page. 'document': the scale holds for every page of the file that has no calibration of its own; the region is then the whole page.",
+                    "type": "string",
+                    "enum": [
+                      "page",
+                      "document"
+                    ]
+                  },
+                  "pageSize": {
+                    "description": "The size in points of the page the two points were placed on. Required for scope 'document', else omitted.",
+                    "type": "object",
+                    "properties": {
+                      "widthPt": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 200000
+                      },
+                      "heightPt": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 200000
+                      }
+                    },
+                    "required": [
+                      "widthPt",
+                      "heightPt"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [

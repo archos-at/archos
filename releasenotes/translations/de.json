@@ -128,6 +128,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+    "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
+  },
+  {
     "en": "A chat question no longer waits up to twenty seconds while a colleague's upload to the project or the office filing is still being read; only a file you attached to the conversation itself holds the answer.",
     "de": "Eine Chatfrage wartet nicht mehr bis zu 20 Sekunden, während der Upload eines Kollegen ins Projekt oder in die Büroablage noch eingelesen wird; für die Antwort wird nur eine Datei herangezogen, die Sie direkt an die Unterhaltung angehängt haben."
   },
@@ -1388,6 +1392,10 @@
     "de": "Eine offene Anmerkung aus einer früheren Revision lässt sich jetzt über ihre Karte in die aktuelle Revision übernehmen – oder alle auf einmal über die Liste. Nummer, Position und Kommentarverlauf bleiben dabei erhalten."
   },
   {
+    "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+    "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+  },
+  {
     "en": "An open document now shows what Piloti saw on each page, with the drawing type and scale, right under its summary, and a click on an entry turns the document to that page. Format, page count and size sit under the name, so the side panel keeps only what Piloti read, the Fassungen and the pages.",
     "de": "Ein geöffnetes Dokument zeigt jetzt direkt unter seiner Zusammenfassung, was Piloti auf jeder Seite erkannt hat, einschließlich Zeichnungstyp und Maßstab; ein Klick auf einen Eintrag springt zu dieser Seite. Format, Seitenzahl und Größe stehen unter dem Namen, sodass die Seitenleiste nur noch das enthält, was Piloti ausgelesen hat, die Fassungen und die Seiten."
   },
@@ -2036,6 +2044,10 @@
     "de": "Beim Löschen einer Rolle fragt Piloti jetzt auch nach Ordnern im Papierkorb oder in einem gelöschten Projekt, deren Zugriffsliste sie nennt, und markiert sie in der Liste. Bisher brachte das Wiederherstellen eines solchen Ordners eine Liste mit einer Rolle zurück, die es nicht mehr gab."
   },
   {
+    "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+    "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+  },
+  {
     "en": "Deleting an Archiv document or a chat attachment now also removes its version history.",
     "de": "Beim Löschen eines Archiv-Dokuments oder eines Chat-Anhangs verschwindet jetzt auch sein Versionsverlauf."
   },
@@ -2528,6 +2540,10 @@
     "de": "Wenn Sie mit dem Mauszeiger über eine in einer Antwort genannte Datei fahren, wird jetzt angezeigt, wenn sie zurückgehalten wird, und dass Piloti sie erst zitiert, nachdem jemand sie freigegeben hat."
   },
   {
+    "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
+    "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
+  },
+  {
     "en": "IFC models, Word and presentation files and finished research reports now survive an interruption, and none of them stays at “Reading” any more. A large folder of office files no longer slows other offices down, and a report whose PDF failed is tried again instead of being lost.",
     "de": "IFC-Modelle, Word- und Präsentationsdateien sowie fertige Recherche-Berichte überstehen jetzt eine Unterbrechung, und keines davon bleibt mehr bei „Wird gelesen“ hängen. Ein großer Ordner mit Büro-Dateien verlangsamt nicht mehr andere Büros, und ein Bericht, dessen PDF fehlgeschlagen ist, wird erneut versucht, statt verloren zu gehen."
   },
@@ -2768,6 +2784,10 @@
     "de": "Meldungen im Postfach über Piloti sagen jetzt, was es getan hat, an welcher Anmerkung in welchem Dokument und was Sie als Nächstes tun können. Konnte Piloti eine Anmerkung nicht bearbeiten, nennt die Meldung den Grund, etwa ein aufgebrauchtes Nutzungsbudget, statt nur, dass es nicht fertig wurde."
   },
   {
+    "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
+    "de": "In einem Ordner bleibt der Kopf der Ablage stehen, und eine Zeile darunter zeigt den Weg dorthin. Die Suche sagt, wo sie sucht, und zeigt ihre Treffer an Ort und Stelle, auch nach Enter, ohne ein Fenster zu öffnen."
+  },
+  {
     "en": "Jobs and Skills now sit together in one Automation section, as two tabs instead of two places in the sidebar. Jobs comes first, since a job is the instruction this project runs on a timer, and Skills is one click away.",
     "de": "Jobs und Skills liegen jetzt gemeinsam im Bereich Automation, als zwei Tabs statt an zwei Stellen in der Seitenleiste. Jobs steht vorn, weil ein Job die Anweisung ist, die dieses Projekt zeitgesteuert ausführt, und Skills ist mit einem Klick erreichbar."
   },
@@ -2914,6 +2934,10 @@
   {
     "en": "New tasks always deliver a researched report, filed in the project, and setting one up takes three steps instead of four. Existing tasks keep the kind of result they already deliver.",
     "de": "Neue Aufgaben liefern immer einen recherchierten Bericht, der im Projekt abgelegt wird, und Sie richten eine Aufgabe in drei statt vier Schritten ein. Bestehende Aufgaben behalten die Art ihres Ergebnisses."
+  },
+  {
+    "en": "Normen & Richtlinien is one list: the categories with their counts, ochre where something waits for you, filters by topic and kind, and the topic as a column instead of tiles.",
+    "de": "„Normen & Richtlinien“ ist eine einzige Liste: die Kategorien mit ihren Zahlen, in Ocker, wo etwas auf Sie wartet, Filter nach Thema und Art und das Thema als Spalte statt als Kacheln."
   },
   {
     "en": "Norms you had filed in ordinary Büroablage folders are found, and the folder offers to move them under \"Normen & Richtlinien\" or to leave them where they are.",
@@ -3998,6 +4022,10 @@
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
+  },
+  {
+    "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
+    "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
   },
   {
     "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",

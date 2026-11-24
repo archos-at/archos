@@ -1,4 +1,4 @@
--- 0260: a conversation's audience carries a version (ADR-0194, decision 4).
+-- 0261: a conversation's audience carries a version (ADR-0194, decision 4).
 --
 -- `audience_version` counts the changes of who may read a conversation. The
 -- BFF decides a turn's context under the version it read, and a writer that

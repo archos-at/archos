@@ -363,7 +363,7 @@ describe('AppSidebar - the organisation heads its doorways', () => {
 })
 
 describe('AppSidebar - the org doorways stay reachable from inside a project', () => {
-  test('marks the office shelf doorway current while its sheet is open over the project', () => {
+  test('marks the office library doorway current while its page stands beside the project’s rail', () => {
     pathname = '/app/office-shelf'
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     const officeShelf = screen
