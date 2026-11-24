@@ -73,8 +73,8 @@ export interface SheetTape {
   refresh: () => void
   again: (place: Pick<TapePlace, 'page' | 'shape' | 'points'>) => void
   load: (page: number) => void
-  pointer: (page: number, raw: PagePoint | null, size: PageSize) => void
-  add: (page: number, raw: PagePoint, size: PageSize) => void
+  pointer: (page: number, raw: PagePoint | null, size: PageSize, free?: boolean) => void
+  add: (page: number, raw: PagePoint, size: PageSize, free?: boolean) => void
   undo: () => void
   finish: () => void
   clear: () => void
@@ -182,7 +182,13 @@ export function useSheetTape({
   }, [load])
 
   const snap = useCallback(
-    (page: number, raw: PagePoint, size: PageSize): { at: PagePoint; kind: SnapKind } => {
+    (
+      page: number,
+      raw: PagePoint,
+      size: PageSize,
+      free = false
+    ): { at: PagePoint; kind: SnapKind } => {
+      if (free) return { at: raw, kind: 'free' }
       const here = loaded.get(page)
       if (!here) {
         load(page)
@@ -200,13 +206,13 @@ export function useSheetTape({
     hadDraft.current = draftOpen
   }, [draftOpen, settled, clear])
   const pointer = useCallback(
-    (page: number, raw: PagePoint | null, size: PageSize) => {
+    (page: number, raw: PagePoint | null, size: PageSize, free = false) => {
       if (!active || !raw || settled) {
         setHover(null)
         if (raw) load(page)
         return
       }
-      const found = snap(page, raw, size)
+      const found = snap(page, raw, size, free)
       setHover({ page, at: found.at, kind: found.kind })
     },
     [active, settled, snap, load]
@@ -247,12 +253,12 @@ export function useSheetTape({
   )
 
   const add = useCallback(
-    (page: number, raw: PagePoint, size: PageSize) => {
+    (page: number, raw: PagePoint, size: PageSize, free = false) => {
       if (!active || phase === 'measuring' || loaded.get(page)?.targets.scales.length === 0) return
       const fresh = settled || shape.page !== page
       if (fresh && settled) placeDraft(null)
       const before = fresh ? EMPTY : shape
-      const found = snap(page, raw, size)
+      const found = snap(page, raw, size, free)
       const [first] = before.points
       if (
         mode === 'area' &&

@@ -1628,7 +1628,7 @@ export const files: typeof en.files = {
         zoom: 'Zum genauen Messen mit zwei Fingern hineinzoomen',
       },
       closeArea: 'Fläche schließen',
-      snapped: { vertex: 'Ecke', edge: 'auf Linie' },
+      snapped: { vertex: 'Ecke · Strg/⌘ setzt frei', edge: 'auf Linie · Strg/⌘ setzt frei' },
       noScale:
         'Für diese Seite ist kein Maßstab bekannt. Legen Sie ihn mit einer bekannten Strecke fest, dann können Sie messen.',
       exit: 'Messen beenden',

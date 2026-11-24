@@ -36,6 +36,9 @@ const share = (
   ]
 }
 
+const override = (event: { ctrlKey: boolean; metaKey: boolean }): boolean =>
+  event.ctrlKey || event.metaKey
+
 const px = (points: readonly PagePoint[], size: PageSize): MeasureMarkPoint[] =>
   points.map(([x, y]) => [x * size.width, y * size.height] as const)
 
@@ -179,7 +182,7 @@ export function MeasureLayer({
     })
   )
   const onMove = (event: ReactPointerEvent<HTMLDivElement>) =>
-    tape.pointer(page, share(event.currentTarget, event), size)
+    tape.pointer(page, share(event.currentTarget, event), size, override(event))
   return (
     <div className="pointer-events-none absolute inset-0" data-testid={`measure-layer-${page}`}>
       {active && !blocked && (
@@ -197,7 +200,7 @@ export function MeasureLayer({
             const at = share(event.currentTarget, event)
             if (!at) return
             select(null)
-            tape.add(page, at, size)
+            tape.add(page, at, size, override(event))
           }}
           onDoubleClick={() => tape.finish()}
         />
