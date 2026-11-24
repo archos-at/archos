@@ -66,7 +66,10 @@ class SkillSubmitPayload(BaseModel):
     )
     collection_scope: list[str] | None = Field(
         None,
-        description="Collection scope (base + project + scoped collections); the project collection is derived from it",
+        description=(
+            "Ignored as a source: the scope is the signed envelope's. A body that still names one must name exactly "
+            "the signed scope, or the submit is refused"
+        ),
     )
     project_context: str | None = Field(None, description="Optional project-context prompt block")
     project_memory: str | None = Field(
@@ -238,7 +241,6 @@ async def _submit_skill_run(
             principal=principal,
             job_id=body.job_id,
             data_sources=body.data_sources,
-            collection_scope=body.collection_scope,
             project_context=body.project_context,
             project_memory=body.project_memory,
             model_overrides=body.model_overrides,
@@ -266,6 +268,18 @@ async def _submit_skill_run(
         raise HTTPException(500, "Failed to persist skill job authorization metadata")
 
 
+def _refuse_a_scope_the_envelope_does_not_sign(
+    body: SkillSubmitPayload, request_envelope: dict[str, str] | None
+) -> None:
+    if body.collection_scope is None:
+        return
+    from ..jobs.submit import signed_job_scope
+
+    signed = signed_job_scope(request_envelope) if request_envelope else None
+    if signed is None or sorted(set(body.collection_scope)) != sorted(set(signed)):
+        raise HTTPException(422, "The body names a collection scope the signed envelope does not")
+
+
 async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmitResponse:
     _require_internal_token(request)
 
@@ -288,6 +302,7 @@ async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmi
     request_envelope = capture_request_envelope(
         request.headers, user_id=body.user_id, organization_id=body.organization_id
     )
+    _refuse_a_scope_the_envelope_does_not_sign(body, request_envelope)
 
     job_id = await _submit_skill_run(body, agent_type, principal, owner, _skill_usage_context(body), request_envelope)
 

@@ -33,7 +33,6 @@ def _build_run_agent_payload(
     available_documents,
     data_sources,
     auth_token,
-    collection_scope,
     project_context,
     project_memory,
     platform_lessons,
@@ -76,7 +75,6 @@ def _build_run_agent_payload(
         "available_documents": available_documents,
         "data_sources": data_sources,
         "auth_token": auth_token,
-        "collection_scope": collection_scope,
         "project_context": project_context,
         "project_memory": project_memory,
         "platform_lessons": platform_lessons,
@@ -197,21 +195,30 @@ def _job_store_settings() -> tuple[str, str, int]:
     return db_url, config_path, log_level
 
 
+def signed_job_scope(request_envelope: dict[str, str] | None) -> list[str] | None:
+    from agent.knowledge.scoping import get_collection_scope_from_context
+    from agent.knowledge.scoping import signed_scope_names
+    from agent.project_context import RequestContext
+
+    from .run_envelope import RunEnvelope
+
+    envelope = RunEnvelope.from_payload(request_envelope)
+    if envelope is None:
+        return get_collection_scope_from_context()
+    return signed_scope_names(
+        RequestContext.from_envelope(envelope.header, envelope.signature, os.environ.get("INTERNAL_API_TOKEN"))
+    )
+
+
 def _captured_request_context(
     auth_token: str | None,
-    collection_scope: list[str] | None,
     project_context: str | None,
     model_overrides: dict[str, str] | None,
-) -> tuple[str | None, list[str] | None, str | None, dict[str, str] | None]:
+) -> tuple[str | None, str | None, dict[str, str] | None]:
     if auth_token is None:
         from agent.auth import get_auth_token
 
         auth_token = get_auth_token()
-
-    if collection_scope is None:
-        from agent.knowledge.scoping import get_collection_scope_from_context
-
-        collection_scope = get_collection_scope_from_context()
 
     if project_context is None:
         from agent.project_context import get_project_context_from_context
@@ -222,7 +229,7 @@ def _captured_request_context(
         from agent.common import get_model_overrides_from_context
 
         model_overrides = get_model_overrides_from_context() or None
-    return auth_token, collection_scope, project_context, model_overrides
+    return auth_token, project_context, model_overrides
 
 
 def _effective_data_sources(data_sources: list[str] | None) -> list[str] | None:
@@ -304,7 +311,6 @@ async def submit_agent_job(
     available_documents: list[dict] | None = None,
     data_sources: list[str] | None = None,
     auth_token: str | None = None,
-    collection_scope: list[str] | None = None,
     project_context: str | None = None,
     project_memory: str | None = None,
     platform_lessons: str | None = None,
@@ -327,8 +333,8 @@ async def submit_agent_job(
 
     get_agent_config(agent_type)
     db_url, config_path, log_level = _job_store_settings()
-    auth_token, collection_scope, project_context, model_overrides = _captured_request_context(
-        auth_token, collection_scope, project_context, model_overrides
+    auth_token, project_context, model_overrides = _captured_request_context(
+        auth_token, project_context, model_overrides
     )
     data_sources = _effective_data_sources(data_sources)
 
@@ -349,7 +355,7 @@ async def submit_agent_job(
 
     parent_trace_context = _get_parent_trace_context()
     parent_conversation_id = conversation_id or parent_trace_context[5]
-    project_collection = derive_project_collection(collection_scope)
+    project_collection = derive_project_collection(signed_job_scope(request_envelope))
 
     try:
         payload = _build_run_agent_payload(
@@ -364,7 +370,6 @@ async def submit_agent_job(
             available_documents=available_documents,
             data_sources=data_sources,
             auth_token=auth_token,
-            collection_scope=collection_scope,
             project_context=project_context,
             project_memory=project_memory,
             platform_lessons=platform_lessons,

@@ -185,7 +185,7 @@ def _decoded(value: str) -> str:
 def test_a_job_sends_no_unsigned_scope_or_project_context_only_its_model_overrides(monkeypatch):
     injected: dict[str, str] = {}
     monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
-    request = _request(collection_scope=["p_1"], project_context="Hof", model_overrides={"research": "m"})
+    request = _request(project_context="Hof", model_overrides={"research": "m"})
 
     agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
 

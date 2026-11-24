@@ -41,7 +41,6 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
     ...(run.clarifierResult ? { clarifier_result: run.clarifierResult } : {}),
     ...(run.documents ? { documents: run.documents } : {}),
     data_sources: run.dataSources,
-    collection_scope: context.collectionScope,
     project_context: context.projectContext,
     project_memory: context.projectMemory,
     memory_reflection_enabled: context.memoryReflectionEnabled,

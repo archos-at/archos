@@ -1835,21 +1835,14 @@ still deferred; this is pull-based reconciliation instead.
 carry cards (§3; the async job path generates them post-hoc in the
 runner). And the research tab can 403 — see §9.
 
-**Collection-scope re-injection gap — now diagnosable (fixed 2026-07-16,
-`f8093a0`)**: the `X-Grid-Collection-Scope` header is captured once at submit
-time (`core/conversation_register.py`) and threaded into the async job payload
-as `collection_scope`. The research worker only re-injects it into its own
-request context conditionally — `apps/agent-host/src/agent_host/jobs/agent_job_setup.py`
-(`_inject_scope_headers`) does `if collection_scope is not None:` before base64url-encoding it back
-onto the header. When the scope is absent, `knowledge_retrieval` inside the
-worker falls back to legacy config-based resolution (base collection +
-session collection only — see `docs/technical-reference/collection-scoping.md`).
-Because `project_collections` is `[]` in the shipped configs, project
-collections are **never** searched in that fallback path for the affected
-job. The fallback behavior is unchanged, but it is no longer silent: the
-`elif` branch for `deep_research_agent` jobs now logs a one-time WARNING
-(job id, whether the request looked authenticated/project-scoped) at exactly
-the point the re-injection would otherwise be skipped.
+**A job's scope is its signed envelope's (ADR-0194, slice 3b).** The job
+payload carries no `collection_scope`; the worker reads the scope, the project
+collection its access is keyed by (`signed_job_scope` in
+`apps/agent-host/src/agent_host/jobs/submit.py`) and its organization from the
+run's signed envelope, and binds the run's identity (never a scope) for a run
+whose envelope is refused, expired or absent (`bind_worker_identity` in
+`packages/agent/src/agent/project_context.py`). A deep-research job without an
+envelope logs a WARNING and searches the legacy config path.
 
 **Durable checkpointing (backlog T3-8, 2026-07-16, `5bea711`)**: optional
 LangGraph checkpointing for the deep-research graph, configured via
@@ -2228,14 +2221,9 @@ office's skills (`resolve_served_skills`) under `/skills/office/`. Full design a
   deep-research prompts no longer gate document *awareness* on the list being
   non-empty (§6) — only the *listing* still is, which is cosmetic once the
   list itself is reliable.
-- **Async job collection-scope fallback — fixed 2026-07-16 (`f8093a0`)** —
-  `collection_scope` is still only re-injected into the research worker context
-  when present (behavior unchanged: absent scope still drops
-  project-collection search for that job, §7), but the degradation is no
-  longer silent: `agent_job_setup.py` logs a one-time WARNING (job id, whether the
-  request looked authenticated/project-scoped) at the point it would
-  otherwise skip re-injection, so the gap is diagnosable from logs instead of
-  invisible.
+- **Async job collection-scope fallback — superseded by ADR-0194 slice 3b** —
+  a job's scope is its signed envelope's, never a payload field; a
+  deep-research job without an envelope logs a WARNING (§7).
 - **Deep-research tool-result pruning defeats prompt-prefix caching — fixed
   2026-07-16 (`0b5d29d`)** — `ToolResultPruningMiddleware` now records
   truncation per message id and freezes it once applied (monotonic), instead

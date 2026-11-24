@@ -24,7 +24,6 @@ export interface JobSubmitPayload {
   clarifier_result?: string
   documents?: PlanDocuments
   data_sources: string[] | null
-  collection_scope: string[] | null
   project_context: string | null
   project_memory: string | null
   memory_reflection_enabled: boolean
