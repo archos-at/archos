@@ -20,9 +20,11 @@ lists **„Neuer Chat“** and **„Meine Ablage“**; a new chat started there 
 project, and it does not read any project's files (ADR-0193).
 
 **„Letzte Chats“** lists the side you are on: under Persönlich your chats
-without a project, under Projekt that project's chats, the ten newest first,
-with a people mark when you share one. **„Alle Chats“** opens the same side's
-history. A chat without a project has no `@`: to bring someone in, share it
+without a project, under Projekt that project's chats: at most eight, newest
+first and always with the chat you have open, with a people mark when you share
+one. When the side has more, **„Alle Chats“** ends the list and opens that
+side's history. Switching between Persönlich and Projekt moves the rail at once;
+the page follows when it has loaded. A chat without a project has no `@`: to bring someone in, share it
 through **Teilen**.
 
 ## Starting a conversation
