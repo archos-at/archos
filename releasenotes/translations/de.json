@@ -640,6 +640,10 @@
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
   {
+    "en": "A new chat's provisional title in „Letzte Chats“ no longer stays grey after a failed answer or a reload, and a name you give a chat while ARCHOS is naming it is kept.",
+    "de": "Der vorläufige Titel eines neuen Chats wird in „Letzte Chats“ nach einer fehlgeschlagenen Antwort oder einem Neuladen nicht mehr grau angezeigt, und ein von Ihnen vergebener Name bleibt erhalten, wenn ARCHOS den Chat gerade benennt."
+  },
+  {
     "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
     "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
   },

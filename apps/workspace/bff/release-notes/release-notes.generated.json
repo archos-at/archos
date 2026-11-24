@@ -649,6 +649,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A new chat's provisional title in „Letzte Chats“ no longer stays grey after a failed answer or a reload, and a name you give a chat while ARCHOS is naming it is kept.",
+            "de": "Der vorläufige Titel eines neuen Chats wird in „Letzte Chats“ nach einer fehlgeschlagenen Antwort oder einem Neuladen nicht mehr grau angezeigt, und ein von Ihnen vergebener Name bleibt erhalten, wenn ARCHOS den Chat gerade benennt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "search",
           "text": {
             "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
