@@ -53,7 +53,7 @@ ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
 ALTER TABLE "project_folders" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION personal_document_hidden(document uuid) RETURNS boolean
-  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT EXISTS (
     SELECT 1 FROM documents d
     WHERE d.id = document AND d.organization_id = current_org()
@@ -70,7 +70,7 @@ END $$;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION organization_storage_by_scope()
   RETURNS TABLE (scope text, bytes bigint, documents bigint, version_bytes bigint)
-  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   WITH items AS (
     SELECT d.scope, coalesce(sum(d.file_size), 0)::bigint AS bytes, count(*)::bigint AS documents
     FROM documents d WHERE d.organization_id = current_org() GROUP BY d.scope
