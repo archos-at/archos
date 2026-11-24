@@ -22,8 +22,8 @@
 -- context with no person matches none, unless it names itself a system reader
 -- (`withSystemReader`, the `SYSTEM_READERS` registry in
 -- `bff/db/tenant-context.ts`): the agent host writing an answer, the erasure,
--- the memory checks, and the document notices act for the chat, not for a
--- reader. A chat in a project keeps its policy unchanged.
+-- the memory checks, a run's ledger and the document notices act for the
+-- chat, not for a reader. A chat in a project keeps its policy unchanged.
 --
 -- ## What is hidden with it
 --
@@ -36,7 +36,10 @@
 -- `session`, and through `personal_document_hidden` their versions, search rows
 -- and annotations. The function reads past the conversations policy, so a row
 -- naming a chat that does not exist (yet, or any more) still fails on its
--- foreign key, not on the policy.
+-- foreign key, not on the policy. A row with no foreign key to the chat
+-- (`answer_contexts`, the two records, `message_restricted_use`) that outlives
+-- its erasure is no longer hidden: it holds ids and flags, never the chat's
+-- text.
 --
 -- These stay the organization's, as telemetry or as rows with an audience of
 -- their own: `llm_usage_events` (the office's budget counts every chat),
