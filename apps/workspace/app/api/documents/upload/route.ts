@@ -9,6 +9,10 @@ import { uploadToPersonalShelf } from '@/lib/personal-shelf/service'
 import { announceNormReadingAtUpload } from '@/lib/base-knowledge/office/upload-reading-event'
 import { readScreeningRelease } from '@/lib/upload-screening/service'
 import { readUploadBatchId } from '@/lib/upload-batches/service'
+import { getLocale } from '@/i18n/server'
+import { requireMayFileFrom } from '@/lib/conversations/restricted-egress'
+import { shelfCollectionName } from '@/lib/documents/shelf-collection'
+import { requireResourceAccess } from '@/lib/sharing/access'
 
 const text = (value: FormDataEntryValue | null): string | undefined =>
   typeof value === 'string' && value ? value : undefined
@@ -29,6 +33,19 @@ export const POST = apiRoute(
       screeningRelease: readScreeningRelease(formData.get('screeningRelease')),
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
+    }
+    const originConversationId = text(formData.get('originConversationId'))
+    if (originConversationId) {
+      await requireResourceAccess(session, 'conversation', originConversationId, 'viewer')
+      await requireMayFileFrom(
+        { conversationId: originConversationId, locale: await getLocale() },
+        {
+          organizationId: session.organizationId,
+          projectId: shelf.kind === 'project' ? shelf.projectId : null,
+          projectCollection: (await shelfCollectionName(shelf, session.organizationId)) ?? '',
+          folderId: input.folderId,
+        },
+      )
     }
     if (shelf.kind === 'personal') return uploadToPersonalShelf(session, file, request, input)
     const uploaded =

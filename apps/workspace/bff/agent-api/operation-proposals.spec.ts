@@ -327,6 +327,26 @@ describe('proposeOperation', () => {
     expect(insertProposedChange).toHaveBeenCalledTimes(4)
   })
 
+  it('stores a diagram filing with the turn’s conversation, so the filing guard runs on apply (ADR-0193)', async () => {
+    const diagramFile: AgentOperation = {
+      ...FOLDER_RENAME,
+      name: 'diagram-file',
+      summary: 'File a drawn diagram into a project',
+      method: 'POST',
+      path: '/api/projects/[id]/diagrams',
+      params: z.object({ id: z.string() }),
+      body: z.object({ title: z.string(), conversationId: z.string().optional() }),
+    }
+    catalog = [...CATALOG, diagramFile]
+    const { proposalId } = await proposeOperation({
+      principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
+      op: diagramFile,
+      input: { params: { id: PROJECT }, body: { title: 'Schnitt', conversationId: 'conv_elsewhere' } },
+    })
+
+    expect((store.get(proposalId)?.payload as { input: { body: unknown } }).input.body).toEqual({ title: 'Schnitt', conversationId: 'conv_1' })
+  })
+
   it('keeps the turn’s answer as the proposal’s origin message (x-grid-answer-message-id)', async () => {
     const answerMessageId = '0d9f8e7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f'
     await proposeOperation({
