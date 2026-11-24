@@ -83,7 +83,7 @@ const RESEARCH_RUNS: TaskRunPage = {
   runs: [
     previewRun('run-a', 'OIB-RL 6 Energieausweis Bestand', 'running', minutesAgo(12), 's-6'),
     previewRun('run-b', 'Brandabschnitte Tiefgarage', 'succeeded', minutesAgo(240), 's-3'),
-    previewRun('run-c', 'Stellplatzschlüssel Wien', 'failed', daysAgo(11), null),
+    previewRun('run-c', 'Stellplatzverpflichtung Wien Bauordnung', 'failed', daysAgo(6), 's-8'),
   ],
 }
 

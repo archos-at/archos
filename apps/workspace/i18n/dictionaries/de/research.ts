@@ -6,10 +6,6 @@ export const research: typeof en.research = {
   detailsHelp:
     'Diese Details erscheinen während einer laufenden Recherche und sind für abgeschlossene Berichte möglicherweise nicht verfügbar.',
 
-  runsList: {
-    untitledRun: 'Deep-Research-Durchlauf',
-  },
-
   chatArea: {
     ariaMessages: 'Chat-Nachrichten',
     loading: 'Chat wird geladen',
@@ -244,12 +240,6 @@ export const research: typeof en.research = {
     deleteAll: 'Alle Chats dieses Projekts löschen',
     cannotDeleteBusy: 'Löschen nicht möglich, während Vorgänge laufen',
     deleteAllButton: 'Alle Chats löschen',
-    stopResearch: 'Recherche stoppen',
-    stopResearchTitle: 'Diesen Recherchedurchlauf stoppen',
-    stopConfirmTitle: 'Recherche stoppen?',
-    stopConfirmBody:
-      'Die laufende Recherche wird abgebrochen und kann nicht fortgesetzt werden. Der bisherige Teilfortschritt bleibt im Recherchebereich sichtbar.',
-    stopConfirmConfirm: 'Recherche stoppen',
     startNewSession: 'Neuen Chat starten',
     newSessionButton: 'Neuer Chat',
     searchPlaceholder: 'Chats durchsuchen',
@@ -275,19 +265,17 @@ export const research: typeof en.research = {
     sessionWaiting: 'Wartet auf Ihre Antwort',
     answerReady: 'Antwort fertig',
     answerFailed: 'Antwort fehlgeschlagen',
+    researchFailed: 'Recherche fehlgeschlagen',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',
     sessionLabelTemporary: '{label} (temporärer Chat, daraus wird nichts gemerkt)',
-    deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
-    deepResearchRunLabel: 'Deep-Research-Durchlauf öffnen: {label} — {status}',
     filterAria: 'Verlauf filtern',
     filterAll: 'Alle',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    researchLoadFailed: 'Deep-Research-Durchläufe konnten nicht geladen werden.',
     noRuns: 'Noch keine Deep-Research-Durchläufe',
     noRunsDescription: 'Deep-Research-Durchläufe aus diesem Projekt erscheinen hier.',
   },
