@@ -6,6 +6,7 @@ export const files: typeof en.files = {
     crumb: 'Persönlich · Nur Sie',
     dropToUpload: 'Dateien hier ablegen, um sie in Meine Ablage aufzunehmen',
     ingestionComplete: '„{name}“ ist jetzt in Meine Ablage',
+    eraseConfirm: 'Meine Ablage hat keinen Papierkorb: Die Datei wird endgültig gelöscht und lässt sich nicht wiederherstellen.',
   },
   baseKnowledge: { label: 'Norm', open: 'Als Norm öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {

@@ -196,6 +196,34 @@ describe('useDocumentActions — deleting', () => {
     expect(permanent).toHaveBeenCalledTimes(1)
   })
 
+  it('deletes a file in Meine Ablage for good, because that shelf has no bin', async () => {
+    const binned = vi.fn()
+    const permanent = vi.fn()
+    server.use(
+      http.post('/api/documents/doc-1/bin', () => {
+        binned()
+        return HttpResponse.json({ code: 'document-has-no-bin' }, { status: 409 })
+      }),
+      http.delete('/api/documents/doc-1', () => {
+        permanent()
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const hook = renderHook(() => useDocumentActions({ document: DOCUMENT, scope: 'personal' }))
+
+    expect(hook.result.current.erases).toBe(true)
+    let removed = false
+    await act(async () => {
+      removed = await hook.result.current.remove()
+    })
+
+    expect(removed).toBe(true)
+    expect(binned).not.toHaveBeenCalled()
+    expect(permanent).toHaveBeenCalledTimes(1)
+    expect(success).toHaveBeenCalledWith(expect.not.stringMatching(/bin|Papierkorb/))
+  })
+
   it('says a legal hold keeps the document, when the bin refuses for that', async () => {
     server.use(
       http.post('/api/documents/doc-1/bin', () =>
