@@ -307,24 +307,32 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
-          <div className={cn('flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
-          <div className={cn('min-w-0', !iconRail && 'flex-1')}>
-          <SidebarUserMenu
-            user={user}
-            organizationName={organizationName}
-            authRequired={authRequired}
-            compact={iconRail}
-            avatarSizeClass="size-6"
-            menuSide={iconRail ? 'right' : 'top'}
-            menuAlign="end"
-            menuSideOffset={iconRail ? 24 : 6}
-            menuMatchTrigger={!iconRail}
-            canManageOrganization={canManageOrganization}
-            canViewOrganization={canViewOrganization}
-            canManagePlatform={canManagePlatform}
-          />
-          </div>
-          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
+          <div className={cn('relative flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+            <div className={cn('min-w-0', !iconRail && 'flex-1')}>
+              <SidebarUserMenu
+                user={user}
+                organizationName={organizationName}
+                authRequired={authRequired}
+                compact={iconRail}
+                avatarSizeClass="size-6"
+                menuSide={iconRail ? 'right' : 'top'}
+                menuAlign="end"
+                menuSideOffset={iconRail ? 24 : 6}
+                menuMatchTrigger={!iconRail}
+                canManageOrganization={canManageOrganization}
+                canViewOrganization={canViewOrganization}
+                canManagePlatform={canManagePlatform}
+                beforeChevron={canAccessInbox && !iconRail ? 'w-12' : undefined}
+              />
+            </div>
+            {canAccessInbox && (
+              <InboxBell
+                compact={iconRail}
+                tourAnchor={sectionAnchor('inbox')}
+                pathname={pathname}
+                className={iconRail ? undefined : 'absolute right-8 top-1/2 z-10 h-7 min-w-7 -translate-y-1/2 border-transparent px-1.5 pointer-coarse:h-9'}
+              />
+            )}
           </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,

@@ -49,7 +49,9 @@ vi.mock('./connection-band', () => ({
     <div data-testid="connection-band" data-appearance={appearance} />
   ),
 }))
-vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div data-testid="user-menu" /> }))
+vi.mock('./sidebar-user-menu', () => ({
+  SidebarUserMenu: ({ beforeChevron }: { beforeChevron?: string }) => <div data-testid="user-menu" data-before-chevron={beforeChevron} />,
+}))
 vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 
 vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
@@ -78,6 +80,13 @@ describe('the inbox bell stands beside the person, for a reader who may reach th
     expect(bell).toHaveAttribute('href', '/app/inbox')
     expect(bell.closest('[data-slot="rail-person"]')).toContainElement(screen.getByTestId('user-menu'))
     expect(bell.closest('nav')).toBeNull()
+  })
+
+  test('stands between the name and the chevron, unboxed, as the concept draws it', () => {
+    render(<AppSidebar {...baseProps} canAccessInbox />)
+    const bell = screen.getByTestId('inbox-bell')
+    expect(bell).toHaveClass('absolute', 'border-transparent')
+    expect(screen.getByTestId('user-menu')).toHaveAttribute('data-before-chevron', 'w-12')
   })
 
   test('is absent when the reader cannot reach the inbox', () => {

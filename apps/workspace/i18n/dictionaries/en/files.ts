@@ -1,4 +1,10 @@
 export const files = {
+  personalShelf: {
+    title: 'Meine Ablage',
+    crumb: 'Personal · Only you',
+    dropToUpload: 'Drop files here to add them to Meine Ablage',
+    ingestionComplete: '“{name}” is now in Meine Ablage',
+  },
   baseKnowledge: { label: 'Standard', open: 'Open as a standard: edition, licence, last check' },
   uploadZone: {
     clickToUpload: 'Click to upload',
@@ -983,6 +989,7 @@ export const files = {
     scopeFolder: 'in this folder',
     scopeFolderTree: 'in this folder and its subfolders',
     scopeProject: 'in this project',
+    scopePersonal: 'in Meine Ablage',
     scopeOffice: 'in Office library',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
     headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
