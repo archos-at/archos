@@ -135,7 +135,6 @@ export const GET = tenantSlotRoute(async function GET(
         ...authHeaders,
         ...requestContextHeaders,
         Accept: isStreamRequest ? 'text/event-stream' : 'application/json',
-        'X-Collection-Scope': scope.headerValue,
       },
       ...(isStreamRequest ? { signal: req.signal } : {}),
     })
@@ -247,7 +246,6 @@ export const POST = tenantSlotRoute(async function POST(
         'Content-Type': 'application/json',
         ...authHeaders,
         ...requestContextHeaders,
-        'X-Collection-Scope': scope.headerValue,
       },
       ...(body ? { body } : {}),
     })
@@ -298,7 +296,6 @@ export const DELETE = tenantSlotRoute(async function DELETE(
         ...authHeaders,
         ...requestContextHeaders,
         Accept: 'application/json',
-        'X-Collection-Scope': scope.headerValue,
       },
     })
 

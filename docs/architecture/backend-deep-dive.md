@@ -664,9 +664,12 @@ the folder.
 
 ### Collection scoping (multitenancy)
 
-Every backend call carries a base64url `X-Grid-Collection-Scope` header =
+Every turn reads a signed scope =
 `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` through the
+conversation-context module: a chat turn's signed decision (`may.shelves`), or
+the signed request-context envelope (`collectionScope`) of a run, job or
+external call. No plain scope header is sent or read (ADR-0194). This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
 `REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's

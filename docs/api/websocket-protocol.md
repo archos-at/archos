@@ -408,7 +408,7 @@ the agent a line of memory and the thread nothing. The stored text is capped at
 
 ### Turn retrieval intent (`focus_file_name` / `focus_shelf` / `source_preset`)
 
-The signed `X-Grid-Collection-Scope` header is the **authorization ceiling**
+The turn's signed decision (`may.shelves`, `POST /api/internal/turn-decision`, ADR-0194) is the **authorization ceiling**
 (which corpora this caller may read). What a *turn* actually searches is a
 subtractive subset of that ceiling. The client states **intent**, never an
 expanded collection list:

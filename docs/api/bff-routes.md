@@ -448,7 +448,7 @@ Source: `apps/workspace/app/api/v1/[...path]/route.ts`
 |--------|------|------|-------------|-----------------------|----------|
 | `GET` | `/api/jobs/async/jobs` | — | **Not served**: `404` before any upstream request. Runs are listed from the run ledger, `GET /api/projects/{id}/runs` (`?kind=deep-research` for the chat history's Deep Research section); the backend's job store lists nothing, because it knows no run kind, title or product status and keeps a finished job for a day. | — | `{ error: { code: 'NOT_FOUND', message } }` |
 | `GET` | `/api/jobs/async/agents` | Varies | List registered agent types. Proxies to `GET /v1/jobs/async/agents`. | — | `{ agents: [{ agent_type, description }] }` |
-| `POST` | `/api/jobs/async/submit` | Varies | Submit a new async job. Proxies to `POST /v1/jobs/async/submit`. **Fixed 2026-07-16**: resolves the caller's active model overrides (`getActiveModelOverrides`) and forwards them, plus the signed `X-Grid-Request-Context` envelope, alongside `X-Grid-Collection-Scope` — jobs submitted here now apply the org's active model-config version (ADR-0014) exactly like the WS chat path and the skill fire path (`/api/internal/skills/fire`); see `docs/architecture/org-model-configuration.md`. | `{ agent_type, input, job_id?, expiry_seconds?, data_sources? }` | `{ job_id, status, agent_type }` |
+| `POST` | `/api/jobs/async/submit` | Varies | Submit a new async job. Proxies to `POST /v1/jobs/async/submit`. **Fixed 2026-07-16**: resolves the caller's active model overrides (`getActiveModelOverrides`) and forwards them, plus the signed `X-Grid-Request-Context` envelope, which carries the scope (`collectionScope`; no plain scope header since ADR-0194 slice 3b) — jobs submitted here now apply the org's active model-config version (ADR-0014) exactly like the WS chat path and the skill fire path (`/api/internal/skills/fire`); see `docs/architecture/org-model-configuration.md`. | `{ agent_type, input, job_id?, expiry_seconds?, data_sources? }` | `{ job_id, status, agent_type }` |
 | `GET` | `/api/jobs/async/job/{job_id}` | Varies | Get job status. Proxies to `GET /v1/jobs/async/job/{id}`. | — | `{ job_id, status, error?, created_at }` |
 | `GET` | `/api/jobs/async/job/{job_id}/stream` | Varies | SSE stream from beginning. Proxies to `GET /v1/jobs/async/job/{id}/stream`. Supports `?token=` for EventSource auth fallback. | — | SSE stream (`text/event-stream`) |
 | `GET` | `/api/jobs/async/job/{job_id}/stream/{last_event_id}` | Varies | SSE stream reconnection from event ID. | — | SSE stream |
@@ -786,7 +786,7 @@ Source: `apps/workspace/app/api/user/memory/route.ts`, `apps/workspace/app/api/u
 
 | Protocol | Path | Auth | Description |
 |----------|------|------|-------------|
-| `ws`/`wss` | `/websocket` | Varies | WebSocket gateway for real-time chat with HITL support. Proxied by `server.js` (not a Next.js API route). Headers (`X-Grid-Collection-Scope`, `Authorization`, etc.) are resolved via internal `GET /api/auth/websocket-scope` before forwarding to `ws://{BACKEND_WS_URL}/websocket`. |
+| `ws`/`wss` | `/websocket` | Varies | WebSocket gateway for real-time chat with HITL support. Proxied by `server.js` (not a Next.js API route). The signed request-context envelope and `Authorization` are resolved via internal `GET /api/auth/websocket-scope` before forwarding; the envelope signs no scope, which each turn takes from its signed decision (ADR-0194) to `ws://{BACKEND_WS_URL}/websocket`. |
 
 Source: `docs/technical-reference/websocket-gateway.md`
 

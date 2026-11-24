@@ -1,6 +1,6 @@
 import type { UserSession } from '@/lib/auth/types'
 import type { ConversationScope } from '@/lib/conversation-context/resolve'
-import { encodeCollectionScopeHeader, type ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
+import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import {
   buildRequestContextWireHeaders,
   requesterOf,
@@ -14,13 +14,12 @@ export interface AuthorizedJobScope {
   projectReadOnly?: boolean
 }
 
-export function jobScopeOf(scope: ConversationScope): AuthorizedJobScope & { headerValue: string } {
+export function jobScopeOf(scope: ConversationScope): AuthorizedJobScope {
   return {
     projectId: scope.projectId ?? undefined,
     scopedCollections: scope.shelves,
     verifiedConversationId: scope.verifiedConversationId ?? undefined,
     projectReadOnly: scope.projectReadOnly,
-    headerValue: encodeCollectionScopeHeader(scope.shelves),
   }
 }
 

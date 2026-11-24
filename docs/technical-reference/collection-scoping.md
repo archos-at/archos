@@ -40,16 +40,16 @@ The Archiv collection is injected in `buildCollectionScopeFromRequest` (which ha
 │    headerValue, projectId, conversationId}                       │
 └────┬─────────────────────────────────────────────────────────┬───┘
      │ HTTP (/api/v1, /api/jobs/async)                         │ WebSocket upgrade
-     │ X-Grid-Collection-Scope header                          │ calls /api/auth/websocket-scope
+     │ signed envelope (runs, jobs); no scope header            │ calls /api/auth/websocket-scope
      ▼                                                          ▼
 ┌────────────────────────────────────────────────────────────────┐
 │                   Python Backend (runtime context)              │
 │                                                                  │
 │  get_collection_scope_from_context() → list[str] | None         │
-│    Reads X-Grid-Collection-Scope from Context.metadata.headers   │
+│    Reads the turn's decision, or a signed envelope's scope       │
 │                                                                  │
-│  get_collection_scope_from_context_or(config, session_id)        │
-│    → Falls back to config-based resolution if header missing     │
+│  resolve_scoped_collections(config, session_id)                  │
+│    → Falls back to config-based resolution if no signed scope    │
 │                                                                  │
 │  _resolve_target_collections(config, session_id) → list[str]     │
 │    → Legacy: use_fixed_collection, include_base_collection,      │
@@ -261,29 +261,16 @@ caller's kind (`contextKind`: `run`, `headless`, `external`).
 
 ### `get_collection_scope_from_context()`
 
-Reads and decodes the `X-Grid-Collection-Scope` header from the runtime context:
+Returns the collection names of `get_scoped_collections_from_context()`: in a
+bound turn the decision's shelves (nothing without a decision); outside one the
+signed envelope's scope (`RequestContext.from_context` reads only a signed
+envelope), or `None` when there is none. A reader of another request's scope
+(job access, run renewal, document search) takes it through
+`signed_scope_names(context)`. No plain scope header is read.
 
-```python
-def get_collection_scope_from_context() -> list[str] | None:
-```
-
-- Accesses `Context.get().metadata.headers['x-grid-collection-scope']`
-- Base64url-decodes and JSON-parses the value
-- Validates it is a list of strings
-- Returns deduplicated list (preserving order), or `None` if missing/malformed
-
-### `get_collection_scope_from_context_or(config, session_id)`
-
-Tries the header-based scope first, falls back to legacy config-based resolution:
-
-```python
-def get_collection_scope_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[str]:
-```
-
-The fallback calls `_resolve_target_collections()` from the `knowledge_layer` register module.
+When the answer is `None`, `knowledge_layer/search/scope.py`
+(`resolve_scoped_collections`) and the inventory fall back to the legacy
+config path below; an empty signed scope stays empty.
 
 ---
 
@@ -291,7 +278,7 @@ The fallback calls `_resolve_target_collections()` from the `knowledge_layer` re
 
 **File**: `packages/knowledge-layer/src/knowledge_layer/register.py` (line 220)
 
-Config-based collection resolution when no scope header is present:
+Config-based collection resolution when no signed scope is present:
 
 ```python
 def _resolve_target_collections(
@@ -319,36 +306,13 @@ This limit is relevant in multi-tenant or multi-project setups where many collec
 
 ---
 
-## Async Deep-Research Jobs: Collection-Scope Re-injection Gap (fixed 2026-07-16, `f8093a0`)
+## Async jobs
 
-The scope header described above governs synchronous chat requests. Async
-deep-research jobs are different: the `X-Grid-Collection-Scope` header is
-read **once, at job submit time**, in `core/conversation_register.py`, and
-carried through as a `collection_scope` field on the job payload rather than
-as a live header.
-
-When the research worker later runs the job, `apps/agent-host/src/agent_host/jobs/runner.py:641`
-re-injects it into the worker's own request context **only when present**:
-
-```python
-if collection_scope is not None:
-    encoded = base64.urlsafe_b64encode(json.dumps(collection_scope).encode()).rstrip(b"=").decode()
-    # ... set back onto the header the worker's runtime context reads
-```
-
-If `collection_scope` is `None` at submit time (e.g. the request bypassed the
-BFF, or came from an older client that never set the header),
-`knowledge_retrieval` inside the worker has no header to read and falls back
-to `_resolve_target_collections()` — priority 2 in the table below — using
-**base collection + session collection only**. Because `project_collections`
-is `[]` in the shipped configs, project collections are **never** searched in
-that fallback for the affected job. The fallback behavior itself is
-unchanged — this is still a real degradation for the affected job — but it is
-no longer silent: the `elif` branch for `deep_research_agent` jobs now logs a
-one-time WARNING (job id, whether the request looked
-authenticated/project-scoped) at exactly the point re-injection would
-otherwise be skipped, so the gap is diagnosable from logs instead of
-invisible.
+A job's scope is its signed request-context envelope's (ADR-0194). The job
+payload carries none; `signed_job_scope` in
+`apps/agent-host/src/agent_host/jobs/submit.py` derives the project collection
+the job's access is keyed by from it. A deep-research job without an envelope
+logs a WARNING and reads the legacy config path below.
 
 ---
 
@@ -357,7 +321,7 @@ invisible.
 | Priority | Source | When |
 |----------|--------|------|
 | 0 (highest) | the turn's decision | A chat turn, once `turn-decision` answered |
-| 1 | `X-Grid-Collection-Scope` header | Present on proxied HTTP requests and WebSocket upgrades; in a chat turn only inside a valid signature |
-| 2 | `_resolve_target_collections()` config | Header absent (legacy/fallback) |
+| 1 | the signed request-context envelope's `collectionScope` | A run, job or external call; never a plain header |
+| 2 | `_resolve_target_collections()` config | No decision and no signed envelope (legacy/fallback) |
 
-The header is always set for proxied HTTP requests (`/api/v1/*`, `/api/jobs/async/*`) and WebSocket upgrades. It is absent only when requests bypass the BFF or when the runtime context has no metadata headers.
+A chat turn's socket envelope signs no scope; the turn reads its decision.

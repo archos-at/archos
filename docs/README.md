@@ -117,7 +117,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Architecture Overview](technical-reference/architecture-overview.md) | Two-tier architecture, component diagram, data flow |
 | [Authentication Flow](technical-reference/authentication-flow.md) | WorkOS AuthKit sign-in, session resolution, JWT validation |
 | [Chat Flow](technical-reference/chat-flow.md) | WebSocket chat, chat store, message streaming |
-| [Collection Scoping](technical-reference/collection-scoping.md) | How `X-Grid-Collection-Scope` is computed and consumed |
+| [Collection Scoping](technical-reference/collection-scoping.md) | How a turn's collection scope is computed, signed and consumed |
 | [Conversation Persistence](technical-reference/conversation-persistence.md) | Drizzle schema, CRUD routes, store hydration |
 | [Document Ingestion](technical-reference/document-ingestion.md) | SeaweedFS upload, `/v1/ingest`, chunking, embedding, Qdrant |
 | [OIB Sync](technical-reference/oib-sync.md) | Incremental OIB PDF ingestion with a SHA-256 hash registry |
