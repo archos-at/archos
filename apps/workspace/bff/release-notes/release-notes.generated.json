@@ -339,6 +339,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+            "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
             "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
           }
