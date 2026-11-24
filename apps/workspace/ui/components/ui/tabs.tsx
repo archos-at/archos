@@ -50,7 +50,7 @@ const TabsList = React.forwardRef<
     ref={ref}
     data-slot="tabs-list"
     className={cn(
-      'bg-desk text-foreground/70 inline-flex h-9 w-fit items-center justify-center rounded-control p-1 pointer-coarse:h-auto',
+      'bg-desk text-foreground/70 inline-flex h-9 w-fit items-center justify-center rounded-surface p-1 pointer-coarse:h-auto',
       className
     )}
     {...props}

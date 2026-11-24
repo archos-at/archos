@@ -38,7 +38,7 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
 
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-surface transition-shadow duration-quick ease-out group-hover/tile:shadow-sheet-pointer motion-reduce:transition-none', className)} {...rest}>
+    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-[4px] transition-shadow duration-quick ease-out group-hover/tile:shadow-sheet-pointer motion-reduce:transition-none', className)} {...rest}>
       {children}
     </div>
   )

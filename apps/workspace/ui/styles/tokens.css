@@ -465,19 +465,19 @@
   /* Radius follows size and shape: the brand's ladder (packages/brand/README.md
      "Layout and shape", tokens.json radius-*). Pick the semantic step for the job;
      the same kind of element always takes the same step. */
-  --radius-inline: 6px; /* paper on a desk: the ladder is 6 / 10 / 16 / full, so the 4px step is gone (design-language.md) */
-  --radius-control: var(--ds-radius-control); /* 6px: buttons, inputs, selects, tabs, toggles, menu and list items */
-  --radius-surface: var(--ds-radius-surface); /* 10px: cards, panels, list containers, toasts, tables, code blocks */
-  --radius-overlay: 16px; /* dialogs, popovers, menus, floating bars, the command palette */
-  --radius-bubble: 16px; /* chat messages and the composer: the overlay step */
+  --radius-inline: var(--ds-radius-inline); /* the ladder is 4 / 8 / 14 / full (design-language.md) */
+  --radius-control: var(--ds-radius-control); /* 4px: buttons, inputs, selects, tabs, toggles, list items */
+  --radius-surface: var(--ds-radius-surface); /* 8px: cards, panels, list containers, toasts, tables, code blocks */
+  --radius-overlay: var(--ds-radius-overlay); /* 14px: dialogs, popovers, menus, floating bars, the command palette */
+  --radius-bubble: var(--ds-radius-bubble); /* 14px: chat messages and the composer: the overlay step */
   /* rounded-full stays Tailwind's: chips, badges, counts, avatars, dots, switches. */
   /* Tailwind's own steps, for code not yet on a semantic name; mapped onto the ladder. */
-  --radius-sm: 6px;
+  --radius-sm: var(--ds-radius-control);
   --radius-md: var(--ds-radius-control);
   --radius-lg: var(--ds-radius-surface);
-  --radius-xl: 16px;
-  --radius-2xl: 16px;
-  --radius-3xl: 16px;
+  --radius-xl: var(--ds-radius-overlay);
+  --radius-2xl: var(--ds-radius-overlay);
+  --radius-3xl: var(--ds-radius-overlay);
 
   /* Bare `shadow` (Tailwind v3's name for today's `shadow-sm`) resolved to
      Tailwind's own deprecated `--shadow`, a cold black drop shadow on no

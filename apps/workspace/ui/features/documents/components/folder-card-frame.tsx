@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 export const FOLDER_WELL = 'flex h-9 shrink-0 items-center'
 
-export const FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'
+export const FOLDER_SHEET = 'rounded-[4px] bg-sheet shadow-sm'
 
 export function FolderCardFrame({
   editing,

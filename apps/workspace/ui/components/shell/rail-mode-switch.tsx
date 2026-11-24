@@ -37,7 +37,7 @@ export function RailModeSwitch({ mode, collapsed }: { mode: RailMode; collapsed:
         title={collapsed ? label : undefined}
         data-testid={`rail-mode-${value}`}
         className={cn(
-          'h-8 gap-1.5 rounded-[6px] px-2 text-[13px] font-normal hover:bg-transparent data-[state=on]:font-medium',
+          'h-8 gap-1.5 rounded-[4px] px-2 text-[13px] font-normal hover:bg-transparent data-[state=on]:font-medium',
           on,
           collapsed && 'size-8 px-0'
         )}
@@ -56,7 +56,7 @@ export function RailModeSwitch({ mode, collapsed }: { mode: RailMode; collapsed:
       }}
       aria-label={t('railMode')}
       data-testid="rail-mode-switch"
-      className={cn('bg-selected gap-0 rounded-control p-0.5', collapsed ? 'flex-col flex-nowrap' : 'grid w-full grid-cols-2')}
+      className={cn('bg-selected gap-0 rounded-[6px] p-0.5', collapsed ? 'flex-col flex-nowrap' : 'grid w-full grid-cols-2')}
     >
       {item('personal', t('railModePersonal'))}
       {item('project', t('railModeProject'))}

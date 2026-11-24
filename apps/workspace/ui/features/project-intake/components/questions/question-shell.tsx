@@ -89,7 +89,7 @@ export function QuestionShell({
     <section
       aria-labelledby={`${testId}-title`}
       data-testid={testId}
-      className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:self-start md:rounded-[14px] md:border md:px-9 md:py-8"
+      className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:self-start md:rounded-[12px] md:border md:px-9 md:py-8"
     >
       <p className="text-muted-foreground text-[13px] tabular-nums">
         <span className="hidden md:inline">

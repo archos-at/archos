@@ -29,7 +29,7 @@ const TRIGGER_CLASS = 'h-10 w-full justify-between gap-1 pr-1.5 pl-3 text-left p
 const TILE_CLASS = 'size-9 min-w-0 p-0 pointer-coarse:size-11'
 
 const GROUP_CLASS =
-  'p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+  'p-1.5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
 
 export function ProjectSwitcher({ projects, activeProjectId, collapsed }: ProjectSwitcherProps) {
   const router = useRouter()
@@ -154,7 +154,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                 )}
               </>
             )}
-            <CommandGroup className="p-1">
+            <CommandGroup className="p-1.5">
               <CommandItem
                 value="all-projects"
                 onSelect={() => {
