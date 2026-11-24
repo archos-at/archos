@@ -232,7 +232,8 @@ What slice 1 fixes, so no builder has to guess:
   as in `buildRequestContextEnvelope` and the CommonJS copy in
   `bff/turns/turn-headers.js`. It travels in `x-turn-decision` and
   `x-turn-decision-signature`.
-  - **Fields:** `conversationId`, `answerMessageId`, `kind`, `audienceVersion`
+  - **Fields:** `organizationId`, `userId` (the asker; a decision is refused for
+    anyone else), `conversationId`, `answerMessageId`, `kind`, `audienceVersion`
     (number or null), `issuedAt`, `may` (without `projectMemory`, which stays in
     the BFF).
   - **Maximum age:** 30 minutes for a chat turn. A run's decision is renewed with
