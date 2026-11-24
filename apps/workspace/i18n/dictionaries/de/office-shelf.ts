@@ -85,7 +85,7 @@ export const officeShelf = {
     action: 'Aus der Bürobibliothek löschen',
     title: '„{name}“ löschen?',
     confirm:
-      'Dadurch wird das Dokument für die gesamte Organisation entfernt. Dies kann nicht rückgängig gemacht werden.',
+      'Das Dokument kommt für die ganze Organisation in den Papierkorb der Bürobibliothek. Dort lässt es sich wiederherstellen, bis es endgültig gelöscht wird.',
     confirmAction: 'Löschen',
     cancel: 'Abbrechen',
     deleting: 'Wird gelöscht…',

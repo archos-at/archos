@@ -146,7 +146,7 @@ export function ProjectFileWorkspace({
           )
         }}
       />
-      <FolderBinDialog projectId={projectId} open={bin.open} onOpenChange={bin.setOpen} />
+      <FolderBinDialog shelf={{ kind: 'project', projectId }} open={bin.open} onOpenChange={bin.setOpen} />
       {mailOffered && (
         <MailImportDialogView
           projectId={projectId}

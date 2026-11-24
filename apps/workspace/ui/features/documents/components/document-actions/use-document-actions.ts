@@ -99,7 +99,7 @@ export function useDocumentActions({
 
   const name = documentDisplayName(document)
   const isRenamed = name !== document.filename
-  const erases = scope !== 'files' || document.status === HELD_STATUS
+  const erases = document.status === HELD_STATUS
 
   const rename = useCallback(
     async (displayName: string | null): Promise<boolean> => {
@@ -153,12 +153,12 @@ export function useDocumentActions({
       onDeleted?.(document.id)
       return true
     } catch {
-      toast.error(scope === 'files' && erases ? tFiles('erase.error') : t('delete.error'))
+      toast.error(erases ? tFiles('erase.error') : t('delete.error'))
       return false
     } finally {
       setIsDeleting(false)
     }
-  }, [document.id, name, onDeleted, scope, erases, t, tFiles, locale])
+  }, [document.id, name, onDeleted, erases, t, tFiles, locale])
 
   const download = useCallback(async (): Promise<void> => {
     setDownloadFailed(false)

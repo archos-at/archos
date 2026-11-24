@@ -52,8 +52,8 @@ export function updateFolderHandler<P extends { folderId: string }>(
   }
 }
 
-export function deleteFolderHandler<P extends { folderId: string }>(
-  remove: (params: P, session: AuthorizedSession, request: Request) => Promise<Outcome<{ result: DeleteFolderResult }>>,
+export function deleteFolderHandler<P extends { folderId: string }, R extends object = DeleteFolderResult>(
+  remove: (params: P, session: AuthorizedSession, request: Request) => Promise<Outcome<{ result: R }>>,
 ) {
   return async ({ session, params, request }: ApiContext<P>): Promise<unknown> =>
     unwrap(await remove(params, session, request)).result

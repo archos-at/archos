@@ -120,6 +120,30 @@ function answerNorms(path: string, method: string, body: string, state: ShelfSta
   return null
 }
 
+const binEntry = (folderId: string, name: string, documents: number, folders: number, document: { id: string; name: string } | null) => ({
+  folderId,
+  name,
+  path: name,
+  deletedAt: '2026-11-24T09:12:00Z',
+  deletedBy: { userId: 'user-maria', name: 'Maria Huber' },
+  purgeAfter: '2026-12-08T09:12:00Z',
+  status: 'pending',
+  documents,
+  folders,
+  canRestore: true,
+  restoreBlocked: null,
+  document,
+})
+
+const OFFICE_SHELF_BIN = {
+  entries: [
+    binEntry('bin-guides', 'Leitfäden 2019', 6, 2, null),
+    binEntry('bin-doc', 'Bauordnung_Kommentar_alt.pdf', 1, 1, { id: 'doc-old', name: 'Bauordnung_Kommentar_alt.pdf' }),
+  ],
+  canPurge: true,
+  nextCursor: null,
+}
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -131,6 +155,7 @@ function answer(url: string, method: string, body: string, state: ShelfState): R
   if (path === '/api/documents' && method === 'GET') {
     return json({ documents: state.files, collectionName: 'archiv_dev', canManage: true })
   }
+  if (path === '/api/office-shelf/bin' && method === 'GET') return json(OFFICE_SHELF_BIN)
   if (path === '/api/office-shelf/folders' && method === 'GET') return json({ folders: state.folders })
   if (path === '/api/office-shelf/folders' && method === 'POST') {
     const created = folder(`f-${state.folders.length + 1}`, 'Neuer Ordner', 'Neuer Ordner', null)

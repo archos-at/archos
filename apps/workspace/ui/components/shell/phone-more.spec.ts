@@ -67,3 +67,25 @@ describe('moreDestinations: what "Mehr" lists', () => {
     expect(keys({ canManagePlatform: true })).toEqual(['profile', 'memory', 'platform', 'whats-new'])
   })
 })
+
+describe('moreDestinations under Persönlich (ADR-0193)', () => {
+  test('lists the office’s places and the account, never a project’s', () => {
+    const keys = moreDestinations(null, '/app/personal/chat', ALL).map((destination) => destination.key)
+    expect(keys).toContain('officeShelf')
+    expect(keys).toContain('profile')
+    expect(keys).not.toContain('files')
+    expect(keys).not.toContain('automation')
+    expect(keys).not.toContain('knowledge')
+  })
+
+  test('never lists what the personal tab bar carries', () => {
+    const keys = moreDestinations(null, '/app/personal-shelf', ALL).map((destination) => destination.key)
+    expect(keys).not.toContain('inbox')
+    expect(keys).not.toContain('personalShelf')
+  })
+
+  test('off both sides it is the account alone, as before', () => {
+    const groups = new Set(moreDestinations(null, '/app/inbox', ALL).map((destination) => destination.group))
+    expect([...groups].every((group) => group === 'account' || group === 'help')).toBe(true)
+  })
+})

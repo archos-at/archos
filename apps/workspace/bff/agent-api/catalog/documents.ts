@@ -101,10 +101,11 @@ export const documentsOperations = [
   {
     name: 'document-bin',
     domain: 'documents',
-    summary: 'Move a project document to the bin',
+    summary: 'Move a project or office shelf document to the bin',
     description:
-      'Deletes a project document restorably: out of every listing and every answer, in the project’s bin until `purgeAfter`. ' +
-      'Undo with document-restore. The office shelf has no bin (409).',
+      'Deletes a project or office shelf document restorably: out of every listing and every answer, in its shelf’s bin until ' +
+      '`purgeAfter`. Undo with document-restore. A person’s own shelf has no bin, a norm leaves through the base knowledge, ' +
+      'and a legal hold refuses it (each 409).',
     method: 'POST',
     path: '/api/documents/[id]/bin',
     params: documentParams,

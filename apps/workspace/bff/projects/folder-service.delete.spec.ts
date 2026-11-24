@@ -39,7 +39,7 @@ describe('deleteProjectFolder', () => {
 
     const result = await deleteProjectFolder({ projectId: 'proj-1', folderId: 'f-1' }, session, request)
 
-    expect(moveFolderToBin).toHaveBeenCalledWith(session, { projectId: 'proj-1', folderId: 'f-1' }, request)
+    expect(moveFolderToBin).toHaveBeenCalledWith(session, { shelf: { kind: 'project', projectId: 'proj-1' }, folderId: 'f-1' }, request)
     expect(result).toEqual({ documentsBinned: 2, foldersBinned: 1, purgeAfter: new Date('2026-10-20T03:00:00Z') })
   })
 

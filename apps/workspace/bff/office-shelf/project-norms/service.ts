@@ -13,7 +13,7 @@ import { withCovers } from './cover'
 import { heldWorks } from './held-works'
 import { moveNormsToOfficeShelf, writableProjectNorm } from './move'
 import { offerable, offerOf, recognizedNorms, undecided } from './placement'
-import { keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
+import { binnedOfficeDocuments, keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
 import { suggestedNormDocuments, suggestNormsForOfficeShelf } from './suggest'
 import type {
   ListProjectNormsQuery,
@@ -44,20 +44,21 @@ async function offersAmong(
   return offerable(read, { ...decisions, works }).map(offerOf)
 }
 
-function referenceState(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView['state'] {
-  if (!row.officeDocumentId) return 'removed'
-  return entries.has(row.officeDocumentId) ? 'in_office_shelf' : 'unlisted'
+function referenceState(officeDocumentId: string | null, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView['state'] {
+  if (!officeDocumentId) return 'removed'
+  return entries.has(officeDocumentId) ? 'in_office_shelf' : 'unlisted'
 }
 
-function referenceView(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView {
+function referenceView(row: OfficeShelfReference, entries: ReadonlyMap<string, string>, binned: ReadonlySet<string>): OfficeShelfReferenceView {
+  const officeDocumentId = row.officeDocumentId && !binned.has(row.officeDocumentId) ? row.officeDocumentId : null
   return {
     id: row.id,
     fileName: row.fileName,
     folderId: row.folderId,
     placedAs: row.placedAs,
-    state: referenceState(row, entries),
-    officeDocumentId: row.officeDocumentId,
-    entryId: row.officeDocumentId ? (entries.get(row.officeDocumentId) ?? null) : null,
+    state: referenceState(officeDocumentId, entries),
+    officeDocumentId,
+    entryId: officeDocumentId ? (entries.get(officeDocumentId) ?? null) : null,
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy,
   }
@@ -82,15 +83,16 @@ export async function listProjectNorms(
     canWriteFolder(session, projectId, folderId),
   ])
   const listed = references.slice(0, limit)
-  const entries = await entryIdsForDocuments(
-    session.organizationId,
-    listed.flatMap((row) => (row.officeDocumentId ? [row.officeDocumentId] : [])),
-  )
+  const officeDocumentIds = listed.flatMap((row) => (row.officeDocumentId ? [row.officeDocumentId] : []))
+  const [entries, binned] = await Promise.all([
+    entryIdsForDocuments(session.organizationId, officeDocumentIds),
+    binnedOfficeDocuments(session.organizationId, officeDocumentIds),
+  ])
   return {
     canManageOfficeShelf: canManageOfficeShelf(session),
     canWrite,
     offers: canWrite ? await offersAmong(session, projectId, rows) : [],
-    references: listed.map((row) => referenceView(row, entries)),
+    references: listed.map((row) => referenceView(row, entries, binned)),
     nextCursor: references.length > limit ? String(start + limit) : null,
   }
 }

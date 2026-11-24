@@ -34,10 +34,13 @@ vi.mock('@/lib/inbox/service', () => ({
   markUnread: vi.fn(async () => RESULT),
   archiveItem: vi.fn(async () => RESULT),
   unarchiveItem: vi.fn(async () => RESULT),
+  archiveAll: vi.fn(async () => ({ ...RESULT, archivedAt: '2026-11-24T10:00:00.000Z' })),
+  unarchiveAll: vi.fn(async () => RESULT),
   getInboxSummary: vi.fn(async () => ({ pending: 2 })),
 }))
 
 import {
+  archiveAll,
   archiveItem,
   listInbox,
   markAllRead,
@@ -45,6 +48,7 @@ import {
   markMarksSetReadFor,
   markRead,
   markUnread,
+  unarchiveAll,
   unarchiveItem,
   unreadAnchorsFor,
 } from '@/lib/inbox/service'
@@ -55,6 +59,7 @@ import { POST as unread } from './unread/route'
 import { GET as unreadAnchors } from './unread-anchors/route'
 import { GET as summary } from './summary/route'
 import { DELETE as unarchive, POST as archive } from './[id]/archive/route'
+import { DELETE as restoreAll, POST as emptyInbox } from './archive/route'
 
 type Handler = (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<Response>
 const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
@@ -63,6 +68,8 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
   { pattern: /^\/api\/inbox\/read$/, method: 'POST', handler: read },
   { pattern: /^\/api\/inbox\/unread$/, method: 'POST', handler: unread },
   { pattern: /^\/api\/inbox\/unread-anchors$/, method: 'GET', handler: unreadAnchors },
+  { pattern: /^\/api\/inbox\/archive$/, method: 'POST', handler: emptyInbox },
+  { pattern: /^\/api\/inbox\/archive$/, method: 'DELETE', handler: restoreAll },
   { pattern: /^\/api\/inbox\/([^/]+)\/archive$/, method: 'POST', handler: archive },
   { pattern: /^\/api\/inbox\/([^/]+)\/archive$/, method: 'DELETE', handler: unarchive },
 ]
@@ -187,5 +194,23 @@ describe('/api/inbox/{id}/archive', () => {
     expect(archiveItem).toHaveBeenCalledWith(SESSION, ITEM)
     await client.unarchive(ITEM)
     expect(unarchiveItem).toHaveBeenCalledWith(SESSION, ITEM)
+  })
+})
+
+describe('/api/inbox/archive', () => {
+  it('empties the inbox with POST and undoes exactly that with DELETE', async () => {
+    expect(await client.archiveAll()).toEqual({ ...RESULT, archivedAt: '2026-11-24T10:00:00.000Z' })
+    expect(archiveAll).toHaveBeenCalledWith(SESSION)
+    expect(await client.unarchiveAll('2026-11-24T10:00:00.000Z')).toEqual(RESULT)
+    expect(unarchiveAll).toHaveBeenCalledWith(SESSION, '2026-11-24T10:00:00.000Z')
+  })
+
+  it('refuses to empty without { all: true }, and to undo without a time', async () => {
+    const send = (method: string, body: unknown) =>
+      serve('/api/inbox/archive', { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    expect((await send('POST', {})).status).toBe(400)
+    expect((await send('DELETE', { archivedAt: 'yesterday' })).status).toBe(400)
+    expect(archiveAll).not.toHaveBeenCalled()
+    expect(unarchiveAll).not.toHaveBeenCalled()
   })
 })

@@ -3,7 +3,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { CheckCheck } from 'lucide-react'
+import { Archive } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -174,7 +174,17 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
   }, [entries, pickedId, picked, pick, archive, list, router])
 
   const count = (key: InboxTab): number => (key === 'waiting' ? list.counts.requests : key === 'news' ? list.counts.unread : 0)
-  const hasUnread = entries.some((item) => !item.read)
+  const hasAnything = entries.length > 0 || list.pending > 0 || list.counts.unread > 0
+  const archiveAll = (): void => {
+    go({ item: null })
+    void list.archiveAll().then((archivedAt) => {
+      if (!archivedAt) return
+      toast(t('inbox.archivedAll'), {
+        duration: ARCHIVE_UNDO_MS,
+        action: { label: t('inbox.undo'), onClick: () => void list.unarchiveAll(archivedAt) },
+      })
+    })
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="inbox-workspace">
@@ -198,12 +208,12 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
             className={cn('text-muted-foreground shrink-0', tab === 'archived' && 'invisible')}
             aria-hidden={tab === 'archived' || undefined}
             tabIndex={tab === 'archived' ? -1 : undefined}
-            disabled={tab === 'archived' || !hasUnread || list.mutating}
-            onClick={() => void list.markAllRead()}
-            data-testid="inbox-mark-all-read"
+            disabled={tab === 'archived' || !hasAnything || list.mutating}
+            onClick={archiveAll}
+            data-testid="inbox-archive-all"
           >
-            <CheckCheck aria-hidden />
-            {t('inbox.markAllReadShort')}
+            <Archive aria-hidden />
+            {t('inbox.archiveAll')}
           </Button>
         </div>
       </div>

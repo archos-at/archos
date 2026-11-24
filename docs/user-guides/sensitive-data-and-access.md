@@ -435,8 +435,11 @@ absent for everyone, organization admins included: not listed, not searchable,
 not in ARCHOS's answers, not openable or downloadable from a link. Its
 documents are taken out of ARCHOS's search index at once.
 
-This is a project's Ablage. A folder in the **Bürobibliothek** has no Papierkorb:
-deleting it moves its documents and subfolders into the folder above.
+This is a project's Ablage. The **Bürobibliothek** has a Papierkorb of its own
+that works the same way (ADR-0195), with two differences: whoever may manage the
+Bürobibliothek deletes, restores and deletes for good there, and a folder or a
+document under a legal hold cannot be deleted at all. A topic of Normen &
+Richtlinien still moves its norms into the topic above when it is deleted.
 
 You may delete a folder when you may edit it and every folder inside it. If it
 holds a folder you may not read, or may only read, ARCHOS refuses with „Dieser

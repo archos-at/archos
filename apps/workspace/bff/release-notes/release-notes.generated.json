@@ -41,6 +41,14 @@
         },
         {
           "section": "features",
+          "area": "collaboration",
+          "text": {
+            "en": "„Alle archivieren“ empties the Postfach in one press, requests that wait on you included, and „Rückgängig“ brings everything back. The annotations and conversations behind the entries stay as they are, and anything new on one of them brings its entry back.",
+            "de": "„Alle archivieren“ leert das Postfach mit einem Klick – einschließlich Anfragen, bei denen Sie am Zug sind. „Rückgängig“ stellt alles wieder her. Anmerkungen und Konversationen zu den Einträgen bleiben unverändert, und neue Aktivitäten zu einem Eintrag holen ihn zurück."
+          }
+        },
+        {
+          "section": "features",
           "area": "documents",
           "text": {
             "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
@@ -85,6 +93,14 @@
           "text": {
             "en": "Measurements on a drawing now add up: the list of kept measurements shows a total for lengths and for areas. A measured area also states its perimeter, and a measured distance tells you whether the dimension printed on the plan agrees with it.",
             "de": "Messungen in einer Zeichnung werden jetzt aufsummiert: Die Liste gespeicherter Messungen zeigt die Gesamtlängen und -flächen. Bei einer gemessenen Fläche wird auch ihr Umfang angezeigt, und bei einer gemessenen Strecke sehen Sie, ob das auf dem Plan angegebene Maß damit übereinstimmt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Bürobibliothek has its own Papierkorb, opened from its glyph in the header as in a project's Ablage. A folder or a document deleted there goes to the bin with what it holds and can be restored for 14 days before it is deleted for good.",
+            "de": "Die Bürobibliothek hat einen eigenen Papierkorb, der sich wie in der Ablage eines Projekts über sein Symbol im Kopf öffnet. Ein dort gelöschter Ordner oder ein gelöschtes Dokument kommt mit allem, was darin liegt, in den Papierkorb und lässt sich 14 Tage lang wiederherstellen, bevor es endgültig gelöscht wird."
           }
         },
         {
@@ -289,6 +305,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
+            "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
@@ -363,8 +387,32 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
+            "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
+            "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "upgrade",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a folder in the Bürobibliothek no longer moves its documents into the folder above; they go to the bin with it. A topic of Normen & Richtlinien still moves its norms up a level, and a norm is still removed from there.",
+            "de": "Wer in der Bürobibliothek einen Ordner löscht, verschiebt seine Dokumente nicht mehr in den Ordner darüber; sie kommen mit ihm in den Papierkorb. Ein Thema in Normen & Richtlinien verschiebt seine Normen weiterhin eine Ebene nach oben, und eine Norm wird weiterhin dort entfernt."
           }
         }
       ]

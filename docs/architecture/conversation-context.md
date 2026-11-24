@@ -156,7 +156,7 @@ admits it apart from folders (`admitPersonalShelf`,
 `bff/conversations/personal-shelf-use.ts`): only the asker's own, only under a
 signed chat decision that allows it, and only while the chat row exists, has no
 project and is the owner's alone, under the audience lock. An admission sets
-`conversations.personal_shelf_used_at` (migration 0264) and the answer's
+`conversations.personal_shelf_used_at` (migration 0265) and the answer's
 `read_personal_shelf`. The in-product agent's workspace reads take the same
 admission in its read gate before #1901's door lets the turn's session through.
 A widening of such a chat is refused with `personal-shelf-content` until its

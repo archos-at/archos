@@ -37,7 +37,7 @@ export function RailModeSwitch({ mode, collapsed }: { mode: RailMode; collapsed:
         title={collapsed ? label : undefined}
         data-testid={`rail-mode-${value}`}
         className={cn(
-          'h-8 gap-1.5 rounded-[4px] px-2 text-[13px] font-normal hover:bg-transparent data-[state=on]:font-medium',
+          'h-8 gap-1.5 rounded-[4px] px-2 text-[13px] font-normal hover:bg-transparent data-[state=on]:font-medium pointer-coarse:h-11',
           on,
           collapsed && 'size-8 px-0'
         )}

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Archive, Bell, FolderKanban, MoreHorizontal } from 'lucide-react'
+import { Archive, Bell, Folder, FolderKanban, MoreHorizontal } from 'lucide-react'
 
 import { TOUR_ANCHORS, sectionAnchor } from '@/lib/onboarding/product-tour'
 import {
@@ -8,8 +8,9 @@ import {
   sectionLinkHref,
   type ProjectSectionKey,
 } from './project-sections'
+import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from './rail-mode'
 
-export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'projects' | 'officeShelf' | 'more'
+export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'projects' | 'officeShelf' | 'personalShelf' | 'more'
 
 export interface PhoneTabLabel {
   namespace: 'nav' | 'collaboration'
@@ -84,16 +85,47 @@ export function projectPhoneTabs(
     projectTab('settings', base, pathname),
   ]
   if (flags.canAccessInbox) tabs.push(inboxTab(pathname, sectionAnchor('inbox')))
+  return withMore(tabs)
+}
+
+function withMore(tabs: PhoneTab[]): PhoneTab[] {
   const somewhereElse = !tabs.some((tab) => tab.active)
-  tabs.push({
-    key: 'more',
-    href: null,
-    icon: MoreHorizontal,
-    label: { namespace: 'nav', key: 'tabBar.more' },
-    active: somewhereElse,
-    tourAnchor: TOUR_ANCHORS.more,
-  })
-  return tabs
+  return [
+    ...tabs,
+    {
+      key: 'more',
+      href: null,
+      icon: MoreHorizontal,
+      label: { namespace: 'nav', key: 'tabBar.more' },
+      active: somewhereElse,
+      tourAnchor: TOUR_ANCHORS.more,
+    },
+  ]
+}
+
+export function personalPhoneTabs(pathname: string, flags: PhoneTabFlags): PhoneTab[] {
+  const chat = projectSection('chat')
+  if (!chat) throw new Error('unknown project section: chat')
+  const tabs: PhoneTab[] = [
+    {
+      key: 'chat',
+      href: NEW_PERSONAL_CHAT_HREF,
+      icon: chat.icon,
+      label: { namespace: 'nav', key: `sections.${chat.i18nKey}` },
+      active: isUnder(pathname, PERSONAL_CHAT_PATH),
+      tourAnchor: 'tab-personal-chat',
+    },
+    {
+      key: 'personalShelf',
+      href: PERSONAL_SHELF_PATH,
+      icon: Folder,
+      label: { namespace: 'nav', key: 'personalShelf' },
+      active: isUnder(pathname, PERSONAL_SHELF_PATH),
+      tourAnchor: 'tab-personal-shelf',
+    },
+  ]
+  if (flags.canAccessInbox) tabs.push(inboxTab(pathname, TOUR_ANCHORS.inbox))
+  return withMore(tabs)
 }
 
 export function orgPhoneTabs(pathname: string, flags: PhoneTabFlags): PhoneTab[] {

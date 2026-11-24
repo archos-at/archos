@@ -1,4 +1,4 @@
-import { and, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { documents } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 
@@ -57,7 +57,13 @@ export function documentShelf(doc: {
   return null
 }
 
-export function shelfDocumentWhere(shelf: DocumentShelf, organizationId: string): SQL {
+export function binShelfOf(folder: { scope: string; projectId: string | null }): SharedShelf | null {
+  if (folder.scope === 'project' && folder.projectId) return projectShelf(folder.projectId)
+  if (folder.scope === 'office_shelf') return OFFICE_SHELF
+  return null
+}
+
+export function shelfDocumentsOf(shelf: DocumentShelf, organizationId: string): SQL {
   return and(
     eq(documents.organizationId, organizationId),
     eq(documents.scope, shelfScope(shelf)),
@@ -66,14 +72,25 @@ export function shelfDocumentWhere(shelf: DocumentShelf, organizationId: string)
   ) as SQL
 }
 
-export function shelfFolderWhere(shelf: DocumentShelf, organizationId: string): SQL {
+export function outsideTheBin(): SQL {
+  return sql`NOT EXISTS (SELECT 1 FROM project_folders bin_folder WHERE bin_folder.id = ${documents.folderId} AND bin_folder.deleted_at IS NOT NULL)`
+}
+
+export function shelfDocumentWhere(shelf: DocumentShelf, organizationId: string): SQL {
+  return and(shelfDocumentsOf(shelf, organizationId), outsideTheBin()) as SQL
+}
+
+export function shelfFoldersOf(shelf: DocumentShelf, organizationId: string): SQL {
   return and(
     eq(projectFolders.organizationId, organizationId),
     eq(projectFolders.scope, shelfScope(shelf)),
-    isNull(projectFolders.deletedAt),
     ...(shelf.kind === 'project' ? [eq(projectFolders.projectId, shelf.projectId)] : []),
     ...(shelf.kind === 'personal' ? [eq(projectFolders.ownerUserId, shelf.userId)] : []),
   ) as SQL
+}
+
+export function shelfFolderWhere(shelf: DocumentShelf, organizationId: string): SQL {
+  return and(shelfFoldersOf(shelf, organizationId), isNull(projectFolders.deletedAt)) as SQL
 }
 
 export function shelfOwner(

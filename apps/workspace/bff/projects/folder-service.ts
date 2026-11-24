@@ -229,7 +229,7 @@ export async function deleteProjectFolder(
   request?: Request,
 ): Promise<BinFolderResult> {
   const { moveFolderToBin } = await import('./folder-bin')
-  return moveFolderToBin(session, input, request)
+  return moveFolderToBin(session, { shelf: projectShelf(input.projectId), folderId: input.folderId }, request)
 }
 
 export function mirrorFolderPathRewrite(

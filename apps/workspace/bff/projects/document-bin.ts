@@ -1,15 +1,17 @@
 import 'server-only'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { requireFolderWrite } from '@/lib/authz/folder-access'
+import { assertNoActiveHold } from '@/lib/compliance/holds'
 import { getDb } from '@/lib/db'
+import type { Document } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
 import { findDocumentForSession } from '@/lib/documents/access'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
-import { projectShelf } from '@/lib/documents/shelf'
+import { documentShelf, type SharedShelf } from '@/lib/documents/shelf'
 import { FOLDER_NAME_TAKEN } from '@/lib/documents/shelf-folders'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
+import { binPolicyOf } from './bin-shelf'
 import { deleteEmptyCreatedFolder } from './cleanup-repository'
 import { moveFolderToBin, restoreFolderFromBin } from './folder-bin'
 import { findActiveBinEntry, findFolderInOrg, type FolderBinPayload } from './folder-bin-repository'
@@ -19,27 +21,27 @@ import {
   type DocumentBinResult,
   type DocumentRestoreResult,
 } from './folder-bin-wire'
-import { createProjectFolder } from './folder-service'
 import { normalizeFolderName, validateFolderName } from './folders'
 
 export const DOCUMENT_NOT_IN_BIN_REASON = 'document-not-in-bin'
 
 const HOLDER_NAME_MAX = 110
 
-async function projectDocumentFor(session: AuthorizedSession, documentId: string) {
+async function shelfDocumentFor(session: AuthorizedSession, documentId: string): Promise<{ doc: Document; shelf: SharedShelf }> {
   const doc = await findDocumentForSession(session, documentId)
   if (!doc) throw new NotFoundError('Document not found')
-  if (doc.scope !== 'project' || doc.projectId === null) {
-    throw new ConflictError('Only a project document can go to the bin; an office shelf document is deleted permanently.', {
+  const shelf = documentShelf(doc)
+  if (!shelf || shelf.kind === 'personal') {
+    throw new ConflictError('Only a project or office shelf document can go to the bin; this one is deleted permanently.', {
       reason: DOCUMENT_HAS_NO_BIN_REASON,
     })
   }
-  return { doc, projectId: doc.projectId }
+  return { doc, shelf }
 }
 
-async function folderOf(organizationId: string, projectId: string, folderId: string | null) {
+async function folderOf(organizationId: string, shelf: SharedShelf, folderId: string | null) {
   if (!folderId) return null
-  return withTenant({ organizationId }, () => findFolderInOrg(getDb(), organizationId, projectId, folderId))
+  return withTenant({ organizationId }, () => findFolderInOrg(getDb(), shelf, organizationId, folderId))
 }
 
 function holderName(documentName: string, attempt: number): string {
@@ -49,9 +51,10 @@ function holderName(documentName: string, attempt: number): string {
   return checked.ok && checked.name ? checked.name : `${attempt}`
 }
 
-async function makeHolder(session: AuthorizedSession, projectId: string, parentId: string | null, documentName: string) {
+async function makeHolder(session: AuthorizedSession, shelf: SharedShelf, parentId: string | null, documentName: string) {
+  const policy = binPolicyOf(shelf)
   for (let attempt = 1; attempt <= 20; attempt++) {
-    const created = await createProjectFolder({ projectId, parentId, name: holderName(documentName, attempt) }, session)
+    const created = await policy.createHolder(session, parentId, holderName(documentName, attempt))
     if (created.ok) return created.folder
     if (created.error !== FOLDER_NAME_TAKEN) throw new BadRequestError(created.error)
   }
@@ -63,31 +66,32 @@ export async function moveDocumentToBin(
   documentId: string,
   request?: Request
 ): Promise<DocumentBinResult> {
-  const { doc, projectId } = await projectDocumentFor(session, documentId)
-  await requireFolderWrite(session, projectId, [doc.folderId])
-  const current = await folderOf(session.organizationId, projectId, doc.folderId)
+  const { doc, shelf } = await shelfDocumentFor(session, documentId)
+  await binPolicyOf(shelf).assertMayBinDocument(session, doc)
+  await assertNoActiveHold(session.organizationId, 'document', documentId)
+  const current = await folderOf(session.organizationId, shelf, doc.folderId)
   if (current?.deletedAt) throw new ConflictError('This document is already in the bin.')
 
-  const holder = await makeHolder(session, projectId, doc.folderId, documentDisplayName(doc))
+  const holder = await makeHolder(session, shelf, doc.folderId, documentDisplayName(doc))
   let moved = false
   try {
     const into = await moveDocumentToFolder({ documentId, folderId: holder.id, expectedFolderId: doc.folderId }, session)
     if (!into.ok) throw new BadRequestError(into.error)
     moved = true
-    const binned = await moveFolderToBin(session, { projectId, folderId: holder.id }, request, {
+    const binned = await moveFolderToBin(session, { shelf, folderId: holder.id }, request, {
       onlyDocuments: [documentId],
       documentId,
     })
     return { documentId, binEntryId: holder.id, purgeAfter: binned.purgeAfter.toISOString() }
   } catch (error) {
-    await undoBin(session, projectId, documentId, doc.folderId, holder.id, moved)
+    await undoBin(session, shelf, documentId, doc.folderId, holder.id, moved)
     throw error
   }
 }
 
 async function undoBin(
   session: AuthorizedSession,
-  projectId: string,
+  shelf: SharedShelf,
   documentId: string,
   folderId: string | null,
   holderId: string,
@@ -98,11 +102,11 @@ async function undoBin(
       const back = await moveDocumentToFolder({ documentId, folderId, expectedFolderId: holderId }, session)
       if (!back.ok) throw new Error(back.error)
     }
-    if (await deleteEmptyCreatedFolder(session.organizationId, projectId, holderId)) {
-      publishShelfChanged(session.organizationId, projectShelf(projectId), { folders: true })
+    if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holderId)) {
+      publishShelfChanged(session.organizationId, shelf, { folders: true })
     }
   } catch (error) {
-    console.error(`[document-bin] undoing a failed bin of ${documentId} in project ${projectId} failed`, error)
+    console.error(`[document-bin] undoing a failed bin of ${documentId} on ${shelf.kind} failed`, error)
   }
 }
 
@@ -111,8 +115,8 @@ export async function restoreDocumentFromBin(
   documentId: string,
   request?: Request
 ): Promise<DocumentRestoreResult> {
-  const { doc, projectId } = await projectDocumentFor(session, documentId)
-  const holder = await folderOf(session.organizationId, projectId, doc.folderId)
+  const { doc, shelf } = await shelfDocumentFor(session, documentId)
+  const holder = await folderOf(session.organizationId, shelf, doc.folderId)
   if (!holder?.deletedAt || holder.purgedAt) {
     throw new ConflictError('This document is not in the bin.', { reason: DOCUMENT_NOT_IN_BIN_REASON })
   }
@@ -128,12 +132,12 @@ export async function restoreDocumentFromBin(
     })
   }
 
-  const { restoredTo } = await restoreFolderFromBin(session, { projectId, folderId: holder.id }, request)
+  const { restoredTo } = await restoreFolderFromBin(session, { shelf, folderId: holder.id }, request)
   const target = restoredTo === 'root' ? null : holder.parentId
   const back = await moveDocumentToFolder({ documentId, folderId: target, expectedFolderId: holder.id }, session)
   if (!back.ok) throw new BadRequestError(back.error)
-  if (await deleteEmptyCreatedFolder(session.organizationId, projectId, holder.id)) {
-    publishShelfChanged(session.organizationId, projectShelf(projectId), { folders: true })
+  if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holder.id)) {
+    publishShelfChanged(session.organizationId, shelf, { folders: true })
   }
   return { documentId, folderId: target, restoredTo }
 }

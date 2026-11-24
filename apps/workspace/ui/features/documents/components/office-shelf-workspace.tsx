@@ -11,7 +11,13 @@ import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
+import { FolderBinDialog } from './folder-bin-dialog'
+import { binHrefOf } from '../lib/bin-href'
+import { useBinParam } from '../hooks/use-bin-param'
 import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
+
+const OFFICE_SHELF_HREF = '/app/office-shelf'
+const OFFICE_SHELF_BIN = { kind: 'office_shelf' } as const
 
 export interface OfficeShelfWorkspaceProps {
   canManage: boolean
@@ -39,6 +45,7 @@ export function OfficeShelfWorkspace({
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
   const phone = usePhoneLayout()
+  const bin = useBinParam()
 
   const shelf: FileShelf = {
     source: 'office',
@@ -63,6 +70,7 @@ export function OfficeShelfWorkspace({
     },
     showModels,
     fileActions,
+    bin: { href: binHrefOf(OFFICE_SHELF_HREF) },
   }
 
 
@@ -84,6 +92,7 @@ export function OfficeShelfWorkspace({
           )}
         />
       </SectionToolRowScope>
+      <FolderBinDialog shelf={OFFICE_SHELF_BIN} open={bin.open} onOpenChange={bin.setOpen} />
     </SectionPlaceScope>
   )
 }

@@ -10,7 +10,7 @@ import {
   type DocumentListRow,
   type DocumentNameMatchRow,
 } from '@/lib/documents/repository'
-import { OFFICE_SHELF } from '@/lib/documents/shelf'
+import { OFFICE_SHELF, outsideTheBin } from '@/lib/documents/shelf'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
 
 export function listOfficeShelfDocumentLevel(
@@ -50,6 +50,7 @@ export async function findOfficeShelfDocument(
         eq(documents.id, documentId),
         eq(documents.organizationId, organizationId),
         eq(documents.scope, 'office_shelf'),
+        outsideTheBin(),
         documentVisibleTo(reader),
       ),
     )
