@@ -8,7 +8,7 @@ import { ArrowDownNarrowWide, ArrowUpNarrowWide, SlidersHorizontal } from 'lucid
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CountPill } from '@/components/ui/count-pill'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -38,6 +38,7 @@ export interface FileFilterMenuProps {
   tagOptions?: readonly TagOption[]
   compact?: boolean
   defaultOpen?: boolean
+  anchored?: { anchor: ReactNode; open: boolean; onOpenChange: (open: boolean) => void }
 }
 
 const SORT_KEYS: readonly FileSortKey[] = ['added', 'name', 'status', 'size']
@@ -60,6 +61,7 @@ export function FileFilterMenu({
   tagOptions = [],
   compact = false,
   defaultOpen,
+  anchored,
 }: FileFilterMenuProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const count = activeFilterCount(filters, canCollaborate)
@@ -81,7 +83,12 @@ export function FileFilterMenu({
   const DirectionIcon = sort.direction === 'asc' ? ArrowUpNarrowWide : ArrowDownNarrowWide
 
   return (
-    <Popover defaultOpen={defaultOpen}>
+    <Popover defaultOpen={defaultOpen} {...(anchored ? { open: anchored.open, onOpenChange: anchored.onOpenChange } : {})}>
+      {anchored ? (
+        <PopoverAnchor asChild>
+          <span className="inline-flex">{anchored.anchor}</span>
+        </PopoverAnchor>
+      ) : (
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -104,6 +111,7 @@ export function FileFilterMenu({
           )}
         </Button>
       </PopoverTrigger>
+      )}
       {/* Five sections is taller than a short laptop's viewport with the
           header above it, and a popover that runs off the bottom of the screen
           hides the reset. It scrolls inside itself rather than growing. */}
@@ -111,6 +119,7 @@ export function FileFilterMenu({
         align="end"
         collisionPadding={16}
         className="max-h-[min(70dvh,34rem)] w-72 max-w-[calc(100vw-2rem)] space-y-4 overflow-y-auto p-4"
+        onFocusOutside={anchored ? (event) => event.preventDefault() : undefined}
         data-testid="file-filter-menu"
       >
         {!sortDisabled && (

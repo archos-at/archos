@@ -277,7 +277,8 @@ What slice 1 fixes, so no builder has to guess:
 1. **The BFF decides and dual-writes.** `turn-decision` exists, and the socket
    envelope still carries the old `collectionScope`.
 2. **Python binds the decision before any scope read.** A bound decision is the
-   only scope, and its signature alone authorizes a restricted read. Where a
+   only scope. Its signature authorizes only the scope it names; each restricted
+   read still needs live admission (`admit`, under the audience lock). Where a
    decision is required (`require_auth`) and missing or refused, the turn reads
    nothing. Only where no decision is required does Python fall back to the old
    envelope scope, inside a valid signature, and a restricted collection there

@@ -13,7 +13,6 @@ export const nav = {
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
   resizeSidebar: 'Resize sidebar',
-  resizeDock: 'Resize the panel beside the page',
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
@@ -62,6 +61,7 @@ export const nav = {
     },
   },
   filesPlaces: 'Document places',
+  projectTeam: 'Project team',
   backTo: 'Back to {label}',
   returnTargets: {
     project: 'the project',
