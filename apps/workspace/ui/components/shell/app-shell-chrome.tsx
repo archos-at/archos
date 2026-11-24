@@ -12,6 +12,7 @@ import { AppSidebar } from './app-sidebar'
 import { OrgHeader } from './org-header'
 import { projectIdFromPathname } from './org-sections'
 import { railModeOf } from './rail-mode'
+import { useRecordLastPlace } from './last-place'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
@@ -53,6 +54,7 @@ export function AppShellChrome({
   ...chrome
 }: AppShellChromeProps): JSX.Element {
   const pathname = usePathname() ?? ''
+  useRecordLastPlace(pathname)
 
   const solidPathRef = React.useRef(keepsTheCoveredChrome(pathname) ? '/app/projects' : pathname)
   if (!keepsTheCoveredChrome(pathname)) solidPathRef.current = pathname

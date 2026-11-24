@@ -2,25 +2,21 @@
 
 A project groups one building's files, folders, chats, research runs and building model under one shared context. Everyone with access works in it, and a chat started in a project searches that project's documents.
 
-## The projects home
+## Where the app opens, and the project overview
 
-The **Projects** page (`/app/projects`) is the app's home, and it is ordered by what you were doing rather than by when projects were created.
+Opening the app (`/app`, also the wordmark in the rail) takes you back to the last place you worked: the chat, the Ablage or the page you had open, under Persönlich or in its project. Your browser keeps that place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, or when that place no longer exists, it opens a new chat under Persönlich.
 
-**Pick up where you left off** — the top of the page carries up to three project cards: the projects *you* last worked in, most recent first. "Worked in" means a message you wrote in one of the project's conversations, so a colleague's busy week never reorders your page. These cards show **You were last here** with your own timestamp. If you have not worked in any project yet, the section is headed **Your projects** instead and simply shows the three most recently updated ones, with the neutral **Last activity** label — the page never claims a "continue" that did not happen.
+The **project overview** (`/app/projects`, „Projektübersicht“) is no longer a home page: it opens over the page you are on, from **Übersicht** at the foot of the project picker, and closes back to it. Opened directly (a link, a reload), it stands as a page of its own.
 
-**More projects** — everything else follows as a dense list, most recent first. Each row carries the project's initials, its name and brief, the document count and the timestamp, plus the same settings gear. A project with no brief yet simply has no second line. Rows lift onto the card surface as you point at them; on narrow screens the counts and the initials drop away and the timestamp stays, because that is what you choose a row by. Fewer than four projects and there is no list at all — the cards are the whole page.
+- **Order.** Active projects first, the ones *you* last worked in at the top ("worked in" means a message you wrote in one of its conversations, so a colleague's busy week never reorders your overview); then paused projects, then closed ones.
+- **Cards.** Each card shows the project's name, a line with its place and its phase (or **Paused** / **Closed** for a project that is not active), its document count, when you last worked in it, and how many mails wait in its E-Mail-Eingang. The project you are in is outlined. Clicking a card opens the project in the section you last used; its gear opens the project's own Übersicht.
+- **Search** („Projekt suchen …“) narrows the cards by name, place or brief.
+- **New project** sits beside the title; `/app/projects?new=1` opens the overview with its dialog already open.
+- Organization admins additionally see **Recently deleted** under the cards, from which soft-deleted projects can be restored during the grace period.
 
-A row carries a status chip only for a project that is not active: **Paused**, **Closed**, or **Not realized** for a closed project that was never built. An **Active** chip on every row would carry nothing. Once your office has a paused or closed project, a filter above the list switches between **Active**, **Paused**, **Closed** and **All**, each with its count; a state with no projects in it has no segment. The page opens on the active projects (or on all of them, when none is active). Only active projects take a place under **Pick up where you left off**: a paused or closed project keeps its place in the list, even if you worked in it last.
+The project picker in the rail lists your projects and ends in two rows, **Übersicht** (the overview above) and **Neues Projekt**. The current project's row carries a gear to its own Übersicht; choosing that row does the same.
 
-Each card is split into a raised header — project name, the same status chip when the project is not active, and the project summary from the brief — and a footer with the activity time (relative, e.g. "2 hours ago") plus a gear icon that jumps straight to that project's settings page. Clicking anywhere else on a card or row opens the project, resuming the section you last used.
-
-The header row carries the page title, a search field, and the **New project** button. Searching collapses both sections into a single **Matches** list — with a query on screen, "continue where you left off" is not the question being asked.
-
-When the Bürobibliothek is enabled for your org, a full-width **Bürobibliothek** entry card appears below the grid and opens `/app/office-shelf` — the office's shared, org-wide knowledge.
-
-Organization admins additionally see a **Recently deleted** section at the bottom, from which soft-deleted projects can be restored during the grace period.
-
-Source: `apps/workspace/app/app/projects/page.tsx`, `apps/workspace/ui/components/projects/`
+Source: `apps/workspace/app/app/page.tsx`, `apps/workspace/ui/components/shell/landing.ts`, `apps/workspace/ui/components/projects/project-overview.tsx`, `apps/workspace/ui/components/shell/project-switcher.tsx`
 
 ## Creating a project
 
@@ -242,7 +238,7 @@ Source: `apps/workspace/bff/authz/projects.ts:7`, `apps/workspace/app/api/projec
 
 ## Navigating between projects
 
-Go to `/app/projects` (the wordmark in the sidebar links there). The projects home shows all projects in your organization as a card grid; clicking a card opens the project in the section you last used, and each card's gear icon opens that project's settings directly.
+Open the project picker at the top of the rail under **Projekt** and choose a project, or open **Übersicht** at its foot for every project as cards ([the project overview](#where-the-app-opens-and-the-project-overview)). A card opens the project in the section you last used; its gear opens that project's own Übersicht.
 
 On desktop, project sections (Chat, Files, History, Jobs, Skills, Bürobibliothek, Settings) are reached via the left sidebar rail; on small screens the rail is replaced by a slim top bar whose menu button opens the same navigation as a drawer.
 

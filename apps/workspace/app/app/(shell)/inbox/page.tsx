@@ -26,7 +26,7 @@ export default async function InboxPage(): Promise<JSX.Element> {
             viewerId={session.userId}
             offer={<NotificationPrompt />}
             title={t('inbox.title')}
-            back={<BackLink fallbackHref="/app/projects" fallbackLabel={t('inbox.page.back')} className="self-start" />}
+            back={<BackLink fallbackHref="/app" fallbackLabel={t('inbox.page.back')} className="self-start" />}
           />
         </div>
       </ShellContent>

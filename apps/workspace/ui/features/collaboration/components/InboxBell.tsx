@@ -77,7 +77,7 @@ export function InboxBell({ compact = false, tourAnchor, pathname: pathnameOverr
     event.preventDefault()
     if (here) {
       if (window.history.length > 1) router.back()
-      else router.push('/app/projects')
+      else router.push('/app')
       return
     }
     setOpen((was) => !was)

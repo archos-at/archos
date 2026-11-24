@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronRight, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, LayoutGrid, Plus, Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -15,6 +16,7 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 import { projectInitials, switcherSections, type ProjectSwitcherProject } from './project-list'
 import { readRecentProjectIds } from './recent-projects'
+import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
 
 export type { ProjectSwitcherProject } from './project-list'
 
@@ -30,6 +32,8 @@ const TILE_CLASS = 'size-9 min-w-0 p-0 pointer-coarse:size-11'
 
 const GROUP_CLASS =
   'p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
+
+const projectHubHref = (projectId: string): string => `/app/projects/${projectId}/settings`
 
 export function ProjectSwitcher({ projects, activeProjectId, collapsed }: ProjectSwitcherProps) {
   const router = useRouter()
@@ -59,7 +63,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
 
   const choose = (projectId: string): void => {
     setOpen(false)
-    if (projectId !== activeProjectId) router.push(`/app/projects/${projectId}/chat`)
+    router.push(projectId === activeProjectId ? projectHubHref(projectId) : `/app/projects/${projectId}/chat`)
   }
   const item = (project: ProjectSwitcherProject): React.JSX.Element => {
     const isCurrent = project.id === activeProjectId
@@ -71,6 +75,23 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
           <span className="text-muted-foreground shrink-0 text-xs">{tProjects(`card.status.${project.status}`)}</span>
         )}
         {isCurrent && <Check className="size-4 shrink-0" aria-hidden />}
+        {isCurrent && (
+          <Button asChild variant="secondary" size="icon" className="text-muted-foreground hover:text-foreground -mr-1 size-7 shrink-0 pointer-coarse:size-9">
+            <Link
+              href={projectHubHref(project.id)}
+              aria-label={t('projectSwitcher.projectSettings', { name: project.name })}
+              title={t('projectSwitcher.projectSettings', { name: project.name })}
+              data-testid="project-switcher-hub"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                setOpen(false)
+              }}
+            >
+              <Settings className="size-3.5" aria-hidden />
+            </Link>
+          </Button>
+        )}
       </CommandItem>
     )
   }
@@ -159,12 +180,25 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                 value="all-projects"
                 onSelect={() => {
                   setOpen(false)
-                  router.push('/app/projects')
+                  router.push(PROJECT_OVERVIEW_PATH)
                 }}
                 className="gap-2.5"
+                data-testid="project-switcher-overview"
               >
-                <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
-                <ChevronRight className="text-muted-foreground size-4" aria-hidden />
+                <LayoutGrid className="text-muted-foreground size-4" aria-hidden />
+                <span className="min-w-0 flex-1">{t('projectSwitcher.overview')}</span>
+              </CommandItem>
+              <CommandItem
+                value="new-project"
+                onSelect={() => {
+                  setOpen(false)
+                  router.push(NEW_PROJECT_PATH)
+                }}
+                className="gap-2.5"
+                data-testid="project-switcher-new"
+              >
+                <Plus className="text-muted-foreground size-4" aria-hidden />
+                <span className="min-w-0 flex-1">{t('projectSwitcher.newProject')}</span>
               </CommandItem>
             </CommandGroup>
           </CommandList>

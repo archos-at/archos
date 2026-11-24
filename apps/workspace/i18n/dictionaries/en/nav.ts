@@ -96,7 +96,7 @@ export const nav = {
     projectSettings: 'Settings for {name}',
     projects: 'Projects',
     allProjects: 'All projects',
-    viewAllProjects: 'View all projects',
+    overview: 'Overview',
     newProject: 'New project',
   },
   inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',

@@ -1,77 +1,9 @@
 import type { JSX } from 'react'
-import { Item, ItemList } from '@/components/ui/item'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ShellContent } from '@/components/shell'
+import { PageSheetSkeleton } from '@/components/shell/page-sheet-skeleton'
 import { getTranslations } from '@/i18n/server'
-import { projectsCopy } from '@/i18n/namespaces/projects'
+import { commonCopy } from '@/i18n/namespaces/common'
 
-export default async function ProjectsLoading(): Promise<JSX.Element> {
-  const t = await getTranslations(projectsCopy)
-  return (
-    <ShellContent width="wide" aria-busy="true">
-      <span className="sr-only" role="status">
-        {t('list.loading')}
-      </span>
-
-      {/* Title + action row — the real header is `min-h-9` with a search field
-          (`h-9`, `sm:w-64`) and the New-project button (`h-9`) beside it. */}
-      <header className="flex min-h-9 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <Skeleton className="h-7 w-40" />
-        <div className="flex w-full items-center gap-2.5 sm:w-auto">
-          <Skeleton className="h-9 w-full rounded-lg sm:w-64" />
-          <Skeleton className="h-9 w-36 shrink-0 rounded-lg" />
-        </div>
-      </header>
-
-      {/* Resume rail (three cards) then the dense list — the page's real shape. */}
-      <div className="mt-7 flex flex-col gap-8">
-        <section>
-          <Skeleton className="mb-3 h-3 w-40" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex min-h-28 flex-col overflow-hidden rounded-lg border border-border bg-muted/50"
-              >
-                <div className="rounded-b-lg bg-card px-4 pb-3 pt-3.5 shadow-xs">
-                  <div className="flex items-center justify-between gap-2.5">
-                    <Skeleton className="h-5 w-2/3 rounded-md" />
-                    <Skeleton className="h-6 w-16 shrink-0 rounded-md" />
-                  </div>
-                  <Skeleton className="mt-0.5 h-4 w-11/12 rounded-md" />
-                </div>
-                <div className="mt-auto flex items-center gap-2 px-4 py-2.5">
-                  <Skeleton className="ml-auto h-4 w-28 rounded-md" />
-                  <Skeleton className="size-7 shrink-0 rounded-lg" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section>
-          <Skeleton className="mb-3 h-3 w-28" />
-          {/* The connected list the projects rows sit in: an `ItemList` of `Item`s,
-              one `ProjectListRow` each (initials tile, name, doc-count column,
-              timestamp column, gear), `h-11`, as listed. */}
-          <ItemList as="ul" className="bg-card">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Item key={i} as="li" className="h-11 gap-3 px-3 py-0">
-                <Skeleton className="hidden size-9 shrink-0 sm:block" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton
-                    className={
-                      i % 2 === 0 ? 'h-4 w-1/3 rounded-md' : 'h-4 w-1/4 rounded-md'
-                    }
-                  />
-                </div>
-                <Skeleton className="hidden h-4 w-[104px] shrink-0 rounded-md lg:block" />
-                <Skeleton className="h-4 w-[72px] shrink-0 rounded-md sm:w-[104px]" />
-                <Skeleton className="size-7 shrink-0 rounded-lg" />
-              </Item>
-            ))}
-          </ItemList>
-        </section>
-      </div>
-    </ShellContent>
-  )
+export default async function ProjectOverviewLoading(): Promise<JSX.Element> {
+  const t = await getTranslations(commonCopy)
+  return <PageSheetSkeleton loadingLabel={t('states.loading')} />
 }

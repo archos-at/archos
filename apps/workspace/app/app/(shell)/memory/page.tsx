@@ -11,7 +11,7 @@ export default async function PersonalMemoryPage(): Promise<JSX.Element> {
     const t = await getTranslations(personalMemoryCopy)
     return (
       <ShellContent className="pb-16 md:pb-10">
-        <BackLink className="touch-target mb-6" fallbackHref="/app/projects" fallbackLabel={t('backToApp')} />
+        <BackLink className="touch-target mb-6" fallbackHref="/app" fallbackLabel={t('backToApp')} />
         <PageHeader className="mb-8" title={t('title')} subtitle={t('subtitle')} subtitleOnPhone />
         <PersonalMemoryPanel />
       </ShellContent>

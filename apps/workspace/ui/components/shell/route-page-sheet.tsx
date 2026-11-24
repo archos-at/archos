@@ -38,7 +38,7 @@ export function RoutePageSheet({
   subtitle,
   closeLabel,
   standalone = false,
-  fallbackHref = '/app/projects',
+  fallbackHref = '/app',
   headerActions,
   headerless,
   bodyClassName,

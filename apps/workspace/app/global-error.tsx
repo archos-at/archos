@@ -67,7 +67,7 @@ export function GlobalErrorScreen({
           <Button asChild>
             {/* A plain anchor on purpose: see the header. */}
             {/* oxlint-disable-next-line next/no-html-link-for-pages -- the root layout crashed, so a full document load is the recovery; client navigation would reuse the broken tree */}
-            <a href="/app/projects">{t('appError.backAction')}</a>
+            <a href="/app">{t('appError.backAction')}</a>
           </Button>
           <Button variant="ghost" asChild>
             <a href={errorReportHref(t, address, digest)}>{t('appError.report')}</a>

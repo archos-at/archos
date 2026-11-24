@@ -6,7 +6,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider } from '@/i18n'
 import { ProjectSwitcher } from './project-switcher'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+const push = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 
 const PROJECTS = [
   { id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12' },
@@ -52,8 +53,34 @@ describe('the project selector is one press', () => {
     expect(options.map((option) => option.textContent)).toEqual([
       'Wohnbau Seestadt Baufeld D12',
       'Sanierung Amtshaus Favoriten',
-      'View all projects',
+      'Overview',
+      'New project',
     ])
     expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+
+  test('ends in the concept’s two rows: the overview of every project, and a new one', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(selector())
+    await user.click(await screen.findByRole('option', { name: 'Overview' }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects')
+    await user.click(selector())
+    await user.click(await screen.findByRole('option', { name: 'New project' }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects?new=1')
+  })
+
+  test('reaches the current project’s own Übersicht from its row: the gear, or choosing the row itself', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(selector())
+    const hub = await screen.findByRole('link', { name: 'Settings for Wohnbau Seestadt Baufeld D12' })
+    expect(hub).toHaveAttribute('href', '/app/projects/p-1/settings')
+    expect(within(screen.getByRole('option', { name: /Wohnbau Seestadt/ })).getByRole('link')).toBe(hub)
+    await user.click(screen.getByRole('option', { name: /Wohnbau Seestadt/ }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects/p-1/settings')
+    await user.click(selector())
+    await user.click(await screen.findByRole('option', { name: 'Sanierung Amtshaus Favoriten' }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects/p-2/chat')
   })
 })

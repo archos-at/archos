@@ -98,7 +98,7 @@ export const nav: typeof en.nav = {
     projectSettings: 'Einstellungen für {name}',
     projects: 'Projekte',
     allProjects: 'Alle Projekte',
-    viewAllProjects: 'Alle Projekte ansehen',
+    overview: 'Übersicht',
     newProject: 'Neues Projekt',
   },
   inboundMailWaiting: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',

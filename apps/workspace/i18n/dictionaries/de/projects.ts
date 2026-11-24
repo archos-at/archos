@@ -1,6 +1,10 @@
 import type { en } from '../en'
 
 export const projects: typeof en.projects = {
+  portfolio: {
+    title: 'Projektübersicht',
+    searchPlaceholder: 'Projekt suchen …',
+  },
   list: {
     heading: 'Projekte',
     description:

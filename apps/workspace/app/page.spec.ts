@@ -73,19 +73,19 @@ describe('HomePage redirect', () => {
   test('sends a signed-in visitor to the workspace', async () => {
     getUserSession.mockResolvedValue(session)
 
-    expect(await visit()).toBe('/app/projects')
+    expect(await visit()).toBe('/app')
   })
 
   test('sends a signed-in visitor to the workspace even with ?sign-in', async () => {
     getUserSession.mockResolvedValue(session)
 
-    expect(await visit({ 'sign-in': '' })).toBe('/app/projects')
+    expect(await visit({ 'sign-in': '' })).toBe('/app')
   })
 
   test('skips auth entirely when REQUIRE_AUTH is off', async () => {
     vi.stubEnv('REQUIRE_AUTH', 'false')
 
-    expect(await visit()).toBe('/app/projects')
+    expect(await visit()).toBe('/app')
     expect(getUserSession).not.toHaveBeenCalled()
   })
 })

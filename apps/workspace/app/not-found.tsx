@@ -16,7 +16,7 @@ export default async function NotFound() {
       description={t('notFound.description')}
       actions={
         <Button asChild>
-          <Link href="/app/projects">{t('notFound.action')}</Link>
+          <Link href="/app">{t('notFound.action')}</Link>
         </Button>
       }
     />

@@ -1,4 +1,8 @@
 export const projects = {
+  portfolio: {
+    title: 'Project overview',
+    searchPlaceholder: 'Search projects …',
+  },
   list: {
     heading: 'Projects',
     description:

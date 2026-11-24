@@ -7,7 +7,7 @@ import { AppSidebar } from '@/components/shell/app-sidebar'
 import { OrgHeader } from '@/components/shell/org-header'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { ShellContent } from '@/components/shell'
-import { ProjectsGrid } from '@/components/projects/projects-grid'
+import { ProjectOverview } from '@/components/projects/project-overview'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductTour, useStartProductTour } from '@/features/onboarding/components/product-tour'
 import { NO_TOURS, type TourId } from '@/lib/onboarding/product-tour'
@@ -70,7 +70,7 @@ function Preview(): JSX.Element {
           <OrgHeader {...chrome} />
           <main className="bg-background relative flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ShellContent width="wide">
-              <ProjectsGrid projects={[]} docCounts={{}} viewerActivity={{}} />
+              <ProjectOverview projects={[]} docCounts={{}} viewerActivity={{}} />
             </ShellContent>
           </main>
           <PhoneTabBar projectId={null} pathname="/app/projects" canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />

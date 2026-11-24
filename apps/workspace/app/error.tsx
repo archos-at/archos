@@ -51,7 +51,7 @@ export default function RouteError({
           ) : (
             <>
               <Button asChild>
-                <Link href="/app/projects">{t('appError.backAction')}</Link>
+                <Link href="/app">{t('appError.backAction')}</Link>
               </Button>
               <Button variant="ghost" asChild>
                 <a href={errorReportHref(t, address, error.digest)}>{t('appError.report')}</a>
