@@ -10,18 +10,17 @@ import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages } from './messages-store'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient, isRightsLost } from '../lib/conversations-client-access'
-import { isConversationOnServer } from '../lib/conversation-on-server'
+import { wasOnServerBefore } from '../lib/conversation-on-server'
 import { isConversationErased } from '../lib/erased-conversations'
 import { CONVERSATION_LIST_PAGE } from '../lib/conversation-list-page'
 
 const listScopeMatcher = (
   projectId: string | undefined,
   place: 'personal' | 'project' | undefined
-): ((c: Conversation) => boolean) => {
+): ((c: Conversation) => boolean) | null => {
   if (place === 'personal') return (c) => !c.projectId
   if (place === 'project' && projectId) return (c) => c.projectId === projectId
-  if (projectId) return (c) => !c.projectId || c.projectId === projectId
-  return () => true
+  return null
 }
 
 export const hydratingConversationIds = new Set<string>()
@@ -45,17 +44,18 @@ export const createSessionServerSyncSlice: StateCreator<
       if (!listed) return
       const serverConvs = listed.filter((c) => !isConversationErased(c.id))
 
-      const { conversations, currentUserId, isStreaming, currentConversation: openBefore } = get()
+      const { conversations, currentUserId, currentConversation: openBefore } = get()
       const listedIds = new Set(serverConvs.map((c) => c.id))
       const inScope = listScopeMatcher(projectId, place)
       const goneFromServer = (c: Conversation): boolean =>
         isConversationErased(c.id) ||
-        (listed.length < CONVERSATION_LIST_PAGE &&
+        (inScope !== null &&
+          listed.length < CONVERSATION_LIST_PAGE &&
           inScope(c) &&
           !listedIds.has(c.id) &&
-          isConversationOnServer(c.id) &&
-          new Date(c.createdAt).getTime() < requestedAt &&
-          !(isStreaming && openBefore?.id === c.id))
+          openBefore?.id !== c.id &&
+          wasOnServerBefore(c.id, requestedAt) &&
+          new Date(c.createdAt).getTime() < requestedAt)
       const merged = conversations.filter((c) => !goneFromServer(c))
 
       for (const serverConv of serverConvs) {
@@ -96,13 +96,11 @@ export const createSessionServerSyncSlice: StateCreator<
 
       const open = get().currentConversation
       const refreshedOpen = open ? merged.find((c) => c.id === open.id) : undefined
-      const openGone = open !== null && refreshedOpen === undefined && goneFromServer(open)
       const openChanged = refreshedOpen !== undefined && (refreshedOpen.contentLocked === true) !== (open?.contentLocked === true)
       set(
         {
           conversations: merged,
           ...(openChanged ? { currentConversation: refreshedOpen } : {}),
-          ...(openGone ? { currentConversation: null } : {}),
         },
         false,
         'loadServerConversations'

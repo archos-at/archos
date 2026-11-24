@@ -36,7 +36,7 @@ vi.mock('@/adapters/api/conversations-client', () => ({
 
 import { useChatStore } from '../store'
 import { isAwaitingServerMessages, markAwaitingServerMessages } from './chat-storage'
-import { isConversationOnServer } from '../lib/conversation-on-server'
+import { isConversationOnServer, markConversationMinted, markConversationOnServer } from '../lib/conversation-on-server'
 import type { ChatMessage, Conversation } from '../types'
 import { readThreadPosition, rememberThreadPosition } from '@/features/layout/lib/thread-positions'
 
@@ -314,7 +314,7 @@ describe('server row lifecycle sync', () => {
     const gone = makeConversation({ title: 'Deleted elsewhere' })
     const kept = makeConversation({ title: 'Still there' })
     const inProject = makeConversation({ projectId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301' })
-    useChatStore.setState({ conversations: [gone, kept, inProject], currentConversation: gone })
+    useChatStore.setState({ conversations: [gone, kept, inProject] })
     mockConversationsClient.list.mockResolvedValueOnce([
       { id: kept.id, title: 'Still there', createdAt: '2026-07-01T09:00:00.000Z', updatedAt: '2026-07-01T09:00:00.000Z' },
     ])
@@ -322,7 +322,45 @@ describe('server row lifecycle sync', () => {
     await useChatStore.getState().loadServerConversations(undefined, 'personal')
 
     expect(useChatStore.getState().conversations.map((c) => c.id).sort()).toEqual([kept.id, inProject.id].sort())
-    expect(useChatStore.getState().currentConversation).toBeNull()
+  })
+
+  it('keeps the open chat even when the listing does not name it; only an explicit delete closes it', async () => {
+    const open = makeConversation({ title: 'Open draft' })
+    useChatStore.setState({ conversations: [open], currentConversation: open })
+    mockConversationsClient.list.mockResolvedValueOnce([])
+
+    await useChatStore.getState().loadServerConversations(undefined, 'personal')
+
+    expect(useChatStore.getState().conversations.map((c) => c.id)).toEqual([open.id])
+    expect(useChatStore.getState().currentConversation?.id).toBe(open.id)
+  })
+
+  it('an unscoped listing drops nothing: it does not name colleagues’ project chats the project listing brought', async () => {
+    const colleagues = makeConversation({ projectId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301' })
+    const personal = makeConversation()
+    useChatStore.setState({ conversations: [colleagues, personal] })
+    mockConversationsClient.list.mockResolvedValueOnce([])
+
+    await useChatStore.getState().loadServerConversations()
+
+    expect(useChatStore.getState().conversations.map((c) => c.id).sort()).toEqual([colleagues.id, personal.id].sort())
+  })
+
+  it('keeps a chat the server confirmed only after the listing had started', async () => {
+    const fresh = makeConversation({ createdAt: new Date('2026-07-01T08:00:00.000Z') })
+    useChatStore.setState({ conversations: [fresh] })
+    markConversationMinted(fresh.id)
+    let answer: (rows: unknown[]) => void = () => {}
+    mockConversationsClient.list.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)))
+
+    const loading = useChatStore.getState().loadServerConversations(undefined, 'personal')
+    await vi.waitFor(() => expect(mockConversationsClient.list).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 2))
+    markConversationOnServer(fresh.id)
+    answer([])
+    await loading
+
+    expect(useChatStore.getState().conversations.map((c) => c.id)).toEqual([fresh.id])
   })
 
   it('an empty listing still drops the persisted chats of that side', async () => {

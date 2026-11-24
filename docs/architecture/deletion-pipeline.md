@@ -204,6 +204,8 @@ inserts their `deletion_queue` rows (step 3 for many), and answers `{ deleted, h
 is left as it is and named. The erasure (steps 4 to 6) runs on a BFF job, `erase_conversations`
 (`runEraseConversationsSlice`), ten chats a slice, which reads back the chats marked at that
 timestamp; a chat whose erase fails is counted and left to its queue row like a single delete's.
+When the job cannot be stored after the marking committed, the request still answers what it
+marked: the chats are hidden, and their queue rows erase them once due.
 Before this, the browser sent one DELETE per chat it had loaded, all at once; on Persönlich that was
 every chat it knew, project chats and colleagues' included, and the mutation limit answered most of
 the burst with 429 while the list had already emptied (2026-11-24).

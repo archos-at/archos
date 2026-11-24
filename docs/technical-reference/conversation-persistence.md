@@ -129,12 +129,15 @@ refetched on demand.
   (`useChatDeleteFeedback`).
 - A deleted id is remembered for the page (`erased-conversations.ts`), so a
   listing already on its way cannot bring it back.
-- `loadServerConversations(projectId, place)` reconciles: when the server's
-  listing is complete (fewer than `CONVERSATION_LIST_PAGE` rows), a local
-  conversation on that side that the server no longer lists, that the server
-  had (`isConversationOnServer`) and that is older than the request, is dropped
-  from the store and from the persisted copy, including after a reload. An
-  empty listing reconciles too.
+- `loadServerConversations(projectId, place)` reconciles a side's listing
+  (`place=personal`, or `place=project` with its project): when the listing is
+  complete (fewer than `CONVERSATION_LIST_PAGE` rows), a local conversation of
+  that side that it does not name is dropped from the store and the persisted
+  copy, including after a reload; an empty listing reconciles too. Kept are the
+  open conversation (only an explicit delete closes it), one not yet on the
+  server, and one the server confirmed only after the listing started
+  (`wasOnServerBefore`). The unscoped listing at start reconciles nothing: it
+  does not name colleagues' project chats that a project listing brought.
 - `updateConversationTitle()` mirrors renames to the server row
   (best-effort; the row may not exist until the first message append).
 

@@ -116,12 +116,19 @@ export async function deleteOwnConversations(
       cursor: null,
       counts: emptyCounts(),
     }
-    await enqueueJob({
-      kind: 'erase_conversations',
-      organizationId: session.organizationId,
-      payload: { ...payload },
-      priority: BFF_JOB_PRIORITY.interactive,
-    })
+    try {
+      await enqueueJob({
+        kind: 'erase_conversations',
+        organizationId: session.organizationId,
+        payload: { ...payload },
+        priority: BFF_JOB_PRIORITY.interactive,
+      })
+    } catch (error) {
+      console.error(
+        `[conversations] the erase job for ${marked.length} chat(s) was not stored; their deletion queue rows erase them:`,
+        error
+      )
+    }
   }
   return { deleted: marked.map((row) => row.id), held }
 }

@@ -77,6 +77,19 @@ describe('deleteOwnConversations', () => {
   })
 })
 
+describe('deleteOwnConversations when the job cannot be stored', () => {
+  it('still answers what it deleted: the chats are marked and their deletion queue rows erase them', async () => {
+    vi.mocked(markOwnConversationsDeleting).mockResolvedValueOnce({
+      markedAt: MARKED_AT,
+      marked: [{ id: 's_1', title: null }],
+      held: [],
+    })
+    vi.mocked(enqueueJob).mockRejectedValueOnce(new Error('queue unreachable'))
+
+    await expect(deleteOwnConversations(session, { projectId: null })).resolves.toEqual({ deleted: ['s_1'], held: [] })
+  })
+})
+
 describe('runEraseConversationsSlice', () => {
   it('erases the slice it reads, and asks for the next one after the last id', async () => {
     const ids = Array.from({ length: ERASE_SLICE_CONVERSATIONS }, (_, i) => `s_${String(i).padStart(2, '0')}`)
