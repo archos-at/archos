@@ -1,10 +1,11 @@
 import 'server-only'
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, not } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { officeShelfNormKeeps, officeShelfReferences, type OfficeShelfReference } from '@/lib/db/schema/office-shelf-references'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DocumentReader } from '@/lib/documents/document-reader'
+import { outsideTheBin } from '@/lib/documents/shelf'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import type { CoverFile } from './cover'
 import type { NormCandidateRow } from './placement'
@@ -81,6 +82,24 @@ export async function officeDocumentHashes(
       )
   )
   return new Map(rows.map((row) => [row.id, row.contentHash]))
+}
+
+export async function binnedOfficeDocuments(organizationId: string, documentIds: readonly string[]): Promise<Set<string>> {
+  if (documentIds.length === 0) return new Set()
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ id: documents.id })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.organizationId, organizationId),
+          eq(documents.scope, 'office_shelf'),
+          inArray(documents.id, [...documentIds]),
+          not(outsideTheBin())
+        )
+      )
+  )
+  return new Set(rows.map((row) => row.id))
 }
 
 export interface NewReference {

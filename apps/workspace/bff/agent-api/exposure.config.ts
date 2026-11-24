@@ -147,7 +147,10 @@ export const EXPOSURE = {
   'saved-search-update': OFFERED,
 
   'office-shelf-folder-create': OFFERED,
+  'office-shelf-folder-bin-list': OFFERED,
+  'office-shelf-folder-bin-purge': OFFERED,
   'office-shelf-folder-delete': OFFERED,
+  'office-shelf-folder-restore': OFFERED,
   'office-shelf-folder-norms-list': OFFERED,
   'office-shelf-folder-norms-decide': externalOnly(
     'whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision',

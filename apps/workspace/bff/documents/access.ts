@@ -10,6 +10,7 @@ import { mayReviewQuarantine } from '@/lib/upload-screening/quarantine-reviewers
 import { internalRead, memberReader } from './document-reader'
 import { requirePersonalShelfDoor } from './personal-shelf-door'
 import { findDocumentInOrg } from './repository'
+import { folderIsInBin } from './shelf-folders'
 
 export async function findDocumentForSession(
   session: AuthorizedSession,
@@ -33,6 +34,7 @@ export async function getAccessibleDocument(
 
   switch (doc.scope) {
     case 'office_shelf': {
+      if (await folderIsInBin(session.organizationId, doc.folderId)) throw new NotFoundError()
       if (intent === 'write' && !canManageOfficeShelf(session)) throw new ForbiddenError()
       return doc
     }

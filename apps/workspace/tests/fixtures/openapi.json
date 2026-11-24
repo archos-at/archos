@@ -4803,8 +4803,8 @@
     "/api/documents/{id}/bin": {
       "post": {
         "operationId": "document-bin",
-        "summary": "Move a project document to the bin",
-        "description": "Deletes a project document restorably: out of every listing and every answer, in the project’s bin until `purgeAfter`. Undo with document-restore. The office shelf has no bin (409).",
+        "summary": "Move a project or office shelf document to the bin",
+        "description": "Deletes a project or office shelf document restorably: out of every listing and every answer, in its shelf’s bin until `purgeAfter`. Undo with document-restore. A person’s own shelf has no bin, a norm leaves through the base knowledge, and a legal hold refuses it (each 409).",
         "tags": [
           "documents"
         ],
@@ -4846,7 +4846,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Move a project document to the bin",
+          "title": "Move a project or office shelf document to the bin",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -8419,6 +8419,123 @@
         }
       }
     },
+    "/api/office-shelf/bin": {
+      "get": {
+        "operationId": "office-shelf-folder-bin-list",
+        "summary": "List the office shelf’s bin: deleted folders and documents",
+        "description": "The office shelf's bin, newest first, paged (`nextCursor`): deleted folders, who deleted each, when it is purged. An entry with `document` is one document: restore it with document-restore; a folder with office-shelf-folder-restore. Any member may read.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the office shelf’s bin: deleted folders and documents",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/office-shelf/bin/{folderId}": {
+      "delete": {
+        "operationId": "office-shelf-folder-bin-purge",
+        "summary": "Purge an office shelf folder from the bin now",
+        "description": "Deletes a binned office shelf folder for good, with its subfolders and documents, instead of waiting for the grace period. This cannot be undone. Needs org:office_shelf:manage; a legal hold refuses it with 409 without naming the hold. Folder ids come from office-shelf-folder-bin-list.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The deleted office shelf folder id, from office-shelf-folder-bin-list."
+            },
+            "description": "The deleted office shelf folder id, from office-shelf-folder-bin-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Purge an office shelf folder from the bin now",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/office-shelf/folders": {
       "post": {
         "operationId": "office-shelf-folder-create",
@@ -8535,8 +8652,8 @@
     "/api/office-shelf/folders/{folderId}": {
       "delete": {
         "operationId": "office-shelf-folder-delete",
-        "summary": "Delete an office shelf folder",
-        "description": "Deletes the folder; its documents and subfolders are re-filed one level up, not deleted. Returns `{ documentsMoved, foldersMoved }`. Folder ids come from office-shelf-folder-list. Needs org:office_shelf:manage.",
+        "summary": "Move an office shelf folder to the bin",
+        "description": "Moves the folder with its subfolders and documents to the office shelf's bin, restorable (office-shelf-folder-restore) until the `purgeAfter` the response names: `{ documentsBinned, foldersBinned, purgeAfter }`. A topic of the base knowledge (under its root) is deleted as before: its norms and subtopics move up, `{ documentsMoved, foldersMoved }`. A legal hold or a norm in the folder refuses it (409). Folder ids come from office-shelf-folder-list. Needs org:office_shelf:manage.",
         "tags": [
           "folders"
         ],
@@ -8578,7 +8695,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Delete an office shelf folder",
+          "title": "Move an office shelf folder to the bin",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,
@@ -8906,6 +9023,60 @@
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/office-shelf/bin/{folderId}/restore": {
+      "post": {
+        "operationId": "office-shelf-folder-restore",
+        "summary": "Restore an office shelf folder from the bin",
+        "description": "Brings a deleted office shelf folder back with its subfolders and documents, which are read again. The response says `restoredTo: 'root'` when its former parent no longer exists. Folder ids come from office-shelf-folder-bin-list. Needs org:office_shelf:manage.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The deleted office shelf folder id, from office-shelf-folder-bin-list."
+            },
+            "description": "The deleted office shelf folder id, from office-shelf-folder-bin-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Restore an office shelf folder from the bin",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
           "openWorldHint": false
         }
       }

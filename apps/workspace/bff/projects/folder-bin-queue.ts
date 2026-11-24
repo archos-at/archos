@@ -6,7 +6,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { DELETION_LIFECYCLE, DELETION_MAX_ATTEMPTS, deletionQueue, type DeletionStatus } from '@/lib/db/schema/deletion-queue'
 
 export interface FolderBinPayload {
-  projectId: string
+  projectId: string | null
   folderIds: string[]
   documents: number
   chunksPurgedAt?: string

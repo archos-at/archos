@@ -81,6 +81,16 @@ export async function findShelfFolder(
   return row
 }
 
+export async function folderIsInBin(organizationId: string, folderId: string | null): Promise<boolean> {
+  if (!folderId) return false
+  const [row] = await getDb()
+    .select({ deletedAt: projectFolders.deletedAt })
+    .from(projectFolders)
+    .where(and(eq(projectFolders.id, folderId), eq(projectFolders.organizationId, organizationId)))
+    .limit(1)
+  return Boolean(row?.deletedAt)
+}
+
 export async function listShelfFolders(
   session: AuthorizedSession,
   shelf: DocumentShelf,

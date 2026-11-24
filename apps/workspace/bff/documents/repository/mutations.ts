@@ -6,6 +6,7 @@ import { documents } from '@/lib/db/schema/documents'
 import { FILING_CHOICE_METADATA_KEY } from '../filing-choice-key'
 import { statusesAccepting, type DocumentReadingEvent } from '../reading-lifecycle'
 import { sameDispatch } from './reconcile'
+import { shelfDocumentsOf, type SharedShelf } from '../shelf'
 
 export async function deleteProjectDocument(
   documentId: string,
@@ -23,6 +24,17 @@ export async function deleteProjectDocument(
           eq(documents.projectId, projectId),
         ),
       ),
+  )
+}
+
+export async function deleteShelfDocumentRow(
+  documentId: string,
+  organizationId: string,
+  shelf: SharedShelf,
+): Promise<void> {
+  const db = getDb()
+  await withTenant({ organizationId }, () =>
+    db.delete(documents).where(and(eq(documents.id, documentId), shelfDocumentsOf(shelf, organizationId))),
   )
 }
 

@@ -10,6 +10,7 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 import {
   OFFICE_SHELF,
+  binShelfOf,
   documentShelf,
   personalShelf,
   projectShelf,
@@ -36,6 +37,22 @@ describe('shelfDocumentWhere', () => {
 
     expect(sql).not.toContain('project_id')
     expect(params).toEqual(['org-1', 'office_shelf'])
+  })
+})
+
+describe('the bin', () => {
+  it('keeps a document filed in a deleted folder out of every shelf read (ADR-0195)', () => {
+    for (const shelf of [projectShelf('proj-1'), OFFICE_SHELF]) {
+      expect(compile(shelfDocumentWhere(shelf, 'org-1')).sql).toContain(
+        'NOT EXISTS (SELECT 1 FROM project_folders bin_folder WHERE bin_folder.id = "documents"."folder_id" AND bin_folder.deleted_at IS NOT NULL)'
+      )
+    }
+  })
+
+  it('names the shelf a binnable folder belongs to, and none for a person’s own shelf', () => {
+    expect(binShelfOf({ scope: 'project', projectId: 'proj-1' })).toEqual(projectShelf('proj-1'))
+    expect(binShelfOf({ scope: 'office_shelf', projectId: null })).toEqual(OFFICE_SHELF)
+    expect(binShelfOf({ scope: 'personal', projectId: null })).toBeNull()
   })
 })
 
