@@ -12,6 +12,7 @@ vi.mock('./backend-operations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./backend-operations')>()),
   callBackendOperation: vi.fn(),
 }))
+vi.mock('./personal-shelf-read', () => ({ admitPersonalShelfRead: vi.fn(async () => true) }))
 vi.mock('./operation-proposals', () => ({ proposeOperation: vi.fn() }))
 vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordCapabilityMissing: vi.fn() }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: vi.fn((_tenant: unknown, run: () => unknown) => run()) }))
@@ -43,6 +44,7 @@ import {
 } from './conversation-audience'
 import { callDecision, visibleOperations } from './policy'
 import { callOperation } from './dispatch'
+import { admitPersonalShelfRead } from './personal-shelf-read'
 import { runBackendOperation, runOperation } from './discovery'
 import type { AgentOperation } from './operation'
 import { proposeOperation } from './operation-proposals'
@@ -234,7 +236,7 @@ describe('in a conversation that is the requester’s alone', () => {
 
   it('withholds what a read brought back when a chat it named drew on its owner’s shelf meanwhile', async () => {
     vi.mocked(placesOf).mockResolvedValue([{ projectId: 'proj_1', conversationId: null }])
-    vi.mocked(shelfUseSinceJudged).mockResolvedValueOnce(READ_REFUSALS.personalShelf)
+    vi.mocked(shelfUseSinceJudged).mockResolvedValueOnce({ refusal: READ_REFUSALS.personalShelf })
     vi.mocked(callOperation).mockResolvedValueOnce({ status: 200, ok: true, body: { title: 'Bewerbung privat' } })
 
     const result = await runOperation(ctx(inProduct()), 'project-get', { params: { id: 'proj_1' } })
@@ -244,6 +246,18 @@ describe('in a conversation that is the requester’s alone', () => {
     expect(shelfUseSinceJudged).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ path: '/api/projects/[id]' }), {
       params: { id: 'proj_1' },
     })
+  })
+
+  it('admits the owner’s shelf for the reading turn when the chat it read drew on it meanwhile, or withholds the read', async () => {
+    vi.mocked(placesOf).mockResolvedValue([{ projectId: 'proj_1', conversationId: null }])
+    vi.mocked(shelfUseSinceJudged).mockResolvedValue({ ownerShelf: true })
+
+    expect((await runOperation(ctx(inProduct()), 'project-get', { params: { id: 'proj_1' } })).isError).toBeUndefined()
+    expect(admitPersonalShelfRead).toHaveBeenCalledTimes(1)
+
+    vi.mocked(admitPersonalShelfRead).mockResolvedValueOnce(false)
+    expect((await runOperation(ctx(inProduct()), 'project-get', { params: { id: 'proj_1' } })).isError).toBe(true)
+    vi.mocked(shelfUseSinceJudged).mockResolvedValue(null)
   })
 
   it('runs a read of another project in reach as a hand-out of that project', async () => {

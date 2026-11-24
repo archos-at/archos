@@ -181,19 +181,29 @@ function namesPersonalScope(input: TargetInput): boolean {
   return input.query?.scope === 'personal' || body.scope === 'personal'
 }
 
+export type ShelfUseSinceJudged = { refusal: string } | { ownerShelf: true } | null
+
 export async function shelfUseSinceJudged(
   principal: AgentPrincipal,
   op: Pick<AgentOperation, 'path' | 'spansProjects'>,
   input: TargetInput,
-): Promise<string | null> {
+): Promise<ShelfUseSinceJudged> {
   const targets = namedTargets(principal, op, input)
   if (typeof targets === 'string' || targets.length === 0) return null
   const { organizationId, userId } = principal.session
   return withTenant(tenantOf(principal), async () => {
-    for (const place of await placesOf(organizationId, userId, targets)) {
-      if (place && (await otherChatShelfRefusal(principal, place, organizationId)) === 'refused') return READ_REFUSALS.personalShelf
+    let ownerShelf = false
+    for (const [index, place] of (await placesOf(organizationId, userId, targets)).entries()) {
+      const target = targets[index]
+      if (!place) {
+        if (target?.type === 'conversation' && target.id === principal.conversationId) continue
+        return { refusal: READ_REFUSALS.unknown }
+      }
+      const shelf = await otherChatShelfRefusal(principal, place, organizationId)
+      if (shelf === 'refused') return { refusal: READ_REFUSALS.personalShelf }
+      ownerShelf ||= shelf === 'owner'
     }
-    return null
+    return ownerShelf ? { ownerShelf: true } : null
   })
 }
 

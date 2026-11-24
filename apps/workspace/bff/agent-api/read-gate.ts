@@ -67,7 +67,10 @@ function buildGate(principal: AgentPrincipal): ReadGate {
     },
     async afterRead(op, input = {}) {
       if (!op.path || !(await audienceOnce())) return null
-      return shelfUseSinceJudged(principal, { path: op.path, spansProjects: op.spansProjects }, input)
+      const since = await shelfUseSinceJudged(principal, { path: op.path, spansProjects: op.spansProjects }, input)
+      if (!since) return null
+      if ('refusal' in since) return since.refusal
+      return (await admitPersonalShelfRead(principal)) ? null : READ_REFUSALS.personalShelf
     },
     async mayHandOnLink() {
       const now = await audienceOnce()

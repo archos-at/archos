@@ -25,6 +25,7 @@ vi.mock('@/lib/conversations/personal-shelf-use', async (original) => ({
 }))
 
 import { personalShelfUseOf } from '@/lib/conversations/personal-shelf-use'
+import { placesOf } from './operation-targets'
 import { READ_REFUSALS, judgeWorkspaceRead, shelfUseSinceJudged, type ConversationAudience } from './conversation-audience'
 import type { AgentPrincipal } from './principal'
 
@@ -66,8 +67,13 @@ describe('a chat that starts drawing on its owner’s shelf while it is read', (
   })
 
   it('withholds what was read once the other chat has used it, unless the turn may draw on that shelf', async () => {
-    expect(await since(principalOf('user_ina', null))).toBe(READ_REFUSALS.personalShelf)
-    expect(await since(principalOf('user_me', allowing))).toBeNull()
+    expect(await since(principalOf('user_ina', null))).toEqual({ refusal: READ_REFUSALS.personalShelf })
+    expect(await since(principalOf('user_me', allowing))).toEqual({ ownerShelf: true })
+  })
+
+  it('withholds the read when the chat it named is gone by then', async () => {
+    vi.mocked(placesOf).mockResolvedValueOnce([null])
+    expect(await since(principalOf('user_ina', null))).toEqual({ refusal: READ_REFUSALS.unknown })
   })
 
   it('looks at nothing for a read that names no place', async () => {

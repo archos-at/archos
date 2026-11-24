@@ -172,8 +172,10 @@ never through a chat that read it.
 
 Reading another chat checks, before the read, whether that chat drew on its
 owner's shelf. A chat can start to while it is read, so the read gate checks
-again once the read is back and withholds what it brought (`afterRead`,
-`shelfUseSinceJudged`). A write is not undone that way: it is the agent's
+again once the read is back (`afterRead`, `shelfUseSinceJudged`). It withholds
+what the read brought, unless the turn may draw on that same person's shelf: then
+the reading chat is admitted and marked as a shelf read, as it would have been
+had the other chat used the shelf before. A chat gone by then withholds it too. A write is not undone that way: it is the agent's
 proposal, which a person accepts.
 
 Two things are left unguarded on purpose:

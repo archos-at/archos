@@ -90,7 +90,10 @@ export async function readOperationBody(
     record(result.status)
     if (!result.ok) return { refusal: `${name} was refused (HTTP ${result.status}).` }
     const late = await readGateFor(ctx.principal).afterRead(op, input)
-    if (late) return { refusal: late }
+    if (late) {
+      record(403)
+      return { refusal: late }
+    }
     return { body: result.body }
   } catch (error) {
     if (error instanceof OperationInputError) {
@@ -167,6 +170,7 @@ export async function executeOperation(
     record(result.status)
     const late = annotationsOf(op).readOnlyHint ? await gate.afterRead(op, input) : null
     if (late) {
+      record(403)
       return { refusal: problemFailure(late, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
