@@ -76,7 +76,7 @@ without being recorded.
   chat, filing a personal file into a project („In Projekt ablegen“), moving a
   chat into a project.
 
-How the context is decided and carried is ADR-0192; this decision is its
+How the context is decided and carried is ADR-0194; this decision is its
 fourth slice.
 
 ### Confirmation

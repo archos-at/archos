@@ -287,7 +287,7 @@ describe('POST /api/internal/turn-context', () => {
     warn.mockRestore()
   })
 
-  it('narrows personal memory and the workspace line by the turn decision (ADR-0192)', async () => {
+  it('narrows personal memory and the workspace line by the turn decision (ADR-0194)', async () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
@@ -382,7 +382,7 @@ describe('POST /api/internal/turn-context', () => {
     expect(data.workspace).toContain('no workspace read runs here')
   })
 
-  it('withholds personal memory from a turn without a conversation, asking for no audience (ADR-0192)', async () => {
+  it('withholds personal memory from a turn without a conversation, asking for no audience (ADR-0194)', async () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
 
     const { data } = await (await call({}, signedHeaders({ conversationId: null }))).json()

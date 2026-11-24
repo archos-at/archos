@@ -102,7 +102,7 @@ function buildCollectionScopeHeader(scope: string[]): string
 
 The main entry point for SSE and WebSocket routes. It:
 
-1. Resolves the project from the conversation row (ADR-0191 rule 2):
+1. Resolves the project from the conversation row (ADR-0193 rule 2):
    - With a `conversationId` whose row exists, the row's `project_id` is the
      project, `null` meaning none. A request `projectId` that differs is refused
      with `ConversationProjectMismatchError` (403): a chat without a project
@@ -245,7 +245,7 @@ a restricted folder:
 
 **File**: `packages/agent/src/agent/knowledge/scoping.py`
 
-### In a chat turn: the turn's decision (ADR-0192)
+### In a chat turn: the turn's decision (ADR-0194)
 
 A chat turn asks the BFF for its decision before it reads any scope
 (`POST /api/internal/turn-decision`, from `_run` in

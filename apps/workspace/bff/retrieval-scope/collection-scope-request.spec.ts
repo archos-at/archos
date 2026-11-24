@@ -161,7 +161,7 @@ describe('a caller who reads a closed project only because it is closed (ADR-009
   })
 })
 
-describe('the conversation row decides which project a turn reads (ADR-0191 rule 2)', () => {
+describe('the conversation row decides which project a turn reads (ADR-0193 rule 2)', () => {
   const OTHER_PROJECT = '9a1c7e00-4f89-11d3-9a0c-0305e82c3302'
 
   function ownRow(projectId: string | null): void {

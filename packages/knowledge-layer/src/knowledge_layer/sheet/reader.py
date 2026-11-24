@@ -8,6 +8,7 @@ from contextlib import closing
 from typing import Any
 
 from knowledge_layer.ingest import pdfium_lock
+from knowledge_layer.ingest import pdfium_pause
 
 MAX_SEGMENTS_PER_PAGE = 2_000_000
 MAX_CHARACTERS_PER_PAGE = 400_000
@@ -26,6 +27,7 @@ _PATH = 2  # FPDF_PAGEOBJ_PATH
 _IMAGE = 3  # FPDF_PAGEOBJ_IMAGE
 _FORM = 5  # FPDF_PAGEOBJ_FORM
 _MAX_FORM_DEPTH = 8
+PAUSE_EVERY_OBJECTS = 2_000
 
 Matrix = tuple[float, float, float, float, float, float]
 _IDENTITY: Matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
@@ -146,6 +148,9 @@ def _keep_path(raw: Any, obj: Any, outer: Matrix, out: dict[str, Any]) -> None:
 
 def _walk(raw: Any, count: int, get: Any, outer: Matrix, depth: int, out: dict[str, Any]) -> None:
     for index in range(count):
+        out["objects"] += 1
+        if out["objects"] % PAUSE_EVERY_OBJECTS == 0:
+            pdfium_pause()
         obj = get(index)
         kind = raw.FPDFPageObj_GetType(obj)
         if kind == _PATH:
@@ -196,7 +201,7 @@ def _open(source: str | bytes) -> Any:
 
 
 def _read_page(raw: Any, page: Any, *, paths: bool) -> tuple[dict[str, Any], list[tuple], dict[str, Any]]:
-    drawn: dict[str, Any] = {"paths": [], "points": 0, "images": 0}
+    drawn: dict[str, Any] = {"paths": [], "points": 0, "images": 0, "objects": 0}
     frame = _frame(page)
     text_page = page.get_textpage()
     try:

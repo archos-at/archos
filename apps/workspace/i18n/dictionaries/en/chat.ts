@@ -674,6 +674,32 @@ export const chat = {
         dismissed: 'Discarded. The project context is unchanged.',
       },
     },
+    calibrationProposal: {
+      eyebrow: 'Confirm the scale',
+      question: 'Is the marked length {length}?',
+      meaning: 'Then {productName} works out every measurement in this area at scale {ratio}. So far it is estimated.',
+      dismissMeaning: 'Dismiss: the scale stays estimated.',
+      caption: '{document} · page {page}',
+      captionPage: 'Page {page}',
+      captionTail: 'page {page}',
+      receipt: '{length} · {place}',
+      picture: 'Page {page}, clip with the marked length',
+      drawing: 'Loading the clip',
+      waiting: 'The clip is still loading.',
+      accept: 'Confirm',
+      accepting: 'Confirming…',
+      refused: {
+        denied:
+          'You cannot open this drawing, so you cannot check the scale. Ask someone with access to confirm it.',
+        unavailable:
+          'The drawing cannot be shown right now, so you cannot check the scale here. Reload the page later, or ask {productName} to propose the scale again.',
+        incomplete:
+          'This proposal does not say where the length lies or how long it is. Ask {productName} to propose the scale again.',
+      },
+      applied: 'Scale confirmed. Measurements in this area now count as confirmed.',
+      appliedRatio: 'Scale {ratio} confirmed. Measurements in this area now count as confirmed.',
+      dismissed: 'Scale not confirmed. It stays estimated.',
+    },
     operationProposal: {
       eyebrow: 'Action',
       operation: 'Action: {operation}',
@@ -1012,6 +1038,17 @@ export const chat = {
       'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
   },
   thinking: {
+    measure: {
+      basis: {
+        confirmed: 'scale 1:{ratio}, confirmed',
+        estimated: 'scale 1:{ratio}, estimated, not yet confirmed',
+        confirmedPlain: 'scale confirmed',
+        estimatedPlain: 'scale estimated, not yet confirmed',
+        printed: 'read off, not measured',
+      },
+      open: 'Show in the drawing: {document}, p.\u00A0{page}',
+      show: 'Show in the drawing',
+    },
     look: {
       place: 'p.\u00A0{page}, {where}',
       placeWhole: 'p.\u00A0{page}',
@@ -1051,6 +1088,9 @@ export const chat = {
       times: '×{count}',
       innerQuote: '‘{text}’',
       readOff: 'read off, not measured',
+      noNumber: 'no number',
+      noNumberNote:
+        'Usually the scale of this page is unknown. Set it in the drawing: “Measure”, then “Set scale”.',
       kind: {
         search: 'Search',
         read: 'Reading',
@@ -1058,6 +1098,8 @@ export const chat = {
         look: 'Look',
         model: 'Query the model',
         workspace: 'Workspace',
+        measure: 'Measure',
+        readMeasure: 'Read and measure',
       },
       shelf: {
         project: 'in the project',
@@ -1109,6 +1151,8 @@ export const chat = {
         web: 'Searches the web for',
         model: 'Queries the building model for',
         workspace: 'Workspace:',
+        measure: 'Measures',
+        measurePrinted: 'Reads a dimension figure in',
       },
       done: {
         search: 'Searched: {name}',
@@ -1122,6 +1166,7 @@ export const chat = {
         web: 'Searched the web: {name}',
         model: 'Queried the building model: {name}',
         workspace: 'In the workspace: {name}',
+        measure: 'Measured: {name}',
       },
       doneFallback: {
         search: 'Searched the documents',
@@ -1133,6 +1178,7 @@ export const chat = {
         web: 'Searched the web',
         model: 'Queried the building model',
         workspace: 'Worked in the workspace',
+        measure: 'Measured on a drawing',
       },
       object: {
         query: '“{query}”',
@@ -1168,6 +1214,7 @@ export const chat = {
           '{count, plural, one {#\u00A0building model query} other {#\u00A0building model queries}}',
         workspaceCalls:
           '{count, plural, one {#\u00A0workspace call} other {#\u00A0workspace calls}}',
+        measures: '{count, plural, one {#\u00A0measurement} other {#\u00A0measurements}}',
       },
       fallback: {
         search: 'Searches the documents',
@@ -1179,6 +1226,7 @@ export const chat = {
         web: 'Searches the web',
         model: 'Queries the building model',
         workspace: 'Works in the workspace',
+        measure: 'Measures on a drawing',
       },
       found: {
         hits: '{count, plural, one {#\u00A0hit} other {#\u00A0hits}}',
@@ -1462,6 +1510,7 @@ export const chat = {
           web: 'the web search',
           model: 'the building model query',
           workspace: 'a workspace call',
+          measure: 'measuring on the drawing',
         },
       },
       cardLink: 'Highlight the calls for {name}',

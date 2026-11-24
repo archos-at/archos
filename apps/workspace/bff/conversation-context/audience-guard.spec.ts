@@ -30,7 +30,7 @@ function callSites(): Record<string, number> {
   return found
 }
 
-describe('who reads a conversation’s audience (ADR-0192)', () => {
+describe('who reads a conversation’s audience (ADR-0194)', () => {
   it('is the context module, the writers that hold the audience lock, and the readers it names, and no new caller', () => {
     const found = callSites()
     for (const [file, count] of Object.entries(found)) {

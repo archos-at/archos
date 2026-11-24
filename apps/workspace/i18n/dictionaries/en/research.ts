@@ -4,10 +4,6 @@ export const research = {
   detailsHelp:
     'These details appear during active research and may not be available for completed reports.',
 
-  runsList: {
-    untitledRun: 'Deep research run',
-  },
-
   chatArea: {
     ariaMessages: 'Chat messages',
     loading: 'Loading conversation',
@@ -237,12 +233,6 @@ export const research = {
     deleteAll: 'Delete all chats in this project',
     cannotDeleteBusy: 'Cannot delete while operations are in progress',
     deleteAllButton: 'Delete all chats',
-    stopResearch: 'Stop research',
-    stopResearchTitle: 'Stop this research run',
-    stopConfirmTitle: 'Stop research?',
-    stopConfirmBody:
-      'The running research will be cancelled and cannot be resumed. Partial progress so far stays visible in the research panel.',
-    stopConfirmConfirm: 'Stop research',
     startNewSession: 'Start a new chat',
     newSessionButton: 'New chat',
     searchPlaceholder: 'Search chats',
@@ -268,27 +258,19 @@ export const research = {
     sessionWaiting: 'Waiting for your answer',
     answerReady: 'Answer ready',
     answerFailed: 'Answer failed',
+    researchFailed: 'Research failed',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporary chat: nothing from it is kept.',
     sessionLabelTemporary: '{label} (temporary chat, nothing from it is kept)',
-    deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
-    deepResearchRunLabel: 'Open deep research run: {label} — {status}',
     filterAria: 'Filter history',
     filterAll: 'All',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    researchLoadFailed: 'Deep-research runs could not be loaded.',
     noRuns: 'No deep research runs yet',
     noRunsDescription: 'Deep research runs from this project will be listed here.',
-    runStatus: {
-      running: 'Running',
-      completed: 'Report ready',
-      failed: 'Failed',
-      cancelled: 'Cancelled',
-    },
   },
 
 

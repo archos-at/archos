@@ -11,9 +11,9 @@ export const DOC_PARAM = 'doc'
 export const TOOL_PARAM = 'tool'
 export const BACK_PARAM = 'back'
 
-export type ReviewLinkTool = 'point' | 'region'
+export type ReviewLinkTool = 'point' | 'region' | 'measure'
 const isReviewLinkTool = (value: string | null | undefined): value is ReviewLinkTool =>
-  value === 'point' || value === 'region'
+  value === 'point' || value === 'region' || value === 'measure'
 
 export interface ReviewTarget {
   documentId: string

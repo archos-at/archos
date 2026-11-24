@@ -79,7 +79,7 @@ describe('conversationAudienceOf', () => {
   })
 })
 
-describe('the turn decision narrows the audience, never widens it (ADR-0192)', () => {
+describe('the turn decision narrows the audience, never widens it (ADR-0194)', () => {
   const decided = (solo: boolean, conversationId = 'conv_1') => ({ conversationId, solo })
 
   it('reads a chat shared since the turn was decided as shared, and carries today’s version instead of refusing', async () => {

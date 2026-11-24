@@ -74,7 +74,7 @@ async def test_the_data_and_the_text_of_one_call_carry_the_same_value_interval_a
     request = _request(operation, points)
 
     data = tape.measured(loaded, request)["measurement"]
-    text, answered = measure_register.answer(loaded, tape.arguments_of(request))
+    text, answered, _ = measure_register.answer(loaded, tape.arguments_of(request))
 
     assert answered
     value, low, high = re.search(rf"{operation}: {_NUMBER}²? \(interval {_NUMBER}²? to {_NUMBER}²?\)", text).groups()
@@ -91,7 +91,7 @@ async def test_a_refusal_is_the_engines_reason_and_remedy_as_the_text_states_the
     request = _request("distance", [[0.9, 0.9], [0.95, 0.95]])
 
     data = tape.measured(loaded, request)["noNumber"]
-    text, answered = measure_register.answer(loaded, tape.arguments_of(request))
+    text, answered, _ = measure_register.answer(loaded, tape.arguments_of(request))
 
     assert not answered
     assert f"No number: {data['reason']}." in text and f"Remedy: {data['remedy']}." in text
@@ -115,7 +115,7 @@ async def test_a_refusal_carries_a_code_the_interface_words_and_the_text_a_model
 
     assert tape.measured(loaded, nowhere)["noNumber"]["code"] == "none_in_reach"
     assert tape.measured(loaded, bow_tie)["noNumber"]["code"] == "not_an_area"
-    text, _ = measure_register.answer(loaded, tape.arguments_of(nowhere))
+    text, *_ = measure_register.answer(loaded, tape.arguments_of(nowhere))
     assert "none_in_reach" not in text and "cause" not in text
 
 

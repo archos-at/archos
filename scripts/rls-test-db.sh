@@ -4737,7 +4737,7 @@ sql_in exp_0255 <<<"${RESTORE255};"
 echo "==> migration 0255 verified"
 
 # 0260: the database bumps a conversation's audience_version on every change of
-# who may read it, and a bump that would be lost raises (ADR-0192). 0261: the
+# who may read it, and a bump that would be lost raises (ADR-0194). 0261: the
 # per-answer record keeps to its kinds.
 echo "==> verifying the audience version, its triggers and the per-answer record on aud_0260"
 migrate_before aud_0260 0260_conversation_audience_version

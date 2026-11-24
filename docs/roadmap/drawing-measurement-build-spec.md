@@ -266,7 +266,10 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
    more than the tolerance is saved and reported, and while it disagrees every
    verdict in its region is `undecidable`: two sources say different things and
    a person has to look. A calibration belongs to one version of a document;
-   none carries over to a new version.
+   none carries over to a new version. Calibrated regions on a page nest or
+   keep apart: an equal region supersedes, one inside or around another stands
+   (the smaller holds where both do), and a partial overlap is refused, 409
+   `region-overlaps` (ADR-0183).
 8. **A measurement never crosses two regions.** Both ends lie in one region, or
    the answer is undecidable and names both.
 9. **The engine produces the one span.** `clearance` takes two points placed near
@@ -311,7 +314,8 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
     *As built:* an `estimated` reading carries at least 0.5 % (decision 5), and
     a length is never finer than 0.25 pt, the distance below which two lines
     are one. A calibration counts as contradicted by another calibration over
-    the same place, by its stored region, by what the figures corroborate at
+    the same place whose region does not lie wholly around its own, by its
+    stored region, by what the figures corroborate at
     that place without it, or by the figures inside its own region: any
     number of them, two included, and whole-number figures whose unit cannot
     be told under both readings (slice 7; before it fewer than three figures
@@ -860,17 +864,22 @@ otherwise to state as „not verified because“ in the closing checklist.
     refuses with the engine's reason where there is none. A browser or an
     outside agent through `annotation-create` cannot store a number the engine
     did not give.
-  * *The reading is one JSON column,* `document_annotations.measurement`
+  * *The reading is one JSON column,* `document_annotations.reading`
     (value, unit, low, high, provenance, scale state), beside `points`
-    (migration 0237). It is written once and read whole, never filtered by a
+    (migration 0259). It is written once and read whole, never filtered by a
     field; a CHECK holds its shape, that its interval holds its value and
     that an area is in m². A mark's `x`/`y` is its first point, so every
     reader that knows only a pin keeps working.
   * *A measurement is not carried.* It is true of one version's linework:
     „Gilt weiter“ is not offered for it and a carry is refused (422,
     `reason: measurement`), on the same document and onto a replacing one.
-  * *The agent's canvas tools still set a point or a region only;* they read
-    a measurement in their list, its place as the box around its points.
+  * *The agent keeps a measurement too.* Its canvas `mark` sets a `line`,
+    `path` or `polygon` with points, only in a turn that measures a PDF
+    (`drawing_measure` bound), and the server measures it through the same
+    `kept-reading.ts`; it reads a measurement in its list with the reading,
+    its place as the box around its points.
+  * *The review view knows whether to offer the tape* from the list's
+    `canMeasure`: a PDF, where the organization holds `drawing-measure`.
   * *A reading is written for a person.* The card shows the value with a
     tolerance, to no more digits than the tolerance supports („7,39 m ± 4 cm“,
     `measure/tape-format.ts`), and one line on what it rests on: the scale

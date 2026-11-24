@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The per-answer record (ADR-0192, migration 0261) against a REAL Postgres,
+ * The per-answer record (ADR-0194, migration 0261) against a REAL Postgres,
  * through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
