@@ -6,6 +6,7 @@ import { projectIdFromPathname } from './command-palette'
 import { SHORTCUTS_PREFERENCE_KEY } from '@/hooks/use-shortcuts-preference'
 import { ShellSearchButton } from './shell-search-button'
 import { useShellOverlays } from './shell-overlays'
+import { useProjectOverview } from './project-overview-entry'
 
 const push = vi.fn()
 let pathname = '/app/projects'
@@ -36,6 +37,7 @@ describe('KeyboardShortcuts', () => {
     push.mockClear()
     window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
     useShellOverlays.setState({ paletteOpen: false, paletteSummon: 'keyboard' })
+    useProjectOverview.setState({ open: false })
     pathname = '/app/projects'
     vi.stubGlobal(
       'fetch',
@@ -111,13 +113,15 @@ describe('KeyboardShortcuts', () => {
     expect(screen.queryByText('Mention a colleague')).toBeNull()
   })
 
-  test('g then p navigates to the projects list', async () => {
+  test('g then p opens the project overview where you are, at once', async () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState()).toMatchObject({ open: true, summon: 'keyboard' }))
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
   })
 
   test('g then a section key jumps within the project the user is in', async () => {
@@ -165,7 +169,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'CapsLock' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState().open).toBe(true))
   })
 
   test('Escape cancels a pending leader sequence', () => {
@@ -176,6 +180,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'p' })
 
     expect(push).not.toHaveBeenCalled()
+    expect(useProjectOverview.getState().open).toBe(false)
   })
 
   test('an unbound second key disarms the leader instead of navigating', () => {
@@ -187,6 +192,7 @@ describe('KeyboardShortcuts', () => {
 
     fireEvent.keyDown(window, { key: 'p' })
     expect(push).not.toHaveBeenCalled()
+    expect(useProjectOverview.getState().open).toBe(false)
   })
 
   test('a bare modifier keypress does not spend the armed leader', async () => {
@@ -196,7 +202,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState().open).toBe(true))
   })
 
   test('plain-key shortcuts do not fire while typing in an input', async () => {

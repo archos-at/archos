@@ -6328,24 +6328,6 @@
   {
     "type": "dependency",
     "from": "bff/shell/chrome.ts",
-    "to": "ui/components/shell/project-switcher.tsx",
-    "unresolvedTo": "@/components/shell/project-switcher",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "lib-imports-ui"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "bff/shell/chrome.ts",
     "to": "ui/components/shell/sidebar-user-menu.tsx",
     "unresolvedTo": "@/components/shell/sidebar-user-menu",
     "dependencyTypes": [

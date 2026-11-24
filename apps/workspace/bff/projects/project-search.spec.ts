@@ -3,7 +3,11 @@
  */
 import { describe, expect, test } from 'vitest'
 import type { ProjectProfile } from '@/lib/project-profile/types'
-import { projectMatchesQuery, type SearchableProject } from './project-search'
+import { overviewMatchesQuery } from './overview-project'
+import { projectSearchText, type SearchableProject } from './project-search'
+
+const projectMatchesQuery = (project: SearchableProject, query: string): boolean =>
+  overviewMatchesQuery({ searchText: projectSearchText(project) }, query)
 
 const profile = (values: Record<string, string>): ProjectProfile => ({
   facts: Object.fromEntries(

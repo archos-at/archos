@@ -18,10 +18,13 @@ import { useRailSide } from './rail-side'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
 import { useKeyboardUp } from './use-keyboard-up'
-import type { ProjectSwitcherProject } from './project-switcher'
+import { ProjectOverviewWindow } from './project-overview-window'
+import type { OverviewProject } from '@/lib/projects/overview-project'
 import type { SidebarUser } from './sidebar-user-menu'
 import type { TourEligibility } from '@/lib/onboarding/product-tour'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
+
+const EMPTY_ACTIVITY: Record<string, string> = {}
 
 const KEEPS_THE_COVERED_CHROME = ['/app/office-shelf', '/app/base-knowledge', '/app/inbox', '/app/uploads'] as const
 
@@ -30,7 +33,10 @@ function keepsTheCoveredChrome(pathname: string): boolean {
 }
 
 export interface AppShellChromeProps {
-  projects: ProjectSwitcherProject[]
+  projects: OverviewProject[]
+  projectActivity?: Record<string, string>
+  /** What the project overview shows under its projects („Kürzlich gelöscht“). */
+  projectOverviewAfter?: React.ReactNode
   user?: SidebarUser
   organizationName?: string | null
   authRequired: boolean
@@ -144,6 +150,13 @@ export function AppShellChrome({
           canManagePlatform={chrome.canManagePlatform}
         />
       )}
+      <React.Suspense fallback={null}>
+        <ProjectOverviewWindow
+          projects={chrome.projects}
+          viewerActivity={chrome.projectActivity ?? EMPTY_ACTIVITY}
+          after={chrome.projectOverviewAfter}
+        />
+      </React.Suspense>
       {overlay}
     </div>
     </FeedbackProvider>

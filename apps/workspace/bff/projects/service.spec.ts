@@ -42,7 +42,7 @@ vi.mock('@/lib/conversations/repository', () => ({
   listConversationIdsForProject: vi.fn(),
 }))
 
-import { getProjectsListData, listProjects } from './service'
+import { listProjects } from './service'
 import { makeProject } from '@/test-utils/db-fixtures'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
@@ -155,59 +155,5 @@ describe('listProjects', () => {
     await listProjects(session({ organizationId: 'org_1' }))
 
     expect(listProjectsInOrg).toHaveBeenCalledWith('org_1', { order: 'newest' })
-  })
-})
-
-describe('getProjectsListData', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    listProjectsInOrg.mockResolvedValue([ALPHA, BETA, GAMMA])
-    countDocumentsByProject.mockResolvedValue({ proj_beta: 4 })
-    lastProjectActivityByUser.mockResolvedValue({ proj_beta: '2026-08-05T09:00:00.000Z' })
-    getHiddenFolderIds.mockResolvedValue([])
-  })
-
-  it('counts only what the viewer may read: the folders hidden from them are passed to the count', async () => {
-    effective.mockResolvedValue(page(true))
-    getHiddenFolderIds.mockImplementation(async (_session: unknown, projectId: string) =>
-      projectId === 'proj_beta' ? ['folder_hr'] : projectId === 'proj_alpha' ? ['folder_fees', 'folder_pay'] : []
-    )
-
-    await getProjectsListData(session())
-
-    const [, ids, hidden] = countDocumentsByProject.mock.calls[0]
-    expect(ids).toEqual(['proj_alpha', 'proj_beta', 'proj_gamma'])
-    expect([...hidden].sort()).toEqual(['folder_fees', 'folder_hr', 'folder_pay'])
-    expect(getHiddenFolderIds).toHaveBeenCalledWith(expect.anything(), 'proj_beta')
-  })
-
-  it('asks for activity for the caller, and only for the projects they can reach', async () => {
-    effective.mockImplementation(({ externalId }: { externalId: string }) =>
-      Promise.resolve(page(externalId === 'proj_beta'))
-    )
-
-    const data = await getProjectsListData(session())
-
-    expect(lastProjectActivityByUser).toHaveBeenCalledWith('org_1', 'user_1', ['proj_beta'])
-    expect(countDocumentsByProject).toHaveBeenCalledWith('org_1', ['proj_beta'], [], {
-      kind: 'projects',
-      userId: 'user_1',
-      reviewedProjectIds: [],
-    })
-    expect(data.projects.map((project) => project.id)).toEqual(['proj_beta'])
-    expect(data.viewerActivity).toEqual({ proj_beta: '2026-08-05T09:00:00.000Z' })
-    expect(data.documentCounts).toEqual({ proj_beta: 4 })
-    expect(waitingMailCounts).toHaveBeenCalledWith(expect.anything(), ['proj_beta'])
-    expect(data.mailWaiting).toEqual({ proj_beta: 2 })
-  })
-
-  it('returns an empty activity map rather than failing when nobody has worked anywhere', async () => {
-    effective.mockResolvedValue(page(true))
-    lastProjectActivityByUser.mockResolvedValue({})
-
-    const data = await getProjectsListData(session())
-
-    expect(data.viewerActivity).toEqual({})
-    expect(data.projects).toHaveLength(3)
   })
 })

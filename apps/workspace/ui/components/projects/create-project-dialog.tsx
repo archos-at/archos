@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import { useCallback, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 
 import { Button, type ButtonProps } from '@/components/ui/button'
@@ -39,17 +39,16 @@ export function CreateProjectDialog({
 }: CreateProjectDialogProps): JSX.Element {
   const t = useTranslations(projectsCopy)
   const router = useRouter()
-  const pathname = usePathname()
   const [open, setOpen] = useState(defaultOpen)
 
   const handleOpenChange = useCallback(
     (next: boolean): void => {
       setOpen(next)
-      if (!next && defaultOpen && pathname) {
-        router.replace(pathname, { scroll: false })
+      if (!next && defaultOpen && new URLSearchParams(window.location.search).get('new') === '1') {
+        router.replace(window.location.pathname, { scroll: false })
       }
     },
-    [defaultOpen, pathname, router],
+    [defaultOpen, router],
   )
 
   return (
