@@ -744,6 +744,14 @@
           }
         },
         {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
+            "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+          }
+        },
+        {
           "section": "upgrade",
           "area": "documents",
           "text": {

@@ -3108,6 +3108,10 @@
     "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
   },
   {
+    "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
+    "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+  },
+  {
     "en": "On a phone the open-comments chip on a tile shows its first part whole instead of cutting the last one, and the inbox address and its info button fit the screen.",
     "de": "Auf dem Smartphone zeigt der Chip für offene Kommentare auf einer Kachel den ersten Teil vollständig an, statt den letzten abzuschneiden; außerdem passen die Inbox-Adresse und ihr Info-Button auf den Bildschirm."
   },
