@@ -15,7 +15,6 @@ import { mergeMetadataEntries } from './metadata-merge'
 import { projects } from '@/lib/db/schema/projects'
 import { type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 
-
 export const MESSAGE_LIST_LIMIT = 1000
 
 export {

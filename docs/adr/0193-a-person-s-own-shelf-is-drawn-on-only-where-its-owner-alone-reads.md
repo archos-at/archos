@@ -89,7 +89,11 @@ start page and chats the agent API made without a project.
 * A chat records at creation that it was started in Persönlich
   (`conversations.started_in_personal`, migration 0267; the browser sends
   `personal: true` with a chat without a project, and the server ignores it with
-  a project). Every existing row is false. It is not inferred from a date.
+  a project; an upload that creates the chat before its create marks it the
+  same way, and a document thread on the person's own shelf is marked when it
+  starts). Every existing row is false. It is not inferred from a date. The
+  agent API's `conversation-create` takes the same flag, so an agent marks a
+  chat only when it asks to.
 * Persönlich lists only chats started there: the rail's „Letzte Chats“, the
   Chatverlauf, the phone's Chats sheet and the agent API's `conversation-list`
   with `place=personal`. A chat without a project that was not started there is
