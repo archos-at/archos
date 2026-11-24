@@ -128,6 +128,15 @@ export const KEPT: AnnotationView[] = [
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
+const unscaled = () => typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('scale') === 'none'
+const NO_SCALE = {
+  code: 'uncalibrated',
+  reason: 'No scale is known for this part of the sheet.',
+  remedy: 'Set the scale from a known length.',
+  scaleState: null,
+  candidates: [],
+}
+
 export const tapeFetch = (inner: typeof fetch) => {
   let added: AnnotationView[] = [...KEPT]
   let next = 40
@@ -137,11 +146,12 @@ export const tapeFetch = (inner: typeof fetch) => {
     const root = `/api/documents/${FILE.id}`
     if (url.startsWith(`${root}/snap-targets`)) {
       await new Promise((resolve) => setTimeout(resolve, 250))
-      return json({ targets: TAPE_TARGETS })
+      return json({ targets: unscaled() ? { ...TAPE_TARGETS, scales: [] } : TAPE_TARGETS })
     }
     if (url.endsWith(`${root}/measure`) && method === 'POST') {
       const { operation, points } = JSON.parse(String(init?.body)) as { operation: string; points: PagePoint[] }
       await new Promise((resolve) => setTimeout(resolve, 450))
+      if (unscaled()) return json({ noNumber: NO_SCALE })
       return json({ measurement: measured(operation, points) })
     }
     if (url.endsWith(`${root}/annotations`) && method === 'POST') {

@@ -37,18 +37,16 @@ Shape = Annotated[Literal["point", "region", "line", "path", "polygon"], BeforeV
 
 class AnnotationProposal(BaseModel):
     model_config = ConfigDict(
-        json_schema_extra={
-            "description": "One finding: where on which page, what kind, what is wrong, what it rests on."
-        }
+        json_schema_extra={"description": "One finding: where, what kind, what is wrong, what it rests on."}
     )
 
     page: int
     shape: Shape = "region"
-    x: float | None = None
-    y: float | None = None
+    x: float = 0
+    y: float = 0
     w: float | None = None
     h: float | None = None
-    points: list[tuple[float, float]] | None = None
+    points: list[list[float]] = []
     kind: Kind
     body: str
     basis: str | None = None
@@ -185,7 +183,7 @@ def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float
     w, h = proposal.w or 0.0, proposal.h or 0.0
     if w <= 0 or h <= 0:
         raise Refused(f"Error: Proposal {index}: a region needs `w` and `h` greater than 0.")
-    x, y = proposal.x or 0.0, proposal.y or 0.0
+    x, y = proposal.x, proposal.y
     if x + w > 1 + _EDGE_SLACK or y + h > 1 + _EDGE_SLACK:
         raise Refused(f"Error: Proposal {index}: the region extends beyond the page (x+w and y+h at most 1).")
     return min(w, 1 - x), min(h, 1 - y)
@@ -195,10 +193,10 @@ def _measure_points(proposal: AnnotationProposal, index: int) -> list[list[float
     if not turn_states("pdf"):
         raise Refused(f"Error: Proposal {index}: a measurement is kept only on a PDF drawing where you measure.")
     fewest, most = MEASURE_SHAPES[proposal.shape]
-    points = proposal.points or []
+    points = proposal.points
     if not fewest <= len(points) <= most:
         raise Refused(f"Error: Proposal {index}: a {proposal.shape} has {fewest} to {most} `points`.")
-    if any(not (0 <= x <= 1 and 0 <= y <= 1) for x, y in points):
+    if any(len(point) != 2 or not all(0 <= value <= 1 for value in point) for point in points):
         raise Refused(f"Error: Proposal {index}: `points` are shares of the page between 0 and 1, not pixels.")
     return [[round(x, 4), round(y, 4)] for x, y in points]
 
@@ -211,7 +209,9 @@ def _proposal_payload(proposal: AnnotationProposal, index: int) -> dict[str, Any
         proposal = proposal.model_copy(update={"x": points[0][0], "y": points[0][1], "w": None, "h": None})
     elif proposal.points:
         raise Refused(f"Error: Proposal {index}: a {proposal.shape} has no `points`.")
-    if proposal.x is None or proposal.y is None or not (0 <= proposal.x <= 1 and 0 <= proposal.y <= 1):
+    if not points and not {"x", "y"} <= proposal.model_fields_set:
+        raise Refused(f"Error: Proposal {index}: a {proposal.shape} needs `x` and `y`.")
+    if not (0 <= proposal.x <= 1 and 0 <= proposal.y <= 1):
         raise Refused(f"Error: Proposal {index}: `x` and `y` are shares of the page between 0 and 1, not pixels.")
     body = _text(proposal.body)
     if not body or len(body) > MAX_BODY:
