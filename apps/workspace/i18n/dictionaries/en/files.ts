@@ -708,13 +708,13 @@ export const files = {
   },
   delete: {
     action: 'Delete document',
-    title: 'Move “{name}” to the bin?',
+    title: 'Delete “{name}”?',
     confirm: 'The document goes to the project’s bin. It can be restored from there until it is deleted for good.',
-    confirmAction: 'Move to the bin',
+    confirmAction: 'Delete',
     cancel: 'Cancel',
-    deleting: 'Moving…',
+    deleting: 'Deleting…',
     success: '“{name}” was removed from the project',
-    error: 'The document could not be moved to the bin',
+    error: 'The document could not be deleted',
     legalHold: 'The document is under a legal hold and cannot be deleted',
   },
   erase: {

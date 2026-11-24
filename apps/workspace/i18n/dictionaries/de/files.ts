@@ -721,14 +721,14 @@ export const files: typeof en.files = {
   },
   delete: {
     action: 'Dokument löschen',
-    title: '„{name}“ in den Papierkorb verschieben?',
+    title: '„{name}“ löschen?',
     confirm:
       'Das Dokument kommt in den Papierkorb des Projekts. Dort lässt es sich wiederherstellen, bis es endgültig gelöscht wird.',
-    confirmAction: 'In den Papierkorb',
+    confirmAction: 'Löschen',
     cancel: 'Abbrechen',
-    deleting: 'Wird verschoben…',
+    deleting: 'Wird gelöscht…',
     success: '„{name}“ wurde aus dem Projekt entfernt',
-    error: 'Das Dokument konnte nicht in den Papierkorb verschoben werden',
+    error: 'Das Dokument konnte nicht gelöscht werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
   },
   erase: {

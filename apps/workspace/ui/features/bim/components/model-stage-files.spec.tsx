@@ -127,7 +127,7 @@ describe('ModelStage — the file operations on the building', () => {
 
     await user.click(await screen.findByTestId('stage-file-actions'))
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
-    expect(await screen.findByText('Move “Haus-A.ifc” to the bin?')).toBeInTheDocument()
+    expect(await screen.findByText('Delete “Haus-A.ifc”?')).toBeInTheDocument()
     await user.click(await screen.findByTestId('document-delete-confirm'))
 
     await waitFor(() => expect(onModelDeleted).toHaveBeenCalledWith('doc-1'))

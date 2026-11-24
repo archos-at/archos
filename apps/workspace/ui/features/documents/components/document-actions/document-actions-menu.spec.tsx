@@ -100,7 +100,7 @@ describe('DocumentActionsMenu — deleting', () => {
     await openMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
-    expect(await screen.findByText('Move “Einreichplan_EG.pdf” to the bin?')).toBeInTheDocument()
+    expect(await screen.findByText('Delete “Einreichplan_EG.pdf”?')).toBeInTheDocument()
     expect(screen.getByText(/can be restored/i)).toBeInTheDocument()
 
     await user.click(screen.getByTestId('document-delete-confirm'))
