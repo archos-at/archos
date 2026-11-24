@@ -1,0 +1,7 @@
+---
+# area: agents
+operators:
+  - >
+    A file the agent uploads from a chat now records that chat on its version,
+    as a filed draft does, so it opens no revision task and counts toward an
+    agent ask in that chat.
