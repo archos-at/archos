@@ -104,6 +104,16 @@ describe('resolveConversationContext', () => {
     expect(context.audience).toMatchObject({ solo: false, version: 5 })
   })
 
+  it('never draws on the personal shelf in a document thread, whose answers others read as annotation replies', async () => {
+    state.rows = [row({ subject: true })]
+
+    const context = await resolveConversationContext(session, { conversationId: 's_thread', kind: 'chat' })
+
+    expect(context.may).toMatchObject({ personalMemory: true, personalShelf: false })
+    expect(context.may.shelves.map((entry) => entry.shelf)).not.toContain('personal')
+    expect(context.may.restrictedCollections).toEqual([])
+  })
+
   it('draws on the personal shelf in a solo chat, and not in the next turn once the chat is shared', async () => {
     state.rows = [row(), row({ grantees: ['user_ina'], version: 3 })]
 

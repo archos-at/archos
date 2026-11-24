@@ -53,9 +53,10 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0264)', ()
   })
 
   const asOwner = <T>(fn: () => PromiseLike<T>) => withTenant({ organizationId: ORG, userId: OWNER }, fn)
-  const chat = async (visibility: 'private' | 'organization' = 'private') => {
+  const chat = async (visibility: 'private' | 'organization' = 'private', subject = false) => {
     const id = `s_psu_${randomUUID()}`
-    await asOwner(() => db.insert(conversations).values({ id, organizationId: ORG, createdBy: OWNER, visibility }))
+    const thread = subject ? { subjectResourceType: 'document' as const, subjectResourceId: randomUUID() } : {}
+    await asOwner(() => db.insert(conversations).values({ id, organizationId: ORG, createdBy: OWNER, visibility, ...thread }))
     return id
   }
   const allowing = (conversationId: string, answer: string | null, userId = OWNER) => {
@@ -111,6 +112,15 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0264)', ()
     expect(await asOwner(() => use.admitPersonalShelf(request(solo), [colleagues], allowing(solo, null)))).toEqual([])
     expect(await usedAt(shared)).toBeNull()
     expect(await usedAt(solo)).toBeNull()
+  })
+
+  it('refuses a document thread, whose answers reach the document's readers as annotation replies', async () => {
+    const thread = await chat('private', true)
+    const admitted = await asOwner(() =>
+      use.admitPersonalShelf({ organizationId: ORG, conversationId: thread, userId: OWNER }, [own], allowing(thread, null)),
+    )
+    expect(admitted).toEqual([])
+    expect(await usedAt(thread)).toBeNull()
   })
 
   it('refuses a chat that has no row yet, since there is nowhere to record the use', async () => {

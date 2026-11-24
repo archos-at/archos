@@ -132,7 +132,7 @@ export async function resolveConversationContext(
     : NOTHING_RECORDED
   const confined = isConfined({ restrictedCollections }, recorded)
   const personalMemory = isAuthorized(session) && mayPersonalMemory(kind, conversationId, audience.solo)
-  const personalShelf = mayPersonalShelf(kind, personalMemory, projectId ?? audience.row.projectId)
+  const personalShelf = !audience.row.subject && mayPersonalShelf(kind, personalMemory, projectId ?? audience.row.projectId)
   const personal = personalShelf && isAuthorized(session) ? personalShelfCollectionName(session.organizationId, session.userId) : null
   return {
     kind,

@@ -45,7 +45,7 @@ export async function admitPersonalShelf(
   const admitted = await getDb().transaction(async (tx) => {
     await lockConversationAudience(tx, organizationId, conversationId)
     const audience = await readConversationAudience(tx, organizationId, conversationId)
-    if (!audience.exists || audience.projectId !== null || !isSoloAudience(audience, request.userId)) return false
+    if (!audience.exists || audience.subject || audience.projectId !== null || !isSoloAudience(audience, request.userId)) return false
     await markPersonalShelfUse(tx, organizationId, conversationId)
     if (request.answerMessageId) {
       await recordAnswerReads(tx, organizationId, conversationId, request.answerMessageId, { personalShelf: true })
