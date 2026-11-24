@@ -63,6 +63,7 @@ export const nav: typeof en.nav = {
     },
   },
   filesPlaces: 'Orte der Ablage',
+  projectTeam: 'Projektteam',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

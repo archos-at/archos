@@ -61,6 +61,7 @@ export const nav = {
     },
   },
   filesPlaces: 'Document places',
+  projectTeam: 'Project team',
   backTo: 'Back to {label}',
   returnTargets: {
     project: 'the project',

@@ -72,11 +72,12 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
             phone={phone}
             view={view}
             onViewChange={setView}
-            renderFilter={(compact) => (
-              <FileFilterMenu canCollaborate filters={filters} onFiltersChange={setFilters} sort={sort} onSortChange={setSort} compact={compact} />
+            binHref="/dev/files-page?bin=1"
+            renderFilter={(compact, anchored) => (
+              <FileFilterMenu canCollaborate filters={filters} onFiltersChange={setFilters} sort={sort} onSortChange={setSort} compact={compact} anchored={anchored} />
             )}
             search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
-            upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />}
+            upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} onImportMailArchive={() => {}} />}
             levelEntries={
               phone
                 ? [

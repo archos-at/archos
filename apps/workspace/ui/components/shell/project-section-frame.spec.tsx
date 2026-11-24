@@ -68,7 +68,7 @@ describe('ProjectSectionFrame', () => {
     expect(heading.closest('header')).toContainElement(action)
   })
 
-  test("Dateien's places are tabs: the E-Mail-Eingang only for whoever may decide the project's mail, the open one current", () => {
+  test("the Ablage's places are words: the E-Mail-Eingang only for whoever may decide the project's mail, the open one current, the bin no place", () => {
     pathname = '/app/projects/p1/files/mail'
     const { unmount } = render(
       <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
@@ -77,7 +77,7 @@ describe('ProjectSectionFrame', () => {
     )
     const tabs = screen.getByTestId('files-tabs')
     const names = Array.from(tabs.querySelectorAll('a')).map((link) => link.textContent)
-    expect(names).toEqual(['Files', 'Project mail', 'Open points', 'Bin'])
+    expect(names).toEqual(['Files', 'Project mail', 'Open points'])
     expect(screen.getByRole('link', { name: 'Project mail' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { level: 1, name: 'Project mail' })).toBeInTheDocument()
     expect(screen.getByTestId('page-header-crumb')).toHaveTextContent('Stadthaus WienDocuments')
@@ -93,7 +93,7 @@ describe('ProjectSectionFrame', () => {
     expect(screen.queryByRole('link', { name: 'Project mail' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Files' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { level: 1, name: 'Documents' })).toBeInTheDocument()
-    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien$/)
+    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien·Project team$/)
     expect(screen.getByRole('link', { name: 'Files' })).toHaveAttribute('href', '/app/projects/p1/files')
   })
 
