@@ -1,0 +1,8 @@
+---
+# area: agents
+operators:
+  - >
+    Runs, headless jobs and external API callers now have what they may draw on
+    decided by the same per-turn context as a chat, signed with their kind. A run
+    whose requester has left the organization is skipped instead of running.
+    No migration and no configuration change.
