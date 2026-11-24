@@ -301,7 +301,7 @@ class TestConversationGraph:
 
         async def observing_research(state_input):
             seen["shelf"] = get_listing_shelf()
-            return _research_result(state_input.messages, "In der Büroablage liegen drei Dateien.", direct=True)
+            return _research_result(state_input.messages, "In der Bürobibliothek liegen drei Dateien.", direct=True)
 
         agent = ConversationGraph(
             research_fn=observing_research,
@@ -311,7 +311,7 @@ class TestConversationGraph:
 
         await turn(
             agent,
-            ConversationState(messages=[HumanMessage(content="welche Dateien hast du in der Büroablage")]),
+            ConversationState(messages=[HumanMessage(content="welche Dateien hast du in der Bürobibliothek")]),
             thread_id="t",
         )
         assert seen["shelf"] == Shelf.OFFICE_SHELF

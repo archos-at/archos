@@ -19,7 +19,7 @@ export const nav = {
   openNavigation: 'Open navigation',
   sections: {
     chat: 'Chat',
-    files: 'Files',
+    files: 'Documents',
     knowledge: 'Knowledge',
     research: 'Research',
     automation: 'Automation',
@@ -27,7 +27,7 @@ export const nav = {
     skills: 'Skills',
     jobs: 'Jobs',
     tasks: 'Tasks',
-    officeShelf: 'Office filing',
+    officeShelf: 'Office library',
     baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Overview',
@@ -48,8 +48,8 @@ export const nav = {
   },
   subpages: {
     'files/all': {
-      title: 'Files',
-      tab: 'Folders',
+      title: 'Documents',
+      tab: 'Files',
     },
     'files/mail': {
       title: 'Project mail',
@@ -61,7 +61,7 @@ export const nav = {
       title: 'Open points',
     },
   },
-  filesPlaces: 'File places',
+  filesPlaces: 'Document places',
   backTo: 'Back to {label}',
   returnTargets: {
     project: 'the project',

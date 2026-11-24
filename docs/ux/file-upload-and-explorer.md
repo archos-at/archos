@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-11
 **Status:** Implemented
-**Surfaces:** project Files workspace, org Büroablage (the same workspace, see the last section), chat-session uploads
+**Surfaces:** project Files workspace, org Bürobibliothek (the same workspace, see the last section), chat-session uploads
 **Preview:** `/dev/upload-tray` (one batch, drop to settled); `/dev/ingestion-states` (every state side by side: badge, card, list row, tray row)
 
 ## The complaint
@@ -369,7 +369,7 @@ Two things changed, and the order matters:
   never exactly it, and a two-line summary next to a one-line one has the same
   problem — so the row still needs the block to grow. The same block in
   `DocumentAnswerCard`'s unresolved tile got the same treatment, for the same
-  reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`) is fixed by the same change.
+  reason. This is a property of the shared card, so the Bürobibliothek (which draws the same `FileCard`) is fixed by the same change.
 
 **The second half of the same moment:** the thumbnail cache treated "no
 thumbnail" as permanent. If the page rendered a second before the backend
@@ -423,7 +423,7 @@ state on each folder row answer all three from the listing the Files view
 already holds.
 
 The brief sits above the file list at every folder level, in Dateien and in the
-Büroablage. It describes the folder and everything below it, not only the level
+Bürobibliothek. It describes the folder and everything below it, not only the level
 on screen. It is folded by default to one muted line, the headline and its scope
 („35 von 44 Dokumenten gelesen in diesem Projekt“), with no border, bar or
 legend. Open by default, the card took the top third of every folder for a
@@ -483,7 +483,7 @@ The browser computes both from the listing the Files view already loads:
 `buildFolderBrief` for the folder on screen, and `subtreeTallies` for every
 folder at once, in one pass over the documents. The one extra request is
 `GET /api/projects/{id}/document-roles`, which supplies the missing list. The
-browser reads it again whenever a document in the tab changes. The Büroablage
+browser reads it again whenever a document in the tab changes. The Bürobibliothek
 has no project, so it makes no such request and shows no missing list.
 
 **Content of unreadable documents is never shown.** The brief takes what it says
@@ -543,7 +543,7 @@ second colour on the card.
 **The popover, the decision for this file.** The chip is a button
 (`aria-haspopup="dialog"`) that opens the kit's `Popover`: the move as two path
 lines, where it is now struck through and muted („Eingang“, or „Projektordner
-(oberste Ebene)“ / „Büroablage (oberste Ebene)“ for a file at the top of the
+(oberste Ebene)“ / „Bürobibliothek (oberste Ebene)“ for a file at the top of the
 shelf) and „→ Behörde/Bescheide“ with „neu“ where created (`PathChange`); the
 reason, up to three lines; and the answer, „Belassen“ (tonal) and
 „Verschieben“ or „Anlegen und verschieben“ (primary: in here it is the focal
@@ -650,7 +650,7 @@ controls, last in the rail), which described one history in two places.
 - **It opens itself** on the attention edge, once: a decision is this reader's to
   take (`lifecycleNeedsReader`), the agent has an unconfirmed suggestion, or the file
   is an older Fassung. A reader who closes it keeps it closed.
-- **Surfaces without lifecycle permissions** (the Büroablage sheet, the chat peek)
+- **Surfaces without lifecycle permissions** (the Bürobibliothek sheet, the chat peek)
   get the same section with the cross-name timeline and the suggestion, and no
   controls; the uploads under the name are read only when the listing says there
   is more than one.
@@ -808,7 +808,7 @@ progress model is exercised without a clock, a DOM or a React tree.
 
 ## One workspace, two shelves
 
-**Date:** 2026-10-06 · **Surfaces:** project Files workspace, org Büroablage
+**Date:** 2026-10-06 · **Surfaces:** project Files workspace, org Bürobibliothek
 
 The Archiv was a flat card grid (`ArchivLibraryPane`) beside a 1,600-line project
 workspace, and every capability the project got (folders, drag to move, folder
@@ -839,7 +839,7 @@ What a shelf may differ in is exactly the fields of `FileShelf`:
 | `askAbout` | opens the project chat | absent | There is no Archiv chat to open |
 | `preview` | `store` (the project shell hosts it; chat shares it) | `dialog` (the sheet has no host) | Where a preview can be mounted |
 | `handoverKey` | project id | absent | `ProjectFileDrop` hands a drop to a project only |
-| `messages` | „… in dieses Projekt", „in {productName}s Wissen" | „… in die Büroablage", „in der Büroablage" | Two sentences naming the shelf |
+| `messages` | „… in dieses Projekt", „in {productName}s Wissen" | „… in die Bürobibliothek", „in der Bürobibliothek" | Two sentences naming the shelf |
 | header | `ProjectSectionActions` portal into the section's `PageHeader` | the same band (`SECTION_HEADER_CLASS`) and `PageHeader`, with a count pill by the title and the sheet's close beside it | Each frames the same controls |
 
 The tag chips of the old Archiv grid are „Kategorie" in the shared filter menu
@@ -898,7 +898,7 @@ does not read.
 
 ### Drag and drop, start to end
 
-**Date:** 2026-10-17 · **Surfaces:** project Files workspace, org Büroablage, chat composer
+**Date:** 2026-10-17 · **Surfaces:** project Files workspace, org Bürobibliothek, chat composer
 
 Two drags share one surface: desktop files (`Files` in `dataTransfer.types`)
 and a document or folder moved inside the page (our MIME types,
@@ -928,7 +928,7 @@ server refuses as the real one does (403, the taken name).
 
 ### A big shelf: what loads when
 
-**Date:** 2026-10-12 · **Surfaces:** project Files workspace, org Büroablage
+**Date:** 2026-10-12 · **Surfaces:** project Files workspace, org Bürobibliothek
 
 *Superseded for the default view by the next section (ADR-0102): the drain
 described here is now the fallback, turned on only for what the server cannot
@@ -975,9 +975,9 @@ the cost of getting there and of drawing it:
 
 ### A folder level, page by page
 
-**Date:** 2026-10-12 · **Surfaces:** project Files workspace, org Büroablage · **ADR:** [0102](../adr/0102-file-workspaces-load-a-folder-level-by-pages.md)
+**Date:** 2026-10-12 · **Surfaces:** project Files workspace, org Bürobibliothek · **ADR:** [0102](../adr/0102-file-workspaces-load-a-folder-level-by-pages.md)
 
-A Büroablage with more than 2 000 documents in its root still downloaded and
+A Bürobibliothek with more than 2 000 documents in its root still downloaded and
 hydrated all of them before the root could be drawn. The workspace now reads
 the folder level the reader stands on from the server, a page at a time, and
 never drains the shelf for the default view.

@@ -42,7 +42,7 @@ describe('BackLink — where it points', () => {
     renderBackLink()
 
     const link = screen.getByTestId('back-link')
-    await waitFor(() => expect(link).toHaveTextContent('Back to Files'))
+    await waitFor(() => expect(link).toHaveTextContent('Back to Documents'))
     expect(link).toHaveAttribute('href', '/app/projects/p1/files')
   })
 
@@ -83,7 +83,7 @@ describe('BackLink — how it navigates', () => {
     writeTrail(visits('/app/projects/p1/files', '/app/office-shelf'))
     const user = userEvent.setup()
     renderBackLink()
-    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Files'))
+    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Documents'))
 
     await user.click(screen.getByTestId('back-link'))
     expect(back).toHaveBeenCalledTimes(1)
@@ -93,7 +93,7 @@ describe('BackLink — how it navigates', () => {
     writeTrail(visits('/app/projects/p1/files', '/app/office-shelf'))
     const user = userEvent.setup()
     renderBackLink()
-    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Files'))
+    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Documents'))
 
     await user.keyboard('{Meta>}')
     await user.click(screen.getByTestId('back-link'))
@@ -118,7 +118,7 @@ describe('BackLink — how it navigates', () => {
     writeTrail(visits('/app/projects/p1/files', '/app/office-shelf'))
     const user = userEvent.setup()
     renderBackLink()
-    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Files'))
+    await waitFor(() => expect(screen.getByTestId('back-link')).toHaveTextContent('Back to Documents'))
 
     await user.click(screen.getByTestId('back-link'))
     expect(back).not.toHaveBeenCalled()

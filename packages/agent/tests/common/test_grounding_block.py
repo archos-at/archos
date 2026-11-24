@@ -106,7 +106,7 @@ KB_HITS = [
         body="Fluchtwege im Obergeschoss.",
     ),
     _hit(
-        citation_key="einreichplan_og.pdf (Büroablage), p.9",
+        citation_key="einreichplan_og.pdf (Bürobibliothek), p.9",
         file_name="einreichplan_og.pdf",
         page=9,
         shelf=Shelf.OFFICE_SHELF,

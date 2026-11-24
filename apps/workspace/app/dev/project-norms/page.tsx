@@ -126,7 +126,7 @@ export default function ProjectNormsPreview(): JSX.Element {
         <NormDialogProvider dialog={NormDialog}>
           <main className="mx-auto grid max-w-3xl gap-8 p-4 md:p-8">
             <section className="grid gap-2">
-              <SectionLabel>Dateien · darf die Büroablage verwalten</SectionLabel>
+              <SectionLabel>Dateien · darf die Bürobibliothek verwalten</SectionLabel>
               <ProjectNormNotices projectId={PROJECT} folderId={null} run={fakeNorms(true)} />
             </section>
             <section className="grid gap-2">
@@ -134,7 +134,7 @@ export default function ProjectNormsPreview(): JSX.Element {
               <ProjectNormNotices projectId={PROJECT} folderId={null} run={fakeNorms(false)} />
             </section>
             <section className="grid gap-2">
-              <SectionLabel>Nach dem Hochladen · darf die Büroablage verwalten</SectionLabel>
+              <SectionLabel>Nach dem Hochladen · darf die Bürobibliothek verwalten</SectionLabel>
               <AfterUpload canManageOfficeShelf />
             </section>
             <section className="grid gap-2">

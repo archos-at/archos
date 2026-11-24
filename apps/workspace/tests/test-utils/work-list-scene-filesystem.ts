@@ -71,7 +71,7 @@ export const filesystemEdgesScene = (): TimedStep[] =>
     retrievalOf(
       0,
       1,
-      'Wörtlich nach der Sprinkleranlage suchen, im Projekt und in der Büroablage.'
+      'Wörtlich nach der Sprinkleranlage suchen, im Projekt und in der Bürobibliothek.'
     ),
     ...call('call:fe1', 100, 1200, {
       round: 1,

@@ -20,7 +20,7 @@ const de = {
       {
         title: 'Eine Frage. Das ganze Projekt als Kontext.',
         text: 'Belegt aus Fachwissen, Projekt und Büro.',
-        alt: '{name}-Herleitung: eine Frage zum Termin mit dem Küchenplaner, darunter zehn Quellen aus Fachwissen, Projektwissen und Büroablage',
+        alt: '{name}-Herleitung: eine Frage zum Termin mit dem Küchenplaner, darunter zehn Quellen aus Fachwissen, Projektwissen und Bürobibliothek',
       },
       {
         title: 'Planstand und Anforderungen. Direkt abgeglichen.',

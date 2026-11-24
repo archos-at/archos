@@ -193,7 +193,7 @@ chips and deep-links fall out of one decision (`backend-deep-dive.md` §6c).
 /projects/<slug>/work/…               NEW: The agent's desk  (agent-authored)
 /projects/<slug>/views/<name>.view    NEW: saved filters     (§7)
 /projects/<slug>/memory/…             memory, projected      (read-only view of rows)
-/archiv/…                             Büroablage shelf       (documents, scope='office_shelf')
+/archiv/…                             Bürobibliothek shelf       (documents, scope='office_shelf')
 /threads/<conv>/…                     chat-private shelf     (documents, scope='session')
 /skills/…                             org + platform skills
 /law/oib/…                            the corpus             (global, read-only)
@@ -314,7 +314,7 @@ The product already has the vocabulary to render this without inventing
 anything: the design language's provenance signals are the only chroma in the
 app. Agent-authored work sits in `--source-auto` grey (*automatisch*); promotion
 is the moment it becomes `--source-project` green (*Projektwissen*) or
-`--source-office` gold (*Büroablage*). Colour never travels alone, so the chip
+`--source-office` gold (*Bürobibliothek*). Colour never travels alone, so the chip
 carries the word too — and the word is the honest one.
 
 An agent that "organizes the Archiv" therefore produces a **proposal** — a batch

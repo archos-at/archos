@@ -153,7 +153,7 @@ describe('the mail pane', () => {
     render(
       <InboundMailDetail projectId={PROJECT_ID} mailId={hidden.id} initial={hidden} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view: hidden } })} onChanged={vi.fn()} now={FIXTURE_NOW} />
     )
-    expect(screen.getByTestId('status-filed')).toHaveTextContent('Filed in Files')
+    expect(screen.getByTestId('status-filed')).toHaveTextContent('Filed in Documents')
     expect(screen.getByTestId('status-filed')).not.toHaveTextContent('Behörde')
   })
 

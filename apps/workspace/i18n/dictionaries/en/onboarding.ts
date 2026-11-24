@@ -78,7 +78,7 @@ export const onboarding = {
         body: 'A project holds one building: its documents, the people working on it, its tasks and research, and a chat where {productName} works with you. Every source is cited, whether building law or your own files. A short setup asks about the building, then we show you around inside.',
       },
       officeShelf: {
-        title: 'Office filing',
+        title: 'Office library',
         body: 'Your office’s shared documents — standard details, specifications, templates. File something here once and every project can draw on it.',
       },
       inbox: {
@@ -101,7 +101,7 @@ export const onboarding = {
       },
       searchPhone: {
         title: 'Search and jump',
-        body: 'The magnifier at the top takes you to any project, any section and the office filing. A few letters are enough.',
+        body: 'The magnifier at the top takes you to any project, any section and the office library. A few letters are enough.',
       },
       projectWelcome: {
         title: 'Your project is set up',
@@ -113,31 +113,31 @@ export const onboarding = {
       },
       projectChat: {
         title: 'Work with {productName}',
-        body: 'Talk to {productName} about this building in plain language, or hand it a task. It works from your files, Office filing and building law, and cites each source.',
+        body: 'Talk to {productName} about this building in plain language, or hand it a task. It works from your files, Office library and building law, and cites each source.',
       },
       projectFiles: {
-        title: 'Files: this project’s documents',
+        title: 'Documents: this project’s files',
         body: 'Upload drawings, reports and correspondence for this building. Once a file has been read, {productName} can quote it, but only inside this project.',
       },
       projectOfficeShelf: {
-        title: 'Office filing: your office’s documents',
-        body: 'Office filing sits above your projects, and every project searches it automatically. It starts empty: admins add documents, and everyone in the organization can read and cite them.',
+        title: 'Office library: your office’s documents',
+        body: 'Office library sits above your projects, and every project searches it automatically. It starts empty: admins add documents, and everyone in the organization can read and cite them.',
       },
       projectOfficeShelfPhone: {
-        title: 'Office filing: your office’s documents',
-        body: 'Office filing sits above your projects, and every project searches it automatically. You find it under “More”, with everything that is not in the bar.',
+        title: 'Office library: your office’s documents',
+        body: 'Office library sits above your projects, and every project searches it automatically. You find it under “More”, with everything that is not in the bar.',
       },
       filesOrOfficeShelf: {
-        title: 'Files or Office filing?',
+        title: 'Documents or Office library?',
         body: 'Ask who the document belongs to.',
-        filesTerm: 'Files — this building',
+        filesTerm: 'Documents — this building',
         filesDetail: 'Its drawings, reports, correspondence. Cited only in this project.',
-        officeShelfTerm: 'Office filing — the office',
+        officeShelfTerm: 'Office library — the office',
         officeShelfDetail: 'Standard details, specifications, templates, earlier submissions worth reusing. Cited in every project.',
       },
       projectSources: {
         title: 'Every answer shows its sources',
-        body: 'Each claim is marked with where it came from — Building law, Project knowledge or Office filing — and opens the passage it rests on. If {productName} has no source for something, it says so.',
+        body: 'Each claim is marked with where it came from — Building law, Project knowledge or Office library — and opens the passage it rests on. If {productName} has no source for something, it says so.',
       },
       projectSettings: {
         title: 'Settings and members',

@@ -29,7 +29,7 @@ export const knowledge = {
     title: 'Project documents',
     description:
       'Files uploaded to this project. Once processing finishes they are searchable in this project’s chats alongside the shared Richtlinien.',
-    empty: 'No project documents yet. Files you upload under “Files” become part of the assistant’s knowledge.',
+    empty: 'No project documents yet. Files you upload under “Documents” become part of the assistant’s knowledge.',
     goToFiles: 'Manage files',
   },
   states: {
@@ -109,19 +109,19 @@ export const knowledge = {
     backToSource: 'Back to the passage',
     found: '{count, plural, one {Found in # project} other {Found in # projects}}',
     foundWithOfficeShelf:
-      '{count, plural, one {Found in # project and the Büroablage} other {Found in # projects and the Büroablage}}',
-    foundOnlyOfficeShelf: 'Found in the Büroablage',
+      '{count, plural, one {Found in # project and the Bürobibliothek} other {Found in # projects and the Bürobibliothek}}',
+    foundOnlyOfficeShelf: 'Found in the Bürobibliothek',
     loading: '{productName} is checking your projects…',
     emptyTitle: 'Not handled in your office yet',
     emptyBody:
-      'Checked this project, {count, plural, one {# other project} other {# other projects}} and the Büroablage.',
+      'Checked this project, {count, plural, one {# other project} other {# other projects}} and the Bürobibliothek.',
     failedTitle: 'That did not work just now',
     failedBody: 'Please try again in a moment.',
     heldTitle: 'This document is still being screened',
     heldBody: 'Once screening is done, {productName} can check your projects.',
     retry: 'Try again',
     groupCurrent: 'This project',
-    groupOfficeShelf: 'Büroablage',
+    groupOfficeShelf: 'Bürobibliothek',
     groupClosed: 'closed',
     datedOn: 'Dated {date}',
     page: 'p. {page}',

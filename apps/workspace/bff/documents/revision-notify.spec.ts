@@ -373,7 +373,7 @@ describe('notifyNewRevision — a confirmed link', () => {
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
-  it('reads the Büroablage as organization membership', async () => {
+  it('reads the Bürobibliothek as organization membership', async () => {
     vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
       doc({ ...(id === 'doc-b' ? NEWER : OLDER), scope: 'office_shelf', projectId: null }),
     )

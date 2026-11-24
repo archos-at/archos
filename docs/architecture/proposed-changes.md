@@ -10,10 +10,10 @@ not a card that executes itself (ADR-0105). Five kinds exist:
 | `memory` | a note for the office's memory, or for the project's | `memory_proposal` |
 | `project_profile` | a change to the project's facts, goals, unknowns or assumptions, as a JSON patch on the profile | `project_profile_patch` |
 | `operation` | any write operation of the agent catalog that the agent called through the MCP surface (ADR-0122) | `operation_proposal` |
-| `office_shelf_norm` | a person's suggestion that norms of a project go to the Büroablage (ADR-0185) | none: the decision is in the Postfach |
+| `office_shelf_norm` | a person's suggestion that norms of a project go to the Bürobibliothek (ADR-0185) | none: the decision is in the Postfach |
 
 All five share one lifecycle, one table, one set of routes and one receipt
-card. A file operation may also be on the Büroablage, which has no project
+card. A file operation may also be on the Bürobibliothek, which has no project
 (0146), and the agent files one of its own whenever an upload lands in the wrong
 folder ([Filing suggestions](#filing-suggestions)). An `operation` may be the
 organization's, with no project (0176). What differs between them is held in one file,
@@ -65,16 +65,16 @@ deciding person's session, and the decision is one row every reader sees.
 ## The data
 
 `proposed_changes` sits under `secure_table` RLS: the organization, and for
-a project's proposal the project's organization; a Büroablage proposal is the
-organization's alone, as a Büroablage folder is (0146). Both foreign keys are
+a project's proposal the project's organization; a Bürobibliothek proposal is the
+organization's alone, as a Bürobibliothek folder is (0146). Both foreign keys are
 composite with the organization
 (`projects (id, organization_id)`, `conversations (id, organization_id)`), so a
 row cannot name another tenant's project or conversation.
 
 | Column | Holds |
 |---|---|
-| `project_id` | the project the change is for: the turn's, taken from the signed envelope, or the upload's for a filing suggestion. NULL for a Büroablage proposal |
-| `scope` | the shelf, `project`, `office_shelf` (0146, `project_folders.scope`'s vocabulary) or `organization` (0176): `project` exactly when there is a project. A Büroablage proposal moves its documents; an organization's is an `operation` |
+| `project_id` | the project the change is for: the turn's, taken from the signed envelope, or the upload's for a filing suggestion. NULL for a Bürobibliothek proposal |
+| `scope` | the shelf, `project`, `office_shelf` (0146, `project_folders.scope`'s vocabulary) or `organization` (0176): `project` exactly when there is a project. A Bürobibliothek proposal moves its documents; an organization's is an `operation` |
 | `origin_trace_id` | the Langfuse trace of the judgement that proposed it, for a proposal no turn made (a filing suggestion); the decision score goes there |
 | `kind`, `payload` | one of the three kinds and its payload, below |
 | `status` | `proposed`, `applied`, `partially_applied`, `failed`, `dismissed` |
@@ -100,7 +100,7 @@ The CHECKs hold the lifecycle, so no code path can break it:
 - `origin_card_index` is null or not negative, and needs an `origin_message_id`
   (a card index names a card of one answer).
 - `scope` is known and is `project` exactly when `project_id` is set; a
-  Büroablage proposal is a `file_operation` that moves one or more items, every
+  Bürobibliothek proposal is a `file_operation` that moves one or more items, every
   one with `source: buero` (`proposed_changes_office_shelf_move`, which reads a
   missing key as a refusal, not as a pass); an organization-scoped one is an
   `operation` (`proposed_changes_organization_operation`, 0176).
@@ -350,8 +350,8 @@ operation the server did not store stays in the registry (below).
 
 | Act | Takes | Refused with |
 |---|---|---|
-| Read | `project:view` on the project (any member for the Büroablage), and `viewer` on the conversation the proposal was made in; one made in no conversation needs every document it names to resolve for the reader on their shelf; an organization's, made in no conversation, only the person it was made for | 404, for "missing" and "not yours" alike |
-| Apply, dismiss | the read, plus the kind's right (table above) on the project, or `org:office_shelf:manage` for the Büroablage; for the organization's, the read alone (the operation's route decides) | 403 (`proposal-decider-needs-write`, which names the kind); a closed project gets its own 403 |
+| Read | `project:view` on the project (any member for the Bürobibliothek), and `viewer` on the conversation the proposal was made in; one made in no conversation needs every document it names to resolve for the reader on their shelf; an organization's, made in no conversation, only the person it was made for | 404, for "missing" and "not yours" alike |
+| Apply, dismiss | the read, plus the kind's right (table above) on the project, or `org:office_shelf:manage` for the Bürobibliothek; for the organization's, the read alone (the operation's route decides) | 403 (`proposal-decider-needs-write`, which names the kind); a closed project gets its own 403 |
 | List (`GET /api/proposals?projectId=`, `?shelf=office_shelf` or `?shelf=organization`, optionally `&kind=`) | `project:view` on the project; each open proposal is listed only when the reader may read it, with the documents it names resolved to ids | 400 for a query naming no shelf or two; a proposal the reader may not read is left out |
 
 The conversation counts because the card in that conversation is the
@@ -561,7 +561,7 @@ it finds the decision on reload, or on the 409 of their click.
 - **The inbox.** A stored proposal makes `piloti.proposal_waiting` for the
   person whose turn proposed it, anchored on the proposal and pointing at the
   chat it was made in. One made in no chat is a filing suggestion: it points at
-  the project's Dateien, or at the Büroablage (`organization`) when it has no
+  the project's Dateien, or at the Bürobibliothek (`organization`) when it has no
   project. The line names what
   the proposal touches (`summaryOf` in `kinds.ts`: the first file names and how
   many more, a note's first words, a profile change's title). The item is
@@ -609,7 +609,7 @@ conventions for a project shelf: the folder paths and descriptions of up to 20
 of its recent projects the uploader may open (folders under an own access list
 left out), with an Austrian default (Grundlagen, Bestand, Behörde und Bescheide,
 Einreichung, Fachplaner, Ausführung) only when the office has none; and the
-batch's documents. The Büroablage has no conventions: its own folders are the
+batch's documents. The Bürobibliothek has no conventions: its own folders are the
 structure.
 
 **The gates** (`lib/filing/plan.ts`, pure): nothing on a closed project; nothing
@@ -622,7 +622,7 @@ is dropped, and so is a move into the folder a document is in.
 **One proposal per target folder**, with no conversation, at most eight files
 each, so a person confirms per folder. A convention the shelf does not have is
 proposed as `new_folder`. It shows as a chip on the file's card, list row and
-upload row in Dateien and the Büroablage („→ Bescheide“), whose popover holds
+upload row in Dateien and the Bürobibliothek („→ Bescheide“), whose popover holds
 the move, the reason and „Verschieben" / „Alle 2 verschieben" / „Anlegen und
 verschieben" and „Belassen"; per folder in the filing bar above a folder, in the
 upload tray and on the setup page; all through `useServerProposal`

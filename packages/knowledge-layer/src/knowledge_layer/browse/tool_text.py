@@ -4,7 +4,7 @@ _LIST_FILES_DESCRIPTION = (
     "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. "
     "Deterministic, paged, not capped by the prompt inventory. "
     "It says which files exist, not what they say: reading or searching the documents does.\n"
-    "Inputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by "
+    "Inputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by "
     "folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything "
     "below it. `name_contains=` words that must all appear in the file name or title (case and umlaut "
     "spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema "

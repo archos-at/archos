@@ -84,10 +84,11 @@ export const asShelf = (value: string | null | undefined): Shelf | undefined => 
 }
 
 export const CITATION_KEY_QUALIFIERS: ReadonlyArray<readonly [qualifier: string, shelf: Shelf]> = [
-  ['Büroablage', 'office_shelf'],
+  ['Bürobibliothek', 'office_shelf'],
   ['Projektwissen', 'project'],
   ['Basiswissen', 'base'],
   ['Private Sitzung', 'session'],
+  ['Büroablage', 'office_shelf'],
   ['Büroarchiv', 'office_shelf'],
 ]
 

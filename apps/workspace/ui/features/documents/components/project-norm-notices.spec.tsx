@@ -81,14 +81,14 @@ describe('the project banner for norms that sit only in this project', () => {
     const { run, posted } = server([norms(), norms({ offers: [] })])
     render(notices(run))
 
-    expect(await screen.findByText(`${PRODUCT_NAME} schlägt die Büroablage vor.`)).toBeInTheDocument()
+    expect(await screen.findByText(`${PRODUCT_NAME} schlägt die Bürobibliothek vor.`)).toBeInTheDocument()
     expect(screen.getByText(/ÖNORM B 1600 gibt es bisher nur in diesem Projekt/)).toHaveTextContent('Sichtbar wäre sie dann für alle im Büro.')
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage verschieben' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek verschieben' }))
 
     const dialog = await screen.findByTestId('norm-dialog')
     expect(within(dialog).getByRole('textbox', { name: `Bezeichnung: ${OFFER.fileName}` })).toHaveValue('ÖNORM B 1600')
     expect(within(dialog).getByRole('textbox', { name: `Ausgabe: ${OFFER.fileName}` })).toHaveValue('2017-04-15')
-    expect(within(dialog).getByRole('radio', { name: /^Büroablage \(empfohlen\)/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /^Bürobibliothek \(empfohlen\)/ })).toBeChecked()
     expect(posted).toEqual([])
     await confirmIn(dialog)
 
@@ -102,14 +102,14 @@ describe('the project banner for norms that sit only in this project', () => {
         },
       ])
     )
-    expect(toast.success).toHaveBeenCalledWith('Bestätigt und nach Büroablage › Normen & Richtlinien gebracht. Das Projekt behält einen Verweis.')
+    expect(toast.success).toHaveBeenCalledWith('Bestätigt und nach Bürobibliothek › Normen & Richtlinien gebracht. Das Projekt behält einen Verweis.')
     await waitFor(() => expect(screen.queryByTestId('project-norm-offer')).not.toBeInTheDocument())
   })
 
   it('moves nothing while the edition is missing, and says so', async () => {
     const { run, posted } = server([norms({ offers: [{ ...OFFER, editionLabel: null }] })])
     render(notices(run))
-    await userEvent.click(await screen.findByRole('button', { name: 'In die Büroablage verschieben' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'In die Bürobibliothek verschieben' }))
     await confirmIn(await screen.findByTestId('norm-dialog'))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.'))
     expect(posted).toEqual([])
@@ -119,9 +119,9 @@ describe('the project banner for norms that sit only in this project', () => {
   it('suggests them with the values the person saw, for someone who may not manage it', async () => {
     const { run, posted } = server([norms({ canManageOfficeShelf: false })], placed({ destination: 'suggest' }))
     render(notices(run))
-    await userEvent.click(await screen.findByRole('button', { name: 'Für die Büroablage vorschlagen' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Für die Bürobibliothek vorschlagen' }))
     const dialog = await screen.findByTestId('norm-dialog')
-    expect(within(dialog).getByRole('radio', { name: /^Für die Büroablage vorschlagen/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /^Für die Bürobibliothek vorschlagen/ })).toBeChecked()
     await confirmIn(dialog)
     await waitFor(() =>
       expect(posted).toEqual([
@@ -142,11 +142,11 @@ describe('the project banner for norms that sit only in this project', () => {
       placed({ destination: 'suggest', notified: 0, placements: [refused], noDecider: { managers: ['Bernd Huber'] } })
     )
     render(notices(run))
-    await userEvent.click(await screen.findByRole('button', { name: 'Für die Büroablage vorschlagen' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Für die Bürobibliothek vorschlagen' }))
     await confirmIn(await screen.findByTestId('norm-dialog'))
 
     const said =
-      'Niemand, der hier schreiben darf, darf auch die Büroablage verwalten, also kann niemand den Vorschlag entscheiden. ' +
+      'Niemand, der hier schreiben darf, darf auch die Bürobibliothek verwalten, also kann niemand den Vorschlag entscheiden. ' +
       'Entscheiden könnten Bernd Huber, sobald sie in diesem Projekt schreiben dürfen. Die Normen bleiben hier.'
     expect(await screen.findByRole('alert')).toHaveTextContent(said)
     expect(toast.warning).toHaveBeenCalledWith(said)
@@ -157,9 +157,9 @@ describe('the project banner for norms that sit only in this project', () => {
   it('says so when nobody in the office manages the office shelf', async () => {
     const { run } = server([norms({ canManageOfficeShelf: false })], placed({ destination: 'suggest', notified: 0, noDecider: { managers: [] } }))
     render(notices(run))
-    await userEvent.click(await screen.findByRole('button', { name: 'Für die Büroablage vorschlagen' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Für die Bürobibliothek vorschlagen' }))
     await confirmIn(await screen.findByTestId('norm-dialog'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Im Büro darf niemand die Büroablage verwalten')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Im Büro darf niemand die Bürobibliothek verwalten')
   })
 
   it('keeps them here with „Hier lassen“, which widens nothing', async () => {
@@ -169,7 +169,7 @@ describe('the project banner for norms that sit only in this project', () => {
     await waitFor(() => expect(posted).toEqual([{ destination: 'project', documents: [{ documentId: DOC }] }]))
   })
 
-  it('shows the references the folder keeps: the moved copy’s entry, a copy no longer a norm as its Büroablage file, and a removed one', async () => {
+  it('shows the references the folder keeps: the moved copy’s entry, a copy no longer a norm as its Bürobibliothek file, and a removed one', async () => {
     const reference = { folderId: null, placedAs: 'moved' as const, officeDocumentId: null, entryId: null, createdAt: '2026-11-19T10:00:00Z', createdBy: 'user_1' }
     const { run } = server([
       norms({
@@ -184,12 +184,12 @@ describe('the project banner for norms that sit only in this project', () => {
     render(notices(run))
     const lines = await screen.findAllByTestId('shelf-reference')
     expect(lines.map((line) => line.textContent)).toEqual([
-      'OENORM_B_2320.pdfVerweis · liegt in der BüroablageÖffnen',
-      'OENORM_B_5371.pdfVerweis · liegt in der Büroablage, nicht mehr als NormÖffnen',
-      'OENORM_B_3691.pdfVerweis · aus der Büroablage entfernt',
+      'OENORM_B_2320.pdfVerweis · liegt in der BürobibliothekÖffnen',
+      'OENORM_B_5371.pdfVerweis · liegt in der Bürobibliothek, nicht mehr als NormÖffnen',
+      'OENORM_B_3691.pdfVerweis · aus der Bürobibliothek entfernt',
     ])
-    expect(screen.getByRole('link', { name: '„OENORM_B_2320.pdf“ in der Büroablage öffnen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b2320')
-    expect(screen.getByRole('link', { name: '„OENORM_B_5371.pdf“ in der Büroablage öffnen' })).toHaveAttribute('href', '/app/office-shelf?doc=office-doc-5371')
+    expect(screen.getByRole('link', { name: '„OENORM_B_2320.pdf“ in der Bürobibliothek öffnen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b2320')
+    expect(screen.getByRole('link', { name: '„OENORM_B_5371.pdf“ in der Bürobibliothek öffnen' })).toHaveAttribute('href', '/app/office-shelf?doc=office-doc-5371')
     expect(screen.queryByTestId('project-norm-offer')).not.toBeInTheDocument()
   })
 })
@@ -244,7 +244,7 @@ describe('the norm dialog after a project upload', () => {
     const { run, posted } = server([norms()])
     render(notices(run, new Set([DOC])))
     await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
-    expect(toast).toHaveBeenCalledWith('Die Normen bleiben vorerst nur in diesem Projekt. Der Hinweis über den Dateien bietet die Büroablage weiter an.')
+    expect(toast).toHaveBeenCalledWith('Die Normen bleiben vorerst nur in diesem Projekt. Der Hinweis über den Dateien bietet die Bürobibliothek weiter an.')
     expect(posted).toEqual([])
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: 1, confirmed: 0, source: 'project_upload' }))
     await waitFor(() => expect(screen.queryByTestId('norm-dialog')).not.toBeInTheDocument())

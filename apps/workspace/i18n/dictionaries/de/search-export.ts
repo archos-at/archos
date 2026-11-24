@@ -23,5 +23,5 @@ export const searchExport: typeof en.searchExport = {
   },
   yes: 'ja',
   no: 'nein',
-  officeShelf: 'Büroablage',
+  officeShelf: 'Bürobibliothek',
 }

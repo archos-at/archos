@@ -34,7 +34,7 @@ describe('a folder in the header', () => {
   it('titles the page with the folder, „Files“ only at the top level', () => {
     renderAt('b')
     expect(screen.getByRole('heading', { level: 1, name: /^Gutachten/ })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { level: 1, name: 'Files' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Documents' })).not.toBeInTheDocument()
   })
 
   it('says beside the title what the folder holds, and keeps it in the title’s tooltip when the title is cut', () => {
@@ -51,7 +51,7 @@ describe('a folder in the header', () => {
     const crumb = screen.getByTestId('page-header-crumb')
     expect(crumb).toHaveTextContent('Holzbau Wien')
     const trail = within(crumb).getByTestId('folder-trail')
-    expect(trail).toHaveTextContent('Files')
+    expect(trail).toHaveTextContent('Documents')
     expect(trail).toHaveTextContent('Grundlagen')
     expect(trail).not.toHaveTextContent('Gutachten')
     await userEvent.click(within(trail).getByRole('button', { name: 'Grundlagen' }))

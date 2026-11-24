@@ -108,7 +108,7 @@ class TestShelfLabel:
         ("shelf", "expected"),
         [
             ("project", "Projektwissen"),
-            ("office_shelf", "Büroablage"),
+            ("office_shelf", "Bürobibliothek"),
             ("session", "Private Sitzung"),
             ("base", "Basiswissen"),
             (None, None),

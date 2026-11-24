@@ -99,6 +99,10 @@ def test_a_norm_names_the_shelf_it_came_from_whatever_its_class() -> None:
             chunk_text="A passage.",
         )
     )
-    assert (office["kind"], office["lane_label"], office["edition_id"]) == ("office", "Büroablage", "edition_office_1")
+    assert (office["kind"], office["lane_label"], office["edition_id"]) == (
+        "office",
+        "Bürobibliothek",
+        "edition_office_1",
+    )
     assert (project["kind"], project["lane_label"]) == ("project", "Projektwissen")
     assert "edition_id" not in project

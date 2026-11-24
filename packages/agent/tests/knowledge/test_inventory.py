@@ -151,14 +151,14 @@ class TestRenderInventoryBlock:
         ]
         text = render_inventory_block(docs)
 
-        assert "Büroablage" in text
+        assert "Bürobibliothek" in text
         assert "Projektwissen" in text
         assert "Basiswissen" in text
         assert "Buero-Standard.pdf" in text
         assert "Lacknergasse.pdf" in text
         assert "oib-rl_2.pdf" not in text
 
-        office_shelf = text.split("### Büroablage", 1)[1].split("### ", 1)[0]
+        office_shelf = text.split("### Bürobibliothek", 1)[1].split("### ", 1)[0]
         assert "Buero-Standard.pdf" in office_shelf
         assert "oib-rl_2.pdf" not in office_shelf
         assert "Lacknergasse.pdf" not in office_shelf
@@ -168,7 +168,7 @@ class TestRenderInventoryBlock:
         assert "Lacknergasse.pdf" not in base
 
         assert "NOT base/OIB" in text
-        assert "Never the Büroablage" in text or "never the Büroablage" in text
+        assert "Never the Bürobibliothek" in text or "never the Bürobibliothek" in text
         assert "always on this request" in text
         assert "on every project" in text
         assert "on every session of this project" in text
@@ -177,8 +177,8 @@ class TestRenderInventoryBlock:
     def test_empty_in_scope_office_shelf_is_shown_empty_not_omitted(self):
         docs = [_doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base")]
         text = render_inventory_block(docs, in_scope_shelves=[Shelf.OFFICE_SHELF, Shelf.BASE])
-        assert "### Büroablage" in text
-        office_shelf = text.split("### Büroablage", 1)[1].split("### ", 1)[0]
+        assert "### Bürobibliothek" in text
+        office_shelf = text.split("### Bürobibliothek", 1)[1].split("### ", 1)[0]
         assert "empty" in office_shelf.lower()
         assert "oib-rl_2.pdf" not in office_shelf
 
@@ -198,14 +198,14 @@ class TestRenderInventoryBlock:
     def test_project_docs_without_scope_still_show_empty_office_shelf(self):
         docs = [_doc("Lacknergasse.pdf", collection="proj_1", shelf="project")]
         text = render_inventory_block(docs)
-        assert "### Büroablage" in text
-        office_shelf = text.split("### Büroablage", 1)[1].split("### ", 1)[0]
+        assert "### Bürobibliothek" in text
+        office_shelf = text.split("### Bürobibliothek", 1)[1].split("### ", 1)[0]
         assert "empty" in office_shelf.lower()
         assert "Lacknergasse.pdf" not in office_shelf
 
     def test_base_only_does_not_invent_an_empty_office_shelf(self):
         text = render_inventory_block([_doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base")])
-        assert "### Büroablage" not in text
+        assert "### Bürobibliothek" not in text
 
     def test_listing_focus_hides_other_shelves(self):
         docs = [
@@ -217,7 +217,7 @@ class TestRenderInventoryBlock:
         assert "Buero-Standard.pdf" in text
         assert "oib-rl_2.pdf" not in text
         assert "Lacknergasse.pdf" not in text
-        assert "### Büroablage" in text
+        assert "### Bürobibliothek" in text
         assert "### Basiswissen" not in text
         assert "other shelves" in text.lower()
 
@@ -226,14 +226,16 @@ class TestShelfHintFromQuery:
     def test_office_shelf_typos_and_german(self):
         assert shelf_hint_from_query("welche datein hast du im Bro archiv") == Shelf.OFFICE_SHELF
         assert shelf_hint_from_query("nicht im projekt was hast du im archiv") == Shelf.OFFICE_SHELF
-        assert shelf_hint_from_query("was liegt in der Büroablage") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("was liegt in der Bürobibliothek") == Shelf.OFFICE_SHELF
         assert shelf_hint_from_query("was liegt im Büroarchiv") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("was liegt in der Büroablage") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("bürobibliothek") == Shelf.OFFICE_SHELF
 
     def test_the_new_name_is_a_listing_in_every_phrasing(self):
-        assert shelf_hint_from_query("was ist in der Büroablage") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("was ist in der Bürobibliothek") == Shelf.OFFICE_SHELF
         assert shelf_hint_from_query("welche Dateien hast du in der Bueroablage") == Shelf.OFFICE_SHELF
-        assert shelf_hint_from_query("und in der Büroablage?") == Shelf.OFFICE_SHELF
-        assert shelf_hint_from_query("Büroablage?") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("und in der Bürobibliothek?") == Shelf.OFFICE_SHELF
+        assert shelf_hint_from_query("Bürobibliothek?") == Shelf.OFFICE_SHELF
         assert shelf_hint_from_query("what files are in office filing") == Shelf.OFFICE_SHELF
 
     def test_project_vs_base(self):
@@ -258,7 +260,7 @@ class TestScopedCollectionRoundTrip:
             ScopedCollection("oib_knowledge", Shelf.BASE),
         ]
         text = render_inventory_block([], in_scope_shelves=[e.shelf for e in entries if e.shelf])
-        assert "### Büroablage" in text
+        assert "### Bürobibliothek" in text
         assert "empty" in text.lower()
 
 
@@ -311,7 +313,7 @@ class TestTruncationIsAnnouncedToTheModel:
 
         rendered = render_inventory_block(kept)
         office_shelf_section = rendered.split("### ")[1]
-        assert "Büroablage" in office_shelf_section
+        assert "Bürobibliothek" in office_shelf_section
         assert "more file(s)" in office_shelf_section
 
     def test_a_stale_count_from_a_previous_turn_cannot_leak(self):

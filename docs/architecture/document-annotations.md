@@ -188,8 +188,8 @@ role name:
 
 | Who | May |
 |---|---|
-| whoever may open the document (`project:view` and read in its folder; on the Büroablage every member) | read the marks and their threads, export the Protokoll, be @mentioned and be told |
-| whoever may write it (`project:documents:write` or `project:edit`, and write in its folder; on the Büroablage `org:office_shelf:manage`) | set a mark, answer in a thread, take over, dismiss, resolve or reopen, assign, set or clear a date, delegate to the agent, carry an open mark to the current Fassung (to a replacing document only with the right to write that one too); **be made Zuständige** (`isAssignable`), because the Zuständige answers and closes the mark |
+| whoever may open the document (`project:view` and read in its folder; on the Bürobibliothek every member) | read the marks and their threads, export the Protokoll, be @mentioned and be told |
+| whoever may write it (`project:documents:write` or `project:edit`, and write in its folder; on the Bürobibliothek `org:office_shelf:manage`) | set a mark, answer in a thread, take over, dismiss, resolve or reopen, assign, set or clear a date, delegate to the agent, carry an open mark to the current Fassung (to a replacing document only with the right to write that one too); **be made Zuständige** (`isAssignable`), because the Zuständige answers and closes the mark |
 | the author (`createdBy`, a person's own mark) | reword it („Bearbeiten“ in the card's menu; the server lets any writer change a `body`, the card offers it to the author) and delete it (`mayDeleteMark`), while nothing but its author and the agent stands on it (below) |
 | the author of a reply (a person's own, `created_by`), who may still write the document | reword it and delete it, while the mark is live and the agent has not taken the reply up (below); never a colleague's reply, never the agent's (a note the agent posted for them goes by the chat card's undo) |
 
@@ -523,7 +523,7 @@ longer fits is resolved and set again instead.
   colleague's close. B's thread stays readable where
   every link expects it; C's card says „Übernommen aus „B“, Anmerkung 4“ and
   B's „Weiter in „C“ als Anmerkung 7“, each a link to the other review where
-  the page addresses documents by `?doc=` (Dateien, the Büroablage; over the
+  the page addresses documents by `?doc=` (Dateien, the Bürobibliothek; over the
   chat the name stands without a link, `features/documents/lib/revision-links.ts`).
   Closing B's mark settles what it asked of people; its Zuständige is asked
   again on C's mark (`annotation.assigned_to_you`), unless they carried it
@@ -1247,7 +1247,7 @@ unread waits for the ADR-0035 sender, like every other mail.
 - **What it reads.** A page of 100 marks per slice, by id from where the last
   slice stopped (`listDueMarksPage`): open, with a Zuständige and a date from
   seven days back through tomorrow (`dueWindowOn`, `DUE_REMINDER_OVERDUE_DAYS`),
-  on an active document of the project or the Büroablage that passed screening
+  on an active document of the project or the Bürobibliothek that passed screening
   (`documentVisibleTo(SCREENED_ONLY)`: a held upload reminds nobody, as it
   tells nobody). Discovery reads the same window, so the first run does not
   remind of every Frist that ever passed, and an office whose only open marks
@@ -1550,7 +1550,7 @@ are `unchanged` and write nothing. A name another document holds under another
 restriction is the upload's `name_taken` 409, said as such. The toast says
 which („Abgelegt als …“, „Als neue Fassung von … abgelegt“, „liegt schon so im
 Projekt“) and opens the filed document in Dateien (`documentFilesHref`). Offered
-where the document is a project's (not the Büroablage), the reader may manage
+where the document is a project's (not the Bürobibliothek), the reader may manage
 it, and the project is not closed (`protocolFiling`, `file-preview-pane.tsx`).
 
 ## Known debts
