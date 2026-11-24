@@ -79,8 +79,8 @@ marks in `unseenAnswers`, cleared by `selectConversation`.
 | `createConversation()` | Create new conversation with default data sources |
 | `startNewSessionDraft()` | Clear current conversation for a fresh draft |
 | `ensureSession()` | Return current conversation ID, creating one if needed |
-| `deleteConversation(id)` | Remove conversation, cancel the live runs in it |
-| `deleteAllConversations()` | Clear the user's conversations in the current project, cancel their live runs |
+| `deleteConversation(id)` | Delete on the server, then remove the row and cancel the live runs in it; rejects with the server's reason and keeps the row when it is refused |
+| `deleteAllConversations({ projectId })` | One `DELETE /api/conversations` for that side (`null` is Persönlich); removes exactly the ids the server answers as deleted and returns `{ deleted, held }` |
 | `updateConversationTitle(id, title)` | Rename conversation |
 | `saveDataSourcesToConversation(ids)` | Persist enabled data source IDs to conversation |
 | `loadServerConversations()` | Fetch and merge server-side conversation metadata |

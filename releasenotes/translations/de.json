@@ -1892,6 +1892,10 @@
     "de": "Ein Klick in ein Textfeld hebt es nur noch durch seinen Rahmen statt durch einen dicken Rahmen hervor; das Logo ist etwas größer und springt beim Öffnen eines Projekts nicht mehr."
   },
   {
+    "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+    "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
+  },
+  {
     "en": "Closing a document or annotation opened from the search returns to the search as you left it, with its words, filters, view and sort.",
     "de": "Wer ein Dokument oder eine Anmerkung aus der Suche öffnet und wieder schließt, kehrt zur Suche zurück, wie sie war: mit Suchbegriff, Filtern, Ansicht und Sortierung."
   },
@@ -4000,6 +4004,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
+    "de": "Beim Wechsel zwischen Persönlich und einem Projekt oder zwischen Projekten werden Bewegungen, die Sie nicht ausgelöst haben, nicht mehr wiederholt: Das Chat-Eingabefeld bleibt an Ort und Stelle, die Begrüßung erscheint direkt dort und bei langsamen Wechseln wird das Ladefenster der Projektübersicht nicht mehr kurz eingeblendet. Der neue Bereich bleibt einfach ruhig stehen, damit Ihr Blick bei Ihrer Aufgabe bleibt."
+  },
+  {
     "en": "Switching the inbox filter no longer shows the previous filter's rows for a moment, and a failed background refresh keeps the list on screen.",
     "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
   },
@@ -6054,6 +6062,10 @@
   {
     "en": "Übersicht now stands with the project's other sections, under the project switcher, rather than at the foot of the sidebar among the organisation's Büroablage, Suche and Postfach.",
     "de": "Die Übersicht befindet sich jetzt bei den anderen Projektbereichen unter dem Projektwechsler und nicht mehr unten in der Seitenleiste bei Büroablage, Suche und Postfach der Organisation."
+  },
+  {
+    "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+    "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
   },
   {
     "en": "„Alle Chats“ opened from a project's Ablage or settings now lists only that project's chats, as „Letzte Chats“ does.",

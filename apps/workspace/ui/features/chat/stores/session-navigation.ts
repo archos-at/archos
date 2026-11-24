@@ -55,7 +55,11 @@ const maybeDiscardAbandonedUploadOnlySession = (
   if (docsInFlight) return
 
   discardSessionDocumentsResources(sessionId)
-  get().deleteConversation(sessionId)
+  get()
+    .deleteConversation(sessionId)
+    .catch((err: unknown) => {
+      console.warn('[sessions] discarding an empty chat failed; it stays listed:', sessionId, err)
+    })
 }
 
 export const createSessionNavigationSlice: StateCreator<

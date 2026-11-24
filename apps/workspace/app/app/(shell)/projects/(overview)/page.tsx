@@ -2,7 +2,7 @@ import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { getTranslations } from '@/i18n/server'
 import { projectsCopy } from '@/i18n/namespaces/projects'
-import { ProjectOverviewSheet } from './project-overview-sheet'
+import { ProjectOverviewSheet } from '../project-overview-sheet'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations(projectsCopy)
