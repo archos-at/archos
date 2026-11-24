@@ -55,12 +55,12 @@ export function ProjectOverview({
 
   return (
     <div className="flex flex-col gap-5" data-testid="project-overview">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className={cn('min-w-0 text-balance', PAGE_TITLE_CLASS)}>{t('portfolio.title')}</h1>
-        <div className="flex shrink-0 items-center gap-2">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-3" data-testid="project-overview-header">
+        <h1 className={cn('grow text-balance', PAGE_TITLE_CLASS)}>{t('portfolio.title')}</h1>
+        <div className="order-last shrink-0 sm:order-none">
           <CreateProjectDialog defaultOpen={autoOpenCreate} tourAnchor={TOUR_ANCHORS.createProject} />
-          {closeAction}
         </div>
+        {closeAction}
       </header>
 
       {projects.length === 0 ? (

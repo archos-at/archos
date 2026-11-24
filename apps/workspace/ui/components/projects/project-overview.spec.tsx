@@ -42,6 +42,15 @@ const show = (props: Partial<Parameters<typeof ProjectOverview>[0]> = {}) =>
 const cards = () => screen.getAllByTestId('project-overview-card')
 
 describe('the project overview that replaces the start page', () => {
+  test('on a phone the title is never cut or run under: the header wraps „Neues Projekt“ under it', () => {
+    show()
+    const header = screen.getByTestId('project-overview-header')
+    expect(header).toHaveClass('flex-wrap')
+    const title = within(header).getByRole('heading', { level: 1 })
+    expect(title.className).not.toMatch(/min-w-0|truncate/)
+    expect(title.nextElementSibling).toHaveClass('order-last', 'sm:order-none')
+  })
+
   test('lists every project the person may open, paused and closed ones too, active first by recent activity', () => {
     show()
     expect(cards().map((card) => within(card).getAllByRole('link')[0]!.getAttribute('aria-label'))).toEqual([
