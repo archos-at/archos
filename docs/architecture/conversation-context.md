@@ -173,11 +173,13 @@ never through a chat that read it.
 Its title, tags and subject can carry what it read, so an agent sees them only
 where it may draw on that shelf: the owner's in-product agent in a turn whose
 decision allows the shelf, or the owner's own connected agent. To any other
-agent call, the conversation list shows such a chat without title, tags or
-subject, and the workspace search leaves it out, since a hit on its title would
-already tell. The person's own list and search are unchanged
-(`bff/conversations/shelf-titles.ts`; the call sets `ownShelfReadable` on its
-acting session, `bff/agent-api/own-shelf.ts`).
+agent call, the lists that name chats hold it back: the conversation list shows
+it without title, tags or subject, the workspace search leaves it out, since a
+hit on its title would already tell, and an inbox item about it comes without
+subject or excerpt. Reading such a chat by its id is the read gate's
+(`otherChatShelfRefusal`). The person's own list, search and inbox are
+unchanged (`bff/conversations/shelf-titles.ts`; the call sets
+`ownShelfReadable` on its acting session, `bff/agent-api/own-shelf.ts`).
 
 The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
