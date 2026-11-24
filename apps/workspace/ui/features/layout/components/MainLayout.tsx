@@ -1,6 +1,7 @@
 'use client'
 
 import { type CSSProperties, type FC, useCallback, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useShallow } from 'zustand/react/shallow'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { ChatToolbar } from './ChatToolbar'
@@ -22,6 +23,7 @@ import { useFilePreviewStore } from '@/features/documents/stores/file-preview-st
 import { ViewerActionHost } from '@/features/documents/components/viewer-action-host'
 import { useComposerMetrics } from '../hooks/use-composer-metrics'
 import { useSessionRows } from '../hooks/use-session-rows'
+import { chatSideOf } from '@/components/shell/rail-mode'
 import { motion } from '@/components/motion'
 import { selectThreadPhase } from '../lib/thread-phase'
 import { TOOLBAR_CLEAR_VAR, toolbarClearance } from '../lib/toolbar-clearance'
@@ -57,7 +59,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     }))
   )
   const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty')
-  const sessions = useSessionRows()
+  const sessions = useSessionRows(chatSideOf(usePathname() ?? ''))
 
   const selectConversation = useChatStore((s) => s.selectConversation)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
