@@ -14,6 +14,7 @@ vi.mock('@/lib/drawing-calibrations/service', () => ({
 
 import { ConflictError } from '@/lib/api/errors'
 import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
+import { RegionOverlapsError } from '@/lib/drawing-calibrations/errors'
 import { listCalibrations, setCalibration, withdrawCalibration } from '@/lib/drawing-calibrations/service'
 import { GET, POST } from './route'
 import { POST as WITHDRAW } from './[calibrationId]/withdraw/route'
@@ -84,6 +85,24 @@ describe('POST /api/documents/[id]/calibrations', () => {
   it('passes a conflict on as 409', async () => {
     vi.mocked(setCalibration).mockRejectedValue(new ConflictError('Somebody calibrated this region a moment ago. Look again.'))
     expect((await post(BODY)).status).toBe(409)
+  })
+})
+
+describe('POST over a region that partly overlaps an active calibration', () => {
+  it('answers 409 with the region-overlaps problem, naming the calibration', async () => {
+    vi.mocked(setCalibration).mockRejectedValue(
+      new RegionOverlapsError({ id: CALIBRATION_ID, page: 1, region: { x: 0.4, y: 0.3, w: 0.4, h: 0.4 } })
+    )
+    const res = await post(BODY)
+    expect(res.status).toBe(409)
+    expect(res.headers.get('Content-Type')).toContain('application/problem+json')
+    expect(await res.json()).toMatchObject({
+      type: 'urn:problem-type:region-overlaps',
+      status: 409,
+      code: 'region-overlaps',
+      overlapping: CALIBRATION_ID,
+      detail: expect.stringContaining(CALIBRATION_ID),
+    })
   })
 })
 

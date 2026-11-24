@@ -18,7 +18,7 @@ export const SessionStatusIcon: FC<{ session: Session }> = ({ session }) => {
     return <CircleCheck className={cn(base, 'text-success')} aria-hidden="true" />
   }
 
-  if (session.activity === 'failed') {
+  if (session.activity === 'failed' || session.hasFailedResearch) {
     return <CircleAlert className={cn(base, 'text-destructive')} aria-hidden="true" />
   }
 

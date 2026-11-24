@@ -4,7 +4,7 @@ A survey of `develop` at `d109b5fb0` (2026-11-24), made before building a
 person's own shelf („Meine Ablage“). It answers two questions: which sources
 a chat's answer may draw on, and what changes when more than one person reads
 the chat. The decision it led to is
-[ADR-0191](../adr/0191-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md).
+[ADR-0193](../adr/0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md).
 
 ## How it was made, and how far to trust it
 
@@ -89,6 +89,6 @@ Paths are relative to `apps/workspace/` unless they start with `docs/` or
     refuses requests without a valid envelope, and the config path holds only the
     base corpus and the chat's own collection. It is a missing second line.
 
-Items 1 and 2 are taken up by ADR-0191, items 1, 2, 3, 4, 8, 9, 10 and 11 by
-[ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md).
+Items 1 and 2 are taken up by ADR-0193, items 1, 2, 3, 4, 8, 9, 10 and 11 by
+[ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md).
 Items 5 to 7 are open.

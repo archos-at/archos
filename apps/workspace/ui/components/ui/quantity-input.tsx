@@ -22,6 +22,7 @@ export interface QuantityInputProps {
   describedBy?: string
   settleMs?: number
   className?: string
+  inputClassName?: string
 }
 
 const decimalsOf = (step: number): number => {
@@ -57,6 +58,7 @@ export function QuantityInput({
   describedBy,
   settleMs = 450,
   className,
+  inputClassName,
 }: QuantityInputProps) {
   const { locale } = useLocale()
   const [text, setText] = useState(() => formatDecimalInput(value, locale))
@@ -158,7 +160,7 @@ export function QuantityInput({
             if (pending.current != null) report(pending.current)
           }}
           onKeyDown={onKeyDown}
-          className="h-9 w-[6.5rem] px-2.5 text-right font-mono tabular-nums"
+          className={cn('h-9 w-[6.5rem] px-2.5 text-right font-mono tabular-nums', inputClassName)}
         />
         <span id={unitId} className="card-meta whitespace-nowrap text-muted-foreground">
           {unit}

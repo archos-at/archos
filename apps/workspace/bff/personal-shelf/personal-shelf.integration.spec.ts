@@ -33,7 +33,7 @@ describe('the personal shelf suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, migration 0259)', () => {
+describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0193 rule 1, migration 0260)', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess

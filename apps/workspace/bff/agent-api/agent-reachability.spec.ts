@@ -31,23 +31,23 @@ interface Exemption {
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   'GET /api/personal-shelf/folders': {
     category: 'other',
-    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'POST /api/personal-shelf/folders': {
     category: 'other',
-    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'PATCH /api/personal-shelf/folders/[folderId]': {
     category: 'other',
-    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'DELETE /api/personal-shelf/folders/[folderId]': {
     category: 'other',
-    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'POST /api/personal-shelf/folders/ensure': {
     category: 'other',
-    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'GET /api/ris/document': {
     category: 'external-service',
@@ -96,6 +96,10 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   '* /api/conversations/[id]/messages/[messageId]/stopped': {
     category: 'ui-state',
     reason: 'cuts an answer to the text the Stop button had on screen; only the browser knows what it showed',
+  },
+  'GET /api/documents/[id]/snap-targets': {
+    category: 'ui-state',
+    reason: 'the linework a browser snaps a pointer to while placing a measurement; an agent measures through document-measure',
   },
   'POST /api/notifications/push/devices': {
     category: 'ui-state',

@@ -191,7 +191,7 @@ describe('explicit scopes', () => {
   })
 })
 
-describe('the person of a tenant context, and the system reader (ADR-0191)', () => {
+describe('the person of a tenant context, and the system reader (ADR-0193)', () => {
   it('keeps the request’s person when a query opens the same organization without naming one', async () => {
     const inner = await withTenant({ organizationId: 'org_1', userId: 'user_1' }, () =>
       withTenant({ organizationId: 'org_1' }, () => getTenantContext())

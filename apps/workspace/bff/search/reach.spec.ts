@@ -90,7 +90,7 @@ describe('resolveScope', () => {
   })
 })
 
-describe('the personal shelf in search (ADR-0191)', () => {
+describe('the personal shelf in search (ADR-0193)', () => {
   it('is a scope of its own, without a project', () => {
     expect(resolveScope({ scope: 'personal', folderId: 'f1' })).toEqual({ kind: 'personal', folderId: 'f1' })
     expect(() => resolveScope({ scope: 'personal', projectId: 'p1' })).toThrow(BadRequestError)

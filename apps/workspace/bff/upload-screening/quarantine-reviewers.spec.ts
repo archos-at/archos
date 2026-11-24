@@ -11,7 +11,7 @@ import { mayReviewQuarantine } from './quarantine-reviewers'
 
 const admin = { organizationId: 'org-1', userId: 'u-admin' } as AuthorizedSession
 
-describe('a held upload on a personal shelf (ADR-0191)', () => {
+describe('a held upload on a personal shelf (ADR-0193)', () => {
   it('is reviewed by nobody, not even an administrator: only its owner sees it', async () => {
     await expect(mayReviewQuarantine(admin, { scope: 'personal', projectId: null, folderId: null })).resolves.toBe(false)
   })

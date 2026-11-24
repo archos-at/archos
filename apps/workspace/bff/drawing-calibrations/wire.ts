@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { pageQueryShape } from '@/lib/api/offset-page'
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export const CALIBRATION_STATUSES = ['active', 'superseded', 'withdrawn'] as const
@@ -35,6 +34,29 @@ export function inRegion(point: CalibrationPoint, region: CalibrationRegion): bo
   )
 }
 
+export const REGION_TOLERANCE = 1e-6
+
+export type RegionRelation = 'same' | 'inside' | 'contains' | 'apart' | 'overlaps'
+
+const covers = (outer: CalibrationRegion, inner: CalibrationRegion): boolean =>
+  inner.x >= outer.x - REGION_TOLERANCE &&
+  inner.y >= outer.y - REGION_TOLERANCE &&
+  inner.x + inner.w <= outer.x + outer.w + REGION_TOLERANCE &&
+  inner.y + inner.h <= outer.y + outer.h + REGION_TOLERANCE
+
+export function regionRelation(region: CalibrationRegion, other: CalibrationRegion): RegionRelation {
+  const inside = covers(other, region)
+  const contains = covers(region, other)
+  if (inside && contains) return 'same'
+  if (inside) return 'inside'
+  if (contains) return 'contains'
+  const across = Math.min(region.x + region.w, other.x + other.w) - Math.max(region.x, other.x)
+  const down = Math.min(region.y + region.h, other.y + other.h) - Math.max(region.y, other.y)
+  return across > REGION_TOLERANCE && down > REGION_TOLERANCE ? 'overlaps' : 'apart'
+}
+
+export const REGION_OVERLAPS = 'region-overlaps'
+
 export const setCalibrationRequestSchema = z
   .object({
     page: z.number().int().min(1).max(100_000).describe('The page, starting at 1.'),
@@ -55,15 +77,6 @@ export const setCalibrationRequestSchema = z
     }
   })
 export type SetCalibrationRequest = z.infer<typeof setCalibrationRequestSchema>
-
-export const listCalibrationsQuerySchema = z
-  .object({
-    ...pageQueryShape,
-    page: z.coerce.number().int().min(1).max(100_000).optional().describe('Only this page’s calibrations.'),
-    status: z.enum(CALIBRATION_STATUSES).optional().describe('Default `active`.'),
-  })
-  .strict()
-export type ListCalibrationsQuery = z.infer<typeof listCalibrationsQuerySchema>
 
 export const calibrationDocumentParamsSchema = z.object({ id: z.string().uuid() })
 export const calibrationParamsSchema = calibrationDocumentParamsSchema.extend({ calibrationId: z.string().uuid() })

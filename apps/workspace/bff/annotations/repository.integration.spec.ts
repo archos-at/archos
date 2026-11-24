@@ -206,6 +206,58 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     expect(taken).toMatchObject({ status: 'open', acceptedBy: USER })
   })
 
+  it('keeps a measurement with its points and reading through create, list and delete (migration 0259)', async () => {
+    const doc = await document(ids.project, `Schnitt_${STAMP}.pdf`)
+    const reading = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
+    const area = { ...reading, value: 12.5, low: 12.3, high: 12.7, unit: 'm2' } as const
+    const line = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const corners = [[0.1, 0.2], [0.4, 0.2], [0.4, 0.6]] as [number, number][]
+    const [kept] = await insert(doc, [mark({ shape: 'line', x: 0.1, y: 0.2, points: line, reading: reading })])
+    await insert(doc, [mark({ shape: 'path', x: 0.1, y: 0.2, points: corners, reading: reading })])
+    await insert(doc, [mark({ shape: 'polygon', x: 0.1, y: 0.2, points: corners, reading: area })])
+
+    const listed = await inOrg(ORG, () => repo.listDocumentAnnotations(ORG, doc))
+    expect(listed.map((row) => [row.shape, row.points, row.reading, row.w, row.h])).toEqual([
+      ['line', line, reading, null, null],
+      ['path', corners, reading, null, null],
+      ['polygon', corners, area, null, null],
+    ])
+    const found = await inOrg(ORG, () => repo.findDocumentAnnotation(ORG, doc, kept.id))
+    expect(found).toMatchObject({ shape: 'line', points: line, reading: reading })
+
+    expect(await inOrg(ORG, () => repo.deleteDocumentAnnotation(ORG, doc, kept.id))).toBe(true)
+    const left = await inOrg(ORG, () => repo.listDocumentAnnotations(ORG, doc))
+    expect(left.map((row) => row.shape)).toEqual(['path', 'polygon'])
+    expect(await inOrg(OTHER_ORG, () => repo.listDocumentAnnotations(OTHER_ORG, doc))).toEqual([])
+  })
+
+  it('refuses points that are not the shape’s, and a reading that is not whole (the CHECKs of 0259)', async () => {
+    const doc = ids.second
+    const reading = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
+    const two = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const three = [...two, [0.4, 0.6]] as [number, number][]
+    const refused = (extra: Parameters<typeof mark>[0]) => expect(insert(doc, [mark(extra)])).rejects.toThrow()
+    await refused({ points: two })
+    await refused({ shape: 'region', w: 0.2, h: 0.2, points: two })
+    await refused({ reading: reading })
+    await refused({ shape: 'line', points: null })
+    await refused({ shape: 'line', points: three })
+    await refused({ shape: 'polygon', points: two })
+    await refused({ shape: 'path', points: Array.from({ length: 61 }, (_, index) => [index / 100, 0.5] as [number, number]) })
+    await refused({ shape: 'line', points: [[0.1, 0.2], [1.4, 0.2]] })
+    await refused({ shape: 'line', points: [[0.1, 0.2], [0.4, 0.2, 0.3]] as unknown as [number, number][] })
+    await refused({ shape: 'line', points: [[0.1, 0.2], ['0.4', 0.2]] as unknown as [number, number][] })
+    await refused({ shape: 'line', points: { 0: [0.1, 0.2] } as unknown as [number, number][] })
+    await refused({ shape: 'line', points: two, w: 0.1, h: 0.1 })
+    await refused({ shape: 'line', points: two, reading: { ...reading, low: 4.1 } })
+    await refused({ shape: 'line', points: two, reading: { ...reading, unit: 'm2' } })
+    await refused({ shape: 'polygon', points: three, reading: reading })
+    await refused({ shape: 'line', points: two, reading: { ...reading, provenance: 'guessed' } as never })
+    await refused({ shape: 'line', points: two, reading: { value: 4, unit: 'm' } as never })
+    const [bare] = await insert(doc, [mark({ shape: 'path', x: 0.1, y: 0.2, points: three })])
+    expect(bare).toMatchObject({ shape: 'path', reading: null })
+  })
+
   it('sets a mark the asker asked the agent for open, with the asker behind it, and closes it in their name', async () => {
     const [row] = await insert(ids.document, [mark()], { authorKind: 'piloti', acceptedBy: USER })
     expect(row).toMatchObject({ status: 'open', authorKind: 'piloti', createdBy: USER, acceptedBy: USER })
@@ -549,11 +601,14 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     const { isForReader, isLive } = await import('./types')
     const { FOR_READER_CASES } = await import('@/test-utils/marks-for-reader')
     const COLLEAGUE = `${USER}_colleague`
+    const MEASURED_LINE = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const MEASURED = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
     const person = (who: 'reader' | 'colleague') => (who === 'reader' ? USER : COLLEAGUE)
     const placed: Array<{ given: (typeof FOR_READER_CASES)[number]; documentId: string }> = []
     for (const [index, given] of FOR_READER_CASES.entries()) {
       const documentId = await document(ids.project, `FuerSie_${index}.pdf`)
-      const [row] = await insert(documentId, [mark({ assigneeUserId: given.assignee ? person(given.assignee) : null })], {
+      const measured = given.shape ? { shape: given.shape, x: 0.1, y: 0.2, points: MEASURED_LINE, reading: MEASURED } : {}
+      const [row] = await insert(documentId, [mark({ assigneeUserId: given.assignee ? person(given.assignee) : null, ...measured })], {
         authorKind: given.authorKind,
         createdBy: person(given.setBy),
         ...(given.authorKind === 'piloti' && given.status !== 'proposed' ? { acceptedBy: COLLEAGUE } : {}),

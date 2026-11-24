@@ -8,6 +8,7 @@ from agent_testing.sheets import floor
 from agent.drawings.sheet_calibration import MAX_CALIBRATIONS
 from agent.drawings.sheet_calibration import from_record
 from agent.drawings.sheet_calibration import from_records
+from agent.drawings.sheet_scale import scale_at
 
 
 def _record(**changes: object) -> dict:
@@ -61,3 +62,18 @@ def test_records_are_bounded_and_the_unreadable_ones_counted() -> None:
     kept, skipped = from_records(sheet, [_record(), {"nothing": 1}, 7, *[_record()] * 100])
 
     assert len(kept) == MAX_CALIBRATIONS - 2 and skipped == 2
+
+
+def test_legacy_records_whose_regions_partly_overlap_read_and_the_smallest_then_newest_holds() -> None:
+    _, sheet = floor()
+    wide = _record(region={"x": 0.1, "y": 0.1, "w": 0.5, "h": 0.5}, lengthM=6.0)
+    same_size = _record(region={"x": 0.3, "y": 0.1, "w": 0.5, "h": 0.5}, **{"from": {"x": 0.4, "y": 0.3}}, lengthM=3.0)
+    detail = _record(region={"x": 0.15, "y": 0.15, "w": 0.4, "h": 0.4}, lengthM=1.0)
+
+    kept, skipped = from_records(sheet, [wide, same_size])
+    shared = sheet.point((0.45, 0.3))
+
+    assert skipped == 0
+    assert scale_at(sheet, shared, kept).box == kept[1].box
+    with_detail, _ = from_records(sheet, [detail, wide, same_size])
+    assert scale_at(sheet, shared, with_detail).box == with_detail[0].box

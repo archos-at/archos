@@ -12,11 +12,25 @@ import {
   type CalibrationPoint,
   type CalibrationRegion,
   type CalibrationStatus,
+  regionRelation,
 } from './wire'
 
 const ACTIVE_REGION_INDEX = 'uniq_drawing_calibrations_active_region'
 
 export class CalibrationSetConflictError extends Error {}
+
+export class CalibrationRegionOverlapError extends Error {
+  constructor(readonly overlapping: DrawingCalibrationRow) {
+    super(`The region partly overlaps the active calibration ${overlapping.id}.`)
+  }
+}
+
+const regionOf = (row: DrawingCalibrationRow): CalibrationRegion => ({
+  x: row.regionX,
+  y: row.regionY,
+  w: row.regionW,
+  h: row.regionH,
+})
 
 export interface CalibrationFilter {
   organizationId: string
@@ -99,22 +113,32 @@ export async function setDrawingCalibration(input: NewCalibrationInput): Promise
   return withTenant({ organizationId }, () =>
     db
       .transaction(async (tx) => {
-        await tx
-          .update(drawingCalibrations)
-          .set({ status: 'superseded' })
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`drawing_calibrations:${organizationId}:${input.versionId}:${input.page}`}, 0))`
+        )
+        const active = await tx
+          .select()
+          .from(drawingCalibrations)
           .where(
             and(
               eq(drawingCalibrations.organizationId, organizationId),
               eq(drawingCalibrations.documentId, input.documentId),
               eq(drawingCalibrations.versionId, input.versionId),
               eq(drawingCalibrations.page, input.page),
-              eq(drawingCalibrations.regionX, region.x),
-              eq(drawingCalibrations.regionY, region.y),
-              eq(drawingCalibrations.regionW, region.w),
-              eq(drawingCalibrations.regionH, region.h),
               inArray(drawingCalibrations.status, [...CALIBRATION_LIFECYCLE.sourcesOf('supersede')])
             )
           )
+          .orderBy(asc(drawingCalibrations.createdAt), asc(drawingCalibrations.id))
+        const relations = active.map((row) => ({ row, relation: regionRelation(region, regionOf(row)) }))
+        const overlapping = relations.find(({ relation }) => relation === 'overlaps')
+        if (overlapping) throw new CalibrationRegionOverlapError(overlapping.row)
+        const same = relations.filter(({ relation }) => relation === 'same').map(({ row }) => row.id)
+        if (same.length > 0) {
+          await tx
+            .update(drawingCalibrations)
+            .set({ status: 'superseded' })
+            .where(and(eq(drawingCalibrations.organizationId, organizationId), inArray(drawingCalibrations.id, same)))
+        }
         const [row] = await tx
           .insert(drawingCalibrations)
           .values({

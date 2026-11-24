@@ -39,7 +39,7 @@ describe('shelfDocumentWhere', () => {
   })
 })
 
-describe('a personal shelf (ADR-0191)', () => {
+describe('a personal shelf (ADR-0193)', () => {
   it('names its owner on documents and folders, so no one else’s rows match', () => {
     const documentsOf = compile(shelfDocumentWhere(personalShelf('user_a'), 'org-1'))
     expect(documentsOf.sql).toContain('"documents"."owner_user_id"')

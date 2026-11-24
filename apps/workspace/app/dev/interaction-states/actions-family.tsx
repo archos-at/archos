@@ -3,6 +3,7 @@
 import type { JSX, ReactNode } from 'react'
 import { Download, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import { Button, type ButtonProps } from '@/components/ui/button'
+import { FloatingToolbar, ToolbarTextButton } from '@/components/ui/floating-toolbar'
 import { Family, Forced, type StateRowSpec } from './state-table'
 
 const COLUMNS = ['Ruhe', 'Zeiger', 'Gedrückt', 'Tastatur', 'Deaktiviert'] as const
@@ -29,6 +30,18 @@ function states(props: ButtonProps, children: ReactNode): readonly ReactNode[] {
   ]
 }
 
+function stripWord(state: 'hover' | 'active' | 'focus' | 'open' | 'disabled' | undefined): ReactNode {
+  return (
+    <Forced key={state ?? 'rest'} state={state === 'open' || state === 'disabled' ? undefined : state} target="button">
+      <FloatingToolbar>
+        <ToolbarTextButton data-state={state === 'open' ? 'open' : 'closed'} aria-haspopup="dialog" disabled={state === 'disabled'}>
+          {state === 'disabled' ? 'Maßstab' : 'Maßstab 1:100'}
+        </ToolbarTextButton>
+      </FloatingToolbar>
+    </Forced>
+  )
+}
+
 const ROWS: readonly StateRowSpec[] = [
   {
     label: 'Primär',
@@ -49,6 +62,11 @@ const ROWS: readonly StateRowSpec[] = [
     label: 'Ghost, nur Glyphe',
     note: 'Werkzeug in einer Zeile oder Leiste (⋯, ×)',
     cells: states({ size: 'icon', variant: 'ghost', 'aria-label': 'Weitere Aktionen' }, <MoreHorizontal aria-hidden />),
+  },
+  {
+    label: 'Wort in der Leiste',
+    note: 'Sagt einen Zustand und öffnet sein Popover („Maßstab 1:100“ im Messmodus); Gedrückt: das Popover ist offen',
+    cells: [stripWord(undefined), stripWord('hover'), stripWord('open'), stripWord('focus'), stripWord('disabled')],
   },
   {
     label: 'Löschen',

@@ -375,6 +375,27 @@
     "step": null
    }
   },
+  "measureOnSheet": {
+   "summary": "Measure a distance, a path or an area on a page of a PDF drawing, tied to its linework, and keep it on the sheet",
+   "tool": "drawing_measure",
+   "annotationOp": null,
+   "operations": [
+    "document-measure",
+    "drawing-measure"
+   ],
+   "canvas": {
+    "kind": "rendering",
+    "component": "features/documents/components/review/measure/measure-layer.tsx",
+    "card": null,
+    "step": null
+   },
+   "chat": {
+    "kind": "rendering",
+    "component": null,
+    "card": null,
+    "step": "action"
+   }
+  },
   "calibrateScale": {
    "summary": "Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for",
    "tool": null,
@@ -385,17 +406,15 @@
     "drawing-calibration-withdraw"
    ],
    "canvas": {
-    "kind": "gap",
-    "slice": "drawing-measure slice 5",
-    "reason": "the scale popover of the review view’s measure mode is built next",
+    "kind": "rendering",
+    "component": "features/documents/components/review/measure/scale-control.tsx",
     "card": null,
     "step": null
    },
    "chat": {
-    "kind": "gap",
-    "slice": "drawing-measure slice 6",
-    "reason": "the confirm card drawing the page clip with the reference span is built next",
-    "card": null,
+    "kind": "rendering",
+    "component": "features/cards/components/CalibrationProposalPreview.tsx",
+    "card": "operation_proposal",
     "step": null
    }
   }

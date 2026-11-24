@@ -84,7 +84,7 @@ describe('contextStatement', () => {
     expect(batch).toContain(`SET LOCAL "app.user_id" = ''`)
   })
 
-  it('names a system reader only when the scope carries one (ADR-0191)', () => {
+  it('names a system reader only when the scope carries one (ADR-0193)', () => {
     expect(contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: null, systemReader: 'ingestion' })).toContain(
       `SET LOCAL "app.system_reader" = 'ingestion'`
     )

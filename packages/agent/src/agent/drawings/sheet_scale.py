@@ -417,12 +417,20 @@ def _apart(calibration: Calibration, other: float, other_error: float) -> bool:
     return abs(calibration.metres_per_point - other) / other > calibration.relative_error + other_error
 
 
+def _within(inner: Box, outer: Box) -> bool:
+    return outer[0] <= inner[0] and outer[1] <= inner[1] and inner[2] <= outer[2] and inner[3] <= outer[3]
+
+
 def _contradiction(sheet: Sheet, calibration: Calibration, point: Point, others: Sequence[Calibration]) -> str:
     said = f"the calibration says 1:{display_ratio(calibration.metres_per_point):.1f}"
     for other in others:
-        if other is not calibration and _apart(calibration, other.metres_per_point, other.relative_error):
+        around = _within(calibration.box, other.box) and other.box != calibration.box
+        if other is calibration or around:
+            continue
+        if _apart(calibration, other.metres_per_point, other.relative_error):
             return (
-                f"{said} and another calibration covering this place says 1:{display_ratio(other.metres_per_point):.1f}"
+                f"{said} and another calibration over this place, whose region does not lie wholly around its own, "
+                f"says 1:{display_ratio(other.metres_per_point):.1f}"
             )
     region = region_at(sheet, point)
     stored = decode_region(sheet, region) if region is not None else None
@@ -471,9 +479,10 @@ def _verified(sheet: Sheet, calibration: Calibration, point: Point, covering: Se
 def scale_at(sheet: Sheet, point: Point, calibrations: Sequence[Calibration] = ()) -> ScaleReading:
     if sheet.user_unit != 1:
         return _uncalibrated(sheet, point, f"the page sets a user unit of {sheet.user_unit:g}, which is not handled")
-    covering = [calibration for calibration in calibrations if contains(calibration.box, point)]
+    covering = [(order, found) for order, found in enumerate(calibrations) if contains(found.box, point)]
     if covering:
-        return _verified(sheet, min(covering, key=lambda calibration: _area(calibration.box)), point, covering)
+        _, held = min(covering, key=lambda found: (_area(found[1].box), -found[0]))
+        return _verified(sheet, held, point, [calibration for _, calibration in covering])
     if sheet.scan or not len(sheet.segments):
         return _uncalibrated(sheet, point, "the page has no linework to check a scale against (a scan)")
     hint = hint_at(sheet, point)

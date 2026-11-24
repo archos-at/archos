@@ -10,7 +10,7 @@ import { documentVisibleTo } from './visibility'
 const dialect = new PgDialect()
 const compiled = (clause: SQL | undefined) => (clause ? dialect.sqlToQuery(clause) : null)
 
-describe('documentVisibleTo keeps everyone out of another person’s shelf (ADR-0191)', () => {
+describe('documentVisibleTo keeps everyone out of another person’s shelf (ADR-0193)', () => {
   it('lets a member read their own personal rows and no one else’s', () => {
     const query = compiled(documentVisibleTo(memberReader('u-me')))
     expect(query?.sql).toContain('"documents"."scope" <> $1 or "documents"."owner_user_id" = $2')
