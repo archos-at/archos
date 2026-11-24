@@ -305,6 +305,10 @@ export function DocumentReviewMode({
 
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
+    if (calibration.setting) {
+      calibration.back()
+      return
+    }
     if (typing(event.target) && !draft && !openAsk) return
     if (openAsk) agent.open(null)
     else if (draft) setDraft(null)
