@@ -17,6 +17,7 @@ import {
   type DocumentNameMatchRow,
 } from '@/lib/documents/repository'
 import { revisionCandidatesOnShelf } from '@/lib/documents/revision-candidates'
+import { requirePersonalShelfDoor } from '@/lib/documents/personal-shelf-door'
 import { personalShelf, type PersonalShelf } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { toListedDocuments, toListedLevelPage, type ListedDocument } from '@/lib/documents/shelf-listing'
@@ -33,7 +34,10 @@ export interface PersonalShelfListResult {
   canManage: true
 }
 
-const ownShelf = (session: AuthorizedSession): PersonalShelf => personalShelf(session.userId)
+function ownShelf(session: AuthorizedSession): PersonalShelf {
+  requirePersonalShelfDoor()
+  return personalShelf(session.userId)
+}
 const ownReader = (session: AuthorizedSession): ShelfReader => memberReader(session.userId)
 
 export async function listPersonalShelf(

@@ -36,7 +36,10 @@ without being recorded.
    writes it, held by a per-user row-level policy as `personal_memory` is, not
    by the app layer alone. A context with no person reads none of it unless it
    names itself a system reader (`withSystemReader`: ingestion, rendition, the
-   search projection, the document notices). Leaving the office treats it as
+   search projection, the document notices). Of the agent doors only the
+   person's own `mcp` agent reaches it, and only their own shelf; `a2a`,
+   `platform` and the in-product agent's tools reach nothing of it
+   (`personal-shelf-door.ts`). Leaving the office treats it as
    personal memory is treated.
 2. **The server decides what a turn may read, from the conversation row.** A
    chat with a project reads that project; a chat without one reads none, and

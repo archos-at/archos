@@ -5,20 +5,11 @@ import type { DocumentShelf } from './shelf'
 export const SHELF_SCOPES = ['project', 'office_shelf', 'personal'] as const
 export type ShelfScope = (typeof SHELF_SCOPES)[number]
 
-export const SHARED_SHELF_SCOPES = ['project', 'office_shelf'] as const
-
-export const agentShelfScope = {
-  scope: z
-    .enum(SHARED_SHELF_SCOPES)
-    .optional()
-    .describe('Default `project` (with `projectId`).'),
-}
-
 export const shelfSelectorFields = {
   scope: z
     .enum(SHELF_SCOPES)
     .optional()
-    .describe('Default `project` (with `projectId`). `personal` is always the caller’s own shelf.'),
+    .describe('Default `project` + `projectId`.'),
   projectId: z.string().min(1).optional(),
 }
 

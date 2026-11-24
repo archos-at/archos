@@ -2,12 +2,14 @@ import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { requireProjectAccess } from '@/lib/authz/projects'
+import { requirePersonalShelfDoor } from './personal-shelf-door'
 import type { DocumentShelf } from './shelf'
 
 const PROJECT_WRITE_PERMISSIONS = ['project:documents:write', 'project:edit'] as const
 
 function requireOwnShelf(session: AuthorizedSession, userId: string): void {
   if (userId !== session.userId) throw new NotFoundError()
+  requirePersonalShelfDoor()
 }
 
 export async function requireShelfRead(session: AuthorizedSession, shelf: DocumentShelf): Promise<void> {

@@ -133,7 +133,6 @@ export const searchBodySchema = z.object({
 export type SearchBody = z.infer<typeof searchBodySchema>
 
 export const SEARCH_SCOPES = ['office', 'project', 'office_shelf', 'personal'] as const
-export const SHARED_SEARCH_SCOPES = ['office', 'project', 'office_shelf'] as const
 
 export type SearchShelf = 'project' | 'office_shelf' | 'personal'
 

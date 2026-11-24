@@ -14,6 +14,7 @@ import { OFFICE_SHELF, personalShelf, projectShelf, shelfFolderWhere, type Docum
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import { requirePersonalShelfDoor } from '@/lib/documents/personal-shelf-door'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -122,6 +123,7 @@ export async function reachFor(session: AuthorizedSession, scope: SearchScope): 
     return { ...base, projects: [reached], officeShelf: null, folderIds }
   }
   if (scope.kind === 'personal') {
+    requirePersonalShelfDoor()
     const shelf = personalShelf(session.userId)
     const folderIds = scope.folderId ? await folderSubtree(session.organizationId, shelf, scope.folderId, []) : null
     const personal = { collection: personalShelfCollectionName(session.organizationId, session.userId), userId: session.userId }

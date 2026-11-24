@@ -32,23 +32,23 @@ interface Exemption {
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   'GET /api/personal-shelf/folders': {
     category: 'other',
-    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'POST /api/personal-shelf/folders': {
     category: 'other',
-    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'PATCH /api/personal-shelf/folders/[folderId]': {
     category: 'other',
-    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'DELETE /api/personal-shelf/folders/[folderId]': {
     category: 'other',
-    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'POST /api/personal-shelf/folders/ensure': {
     category: 'other',
-    reason: 'the person’s own shelf (ADR-0191): the agent draws on it only through a chat’s collection scope, in a chat without a project that its owner alone reads; an operation would hand it to every chat',
+    reason: 'the folders of the person’s own shelf (ADR-0191) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
   },
   'GET /api/ris/document': {
     category: 'external-service',

@@ -4870,11 +4870,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -5445,14 +5446,15 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `project` (with `projectId`).",
+              "description": "Default `project` + `projectId`.",
               "type": "string",
               "enum": [
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `project` (with `projectId`)."
+            "description": "Default `project` + `projectId`."
           },
           {
             "name": "projectId",
@@ -5658,11 +5660,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -6191,14 +6194,15 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `project` (with `projectId`).",
+              "description": "Default `project` + `projectId`.",
               "type": "string",
               "enum": [
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `project` (with `projectId`)."
+            "description": "Default `project` + `projectId`."
           },
           {
             "name": "projectId",
@@ -6514,11 +6518,11 @@
                     "format": "binary"
                   },
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -7666,13 +7670,16 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
-            }
+            },
+            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
           },
           {
             "name": "projectId",
@@ -8171,13 +8178,16 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
-            }
+            },
+            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
           },
           {
             "name": "projectId",
@@ -8289,13 +8299,16 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
-            }
+            },
+            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
           },
           {
             "name": "projectId",
@@ -13560,11 +13573,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {

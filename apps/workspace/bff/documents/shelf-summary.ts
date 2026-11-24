@@ -6,6 +6,7 @@ import type { DocumentAuthor } from '@/lib/db/schema/documents'
 import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { memberReader } from './document-reader'
+import { requirePersonalShelfDoor } from './personal-shelf-door'
 import { OFFICE_SHELF, personalShelf, projectShelf, type DocumentShelf } from './shelf'
 import { listShelfFailedDocuments, summarizeShelfFolders, type ShelfReadFilters } from './repository'
 import type { ShelfSummary } from './shelf-summary-types'
@@ -62,6 +63,7 @@ export function summarizePersonalShelfDocuments(
   session: AuthorizedSession,
   options: ShelfSummaryOptions = {},
 ): Promise<ShelfSummary> {
+  requirePersonalShelfDoor()
   return readShelfSummary(personalShelf(session.userId), session.organizationId, {
     reader: memberReader(session.userId),
     authoredBy: options.authoredBy,
