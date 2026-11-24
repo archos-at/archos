@@ -298,7 +298,7 @@ export function useInputAreaController({
         name: composerSubject.title?.trim() || tFiles('assignment.thisFile'),
       })
     }
-    return placeholder ?? tChat('composer.placeholder')
+    return placeholder ?? tChat(chatHasProject ? 'composer.placeholder' : 'composer.placeholderPersonal')
   }
 
   const handleValueChange = useCallback(

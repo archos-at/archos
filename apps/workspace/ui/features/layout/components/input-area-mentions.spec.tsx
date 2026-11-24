@@ -409,7 +409,14 @@ describe('InputArea', () => {
   })
 
   describe('in a chat without a project (ADR-0193)', () => {
-    const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
+    const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} anything …`)
+
+    test('the composer speaks of no project', () => {
+      render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+
+      expect(composer()).toBeInTheDocument()
+      expect(screen.queryByPlaceholderText(/project/i)).not.toBeInTheDocument()
+    })
 
     beforeEach(() => {
       mockChatProjectId = null
