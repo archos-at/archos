@@ -18,7 +18,11 @@ export const createConversationSchema = z.object({
 export const CONVERSATION_PAGE_MAX = 200
 
 export const listConversationsQuerySchema = z.object({
-  projectId: z.guid().optional().describe('Only this project’s conversations.'),
+  projectId: z.guid().optional().describe('This project’s chats and the projectless ones.'),
+  place: z
+    .enum(['personal', 'project'])
+    .optional()
+    .describe('`personal`: projectless only; `project`: `projectId`’s only.'),
   limit: z.coerce
     .number()
     .int()
@@ -27,6 +31,9 @@ export const listConversationsQuerySchema = z.object({
     .default(50)
     .describe(`Page size (default 50, most ${CONVERSATION_PAGE_MAX}).`),
   cursor: z.string().min(1).max(128).optional().describe('The previous `nextCursor`.'),
+}).refine((query) => query.place !== 'project' || query.projectId !== undefined, {
+  message: '`place=project` needs a `projectId`.',
+  path: ['place'],
 })
 
 export const MESSAGE_INCLUDES = ['citations', 'steps', 'metadata'] as const

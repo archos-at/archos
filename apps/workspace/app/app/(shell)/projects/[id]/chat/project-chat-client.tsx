@@ -67,7 +67,7 @@ const ProjectChatContent = ({
 
   useEffect(() => {
     setProjectId(projectId)
-    void loadServerConversations(projectId)
+    void loadServerConversations(projectId, 'project')
     return () => setProjectId(null)
   }, [projectId, setProjectId, loadServerConversations])
 

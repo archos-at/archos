@@ -272,7 +272,7 @@ function AppSidebarFrame({
               as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
               and the office's doorways, which both stay put. The icon rail has no room for a title: there
               „Chat“ is its glyph, and the chat's toolbar names its door. */}
-          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} projects={projects} />}
+          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
         </SidebarContent>
 
         <SidebarFooter

@@ -49,8 +49,8 @@ export const conversationsOperations = [
     summary: 'List the conversations the person can see',
     description:
       'The conversations the person may open, their own and shared ones, most recently active first, with id, title, project and ' +
-      'unread state. Pass projectId (from project-list) to narrow; page with `nextCursor`. ' +
-      'Take a conversation id from here for conversation-get and conversation-message-list.',
+      'unread state. Narrow with projectId (from project-list) and place; page with `nextCursor`. ' +
+      'Its ids feed conversation-get and conversation-message-list.',
     method: 'GET',
     path: '/api/conversations',
     query: listConversationsQuerySchema,

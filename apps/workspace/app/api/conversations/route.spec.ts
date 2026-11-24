@@ -89,6 +89,34 @@ describe('GET /api/conversations', () => {
     expect(captured).toHaveLength(0)
   })
 
+  it('`place=personal` lists only the chats without a project (ADR-0193)', async () => {
+    const res = await GET(new Request('https://grid.example/api/conversations?place=personal'))
+
+    expect(res.status).toBe(200)
+    const { sql } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" is null and (')
+    expect(sql).not.toContain('"conversations"."project_id" = ')
+  })
+
+  it('`place=project` lists only that project’s chats, behind project access (ADR-0193)', async () => {
+    const res = await GET(
+      new Request(`https://grid.example/api/conversations?projectId=${PROJECT_ID}&place=project`)
+    )
+
+    expect(res.status).toBe(200)
+    expect(requireProjectAccessMock).toHaveBeenCalledWith(expect.anything(), PROJECT_ID, 'project:view')
+    const { sql } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" = $2 and (')
+    expect(sql).not.toContain('"conversations"."project_id" is null')
+  })
+
+  it('refuses `place=project` without a projectId with 400', async () => {
+    const res = await GET(new Request('https://grid.example/api/conversations?place=project'))
+
+    expect(res.status).toBe(400)
+    expect(captured).toHaveLength(0)
+  })
+
   it('rejects a malformed projectId with 400', async () => {
     const res = await GET(
       new Request('https://grid.example/api/conversations?projectId=not-a-uuid')
