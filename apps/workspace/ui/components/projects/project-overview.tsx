@@ -58,7 +58,7 @@ export function ProjectOverview({
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="project-overview">
       <div
-        className="flex shrink-0 flex-col gap-5 px-6 pt-6 pb-4"
+        className="flex shrink-0 flex-col gap-5 px-6 pt-2 pb-4 md:pt-6"
         data-testid="project-overview-top"
       >
         <header

@@ -17,6 +17,7 @@ import {
 } from '@/components/motion'
 import { useDragControls, type PanInfo } from 'motion/react'
 import { pullDismisses } from '@/components/ui/sheet-pull'
+import { useMediaQuery } from '@/hooks/use-media-query'
 
 export const PAGE_SHEET_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50 backdrop-blur-sm'
 export const PAGE_SHEET_PANEL_CLASS =
@@ -26,10 +27,19 @@ const PANEL_WIDTH = 'md:max-w-[1400px]'
 
 export const PAGE_SHEET_WINDOW_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50'
 
+// On a phone a window is a bottom sheet like the others there, risen to fit its content; from md a centred window.
 export const PAGE_SHEET_WINDOW_CLASS =
-  'bg-background fixed inset-4 z-50 m-auto flex h-fit max-h-[min(84dvh,calc(100dvh-2rem))] max-w-[820px] flex-col overflow-hidden rounded-[16px] shadow-xl outline-none'
+  'bg-background fixed inset-x-0 bottom-0 z-50 flex max-h-[min(90dvh,calc(100dvh-max(0.75rem,env(safe-area-inset-top))))] flex-col overflow-hidden rounded-overlay pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-4 md:m-auto md:h-fit md:max-h-[min(84dvh,calc(100dvh-2rem))] md:max-w-[820px] md:rounded-[16px] md:p-0'
+
+const PHONE_QUERY = '(max-width: 767.98px)'
 
 export type PageSheetSize = 'page' | 'window'
+
+const SLIDE_MOTION = (fromY: number | string | undefined) => ({
+  initial: { y: fromY ?? '100%' },
+  animate: { y: 0, transition: motionSheetEnter },
+  exit: { y: '100%', transition: motionSheetExit },
+})
 
 const WINDOW_MOTION = {
   initial: { opacity: 0, y: 8 },
@@ -69,6 +79,8 @@ export function PageSheet({
   children,
 }: PageSheetProps): JSX.Element {
   const asWindow = size === 'window'
+  const onPhone = useMediaQuery(PHONE_QUERY)
+  const slides = !asWindow || onPhone
   const dragControls = useDragControls()
   const pulledRef = React.useRef(false)
 
@@ -115,14 +127,8 @@ export function PageSheet({
               <motion.div
                 className={asWindow ? PAGE_SHEET_WINDOW_CLASS : cn(PAGE_SHEET_PANEL_CLASS, PANEL_WIDTH)}
                 data-size={size}
-                {...(asWindow
-                  ? WINDOW_MOTION
-                  : {
-                      initial: { y: enterFrom?.y ?? '100%' },
-                      animate: { y: 0, transition: motionSheetEnter },
-                      exit: { y: '100%', transition: motionSheetExit },
-                    })}
-                drag={asWindow ? false : 'y'}
+                {...(slides ? SLIDE_MOTION(enterFrom?.y) : WINDOW_MOTION)}
+                drag={slides ? 'y' : false}
                 dragListener={false}
                 dragControls={dragControls}
                 dragConstraints={{ top: 0, bottom: 0 }}
@@ -136,7 +142,12 @@ export function PageSheet({
                 }}
                 onDragEnd={handleDragEnd}
               >
-                {!asWindow && <PageSheetGrabber label={closeLabel} onPointerDown={startDrag} pulledRef={pulledRef} />}
+                <PageSheetGrabber
+                  label={closeLabel}
+                  onPointerDown={startDrag}
+                  pulledRef={pulledRef}
+                  className={asWindow ? 'md:hidden' : undefined}
+                />
                 {headerless ? (
                   <>
                     <DialogPrimitive.Title data-slot="page-sheet-title" className="sr-only">
@@ -188,15 +199,20 @@ function PageSheetGrabber({
   label,
   onPointerDown,
   pulledRef,
+  className,
 }: {
   label: string
   onPointerDown: (event: React.PointerEvent) => void
   pulledRef: React.RefObject<boolean>
+  className?: string
 }): JSX.Element {
   return (
     <div
       data-slot="page-sheet-grabber"
-      className="flex shrink-0 cursor-grab touch-none justify-center py-2 select-none active:cursor-grabbing pointer-coarse:py-0"
+      className={cn(
+        'flex shrink-0 cursor-grab touch-none justify-center py-2 select-none active:cursor-grabbing pointer-coarse:py-0',
+        className
+      )}
       onPointerDown={onPointerDown}
     >
       <DialogPrimitive.Close
