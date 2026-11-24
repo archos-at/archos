@@ -155,6 +155,8 @@ const MARK: AnnotationRecord = {
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Türbreite prüfen',
   basis: null,

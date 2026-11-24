@@ -26,6 +26,7 @@ export function useAnnotationList({
   const load = readLoad === 'ready' && listedFor !== documentId ? 'loading' : readLoad
   const [stored, setAnnotations] = useState<AnnotationView[]>([])
   const [canAnnotate, setCanAnnotate] = useState(false)
+  const [canMeasure, setCanMeasure] = useState(false)
   const [pilotiWakes, setAgentWakes] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
@@ -43,6 +44,7 @@ export function useAnnotationList({
     if (reads.current.documentId !== documentId || reads.current.list !== ticket) return result.annotations
     setAnnotations(result.annotations)
     setCanAnnotate(result.canAnnotate)
+    setCanMeasure(result.canMeasure ?? false)
     setAgentWakes(result.pilotiWakes)
     setListedFor(documentId)
     setLoad('ready')
@@ -130,5 +132,5 @@ export function useAnnotationList({
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [enabled, fetchList])
 
-  return { load, stored, setAnnotations, canAnnotate, pilotiWakes, setAttempt, reads, replace, drop, fetchList }
+  return { load, stored, setAnnotations, canAnnotate, canMeasure, pilotiWakes, setAttempt, reads, replace, drop, fetchList }
 }

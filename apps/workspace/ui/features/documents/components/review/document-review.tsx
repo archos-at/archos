@@ -9,7 +9,8 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { isGhostMark, type AnnotationView } from '@/lib/annotations/types'
+import { isMeasureShape } from '@/lib/annotations/measure-shapes'
+import { isGhostMark, isOpenItem, type AnnotationView } from '@/lib/annotations/types'
 import { documentFileUrl } from '@/lib/documents/urls'
 import { sameValue } from '@/lib/utils/same-value'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -39,6 +40,11 @@ import { ReviewCardSheet } from './document-review/review-card-sheet'
 import { ReviewListSheet } from './document-review/review-list-sheet'
 import { Elsewhere } from './document-review/elsewhere'
 import { ReviewTools } from './document-review/review-tools'
+import { MeasureStack } from './measure/measure-stack'
+import { ScaleControl } from './measure/scale-control'
+import { CalibrationPageLayer } from './calibration-page-layer'
+import { useReviewCalibration } from '../../hooks/use-review-calibration'
+import { measureKey, tapeInHand } from './measure/measure-keys'
 
 export { TOOLS_INTRO_KEY, toolsIntroSeen } from '../../lib/review-tools-intro'
 export { walkPosition } from '../../lib/proposal-walk'
@@ -75,6 +81,11 @@ export function DocumentReviewMode({
   protocolFiling?: ProtocolFilingTarget | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
+  const calibration = useReviewCalibration(review)
+  const { refresh } = review.tape
+  useEffect(() => {
+    refresh()
+  }, [calibration.calibrations, refresh])
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
   const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti: agent } = review
@@ -121,7 +132,7 @@ export function DocumentReviewMode({
     rememberToolsIntro()
   }, [])
   useEffect(() => {
-    if (intro && (draft || openAsk)) foldIntro()
+    if (intro && ((draft && !draft.points) || openAsk)) foldIntro()
   }, [intro, draft, openAsk, foldIntro])
 
   const { watchMarksSetNews } = review
@@ -278,16 +289,32 @@ export function DocumentReviewMode({
     if (dockedAsk) {
       if (dockedAsk.status === 'thinking') agent.open(null)
       else agent.dismiss(dockedAsk.id)
+    } else if (draft?.points && isMeasureShape(draft.shape)) {
+      const kept = { page: draft.page, shape: draft.shape, points: draft.points }
+      setDraft(null)
+      toast(
+        t('review.measure.discarded'),
+        reviewToast({
+          duration: 10_000,
+          action: { label: t('review.measure.restore'), onClick: () => review.tape.again(kept) },
+        })
+      )
     } else if (draft) setDraft(null)
     else select(null)
-  }, [dockedAsk, agent, draft, setDraft, select])
+  }, [dockedAsk, agent, draft, setDraft, select, t, review.tape])
 
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
+    if (calibration.setting) {
+      calibration.back()
+      return
+    }
     if (typing(event.target) && !draft && !openAsk) return
     if (openAsk) agent.open(null)
     else if (draft) setDraft(null)
     else if (following) setFollowing(null)
+    else if (tapeInHand(review)) review.tape.clear()
+    else if (tool === 'measure' && selectedId) select(null)
     else if (tool !== 'select') setTool('select')
     else if (selectedId) select(null)
     else close()
@@ -312,7 +339,8 @@ export function DocumentReviewMode({
     if (listOpen || dockOpen) return
     if (event.key === 'Escape' || typing(event.target)) return
     const key = event.key.toLowerCase()
-    if (key === '/') openChat(true)
+    if (measureKey(key, review)) event.preventDefault()
+    else if (key === '/') openChat(true)
     else if (key === 'v') setTool('select')
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
       setTool(key === 'c' ? 'point' : 'region')
@@ -333,7 +361,7 @@ export function DocumentReviewMode({
       const current = annotations.find((annotation) => annotation.id === selectedId)
       if (!current?.canEdit) return
       if (current.status === 'proposed') decideByKey(current, 'open')
-      else if (current.status === 'open') decideByKey(current, 'resolved')
+      else if (isOpenItem(current)) decideByKey(current, 'resolved')
     } else if ((key === 'backspace' || key === 'delete') && selectedId) {
       const current = annotations.find((annotation) => annotation.id === selectedId)
       if (!current?.canEdit || current.status !== 'proposed') return
@@ -381,7 +409,16 @@ export function DocumentReviewMode({
   const followedState = followed
 
   const threadCard = (placement: CardPlacement) => {
-    if (draft) return <DraftCard review={review} draft={draft} placement={placement} canPickAssignee={canPickAssignee} />
+    if (draft)
+      return (
+        <DraftCard
+          review={review}
+          draft={draft}
+          placement={placement}
+          canPickAssignee={canPickAssignee}
+          onSetScale={calibration.beginSetting}
+        />
+      )
     if (!selected) return null
     return (
       <ThreadCard
@@ -397,7 +434,7 @@ export function DocumentReviewMode({
   }
 
   const toolHint =
-    tool !== 'select' && !draft && !openAsk
+    tool !== 'select' && tool !== 'measure' && !draft && !openAsk
       ? aim
         ? t(`review.aim.hint.${tool}`)
         : t(`review.${touch ? 'toolHintTouch' : 'toolHint'}.${tool}`)
@@ -473,6 +510,14 @@ export function DocumentReviewMode({
                   </span>
                 )}
                 <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />
+                <MeasureStack
+                  review={review}
+                  page={viewPage ?? 1}
+                  touch={touch}
+                  scale={<ScaleControl calibration={calibration} page={viewPage ?? 1} />}
+                  onSetScale={calibration.beginSetting}
+                  settingScale={calibration.setting}
+                />
                 {toolHint && (
                   <FloatingNote role={aim ? undefined : 'status'} aria-hidden={aim ? true : undefined} data-testid="review-tool-hint">
                     {toolHint}
@@ -514,9 +559,12 @@ export function DocumentReviewMode({
                 onViewport={onViewport}
                 toolbarLead={touch ? undefined : toolsPalette(intro ? 'intro' : 'icons')}
                 pageOverlay={(page) => (
+                  <>
+                  <CalibrationPageLayer page={page} calibration={calibration} />
                   <ReviewPageLayer
                     page={page}
                     review={review}
+                    blocked={calibration.setting}
                     focused
                     onPinByKeyboard={focusNextCard}
                     aim={aim && aim.page === page ? aim : null}
@@ -529,6 +577,7 @@ export function DocumentReviewMode({
                         : ({ placement }) => (draft && draft.page !== page ? null : threadCard(placement))
                     }
                   />
+                  </>
                 )}
                 className="size-full"
               />

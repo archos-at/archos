@@ -12,6 +12,7 @@ import { useLocale } from '@/i18n'
 import {
   MEASURE_MARKER,
   MEASURE_STROKE,
+  MEASURE_SURFACE,
   measureMarkerPath,
 } from '@/components/ui/measure-mark-recipe'
 import { formatMetres } from '@/lib/format'
@@ -64,20 +65,20 @@ function SpanLine({
   placing: boolean
 }): JSX.Element {
   const ends = { x1: pct(from.x), y1: pct(from.y), x2: pct(to.x), y2: pct(to.y) }
-  const dash = placing ? MEASURE_STROKE.dash : undefined
+  const dash = placing ? MEASURE_STROKE.placingDash : undefined
   return (
     <>
       <line
         {...ends}
-        stroke={MEASURE_STROKE.haloColor}
-        strokeWidth={MEASURE_STROKE.halo}
+        stroke={MEASURE_SURFACE.paper.halo}
+        strokeWidth={MEASURE_STROKE.haloWidth}
         strokeLinecap="round"
         strokeDasharray={dash}
       />
       <line
         {...ends}
-        stroke={MEASURE_STROKE.lineColor}
-        strokeWidth={MEASURE_STROKE.line}
+        stroke={MEASURE_SURFACE.paper.ink}
+        strokeWidth={MEASURE_STROKE.lineWidth}
         strokeLinecap="round"
         strokeDasharray={dash}
       />
@@ -89,9 +90,9 @@ function EndMarker({ point, testId }: { point: CalibrationPoint; testId: string 
   return (
     <svg x={pct(point.x)} y={pct(point.y)} overflow="visible" data-testid={testId}>
       <path
-        d={measureMarkerPath('square')}
-        fill={MEASURE_MARKER.fill}
-        stroke={MEASURE_MARKER.stroke}
+        d={measureMarkerPath('vertex')}
+        fill={MEASURE_SURFACE.paper.halo}
+        stroke={MEASURE_SURFACE.paper.ink}
         strokeWidth={MEASURE_MARKER.strokeWidth}
       />
     </svg>
