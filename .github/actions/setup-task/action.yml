@@ -12,12 +12,9 @@ inputs:
 runs:
   using: composite
   steps:
-    # Installed from npm rather than the upstream shell installer: it is a
-    # registry this repo already depends on, it pins exactly, and every GitHub
-    # runner image ships Node — so this works in the Python jobs too, without
-    # adding a setup-node step just to get a task runner.
     - name: Install go-task
       shell: bash
       env:
         TASK_VERSION: ${{ inputs.version }}
-      run: npm i -g "@go-task/cli@${TASK_VERSION}"
+      run: |
+        [ "$(task --version 2>/dev/null)" = "$TASK_VERSION" ] || npm i -g "@go-task/cli@${TASK_VERSION}"

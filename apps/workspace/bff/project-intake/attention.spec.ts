@@ -35,7 +35,7 @@ describe('onIntakeReady', () => {
 
     expect(emitted()).toMatchObject({
       recipientUserId: 'user_2',
-      type: 'piloti.intake_ready',
+      type: 'agent.intake_ready',
       resourceId: 'project-1',
       anchorId: 'intake-1',
       payload: { subject: 'Wohnbau Seestraße', variant: 'ready', related: '3', excerpt: '23 Dokumente gelesen.' },

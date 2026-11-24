@@ -9,6 +9,7 @@ import { projects } from '@/lib/db/schema/projects'
 import { contentTokens, jaccardSimilarity, normalizeContentGerman } from '@/lib/knowledge/consolidation'
 import { cosineSimilaritySql, embedNote, type EmbeddedNote } from '@/lib/knowledge/embeddings'
 import { fuseHybridRelevance } from '@/lib/knowledge/recall-scoring'
+import { NAMESPACED_AGENT_PRODUCERS } from '../documents/agent-namespace'
 import type { LiveFolderAccess } from './live-access'
 
 export const PERMIT_MAX_RECORDS = CROSS_PROJECT_MAX_PERMITS
@@ -108,7 +109,7 @@ export async function findPermitDocument(organizationId: string, ref: PermitDocu
           ? eq(documents.id, ref.documentId)
           : and(
               eq(documents.filename, ref.fileName),
-              sql`(${documents.authoredBy} = 'user' OR ${documents.filename} LIKE 'piloti/%')`
+              or(eq(documents.authoredBy, 'user'), inArray(documents.authoredByProducer, [...NAMESPACED_AGENT_PRODUCERS]))
             ),
         sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         documentVisibleTo(internalRead('ingest'))

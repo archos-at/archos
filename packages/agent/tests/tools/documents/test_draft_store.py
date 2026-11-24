@@ -233,6 +233,15 @@ class TestTheAsyncHalf:
     async def test_the_root_holds_on_the_async_path(self, backend: DraftBackend) -> None:
         assert (await backend.awrite("/etc/passwd", "x")).error is not None
 
+    @pytest.mark.asyncio
+    async def test_small_text_files_of_a_run_do_not_use_up_the_markdown_budget(self, backend: DraftBackend) -> None:
+        table = ("Raum;Fläche\n" + "EG;32,4\n" * 7000).encode()
+        assert len(table) <= draft_store.MAX_RUN_TEXT_BYTES
+        for index in range(5):
+            assert await backend.awrite_run_file(f"{DRAFT_ROOT}tabelle-{index}.csv", table) is None
+        assert stored(backend, f"{DRAFT_ROOT}tabelle-0.csv")["encoding"] == "utf-8"
+        assert (await backend.awrite(DRAFT, "# Aktenvermerk\n\n" + "x" * (MAX_DRAFT_BYTES - 1024))).error is None
+
 
 class TestTheStoreFactory:
     @pytest.fixture(autouse=True)
@@ -455,3 +464,34 @@ class TestTheGermanRootStillReads:
         assert "prefix LIKE 'conversation.%%.drafts'" in statement
         assert "NOT EXISTS" in statement
         assert params == {"new": "/drafts/", "cut": len("/entwuerfe/") + 1, "like": "/entwuerfe/%"}
+
+
+class TestOwnKeysSurviveAnEdit:
+    @pytest.mark.asyncio
+    async def test_an_edit_of_a_run_made_csv_keeps_its_keys_and_stays_out_of_the_markdown_budget(
+        self, backend: DraftBackend
+    ) -> None:
+        path = f"{DRAFT_ROOT}tabelle.csv"
+        table = ("Raum;Fläche\n" + "EG;32,4\n" * 7000).encode()
+        origin = {"document_id": "doc-1", "name": "tabelle.csv", "content_hash": "sha256:x"}
+        assert await backend.awrite_run_file(path, table, derived_from=origin) is None
+        await backend.arecord_filing(path, {draft_store.FILED_DOCUMENT_KEY: "doc-9"}, draft_version=1)
+
+        assert (await backend.aedit(path, "Raum;Fläche", "Raum;Nutzfläche")).error is None
+
+        value = stored(backend, path)
+        assert value[draft_store.MADE_BY_KEY] == draft_store.MADE_BY_RUN
+        assert value[draft_store.DERIVED_FROM_KEY] == origin
+        assert value[draft_store.FILED_AT_DRAFT_VERSION_KEY] == 1
+        assert value[draft_store.FILED_DOCUMENT_KEY] == "doc-9"
+        assert (await backend.ausage(path)).total_bytes == 0
+
+    @pytest.mark.asyncio
+    async def test_removing_a_draft_deletes_it_only_at_the_version_the_caller_saw(self, backend: DraftBackend) -> None:
+        path = f"{DRAFT_ROOT}a.xlsx"
+        await backend.awrite_run_file(path, b"PK")
+        await backend.awrite_run_file(path, b"PK2")
+        assert await backend.aremove(path, version=1) is False
+        assert await backend.aremove(path, version=2) is True
+        assert (await backend.ausage(path)).content is None
+        assert await backend.aremove(path) is False

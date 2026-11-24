@@ -1,5 +1,3 @@
-"""The tool surface vocabulary: its relations, measures, fire and envelope aspects, and limits."""
-
 from __future__ import annotations
 
 from collections.abc import Callable

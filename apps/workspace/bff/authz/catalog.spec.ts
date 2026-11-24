@@ -148,6 +148,16 @@ describe('authorization catalog', () => {
     expect(support!.permissions.filter((slug) => slug.endsWith(':manage'))).toEqual([])
   })
 
+  it('every role description fits WorkOS, which refuses one over 150 characters', () => {
+    expect(ROLES.filter((role) => role.description.length > 150).map((role) => role.slug)).toEqual([])
+  })
+
+  it('the external developer writes platform knowledge and reaches no tenant data or review', () => {
+    const developer = findRoleSpec('org-platform-external-developer')
+    expect(developer).toMatchObject({ tier: 'platform', scope: 'platform-org' })
+    expect([...developer!.permissions].sort()).toEqual(['platform:knowledge:write', 'platform:settings:view'])
+  })
+
   describe('read-only observability (Langfuse)', () => {
 
     it('the analyst role holds the observability permission and nothing else', () => {

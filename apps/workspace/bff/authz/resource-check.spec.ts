@@ -33,7 +33,7 @@ describe('effectiveResourcePermissions', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     store = new MapCacheStore()
     setCacheStore(store)
-    delete process.env.AUTHZ_CACHE_TTL_MS
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', undefined)
     listEffectivePermissionsByExternalId.mockResolvedValue(holds('project:view'))
   })
 

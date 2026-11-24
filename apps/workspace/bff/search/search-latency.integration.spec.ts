@@ -224,7 +224,7 @@ describe.skipIf(!enabled)('search latency over a seeded office', () => {
   const results: Array<{ name: string; p50: number; p95: number; max: number; rows: number }> = []
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     repo = await import('./document-repository')

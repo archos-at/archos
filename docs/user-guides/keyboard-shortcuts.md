@@ -48,7 +48,7 @@ navigation rail, so what you see in the rail is what you can jump to:
 | **G** then **F** | Files |
 | **G** then **K** | Knowledge |
 | **G** then **H** | History |
-| **G** then **A** | Büroablage |
+| **G** then **A** | Bürobibliothek |
 | **G** then **I** | Inbox |
 | **G** then **S** | Project settings |
 
@@ -58,7 +58,7 @@ generic one.
 
 Section jumps open that section of the project you are currently in. Outside a
 project there is nothing for them to open, so they do nothing rather than
-guessing a project for you. *All projects*, *Organization*, *Büroablage* and *Inbox*
+guessing a project for you. *All projects*, *Organization*, *Bürobibliothek* and *Inbox*
 are org-wide doorways and work from anywhere.
 
 A second key that is not bound simply cancels the sequence. Nothing navigates
@@ -100,7 +100,7 @@ Listed in the cheatsheet only for offices with project mail:
 | **Enter** | Open the mail |
 | **X** | Select the mail for a bulk action (never a mail that poses as someone) |
 | **Space** | Preview the attachment |
-| **E** | File as shown („Wie gezeigt ablegen“) |
+| **E** | Review and file, and in its overview: file („Einordnen“, in der Übersicht „Ablegen“) |
 | **⌫** | Dismiss the mail |
 
 ## The command palette

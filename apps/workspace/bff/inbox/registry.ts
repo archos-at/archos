@@ -2,7 +2,7 @@ import { INBOX_ITEM_TYPES, type InboxItemType, type InboxTargetType } from '@/li
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import type { PushCategory, PushUrgency } from './push-categories'
 import { IN_APP_ONLY, INBOUND_MAIL_TYPE_DEFINITIONS } from './inbound-mail-types'
-import { isMarkAnchored } from './types'
+import { canonicalInboxType, isMarkAnchored } from './types'
 
 export { appendedGroupAnchor } from './inbound-mail-types'
 
@@ -185,7 +185,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'activity', urgency: 'low' },
   },
-  'piloti.work_done': {
+  'agent.work_done': {
     actionable: false,
     grouping: 'per-anchor',
     retentionDays: 30,
@@ -193,7 +193,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'results', urgency: 'low' },
   },
-  'piloti.work_failed': {
+  'agent.work_failed': {
     actionable: false,
     grouping: 'per-anchor',
     retentionDays: 60,
@@ -201,7 +201,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 60 },
     push: { category: 'results', urgency: 'normal' },
   },
-  'piloti.asks_you': {
+  'agent.asks_you': {
     actionable: true,
     grouping: 'per-anchor',
     retentionDays: 180,
@@ -209,7 +209,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 60 },
     push: { category: 'requests', urgency: 'high' },
   },
-  'piloti.revision_checked': {
+  'agent.revision_checked': {
     actionable: false,
     grouping: 'per-anchor',
     retentionDays: 60,
@@ -217,7 +217,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'results', urgency: 'low' },
   },
-  'piloti.proposal_waiting': {
+  'agent.proposal_waiting': {
     actionable: true,
     grouping: 'per-anchor',
     retentionDays: 60,
@@ -225,7 +225,15 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'requests', urgency: 'normal' },
   },
-  'piloti.intake_ready': {
+  'base_knowledge.new_edition': {
+    actionable: true,
+    grouping: 'per-anchor',
+    retentionDays: 365,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'office', urgency: 'low' },
+  },
+  'agent.intake_ready': {
     actionable: true,
     grouping: 'per-anchor',
     retentionDays: 60,
@@ -302,17 +310,29 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 30 },
     push: { category: 'results', urgency: 'normal' },
   },
+  'office_shelf.norm_suggested': {
+    actionable: true,
+    grouping: 'per-anchor',
+    retentionDays: 60,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'requests', urgency: 'normal' },
+  },
   ...INBOUND_MAIL_TYPE_DEFINITIONS,
 }
 
 export const MARK_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = INBOX_ITEM_TYPES.filter(isMarkAnchored)
 
-export const PROPOSAL_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = ['piloti.proposal_waiting']
+export const PROPOSAL_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = ['agent.proposal_waiting', 'office_shelf.norm_suggested']
 
 export const PLATFORM_INBOX_PERMISSION = PLATFORM_PERMISSIONS.settingsView
 
-export function inboxItemIsActionable(type: InboxItemType): boolean {
-  return INBOX_TYPE_DEFINITIONS[type].actionable
+export function inboxTypeDefinition(type: string): InboxTypeDefinition {
+  return INBOX_TYPE_DEFINITIONS[canonicalInboxType(type) as InboxItemType]
+}
+
+export function inboxItemIsActionable(type: string): boolean {
+  return inboxTypeDefinition(type).actionable
 }
 
 export function visibleInboxTypes(collaborationEnabled: boolean): InboxItemType[] {
@@ -339,7 +359,7 @@ export function inboxGroupKey(
   resourceId: string,
   anchorId?: string | null,
 ): string {
-  const definition = INBOX_TYPE_DEFINITIONS[type]
+  const definition = inboxTypeDefinition(type)
   const base = `${type}:${resourceType}:${resourceId}`
   if (definition.grouping === 'collapse') return base
   if (!anchorId) {
@@ -348,7 +368,7 @@ export function inboxGroupKey(
   return `${base}:${anchorId}`
 }
 
-export function inboxRetentionCutoff(type: InboxItemType, now = new Date()): Date {
-  const days = INBOX_TYPE_DEFINITIONS[type].retentionDays
+export function inboxRetentionCutoff(type: string, now = new Date()): Date {
+  const days = inboxTypeDefinition(type).retentionDays
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 }

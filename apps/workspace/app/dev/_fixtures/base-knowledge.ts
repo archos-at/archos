@@ -2,6 +2,7 @@ import type {
   BaseKnowledgeEntry,
   BaseKnowledgeFolders,
   EntryValues,
+  NormRecognition,
 } from '@/lib/base-knowledge/wire'
 
 const ROOT = '00000000-0000-4000-8000-000000000001'
@@ -66,6 +67,7 @@ function entry(
   values: Partial<EntryValues>,
   rest: Partial<BaseKnowledgeEntry> = {}
 ): BaseKnowledgeEntry {
+  const editionLabel = values.editionLabel ?? '2017-04-01'
   return {
     id,
     editionId: `edition_${id}`,
@@ -86,8 +88,8 @@ function entry(
       kind: 'technical_standard',
       title: 'Barrierefreies Bauen',
       designation: 'ÖNORM B 1600:2017',
-      editionLabel: '2017-04-01',
-      issuedOn: '2017-04-01',
+      editionLabel,
+      issuedOn: /^\d{4}-\d{2}-\d{2}$/.test(editionLabel) ? editionLabel : null,
       inForceFrom: null,
       inForceTo: null,
       territoryIds: [],
@@ -102,11 +104,15 @@ function entry(
       dueAt: '2027-10-02T09:00:00.000Z',
       overdue: false,
     },
+    binding: null,
     ...rest,
   }
 }
 
 const NEVER = { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true }
+
+const VIA = { designation: 'OIB-RL 4', editionLabel: '2023' }
+const binds = (editionLabel: string, held: boolean) => ({ editionLabel, startsOn: editionLabel, via: VIA, held, newer: !held })
 
 const ENTRIES: BaseKnowledgeEntry[] = [
   entry(
@@ -187,12 +193,12 @@ const ENTRIES: BaseKnowledgeEntry[] = [
       title: 'Treppen, Geländer und Brüstungen',
       editionLabel: '2021-01-15',
     },
-    { textUse: 'metadata_only', aiProcessingAttestedAt: null }
+    { textUse: 'metadata_only', aiProcessingAttestedAt: null, binding: binds('2021-01-15', true) }
   ),
   entry(
     'oenorm-b-3806-2023',
     { designation: 'ÖNORM B 3806:2023', title: 'Anforderungen an das Brandverhalten von Bauprodukten', editionLabel: '2023-03-01', issuedOn: '2023-03-01' },
-    { workId: 'work_oenorm-b-3806', folderId: FOLDER_IDS.fire },
+    { workId: 'work_oenorm-b-3806', folderId: FOLDER_IDS.fire, binding: binds('2023-03-01', true) },
   ),
   entry(
     'oenorm-b-3806',
@@ -240,7 +246,7 @@ const ENTRIES: BaseKnowledgeEntry[] = [
       title: 'Schallschutz und Raumakustik im Hochbau – Teil 2',
       editionLabel: '2021-11-15',
     },
-    { folderId: FOLDER_IDS.sound }
+    { folderId: FOLDER_IDS.sound, binding: binds('2025-03-01', false) }
   ),
   entry(
     'oib-leitfaden',
@@ -272,3 +278,58 @@ export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = ENTRIES.map((entry) 
     })),
   }
 })
+
+export const NORM_RECOGNITION: NormRecognition = {
+  proposals: [
+    {
+      entryId: 'recognised-b8110',
+      documentId: 'doc_recognised_b8110',
+      fileName: 'OENORM_B_8110-3_2020-03-15_de.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 8110-3:2020',
+      editionLabel: '2020-03-15',
+      topicId: FOLDER_IDS.sound,
+      editionOf: null,
+      duplicate: false,
+    },
+    {
+      entryId: 'recognised-en1991',
+      documentId: 'doc_recognised_en1991',
+      fileName: 'EN_1991-1-1.pdf',
+      kind: 'technical_standard',
+      designation: 'EN 1991-1-1',
+      editionLabel: null,
+      topicId: null,
+      editionOf: null,
+      duplicate: false,
+    },
+    {
+      entryId: 'recognised-b1600',
+      documentId: 'doc_recognised_b1600',
+      fileName: 'OENORM_B1600_2017-04-01_neu.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 1600',
+      editionLabel: '2023-02-01',
+      topicId: FOLDER_IDS.access,
+      editionOf: { entryId: 'edition_oenorm-b-1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
+      duplicate: false,
+      coverOverrode: [{ field: 'editionLabel', fileName: '2017-04-01' }],
+    },
+    {
+      entryId: 'recognised-ma37',
+      documentId: 'doc_recognised_ma37',
+      fileName: 'MA37_Weisung_Dachgeschoss_2024-09.pdf',
+      kind: 'authority_directive',
+      designation: null,
+      editionLabel: '2024-09',
+      topicId: FOLDER_IDS.vienna,
+      editionOf: null,
+      duplicate: false,
+    },
+  ],
+  plain: [
+    { documentId: 'doc_plain_1', fileName: 'Haus_A_2024_Einreichung.pdf', folderId: null, folderPath: null, platformHeld: false },
+    { documentId: 'doc_plain_2', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: null, folderPath: null, platformHeld: false },
+  ],
+  topics: BASE_KNOWLEDGE_FOLDERS,
+}

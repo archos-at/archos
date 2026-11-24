@@ -20,6 +20,22 @@ Line 3`
     expect(markdown?.textContent).toBe(multilineContent)
   })
 
+  test('shows the part of an answer the message is about, above the message', () => {
+    render(<UserMessage content="Woher kommt das?" answerExcerpt="höchstens 40 m" />)
+
+    const quoted = screen.getByTestId('user-message-answer-excerpt')
+    expect(quoted).toHaveTextContent('höchstens 40 m')
+    expect(quoted.compareDocumentPosition(screen.getByText('Woher kommt das?'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
+  })
+
+  test('shows no quoted part on a message that is about none', () => {
+    render(<UserMessage content="Woher kommt das?" />)
+
+    expect(screen.queryByTestId('user-message-answer-excerpt')).not.toBeInTheDocument()
+  })
+
   test('renders empty content', () => {
     const { container } = render(<UserMessage content="" />)
 

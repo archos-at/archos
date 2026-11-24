@@ -1,37 +1,3 @@
-"""Drive the harness and print the report. The only module here that decides what to show.
-
-Run offline, without any API key:
-
-    ./.venv/bin/python -m oib_retrieval.runner --structure-only
-    ./.venv/bin/python -m oib_retrieval.runner --embedder hashed
-    ./.venv/bin/python -m oib_retrieval.runner --embedder e5
-
-WHAT EACH SECTION IS WORTH
---------------------------
-1. **Structural retrievability** — fully real. No model of any kind is involved: it counts
-   how many of the Punkt index's leaf Punkte survive each chunking strategy as a citable
-   unit. This is the number that decides whether a citation can be precise.
-2. **Lexical channel** — fully real for German. It is the shipped analyzer
-   (``agent.common.german_text``) over the real corpus, so its recall is the recall
-   that channel has. Its English numbers are real too, and are expected to be zero: that
-   channel is monolingual by construction, which its own module docstring states.
-3. **Dense channel** — depends on ``--embedder``:
-   * ``hashed`` measures WIRING ONLY. It is a deterministic projection with no semantics;
-     its numbers prove the pipeline runs and prove nothing about retrieval quality.
-   * ``e5`` runs a real multilingual model locally. Its numbers are real measurements of
-     THAT model — legitimate for the relative comparisons this harness exists for
-     (page-cut vs Punkt-cut, German vs English, dense vs hybrid), because both sides of
-     each comparison see the same model. Production embeds with
-     ``openai/text-embedding-3-large`` via OpenRouter; nothing here is a claim about its
-     absolute recall.
-4. **Hybrid** — dense fused with lexical through the production
-   ``reciprocal_rank_fusion``, then through the production ``merge_results`` so the
-   diversity cap that actually shapes what the agent sees is in the measured path.
-
-Every dense and hybrid line is printed with its embedder name attached, so no number can
-be quoted later without the instrument that produced it.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -59,8 +25,6 @@ def fixtures_dir() -> Path:
 
 @dataclass(frozen=True)
 class Scores:
-    """One channel's aggregate over one set of questions."""
-
     label: str
     questions: int
     recall: dict[int, float]
@@ -96,14 +60,6 @@ class Scores:
 
 
 def _to_schema_chunks(chunks: list[corpus.Chunk]):
-    """Adapt harness chunks to the production ``Chunk`` model so ``merge_results`` applies.
-
-    The score is a rank-derived stand-in, not a cosine: ``merge_results`` never ranks on
-    it (that is the whole point of the rank fusion inside it) and only ``_apply_diversity_cap``
-    consumes the order, so a monotone placeholder changes nothing it does. Setting a real
-    cosine here would be worse — it would imply the two channels' scores are comparable,
-    which is the exact mistake the production merge exists to avoid.
-    """
     from agent.knowledge.schema import Chunk as SchemaChunk
 
     return [
@@ -128,19 +84,6 @@ def _hybrid(
     top_k: int,
     max_per_document: int = 5,
 ) -> list[tuple[str, int]]:
-    """Fuse and merge through the PRODUCTION helpers, then collapse to ranked units.
-
-    ``reciprocal_rank_fusion`` from ``knowledge_layer.search.hybrid`` with the vector
-    channel first (the order ``adapter.py`` uses, so it wins ties), then ``merge_results``
-    from ``knowledge_layer.register`` so the per-document diversity cap that decides what
-    the agent actually sees is inside the measured path rather than downstream of it.
-
-    ``top_k`` here is the harness's retrieval depth, not production's 16, and that is safe:
-    ``_apply_diversity_cap``'s first pass walks the fused order taking any chunk whose
-    document is still under the cap and stops at ``top_k`` SELECTIONS, so the first 16
-    entries are identical whether it is called with 16 or with 120. Only the fill pass
-    beyond production's cutoff differs, and nothing is reported from there.
-    """
     from knowledge_layer.search import merge_results
     from knowledge_layer.search import reciprocal_rank_fusion
 
@@ -170,8 +113,6 @@ def _hybrid(
 
 @dataclass(frozen=True)
 class ArmRun:
-    """Everything one chunking arm produced, both before and after production's filter."""
-
     arm: str
     chunks: int
     scores: dict[str, dict[str, Scores]]
@@ -185,14 +126,6 @@ class ArmRun:
 def _apply_production_filter(
     ranked: list[tuple[str, int]], excluded: frozenset[str], depth: int
 ) -> tuple[list[tuple[str, int]], bool]:
-    """Drop units from files production's ``exclude_file_names`` removes at query time.
-
-    Production filters INSIDE Chroma, before the top-k is chosen; this filters a deeper
-    ranking afterwards. The two are identical as long as at least ``depth`` allowed units
-    survive, which is why ``RETRIEVE_DEPTH`` is well above the largest reported K. The
-    boolean says whether that condition held for this query, and the runner reports how
-    often it did not rather than leaving the approximation unstated.
-    """
     kept = [unit for unit in ranked if unit[0] not in excluded]
     return kept, len(kept) < depth
 
@@ -205,14 +138,6 @@ def run_arm(
     settings: corpus.ProductionRetrievalSettings,
     cache_dir: Path | None = None,
 ) -> ArmRun:
-    """Retrieve every golden question through every channel of one chunking arm.
-
-    The index holds the WHOLE corpus, change logs included, because ingestion does not
-    filter — production removes them per query. So each ranking is kept twice: unfiltered
-    (which is what the forbidden-hit rate has to be measured on, otherwise it is
-    structurally zero and measures nothing) and filtered (which is what the agent sees, so
-    it is what recall/nDCG/MRR are reported on).
-    """
     from oib_retrieval import dense as dense_module
 
     chunks = corpus.build_arm(arm, cache_dir=cache_dir)
@@ -274,12 +199,6 @@ def run_arm(
 def _parity(
     golden: qrels.GoldenSet, judgements: list[qrels.Judgements], rankings: list[list[tuple[str, int]]], k: int
 ) -> tuple[float, float, float, int]:
-    """Recall@k over the sibling pairs only, German and English, and the delta.
-
-    Restricted to primary sibling pairs so the German-only morphology variants cannot
-    inflate the German side — a wording effect reported as a language effect would be the
-    most misleading number this harness could produce.
-    """
     by_id = {judged.entry.id: (judged, ranked) for judged, ranked in zip(judgements, rankings, strict=True)}
     german: list[float] = []
     english: list[float] = []
@@ -297,7 +216,6 @@ def _parity(
 
 
 def _refusal_fill(judgements: list[qrels.Judgements], rankings: list[list[tuple[str, int]]], k: int) -> float:
-    """Mean fill rate over the should-refuse questions. 1.0 means the system never abstains."""
     values = [
         metrics.fill_rate(ranked, k)
         for judged, ranked in zip(judgements, rankings, strict=True)
@@ -345,7 +263,7 @@ def print_scores(scores: Scores, stream) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Drive the harness and print the report.")
     parser.add_argument(
         "--embedder",
         default="hashed",

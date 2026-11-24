@@ -316,7 +316,7 @@ async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
     assert total == len(NUMBERED)
     assert frequencies == {"§ 3": 2, "5.1.1": 1, "43 cm": 1, "OIB-Richtlinie 2": 1}
 
-    hits = qdrant_retrieval.search(
+    hits = qdrant_retrieval.search_chunks(
         "proj_a",
         vector=_vector("Was regelt § 3?"),
         lexical_text="",

@@ -165,7 +165,7 @@ glossary defines each word; this table settles the ones the repo used two ways.
 | One state of a document in its timeline (Fassung) | `revision` | `version` | |
 | A revision's approval record (Freigabestatus) | `version`, in the existing names only (`document_versions`, `document-version-*`) | `version` for anything else | "Version" for an approval record inverts the usual meaning; the rename to `approval` is [under review](#terms-under-review) |
 | A note on one page of a revision, with its thread (Anmerkung) | `annotation` (W3C Web Annotation) | `mark` | The agent's canvas tools still say `marks`/`mark`, under review |
-| The customer's account in WorkOS (Büro) | `organization` in identifiers (`organization_id`) | `office` | "Büro"/"office" stays in copy. Existing `office*` names that are established domain glosses stay: `officeShelf` (Büroablage) |
+| The customer's account in WorkOS (Büro) | `organization` in identifiers (`organization_id`) | `office` | "Büro"/"office" stays in copy. Existing `office*` names that are established domain glosses stay: `officeShelf` (Bürobibliothek) |
 | A thread with the agent and people in it | `conversation` (A2A `contextId`) | `chat`, `thread` | "Chat" names only the UI surface and the chat socket, never a package or an agent |
 | The source family that drives rendering | `SourceKind` | "provenance signal" | |
 | Request-scoped organization context | tenant context (`withTenant`, `MissingTenantContextError`) | "tenant slot" | |
@@ -223,7 +223,7 @@ brand-word renames are in ADR-0149's map, not here.
 
 | Term today | Where | Proposed name | Priority |
 |---|---|---|---|
-| "agent door" in tool descriptions | `catalog/platform.ts:806`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
+| "agent door" in tool descriptions | `catalog/platform-base-corpus.ts`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
 | canvas tools `marks`, `mark` | `packages/agent/src/agent/tools/canvas/register.py` | `annotations`, `annotation` | High |
 | `document-bin` operation, `/dev/bin` | `catalog/documents.ts:98` | `document-trash`, `/dev/trash`, old name aliased one release | High |
 | `## Trace-Lanes` heading in tool results | the grounding block (`common/grounding_block.py`), parsed in `deep_researcher/custom_middleware.py` | `## Collections searched` | High |

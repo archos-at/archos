@@ -160,6 +160,15 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.sweepFristReminder,
     retries: 3,
   },
+  {
+    name: 'base-knowledge-new-editions',
+    cron: `CRON_TZ=${OFFICE_TIME_ZONE} 13 5 * * *`,
+    reason:
+      'lists the organizations holding confirmed standards of their own; each resolves inside its own organization which ' +
+      'edition binds for its active projects and tells whoever manages its office shelf when its copy no longer does',
+    run: sweeps.sweepNewEditions,
+    retries: 2,
+  },
 ]
 
 export function fireTask(hatchet: TaskDeclarer) {

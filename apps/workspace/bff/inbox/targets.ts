@@ -15,12 +15,15 @@ import { findOwnUploadBatch } from '@/lib/upload-batches/service'
 import { getOwnProductFeedback } from '@/lib/product-feedback/repository'
 import { feedbackThreadHref } from '@/lib/product-feedback/types'
 import { inboundMailPaths, inboundMailReadyPath } from '@/lib/inbound-mail/paths'
+import { baseKnowledgeHref } from '@/lib/base-knowledge/entry-link'
 
 export interface InboxTargetLinkContext {
   itemType: InboxItemType
   anchorId?: string | null
   taskId?: string | null
   run?: RunMessageRef | null
+  folderId?: string | null
+  entryId?: string | null
 }
 
 export interface RunMessageRef {
@@ -46,7 +49,7 @@ const ORGANIZATION_DESTINATIONS: Partial<Record<InboxItemType, string>> = {
   'storage.quota_warning': '/app/organization/storage',
   'document.quarantined': '/app/organization/quarantine',
   'document.release_requested': '/app/organization/quarantine',
-  'piloti.proposal_waiting': '/app/office-shelf',
+  'agent.proposal_waiting': '/app/office-shelf',
 }
 
 function rootSortHref(shelfPath: string, runId: string | null | undefined): string {
@@ -84,10 +87,11 @@ const organizationTarget: InboxTargetDescriptor = {
     if (resourceId !== session.organizationId) return null
     return {
       projectId: null,
-      deepLink: (context) =>
-        context.itemType.startsWith('root_sort.')
-          ? rootSortHref('/app/office-shelf', context.anchorId)
-          : (ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'),
+      deepLink: (context) => {
+        if (context.itemType.startsWith('root_sort.')) return rootSortHref('/app/office-shelf', context.anchorId)
+        if (context.itemType === 'base_knowledge.new_edition') return baseKnowledgeHref(context.entryId)
+        return ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'
+      },
     }
   },
 }
@@ -112,8 +116,12 @@ const projectTarget: InboxTargetDescriptor = {
           const folder = anchor && !anchor.startsWith('import:') ? anchor : null
           return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
         }
-        if (context.itemType === 'piloti.proposal_waiting') return `/app/projects/${resourceId}/files`
-        if (context.itemType === 'piloti.intake_ready') return `/app/projects/${resourceId}/setup`
+        if (context.itemType === 'agent.proposal_waiting') return `/app/projects/${resourceId}/files`
+        if (context.itemType.startsWith('office_shelf.')) {
+          const folder = context.folderId?.trim()
+          return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
+        }
+        if (context.itemType === 'agent.intake_ready') return `/app/projects/${resourceId}/setup`
         const mailLink = inboundMailLink(resourceId, context)
         if (mailLink) return mailLink
         if (context.itemType.startsWith('root_sort.')) {
@@ -138,11 +146,17 @@ function inboundMailLink(projectId: string, context: InboxTargetLinkContext): st
       return inboundMailReadyPath(projectId)
     case 'inbound_mail.expiring':
     case 'inbound_mail.cap_reached':
+    case 'mail_thread.follow_ended':
       return paths.list(waiting)
     case 'inbound_mail.filing_failed':
     case 'inbound_mail.held': {
       const mailId = context.anchorId?.trim()
       return mailId ? paths.mail(mailId, waiting) : paths.list(waiting)
+    }
+    case 'inbound_mail.fraud_reported': {
+      const mailId = context.anchorId?.trim()
+      const handled = { status: 'handled', outcome: null } as const
+      return mailId ? paths.mail(mailId, handled) : paths.list(handled)
     }
     case 'inbound_mail.held_for_writers':
     case 'inbound_mail.rejected':

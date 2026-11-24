@@ -128,7 +128,7 @@ describe('FilingChip', () => {
     expect(newChip.querySelector('[data-slot="agent-glyph"]')?.className).toContain('shrink-0')
   })
 
-  it('draws nothing for a file Piloti has nothing to say about', () => {
+  it('draws nothing for a file the agent has nothing to say about', () => {
     renderSlot(current, { documentId: 'doc_elsewhere' })
     expect(screen.queryByTestId('filing-chip')).not.toBeInTheDocument()
   })
@@ -153,7 +153,7 @@ describe('the popover the chip opens', () => {
     expect(await screen.findByText('Project folder (top level)')).toBeInTheDocument()
   })
 
-  it('names the Büroablage’s top level on that shelf', async () => {
+  it('names the Bürobibliothek’s top level on that shelf', async () => {
     current = proposal({
       payload: {
         ...proposal().payload,
@@ -162,7 +162,7 @@ describe('the popover the chip opens', () => {
     })
     renderSlot(current, { folderPathOf: () => '' })
     await userEvent.click(chip())
-    expect(await screen.findByText('Office filing (top level)')).toBeInTheDocument()
+    expect(await screen.findByText('Office library (top level)')).toBeInTheDocument()
   })
 
   it('lights the other file the proposal moves while it is open, and only then', async () => {

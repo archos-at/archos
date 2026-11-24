@@ -93,6 +93,23 @@ export const PAGE_THUMBNAIL =
      </svg>`
   )
 
+const LETTER_LINES = [118, 128, 138, 148, 166, 176, 186, 196, 206, 224, 234]
+  .map((y, index) => `<path d="M34 ${y}h${index % 4 === 3 ? 96 : 132}"/>`)
+  .join('')
+
+export const LETTER_THUMBNAIL =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 283">
+       <rect width="200" height="283" fill="#ffffff"/>
+       <g fill="#1f2937"><rect x="34" y="28" width="58" height="7"/><rect x="34" y="40" width="40" height="4" fill="#6b7280"/></g>
+       <g fill="none" stroke="#9ca3af" stroke-width="2"><path d="M34 70h64M34 78h52M34 86h58"/><path d="M128 70h38"/></g>
+       <rect x="34" y="100" width="96" height="5" fill="#1f2937"/>
+       <g fill="none" stroke="#c4c7cc" stroke-width="2.4">${LETTER_LINES}</g>
+       <g fill="none" stroke="#6b7280" stroke-width="1.6"><path d="M34 258c8-10 14 6 22-4s12 2 20-6"/></g>
+     </svg>`
+  )
+
 export const UPLOADING_FILES: FileItem[] = [
   makeFile('u1', '240119_PerspektivischerSchnitt_Bauteil-A.pdf', '', {
     status: 'processing',
@@ -130,6 +147,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (/\/api\/documents\/u1\/thumbnail$/.test(url)) {
         return Response.json({ url: PAGE_THUMBNAIL })
       }
+      if (/\/api\/documents\/r-v3\/thumbnail$/.test(url)) return Response.json({ url: LETTER_THUMBNAIL })
       if (/\/api\/documents\/p7\/thumbnail$/.test(url)) return new Response(null, { status: 500 })
       if (/\/api\/documents\/.+\/thumbnail$/.test(url)) return new Response(null, { status: 404 })
       if (/\/api\/search\?/.test(url)) {

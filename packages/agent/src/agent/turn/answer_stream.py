@@ -1,24 +1,3 @@
-"""The answer's prose on the wire while the final call is still writing it.
-
-The answering LLM call streams (``bind(stream=True)``), a callback reads its
-tokens through :class:`~agent.common.answer_prose_stream.AnswerProseStream`,
-and what may be shown goes out as wire bodies through the graph's own writer
-(``turn_status.emit``, chat wire v2 §b): ``TEXT_MESSAGE_START``, coalesced
-``TEXT_MESSAGE_CONTENT``, ``TEXT_MESSAGE_END`` when the ``answer`` string
-closes, then ONE ``STATE_SNAPSHOT`` of the settled (verified, renumbered)
-prose and its sources, the masthead before the first word, and a ``card`` or
-``card_refused`` per card. ``RUN_FINISHED`` then carries the verified answer
-and replaces it once more, with the same numbers (ADR-0066,
-``docs/design/streaming-chat-answer.md``).
-
-The one piece of per-turn state is :class:`LiveProse`, bound in a ContextVar
-before the graph runs, the way ``cards/registry.py`` binds its registry: the
-answer's message id, and whether prose already went out this turn.
-
-Fail-open everywhere: nothing bound, an LLM that cannot stream, or a callback
-that raises, and the turn is exactly the buffered turn it was.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -60,13 +39,6 @@ RELAY_WINDOW_S = 0.05
 
 
 class Live(Protocol):
-    """What the agent lets the stream show before its pipeline ran (``answer_pipeline.LiveAnswer``).
-
-    The agent supplies it, so the verifier and the gates stay on its side of
-    the dependency line. ``settle`` runs in a worker thread with the turn's
-    context copied: it may use no loop-bound objects and await nothing.
-    """
-
     def masthead(self, fields: dict[str, Any], prose: str = "") -> dict[str, Any] | None: ...
 
     def settle(self, prose: str, sources_text: str, fields: dict[str, Any] | None) -> Any: ...
@@ -80,12 +52,6 @@ class Live(Protocol):
 
 @dataclass
 class LiveProse:
-    """The turn's live answer: the id its bodies carry, and whether any prose went out.
-
-    Once prose has gone out, no later call of the turn streams: a second answer
-    appended to the bubble would read as one. A retraction resets it.
-    """
-
     message_id: str
     streamed: bool = False
 
@@ -94,14 +60,6 @@ _PROSE: ContextVar[LiveProse | None] = ContextVar("live_prose", default=None)
 
 
 def answer_streaming_enabled() -> bool:
-    """Whether the platform owner lets the answer stream (Platform → Retrieval, ``chat.answer_streaming``).
-
-    On unless switched off: an unset or unreachable setting streams, the
-    default since ADR-0066. Off, nothing is bound, so the answering call is the
-    buffered call and the answer arrives whole with ``RUN_FINISHED``; the
-    reasoning steps still go out live. Blocking I/O on a cache miss: call it
-    through ``asyncio.to_thread``.
-    """
     from agent.common.retrieval_settings import get_retrieval_setting
 
     return get_retrieval_setting("chat.answer_streaming", 1) == 1
@@ -109,7 +67,6 @@ def answer_streaming_enabled() -> bool:
 
 @contextmanager
 def bound_live_prose(message_id: str) -> Iterator[LiveProse]:
-    """Bind the turn's :class:`LiveProse` for everything started inside, the graph's tasks included."""
     prose = LiveProse(message_id)
     token = _PROSE.set(prose)
     try:
@@ -119,8 +76,6 @@ def bound_live_prose(message_id: str) -> Iterator[LiveProse]:
 
 
 class _ProseTokenHandler(AsyncCallbackHandler):
-    """Reads one LLM call's tokens into wire bodies: masthead, prose, settled prose, cards."""
-
     def __init__(self, prose: LiveProse, live: Live | None) -> None:
         self._prose = prose
         self._live = live
@@ -161,11 +116,6 @@ class _ProseTokenHandler(AsyncCallbackHandler):
             self._show_envelope_cards(reader.take_cards())
 
     async def on_llm_end(self, response: Any, **kwargs: Any) -> None:
-        """A call that also asked for tools was a round, not the answer: take back what it showed.
-
-        Only what it showed: a call whose masthead was read but gated away, and
-        whose prose never started, put nothing on the wire to retract.
-        """
         self._reader = None
         if self._shown and _calls_tools(response):
             logger.info("answer_stream: the streamed call asked for tools; retracting its prose")
@@ -175,7 +125,6 @@ class _ProseTokenHandler(AsyncCallbackHandler):
         self._end()
 
     def _append(self, delta: str) -> None:
-        """Prose, coalesced: out at once when the window since the last flush has passed."""
         if not self._started:
             self._started = True
             self._write(TextMessageStartBody(message_id=self._prose.message_id))
@@ -193,30 +142,21 @@ class _ProseTokenHandler(AsyncCallbackHandler):
         turn_status.emit(body)
 
     def _end(self) -> None:
-        """The ``answer`` string closed (or the call ended): what is held goes out, then END."""
         if self._started and not self._ended:
             self._ended = True
             self._write(TextMessageEndBody(message_id=self._prose.message_id))
 
     def _write(self, body: EventBody) -> None:
-        """Any body but a delta: the held prose goes out first, so order holds."""
         self._flush()
         self._shown = self._prose.streamed = True
         turn_status.emit(body)
 
     def _show_masthead(self, fields: dict[str, Any]) -> None:
-        """The masthead above the first word, gated as far as it can be without the prose."""
         meta = self._guarded("masthead", lambda live: live.masthead(fields))
         if meta:
             self._write(MastheadBody(value=MastheadValue(answer_meta=meta)))
 
     async def _settle_prose(self, reader: AnswerProseStream) -> None:
-        """Verify what streamed, and send it back settled; fail-open to pending markers.
-
-        In a worker thread: verification is fuzzy matching over every retrieved
-        chunk, and on the loop it would stall every other turn the worker
-        streams. The model's stream waits for this callback, so order holds.
-        """
         if not reader.emitted or self._live is None:
             return
         live = self._live
@@ -233,14 +173,12 @@ class _ProseTokenHandler(AsyncCallbackHandler):
         self._write(StateSnapshotBody(snapshot=snapshot))
 
     def _placed(self, text: str) -> str:
-        """``text`` with its card markers at the positions the live list gives them (``Live.place``)."""
         if "[[card:" not in text:
             return text
         placed = self._guarded("placement", lambda live: live.place(text))
         return placed if isinstance(placed, str) else text
 
     def _show_envelope_cards(self, payloads: list[dict[str, Any]]) -> None:
-        """Each envelope card as it closes, after the tools'; a refused one keeps its index."""
         for payload in payloads:
             card = self._guarded("card", lambda live, payload=payload: live.card(payload))
             if card is None:
@@ -264,7 +202,6 @@ class _ProseTokenHandler(AsyncCallbackHandler):
 
 
 def _calls_tools(response: Any) -> bool:
-    """Whether an ``LLMResult`` carries tool calls, in any of the places a provider puts them."""
     generations = getattr(response, "generations", None) or []
     return any(_message_calls_tools(getattr(g, "message", None)) for batch in generations for g in batch)
 
@@ -278,12 +215,6 @@ def _message_calls_tools(message: Any) -> bool:
 
 
 def token_text(token: Any) -> str:
-    """The visible text of one streamed token.
-
-    Chat Completions hands a string. The Responses API hands the chunk's
-    content blocks, where only ``text`` blocks are the reply: a ``reasoning``
-    block is the model thinking, and never the reader's.
-    """
     if isinstance(token, str):
         return token
     if not isinstance(token, list):
@@ -298,16 +229,6 @@ def token_text(token: Any) -> str:
 def streaming_call(
     llm: Any, messages_config: dict[str, Any] | None = None, *, live: Live | None = None
 ) -> tuple[Any, dict[str, Any] | None]:
-    """``(llm, config)`` for the answering call: streaming when the turn has live prose bound.
-
-    ``live`` gates what streams ahead of the pipeline (the masthead, the
-    settled prose, the cards); without it the prose streams alone, its
-    markers pending until ``RUN_FINISHED``.
-
-    The handler is ADDED to the call's inherited callback manager, never
-    passed as the call's own callbacks: those replace the inherited ones, and
-    The agent runtime's profiler, which bills the call, rides on them.
-    """
     prose = _PROSE.get()
     if prose is None or prose.streamed or not hasattr(llm, "bind"):
         return llm, None

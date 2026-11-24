@@ -1,0 +1,6 @@
+---
+# area: bim
+fixes:
+  - >
+    Leaving a 3D model that could not be loaded, for example by switching to
+    another chat, no longer replaces the whole page with an error screen.

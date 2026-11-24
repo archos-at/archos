@@ -1,10 +1,10 @@
-// Tells Piloti that the support team answered a feedback ticket, so the member
+// Tells the agent that the support team answered a feedback ticket, so the member
 // who filed it gets an inbox item. Trigger: $conversation_message_sent with
 // author_type = team.
-// The call is a poke: it carries the ticket id only, and Piloti reads the
+// The call is a poke: it carries the ticket id only, and the agent reads the
 // ticket back with its own key before it notifies anyone, so the endpoint
 // needs no shared secret (ADR-0118, amendment). Which deployment to poke comes
-// from the ticket's "origin:<host>" tag, written when Piloti opened the ticket:
+// from the ticket's "origin:<host>" tag, written when the app opened the ticket:
 // staging and production share this project.
 let ticketId := event.properties.ticket_id
 if (empty(ticketId)) {

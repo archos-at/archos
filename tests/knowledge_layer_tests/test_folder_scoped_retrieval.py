@@ -8,10 +8,10 @@ from knowledge_layer import register as register_module
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import _folder_matches
 from knowledge_layer.search import apply_agent_filters
 from knowledge_layer.search import empty_search_message
 from knowledge_layer.search import format_results
-from knowledge_layer.search.hit_metadata import _folder_matches
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents

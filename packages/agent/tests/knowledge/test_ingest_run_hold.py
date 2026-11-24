@@ -8,7 +8,6 @@ import pytest
 from sqlalchemy import text
 
 from agent.common import bff_http
-from agent.knowledge import ingest_cutover
 from agent.knowledge import ingest_execution
 from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_settle_push
@@ -26,7 +25,6 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SUMMARY_DB", url)
     yield url
     ingest_status_store._initialized.discard(url)
-    ingest_cutover._QUEUE.initialized.discard(url)
 
 
 def _status(job_id: str = "job-1", state: JobState = JobState.PENDING) -> IngestionJobStatus:
@@ -110,121 +108,6 @@ def test_without_a_database_nothing_is_held(monkeypatch):
 
     assert ingest_run_hold.hold("job-1", "run-1", 60) is False
     assert ingest_run_hold.run_id_of("job-1") is None
-
-
-def test_the_jobs_the_old_queue_held_are_held_when_the_column_arrives(db):
-    ingest_cutover._QUEUE.enqueue("queued-1", "org-1", "enc:payload", "interactive")
-    with DocumentMetadataStore._get_or_create_sync_engine(db).begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE ingest_jobs (job_id VARCHAR PRIMARY KEY, status_json TEXT NOT NULL, updated_at DATETIME)"
-            )
-        )
-        for job_id in ("queued-1", "lost-1"):
-            conn.execute(
-                text("INSERT INTO ingest_jobs VALUES (:id, :json, DATETIME('now', '-3600 seconds'))"),
-                {"id": job_id, "json": _status(job_id).model_dump_json()},
-            )
-
-    assert ingest_status_store.get("queued-1").status == JobState.PENDING
-    assert ingest_status_store.get("lost-1").status == JobState.FAILED
-
-
-def test_the_cutover_hands_every_waiting_job_to_hatchet_with_its_payload(db):
-    queue = ingest_cutover._QUEUE
-    queue.enqueue("upload-1", "org-1", "enc:one", "interactive")
-    queue.enqueue("oib-1", "__platform__", "enc:two", "bulk")
-    queue.enqueue("stopped-1", "org-1", "enc:three", "interactive")
-    queue.cancel("stopped-1")
-    started: list[tuple] = []
-
-    moved = ingest_cutover.redispatch_queued(lambda *args: started.append(args) or True)
-
-    assert moved == 2
-    assert sorted(started) == [("oib-1", None, "bulk", "enc:two"), ("upload-1", "org-1", "interactive", "enc:one")]
-    assert queue.counts() == {"queued": 0, "claimed": 0, "dead": 0, "cancelled": 1}  # a person's stop stays a trace
-
-
-def test_a_cutover_hatchet_refuses_leaves_the_job_where_it_was(db):
-    queue = ingest_cutover._QUEUE
-    queue.enqueue("upload-1", "org-1", "enc:one", "interactive")
-
-    def refuse(*_args):
-        raise ConnectionError("engine not there yet")
-
-    assert ingest_cutover.redispatch_queued(refuse) == 0
-    assert queue.counts()["queued"] == 1
-    assert ingest_cutover.redispatch_queued(lambda *args: True) == 1
-
-
-def test_a_store_that_never_had_the_old_queue_has_nothing_to_move(db):
-    assert ingest_cutover.redispatch_queued(lambda *args: pytest.fail("nothing to move")) == 0
-    assert ingest_cutover.live_rows() == 0
-
-
-def _held_until(db: str, job_id: str):
-    with DocumentMetadataStore._get_or_create_sync_engine(db).connect() as conn:
-        return conn.execute(text("SELECT held_until FROM ingest_jobs WHERE job_id = :id"), {"id": job_id}).scalar()
-
-
-def test_a_job_an_old_api_pod_queues_after_boot_is_held_and_handed_over_on_the_next_pass(db):
-    queue = ingest_cutover._QUEUE
-    ingest_status_store.put(_status("late-1"))
-    queue.enqueue("early-1", "org-1", "enc:early", "interactive")
-    assert ingest_cutover.redispatch_queued(lambda *args: True) == 1  # boot
-    queue.enqueue("late-1", "org-1", "enc:late", "interactive")
-    assert _held_until(db, "late-1") is None
-    assert ingest_cutover.live_rows() == 1
-    held: list = []
-
-    def trigger(job_id, *_args):
-        held.append(_held_until(db, job_id))
-        return True
-
-    assert ingest_cutover.redispatch_queued(trigger) == 1
-    assert held[0] is not None  # held before it was handed over
-    assert ingest_cutover.live_rows() == 0
-
-
-def test_a_pass_hands_over_a_bounded_batch(db):
-    for n in range(3):
-        ingest_cutover._QUEUE.enqueue(f"job-{n}", "org-1", f"enc:{n}", "interactive")
-
-    assert ingest_cutover.redispatch_queued(lambda *args: True, limit=2) == 2
-    assert ingest_cutover.live_rows() == 1
-
-
-def test_two_workers_never_hand_over_the_same_job(db):
-    ingest_cutover._QUEUE.enqueue("job-1", "org-1", "enc:one", "interactive")
-    started: list[str] = []
-
-    def while_the_other_worker_passes(job_id, *_args):
-        started.append(job_id)
-        with patch.object(ingest_cutover, "_worker", return_value="hatchet-cutover-other-1"):
-            assert ingest_cutover.redispatch_queued(lambda job, *rest: started.append(job) or True) == 0
-        return True
-
-    assert ingest_cutover.redispatch_queued(while_the_other_worker_passes) == 1
-    assert started == ["job-1"]
-    assert ingest_cutover.live_rows() == 0
-
-
-@pytest.mark.parametrize("payload", ["json:eyJqb2JfaWQiOiAiam9iLTEifQ==", '{"job_id": "job-1"}'])
-def test_a_plaintext_payload_is_never_handed_to_hatchet_and_stays_in_the_table(db, payload, caplog):
-    queue = ingest_cutover._QUEUE
-    queue.enqueue("plain-1", "org-1", payload, "interactive")
-    queue.enqueue("sealed-1", "org-1", "enc:sealed", "interactive")
-    started: list[tuple] = []
-
-    assert ingest_cutover.redispatch_queued(lambda *args: started.append(args) or True) == 1
-
-    assert [args[0] for args in started] == ["sealed-1"]
-    assert ingest_cutover.live_rows() == 1
-    assert queue.status_of("plain-1") == "claimed"  # left, and not met again before the stale window
-    assert ingest_cutover.redispatch_queued(lambda *args: pytest.fail("the plaintext job again")) == 0
-    assert "plain-1 carries a payload that is not encrypted" in caplog.text
-    assert "eyJ" not in caplog.text
-    assert "job_id" not in caplog.text
 
 
 def _failed(*files: tuple[bool | None, str]) -> IngestionJobStatus:

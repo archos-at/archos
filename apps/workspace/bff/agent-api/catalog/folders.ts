@@ -11,6 +11,11 @@ import {
 import { documentFindingsQuerySchema } from '@/lib/documents/findings-wire'
 import { documentListQuerySchema } from '@/lib/documents/list-query'
 import { applyRootSortRequestSchema } from '@/lib/filing/root-sort-wire'
+import {
+  decideFolderNormsBodySchema,
+  folderNormsParamsSchema,
+  listFolderNormsQuerySchema,
+} from '@/lib/office-shelf/folder-norms-wire'
 import { folderAccessSchema } from '@/lib/projects/folder-access-wire'
 import { binListQuerySchema } from '@/lib/projects/folder-bin-wire'
 import {
@@ -217,6 +222,32 @@ export const foldersOperations = [
     path: '/api/office-shelf/folders/[folderId]',
     params: officeFolderParams,
     load: () => import('@/app/api/office-shelf/folders/[folderId]/route'),
+  },
+  {
+    name: 'office-shelf-folder-norms-list',
+    domain: 'folders',
+    summary: 'List the files in an office shelf folder that read as norms',
+    description:
+      'Files in the folder whose name reads as a norm and that are neither base knowledge nor kept as ordinary ' +
+      'files. A person decides whether they move. Needs org:office_shelf:manage.',
+    method: 'GET',
+    path: '/api/office-shelf/folders/[folderId]/norms',
+    params: folderNormsParamsSchema,
+    query: listFolderNormsQuerySchema,
+    load: () => import('@/app/api/office-shelf/folders/[folderId]/norms/route'),
+  },
+  {
+    name: 'office-shelf-folder-norms-decide',
+    domain: 'folders',
+    summary: 'Move a folder’s norms to base knowledge, or keep them as ordinary files',
+    description:
+      'Acts on office-shelf-folder-norms-list’s files, up to 50 a call (`remaining` counts the rest). The folder ' +
+      'stays. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/office-shelf/folders/[folderId]/norms',
+    params: folderNormsParamsSchema,
+    body: decideFolderNormsBodySchema,
+    load: () => import('@/app/api/office-shelf/folders/[folderId]/norms/route'),
   },
   {
     name: 'document-list',

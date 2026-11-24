@@ -1,5 +1,3 @@
-"""Heights and directions: elevation, sill and head, azimuth, distance and clear height."""
-
 from __future__ import annotations
 
 import math
@@ -34,20 +32,6 @@ from .model import SpatialModel
 
 
 def elevation(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
-    """How high the element sits: its lowest and highest point in the model's own
-    frame, and its bottom relative to the storey it belongs to.
-
-    ``bottom`` and ``top`` are absolute Z in the file's frame — the project
-    datum, which is what "±0,00" means on the drawing. ``heightAboveStorey``
-    re-bases the bottom onto the element's own storey, which is the number a
-    person actually asks for and which differs from the absolute Z on every
-    storey but the ground floor.
-
-    ``heightAboveStorey`` is ``None`` — decidably so — when the element resolves
-    to no storey, or to a storey the file gives no ``Elevation``. That is a
-    weaker claim than undecidable and the right one: ``bottom`` and ``top`` are
-    still measured and still useful.
-    """
     method = f"elevation({global_id})"
     subject = _require(model, global_id, method)
     geo, missing = _geometry_or_answer(model, subject, method)
@@ -86,19 +70,6 @@ def elevation(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
 
 
 def sill_and_head(model: SpatialModel, global_id: str) -> Answer[dict[str, float]]:
-    """Brüstungshöhe and Sturzhöhe of a window or door — the two numbers a file
-    this size almost never declares.
-
-    Both are measured **above the element's OWN storey**, not above the project
-    zero. That distinction is the whole point of the operator: a window on the
-    first floor sits at absolute z 3.90 and at a sill height of 0.90, and only
-    the second number answers "ist die Brüstung hoch genug". Reporting 3.90 as a
-    Brüstungshöhe would clear an absturzsichernde Brüstung that does not exist.
-
-    Which is why the storey datum is REQUIRED here, unlike in :func:`elevation`:
-    a sill height with an unknown datum is not a weaker answer, it is a different
-    number wearing the same name.
-    """
     method = f"sillAndHead({global_id})"
     subject = _require(model, global_id, method)
     if subject.is_a() not in FENESTRATION:
@@ -157,43 +128,6 @@ def sill_and_head(model: SpatialModel, global_id: str) -> Answer[dict[str, float
 
 
 def azimuth(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
-    """Which way this element faces, as a compass bearing in degrees clockwise
-    from north, plus the German 16-point name.
-
-    ## Why this refuses without TrueNorth
-
-    The model's +Y axis is north only if somebody said so.
-    ``IfcGeometricRepresentationContext.TrueNorth`` is where they say it, and
-    when it is absent the file genuinely does not know which way the building
-    points. Defaulting to zero would produce a confident sentence — "diese
-    Fassade liegt im Süden" — about a building that may be rotated forty degrees,
-    and the sentence would be wrong in exactly the way nobody checks.
-
-    ## Which side is "out"
-
-    A plane has two normals and the mesh's winding does not reliably say which
-    one faces the weather. Outward is decided geometrically: of the two normals,
-    the one pointing AWAY from the model's plan centre. Right for every facade of
-    a convex-ish building and wrong for the inner face of a courtyard wing, which
-    is stated in the caveat rather than hidden.
-
-    ## Why a flat element refuses even though it has vertical faces
-
-    A slab is not blind — it has a rim, and the rim is vertical. The sample
-    house's ground slab ``3cUkl32yn9qRSPvBJVyWgQ`` carries 7.9 m² of vertical
-    edge faces, ``dominant_vertical_plane`` found the biggest of them, and the
-    operator confidently reported **0.0° / „N"** for a floor plate. A bearing off
-    the edge of a floor is not the orientation of anything: a slab has no facade
-    bearing, and the answer went straight into an orientation table as though it
-    had.
-
-    So the element's DOMINANT plane — over all its faces, not only the vertical
-    ones — has to be vertical before a bearing is reported. That is what
-    separates a wall (dominant plane vertical, ``|n_z| ≈ 0``) from a slab or a
-    flat roof (``|n_z| = 1``), and it is measured rather than read off the IFC
-    type, because an ``IfcSlab`` is also how many exports write a vertical
-    sandwich panel.
-    """
     method = f"azimuth({global_id})"
     subject = _require(model, global_id, method)
 
@@ -283,23 +217,6 @@ def azimuth(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
 
 
 def distance(model: SpatialModel, a: str, b: str, mode: str = "min") -> Answer[float]:
-    """How far apart two elements are, in metres — in one of four senses, because
-    "Abstand" means four different things and picking the wrong one silently is
-    how a clearance gets certified.
-
-      - ``min`` — the shortest distance between the two bounding BOXES. Zero when
-        the boxes overlap, and the answer says so: overlapping boxes do NOT prove
-        the solids touch.
-      - ``centroid`` — centre to centre in 3D (Achsabstand).
-      - ``horizontal`` — centre to centre in plan, Z ignored. What a plan
-        drawing measures.
-      - ``vertical`` — the difference in centre height. What a section measures.
-
-    §7 maps ``min`` onto ``geom.tree.clash_clearance_many``, which WOULD give the
-    true solid-to-solid distance instead of a box gap. It returns an empty tuple
-    for every input on the shipped 0.8.5 wheel, so the box gap is what is
-    reported — and the caveat says a box gap is what it is.
-    """
     method = f"distance({a}, {b}, '{mode}')"
     first = _require(model, a, method)
     second = _require(model, b, method)
@@ -363,30 +280,6 @@ def distance(model: SpatialModel, a: str, b: str, mode: str = "min") -> Answer[f
 
 
 def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) -> Answer[float]:
-    """The lichte Raumhöhe — floor to the lowest thing above it, in metres.
-
-    BESSER, and this is the operator where the engine swap changes an ANSWER and
-    not just a runtime. The TS `clearHeight` returns the Z extent of the IfcSpace
-    solid and says in its own caveat:
-
-        *"Das ist die Höhe des modellierten Raumkörpers, NICHT die lichte Höhe.
-        Unterzüge, Lüftungsleitungen und abgehängte Decken ragen in den Raum,
-        ohne den Raumkörper zu verkürzen. Die lichte Höhe ergibt sich erst aus
-        den Bauteilen im Raum — dafür fehlt dieser Bibliothek noch der
-        Verschneidungstest."*
-
-    IfcOpenShell has the intersection test. This casts ``samples × samples`` rays
-    straight up from just above the floor — Solibri's free-height check — keeps
-    only the sample points that are really inside the room solid, and reports the
-    SHORTEST clear run found. On the sample house that is 2.20 m under the
-    suspended ceiling against the 2.50 m space solid: a 30 cm difference on
-    exactly the number an OIB minimum room height is checked against, and the
-    modelled height is the unsafe side of it.
-
-    Furniture is excluded by type and named in the caveat: a piano is not a
-    Raumhöhe. Everything else counts, including the ceiling that made the
-    difference here.
-    """
     method = f"clearHeight({space_global_id}, samples={samples})"
     subject = _require(model, space_global_id, method)
     if model.kind_of(subject) != "space":
@@ -474,17 +367,6 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
 
 
 def _storey_datum_drift(model: SpatialModel) -> float:
-    """How far the declared storey elevations sit outside the model's measured
-    height, in metres — ``0`` when they sit inside it.
-
-    ``IfcBuildingStorey.Elevation`` is a DECLARED datum and the geometry is
-    MEASURED, and nothing in IFC guarantees the two share a reference. The TS
-    package found a Revit-in-feet file whose storeys sit on the survey datum and
-    whose geometry sits on the project origin, and reported sills 58 m below
-    their own floor — with a unit, a 10 mm tolerance and a `computed` provenance.
-    The slack is one generous storey height, because the failure being caught is
-    off by tens of metres, not by one.
-    """
     bounds = model.bounds
     if bounds is None:
         return 0.0

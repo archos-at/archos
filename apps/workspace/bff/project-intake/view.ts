@@ -4,6 +4,7 @@ import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/proje
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { gateNamesLaw, type ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+import { buildingsOf } from './buildings'
 import { deriveAll, profileAsTheLawShows } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { BUILDING_CLASS_RULE, setupUnpublished } from './setup-scope'
@@ -203,6 +204,7 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     openQuestions,
     groups,
     derivations: derivationReviews(profile, definition, needs, lawWithheld, input.records),
+    buildings: buildingsOf(profile, definition).map(({ id, name }) => ({ id, name: name.slice(0, 200) })),
     canDecide: input.canDecide,
     canComplete: input.canComplete,
     ...(input.applicableLaw ? { applicableLaw: input.applicableLaw } : {}),

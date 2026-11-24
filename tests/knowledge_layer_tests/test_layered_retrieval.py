@@ -1,8 +1,8 @@
 import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.search import _resolve_target_collections
 from knowledge_layer.search import merge_results
 from knowledge_layer.search import restrict_scope_to_turn
-from knowledge_layer.search.scope import _resolve_target_collections
 
 from agent.knowledge.base import SESSION_COLLECTION_PREFIX
 from agent.knowledge.base import TTLCleanupMixin

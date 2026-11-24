@@ -13,10 +13,13 @@ import { filingChoiceRecord } from './filing-choice'
 import type { DocumentTypeTag } from './tag-vocabulary'
 import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { copyMarkForIngest, licenceMarkFields } from '@/lib/base-knowledge/text-guard'
+import { ingestAllowanceSpent } from '@/lib/budgets/ingest-allowance'
 
 export const BACKEND_FETCH_TIMEOUT_MS = 10_000
 
 export const INGEST_DISPATCH_FAILED_MESSAGE = 'Ingestion could not be started'
+
+export const INGEST_ALLOWANCE_SPENT_MESSAGE = 'The ingestion allowance of this month is used up'
 
 async function requestIngestJob(
   body: string,
@@ -113,6 +116,10 @@ export async function dispatchIngest(
   const start: DispatchStart | undefined = attribution
     ? { ingestJobId: extractIngestJobId(attribution.metadata), storageKey: attribution.storageKey }
     : undefined
+  if (await ingestAllowanceSpent(organizationId)) {
+    await markDocumentIngestFailed(documentId, organizationId, INGEST_ALLOWANCE_SPENT_MESSAGE, start)
+    return { jobId: null, status: 'failed' }
+  }
   const projectFacts = await projectFactsForIngest(attribution?.projectId, organizationId)
   let screening: Awaited<ReturnType<typeof ingestScreeningFor>>
   try {

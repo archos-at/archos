@@ -53,7 +53,7 @@ describe('the exposure config', () => {
     }
   })
 
-  it('says why wherever an entry is not plainly offered to an outside agent and to Piloti', () => {
+  it('says why wherever an entry is not plainly offered to an outside agent and to the in-product agent', () => {
     const silent = Object.entries(entries)
       .filter(([, exposure]) => !plainlyOffered(exposure) && !exposure.withheld)
       .filter(([, exposure]) => (exposure.reason ?? '').length < 20)
@@ -71,7 +71,7 @@ describe('the exposure config', () => {
     for (const op of BACKEND_OPERATIONS) expect(entry(op.name).platform, op.name).toBeUndefined()
   })
 
-  it('never offers Piloti what it may not propose: a sensitive operation, an ask, a decision on a proposal', () => {
+  it('never offers the in-product agent what it may not propose: a sensitive operation, an ask, a decision on a proposal', () => {
     for (const op of AGENT_OPERATIONS) {
       if (op.sensitivity && !entry(op.name).withheld) expect(entry(op.name).agent, op.name).toBe(false)
     }

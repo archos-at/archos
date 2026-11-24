@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_MENTIONS_PER_MESSAGE } from '@/lib/limits/catalog'
+import { AGENT_KINDS, isAgentKind } from '@/lib/agent-kind'
 
 export const ANNOTATION_KINDS = ['hint', 'question', 'defect'] as const
 export type AnnotationKind = (typeof ANNOTATION_KINDS)[number]
@@ -7,7 +8,7 @@ export type AnnotationKind = (typeof ANNOTATION_KINDS)[number]
 export const ANNOTATION_SHAPES = ['point', 'region'] as const
 export type AnnotationShape = (typeof ANNOTATION_SHAPES)[number]
 
-export const ANNOTATION_AUTHORS = ['person', 'piloti'] as const
+export const ANNOTATION_AUTHORS = ['person', ...AGENT_KINDS] as const
 export type AnnotationAuthor = (typeof ANNOTATION_AUTHORS)[number]
 
 export const ANNOTATION_STATUSES = ['proposed', 'open', 'resolved', 'dismissed'] as const
@@ -256,14 +257,14 @@ export const replyIsForAgent = (
   mark: { authorKind: AnnotationAuthor; kind: AnnotationKind },
   reply: { authorKind: AnnotationAuthor; addressesPiloti: boolean }
 ): boolean =>
-  reply.authorKind === 'person' && (reply.addressesPiloti || (mark.authorKind === 'piloti' && mark.kind === 'question'))
+  reply.authorKind === 'person' && (reply.addressesPiloti || (isAgentKind(mark.authorKind) && mark.kind === 'question'))
 
 export const agentRepliedSince = (
   replies: ReadonlyArray<{ authorKind: AnnotationAuthor; createdAt: Date | string }>,
   reply: { createdAt: Date | string }
 ): boolean => {
   const at = new Date(reply.createdAt).getTime()
-  return replies.some((other) => other.authorKind === 'piloti' && new Date(other.createdAt).getTime() > at)
+  return replies.some((other) => isAgentKind(other.authorKind) && new Date(other.createdAt).getTime() > at)
 }
 
 export const LIVE_ANNOTATION_STATUSES = ['open', 'proposed'] as const satisfies readonly AnnotationStatus[]
@@ -524,7 +525,7 @@ export const internalRoomResponseSchema = z.object({
   peers: z.array(
     z.object({
       name: z.string(),
-      kind: z.enum(['person', 'piloti']),
+      kind: z.enum(['person', ...AGENT_KINDS] as const),
       page: z.number().int().nullable(),
       viewport: z.object({ page: z.number().int(), y: z.number() }).nullable(),
       selectedMarkNumber: z.number().int().nullable(),

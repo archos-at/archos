@@ -20,6 +20,7 @@ from agent.citations.text_parsers import register_source_parser
 from agent.citations.verification import cited_document_entries
 from agent.citations.verification import verify_citations
 from agent.citations.wire import source_entry_to_wire
+from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
 
@@ -1797,14 +1798,14 @@ class TestAgentAuthoredProvenanceParsing:
     def test_a_marked_hit_carries_its_author_and_takes_the_agent_lane(self):
         entry = self._entry(f"{AGENT_AUTHORED_LANE_LABEL} · freigegeben von Maria Huber am 01.09.2026")
         assert entry.authored_by == "agent"
-        assert source_lane(entry) == ("office_piloti", AGENT_AUTHORED_LANE_LABEL)
+        assert source_lane(entry) == (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
 
     def test_the_bare_label_is_enough(self):
         assert self._entry(AGENT_AUTHORED_LANE_LABEL).authored_by == "agent"
 
     @pytest.mark.parametrize(
         "herkunft",
-        [None, "Büroablage", "von Hand erstellt", ""],
+        [None, "Bürobibliothek", "von Hand erstellt", ""],
         ids=["absent", "other-label", "prose", "empty"],
     )
     def test_anything_else_leaves_the_author_unknown(self, herkunft: str | None):
@@ -2626,7 +2627,7 @@ class TestDocumentIdentityIsCollectionAndFilename:
                 citation_key=office_shelf_key,
                 source_type="knowledge_layer",
                 collection="archiv_org1",
-                chunk_text="Aus der Büroablage.",
+                chunk_text="Aus der Bürobibliothek.",
             )
         )
         return registry
@@ -2636,7 +2637,7 @@ class TestDocumentIdentityIsCollectionAndFilename:
         assert len(registry._citation_keys) == 2
         assert {entry.chunk_text for entry in registry._citation_keys} == {
             "Aus dem Projekt.",
-            "Aus der Büroablage.",
+            "Aus der Bürobibliothek.",
         }
 
     def test_chunks_of_one_document_still_merge(self):
@@ -2657,15 +2658,15 @@ class TestDocumentIdentityIsCollectionAndFilename:
     def test_a_qualified_key_resolves_to_the_shelf_it_names(self):
         registry = self._two_shelves(
             project_key="Plan.pdf (Projektwissen), p.3",
-            office_shelf_key="Plan.pdf (Büroablage), p.3",
+            office_shelf_key="Plan.pdf (Bürobibliothek), p.3",
         )
-        assert registry.entry_for_citation_key("Plan.pdf (Büroablage), p.3").collection == "archiv_org1"
+        assert registry.entry_for_citation_key("Plan.pdf (Bürobibliothek), p.3").collection == "archiv_org1"
         assert registry.entry_for_citation_key("Plan.pdf (Projektwissen), p.3").collection == "proj_alpha"
 
     def test_an_unqualified_key_still_validates(self):
         registry = self._two_shelves(
             project_key="Plan.pdf (Projektwissen), p.3",
-            office_shelf_key="Plan.pdf (Büroablage), p.3",
+            office_shelf_key="Plan.pdf (Bürobibliothek), p.3",
         )
         assert registry.has_citation_key("Plan.pdf, p.3") is True
         assert registry.entry_for_citation_key("Plan.pdf, p.3") is not None
@@ -2703,7 +2704,7 @@ class TestQualifiedKeysSurviveVerification:
         )
         registry.add(
             SourceEntry(
-                citation_key="Plan.pdf (Büroablage), p.3",
+                citation_key="Plan.pdf (Bürobibliothek), p.3",
                 source_type="knowledge_layer",
                 collection="archiv_org1",
             )
@@ -2715,17 +2716,17 @@ class TestQualifiedKeysSurviveVerification:
             "Im Projekt so geplant [1], im Büro so detailliert [2].\n\n"
             "**Quellen:**\n"
             "- [1] Plan.pdf (Projektwissen), p.3\n"
-            "- [2] Plan.pdf (Büroablage), p.3\n"
+            "- [2] Plan.pdf (Bürobibliothek), p.3\n"
         )
         result = verify_citations(report, self._registry())
         assert result.removed_citations == []
         assert "Plan.pdf (Projektwissen), p.3" in result.verified_report
-        assert "Plan.pdf (Büroablage), p.3" in result.verified_report
+        assert "Plan.pdf (Bürobibliothek), p.3" in result.verified_report
 
     def test_the_line_scanner_keeps_the_qualifier_it_finds(self):
         is_kl, key = is_knowledge_citation("Bestandsplan – Plan.pdf (BÜROARCHIV), p.3", self._registry())
         assert is_kl is True
-        assert key == "Plan.pdf (Büroablage), p.3"
+        assert key == "Plan.pdf (Bürobibliothek), p.3"
 
     def test_a_title_in_front_of_the_filename_is_dropped_without_a_registry(self):
         for line in (
@@ -2761,7 +2762,7 @@ class TestCitedDocumentsKeepTheirShelf:
         return registry
 
     def test_the_qualified_shelf_is_the_one_marked_cited(self):
-        report = "Wie im Archivplan [1].\n\n**Quellen:**\n- [1] Plan.pdf (Büroablage), p.3\n"
+        report = "Wie im Archivplan [1].\n\n**Quellen:**\n- [1] Plan.pdf (Bürobibliothek), p.3\n"
         entries = cited_document_entries(report, self._registry())
         assert [entry.collection for entry in entries] == ["archiv_org1"]
 
@@ -2770,7 +2771,7 @@ class TestCitedDocumentsKeepTheirShelf:
             "Projekt [1] gegen Archiv [2].\n\n"
             "**Quellen:**\n"
             "- [1] Plan.pdf (Projektwissen), p.3\n"
-            "- [2] Plan.pdf (Büroablage), p.3\n"
+            "- [2] Plan.pdf (Bürobibliothek), p.3\n"
         )
         entries = cited_document_entries(report, self._registry())
         assert {entry.collection for entry in entries} == {"proj_alpha", "archiv_org1"}

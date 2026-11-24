@@ -116,7 +116,7 @@ describe('a surface in the export', () => {
     expect(printed).not.toContain('Unerreichbar.')
   })
 
-  const PLACEHOLDER = 'In Piloti als Grafik dargestellt.'
+  const PLACEHOLDER = 'Als Grafik dargestellt.'
   const mermaidTab = {
     type: 'surface',
     components: [

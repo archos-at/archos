@@ -1,26 +1,21 @@
-// @disk-inputs: server.js
 /**
  * @vitest-environment node
  *
  * The boot line, and the pin that keeps its two implementations identical.
  *
- * `bff/boot.ts` is canonical; `server.js` carries a hand-written CommonJS
- * copy because it cannot import a TS module (its header says why, and the
- * signed-envelope builder above it is duplicated for the same reason). A copy
- * that nothing compares is a copy that drifts, and the drift here is silent:
- * two containers of the same deployment would print two different answers to
- * "what is running", which is precisely the question the line exists to settle.
- *
- * So this spec does not read the copy's source and assert on a regex. It
- * EXTRACTS the function body and runs it, against the same table the canonical
- * implementation is run over. `bootLogLine` is written pure and self-contained
- * to make that possible; if someone reaches out of it for a module-scope
- * helper, `new Function` throws and this spec says so.
+ * `bff/boot.ts` is canonical; `bff/boot-line.js` is the CommonJS copy
+ * `server.js` prints, because it cannot import a TS module. A copy that nothing
+ * compares is a copy that drifts, and the drift here is silent: two containers
+ * of the same deployment would print two different answers to "what is
+ * running", which is precisely the question the line exists to settle. So both
+ * run over the same table, and the gateway is booted to see it print the line.
  */
-import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { type ChildProcess, spawn } from 'node:child_process'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { bootLine, deployedSha, flagSource, formatBootLine, UNKNOWN_SHA } from '@/lib/boot'
+import { bootLogLine } from '@/lib/boot-line.js'
 
 const CASES: Array<{ name: string; env: Record<string, string>; expected: string }> = [
   {
@@ -84,35 +79,54 @@ describe('the boot line', () => {
 })
 
 describe("server.js's CommonJS copy of the boot line", () => {
-  const source = readFileSync(new URL('../../server.js', import.meta.url), 'utf8')
+  it.each(CASES)('agrees with lib/boot.ts on $name', ({ env, expected }) => {
+    expect(bootLogLine(env)).toBe(expected)
+  })
+})
 
-  const extracted = (): ((env: Record<string, string>) => string) => {
-    const start = source.indexOf('function bootLogLine(env) {')
-    expect(start, 'server.js no longer has the bootLogLine this spec pins').toBeGreaterThan(-1)
-    const bodyStart = source.indexOf('{', start)
-    let depth = 0
-    let end = -1
-    for (let i = bodyStart; i < source.length; i += 1) {
-      if (source[i] === '{') depth += 1
-      else if (source[i] === '}') {
-        depth -= 1
-        if (depth === 0) {
-          end = i
-          break
-        }
-      }
-    }
-    expect(end, 'unbalanced braces while extracting bootLogLine').toBeGreaterThan(-1)
-    return new Function(`${source.slice(start, end + 1)}; return bootLogLine`)() as (
-      env: Record<string, string>
-    ) => string
-  }
-
-  it('is called from the listen callback, so a booted gateway always prints it', () => {
-    expect(source).toContain('console.log(bootLogLine(process.env))')
+describe('the gateway', () => {
+  const running: ChildProcess[] = []
+  afterEach(() => {
+    while (running.length) running.pop()?.kill('SIGKILL')
   })
 
-  it.each(CASES)('agrees with lib/boot.ts on $name', ({ env, expected }) => {
-    expect(extracted()(env)).toBe(expected)
+  function bootGateway(env: Record<string, string>): Promise<string> {
+    const inherited = { ...process.env }
+    delete inherited.REDIS_URL
+    const child = spawn('node', ['server.js'], {
+      cwd: path.resolve(__dirname, '../..'),
+      env: {
+        ...inherited,
+        NODE_ENV: 'development',
+        PORT: '0',
+        HOSTNAME: '127.0.0.1',
+        BACKEND_CHAT_URL: 'http://127.0.0.1:9',
+        ...env,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    running.push(child)
+    return new Promise((resolve, reject) => {
+      let output = ''
+      const timer = setTimeout(() => reject(new Error(`gateway did not start; saw:\n${output}`)), 20_000)
+      const collect = (chunk: Buffer) => {
+        output += chunk.toString()
+        if (output.includes('Frontend:')) {
+          clearTimeout(timer)
+          resolve(output)
+        }
+      }
+      child.stdout?.on('data', collect)
+      child.stderr?.on('data', collect)
+      child.on('exit', (code) => {
+        clearTimeout(timer)
+        reject(new Error(`gateway exited (${code}) before listening; saw:\n${output}`))
+      })
+    })
+  }
+
+  it('prints the boot line once it listens, so a booted gateway always says what is running', async () => {
+    const output = await bootGateway({ GIT_SHA: 'abc1234', REQUIRE_AUTH: 'true' })
+    expect(output.split('\n')).toContain('[boot] sha=abc1234 flags=workos')
   })
 })

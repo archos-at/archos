@@ -1,23 +1,3 @@
-"""A drawing's text on the PDF page, as text rather than as shapes (ADR-0152).
-
-ezdxf draws text as glyph outlines, so a parcel number on the page is a shape:
-the viewer's find, the index and a citation's highlight would all miss it, and
-on a whole cadastral community the outlines are most of the file (15 MB of 3,600
-parcels). So the drawing's TEXT, MTEXT and visible ATTRIBs are written as PDF
-text, at their own place, alignment, rotation and height, in one of two ways:
-
-* **Visible**, for a Katastralmappe: every label there is plain text in the model
-  space (its blocks are stand-ins, ``dxf_source``), so ezdxf draws none of it and
-  this module sets it, in the sheet's type and the layer's plot colour. One
-  embedded font replaces thousands of outlines.
-* **Transparent**, for any other drawing, whose text may sit inside blocks in
-  fonts of its own: ezdxf draws what is seen, and this writes the same words
-  invisibly on top, as a scanner's OCR layer is.
-
-A CAD text height is the height of a capital; a font size is the em, so a
-visible label is set at the height divided by the face's cap height.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -50,8 +30,6 @@ _MTEXT_ATTACHMENT = {
 
 @dataclass(frozen=True)
 class PlacedText:
-    """One text where its alignment puts it, in drawing units."""
-
     x: float
     y: float
     height: float
@@ -63,7 +41,6 @@ class PlacedText:
 
 
 def placed_texts(source: DxfSource) -> Iterator[PlacedText]:
-    """Every text a reader sees on the page, skipping switched-off layers and a Katastralmappe's sheet markers."""
     hidden = {layer.dxf.name.upper() for layer in source.doc.layers if layer.is_off()}
     for entity in source.doc.modelspace():
         layer = entity.dxf.layer.upper()
@@ -79,7 +56,6 @@ def placed_texts(source: DxfSource) -> Iterator[PlacedText]:
 
 
 def write_transparent(axes: Axes, texts: Iterator[PlacedText], units_per_mm: float) -> None:
-    """The words over a drawing ezdxf has already drawn, invisible, for find, index and highlight."""
     for count, placed in enumerate(texts):
         if count >= MAX_TEXTS:
             logger.info("dxf: text layer capped at %d entries", MAX_TEXTS)
@@ -95,7 +71,6 @@ def write_visible(
     face: FontProperties,
     colour_of: Callable[[str], str],
 ) -> None:
-    """The drawing's labels themselves, set in ``face`` and each layer's colour."""
     for count, placed in enumerate(texts):
         if count >= MAX_TEXTS:
             logger.info("dxf: labels capped at %d entries", MAX_TEXTS)
@@ -124,7 +99,6 @@ def _put(axes: Axes, placed: PlacedText, size: float | None, **style: object) ->
 
 
 def _placed_text(entity: DXFGraphic) -> PlacedText:
-    """A TEXT's or ATTRIB's anchor as its alignment places it: the align point unless it is left/baseline."""
     halign, valign = entity.dxf.get("halign", 0), entity.dxf.get("valign", 0)
     aligned = (halign or valign) and entity.dxf.hasattr("align_point")
     anchor = entity.dxf.align_point if aligned else entity.dxf.insert

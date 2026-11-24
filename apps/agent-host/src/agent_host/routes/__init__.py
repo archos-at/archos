@@ -1,5 +1,3 @@
-"""FastAPI routes for unified AI-Q API."""
-
 from .cleanup_proposal import add_cleanup_proposal_routes
 from .collections import add_collection_routes
 from .consistency_check import add_consistency_check_routes

@@ -14,6 +14,7 @@ import {
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, PORT, UID } from "../constants";
 import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, sref } from "./config";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 const FRONTEND_URL = `http://frontend:${PORT.frontend}`;
 
@@ -28,7 +29,6 @@ type HousekeepingSweep = {
   schedule: string;
   route: string;
   timeoutMs: number;
-  suspend?: boolean;
 };
 
 function internalSweepScript(label: string, timeoutMs: number): string {
@@ -66,7 +66,6 @@ function internalSweepCronJob(
       },
       spec: {
         schedule: sweep.schedule,
-        ...(sweep.suspend === undefined ? {} : { suspend: sweep.suspend }),
         concurrencyPolicy: "Forbid",
         successfulJobsHistoryLimit: 3,
         failedJobsHistoryLimit: 3,
@@ -77,7 +76,7 @@ function internalSweepCronJob(
   );
 }
 
-type InternalSweep = { name: string; schedule: string; url: string; timeoutMs: number; suspend?: boolean };
+type InternalSweep = { name: string; schedule: string; url: string; timeoutMs: number };
 
 function internalSweepJobSpec(
   w: AppWiring,
@@ -102,7 +101,7 @@ function internalSweepJobSpec(
             image: frontendImage(cfg),
             imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
             securityContext: hardenedContainerSecurityContext(),
-            resources: BOOTSTRAP_JOB_RESOURCES,
+            resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
             command: ["node", "-e", internalSweepScript(sweep.name, sweep.timeoutMs)],
             env: [
               { name: "SWEEP_URL", value: sweep.url },
@@ -126,8 +125,7 @@ export function syncBaseCorpusAfterRollout(
   cfg: DeployConfig,
   secrets: AppSecrets,
   dependsOn: pulumi.Resource[],
-): k8s.batch.v1.Job | undefined {
-  if (cfg.chromaMigration.enabled) return undefined;
+): k8s.batch.v1.Job {
   const name = `${BASE_CORPUS_SYNC}-deploy`;
   return new k8s.batch.v1.Job(
     name,
@@ -185,7 +183,7 @@ export function installWorkers(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", "purger/index.js"],
                 env: purgerEnv(w),
-                resources: workerResources,
+                resources: scaledCpuRequest(workerResources),
               },
             ],
           },
@@ -210,7 +208,6 @@ export function installWorkers(
         schedule: cfg.vectorReconcile.schedule,
         url: `${FRONTEND_URL}/api/internal/maintenance/reconcile-vectors`,
         timeoutMs: 1_800_000,
-        suspend: cfg.chromaMigration.enabled,
       })
     : undefined;
 
@@ -224,7 +221,6 @@ export function installWorkers(
     schedule: "*/10 * * * *",
     route: "base-corpus",
     timeoutMs: 600_000,
-    suspend: cfg.chromaMigration.enabled,
   });
   const housekeeping = [
     ...[

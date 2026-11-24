@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from agent.knowledge.ingest_failures import FAILURE_CATEGORIES
+from agent.knowledge.ingest_failures import PREFIX_CATEGORIES
+from agent.knowledge.ingest_failures import REASON_CATEGORIES
 from agent.knowledge.ingest_failures import classify_failure
-from agent.knowledge.ingest_failures import verdict_for
+from agent.knowledge.ingest_failures import verdict_of
 
 
 class ReadTimeout(Exception):
@@ -146,9 +147,92 @@ def test_the_image_paths_ambiguous_sentence_is_not_a_verdict_on_the_bytes():
     assert verdict.retryable is True
 
 
-@pytest.mark.parametrize("category", FAILURE_CATEGORIES)
-def test_only_lasting_categories_refuse_a_retry(category):
-    assert verdict_for(category).retryable is (category not in ("deterministic", "quarantined"))
+@pytest.mark.parametrize(("reason", "category"), REASON_CATEGORIES.items())
+def test_only_lasting_categories_refuse_a_retry(reason, category):
+    verdict = verdict_of(reason)
+    assert (verdict.category, verdict.reason) == (category, reason)
+    assert verdict.retryable is (category not in ("deterministic", "quarantined"))
+
+
+class PDFSyntaxError(Exception):
+    pass
+
+
+class BadZipFile(Exception):
+    pass
+
+
+class UnidentifiedImageError(OSError):
+    pass
+
+
+class DecompressionBombError(Exception):
+    pass
+
+
+class RateLimitError(Exception):
+    pass
+
+
+_NO_CONTENT = "No content extracted (file may be password-protected, corrupted, or empty)"
+
+_NAMED_FAILURES = [
+    ("no_content", _NO_CONTENT, None),
+    ("raw_binary_content", None, ValueError("Raw PDF/binary content detected; refusing to index")),
+    ("encrypted", None, PDFPasswordIncorrect("")),
+    ("encrypted", None, PdfiumError("Failed to load document (PDFium: Incorrect password error).")),
+    ("encrypted", "Datei.pdf is encrypted", None),
+    ("pdf_unparseable", None, PdfiumError("Failed to load document (PDFium: Data format error).")),
+    ("pdf_unparseable", None, PDFSyntaxError("No /Root object")),
+    ("zip_unreadable", None, BadZipFile("File is not a zip file")),
+    ("image_unreadable", None, UnidentifiedImageError("cannot identify image file")),
+    ("image_too_large", None, DecompressionBombError("Image size exceeds limit")),
+    ("wrong_file_type", "plan.pdf is not a PDF", None),
+    ("empty_file", "The file is empty", None),
+    ("unparseable", None, ValueError("Document is empty; nothing to split")),
+    ("upstream_rejected", None, _StatusError(413)),
+    ("upstream_refused", None, _StatusError(401)),
+    ("upstream_unavailable", None, _StatusError(503)),
+    ("upstream_unavailable", "Bad Gateway", None),
+    ("upstream_unavailable", None, _StatusError(425)),
+    ("upstream_conflict", None, _StatusError(409)),
+    ("rate_limited", None, _StatusError(429)),
+    ("rate_limited", None, RateLimitError("slow down")),
+    ("timeout", None, TimeoutError("read timed out")),
+    ("timeout", None, TimeoutException("")),
+    ("timeout", None, _StatusError(408)),
+    ("connection_failed", None, APIConnectionError("Connection error.")),
+    ("connection_failed", "Connection reset by peer", None),
+    ("no_allowed_provider", "Error code: 404 - No allowed providers are available", None),
+    ("unknown", "something odd", RuntimeError("something odd")),
+]
+
+
+@pytest.mark.parametrize(("reason", "message", "exc"), _NAMED_FAILURES)
+def test_each_failure_names_its_reason(reason, message, exc):
+    verdict = classify_failure(str(exc) if message is None else message, exc)
+    assert verdict.reason == reason
+    assert verdict.category == REASON_CATEGORIES[reason]
+
+
+def test_every_reason_outside_the_prefixes_is_named_by_a_case():
+    named = {reason for reason, _, _ in _NAMED_FAILURES} | {"credits_in_flight"}
+    assert named == set(REASON_CATEGORIES) - set(PREFIX_CATEGORIES)
+
+
+@pytest.mark.parametrize("prefix", PREFIX_CATEGORIES)
+def test_a_known_prefix_is_its_own_reason(prefix):
+    assert classify_failure(f"{prefix}: Meier GmbH.pdf").reason == prefix
+
+
+def test_a_prefix_nobody_listed_is_not_a_reason():
+    assert classify_failure("meier_gmbh: could not be read").reason == "unknown"
+
+
+def test_a_reason_is_a_slug_the_event_may_carry():
+    import re
+
+    assert all(re.fullmatch(r"[a-z][a-z0-9_]{1,40}", reason) for reason in REASON_CATEGORIES)
 
 
 class _PaymentRequired(Exception):
@@ -162,6 +246,7 @@ _IN_FLIGHT = "Request would exceed your available credits given your current in-
 
 def test_a_402_for_credits_held_by_requests_in_flight_is_capacity_not_the_file():
     assert _verdict(_PaymentRequired(_IN_FLIGHT)) == ("transient", True)
+    assert classify_failure(None, _PaymentRequired(_IN_FLIGHT)).reason == "credits_in_flight"
 
 
 def test_the_in_flight_402_is_transient_from_its_message_alone():

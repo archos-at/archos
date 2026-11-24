@@ -302,11 +302,11 @@ describe('withdrawCorpusFile', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
   })
   afterEach(() => {
     vi.unstubAllGlobals()
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   })
 
   it('marks the file unreleased and keeps its country', async () => {

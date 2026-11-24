@@ -21,6 +21,13 @@ export function textPreview(text: string, lines = PREVIEW_LINES, chars = PREVIEW
   return { head, more: head !== tidy }
 }
 
+export const SUBSTANTIVE_TEXT_WORDS = 6
+
+export function substantiveText(text: string): boolean {
+  const words = tidyText(text).replace(URL_PATTERN, ' ').split(/\s+/u).filter((word) => /\p{L}{2,}/u.test(word))
+  return words.length >= SUBSTANTIVE_TEXT_WORDS
+}
+
 export function linkDomain(value: string): string | null {
   try {
     const url = new URL(value)

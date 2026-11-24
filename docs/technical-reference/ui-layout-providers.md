@@ -19,7 +19,7 @@ The root layout is an async server component that:
 </AppConfigProvider>
 ```
 
-Metadata: title template `%s — Piloti`, `robots: noindex, nofollow` (the app is behind sign-in; `app/robots.ts` explains why crawling stays allowed). Icons and the manifest come from the `app/` file conventions (`favicon.ico`, `icon.svg`, `apple-icon.png`, `manifest.ts`), all rendered from `packages/brand/mark.svg`.
+Metadata: title template `%s — ${PRODUCT_NAME}`, `robots: noindex, nofollow` (the app is behind sign-in; `app/robots.ts` explains why crawling stays allowed). Icons and the manifest come from the `app/` file conventions (`favicon.ico`, `icon.svg`, `apple-icon.png`, `manifest.ts`), all rendered from `packages/brand/mark.svg`.
 
 ---
 
@@ -106,7 +106,7 @@ Uses `useSessionUrl` hook to sync the current conversation ID with URL query par
 - `handleDeleteSession` — deletes conversation + clears URL if it was the current.
 - `handleDeleteAllSessions` — deletes all + clears URL.
 
-Navigation is blocked (`isNavigationBlocked`) when streaming or waiting for a human interaction.
+Navigation is never blocked: the reader can open another chat or start a new one while a turn runs or waits for them, and that turn carries on in its own conversation ([chat flow](chat-flow.md)).
 
 ---
 

@@ -39,7 +39,7 @@ describe('AwaitingBanner — the silence is explained (MN-8)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  test('names who is awaited, says why Piloti is quiet, and who asked, and since when', () => {
+  test('names who is awaited, says why the agent is quiet, and who asked, and since when', () => {
     render(<AwaitingBanner awaiting={state([request()])} onRelease={vi.fn()} />)
     expect(screen.getByText('Waiting for Anna Weber')).toBeInTheDocument()
     expect(screen.getByText(`${PRODUCT_NAME} is holding off until someone answers.`)).toBeInTheDocument()
@@ -267,7 +267,7 @@ describe('AwaitingBanner — always a way out (MN-9)', () => {
     expect(onRelease).toHaveBeenCalledWith('r-2')
   })
 
-  test('offers to ask Piloti instead, which both clears the wait and starts a turn', async () => {
+  test('offers to ask the agent instead, which both clears the wait and starts a turn', async () => {
     const user = userEvent.setup()
     const onAskAgent = vi.fn()
     render(

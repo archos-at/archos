@@ -1,23 +1,3 @@
-"""Platform-tunable retrieval settings (top_k, max_results, …).
-
-The retrieval counts used to be build-time facts: YAML values in
-``configs/config_oib_openrouter.yml`` or Python module constants, so tuning
-recall/context-size trade-offs meant a commit and a redeploy. The platform
-owner now edits them in Platform → Retrieval; they live in the BFF's
-``platform_retrieval_settings`` table and reach the backend through the same
-token-guarded internal channel as the model overrides
-(``GET /api/internal/retrieval-settings``), TTL-cached and fail-open.
-
-Resolution order per call:
-
-  1. the platform owner's value for the key (if within catalog bounds)
-  2. the build-time fallback the caller passes (YAML value / module constant)
-
-Platform-only by design — no org layer, no per-request header. Fail-open by
-design: a BFF outage must never take retrieval down, so every error path
-returns the caller's fallback.
-"""
-
 import logging
 import os
 import threading
@@ -63,14 +43,12 @@ _cache_lock = threading.Lock()
 
 
 def reset_retrieval_settings_cache() -> None:
-    """Test hook: clear the in-process resolution cache."""
     global _cache
     with _cache_lock:
         _cache = None
 
 
 def sanitize_retrieval_settings(data: object) -> dict[str, int]:
-    """Reduce an untrusted mapping to ``{known_key: in-bounds int}``."""
     if not isinstance(data, dict):
         logger.warning("Ignoring retrieval settings: expected JSON object, got %s", type(data).__name__)
         return {}
@@ -95,7 +73,6 @@ def sanitize_retrieval_settings(data: object) -> dict[str, int]:
 
 
 def _fetch_settings() -> dict[str, int]:
-    """One HTTP round-trip to the BFF's internal retrieval-settings endpoint."""
     token = os.environ.get("INTERNAL_API_TOKEN")
     if not token:
         return {}
@@ -117,7 +94,6 @@ def _fetch_settings() -> dict[str, int]:
 
 
 def _resolve() -> dict[str, int]:
-    """Cached resolution of the platform settings (shared hot path)."""
     global _cache
     now = time.monotonic()
     from agent.common.profiler import annotate_current_span
@@ -141,12 +117,6 @@ def _resolve() -> dict[str, int]:
 
 
 def get_retrieval_setting(key: str, fallback: int) -> int:
-    """The platform owner's value for ``key``, or ``fallback`` when unset.
-
-    Never raises and never returns an out-of-bounds value: unknown keys log
-    once and resolve to the fallback. Called per tool invocation; the TTL
-    cache keeps the hot path free of network calls.
-    """
     if key not in _BOUNDS:
         logger.warning("get_retrieval_setting: unknown key %r, using fallback %d", key, fallback)
         return fallback

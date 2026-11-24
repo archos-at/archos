@@ -122,7 +122,7 @@ def test_search_never_crosses_scopes(store):
 
 def test_corpus_and_office_scopes_land_in_different_collections(store):
     store.upsert("oib_knowledge", [_record("OIB-Richtlinie 2", "rl2.pdf")])
-    store.upsert("archiv_org1", [_record("Büroablage", "ablage.pdf")])
+    store.upsert("archiv_org1", [_record("Bürobibliothek", "ablage.pdf")])
     corpus = store.client.count(schema.ALIASES[schema.Physical.CORPUS]).count
     office = store.client.count(schema.ALIASES[schema.Physical.OFFICE]).count
     assert (corpus, office) == (1, 1)

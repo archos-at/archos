@@ -1,0 +1,8 @@
+---
+# area: projects
+features:
+  - >
+    A project with several buildings on one site can now be set up that way:
+    in the last step of the project setup you add each building, name it, or
+    remove it again. The escape level, the Gebäudeklasse and the open questions
+    are then kept for each building on its own.

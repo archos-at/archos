@@ -1,15 +1,29 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   assertDomainInZone,
   assertNoForeignDmarc,
   assertNoForeignMx,
   dmarcRecordComment,
+  installInboundMailZone,
   ROUTING_RESOURCE_OPTIONS,
 } from "./email-routing";
 import { LEGACY_PROJECT } from "../names";
 import { MAIL_ZONE_ID } from "../test-support/app-zone-config";
+
+const built = vi.hoisted(() => ({
+  routings: [] as Array<{ name: string; opts: Record<string, unknown> }>,
+}));
+
+vi.mock("@pulumi/cloudflare", () => ({
+  Provider: class {},
+  EmailRoutingDns: class {
+    constructor(name: string, _args: unknown, opts: Record<string, unknown>) {
+      built.routings.push({ name, opts });
+    }
+  },
+  getZoneOutput: () => ({ name: "example.test", account: { id: "account-1" } }),
+  getDnsRecordsOutput: () => ({ results: [] }),
+}));
 
 const DOMAIN = "inbox.example.test";
 const ZONE_ID = MAIL_ZONE_ID;
@@ -78,11 +92,18 @@ describe("the zone check", () => {
 });
 
 describe("Email Routing on the zone", () => {
+  const inboundMail = (configured: boolean) =>
+    ({ inboundMail: { configured, apiToken: "cf-token", zoneId: ZONE_ID, domain: DOMAIN } }) as never;
+
   it("is left on when the inbox is switched off or the stack destroyed", () => {
     expect(ROUTING_RESOURCE_OPTIONS.retainOnDelete).toBe(true);
-    expect(readFileSync(join(__dirname, "email-routing.ts"), "utf8")).toMatch(
-      /new cloudflare\.EmailRoutingDns\([^;]*\{ provider, \.\.\.ROUTING_RESOURCE_OPTIONS \}/,
-    );
+    expect(installInboundMailZone(inboundMail(false))).toBeUndefined();
+
+    const before = built.routings.length;
+    installInboundMailZone(inboundMail(true));
+    const created = built.routings.slice(before);
+    expect(created).toHaveLength(1);
+    expect(created[0].opts).toMatchObject({ retainOnDelete: true });
   });
 });
 
@@ -101,7 +122,7 @@ describe("the DMARC guard on the zone apex", () => {
   it("refuses a DMARC record written by hand or by another block, quoted or not, in any case", () => {
     expect(guard([txt("v=DMARC1; p=quarantine")])).toThrow(/already holds a DMARC record this stack did not write/);
     expect(guard([txt('"v=DMARC1; p=reject"')])).toThrow(/Keep one owner/);
-    expect(guard([txt("V=dmarc1;p=none", "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)")])).toThrow(/comment/);
+    expect(guard([txt("V=dmarc1;p=none", "Managed by Pulumi (another stack's record)")])).toThrow(/comment/);
   });
 
   it("refuses a foreign record beside its own", () => {

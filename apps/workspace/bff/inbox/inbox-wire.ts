@@ -1,13 +1,19 @@
 import { z } from 'zod'
 import { INBOX_ITEM_TYPES } from '@/lib/inbox/inbox-vocabulary'
-import { INBOX_LIST_FILTERS, INBOX_LIST_LIMIT } from '@/lib/inbox/types'
+import { canonicalInboxType, INBOX_LIST_FILTERS, INBOX_LIST_LIMIT } from '@/lib/inbox/types'
 
 export const inboxListQuerySchema = z.object({
   filter: z
     .enum(INBOX_LIST_FILTERS)
     .optional()
     .describe('The slice; `all` (unarchived) is the default.'),
-  type: z.enum(INBOX_ITEM_TYPES).optional().describe('Only this item type.'),
+  type: z
+    .preprocess(
+      (value) => (typeof value === 'string' ? canonicalInboxType(value) : value),
+      z.enum(INBOX_ITEM_TYPES),
+    )
+    .optional()
+    .describe('Only this item type.'),
   projectId: z
     .string()
     .guid()

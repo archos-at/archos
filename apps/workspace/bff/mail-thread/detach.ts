@@ -5,8 +5,11 @@ import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds, requireFolderWrite } from '@/lib/authz/folder-access'
+import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
+import type { AccessFolder } from '@/lib/authz/folder-access-rule'
+import type { MailThreadEntryAttachmentRow } from '@/lib/db/schema/mail-thread'
 import { requireMailReviewer } from '@/lib/inbound-mail/access'
-import { settleFollowExpiring } from '@/lib/inbound-mail/announce'
+import { announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { INBOUND_THREAD_APPEND_EFFECTS } from '@/lib/inbound-mail/batch-effects'
 import { findDocumentIdByStoredName, findLiveFolders } from '@/lib/inbound-mail/repository'
 import { openQuietBatch, sealQuietBatch } from '@/lib/inbound-mail/quiet-batch'
@@ -17,8 +20,10 @@ import { gatePolicy } from '@/lib/upload-screening/service'
 import { memberReader } from '@/lib/documents/document-reader'
 import {
   ensureTargetFolder,
+  readableWithThread,
   RENDER_LEASE_MS,
   renderEntriesOf,
+  sectionLineOf,
   threadDocumentFilename,
   threadTitleOf,
   uploadThreadVersion,
@@ -37,10 +42,13 @@ import {
   type MailThreadLocale,
 } from './mail-thread-vocabulary'
 import { mailThreadEntryHeading, renderMailThread, type MailThreadRenderEntry } from './render'
+import { rematchAfterWrite } from './rematch'
 import { findVisibleThread } from './repository'
 import {
   acquireRenderLease,
   commitDetach,
+  findCurrentVersions,
+  findEntryAttachmentRows,
   findThreadEntryRows,
   findWritableThread,
   releaseRenderLease,
@@ -231,9 +239,14 @@ async function moveEntry(
     targetRows.map((row) => row.heading),
     targetLocale
   )
+  const attachmentRows = (await findEntryAttachmentRows([moving.id])).get(moving.id) ?? []
+  const unnamed = await namedBeyondReaders(session, projectId, attachmentRows, destinationFolderOf(destination))
+  const movedAttachments = attachmentRows.map((row) =>
+    unnamed.has(row.position) ? { name: null, folderPath: null } : sectionLineOf(row)
+  )
   const targetEntries = [
     ...(await renderEntriesOf(targetRows)),
-    { ...movingEntry, heading, filedAt: movedAt, inReplyToEntryId: null },
+    { ...movingEntry, heading, filedAt: movedAt, inReplyToEntryId: null, attachments: movedAttachments },
   ]
 
   const sourceRendition = renderMailThread({
@@ -323,7 +336,8 @@ async function moveEntry(
               organizationId: session.organizationId,
               projectId,
               documentId: joined.documentId,
-              baseSubject: source.thread.baseSubject,
+              baseSubject: moving.baseSubject ?? source.thread.baseSubject,
+              threadIndexGuid: moving.threadIndexGuid,
               locale: targetLocale,
               createdBy: session.userId,
             }
@@ -342,6 +356,7 @@ async function moveEntry(
         participantDomains: [...new Set(domains)].slice(0, 200),
       },
       firstVersionId: joined.versionId,
+      unnamedPositions: [...unnamed],
       movedAt,
     })
     recordDetach(session, {
@@ -353,6 +368,13 @@ async function moveEntry(
       ended,
     })
     await settleFollowExpiring(session.organizationId, ended.map((follow) => follow.id))
+    await announceFollowsEnded(session.organizationId, projectId, ended, 'detached', session.userId)
+    await rematchAfterWrite(projectId, [
+      source.thread,
+      destination.kind === 'existing'
+        ? destination.target.thread
+        : { id: toThreadId, baseSubject: moving.baseSubject ?? source.thread.baseSubject, threadIndexGuid: moving.threadIndexGuid },
+    ])
     return {
       entryId: moving.id,
       from: { threadId: source.thread.id, documentId: left.documentId, versionId: left.versionId },
@@ -362,6 +384,31 @@ async function moveEntry(
   } finally {
     await sealQuietBatch(session, batchId)
   }
+}
+
+function destinationFolderOf(destination: Destination): string | null {
+  return destination.kind === 'existing' ? destination.target.document.folderId : destination.folderId
+}
+
+async function namedBeyondReaders(
+  session: AuthorizedSession,
+  projectId: string,
+  rows: readonly MailThreadEntryAttachmentRow[],
+  threadFolderId: string | null
+): Promise<Set<number>> {
+  const named = rows.filter((row) => row.sectionName !== null)
+  if (named.length === 0) return new Set()
+  const documentIds = named.flatMap((row) => (row.documentId ? [row.documentId] : []))
+  const [documents, folders] = await Promise.all([
+    findCurrentVersions(documentIds, memberReader(session.userId)),
+    listProjectFolderTree(session.organizationId, projectId),
+  ])
+  const tree = new Map(folders.map((folder): [string, AccessFolder] => [folder.id, folder]))
+  const visible = (row: MailThreadEntryAttachmentRow) => {
+    const document = row.documentId ? documents.get(row.documentId) : undefined
+    return document !== undefined && readableWithThread(tree, document.folderId, threadFolderId)
+  }
+  return new Set(named.filter((row) => !visible(row)).map((row) => row.position))
 }
 
 function refusedOr(result: ThreadVersionResult): { documentId: string; versionId: string | null } {

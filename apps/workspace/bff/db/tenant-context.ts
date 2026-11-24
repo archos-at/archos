@@ -1,8 +1,8 @@
 import 'server-only'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-export const ORGANIZATION_SETTING = 'grid.organization_id'
-export const USER_SETTING = 'grid.user_id'
+export const ORGANIZATION_SETTING = 'app.organization_id'
+export const USER_SETTING = 'app.user_id'
 
 export const PLATFORM_ROLE = 'app_platform'
 

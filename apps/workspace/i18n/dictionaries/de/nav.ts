@@ -6,6 +6,10 @@ export const nav: typeof en.nav = {
   recentChats: 'Letzte Chats',
   allChats: 'Alle Chats',
   temporaryChat: '(temporärer Chat)',
+  chatWorking: '(arbeitet)',
+  chatWaiting: '(wartet auf Ihre Antwort)',
+  chatAnswered: '(Antwort fertig)',
+  chatFailed: '(Antwort fehlgeschlagen)',
   temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
@@ -17,7 +21,7 @@ export const nav: typeof en.nav = {
   openNavigation: 'Navigation öffnen',
   sections: {
     chat: 'Chat',
-    files: 'Dateien',
+    files: 'Ablage',
     knowledge: 'Wissen',
     research: 'Recherche',
     automation: 'Automatisierung',
@@ -25,8 +29,8 @@ export const nav: typeof en.nav = {
     skills: 'Skills',
     jobs: 'Jobs',
     tasks: 'Aufgaben',
-    officeShelf: 'Büroablage',
-    baseKnowledge: 'Grundlagen',
+    officeShelf: 'Bürobibliothek',
+    baseKnowledge: 'Normen & Richtlinien',
     search: 'Suche',
     settings: 'Übersicht',
     intake: 'Einrichtung',
@@ -46,8 +50,8 @@ export const nav: typeof en.nav = {
   },
   subpages: {
     'files/all': {
-      title: 'Dateien',
-      tab: 'Ordner',
+      title: 'Ablage',
+      tab: 'Dateien',
     },
     'files/mail': {
       title: 'E-Mail-Eingang',
@@ -59,7 +63,7 @@ export const nav: typeof en.nav = {
       title: 'Offene Punkte',
     },
   },
-  filesPlaces: 'Orte der Dateien',
+  filesPlaces: 'Orte der Ablage',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

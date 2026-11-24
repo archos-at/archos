@@ -21,6 +21,22 @@ import {
 } from '@/shared/collaboration/thread-sharing'
 import { createRetryLadder, type RetryLadder } from '@/shared/utils/backoff'
 import { useLiveEvents } from './use-live-events'
+import { useThreadReadReceipt } from './use-thread-read-receipt'
+import { useTypingExpiry } from './use-typing-expiry'
+import type {
+  ConversationAccessFacts,
+  SharedThreadArrival,
+  SharedThreadTurn,
+  UseSharedThreadOptions,
+  UseSharedThreadResult,
+} from '../lib/shared-thread-types'
+
+export type {
+  SharedThreadArrival,
+  SharedThreadTurn,
+  UseSharedThreadOptions,
+  UseSharedThreadResult,
+}
 
 const ACCESS_RETRY_DELAYS_MS = [1_000, 3_000, 8_000]
 
@@ -29,57 +45,6 @@ const TURN_BANNER_MAX_AGE_MS = 5 * 60_000
 const TURN_SILENCE_POLL_MS = 30_000
 
 const UNSHARED_FOCUS_REREAD_MIN_MS = 30_000
-
-const MARK_READ_DEBOUNCE_MS = 1_200
-const MARK_READ_RETRY_MS = 8_000
-const MARK_READ_MAX_ATTEMPTS = 3
-
-interface ConversationAccessFacts {
-  shared?: boolean
-  myRole?: ResourceRole | null
-  myReadState?: { lastReadMessageId: string | null } | null
-  engagementMode?: ConversationEngagement
-  engagementSuggestion?: ConversationEngagement | null
-}
-
-export interface SharedThreadTurn {
-  actorUserId: string | null
-}
-
-const TYPING_SWEEP_MS = 1_000
-
-export interface SharedThreadArrival {
-  messageId: string
-  authorUserId: string | null
-  authorName: string | null
-}
-
-export interface UseSharedThreadOptions {
-  conversationId: string | null
-  enabled?: boolean
-  currentUserId?: string | null
-  active?: boolean
-}
-
-export interface UseSharedThreadResult {
-  shared: boolean
-  myRole: ResourceRole | null
-  loading: boolean
-  connected: boolean
-  accessLost: boolean
-  turnInFlight: SharedThreadTurn | null
-  clearTurnInFlight: () => void
-  noteTurnActivity: () => void
-  typists: DirectoryPerson[]
-  participants: DirectoryPerson[]
-  authorOf: (userId: string | null | undefined) => DirectoryPerson | null
-  unreadAfterMessageId: string | null
-  lastArrival: SharedThreadArrival | null
-  engagement: ConversationEngagement
-  engagementSuggestion: ConversationEngagement | null
-  setEngagement: (mode: ConversationEngagement) => Promise<boolean>
-  refresh: () => void
-}
 
 const INERT: Omit<
   UseSharedThreadResult,
@@ -490,51 +455,17 @@ export function useSharedThread(options: UseSharedThreadOptions): UseSharedThrea
     return () => clearInterval(id)
   }, [turnInFlight, turnHasGoneQuiet])
 
-  useEffect(() => {
-    if (Object.keys(typingUntil).length === 0) return
-    const timer = setInterval(() => {
-      const now = Date.now()
-      setTypingUntil((previous) => {
-        const live = Object.entries(previous).filter(([, until]) => until > now)
-        if (live.length === Object.keys(previous).length) return previous
-        return Object.fromEntries(live)
-      })
-    }, TYPING_SWEEP_MS)
-    return () => clearInterval(timer)
-  }, [typingUntil])
+  useTypingExpiry(typingUntil, setTypingUntil)
 
-  useEffect(() => {
-    if (!enabled || !shared || !base || !active) return
-    const newest = newestMessageId
-    if (!newest || newest === reportedReadIdRef.current) return
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
-
-    let attempts = 0
-    let left = false
-    const report = () => {
-      reportedReadIdRef.current = newest
-      void fetch(`${base}/read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lastReadMessageId: newest }),
-      })
-        .then((response) => {
-          if (!response.ok) throw new Error(`read receipt failed: ${response.status}`)
-        })
-        .catch(() => {
-          if (reportedReadIdRef.current === newest) reportedReadIdRef.current = null
-          if (left || ++attempts >= MARK_READ_MAX_ATTEMPTS) return
-          markReadTimerRef.current = setTimeout(report, MARK_READ_RETRY_MS)
-        })
-    }
-    markReadTimerRef.current = setTimeout(report, MARK_READ_DEBOUNCE_MS)
-
-    return () => {
-      left = true
-      if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current)
-      markReadTimerRef.current = null
-    }
-  }, [enabled, shared, base, active, newestMessageId])
+  useThreadReadReceipt({
+    enabled,
+    shared,
+    base,
+    active,
+    newestMessageId,
+    reportedReadIdRef,
+    markReadTimerRef,
+  })
 
   const directory = useMemo(
     () => new Map(participants.map((person) => [person.userId, person])),

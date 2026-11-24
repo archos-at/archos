@@ -106,7 +106,7 @@ Chosen option 2.
   (`Fassung.FassungVom`), the whole-law document and the catalog pointer
   (today's consolidation) are never read for a past day, and nothing found is a
   miss that says today's text was not substituted
-  (`packages/ris-adapter/src/lookup/as_of.py`).
+  (`packages/ris-adapter/src/ris_adapter/lookup/as_of.py`).
   (Amended 2026-11-12, now `packages/agent/src/agent/knowledge/law_lookup/`.)
   Only a day before today is a past day. A day of today or later (the UTC date,
   `as_of.reads_today`) is today's consolidated text by the usual path (address,

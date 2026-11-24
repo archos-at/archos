@@ -92,6 +92,7 @@ function ConnectedSetup({
       uploading={upload.isUploading}
       onFiles={send}
       onDecide={intake.decide}
+      onChangeBuilding={intake.changeBuilding}
       onReread={() => void intake.reread()}
       onComplete={intake.complete}
       onRetry={() => void intake.refresh()}

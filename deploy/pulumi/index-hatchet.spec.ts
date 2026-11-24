@@ -14,6 +14,9 @@ const stackConfig = (extra: Record<string, string> = {}) =>
 
 type Resource = { type: string; name: string; inputs: Record<string, any> };
 const RESOURCES: Resource[] = [];
+type Constructed = { type: string; name: string; resource: pulumi.Resource; dependsOn: unknown };
+const CONSTRUCTED: Constructed[] = [];
+const constructed = (type: string, name: string) => CONSTRUCTED.find((c) => c.type === type && c.name === name);
 
 pulumi.runtime.setMocks(
   {
@@ -62,7 +65,15 @@ function env(type: string, name: string): Env[] {
 
 beforeAll(async () => {
   pulumi.runtime.setAllConfig(stackConfig({ observabilityEnabled: "false", chatAffinity: "false" }));
-  const stack = (await import("./index")) as Record<string, unknown>;
+  let stack: Record<string, unknown> = {};
+  await pulumi.runtime.runInPulumiStack(async () => {
+    pulumi.runtime.registerStackTransformation(({ resource, type, name, opts }) => {
+      CONSTRUCTED.push({ type, name, resource, dependsOn: opts.dependsOn });
+      return undefined;
+    });
+    stack = (await import("./index")) as Record<string, unknown>;
+    return {};
+  });
   await Promise.all(
     Object.values(stack)
       .filter((v): v is pulumi.Output<unknown> => pulumi.Output.isInstance(v))
@@ -210,7 +221,9 @@ describe("RabbitMQ", () => {
       `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`,
     );
     expect(RABBITMQ_OPERATOR_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(read("index.ts")).toMatch(/installRabbitmqOperator\(provider, \[certManager\.release\]\)/);
+    const certManager = constructed(RELEASE, "cert-manager")?.resource;
+    expect(certManager).toBeDefined();
+    expect(constructed("kubernetes:yaml/v2:ConfigFile", "rabbitmq-cluster-operator")?.dependsOn).toEqual([certManager]);
     expect(find(RELEASE, "hatchet").inputs.values.rabbitmq).toEqual({ enabled: false });
   });
 
@@ -219,7 +232,7 @@ describe("RabbitMQ", () => {
     expect(metadata).toEqual({ name: "hatchet-rabbitmq", namespace: "background-work" });
     expect(spec.replicas).toBe(3);
     expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a");
-    expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
+    expect(spec.resources).toEqual({ requests: { cpu: "270m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };
     expect(spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm).toEqual({

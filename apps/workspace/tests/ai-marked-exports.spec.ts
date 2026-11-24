@@ -1,7 +1,7 @@
-// @disk-inputs: app/**, bff/**
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+// @disk-inputs: app/**, bff/**, ui/**, i18n/**, shared/**, types/**, utils/**
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { callsTo, importsOf, parseSource, productionSources } from '@/test-utils/source-ast'
 
 const ROOT = join(__dirname, '..')
 
@@ -14,25 +14,17 @@ const WRITERS: Readonly<Record<string, string>> = {
     'Protokoll PDF and .docx: composite when it holds the agent’s text, unmarked when only the office’s (export.spec.ts)',
 }
 
-const WRITER_CALL = /\b(renderToBuffer|renderToStream|renderToFile|renderDocx)\(/
+const WRITER_CALLS = ['renderToBuffer', 'renderToStream', 'renderToFile', 'renderDocx']
 
-function sources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : sources(path)
-    return /\.tsx?$/.test(entry.name) && !/\.spec\.tsx?$/.test(entry.name) ? [path] : []
-  })
-}
+const MARKING_MODULE = /^(\.{1,2}|@\/lib)\/(.+\/)?(ai-provenance|xmp-metadata|docx)$/
 
 function callers(): string[] {
-  return ['app', 'bff']
-    .flatMap((dir) => sources(join(ROOT, dir)))
-    .filter((path) =>
-      readFileSync(path, 'utf8')
-        .split('\n')
-        .some((line) => WRITER_CALL.test(line) && !/export (async )?function render/.test(line))
-    )
-    .map((path) => relative(ROOT, path))
+  return productionSources(ROOT)
+    .filter((path) => /^(app|bff)\//.test(path))
+    .filter((path) => {
+      const source = parseSource(path, ROOT)
+      return WRITER_CALLS.some((name) => callsTo(source, name).length > 0)
+    })
     .sort()
 }
 
@@ -41,10 +33,16 @@ describe('every PDF and .docx the product writes', () => {
     expect(callers()).toEqual(Object.keys(WRITERS).sort())
   })
 
-  it('names, in its own source, the marking it applies', () => {
+  it('counts only the repository\'s marking modules, never the bare docx package', () => {
+    const marking = ['@/lib/ai-provenance', './xmp-metadata', '@/lib/pdf/xmp-metadata', './docx', '@/lib/answer-export/docx']
+    expect(marking.filter((specifier) => !MARKING_MODULE.test(specifier))).toEqual([])
+    expect(['docx', 'docx/lib/docx', 'ai-provenance'].filter((specifier) => MARKING_MODULE.test(specifier))).toEqual([])
+  })
+
+  it('imports the marking module it applies', () => {
     for (const path of Object.keys(WRITERS)) {
-      const source = readFileSync(join(ROOT, path), 'utf8')
-      expect(source, path).toMatch(/aiProvenance|withAiProvenanceXmp|AiProvenanceMarking/)
+      const specifiers = importsOf(parseSource(path, ROOT)).map((edge) => edge.specifier)
+      expect(specifiers.some((specifier) => MARKING_MODULE.test(specifier)), path).toBe(true)
     }
   })
 })

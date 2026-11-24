@@ -68,7 +68,7 @@ describe('planFiling', () => {
     })
   })
 
-  it('names the new folder a convention would create, and files the Büroablage as buero', () => {
+  it('names the new folder a convention would create, and files the Bürobibliothek as buero', () => {
     const plan = planFiling(
       input({
         shelf: 'office_shelf',

@@ -1,8 +1,12 @@
 import type { DirectoryPerson } from '@/lib/sharing/types'
+import { isLegacyAgentMentionId } from './legacy-mention-ids'
 
 export type { DirectoryPerson }
 
-export const AGENT_MENTION_ID = 'agent:piloti'
+export const AGENT_MENTION_ID = 'agent:core'
+
+export const isAgentMentionId = (targetId: string): boolean =>
+  targetId === AGENT_MENTION_ID || isLegacyAgentMentionId(targetId)
 
 export interface MentionInput {
   targetId: string

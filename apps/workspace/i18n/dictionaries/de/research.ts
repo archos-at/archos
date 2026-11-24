@@ -29,7 +29,7 @@ export const research: typeof en.research = {
     },
     loggedOutTitle: '{productName} wird verfügbar, sobald Ihre Organisation verifiziert ist.',
     loggedOutBody:
-      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Büroablage, Aufgaben und Recherche.',
+      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Bürobibliothek, Aufgaben und Recherche.',
     signInSso: 'Mit SSO anmelden',
     welcomeTitle: 'Wie kann {productName} bei Ihrem Projekt helfen?',
   },
@@ -37,8 +37,6 @@ export const research: typeof en.research = {
   chatToolbar: {
     createNewSession: 'Neue Sitzung erstellen',
     signInToCreate: 'Melden Sie sich an, um Sitzungen zu erstellen',
-    cannotCreateActive:
-      'Es kann keine neue Sitzung erstellt werden, solange die aktuelle Sitzung aktiv ist',
     newChat: 'Neuer Chat',
     toggleSessions: 'Chatverlauf',
     historyDoor: 'Chats',
@@ -82,7 +80,7 @@ export const research: typeof en.research = {
     toggleAria: '{name} zulassen',
     strata: {
       law: 'Baurecht',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       project: 'Projektwissen',
       auto: 'Web',
     },
@@ -90,12 +88,12 @@ export const research: typeof en.research = {
       all: 'Alle Quellen',
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
     },
     knowledge: {
       projectName: 'Projektwissen',
       projectDescription: 'Ihre Projektunterlagen in diesem Projekt.',
-      officeName: 'Büroablage',
+      officeName: 'Bürobibliothek',
       officeDescription: 'Freigegebene Unterlagen Ihres Büros.',
     },
   },
@@ -252,10 +250,7 @@ export const research: typeof en.research = {
     stopConfirmBody:
       'Die laufende Recherche wird abgebrochen und kann nicht fortgesetzt werden. Der bisherige Teilfortschritt bleibt im Recherchebereich sichtbar.',
     stopConfirmConfirm: 'Recherche stoppen',
-    newSessionDisabled: 'Neuen Chat starten (während aktiver Vorgänge deaktiviert)',
     startNewSession: 'Neuen Chat starten',
-    cannotCreateActive:
-      'Es kann kein neuer Chat gestartet werden, solange dieser noch antwortet',
     newSessionButton: 'Neuer Chat',
     searchPlaceholder: 'Chats durchsuchen',
     searchAria: 'Chats durchsuchen',
@@ -265,8 +260,6 @@ export const research: typeof en.research = {
     noMatchingDescription: 'Nichts in diesem Projekt passt zu „{query}“.',
     noSessions: 'Noch keine Chats',
     noSessionsDescription: 'Ihre Chats mit {productName} in diesem Projekt erscheinen hier.',
-    navigationBlocked:
-      '{productName} antwortet noch. Neue Chats und der Wechsel zwischen Chats pausieren bis zum Abschluss.',
     today: 'Heute',
     yesterday: 'Gestern',
     editTitle: 'Chat-Titel bearbeiten',
@@ -279,8 +272,10 @@ export const research: typeof en.research = {
     deleteSession: 'Chat löschen',
     sessionActive: '{productName} arbeitet an diesem Chat',
     reportCompleted: 'Bericht fertig',
+    sessionWaiting: 'Wartet auf Ihre Antwort',
+    answerReady: 'Antwort fertig',
+    answerFailed: 'Antwort fehlgeschlagen',
     chatSession: 'Chat',
-    sessionLabelBusy: 'Chat: {title} (Verarbeitung läuft)',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',

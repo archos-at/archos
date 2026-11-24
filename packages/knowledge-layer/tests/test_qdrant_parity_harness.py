@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from oib_retrieval.qdrant_parity import report_markdown
 from oib_retrieval.qdrant_parity import runner
 from oib_retrieval.qdrant_parity import sample
 
@@ -56,7 +57,7 @@ def test_every_gate_has_a_verdict_and_the_unmeasurable_ones_say_so(report):
 
 
 def test_the_report_renders(report):
-    markdown = runner.render_markdown(report)
+    markdown = report_markdown.render_markdown(report)
     assert "| G2 latency |" in markdown and "qdrant_bm25" in markdown
 
 
@@ -71,7 +72,7 @@ def test_the_ranking_sweep_measures_every_variant_against_the_baseline(report):
     assert list(sweep) == [*ordinary, variants.REPEAT, *split]
     assert "diff" not in sweep[variants.BASELINE]
     assert all("diff" in result for name, result in sweep.items() if name != variants.BASELINE)
-    assert "## Ranking sweep" in runner.render_markdown(report)
+    assert "## Ranking sweep" in report_markdown.render_markdown(report)
 
 
 def test_every_variant_serves_the_true_cosine_as_the_score(report):

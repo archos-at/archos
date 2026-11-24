@@ -73,7 +73,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('asking Piloti on the canvas', () => {
+describe('asking the agent on the canvas', () => {
   it('turns a composing card into a question, and follows its turn to the answer', async () => {
     const { made, createClient } = fakeClients()
     const { result } = hook({ createClient })
@@ -123,12 +123,12 @@ describe('asking Piloti on the canvas', () => {
     expect(other.made[0].options.conversationId).toBe('s_thread_doc_2')
   })
 
-  it('asks an @Piloti reply under the turn id the server would give it', async () => {
+  it('asks the agent a reply under the turn id the server would give it', async () => {
     const { made, createClient } = fakeClients()
     const { result } = hook({ createClient })
     act(() => {
       result.current.ask({
-        text: '@Piloti stimmt das?',
+        text: '@Agent stimmt das?',
         region: REGION,
         annotationId: 'ann_3',
         replyInThread: true,
@@ -145,7 +145,7 @@ describe('asking Piloti on the canvas', () => {
     const { result } = hook({ createClient })
     let id = ''
     act(() => {
-      id = result.current.ask({ text: '@Piloti stimmt das?', region: REGION, annotationId: 'ann_3', replyInThread: true, baseline: 0 })
+      id = result.current.ask({ text: '@Agent stimmt das?', region: REGION, annotationId: 'ann_3', replyInThread: true, baseline: 0 })
     })
     await flush()
     expect(made[0].asked[0].question).toMatchObject({ region: { ...REGION, annotation_id: 'ann_3' }, replyInThread: true })
@@ -216,7 +216,7 @@ describe('askRegionOf', () => {
   })
 })
 
-describe('while Piloti works', () => {
+describe('while the agent works', () => {
   const BOX = { page: 2, x: 0.4, y: 0.2, w: 0.2, h: 0.2 }
 
   it('makes a box asked about meanwhile a note for the running turn, not a second question', async () => {
@@ -303,7 +303,7 @@ describe('a question that went without part of itself', () => {
     const { result } = hook({ createClient })
     let id = ''
     act(() => {
-      id = result.current.ask({ text: '@Piloti stimmt das?', region: REGION, annotationId: 'ann_3', replyInThread: true, baseline: 0 })
+      id = result.current.ask({ text: '@Agent stimmt das?', region: REGION, annotationId: 'ann_3', replyInThread: true, baseline: 0 })
     })
     await flush()
     act(() => made[0].options.onDegraded?.(id, ['region', 'thread']))

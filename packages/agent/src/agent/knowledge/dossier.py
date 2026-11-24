@@ -1,32 +1,3 @@
-"""The document dossier: what one document is and what it states, read once at ingest.
-
-Until now a document was understood from its cover and its last page: the summary,
-the tags and the topics each read the first and last chunk, 4000 characters, and
-each answered one narrow question. A 40-page Baubeschreibung that names the
-Gebäudeklasse on page 12 told nobody, and three later readers (the permit
-extraction, the intake agent, the experience reader) read the same document again
-for what one reading could have kept.
-
-The dossier is that reading, stored on the ``document_metadata`` row. One model
-call over a DIGEST of the whole document (:func:`build_digest`: every page in
-order, each with its kind and its opening words, a drawing by its analysed summary
-and its annotations, the Plankopf, the file name), answered in one strict schema:
-
-- a fine ``document_type`` (:data:`DOCUMENT_TYPES`), so "Brandschutzkonzept" and
-  "Einreichplan" are told apart, which the tags' twelve types do not;
-- ``parties``, ``dates`` and ``place``, as the document states them;
-- ``facts`` with their evidence (page and verbatim quote), each under a key from
-  :data:`FACT_KEYS`. Keys are a closed set so two documents can contradict each
-  other on one: the BFF's findings compare them across the project
-  (``docs/architecture/document-dossier.md``);
-- a ``summary`` sentence, which becomes the document's summary because it was
-  written from the whole document rather than its first and last chunk.
-
-Everything fails open: no model, a failed call or a reply that does not fit the
-schema is ``None``, and ingestion carries on as it did before the dossier existed.
-Keys are English; the values are the document's own words.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -249,7 +220,6 @@ def _fact(fact: DossierFact) -> dict[str, Any] | None:
 
 
 def dossier_record(reply: DossierReply) -> dict[str, Any]:
-    """The stored record: blanks dropped, dates checked, every list bounded. Pure."""
     parties = [{"role": party.role, "name": name} for party in reply.parties if (name := _text(party.name, 160))][
         :MAX_PARTIES
     ]
@@ -277,12 +247,10 @@ def dossier_record(reply: DossierReply) -> dict[str, Any]:
 
 
 def _misfit(exc: ValidationError) -> str:
-    """Where a reply does not fit, as field paths and error kinds only: never the document's words."""
     return "; ".join(f"{'.'.join(str(part) for part in error['loc'])} ({error['type']})" for error in exc.errors()[:6])
 
 
 def parse_dossier(raw: Any) -> dict[str, Any] | None:
-    """A reply (a JSON object, or its text) as the stored record, or ``None`` when it does not fit. Pure."""
     from agent.common.json_utils import extract_json
 
     parsed = extract_json(raw) if isinstance(raw, str) else raw
@@ -302,14 +270,6 @@ def build_digest(
     title_block: dict[str, Any] | None = None,
     limit: int = MAX_DIGEST_CHARS,
 ) -> str:
-    """The whole document in ``limit`` characters: every page, its kind, its opening. Pure.
-
-    ``passages`` is ``(page, kind, text)`` in reading order, where ``kind`` is the
-    chunk's content type (``text``, ``table``, ``drawing``, ``image``). Passages of
-    one page are joined under one ``[Seite N · kind]`` marker; every page gets an
-    equal share of ``limit``, never under :data:`MIN_PAGE_CHARS`, so page 30 is in
-    the digest as surely as page 1.
-    """
     pages: dict[Any, dict[str, Any]] = {}
     for page, kind, text in passages:
         body = " ".join((text or "").split())
@@ -336,11 +296,6 @@ def build_digest(
 
 
 def write_dossier(digest: str, llm: Any, *, file_name: str) -> dict[str, Any] | None:
-    """One strict-schema call over the digest; the stored record, or ``None``. Never raises.
-
-    Synchronous: the ingest runs it on a worker thread. Traced as a Langfuse
-    generation (:data:`GENERATION_NAME`), as every model call is (ADR-0089).
-    """
     if llm is None or not digest.strip():
         return None
     from langchain_core.messages import HumanMessage
@@ -384,12 +339,6 @@ def _invoke_once(llm: Any, messages: list[Any], max_tokens: int) -> Any:
 
 
 def _invoke_with_length_retry(llm: Any, messages: list[Any], file_name: str) -> Any:
-    """One strict call; a reply the output budget clipped is asked again once with the budget doubled.
-
-    Mirrors the VLM's truncation retry (``llamaindex.adapter._vlm_chat_create``):
-    a clipped structured reply is unusable, and one more attempt with room is cheap next to
-    losing the dossier. A second clip raises and the caller fails open.
-    """
     try:
         return _invoke_once(llm, messages, MAX_OUTPUT_TOKENS)
     except LengthFinishReasonError:
@@ -410,19 +359,11 @@ def _usage(response: Any) -> dict[str, int]:
 
 
 def own_document_type(dossier: dict[str, Any] | None) -> str | None:
-    """The dossier's ``document_type``, or ``None``."""
     value = (dossier or {}).get("document_type")
     return value if value in DOCUMENT_TYPES else None
 
 
 def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) -> list[dict[str, Any]]:
-    """Facts the drawing analysis already measured, as dossier facts. Pure.
-
-    The schema-v5 analysis of each drawing page keeps quantities as
-    ``object + property + value + unit`` (``visual_analysis``), stored on the chunk
-    and read by nobody. The ones that say a fact the project compares are lifted:
-    a room height, a building height, a storey count.
-    """
     lifted: list[dict[str, Any]] = []
     for page, analysis in analyses:
         for segment in _segments_of(analysis):
@@ -445,13 +386,6 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
 
 
 def _segments_of(analysis: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """The segments of one analysis, in either shape it arrives in.
-
-    A whole reply holds ``segments``; a chunk's ``drawing_data`` holds the ONE
-    ``segment`` it was cut from (``visual_analysis.segment_payloads``), which is
-    the shape the ingest hands this module. Reading only ``segments`` lifted
-    nothing from any real ingest.
-    """
     if not analysis:
         return []
     segments = analysis.get("segments")
@@ -481,7 +415,6 @@ def _folded(value: Any) -> str:
 
 
 def _stated(dossier: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
-    """The first statement of every fact key in a dossier: what "this Fassung says" means for a key."""
     stated: dict[str, dict[str, Any]] = {}
     for fact in (dossier or {}).get("facts") or []:
         if isinstance(fact, dict) and fact.get("key") and fact.get("value") and fact["key"] not in stated:
@@ -490,14 +423,6 @@ def _stated(dossier: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
 
 
 def fact_changes(before: dict[str, Any] | None, after: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """What the new Fassung states differently from the one it replaces, fact by fact. Pure.
-
-    A key both state with different values is a change ("4" → "5" oberirdische Geschosse);
-    a key only one of them states is ``before: None`` (newly stated) or ``after: None`` (no
-    longer stated). Values compare folded (case, spaces, decimal comma), so "2,60 m" and
-    "2.60 m" are one value. The change line the summary model writes says what changed in
-    words; this says it in the facts the project compares, without a model.
-    """
     old, new = _stated(before), _stated(after)
     if not old or not new:
         return []

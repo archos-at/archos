@@ -85,7 +85,7 @@ Asked through the agent door on dev, one org, old path (the knowledge-context sw
 | B4 | Welche Gebäudeklasse hat ein Wohnhaus mit 4 Geschoßen in München? | no | 59.4 | low | 2 | 7 |
 | B5 | Was sagt § 50 Wiener Garagengesetz? | no | 12.7 | high | 1 | 2 |
 | B6 | Welche Gebäudeklasse ist das? | yes | 26.3 | high | 3 | 6 |
-| B7 | Welche Brandabschottung ist für Leitungsdurchführungen laut unserer Büroablage vorgesehen? | yes | 14.2 | high | 1 | 1 |
+| B7 | Welche Brandabschottung ist für Leitungsdurchführungen laut unserer Bürobibliothek vorgesehen? | yes | 14.2 | high | 1 | 1 |
 | B8 | Welche Ausgabe der OIB-Richtlinie 2 galt für eine Einreichung am 01.06.2023? | yes | 45.1 | low | 4 | 13 |
 | B9 | Wie viele Pflichtstellplätze brauchen 12 Wohnungen hier? | yes | 34.6 | high | 3 | 8 |
 | B10 | Welche Feuerwiderstandsklasse brauchen tragende Wände in Gebäudeklasse 4? | yes | 43.6 | high | 1 | 7 |

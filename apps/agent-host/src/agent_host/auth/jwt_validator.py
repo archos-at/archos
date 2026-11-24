@@ -1,12 +1,3 @@
-"""JWT validation via OIDC discovery and JWKS signature verification.
-
-Uses PyJWT[cryptography] to verify RS256-signed JWTs against the issuer's
-published public keys. Keys are cached for 6 hours (default); a kid miss
-forces an immediate refresh.
-
-Install: pip install 'PyJWT[cryptography]'
-"""
-
 import asyncio
 import logging
 import threading
@@ -22,22 +13,6 @@ _MAX_FETCH_BYTES = 64 << 10  # 64 KB cap on OIDC/JWKS responses
 
 
 class JWTValidator(TokenValidator):
-    """
-    Validates OIDC JWTs (any standards-compliant provider).
-
-    Fetches the JWKS URI from the issuer's OIDC discovery document, then
-    verifies token signatures using the matching public key.  The JWKS
-    client is recreated after `jwks_cache_ttl` seconds.
-
-    Args:
-        issuer_url: OIDC issuer base URL (e.g. ``https://accounts.google.com``).
-            Discovery document is fetched from ``{issuer_url}/.well-known/openid-configuration``.
-        audience: Optional ``aud`` claim to verify.  Pass ``None`` to skip
-            audience verification.
-        jwks_cache_ttl: Seconds before the JWKS client is recreated.  Defaults
-            to 6 hours.
-    """
-
     def __init__(
         self,
         issuer_url: str,
@@ -59,12 +34,10 @@ class JWTValidator(TokenValidator):
         self._jwks_lock = threading.Lock()
 
     def can_handle(self, token: str) -> bool:
-        """Accept any token that looks like a compact JWT (three dot-separated segments)."""
         parts = token.split(".")
         return len(parts) == 3
 
     def _fetch_oidc_config(self) -> dict:
-        """Fetch the OIDC discovery document and return it as a dict."""
         import json
         import urllib.request
 
@@ -82,12 +55,6 @@ class JWTValidator(TokenValidator):
             return json.loads(raw)
 
     def _fetch_jwks_keys(self) -> list[tuple[str | None, Any]]:
-        """Fetch JWKS and return (kid, PyJWK) pairs.
-
-        Adds ``use="sig"`` for keys that omit the field so that
-        PyJWT ≥ 2.9 — which silently drops keys without ``use="sig"`` — still
-        accepts them.
-        """
         import json
         import urllib.request
 
@@ -119,11 +86,6 @@ class JWTValidator(TokenValidator):
         return keys
 
     def _get_signing_key(self, token: str):
-        """Return the signing key for *token*, or ``None`` on failure.
-
-        Cache reads/writes run under ``_jwks_lock`` because this method is
-        invoked from thread-pool workers via ``asyncio.to_thread``.
-        """
         import jwt as _jwt
 
         with self._jwks_lock:
@@ -170,19 +132,6 @@ class JWTValidator(TokenValidator):
             return self._cached_keys[0][1]
 
     async def validate(self, token: str) -> tuple[dict[str, Any] | None, str | None]:
-        """Validate *token* and return ``(user_dict, error_code)``.
-
-        Returns ``(user_dict, None)`` on success.  On failure returns
-        ``(None, error_code)`` where *error_code* is one of:
-
-        - ``"token_expired"`` — signature valid but ``exp`` claim passed
-        - ``"token_invalid"`` — bad signature, malformed, or claim check failure
-
-        Merges verified JWT claims with the required ``type`` / ``token`` /
-        ``skip_clarifier`` fields. Contract keys are applied after ``**claims``
-        so the bearer token and caller metadata cannot be spoofed by payload
-        claims.
-        """
         try:
             import jwt as _jwt
         except ImportError:

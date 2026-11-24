@@ -3,7 +3,9 @@
  */
 import { describe, expect, test } from 'vitest'
 
+import { PRODUCT_NAME } from '@/lib/brand'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { LEGACY_AGENT_MENTION_ID } from '@/lib/mentions/legacy-mention-ids'
 import {
   findMentionQuery,
   humanMentions,
@@ -17,7 +19,7 @@ import {
 const anna: DraftMention = { targetId: 'u-anna', display: 'Anna' }
 const annaBerger: DraftMention = { targetId: 'u-anna-b', display: 'Anna Berger' }
 const markus: DraftMention = { targetId: 'u-markus', display: 'Markus Hofer' }
-const agent: DraftMention = { targetId: AGENT_MENTION_ID, display: 'Piloti' }
+const agent: DraftMention = { targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }
 
 describe('findMentionQuery — the trigger', () => {
   test('fires on `@` at the start of the input', () => {
@@ -71,7 +73,7 @@ describe('insertMention', () => {
 
   test('inserts at the caret when the trigger is a bare `@`', () => {
     const range = findMentionQuery('@', 1)
-    expect(insertMention('@', range!, 'Piloti')).toEqual({ text: '@Piloti ', caret: 8 })
+    expect(insertMention('@', range!, 'Markus')).toEqual({ text: '@Markus ', caret: 8 })
   })
 })
 
@@ -139,6 +141,7 @@ describe('toMentionInputs / humanMentions', () => {
   test('separates the assistant from the people', () => {
     expect(humanMentions([agent, anna])).toEqual([anna])
     expect(humanMentions([agent])).toEqual([])
+    expect(humanMentions([{ targetId: LEGACY_AGENT_MENTION_ID, display: PRODUCT_NAME }])).toEqual([])
   })
 })
 

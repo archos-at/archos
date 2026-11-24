@@ -295,9 +295,9 @@ class TestThroughTheTool:
         assert "- `Kopfbolzendübeln`: 1× in" in text
 
     async def test_a_capped_scan_that_read_only_breadcrumbs_is_not_a_no(self, search_with, monkeypatch):
-        from knowledge_layer.browse import tool as browse
+        from knowledge_layer.browse import exact as browse_exact
 
-        monkeypatch.setattr(browse, "MAX_MATCH_CHUNKS", 2)
+        monkeypatch.setattr(browse_exact, "MAX_MATCH_CHUNKS", 2)
         subsections = [c for c in _as_chunks(REPORT) if c.metadata.get("clause_id") in ("3.1", "3.2")]
         search_with(_Store(subsections))
         text = await _search(query="Rettungswege", match="exact")

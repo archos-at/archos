@@ -75,15 +75,13 @@ vi.mock('./ChatToolbar', () => ({
   ChatToolbar: ({
     sessionTitle,
     onNewSession,
-    isNewSessionDisabled,
   }: {
     sessionTitle: string
     onNewSession?: () => void
-    isNewSessionDisabled?: boolean
   }) => (
     <>
       <div data-testid="app-bar">{sessionTitle}</div>
-      <button type="button" onClick={onNewSession} disabled={isNewSessionDisabled}>
+      <button type="button" onClick={onNewSession}>
         Header New Session
       </button>
     </>
@@ -203,7 +201,7 @@ describe('MainLayout', () => {
     expect(mockClearSessionUrl).toHaveBeenCalledOnce()
   })
 
-  test('disables new session action while shallow streaming is active', () => {
+  test('keeps the new session action available while an answer is still being written', () => {
     vi.mocked(useChatStore).mockImplementation((selector?: StoreSelector<ChatStoreWithHydration>) => {
       const state: DeepPartial<ChatStoreWithHydration> = {
         currentConversation: { id: 'session-1', title: 'Test Session' },
@@ -221,7 +219,7 @@ describe('MainLayout', () => {
 
     render(<MainLayout />)
 
-    expect(screen.getByRole('button', { name: /header new session/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /header new session/i })).not.toBeDisabled()
   })
 
   test('sessions panel only lists the active project\'s sessions (legacy unscoped fail open)', () => {
@@ -246,6 +244,8 @@ describe('MainLayout', () => {
           makeConv('legacy', null),
           { ...makeConv('other-user', 'proj-a'), userId: 'user-2' },
         ],
+        turns: {},
+        unseenAnswers: {},
         getUserConversations: vi.fn(() => []),
         selectConversation: vi.fn(),
         startNewSessionDraft: vi.fn(),

@@ -35,7 +35,7 @@ describe('buildFolderDescriptionsBlock', () => {
       [
         FOLDER_DESCRIPTIONS_HEADER,
         '- [Projekt | Bescheide] "Bescheide der Behörden, keine […]"',
-        '- [Büroablage | Normen] "Gekaufte ÖNORMEN"',
+        '- [Bürobibliothek | Normen] "Gekaufte ÖNORMEN"',
       ].join('\n')
     )
     expect(listDescribedFolders).toHaveBeenCalledWith('org-1', 'proj-1')
@@ -48,7 +48,7 @@ describe('buildFolderDescriptionsBlock', () => {
     expect(await buildFolderDescriptionsBlock('org-1', 'proj-1')).toBeNull()
   })
 
-  it('reads only the Büroablage outside a project', async () => {
+  it('reads only the Bürobibliothek outside a project', async () => {
     vi.mocked(listDescribedFolders).mockResolvedValue([])
     expect(await buildFolderDescriptionsBlock('org-1', null)).toBeNull()
     expect(listProjectFolderTree).not.toHaveBeenCalled()

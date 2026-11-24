@@ -45,6 +45,13 @@ class TestExtractTurnInputs:
         assert inputs.focus_file_name == "Aufsicht.pdf"
         assert inputs.focus_shelf == "project"
 
+    def test_lifts_the_selected_part_of_an_answer_and_a_later_turn_has_none(self):
+        asked = extract_turn_inputs(_message("Woher kommt das?", answer_excerpt="  höchstens 40 m  "))
+
+        assert asked.answer_excerpt == "höchstens 40 m"
+        assert extract_turn_inputs(_message("und sonst?")).answer_excerpt is None
+        assert extract_turn_inputs("eine Frage").answer_excerpt is None
+
     def test_a_plain_question_is_the_whole_question_and_states_nothing_else(self):
         inputs = extract_turn_inputs('  {"query": "x", "data_sources": ["web_search"]}  ')
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { Copy, DockerfileParser, Run } from "dockerfile-ast";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
@@ -55,7 +56,14 @@ describe("WorkOS authorization rollout runs with the deploy", () => {
   });
 
   it("runs only bundles the frontend image builds, from scripts that exist", () => {
-    const dockerfile = readFileSync(resolve(UI, "deploy/Dockerfile"), "utf8");
+    const instructions = DockerfileParser.parse(readFileSync(resolve(UI, "deploy/Dockerfile"), "utf8")).getInstructions();
+    const loop = instructions
+      .filter((instruction) => instruction instanceof Run)
+      .map((instruction) => instruction.getArguments().map((argument) => argument.getValue()))
+      .find((words) => words.slice(0, 3).join(" ") === "for script in");
+    const listEnd = loop?.findIndex((word) => word.endsWith(";")) ?? -1;
+    expect(listEnd, "deploy/Dockerfile has no `for script in ...;` RUN loop").toBeGreaterThan(2);
+    const bundled = (loop ?? []).slice(3, listEnd + 1).map((word) => (word.endsWith(";") ? word.slice(0, -1) : word));
     for (const job of ["grid-app-authz-catalog", "grid-app-folder-grants"]) {
       const command = commands.get(job) ?? [];
       expect(command[0]).toBe("node");
@@ -63,9 +71,18 @@ describe("WorkOS authorization rollout runs with the deploy", () => {
       expect(bundle, `${job} runs ${command.join(" ")}`).not.toBeNull();
       const script = bundle?.[1] ?? "";
       expect(existsSync(resolve(UI, `scripts/${script}.ts`))).toBe(true);
-      expect(dockerfile).toMatch(new RegExp(`for script in [^;]*\\b${script}\\b`));
+      expect(bundled).toContain(script);
       expect(command).toContain("--apply");
     }
-    expect(dockerfile).toContain("COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts");
+    const copies = instructions
+      .filter((instruction) => instruction instanceof Copy)
+      .map((instruction) => ({
+        flags: instruction.getFlags().map((flag) => `${flag.getName()}=${flag.getValue()}`),
+        paths: instruction.getArguments().map((argument) => argument.getValue()),
+      }));
+    expect(copies).toContainEqual({
+      flags: ["from=builder", "chown=nextjs:nodejs"],
+      paths: ["/app/dist-scripts", "./dist-scripts"],
+    });
   });
 });

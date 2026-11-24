@@ -30,7 +30,7 @@ vi.mock('@/lib/documents/document-edits', () => ({
 vi.mock('@/lib/documents/document-listing', () => ({
   resolveProjectDocumentsByName: vi.fn(),
 }))
-vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn() }))
+vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn(), assertMoveKeepsOutOfStandards: vi.fn(async () => undefined) }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({
   listOfficeShelfFolders: vi.fn(),
   ensureOfficeShelfFolderPaths: vi.fn(),
@@ -115,7 +115,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -235,13 +235,13 @@ describe('GET /api/proposals', () => {
     expect((await listOpenProposals({ projectId: PROJECT }, run)).proposals).toEqual([])
   })
 
-  it('lists the Büroablage’s with no project, to any member, decidable by its curators only', async () => {
+  it('lists the Bürobibliothek’s with no project, to any member, decidable by its curators only', async () => {
     const forMember = await listOpenProposals({ shelf: 'office_shelf' }, run)
     expect(forMember.proposals.map((entry) => [entry.proposal.id, entry.proposal.projectId, entry.proposal.canDecide])).toEqual([
       [OFFICE_SHELF, null, false],
     ])
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     expect((await listOpenProposals({ shelf: 'office_shelf' }, run)).proposals[0].proposal.canDecide).toBe(true)
   })
 
@@ -314,10 +314,10 @@ describe('a proposal no conversation made', () => {
   })
 })
 
-describe('the Büroablage', () => {
+describe('the Bürobibliothek', () => {
   it('is decided by its curators: a member gets a 403', async () => {
     await expect(applyProposal(OFFICE_SHELF, run)).rejects.toMatchObject({ status: 403 })
-    SESSION.permissions = ['org:archiv:manage']
+    SESSION.permissions = ['org:office_shelf:manage']
     const { proposal } = await applyProposal(OFFICE_SHELF, run)
     expect(proposal.status).toBe('applied')
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc_n', folderId: 'f_normen' }, SESSION)

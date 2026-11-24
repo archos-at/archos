@@ -22,6 +22,7 @@ import {
   type Shelf,
   type SourceKind,
 } from './source-kinds'
+import { LEGACY_AGENT_AUTHORED_LANE, isAgentLane } from './legacy-lane-names'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 describe('asSourceKind', () => {
@@ -58,7 +59,7 @@ describe('the German spellings a stored lane still carries', () => {
 
   test('a lane reads as its English key, and still means the same kind and tag', () => {
     expect(modernizeLane('baurecht_oib_leitfaden')).toBe('building_law_oib_guide')
-    expect(modernizeLane('buero_piloti')).toBe('office_piloti')
+    expect(modernizeLane('buero_piloti')).toBe(LEGACY_AGENT_AUTHORED_LANE)
     expect(modernizeLane('norm_extern')).toBe('external_standard')
     expect(kindForLane('baurecht_land')).toBe('building_law')
     expect(kindForLane('behoerde')).toBe('building_law')
@@ -96,9 +97,18 @@ describe('authorityTag', () => {
 
 describe('the agent-authored lane', () => {
   test('is a sub-label inside the office kind, never a kind of its own', () => {
-    expect(AGENT_AUTHORED_LANE).toBe('office_piloti')
+    expect(AGENT_AUTHORED_LANE).toBe('office_agent')
     expect(kindForLane(AGENT_AUTHORED_LANE)).toBe('office')
     expect(asSourceKind(AGENT_AUTHORED_LANE)).toBeUndefined()
+  })
+
+  test('its old key still reads as the same lane, kind and tag', () => {
+    expect(isAgentLane(AGENT_AUTHORED_LANE)).toBe(true)
+    expect(isAgentLane(LEGACY_AGENT_AUTHORED_LANE)).toBe(true)
+    expect(isAgentLane('office')).toBe(false)
+    expect(kindForLane(LEGACY_AGENT_AUTHORED_LANE)).toBe('office')
+    expect(asSourceKind(LEGACY_AGENT_AUTHORED_LANE)).toBeUndefined()
+    expect(authorityTag(LEGACY_AGENT_AUTHORED_LANE)).toBeNull()
   })
 
   test('its label names the document kind and no approver', () => {
@@ -175,18 +185,20 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
       'base',
       'session',
       'office_shelf',
+      'office_shelf',
     ])
   })
 
-  test('the archiv shelf is written „Büroablage" and still read under its old name', () => {
-    expect(CITATION_KEY_QUALIFIERS[0]).toEqual(['Büroablage', 'office_shelf'])
+  test('the archiv shelf is written „Bürobibliothek" and still read under its old name', () => {
+    expect(CITATION_KEY_QUALIFIERS[0]).toEqual(['Bürobibliothek', 'office_shelf'])
+    expect(scopeForQualifier('Bürobibliothek')).toBe('office_shelf')
     expect(scopeForQualifier('Büroablage')).toBe('office_shelf')
     expect(scopeForQualifier('Büroarchiv')).toBe('office_shelf')
   })
 
   test('the shelf label the reader sees is the qualifier the backend writes', () => {
     expect(chatCopy.messages.de.sourceTabs.shelves.office_shelf).toBe(CITATION_KEY_QUALIFIERS[0][0])
-    expect(chatCopy.messages.en.sourceTabs.shelves.office_shelf).toBe('Office filing')
+    expect(chatCopy.messages.en.sourceTabs.shelves.office_shelf).toBe('Office library')
   })
 
   test('every shelf is reachable from a key, so no key can go unread', () => {

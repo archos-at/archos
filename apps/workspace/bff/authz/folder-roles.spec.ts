@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   for (const fn of Object.values(workos)) fn.mockReset()
   cached.clear()
-  delete process.env.AUTHZ_CACHE_TTL_MS
+  vi.stubEnv('AUTHZ_CACHE_TTL_MS', undefined)
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
@@ -135,7 +135,7 @@ describe('heldFolderLevels', () => {
   })
 
   it('asks WorkOS every time when the authz cache is switched off', async () => {
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
     resourcesFor({ 'folder:read': [folder('f-1')] })
 
     await heldFolderLevels(ORG, 'om_1', PROJECT)

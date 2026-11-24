@@ -27,7 +27,7 @@ const de = {
       {
         key: 'Reichweitenmessung ohne Cookies',
         value:
-          'Mit PostHog messen wir, wie die Website genutzt wird: aufgerufene Seiten, Verweildauer und Scrolltiefe, Klicks und ihre Position auf der Seite, abgeschickte Formulare und gestartete Videos, Ladezeiten und technische Fehler, die verweisende Seite und Kampagnenangaben in der Adresse, Gerätetyp und Browser. Was Sie in Formularfelder eingeben, erfassen wir nicht. Solange Sie nicht zugestimmt haben, geschieht das ohne Cookies und ohne Speicher in Ihrem Browser: Um Besuche zu zählen, bildet PostHog aus IP-Adresse, Browserangaben und einem täglich wechselnden Zufallswert eine Kennung. Die IP-Adresse selbst wird nicht gespeichert, und wir verknüpfen die Daten nicht mit Ihrer Person. Sendet Ihr Browser „Do Not Track“, messen wir nichts. Rechtsgrundlage: berechtigtes Interesse an einer verständlichen und gut funktionierenden Website, Art. 6 Abs. 1 lit. f DSGVO. Anbieter: PostHog, Inc., Speicherort: EU. Wir speichern die Daten nur so lange, wie wir sie für die Auswertung brauchen.',
+          'Mit PostHog messen wir, wie die Website genutzt wird: aufgerufene Seiten, Verweildauer und Scrolltiefe, Klicks und ihre Position auf der Seite, abgeschickte Formulare und gestartete Videos, Ladezeiten und technische Fehler, die verweisende Seite und Kampagnenangaben in der Adresse, Gerätetyp und Browser. Was Sie in Formularfelder eingeben, erfassen wir nicht; von einer Anfrage über ein Formular zählt die Website nur, welches Formular in welcher Sprache abgeschickt wurde und ob die Zustellung gelang, ohne Bezug zu Ihrer Person. Solange Sie nicht zugestimmt haben, geschieht das ohne Cookies und ohne Speicher in Ihrem Browser: Um Besuche zu zählen, bildet PostHog aus IP-Adresse, Browserangaben und einem täglich wechselnden Zufallswert eine Kennung. Die IP-Adresse selbst wird nicht gespeichert, und wir verknüpfen die Daten nicht mit Ihrer Person. Sendet Ihr Browser „Do Not Track“, messen wir nichts. Rechtsgrundlage: berechtigtes Interesse an einer verständlichen und gut funktionierenden Website, Art. 6 Abs. 1 lit. f DSGVO. Anbieter: PostHog, Inc., Speicherort: EU. Wir speichern die Daten nur so lange, wie wir sie für die Auswertung brauchen.',
       },
       {
         key: 'Mit Ihrer Zustimmung',
@@ -47,7 +47,7 @@ const de = {
       {
         key: 'Kontakt- und Demoanfragen',
         value:
-          'Die Formulare senden nichts an uns: Beim Absenden öffnet sich Ihr E-Mail-Programm mit einer vorbereiteten Nachricht, die Sie selbst abschicken. Was Sie uns so schreiben (Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land, Nachricht), verwenden wir, um Ihre Anfrage zu beantworten. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) bzw. lit. f. Kommt kein Vertrag zustande, löschen wir die Angaben, wenn die Anfrage erledigt ist und keine Aufbewahrungspflicht besteht.',
+          'Beim Absenden übermittelt die Website Ihre Angaben (Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land, Nachricht) per E-Mail an uns und schickt Ihnen eine Bestätigung an die angegebene Adresse. Ist unser Kundenverwaltungssystem (CRM) angebunden, legen wir Ihre Anfrage zudem dort an. Kann die Website gerade nicht senden, öffnet sich stattdessen Ihr E-Mail-Programm mit einer vorbereiteten Nachricht, die Sie selbst abschicken. Wir verwenden Ihre Angaben, um Ihre Anfrage zu beantworten. Damit niemand die Formulare missbraucht, begrenzen wir anhand Ihrer IP-Adresse, wie oft gesendet werden kann; die IP-Adresse speichern wir dabei nicht dauerhaft. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) bzw. lit. f. Kommt kein Vertrag zustande, löschen wir die Angaben, wenn die Anfrage erledigt ist und keine Aufbewahrungspflicht besteht.',
       },
       {
         key: 'Newsletter',
@@ -88,7 +88,7 @@ const de = {
       {
         key: 'Auftragsverarbeiter',
         value:
-          'Für Website, Anfragen und Konten setzen wir Dienstleister ein: Hosting-Anbieter, Anmeldedienst, Produktanalyse und E-Mail-Dienst. Alle sind vertraglich nach Art. 28 DSGVO gebunden.',
+          'Für Website, Anfragen und Konten setzen wir Dienstleister ein: Hosting-Anbieter, Anmeldedienst, Produktanalyse, E-Mail-Dienst und Kundenverwaltung (CRM). Alle sind vertraglich nach Art. 28 DSGVO gebunden.',
       },
       {
         key: 'Drittländer',
@@ -155,7 +155,7 @@ const en: typeof de = {
       {
         key: 'Audience measurement without cookies',
         value:
-          'We use PostHog to measure how the website is used: pages viewed, time on page and scroll depth, clicks and where on the page they land, forms sent and videos started, loading times and technical errors, the referring page and campaign details in the address, device type and browser. We do not record what you type into form fields. As long as you have not consented, this happens without cookies and without storage in your browser: to count visits, PostHog derives an identifier from the IP address, browser details and a random value that changes every day. The IP address itself is not stored, and we do not link the data to you as a person. If your browser sends “Do Not Track”, we measure nothing. Legal basis: legitimate interest in a clear and well-functioning website, Art. 6(1)(f) GDPR. Provider: PostHog, Inc., storage location: EU. We keep the data only as long as we need it for the analysis.',
+          'We use PostHog to measure how the website is used: pages viewed, time on page and scroll depth, clicks and where on the page they land, forms sent and videos started, loading times and technical errors, the referring page and campaign details in the address, device type and browser. We do not record what you type into form fields; of an enquiry sent through a form, the website counts only which form was sent in which language and whether delivery succeeded, with no link to you. As long as you have not consented, this happens without cookies and without storage in your browser: to count visits, PostHog derives an identifier from the IP address, browser details and a random value that changes every day. The IP address itself is not stored, and we do not link the data to you as a person. If your browser sends “Do Not Track”, we measure nothing. Legal basis: legitimate interest in a clear and well-functioning website, Art. 6(1)(f) GDPR. Provider: PostHog, Inc., storage location: EU. We keep the data only as long as we need it for the analysis.',
       },
       {
         key: 'With your consent',
@@ -175,7 +175,7 @@ const en: typeof de = {
       {
         key: 'Contact and demo requests',
         value:
-          'The forms send nothing to us: sending opens your email program with a prepared message that you send yourself. We use what you write to us this way (name, email address, office, function, office size, country, message) to answer your enquiry. Legal basis: Art. 6(1)(b) GDPR (pre-contractual measures) or Art. 6(1)(f) GDPR. If no contract comes into being, we delete the details once the enquiry has been dealt with and no retention obligation applies.',
+          'When you send a form, the website passes your details (name, email address, office, function, office size, country, message) to us by email and sends you a confirmation at the address you give. Where our customer relationship management system (CRM) is connected, we also record your enquiry there. If the website cannot send at that moment, your email program opens instead with a prepared message that you send yourself. We use your details to answer your enquiry. To stop the forms being misused, we limit how often they can be sent, based on your IP address; we do not store the IP address permanently for this. Legal basis: Art. 6(1)(b) GDPR (pre-contractual measures) or Art. 6(1)(f) GDPR. If no contract comes into being, we delete the details once the enquiry has been dealt with and no retention obligation applies.',
       },
       {
         key: 'Newsletter',
@@ -216,7 +216,7 @@ const en: typeof de = {
       {
         key: 'Processors',
         value:
-          'For the website, enquiries and accounts we use service providers: a hosting provider, an authentication service, a product analytics service and an email service. All of them are bound by contract under Art. 28 GDPR.',
+          'For the website, enquiries and accounts we use service providers: a hosting provider, an authentication service, a product analytics service, an email service and a customer relationship management (CRM) service. All of them are bound by contract under Art. 28 GDPR.',
       },
       {
         key: 'Third countries',

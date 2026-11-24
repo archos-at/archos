@@ -81,7 +81,7 @@ judged against a baseline that now exists.
 4. **German search** is fixed at its cause in `lib/text/operation-search.ts`:
    both sides folded (`latinize`), each query word read as a group with the
    catalog words the office's term means (`operation-search-vocabulary.json`),
-   compounds split, one-letter words dropped. `discovery.ts` ranks with it.
+   compounds split, one-letter words dropped. `discovery-search.ts` ranks with it.
 5. **The workspace set** of the answer suite measures all of this, with a door
    served from the catalog production shows and checks on what was filed.
 6. **Langfuse**: `answer_kind`, `work_*` counts, the tag `kind:work`, and the

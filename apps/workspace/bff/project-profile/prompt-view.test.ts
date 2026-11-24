@@ -63,7 +63,7 @@ describe('project profile prompt view', () => {
     )
   })
 
-  it('builds a stored display projection without calling AI-Q', () => {
+  it('builds a stored display projection without calling the agent backend', () => {
     const display = buildProjectProfileDisplay(profile)
     expect(display.keyFacts).toEqual([
       { label: 'Floors above', value: '5' },

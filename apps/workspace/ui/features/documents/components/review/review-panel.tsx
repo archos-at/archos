@@ -18,6 +18,7 @@ import { compareFromReviewHref } from '../../lib/revision-links'
 import { MarkBody } from './mark-body'
 import { MarkRowContent, markRowClassName } from './mark-row'
 import { markInk } from './review-page-layer'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export type OpenMark = (annotation: AnnotationView, byKeyboard?: boolean) => void
 
@@ -289,7 +290,7 @@ function CarriedFrom({
                   >
                     {carryWords(annotation, annotation.carryTarget).label}
                   </Button>
-                  {/* Fixed in this document: closed where it was set, by the person, never by Piloti. */}
+                  {/* Fixed in this document: closed where it was set, by the person, never by the agent. */}
                   <Button
                     type="button"
                     variant="ghost"
@@ -319,7 +320,7 @@ function CarriedFrom({
 function AgentVerdict({ annotation, viewerId }: { annotation: AnnotationView; viewerId: string | null }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const newest = annotation.replies.at(-1)
-  if (newest?.authorKind !== 'piloti') return null
+  if (!isAgentKind(newest?.authorKind)) return null
   return (
     <span className="text-muted-foreground mt-1 flex gap-1 text-xs leading-4" data-testid="review-carried-verdict">
       <Sparkles className="mt-0.5 size-3 shrink-0" aria-hidden />

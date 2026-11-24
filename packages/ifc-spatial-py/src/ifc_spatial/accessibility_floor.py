@@ -1,5 +1,3 @@
-"""Plan geometry for the checks: footprints, silhouettes, a room's free floor, and the surface an element stands on."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -32,21 +30,6 @@ from .operators import FURNISHING
 
 
 def _plan_footprint(triangles: np.ndarray) -> Any | None:
-    """A solid's floor polygon, by exactly the method ``_footprint_area`` measures.
-
-    Kept in step with :func:`~ifc_spatial.operators._footprint_area` on purpose,
-    down to the 0.01 normal tolerance and the both-windings sweep: that function
-    returns the AREA of this union and a polygon cannot be recovered from an
-    area, but the two must not drift apart, so ``test_accessibility`` asserts
-    that this polygon's area equals what that function reports for all three
-    rooms of the sample house.
-
-    Both windings are taken and the larger wins for the reason spelled out
-    there — a Revit IFC2X3 ``IfcSpace`` is routinely wound inside-out, and
-    keeping only the faces pointing one way returns an empty polygon for a room
-    that plainly has a floor. A confident zero is the worst thing this library
-    can produce.
-    """
     import shapely
     import shapely.ops
 
@@ -75,19 +58,6 @@ def _plan_footprint(triangles: np.ndarray) -> Any | None:
 
 
 def _plan_silhouette(triangles: np.ndarray) -> Any | None:
-    """A solid's outline in plan — every triangle projected, unioned.
-
-    Not the horizontal faces this time: an obstacle blocks the floor over its
-    whole shadow, and a bed's shadow is bounded by its sides, not by its top.
-    Taking only the horizontal faces of the sample house's bed would leave the
-    mattress and lose the frame; taking all of them gives 3.61 m², which is the
-    bed.
-
-    The projection is a SHADOW and knows nothing about height, so a table is
-    subtracted over its whole top even though a footrest fits under it. That is
-    the conservative direction — it makes the circle smaller — and it is named in
-    every caveat that uses this.
-    """
     import shapely
     import shapely.ops
 
@@ -107,19 +77,6 @@ def _plan_silhouette(triangles: np.ndarray) -> Any | None:
 
 
 def _is_furnishing(element: Any) -> bool:
-    """Loose furniture, by the same three-way test :func:`daylight._is_excluded` uses.
-
-    Every entry of ``FURNISHING`` is checked rather than only the base type,
-    because IFC2X3 has no subtype relation between ``IfcFurniture`` and
-    ``IfcFurnishingElement`` and a single-entry test would let an IFC2X3 chair
-    count as a fixed installation.
-
-    IFC has **no** flag for fixed versus loose — ``Pset_FurnitureTypeCommon``
-    carries none — so the classification is by entity type and nothing else. A
-    built-in wardrobe exported as ``IfcFurniture`` is counted as loose here, and
-    the caveat says so, because there is no fact in the file that would separate
-    it from a chair.
-    """
     for kind in FURNISHING:
         try:
             if element.is_a(kind):
@@ -130,23 +87,6 @@ def _is_furnishing(element: Any) -> bool:
 
 
 def _largest_circle(polygon: Any) -> tuple[float, tuple[float, float]] | None:
-    """The largest circle inscribed in a polygon: its radius and a centre.
-
-    Erosion and bisection, which is the definition rather than an approximation
-    of it: a disc of radius ``r`` fits inside ``P`` exactly when ``P`` eroded by
-    ``r`` is non-empty, and the erosion is ``P.buffer(-r)`` with round joins. So
-    the largest radius is found by halving the bracket ``[0, half the longer
-    side]``, and the centre is a point of the last non-empty erosion — any point
-    of it is a valid centre, and ``representative_point`` is guaranteed to lie
-    inside even when that erosion has collapsed to a sliver.
-
-    Cross-checked in the suite against GEOS's own ``maximum_inscribed_circle``,
-    which is a completely different algorithm (a Voronoi-based cell search) and
-    therefore a real oracle. On the sample house the two agree to 4 mm, and
-    where they differ this one is the exact answer: the bedroom's largest circle
-    is 3.4625 m, which is the room's own clear width to the millimetre, and
-    GEOS's tolerance-bounded search returns a shade less.
-    """
     if polygon is None or polygon.is_empty or polygon.area <= 0:
         return None
     min_x, min_y, max_x, max_y = polygon.bounds
@@ -168,31 +108,6 @@ def _largest_circle(polygon: Any) -> tuple[float, tuple[float, float]] | None:
 
 
 def _free_floor(model: SpatialModel, space: Any, skip: set[str] | None = None) -> _FreeFloor | Answer[Any] | None:
-    """The room's footprint minus the plan shadow of everything standing on it.
-
-    Two polygons come back, not one, and which of them is the answer is the
-    judgment this module is most exposed on:
-
-      - ``fixed`` — the footprint less everything that is not
-        ``IfcFurnishingElement`` and its kin: walls bulging in, columns, stairs,
-        sanitary fittings, the door leaf where the export modelled it.
-      - ``furnished`` — the same, less the loose furniture as well.
-
-    The **headline is ``fixed``**, and the reason is what a building permit is
-    granted on. The furniture in an IFC export is a presentation layer — the
-    sample house's living room carries a piano, a couch, two Viper chairs and
-    six dining chairs, placed by whoever made the visualisation — and an
-    applicant is not bound to any of it. Reporting a room as too small to turn in
-    because somebody left a coffee table in the render would be a finding about
-    the render. But the furnished figure travels beside it in every answer,
-    because a room that only turns when it is empty is a real design finding and
-    the architect is the one who gets to decide which of the two matters.
-
-    Candidates come from ``tree.select_box`` — the cheap broad phase — rather
-    than from ``bounds()``, which is the right list for a different question:
-    ``bounds`` deliberately drops anything CONTAINED in the room, and containment
-    is exactly what a turning circle is about.
-    """
     geo = model.geometry(space.GlobalId)
     if geo is None:
         return None
@@ -265,48 +180,12 @@ def _too_many_triangles(model: SpatialModel, space: Any, count: int) -> Answer[A
 
 
 def _facing_area(triangles: np.ndarray, normal: np.ndarray) -> float:
-    """Area of the vertical faces that look along ``normal`` — the frame's own face.
-
-    The same selection :func:`geometry.dominant_vertical_plane` makes when it
-    picks the winning bin, re-summed here because that function returns a
-    direction and not the area that won it, and the area is what
-    :func:`_is_floor_void` weighs.
-    """
     normals, areas = triangle_normals_areas(triangles)
     facing = (np.abs(normals[:, 2]) < VERTICAL_TOLERANCE) & (np.abs(normals[:, :2] @ normal) >= PARALLEL_DOT)
     return float(areas[facing].sum())
 
 
 def _is_floor_void(model: SpatialModel, element: Any, geo: Any) -> bool:
-    """Is this aperture a hole in a FLOOR rather than a hole in a wall?
-
-    The failure this decides: ``AC20-FZK-Haus``'s gallery void
-    ``16PF6khT5_p$Z03P73inyv`` („Slab Opening", 4.26 × 3.71 m in plan, 0.20 m
-    thick, hosted in the ``IfcSlab`` „Slab-033"). It has vertical faces — the
-    four sides of the prism — so ``dominant_vertical_plane`` happily returns one
-    of them and the wall measurement then probes 0.30 m to either side IN PLAN,
-    lands on the room below on one side and the terrain on the other, both at
-    z = 0.0, and reports „fall 0.000 m, parapet 2.500 m" at the one edge in the
-    house that carries both of the model's railings. A parapet of 2.5 m at a
-    floor void is not a physical quantity.
-
-    Two independent signals, and the geometric one decides:
-
-    - **plan against face.** The frame would be built from the largest vertical
-      face; the aperture's plan rectangle is the hole itself. When the hole seen
-      from above is LARGER than the face the frame would stand on, the body is a
-      slab void and not a wall reveal. Measured: the gallery void is 15.805 m²
-      of plan against 1.484 m² of face, a factor of ten. Every opening in
-      ``Ifc4_SampleHouse`` runs the other way by as much — its window reveals
-      0.525 m² of plan against 4.380 m² of face, its internal doors 0.077 m²
-      against 3.418 m². The ratio rather than any absolute thickness is what
-      keeps a wide, low strip window on the wall side where it belongs: at
-      3.00 × 0.50 × 0.40 m that is 1.50 m² of plan against 2.40 m² of face.
-    - **the host.** An aperture hosted in an ``IfcWall`` is a wall opening
-      whatever its proportions, and is refused here rather than measured
-      downward. ``hosted_in`` is consulted only to VETO, so a file with no
-      ``IfcRelVoidsElement`` still gets the geometric answer.
-    """
     from .operators import hosted_in
 
     normal3 = dominant_vertical_plane(geo.triangles)
@@ -332,19 +211,6 @@ def _is_floor_void(model: SpatialModel, element: Any, geo: Any) -> bool:
 
 
 def _frame_of(model: SpatialModel, element: Any) -> _Frame | None:
-    """The opening's plan frame, or ``None`` when it has no vertical plane.
-
-    ``None`` is a real case and not a failure: a roof light in a flat roof has no
-    vertical plane, so "in front of it" and "on the far side of it" are not
-    defined in plan. Every caller turns this into an undecidable that says so.
-
-    A body that HAS vertical faces can still be a hole in a floor — the sides of
-    the prism are vertical — and for those this returns ``None`` as well. See
-    :func:`_is_floor_void` for the measured numbers; ``balustrade_check`` then
-    measures the fall downward through it instead, and the other two callers
-    refuse, which is right: a threshold height and a clear approach at a gallery
-    void are not defined either.
-    """
     from .operators import hosted_in
 
     geo = model.geometry(element.GlobalId)
@@ -399,15 +265,6 @@ def _no_plane(model: SpatialModel, element: Any, method: str) -> Answer[Any]:
 
 
 def _spaces_by_side(model: SpatialModel, element: Any, frame: _Frame) -> dict[float, Any]:
-    """Which room lies on which side of the opening, keyed by the sign along ``n``.
-
-    ``opens_to`` gives the rooms; it does not say which side each is on, and for
-    a door between two rooms that is the entire question. The test is the
-    projection of the room's own area-weighted centroid onto the opening's
-    normal — a room is on the ``+`` side when its centre is beyond the opening's
-    own extent in ``+n``. A centroid rather than a box centre because an L-shaped
-    room's box centre can sit outside the room.
-    """
     from .operators import opens_to
 
     found: dict[float, Any] = {}
@@ -425,16 +282,6 @@ def _spaces_by_side(model: SpatialModel, element: Any, frame: _Frame) -> dict[fl
 
 
 def _surface_below(model: SpatialModel, x: float, y: float, z: float) -> tuple[float, Any] | None:
-    """The solid surface a person standing at ``(x, y)`` would be standing on.
-
-    Cast downward from ``z``, first hit wins, air and furniture excluded — a
-    doormat is not a floor level. When the probe point is already INSIDE a solid
-    the ray would come out of its far side, so that case is answered from the
-    occupying solid's box top instead: the ground outside is HIGHER than the
-    opening's underside, which is a step up rather than a step down, and the box
-    top is exact for the flat slab that produces it and an upper bound for a
-    sloping one.
-    """
     point = (float(x), float(y), float(z))
     occupying = [
         e
@@ -466,20 +313,6 @@ def _surface_below(model: SpatialModel, x: float, y: float, z: float) -> tuple[f
 
 
 def _standing_level(model: SpatialModel, element: Any, frame: _Frame, sign: float, space: Any | None) -> dict[str, Any]:
-    """The level of the surface somebody stands on, on one side of an opening.
-
-    Two routes, and the answer says which one it took, because they are not the
-    same claim:
-
-      - **the room body** — ``IfcSpace``'s own underside. That is the finished
-        floor if and only if the room was modelled from finished floor level,
-        which is the usual convention and not a guarantee. Cross-checked against
-        the slab under it, and a disagreement is reported rather than resolved.
-      - **a ray outside** — when no ``IfcSpace`` is on this side, which is the
-        normal case for an external door. Then the level is whatever solid the
-        ray finds, and its type travels with it: an ``IfcSlab`` under a door is a
-        threshold; an ``IfcRoof`` would mean the probe went somewhere unintended.
-    """
     from .daylight import below
 
     entry: dict[str, Any] = {

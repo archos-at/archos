@@ -491,8 +491,8 @@ class TestAddDocumentRoute:
 
 class TestTheMonitorHearsTheRequest:
     def test_the_write_now_event_sets_the_signal_and_advances_the_cursor(self):
-        from agent_host.jobs.runner import WRITE_NOW_EVENT_TYPE
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import WRITE_NOW_EVENT_TYPE
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(db_url="sqlite://", job_id="job-1")
         monitor._note_control_events([{"_id": 3, "type": "job.heartbeat"}, {"_id": 4, "type": WRITE_NOW_EVENT_TYPE}])
@@ -500,8 +500,8 @@ class TestTheMonitorHearsTheRequest:
         assert monitor._last_event_id == 4
 
     def test_a_document_event_joins_the_added_list_once_and_calls_the_hook(self):
-        from agent_host.jobs.runner import DOCUMENT_ADDED_EVENT_TYPE
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import DOCUMENT_ADDED_EVENT_TYPE
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(db_url="sqlite://", job_id="job-1")
         seen: list[str] = []
@@ -523,8 +523,8 @@ class TestTheMonitorHearsTheRequest:
         from agent.agents.deep_researcher.control import bind_added_documents
         from agent.agents.deep_researcher.control import reset_added_documents
         from agent.agents.deep_researcher.control import take_added_documents
-        from agent_host.jobs.runner import DOCUMENT_ADDED_EVENT_TYPE
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import DOCUMENT_ADDED_EVENT_TYPE
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(db_url="sqlite://", job_id="job-1")
         seen: list[str] = []
@@ -542,8 +542,8 @@ class TestTheMonitorHearsTheRequest:
     @pytest.mark.asyncio
     async def test_the_poll_reads_only_the_control_events(self, tmp_path):
         from agent_host.jobs.event_store import EventStore
-        from agent_host.jobs.runner import CONTROL_EVENT_TYPES
-        from agent_host.jobs.runner import WRITE_NOW_EVENT_TYPE
+        from agent_host.jobs.job_cancellation import CONTROL_EVENT_TYPES
+        from agent_host.jobs.job_cancellation import WRITE_NOW_EVENT_TYPE
 
         db_url = f"sqlite+aiosqlite:///{tmp_path / 'events.db'}"
         EventStore._tables_initialized.discard(db_url)
@@ -560,7 +560,7 @@ class TestTheMonitorHearsTheRequest:
         ] * 150
 
     def test_other_events_leave_the_signal_alone(self):
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(db_url="sqlite://", job_id="job-1")
         monitor._note_control_events([{"_id": 9, "type": "job.phase"}])

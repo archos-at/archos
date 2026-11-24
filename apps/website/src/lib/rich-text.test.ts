@@ -1,10 +1,28 @@
+import { parse } from '@astrojs/compiler-rs';
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { POST_BLOCKS, POST_INLINE_BLOCKS } from '../../../cms/src/blocks/post-blocks';
 import { BLOCK_PROPS, INLINE_BLOCK_PROPS, blockOf, plainProps } from './post-blocks';
 import { headingIds, hoistLinkMarks, isLexicalRoot, safeHref, textMarks, type LexicalNode } from './rich-text';
 
-const read = (path: string) => readFileSync(join(import.meta.dir, path), 'utf8');
+type AstNode = { type?: string; [key: string]: unknown };
+
+function nodesOf(root: unknown, type: string): AstNode[] {
+  if (Array.isArray(root)) return root.flatMap((child) => nodesOf(child, type));
+  if (!root || typeof root !== 'object') return [];
+  const node = root as AstNode;
+  return [...(node.type === type ? [node] : []), ...Object.values(node).flatMap((child) => nodesOf(child, type))];
+}
+
+function drawnSlugs(path: string): Set<string> {
+  const { ast, diagnostics } = parse(readFileSync(join(import.meta.dir, path), 'utf8'));
+  expect(diagnostics).toEqual([]);
+  const figures = nodesOf(ast.frontmatter, 'VariableDeclarator').find((d) => (d.id as AstNode).name === 'FIGURES');
+  const keys = nodesOf(figures?.init, 'Property').map((p) => (p.key as AstNode).name ?? (p.key as AstNode).value);
+  const cases = nodesOf(ast.body, 'SwitchCase').map((c) => (c.test as AstNode | null)?.value);
+  return new Set([...keys, ...cases].filter((slug): slug is string => typeof slug === 'string'));
+}
 
 describe('the rich text a post body holds', () => {
   test('links go only where a page may send a reader', () => {
@@ -63,8 +81,7 @@ describe('the blocks of a post body', () => {
   });
 
   test('every block and inline block of the CMS has its props here', () => {
-    const cms = read('../../../cms/src/blocks/post-blocks.ts') + read('../../../cms/src/blocks/content-blocks.ts');
-    const slugs = [...cms.matchAll(/^\s+slug: '([^']+)',$/gm)].map((m) => m[1]);
+    const slugs = [...POST_BLOCKS, ...POST_INLINE_BLOCKS].map((block) => block.slug);
     expect(slugs.length).toBeGreaterThan(5);
     for (const slug of slugs) expect(slug in BLOCK_PROPS || slug in INLINE_BLOCK_PROPS, slug).toBe(true);
     for (const slug of [...Object.keys(BLOCK_PROPS), ...Object.keys(INLINE_BLOCK_PROPS)]) expect(slugs, slug).toContain(slug);
@@ -89,9 +106,8 @@ describe('the blocks of a post body', () => {
   });
 
   test('every block with props is drawn by PostBlock.astro', () => {
-    const component = read('../components/PostBlock.astro');
-    for (const slug of Object.keys(BLOCK_PROPS)) {
-      expect(component.includes(`${slug}: `) || component.includes(`case '${slug}':`), slug).toBe(true);
-    }
+    const drawn = drawnSlugs('../components/PostBlock.astro');
+    expect(drawn.size).toBeGreaterThan(5);
+    for (const slug of Object.keys(BLOCK_PROPS)) expect(drawn.has(slug), slug).toBe(true);
   });
 });

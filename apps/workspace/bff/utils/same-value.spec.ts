@@ -6,7 +6,7 @@ import { sameValue } from './same-value'
 
 describe('sameValue', () => {
   it('holds a value rebuilt from the same facts the same, and a changed one different', () => {
-    expect(sameValue({ people: [{ name: 'Anna', page: 2 }], piloti: null }, { people: [{ name: 'Anna', page: 2 }], piloti: null })).toBe(true)
+    expect(sameValue({ people: [{ name: 'Anna', page: 2 }], agent: null }, { people: [{ name: 'Anna', page: 2 }], agent: null })).toBe(true)
     expect(sameValue({ people: [{ name: 'Anna', page: 2 }] }, { people: [{ name: 'Anna', page: 3 }] })).toBe(false)
     expect(sameValue(['a'], ['a'])).toBe(true)
   })

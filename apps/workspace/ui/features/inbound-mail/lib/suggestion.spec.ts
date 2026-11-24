@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { folderLeaf, missingSuggestionReason, readSuggestion, SUGGESTION_GRACE_MS } from './suggestion'
+import { mail, part } from '@/app/dev/inbound-mail/fixtures'
+import { folderLeaf, mailStillSettling, missingSuggestionReason, readSuggestion, SUGGESTION_GRACE_MS } from './suggestion'
 
 describe('readSuggestion', () => {
   it('reads the filing judgement’s words', () => {
@@ -54,8 +55,8 @@ describe('missingSuggestionReason', () => {
     ...overrides,
   })
 
-  it('says the agent never suggests for unconfirmed senders, impersonations and machines (D21), by the suggest job’s own rule', () => {
-    expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'external_unverified', reason: 'dkim_none' }), receivedAt: at(0) }, now)).toBe('skipped')
+  it('says the agent never suggests for impersonations and machines (D21), by the suggest job’s own rule', () => {
+    expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'external_unverified', reason: 'dkim_none' }), receivedAt: at(0) }, now)).toBe('pending')
     expect(missingSuggestionReason({ automatic: true, sender: sender(), receivedAt: at(0) }, now)).toBe('skipped')
     expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'member_unverified', reason: 'dkim_fail' }), receivedAt: at(0) }, now)).toBe('skipped')
     expect(missingSuggestionReason({ automatic: false, sender: sender({ flags: ['claims_member_name'] }), receivedAt: at(0) }, now)).toBe('skipped')
@@ -77,5 +78,24 @@ describe('readSuggestion › the suggest job’s shape (D14)', () => {
       name: null,
       reason: 'Foto vom Bauplatz.',
     })
+  })
+})
+
+describe('mailStillSettling', () => {
+  const now = Date.parse('2026-11-19T12:00:00.000Z')
+  const fresh = new Date(now - 60_000).toISOString()
+  const old = new Date(now - SUGGESTION_GRACE_MS - 60_000).toISOString()
+
+  it('is settling while a part is scanned, the original is, or the agent is still reading a part with no place', () => {
+    expect(mailStillSettling(mail({ receivedAt: old, parts: [part({ scan: 'pending' })] }), now)).toBe(true)
+    expect(mailStillSettling(mail({ receivedAt: old, parts: [part({ scan: 'failed' })] }), now)).toBe(true)
+    expect(mailStillSettling(mail({ receivedAt: old, rawScan: 'pending', parts: [part()] }), now)).toBe(true)
+    expect(mailStillSettling(mail({ receivedAt: fresh, parts: [part({ suggestion: null })] }), now)).toBe(true)
+  })
+
+  it('is settled once nothing more can arrive, or nothing waits', () => {
+    expect(mailStillSettling(mail({ receivedAt: old, parts: [part({ suggestion: null })] }), now)).toBe(false)
+    expect(mailStillSettling(mail({ receivedAt: fresh, parts: [part({ suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } })] }), now)).toBe(false)
+    expect(mailStillSettling(mail({ receivedAt: fresh, status: 'handled', parts: [part({ scan: 'pending', state: 'dismissed' })] }), now)).toBe(false)
   })
 })

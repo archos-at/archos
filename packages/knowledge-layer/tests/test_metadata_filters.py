@@ -1,5 +1,5 @@
 import pytest
-from knowledge_layer.search.retriever import _filters_fingerprint
+from knowledge_layer.search import _filters_fingerprint
 from knowledge_layer.vector_store import translate
 from qdrant_client import models
 

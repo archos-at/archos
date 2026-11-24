@@ -4,7 +4,7 @@ import { bestEffortInbox } from '@/lib/inbox/best-effort'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 
-const TYPE = 'piloti.intake_ready'
+const TYPE = 'agent.intake_ready'
 
 const SUMMARY_LENGTH = 200
 

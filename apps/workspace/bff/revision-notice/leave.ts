@@ -40,12 +40,12 @@ export async function leaveNotice(input: NoticeLeaving): Promise<void> {
     {
       organizationId: session.organizationId,
       recipientUserId: session.userId,
-      type: 'piloti.revision_checked',
+      type: 'agent.revision_checked',
       resourceType: 'document',
       resourceId: newer.id,
       anchorId: first.id,
       actorUserId: null,
-      groupKey: inboxGroupKey('piloti.revision_checked', 'document', newer.id, first.id),
+      groupKey: inboxGroupKey('agent.revision_checked', 'document', newer.id, first.id),
       payload: {
         subject: documentDisplayName(newer),
         ...(input.related ? { related: input.related } : {}),

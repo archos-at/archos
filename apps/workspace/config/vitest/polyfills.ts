@@ -44,7 +44,9 @@ if (typeof globalThis.BroadcastChannel === 'undefined') {
 }
 
 const ENV_BASELINE = Symbol.for('vitest.env-baseline')
+const ENV_OBJECT = Symbol.for('vitest.env-object')
 const shared = process as unknown as Record<symbol, Record<string, string | undefined> | undefined>
+process.env = (shared[ENV_OBJECT] ??= process.env) as NodeJS.ProcessEnv
 const baseline = (shared[ENV_BASELINE] ??= { ...process.env })
 for (const name of Object.keys(process.env)) {
   if (!(name in baseline)) delete process.env[name]

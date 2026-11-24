@@ -1,23 +1,3 @@
-"""Agent-runtime evaluator: grade an agent answer's CITATIONS against the retrieval golden set.
-
-Registers ``oib_retrieval_citation_evaluator`` with the agent runtime (see ``register.py`` for the plugin
-entry point). It makes no LLM calls: an answer's
-References section names ``file_name, p.N`` units, those units are compared against the
-same ``(richtlinie, punkt, grade)`` labels the offline runner uses, and the score is the
-graded nDCG of the cited order.
-
-WHY THIS IS A DIFFERENT MEASUREMENT FROM ``runner.py``, NOT A DUPLICATE
------------------------------------------------------------------------
-``runner.py`` asks whether the right Punkt was in the retrieved context at all — a
-property of the index and the chunking, measurable offline with no model. This evaluator
-asks whether the answer the model wrote actually cited it, which needs a real workflow run
-(and therefore a key). Retrieval can be perfect and the citation still wrong; the two
-numbers have to be separable to know which half to fix.
-
-All scoring lives in :mod:`metrics`, :mod:`qrels` and :mod:`citations`, none of which
-import the agent runtime — this module only unwraps ``EvalInputItem`` and rewraps ``EvalOutputItem``.
-"""
-
 import logging
 from pathlib import Path
 
@@ -54,8 +34,6 @@ def _default_index_path() -> Path:
 
 
 class OIBRetrievalEvaluatorConfig(EvaluatorBaseConfig, name="oib_retrieval_citation_evaluator"):
-    """Configuration for the OIB retrieval citation evaluator."""
-
     punkt_index_path: str = Field(
         default="",
         description="Path to clause_index.json. Empty uses the copy committed with this suite.",
@@ -68,8 +46,6 @@ class OIBRetrievalEvaluatorConfig(EvaluatorBaseConfig, name="oib_retrieval_citat
 
 
 class OIBRetrievalEvalOutput(EvalOutput):
-    """Extended output with the aggregate a retrieval regression shows up in first."""
-
     total_evaluated: int = Field(default=0, description="Cases evaluated.")
     total_with_forbidden_citation: int = Field(
         default=0, description="Cases citing at least one forbidden (aenderungen_*) document."
@@ -81,8 +57,6 @@ class OIBRetrievalEvalOutput(EvalOutput):
 
 
 class OIBRetrievalEvaluator(BaseEvaluator):
-    """Graded citation evaluator for OIB retrieval golden cases (no LLM judge)."""
-
     def __init__(
         self,
         max_concurrency: int = 4,
@@ -170,7 +144,6 @@ class OIBRetrievalEvaluator(BaseEvaluator):
 
 @register_evaluator(config_type=OIBRetrievalEvaluatorConfig)
 async def register_oib_retrieval_evaluator(config: OIBRetrievalEvaluatorConfig, builder: EvalBuilder):
-    """Register the OIB retrieval citation evaluator."""
     evaluator = OIBRetrievalEvaluator(
         max_concurrency=builder.get_max_concurrency(),
         index_path=Path(config.punkt_index_path) if config.punkt_index_path else None,

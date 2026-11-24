@@ -60,6 +60,7 @@ export interface ProjectionDocument {
   filename: string
   collectionName: string
   authoredBy: 'user' | 'agent'
+  authoredByProducer: string | null
   publishedVersionId: string | null
 }
 
@@ -75,6 +76,7 @@ export async function listShelfDocumentsForProjection(
         filename: documents.filename,
         collectionName: documents.collectionName,
         authoredBy: documents.authoredBy,
+        authoredByProducer: documents.authoredByProducer,
         publishedVersionId: documents.publishedVersionId,
       })
       .from(documents)
@@ -205,6 +207,7 @@ export async function listCollectionDocumentsForProjection(
         filename: documents.filename,
         collectionName: documents.collectionName,
         authoredBy: documents.authoredBy,
+        authoredByProducer: documents.authoredByProducer,
         publishedVersionId: documents.publishedVersionId,
       })
       .from(documents)

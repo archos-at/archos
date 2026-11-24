@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import json
 
-from agent.agents.piloti.markers import detect_and_strip_confidence_marker
-from agent.common.answer_envelope import ANATOMY_FIELDS
 from agent.common.answer_envelope import CONTEXT_MAX_CHARS
 from agent.common.answer_envelope import ENVELOPE_VERSION
-from agent.common.answer_envelope import MASTHEAD_FIELDS
 from agent.common.answer_envelope import SUMMARY_MAX_CHARS
 from agent.common.answer_envelope import TOPIC_MAX_CHARS
 from agent.common.answer_envelope import AnswerMeta
-from agent.common.answer_envelope import extract_answer_envelope
-from agent.common.answer_envelope import gate_answer_meta
-from agent.common.answer_envelope import render_envelope_response_format
-from agent.common.answer_envelope import render_envelope_schema
-from agent.common.answer_envelope import resolve_callout_marker
+from agent.common.envelope_gates import ANATOMY_FIELDS
+from agent.common.envelope_gates import gate_answer_meta
+from agent.common.envelope_parsing import extract_answer_envelope
+from agent.common.envelope_parsing import resolve_callout_marker
+from agent.common.envelope_schema import MASTHEAD_FIELDS
+from agent.common.envelope_schema import render_envelope_response_format
+from agent.common.envelope_schema import render_envelope_schema
 from agent.common.wire_v2 import StatusStep
+from agent.core.markers import detect_and_strip_confidence_marker
 
 
 def _fenced(payload: dict) -> str:
@@ -268,7 +268,7 @@ class TestAVerdictNeverRestsOnADocumentAgentWrote:
 
     def test_the_match_survives_the_spellings_a_model_writes(self):
         assert self._gate({"document": "**Brandschutzkonzept Haus-B.md**"}) is None
-        assert self._gate({"document": "Brandschutzkonzept Haus B (Büroablage)"}) is None
+        assert self._gate({"document": "Brandschutzkonzept Haus B (Bürobibliothek)"}) is None
 
     def test_a_verdict_referencing_the_OIB_survives_untouched(self):
         payload = self._gate({"document": "OIB-Richtlinie 2", "section": "Tabelle 1b"})
@@ -602,7 +602,7 @@ class TestTopicContextRegistry:
 
 class TestSkillsApplied:
     def test_it_parses_and_never_reaches_the_wire(self):
-        from agent.common.answer_envelope import gate_answer_meta
+        from agent.common.envelope_gates import gate_answer_meta
 
         _content, meta = extract_answer_envelope(
             _fenced({"answer": _PROSE, "kind": "walkthrough", "skills_applied": ["fire-safety"]})

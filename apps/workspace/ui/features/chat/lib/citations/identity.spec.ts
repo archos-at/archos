@@ -144,7 +144,7 @@ describe('parseKbLocator', () => {
       page: 3,
       shelf: 'project',
     })
-    expect(parseKbLocator('Plan.pdf (Büroablage)')).toEqual({
+    expect(parseKbLocator('Plan.pdf (Bürobibliothek)')).toEqual({
       filename: 'Plan.pdf',
       page: undefined,
       shelf: 'office_shelf',
@@ -203,7 +203,7 @@ describe('resolveCitationTarget', () => {
     contentType: 'application/pdf',
   }
 
-  test('http(s) URLs link out — except RIS, which Piloti reads itself', () => {
+  test('http(s) URLs link out — except RIS, which the agent reads itself', () => {
     expect(targetFor({ url: 'https://example.com/article', content: '' })).toEqual({
       kind: 'url',
       url: 'https://example.com/article',
@@ -282,7 +282,7 @@ describe('resolveCitationTarget', () => {
 
     test("a LEGACY key's qualifier resolves it too, with no shelf on the wire", () => {
       const target = targetFor(
-        { url: '', content: '[KB] Plan.pdf (Büroablage), p.2' },
+        { url: '', content: '[KB] Plan.pdf (Bürobibliothek), p.2' },
         shelvedDocuments
       )
 

@@ -1,13 +1,3 @@
-"""The ways the two BIM tools fail, said once.
-
-Every text here is read by the agent, not by a person, so each says what to DO:
-retry with different arguments, do not retry at all, or tell the user. The
-distinction between "the arguments were wrong" and "nothing could be read" is
-the whole point — every 4xx used to arrive as an outage, which ends a turn on a
-typo with the agent told to say nothing about the building
-(``docs/roadmap/ifc-review-findings.md``).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -61,7 +51,6 @@ ENGINE_UNAVAILABLE_TEXT = (
 
 
 def rejected_text(reason: str) -> str:
-    """The arguments were wrong, and that is fixable in this same turn."""
     return (
         f"Error: the request was rejected — {reason}. This is a problem with the arguments, not "
         "with the model. Correct them and call the tool again. Do NOT state anything about the "
@@ -70,12 +59,6 @@ def rejected_text(reason: str) -> str:
 
 
 def unrunnable_text(reason: str) -> str:
-    """The call could not be MADE — distinct from ``decidable: false``, which is an answer.
-
-    A wrong KIND (asking a wall for its clear opening width) means the id is
-    right and the operator is not; sending the agent back to ``find_elements``
-    for that would loop. The engine's message names the operator to use.
-    """
     if "Fehler im Aufruf" in reason:
         return (
             f"Error: {reason}. The GlobalId is fine — the OPERATOR is wrong for this kind of "
@@ -88,7 +71,6 @@ def unrunnable_text(reason: str) -> str:
 
 
 def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
-    """A model this worker cannot hold — a fact about the FILE, not an outage, so waiting does not help."""
     size = f"{model_bytes / (1024 * 1024):.0f} MB" if model_bytes else "This model"
     limit = f"{limit_bytes // (1024 * 1024)} MB"
     return (
@@ -105,7 +87,6 @@ MAX_REASON_CHARS = 400
 
 
 def unreadable_text(reason: str) -> str:
-    """The engine refused the file and said why — a fact about the FILE, so neither waiting nor retrying helps."""
     return (
         f"Error: the model file could not be opened. The reason: {reason[:MAX_REASON_CHARS]} "
         "This is a statement about the FILE, not an outage — waiting or calling again does not help. "
@@ -116,8 +97,6 @@ def unreadable_text(reason: str) -> str:
 
 @dataclass(frozen=True)
 class Failure:
-    """One exception a tool body catches: how loud to log it, what the trace calls it, what the agent reads."""
-
     exception: type[BaseException]
     level: int
     outcome: str
@@ -125,12 +104,6 @@ class Failure:
 
 
 class FailureTable:
-    """The ordered exception → :class:`Failure` mapping of one tool.
-
-    Ordered because a subclass (``ModelTooLargeError``) must be matched before
-    its base; ``exceptions`` is what the ``except`` clause takes.
-    """
-
     def __init__(self, *failures: Failure) -> None:
         self._failures = failures
         self.exceptions: tuple[type[BaseException], ...] = tuple(failure.exception for failure in failures)

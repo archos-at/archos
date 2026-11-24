@@ -51,7 +51,7 @@ const SENT_FILE_REASONS: ReadonlySet<NotStagedReason> = new Set([
   'empty',
 ])
 
-function notFiledReasonOf(part: InboundMailPartRow): MailThreadAttachmentNotFiledReason {
+export function notFiledReasonOf(part: InboundMailPartRow): MailThreadAttachmentNotFiledReason {
   if (part.state === 'waiting' || part.state === 'filing') return 'pending'
   if (part.riskFlags.includes('type_not_accepted')) return 'type_not_accepted'
   if (part.scanStatus === 'infected') return 'infected'

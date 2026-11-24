@@ -15,8 +15,9 @@ import {
 } from '@/lib/inbox/service'
 import type { DocumentAnnotationReplyRow } from '@/lib/db/schema/document-annotations'
 import type { InboxItemType } from '@/lib/db/schema/inbox'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import { describeResource } from '@/lib/sharing/registry'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export interface MarkRef {
   organizationId: string
@@ -103,7 +104,7 @@ export function markParticipants(mark: MarkPeople): string[] {
   const mentioned = [mark.mentions ?? [], ...mark.replies.map((reply) => reply.mentions ?? [])]
     .flat()
     .map((mention) => mention.targetId)
-    .filter((targetId) => targetId !== AGENT_MENTION_ID)
+    .filter((targetId) => !isAgentMentionId(targetId))
   const people = [
     markAuthor(mark),
     mark.assigneeUserId,
@@ -130,7 +131,7 @@ export async function onWakeEnded(
   }
 ): Promise<void> {
   if (input.outcome === 'stopped') return
-  const type = input.outcome === 'answered' ? 'piloti.work_done' : 'piloti.work_failed'
+  const type = input.outcome === 'answered' ? 'agent.work_done' : 'agent.work_failed'
   const variant =
     input.outcome === 'failed' ? (wakeEndReasonKind('failed', input.reason ?? null) ?? 'error') : input.trigger
   await bestEffortInbox(`${type} for mark ${input.annotationId}`, input.organizationId, () =>
@@ -139,7 +140,7 @@ export async function onWakeEnded(
 }
 
 function waitsOnPerson(mark: Pick<AnnotationRecord, 'kind' | 'authorKind' | 'status'>): boolean {
-  return mark.kind === 'question' && mark.authorKind === 'piloti' && isLive(mark)
+  return mark.kind === 'question' && isAgentKind(mark.authorKind) && isLive(mark)
 }
 
 export async function onAgentWrote(
@@ -151,13 +152,13 @@ export async function onAgentWrote(
   }
 ): Promise<void> {
   if (input.what === 'mark') return
-  await bestEffortInbox(`piloti.asks_you for mark ${input.annotationId}`, input.organizationId, async () => {
+  await bestEffortInbox(`agent.asks_you for mark ${input.annotationId}`, input.organizationId, async () => {
     const mark = await findDocumentAnnotation(input.organizationId, input.documentId, input.annotationId)
     if (!mark) return
     if (!waitsOnPerson(mark)) return
     const written =
       input.what === 'reply' ? mark.replies.find((reply) => reply.id === input.replyId)?.body : mark.body
-    await emitAboutMark('piloti.asks_you', input, [input.assigneeUserId ?? input.onBehalfOf], {
+    await emitAboutMark('agent.asks_you', input, [input.assigneeUserId ?? input.onBehalfOf], {
       excerpt: excerptOf(written),
     })
   })
@@ -170,8 +171,8 @@ export async function onMarkSettledByPerson(
     await resolveInboxItemsAnchoredOn({
       organizationId: input.organizationId,
       types: input.closed
-        ? ['piloti.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned']
-        : ['piloti.asks_you'],
+        ? ['agent.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned']
+        : ['agent.asks_you'],
       anchorId: input.annotationId,
     })
     if (input.closed || !input.answeredBy) return

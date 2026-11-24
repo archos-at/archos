@@ -10,10 +10,9 @@ import { SectionLabel } from '@/components/ui/section-label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTranslations } from '@/i18n'
 import { profileCopy } from '@/i18n/namespaces/profile'
+import { OFFICE_SERVER_NAME } from '@/lib/agent-api/server-name'
 import { CodeBlock } from '@/shared/components/CodeBlock'
 import type { AgentConnectState } from '../lib/connect-state'
-
-const SERVER_NAME = 'piloti'
 
 type ClientId = 'claude' | 'claudeCode' | 'cursor' | 'chatgpt' | 'other'
 
@@ -31,7 +30,7 @@ const CLIENTS: readonly ClientSpec[] = [
     snippetAfter: {
       step: 's1',
       language: 'bash',
-      value: (url) => `claude mcp add --transport http ${SERVER_NAME} ${url}`,
+      value: (url) => `claude mcp add --transport http ${OFFICE_SERVER_NAME} ${url}`,
     },
   },
   {
@@ -40,7 +39,7 @@ const CLIENTS: readonly ClientSpec[] = [
     snippetAfter: {
       step: 's1',
       language: 'json',
-      value: (url) => JSON.stringify({ mcpServers: { [SERVER_NAME]: { url } } }, null, 2),
+      value: (url) => JSON.stringify({ mcpServers: { [OFFICE_SERVER_NAME]: { url } } }, null, 2),
     },
   },
   { id: 'chatgpt', steps: ['s1', 's2', 's3'] },
@@ -76,7 +75,7 @@ function ClientSteps({ client, url }: { client: ClientSpec; url: string }): JSX.
     <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm">
       {client.steps.map((step) => (
         <li key={step}>
-          <span>{t(`clients.${client.id}.${step}`)}</span>
+          <span>{t(`clients.${client.id}.${step}`, { serverName: OFFICE_SERVER_NAME })}</span>
           {client.snippetAfter?.step === step && (
             <CodeBlock
               value={client.snippetAfter.value(url)}

@@ -41,7 +41,7 @@ describe('posthogSupportConfigFromEnv', () => {
     ['a blank key', { ...full, POSTHOG_PERSONAL_API_KEY: '  ' }],
     ['no project id', { ...full, POSTHOG_PROJECT_ID: undefined }],
     ['a project id that is not digits', { ...full, POSTHOG_PROJECT_ID: '26989x' }],
-    ['a project id that is a slug', { ...full, POSTHOG_PROJECT_ID: 'piloti' }],
+    ['a project id that is a slug', { ...full, POSTHOG_PROJECT_ID: 'example' }],
     ['no project token', { ...full, NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: undefined }],
   ])('is null with %s', (_label, env) => {
     expect(posthogSupportConfigFromEnv(env)).toBeNull()

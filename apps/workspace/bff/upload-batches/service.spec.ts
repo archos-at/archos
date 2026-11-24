@@ -163,7 +163,7 @@ describe('openUploadBatch', () => {
     expect(openUploadBatchSchema.safeParse({ ...body, revisionNotice: 'marks_only' }).success).toBe(false)
   })
 
-  it("refuses a Büroablage batch to someone who does not curate it, as if it didn't exist", async () => {
+  it("refuses a Bürobibliothek batch to someone who does not curate it, as if it didn't exist", async () => {
     await expect(
       openUploadBatch(session, { id: BATCH_ID, scope: 'office_shelf', projectId: null, conversationId: null, expectedCount: 1, excluded: [] })
     ).rejects.toBeInstanceOf(NotFoundError)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { DEFAULT_INBOUND_MAIL_LOCAL_PART } from "../src/config/inbound-mail";
@@ -195,7 +195,7 @@ describe("g0Findings", () => {
     };
     const env = (name: string) => ({ INBOUND_MAIL_ZONE_ID: "z1", INBOUND_MAIL_DOMAIN: DOMAIN })[name] ?? "";
     const before = process.env.INBOUND_MAIL_LOCAL_PART;
-    process.env.INBOUND_MAIL_LOCAL_PART = LOCAL;
+    vi.stubEnv('INBOUND_MAIL_LOCAL_PART', LOCAL);
     try {
       const findings = await g0Findings({
         cloudflareApi: async (path) => answers[path],
@@ -208,8 +208,8 @@ describe("g0Findings", () => {
       expect(findings.find((f) => f.name.startsWith("Email Routing on the zone"))?.status).toBe("info");
       expect(findings.find((f) => f.name.startsWith("one DMARC record at _dmarc.example.org"))?.status).toBe("pass");
     } finally {
-      if (before === undefined) delete process.env.INBOUND_MAIL_LOCAL_PART;
-      else process.env.INBOUND_MAIL_LOCAL_PART = before;
+      if (before === undefined) vi.stubEnv('INBOUND_MAIL_LOCAL_PART', undefined);
+      else vi.stubEnv('INBOUND_MAIL_LOCAL_PART', before);
     }
   });
 });

@@ -8,6 +8,7 @@ import { installPdb, onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { UID } from "../constants";
 import { API_TIERS, CHAT_TIERS } from "./tier-names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -22,7 +23,7 @@ export const PUBLIC_SOURCE_FETCHER = {
   privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96"],
   resources: {
     // The server idles at about 65 MiB (measured 2026-11-10); two PDF readers at 1 GiB each fit the limit.
-    requests: { cpu: "100m", memory: "1Gi" },
+    requests: { cpu: "1000m", memory: "1Gi" },
     limits: { cpu: "1000m", memory: "2560Mi" },
   },
 } as const;
@@ -88,7 +89,7 @@ export function installPublicSourceFetcher(
                   { name: "PUBLIC_SOURCES_DIR", value: "/app/configs/sources" },
                 ],
                 ports: [{ containerPort: port, name: "http" }],
-                resources: PUBLIC_SOURCE_FETCHER.resources,
+                resources: scaledCpuRequest(PUBLIC_SOURCE_FETCHER.resources),
                 readinessProbe: { httpGet: { path: "/healthz", port }, periodSeconds: 10 },
                 livenessProbe: { httpGet: { path: "/healthz", port }, initialDelaySeconds: 10, periodSeconds: 20 },
               },

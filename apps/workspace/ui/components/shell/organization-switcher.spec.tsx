@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { OrganizationSwitcherMenu } from './organization-switcher'
 
 const ORGANIZATIONS = [
-  { id: 'org_1', name: 'GRID Test', current: true },
+  { id: 'org_1', name: 'Test Office', current: true },
   { id: 'org_2', name: 'feld72 Architekten', current: false },
 ]
 
@@ -42,7 +42,7 @@ describe('OrganizationSwitcherMenu', () => {
     await openSwitcher()
 
     expect(await screen.findByRole('menuitem', { name: /feld72 Architekten/ })).not.toHaveAttribute('data-disabled')
-    expect(screen.getByRole('menuitem', { name: /GRID Test/ })).toHaveAttribute('data-disabled')
+    expect(screen.getByRole('menuitem', { name: /Test Office/ })).toHaveAttribute('data-disabled')
   })
 
   test('switches the session, then loads the new office’s projects', async () => {

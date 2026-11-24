@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Conversation } from '@/features/chat/types'
+import { PRODUCT_NAME } from '@/lib/brand'
 import type { MentionCandidatesResponse } from '@/lib/mentions/types'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }))
@@ -58,7 +59,7 @@ const CANDIDATES: MentionCandidatesResponse = {
   candidates: [
     {
       targetId: 'agent:piloti',
-      person: { userId: 'agent:piloti', name: 'Piloti', email: null, profilePictureUrl: null },
+      person: { userId: 'agent:piloti', name: PRODUCT_NAME, email: null, profilePictureUrl: null },
       isAgent: true,
       isParticipant: true,
       needsInvite: false,

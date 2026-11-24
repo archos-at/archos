@@ -95,7 +95,7 @@ describe('buildRevisionTimeline', () => {
     expect(published).toMatchObject({ kind: 'version', current: true, newest: false })
   })
 
-  it('moves current off a published upload Piloti has not read, to the upload it replaced', () => {
+  it('moves current off a published upload the agent has not read, to the upload it replaced', () => {
     const versions = [version(1, 'superseded'), version(2, 'published', { createdAt: '2026-09-02T08:00:00.000Z' })]
     const current = (rows: TimelineRow[]) => rows.flatMap((row) => (row.kind === 'version' && row.current ? [row.version.versionNumber] : []))
 
@@ -240,6 +240,12 @@ describe('versionActs / latestAct', () => {
 
   it('names the upload when nothing has happened to the version since it arrived', () => {
     expect(latestAct(version(1, 'published'))).toEqual({ key: 'uploaded', actor: 'user_author', when: '2026-09-01T08:00:00.000Z' })
+  })
+
+  it('names a filing a filing, never an upload', () => {
+    const filing = { ...version(1, 'published'), origin: 'filing' as const }
+    expect(versionActs(filing)).toEqual([])
+    expect(latestAct(filing)).toEqual({ key: 'filed', actor: 'user_author', when: '2026-09-01T08:00:00.000Z' })
   })
 
   it('names the latest act otherwise', () => {

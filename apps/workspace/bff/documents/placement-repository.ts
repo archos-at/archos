@@ -16,6 +16,7 @@ export interface PlacementRow {
   metadata: unknown
   updatedAt: Date
   authoredBy: (typeof documents.$inferSelect)['authoredBy']
+  authoredByProducer: string | null
   publishedVersionId: string | null
   storageKey: string | null
   storageBucket: string | null
@@ -31,6 +32,7 @@ const placementColumns = {
   metadata: documents.metadata,
   updatedAt: documents.updatedAt,
   authoredBy: documents.authoredBy,
+  authoredByProducer: documents.authoredByProducer,
   publishedVersionId: documents.publishedVersionId,
   storageKey: documents.storageKey,
   storageBucket: documents.storageBucket,

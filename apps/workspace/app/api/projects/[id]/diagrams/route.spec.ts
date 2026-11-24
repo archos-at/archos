@@ -50,7 +50,7 @@ const filed = (documentId: string) => ({
 
 const post = (body: unknown, headers: Record<string, string> = {}): Promise<Response> =>
   POST(
-    new NextRequest('https://grid.test/api/projects/proj-1/diagrams', {
+    new NextRequest('https://example.test/api/projects/proj-1/diagrams', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
@@ -105,14 +105,14 @@ describe('POST /api/projects/[id]/diagrams', () => {
     })
   })
 
-  it('keeps „Von Piloti erstellt" on a drawing filed as drawn', async () => {
+  it('keeps the agent-authored byline on a drawing filed as drawn', async () => {
     recordDiagramScore.mockReset()
     await post(submission())
     expect(fileDiagramDocuments).toHaveBeenCalledWith(expect.objectContaining({ marking: diagramsCopy.messages.de.marking }))
     expect(recordDiagramScore).toHaveBeenCalledWith(expect.objectContaining({ answerId: null, edited: false }))
   })
 
-  it('marks a sketch Piloti drew, filed as drawn, as not to scale', async () => {
+  it('marks a sketch the agent drew, filed as drawn, as not to scale', async () => {
     await post(submission({ sourceKind: 'excalidraw', source: '{"type":"excalidraw","elements":[]}' }))
     expect(fileDiagramDocuments).toHaveBeenCalledWith(
       expect.objectContaining({ sourceKind: 'excalidraw', marking: diagramsCopy.messages.de.markingSketch })

@@ -74,6 +74,7 @@ describe("the retired Chroma tier and vector switch (ADR-0115)", () => {
   it.each([
     ["chromaEnabled", "true"],
     ["chromaImage", "chromadb/chroma:1.5.9"],
+    ["chromaMigration", "true"],
     ["chromaStorageSize", "20Gi"],
     ["qdrantEnabled", "false"],
     ["vectorBackend", "chroma"],
@@ -86,30 +87,8 @@ describe("the retired Chroma tier and vector switch (ADR-0115)", () => {
   it("names every retired key at once", () => {
     const all = Object.fromEntries(RETIRED_VECTOR_KEYS.map((k) => [`grid-oib:${k}`, "x"]));
     expect(loadWith(all)?.message).toMatch(
-      /grid-oib:chromaEnabled, grid-oib:chromaImage, grid-oib:chromaStorageSize, grid-oib:qdrantEnabled, grid-oib:vectorBackend are retired/,
+      /grid-oib:chromaEnabled, grid-oib:chromaImage, grid-oib:chromaMigration, grid-oib:chromaMigrationScratchSize, grid-oib:chromaMigrationTimeoutMinutes, grid-oib:chromaStorageSize, grid-oib:qdrantEnabled, grid-oib:vectorBackend are retired/,
     );
-  });
-});
-
-describe("the Chroma migration Job's knobs", () => {
-  it("is off by default, and waits 40 minutes for the Job: inside the pipeline's hour", () => {
-    pulumi.runtime.setAllConfig(baseStackConfig());
-    expect(loadConfig().chromaMigration).toEqual({ enabled: false, scratchSize: "50Gi", timeoutMinutes: 40 });
-  });
-
-  it("takes another scratch size and timeout from the stack", () => {
-    pulumi.runtime.setAllConfig({
-      ...baseStackConfig(),
-      "grid-oib:chromaMigration": "true",
-      "grid-oib:chromaMigrationScratchSize": "80Gi",
-      "grid-oib:chromaMigrationTimeoutMinutes": "120",
-    });
-    expect(loadConfig().chromaMigration).toEqual({ enabled: true, scratchSize: "80Gi", timeoutMinutes: 120 });
-  });
-
-  it("refuses a timeout that is not a whole number of minutes", () => {
-    pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:chromaMigrationTimeoutMinutes": "0" });
-    expect(() => loadConfig()).toThrow(/chromaMigrationTimeoutMinutes must be a whole number/);
   });
 });
 

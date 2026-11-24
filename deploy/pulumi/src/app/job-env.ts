@@ -8,6 +8,11 @@ export function migrationEnv(): EnvVar[] {
   return [sref("APP_MIGRATION_DATABASE_URL")];
 }
 
+export function backfillDatabaseEnv(database: "app" | "jobs"): EnvVar[] {
+  if (database === "app") return migrationEnv();
+  return [{ name: "APP_MIGRATION_DATABASE_URL", valueFrom: sref("LISTEN_DB_URL").valueFrom }];
+}
+
 export function auditSchemaEnv(): EnvVar[] {
   return [sref("WORKOS_API_KEY")];
 }

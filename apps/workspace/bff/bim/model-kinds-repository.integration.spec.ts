@@ -33,7 +33,7 @@ describe.skipIf(!url)('projectModelKinds', () => {
   const OTHER_CONVERSATION = `s_kinds_other_${Date.now()}`
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const { getDb, closeDb: close } = await import('@/lib/db')
     const { withPlatformAccess } = await import('@/lib/db/tenant-context')
     projectModelKinds = (await import('./model-kinds-repository')).projectModelKinds

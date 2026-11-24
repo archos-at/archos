@@ -298,7 +298,7 @@ export const CitationPeek: FC<CitationPeekProps> = ({
 
       {/* WHY there is no viewer, before the control that works around it. Said
           in the popover rather than left to the reader's inference: "this
-          format opens outside Piloti" is a fact about the file, and without it
+          format opens outside the app" is a fact about the file, and without it
           a download button beside a document chip reads as an arbitrary second
           choice. */}
       {onDownload && !onOpen && (
@@ -311,8 +311,8 @@ export const CitationPeek: FC<CitationPeekProps> = ({
       {sheet && onOpen && <CitationOpenButton tint={tint} onOpen={onOpen} primary />}
 
       {/* A source with nothing to open is said in a sentence, never as a row that
-          looks like a disabled control: it used to read „In Piloti nicht zu
-          öffnen" beside the copy buttons, a dead action on the one source the
+          looks like a disabled control: it used to read as a row that could not
+          open beside the copy buttons, a dead action on the one source the
           reader tapped to check. */}
       {unavailable && !onOpen && !onDownload && (
         <p className="text-xs leading-relaxed text-muted-foreground" data-citation-unavailable="">

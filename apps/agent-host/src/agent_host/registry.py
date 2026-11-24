@@ -1,24 +1,13 @@
-"""
-Agent registry for async job system.
-
-Maps agent type identifiers to their class paths and config names.
-This allows the job runner to dynamically load and instantiate agents.
-"""
-
 from __future__ import annotations
 
-import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
 
-
-@dataclass
+@dataclass(frozen=True)
 class AgentConfig:
-    """Configuration for a registered agent."""
-
-    class_path: str
-    """Full module path to the agent class, e.g., 'agent.agents.deep_researcher.agent.DeepResearcherAgent'"""
+    load: Callable[[], type]
+    """Imports the agent module on first use and returns the agent class."""
 
     config_name: str
     """Agent-runtime config function name, e.g., 'deep_research_agent'"""
@@ -27,76 +16,50 @@ class AgentConfig:
     """Human-readable description of the agent."""
 
 
-AGENT_REGISTRY: dict[str, AgentConfig] = {}
+def _deep_researcher() -> type:
+    from agent.agents.deep_researcher.agent import DeepResearcherAgent
+
+    return DeepResearcherAgent
 
 
-def register_agent(
-    agent_type: str,
-    class_path: str,
-    config_name: str,
-    description: str = "",
-) -> None:
-    """
-    Register an agent type for use with the async job system.
+def _chat() -> type:
+    from agent.core.agent import ChatAgent
 
-    Args:
-        agent_type: Short identifier for the agent (e.g., 'deep_researcher').
-        class_path: Full module path to the agent class.
-        config_name: Agent-runtime config function name for this agent.
-        description: Human-readable description.
+    return ChatAgent
 
-    Example:
-        register_agent(
-            agent_type="deep_researcher",
-            class_path="agent.agents.deep_researcher.agent.DeepResearcherAgent",
-            config_name="deep_research_agent",
-            description="Performs comprehensive multi-loop research",
-        )
-    """
-    AGENT_REGISTRY[agent_type] = AgentConfig(
-        class_path=class_path,
-        config_name=config_name,
-        description=description,
-    )
-    logger.debug("Registered agent: %s -> %s", agent_type, class_path)
+
+def _project_intake() -> type:
+    from agent.agents.intake.agent import ProjectIntakeAgent
+
+    return ProjectIntakeAgent
+
+
+AGENT_REGISTRY: dict[str, AgentConfig] = {
+    "deep_researcher": AgentConfig(
+        load=_deep_researcher,
+        config_name="deep_research_agent",
+        description="Performs comprehensive multi-loop deep research",
+    ),
+    "researcher": AgentConfig(
+        load=_chat,
+        config_name="shallow_research_agent",
+        description="Performs quick single-turn research",
+    ),
+    "project_intake": AgentConfig(
+        load=_project_intake,
+        config_name="project_intake_agent",
+        description="Reads a new project's documents and suggests its profile values (ADR-0111)",
+    ),
+}
+
+
+class UnknownAgentError(KeyError):
+    def __str__(self) -> str:
+        return str(self.args[0])
 
 
 def get_agent_config(agent_type: str) -> AgentConfig:
-    """
-    Get configuration for a registered agent.
-
-    Args:
-        agent_type: The agent type identifier.
-
-    Returns:
-        AgentConfig for the requested agent.
-
-    Raises:
-        KeyError: If agent_type is not registered.
-    """
     if agent_type not in AGENT_REGISTRY:
-        available = ", ".join(AGENT_REGISTRY.keys()) or "(none)"
-        raise KeyError(f"Unknown agent type: '{agent_type}'. Available: {available}")
+        available = ", ".join(AGENT_REGISTRY) or "(none)"
+        raise UnknownAgentError(f"Unknown agent type: '{agent_type}'. Available: {available}")
     return AGENT_REGISTRY[agent_type]
-
-
-register_agent(
-    agent_type="deep_researcher",
-    class_path="agent.agents.deep_researcher.agent.DeepResearcherAgent",
-    config_name="deep_research_agent",
-    description="Performs comprehensive multi-loop deep research",
-)
-
-register_agent(
-    agent_type="researcher",
-    class_path="agent.agents.piloti.agent.ChatAgent",
-    config_name="shallow_research_agent",
-    description="Performs quick single-turn research",
-)
-
-register_agent(
-    agent_type="project_intake",
-    class_path="agent.agents.intake.agent.ProjectIntakeAgent",
-    config_name="project_intake_agent",
-    description="Reads a new project's documents and suggests its profile values (ADR-0111)",
-)

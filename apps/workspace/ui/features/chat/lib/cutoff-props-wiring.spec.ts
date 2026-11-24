@@ -1,8 +1,17 @@
-// @disk-inputs: ui/features/layout/components/chat-area/message-renderer.tsx
-
-import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+import { render } from '@/test-utils'
 import type { Message } from '@/lib/db/schema/messages'
+import type { ChatMessage } from '@/features/chat/types'
+import { MessageRenderer } from '@/features/layout/components/chat-area/message-renderer'
 import { mapServerMessageToChatMessage } from './server-message-mapper'
+
+const agentResponse = vi.hoisted(() => vi.fn((_props: Record<string, unknown>) => null))
+
+vi.mock('@/features/chat', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/chat')>()
+  return { ...actual, AgentResponse: (props: Record<string, unknown>) => agentResponse(props) }
+})
 
 const stored = (provenance: Record<string, unknown>): Message =>
   ({
@@ -47,10 +56,25 @@ describe('a reopened thread restores the cause and the degradations', () => {
 })
 
 describe('ChatArea hands both props to the answer', () => {
-  it('passes them straight off the message', async () => {
-    const { readFileSync } = await import('node:fs')
-    const source = readFileSync('ui/features/layout/components/chat-area/message-renderer.tsx', 'utf8')
-    expect(source).toContain('truncationReason={message.truncationReason}')
-    expect(source).toContain('degradedReasons={message.degradedReasons}')
+  it('passes them straight off the message', () => {
+    const message = {
+      id: 'm-1',
+      role: 'assistant',
+      messageType: 'agent_response',
+      content: 'Die Antwort.',
+      timestamp: new Date('2026-08-19T10:00:00.000Z'),
+      researchTruncated: true,
+      truncationReason: 'wall_clock',
+      degradedReasons: ['no_valid_citations'],
+    } as unknown as ChatMessage
+
+    render(createElement(MessageRenderer, { message }))
+
+    expect(agentResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        truncationReason: 'wall_clock',
+        degradedReasons: ['no_valid_citations'],
+      })
+    )
   })
 })

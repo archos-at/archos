@@ -60,7 +60,11 @@ def test_the_instrumentor_exports_through_our_provider_and_never_to_hatchet(expo
 
     instrumentor = orchestrator_tracing._instrumentor
     assert instrumentor.tracer_provider is direct_trace._provider
-    assert len(direct_trace._provider._active_span_processor._span_processors) == 1
+    processors = direct_trace._provider._active_span_processor._span_processors
+    assert [type(processor).__name__ for processor in processors] == [
+        "ProcessContextSpanProcessor",
+        "BatchSpanProcessor",
+    ]
     assert {a.value for a in instrumentor.config.otel.excluded_attributes} >= {"payload", "additional_metadata"}
 
 
@@ -89,7 +93,9 @@ def test_a_trigger_carries_its_traceparent_and_no_payload_on_its_span(exporter):
             assert secret not in _flat(span)
 
 
-async def test_a_step_run_continues_the_trigger_trace_and_names_no_document(exporter):
+async def test_a_step_run_continues_the_trigger_trace_and_names_no_document(exporter, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("POSTHOG_APP_HOST", "app.example.test")
     orchestrator_tracing.instrument(_config())
     instrumentor: HatchetInstrumentor = orchestrator_tracing._instrumentor
     with orchestrator_tracing.linked_metadata("ingest-trigger", {"job_id": "job-1"}) as metadata:
@@ -121,6 +127,8 @@ async def test_a_step_run_continues_the_trigger_trace_and_names_no_document(expo
     trigger, step, file = spans["ingest-trigger"], spans["hatchet.start_step_run"], spans["ingest-file"]
     assert step.context.trace_id == trigger.context.trace_id == file.context.trace_id
     assert step.parent.span_id == trigger.context.span_id
+    assert step.attributes["langfuse.environment"] == "production"
+    assert list(step.attributes["langfuse.trace.tags"]) == ["app_host:app.example.test"]
     for span in spans.values():
         for secret in SECRETS:
             assert secret not in _flat(span)

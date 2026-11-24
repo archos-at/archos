@@ -6,7 +6,7 @@ import { AtSign, Users } from 'lucide-react'
 import { AvatarStack, type AvatarStackPerson } from '@/components/ui/avatar-stack'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import { cn } from '@/lib/utils'
 import type { DraftMention } from '@/lib/mentions/mention-text'
 
@@ -27,8 +27,8 @@ export function AddresseeIndicator({
 }: AddresseeIndicatorProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
 
-  const humans = mentions.filter((mention) => mention.targetId !== AGENT_MENTION_ID)
-  const agentTagged = mentions.some((mention) => mention.targetId === AGENT_MENTION_ID)
+  const humans = mentions.filter((mention) => !isAgentMentionId(mention.targetId))
+  const agentTagged = mentions.some((mention) => isAgentMentionId(mention.targetId))
   const agentName = t('mentions.picker.agentName')
 
   const mode: AddresseeMode =
@@ -66,7 +66,7 @@ export function AddresseeIndicator({
       {mode === 'thread' && <Users className="size-3.5 shrink-0 opacity-70" aria-hidden />}
       {/* No agent glyph. The spark used to lead the agent — alone, and then at
           the end of a list of people — and the composer no longer carries it
-          anywhere: the names say who is addressed, and "Piloti" is one of them. */}
+          anywhere: the names say who is addressed, and the agent is one of them. */}
       {label && <span className="min-w-0 truncate">{label}</span>}
 
       {/* The teaching affordance. A quiet trailing action rather than a button in

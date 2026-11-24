@@ -286,20 +286,6 @@ class TestSync:
         run_worker()
         assert _sync().ingested_recorded == 1
 
-    def test_an_empty_store_waiting_for_its_import_is_not_taken_for_a_reset(self, ingestor, monkeypatch):
-        corpus_store.put("a.pdf", b"a")
-        _sync()
-        run_worker()
-        _sync()
-        ingestor.collection = None  # the new Qdrant, still empty
-        monkeypatch.setenv("VECTOR_IMPORT_PENDING", "true")
-
-        assert _sync().enqueued == 0
-        assert _row("a.pdf").ingested_sha256 == _sha(b"a")
-
-        monkeypatch.delenv("VECTOR_IMPORT_PENDING")
-        assert _sync().enqueued == 1  # without it, an empty store is a reset as before
-
     def test_a_vector_store_that_cannot_be_probed_does_not_discard_what_the_table_knows(self, ingestor, monkeypatch):
         corpus_store.put("a.pdf", b"a")
         _sync()

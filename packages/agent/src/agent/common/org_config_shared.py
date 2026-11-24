@@ -1,10 +1,3 @@
-"""The shared tier (Dragonfly) of an organization's model configuration, below ``model_overrides``' in-process memo.
-
-Its own module so ``model_overrides`` stays a reader of the configuration, not also its cache codec. The BFF
-deletes the key on every save (``lib/model-config/service.ts``); a replica that misses its memo reads here before
-it asks the BFF, which is what keeps a fresh replica off the BFF on a cold start.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -19,12 +12,10 @@ _SHARED_TTL_SECONDS = 60.0
 
 
 def shared_model_config_key(organization_id: str) -> str:
-    """The Dragonfly key the BFF invalidates; keep in step with `lib/model-config/service.ts`."""
     return f"modelconfig:{organization_id}"
 
 
 def read_shared(organization_id: str) -> tuple[dict[str, str], bool, ProcessingPolicy] | None:
-    """The org's config from the shared tier, or ``None`` on a miss or a bad value; the overrides unsanitized."""
     from agent.common import cache as shared_cache
 
     try:
@@ -41,11 +32,6 @@ def read_shared(organization_id: str) -> tuple[dict[str, str], bool, ProcessingP
 
 
 def write_shared(org_id: str, overrides: dict[str, str], zdr_only: bool, processing: ProcessingPolicy) -> None:
-    """Share the org's config with every replica; never an unreadable policy.
-
-    An unreadable placement is a failure, not an answer: ``policy_to_json`` keeps no ``known`` bit, so another
-    replica would read it back as a known, unplaced organization and serve it inside a cell (ADR-0167).
-    """
     from agent.common import cache as shared_cache
 
     if not processing.known:

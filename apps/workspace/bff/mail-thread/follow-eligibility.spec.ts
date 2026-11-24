@@ -7,6 +7,7 @@ import {
   FOLLOW_REFUSING_FLAGS,
   followEligibility,
   newParticipantDomains,
+  publicDomainAddresses,
   type FollowCandidateMail,
   type FollowedThread,
   type FollowIneligibilityReason,
@@ -19,7 +20,8 @@ const THREAD_ID = '00000000-0000-4000-8000-0000000000aa'
 
 const thread: FollowedThread = {
   id: THREAD_ID,
-  participantDomains: ['berger-architektur.at', 'statik-weber.at', 'ma37.wien.gv.at'],
+  participantDomains: ['berger-architektur.at', 'statik-weber.at', 'ma37.wien.gv.at', 'gmail.com'],
+  participantAddresses: ['bauherr.gruber@gmail.com'],
 }
 
 const follow: FollowRow = {
@@ -157,6 +159,11 @@ describe('followEligibility', () => {
       expect(reasons(mail({ automatic: true }))).toEqual(['automatic'])
     })
 
+    it('lets relaxed (DMARC organizational-domain) alignment join, as direct filing of a member’s mail does', () => {
+      expect(FOLLOW_REFUSING_FLAGS).not.toContain('relaxed_alignment')
+      expect(reasons(mail({ senderFlags: ['relaxed_alignment'] }))).toEqual([])
+    })
+
     it('ignores a flag that refuses nothing', () => {
       expect(reasons(mail({ senderFlags: ['something_else'] }))).toEqual([])
     })
@@ -170,7 +177,7 @@ describe('followEligibility', () => {
         [follow],
         context
       )
-      expect(result).toEqual({ eligible: false, reasons: ['new_participant_domain'], newDomains: ['extern-bau.at'] })
+      expect(result).toEqual({ eligible: false, reasons: ['new_participant_domain'], newDomains: ['extern-bau.at'], newAddresses: [] })
     })
 
     it('counts a subdomain as new', () => {
@@ -187,6 +194,36 @@ describe('followEligibility', () => {
 
     it('never counts the project’s own address', () => {
       expect(newParticipantDomains({ participantAddresses: ['a@EXAMPLE.org'] }, thread, ['example.org'])).toEqual([])
+    })
+  })
+
+  describe('5a. on a public mail domain, the address, not the domain, must have taken part', () => {
+    const fromGmail = (sender: string) =>
+      mail({ participantAddresses: [sender, 'berger@berger-architektur.at', 'project+bauplatz-12.k3x7q2m4p4ab@example.org'] })
+
+    it('lets a known address on a public mail domain join', () => {
+      expect(reasons(fromGmail('Bauherr.Gruber@GMAIL.com'))).toEqual([])
+    })
+
+    it('fails alone for a stranger on a public mail domain the thread has seen, and names the address', () => {
+      const result = followEligibility(fromGmail('anyone@gmail.com'), thread, [follow], context)
+      expect(result).toEqual({ eligible: false, reasons: ['new_participant_address'], newDomains: [], newAddresses: ['anyone@gmail.com'] })
+    })
+
+    it('holds a stranger copied in on a public mail domain too', () => {
+      const cc = mail({ participantAddresses: [...mail().participantAddresses, 'bauherr.gruber@gmail.com', 'nachbar@gmail.com'] })
+      expect(reasons(cc)).toEqual(['new_participant_address'])
+    })
+
+    it.each(['gmx.at', 'gmx.de', 'outlook.com', 'hotmail.com', 'yahoo.de', 'yahoo.co.uk', 'web.de', 'icloud.com', 't-online.de', 'aon.at', 'a1.net'])(
+      'reads %s as a public mail domain',
+      (domain) => {
+        expect(publicDomainAddresses({ participantAddresses: [`x@${domain}`, 'x@statik-weber.at'] })).toEqual([`x@${domain}`])
+      }
+    )
+
+    it('reads an office’s own domain as no public one', () => {
+      expect(publicDomainAddresses({ participantAddresses: ['x@yahoo-bau.at', 'x@gmail.com.evil.example', 'x@statik-weber.at'] })).toEqual([])
     })
   })
 

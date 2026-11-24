@@ -31,7 +31,7 @@ const inputs = (type: string, name: string) => {
   return hit as { spec: Record<string, any> };
 };
 
-describe("the rename of the AI-Q databases and role", () => {
+describe("the rename of the legacy databases and role", () => {
   beforeAll(async () => {
     graph = new DependencyGraph();
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false" });

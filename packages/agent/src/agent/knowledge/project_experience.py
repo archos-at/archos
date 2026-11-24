@@ -1,27 +1,3 @@
-"""What a closed project's own documents state about it: its fingerprint and its decisions.
-
-The close dialog and the archive import call ``POST /v1/internal/project-experience``, which
-wraps :func:`read_project_experience`. Three model calls read the project's collection: a
-chooser picks the few documents that state the building's facts or the project's decisions,
-a fingerprint pen answers the keys the intake wizard asks (Bundesland, Gebäudeklasse, the OIB
-edition, ...), and a decision pen drafts the decisions and constraints. The contract is
-``docs/design/closed-project-experience.md``.
-
-The model decides what the documents state. Code checks only what it may keep: a key that
-was not asked, a token outside the vocabulary, a value or decision without a quote, evidence
-that names a file nobody read. A word list or a file-name rule in code would be the same
-judgement made worse, so there is none here.
-
-Only the files the request names are read (``fileNames``). What the pens find becomes a profile
-every member reads and memory rows with no folder restriction, so which files may feed them is the
-BFF's decision, made from the document's live folder and its upload screen
-(``apps/workspace/bff/project-experience/readable-files.ts``), not something the collection's
-inventory can answer: a document moved into a restricted folder, or held by the screen, can still
-sit in it. A file the inventory lists and the request does not is never shown to the chooser.
-
-A fault is logged and answered as ``error`` with empty lists; nothing raises to the route.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -72,13 +48,10 @@ LEGACY_OUTCOME = {"auflage": "condition"}
 
 
 class _Wire(BaseModel):
-    """Refuses unknown keys (strict output needs ``additionalProperties: false``) and takes both spellings."""
-
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 def _text_or_none(value: Any) -> Any:
-    """A page the model wrote as a number is a page label; a blank one is absent."""
     if isinstance(value, int) and not isinstance(value, bool):
         value = str(value)
     if isinstance(value, str):
@@ -87,7 +60,9 @@ def _text_or_none(value: Any) -> Any:
 
 
 class Evidence(_Wire):
-    """Where a value or decision is stated: the file, the page, and the words."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Where a value or decision is stated: the file, the page, and the words."}
+    )
 
     file_name: str = Field(
         alias="fileName",
@@ -108,12 +83,15 @@ class Evidence(_Wire):
     @field_validator("quote", mode="before")
     @classmethod
     def _clip_quote(cls, value: Any) -> Any:
-        """Clip rather than reject: a long quote should not cost the value it proves."""
         return value.strip()[:MAX_QUOTE_CHARS] if isinstance(value, str) else value
 
 
 class FingerprintValue(_Wire):
-    """One answered key: a token, or a list of tokens when the key is multi-valued."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "One answered key: a token, or a list of tokens when the key is multi-valued."
+        }
+    )
 
     key: str = Field(description="The key asked, exactly as the keys list names it.")
     value: str | list[str] = Field(
@@ -125,7 +103,13 @@ class FingerprintValue(_Wire):
 
 
 class DraftedDecision(_Wire):
-    """A decision the project made, or a constraint it had to meet, with where the documents say so."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "A decision the project made, or a constraint it had to meet, with where the documents say so."
+            )
+        }
+    )
 
     kind: DecisionKind = Field(
         description=(
@@ -161,8 +145,6 @@ class VocabularyOption(_Wire):
 
 
 class VocabularyEntry(_Wire):
-    """One key the fingerprint asks: whether it takes several values, and the options it may take."""
-
     multiple: bool
     options: list[VocabularyOption] = Field(default_factory=list)
 
@@ -182,8 +164,6 @@ class ProjectExperienceRequest(_Wire):
 
 
 class ProjectExperienceResponse(_Wire):
-    """What the documents state. ``error`` set means the lists are empty and say why."""
-
     model: str = Field("", description="The model that read the documents; empty when none was asked.")
     documents_read: list[str] = Field(default_factory=list, alias="documentsRead")
     fingerprint: list[FingerprintValue] = Field(default_factory=list)
@@ -250,7 +230,6 @@ DECISION_SYSTEM_PROMPT = (
 
 
 def _ask[ReplyT: _Wire](llm: Any, system: str, user: str, reply_model: type[ReplyT]) -> ReplyT:
-    """One strict structured call. A provider fault or a reply that does not fit raises; the caller decides its cost."""
     messages = [SystemMessage(content=system), HumanMessage(content=user)]
     response = llm.bind(response_format=strict_json_response_format(reply_model)).invoke(messages)
     parsed = extract_json(content_to_text(getattr(response, "content", response)))
@@ -260,7 +239,6 @@ def _ask[ReplyT: _Wire](llm: Any, system: str, user: str, reply_model: type[Repl
 
 
 def _citable(evidence: Iterable[Evidence]) -> list[Evidence]:
-    """The evidence that names a file and carries a quote. A value that cites nothing citable is no value."""
     return [item for item in evidence if item.file_name.strip() and item.quote]
 
 
@@ -271,11 +249,6 @@ def _inventory_line(document: AvailableDocument) -> str:
 
 
 def choose_documents(inventory: Sequence[AvailableDocument], llm: Any, *, limit: int = DEFAULT_CHOSEN) -> list[str]:
-    """The file names most likely to state the project's facts or decisions, at most ``limit``, most useful first.
-
-    The model chooses from the listed inventory only. A name it invents is dropped here, so the reading
-    never asks for a file the project does not have.
-    """
     listed = list(inventory[:MAX_INVENTORY])
     if not listed:
         return []
@@ -286,10 +259,6 @@ def choose_documents(inventory: Sequence[AvailableDocument], llm: Any, *, limit:
 
 
 def _asked_keys(vocabulary: Mapping[str, VocabularyEntry], known_facts: Iterable[str]) -> dict[str, VocabularyEntry]:
-    """The keys the fingerprint pen is asked: not one a person confirmed, and one with options to answer with.
-
-    A key with no options has no token the code would accept, so asking it would only spend the prompt.
-    """
     confirmed = set(known_facts)
     return {key: entry for key, entry in vocabulary.items() if key not in confirmed and entry.options}
 
@@ -304,11 +273,6 @@ def _keys_block(asked: Mapping[str, VocabularyEntry]) -> str:
 
 
 def _checked_tokens(raw: str | list[str], entry: VocabularyEntry) -> list[str] | None:
-    """The tokens the vocabulary allows, in order and once each; ``None`` when none usable remains.
-
-    A multi-valued key keeps its valid tokens one by one. A single-valued key takes exactly one token: a
-    list of several is a conflict, and a conflict is no value.
-    """
     given = [raw] if isinstance(raw, str) else list(raw)
     if not entry.multiple and len(given) != 1:
         return None
@@ -318,7 +282,6 @@ def _checked_tokens(raw: str | list[str], entry: VocabularyEntry) -> list[str] |
 
 
 def _checked_value(value: FingerprintValue, asked: Mapping[str, VocabularyEntry]) -> FingerprintValue | None:
-    """The answer the code keeps, or ``None``: a key not asked, no usable token, or no quote."""
     entry = asked.get(value.key)
     if entry is None:
         return None
@@ -335,7 +298,6 @@ def extract_fingerprint(
     known_facts: Iterable[str],
     llm: Any,
 ) -> list[FingerprintValue]:
-    """The values the documents state for the asked keys, each with its quote. One structured call."""
     asked = _asked_keys(vocabulary, known_facts)
     if not asked:
         return []
@@ -353,7 +315,6 @@ def _citable_decision(decision: DraftedDecision) -> DraftedDecision | None:
 
 
 def draft_decisions(text: str, known_decisions: Sequence[str], llm: Any) -> list[DraftedDecision]:
-    """The decisions and constraints the documents state that are not already known, at most twelve."""
     known = "\n".join(f"- {decision}" for decision in known_decisions) or "(none)"
     user = f"## Already known\n{known}\n\n## Document\n{text}"
     reply = _ask(llm, DECISION_SYSTEM_PROMPT, user, DecisionReply)
@@ -366,7 +327,6 @@ def _read_files(
     names: Sequence[str],
     fetch_pages: FetchPages,
 ) -> dict[str, str]:
-    """The page-marked text of each chosen file that has any, in the order chosen."""
     bodies: dict[str, str] = {}
     for name in names:
         body = pages_with_markers(fetch_pages(collection, name) or [])
@@ -376,7 +336,6 @@ def _read_files(
 
 
 def _fair_shares(bodies: Mapping[str, str], budget: int) -> dict[str, int]:
-    """Each file's share of the budget. Shortest first, so a short file's unused share goes to the longer ones."""
     shares: dict[str, int] = {}
     remaining = max(budget, 0)
     ordered = sorted(bodies, key=lambda name: len(bodies[name]))
@@ -388,38 +347,22 @@ def _fair_shares(bodies: Mapping[str, str], budget: int) -> dict[str, int]:
 
 
 def _bounded(bodies: Mapping[str, str]) -> dict[str, str]:
-    """Each file's text cut to its share, so the whole stays within :data:`MAX_TEXT_CHARS` with its headers."""
     budget = MAX_TEXT_CHARS - sum(len(f"=== {name} ===\n") + 2 for name in bodies)
     shares = _fair_shares(bodies, budget)
     return {name: bodies[name][: shares[name]] for name in bodies}
 
 
 def _joined(bounded: Mapping[str, str]) -> str:
-    """The files under ``=== name ===`` headers: the text the pens read."""
     return "\n\n".join(f"=== {name} ===\n{body}" for name, body in bounded.items())
 
 
 def folded_for_quote(text: str) -> str:
-    """``text`` as a quote is matched against what was read: NFC, whitespace collapsed, case folded.
-
-    A PDF's line breaks are not the model's to reproduce, and neither is the
-    Unicode form an extractor happened to emit: „ä" composed and „a" plus a
-    combining diaeresis read the same, and only NFC makes them compare equal
-    (``packages/agent/src/agent/tools/AGENTS.md``). The closed-project reading and the
-    intake's read log (``agents/intake/read_log.py``) both check quotes with it.
-    """
     return " ".join(unicodedata.normalize("NFC", text).split()).casefold()
 
 
 def _evidence_within[ItemT: (FingerprintValue, DraftedDecision)](
     items: list[ItemT], read: Mapping[str, str]
 ) -> list[ItemT]:
-    """Keep only the evidence whose quote stands in the text the pens read of the file it names.
-
-    A quote is the proof, so code checks it rather than trusting it: one that names a file nobody
-    read, or that the file's text does not contain (whitespace and case aside), is no evidence, and
-    an item left with none is dropped.
-    """
     folded = {name: folded_for_quote(body) for name, body in read.items()}
     kept = []
     for item in items:
@@ -472,7 +415,6 @@ def read_project_experience(
     list_documents: ListDocuments,
     fetch_pages: FetchPages,
 ) -> ProjectExperienceResponse:
-    """What a closed project's documents state about it, each value with its evidence. Never raises."""
     if llm is None:
         return _failed(ERROR_NO_MODEL)
     try:

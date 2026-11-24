@@ -12,7 +12,7 @@ BASE = dict(
     config_file_path="/c.yml",
     job_id="job-1",
     input_text="q",
-    agent_class_path="pkg.Agent",
+    agent_type="deep_researcher",
     agent_config_name="deep",
 )
 

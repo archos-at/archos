@@ -1,26 +1,3 @@
-"""Which file a look reads, from which collection, and whether the room sees it.
-
-The model names a document the way a person would; the collection the bytes
-live in is resolved here and never asked of the model (ADR-0128: the old tool's
-``collection`` argument made the model copy an internal id). In order:
-
-1. An exact base-corpus (Basiswissen) file, from this replica's cache of the
-   corpus. No envelope is needed, so a CLI run or an eval looks at a Richtlinie
-   as a chat turn does.
-2. A workspace document, the way the canvas tools find one
-   (``tools/canvas/target.py``): empty means the document open on the canvas,
-   then the conversation's subject; a name is matched against the turn's
-   inventory rows; an id is taken as it is. The BFF answers for it only inside
-   the scope the echoed envelope signs.
-3. A file the inventory does not list (a restricted folder's, admitted once a
-   hit of this turn drew on it) is found by asking the lookup in each
-   collection the turn may read, bounded.
-
-A workspace document carries its :class:`Target`, so ``look`` can make the box
-glow for everyone who has the document open (``canvas/presence.show_reading``).
-A base-corpus file glows nowhere: it is nobody's document.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -52,8 +29,6 @@ NOT_FOUND = (
 
 @dataclass(frozen=True)
 class Resolved:
-    """The file a look renders. ``target`` is the workspace document (None for the base corpus)."""
-
     file_name: str
     collection: str = ""
     target: Target | None = None
@@ -77,7 +52,6 @@ async def _is_base_corpus(name: str) -> bool:
 
 
 async def _probe(file_name: str) -> str:
-    """The first collection of the turn whose lookup knows ``file_name``; empty when none does."""
     from knowledge_layer.view_image import _resolve_storage_location
 
     for collection in probe_collections():
@@ -87,7 +61,6 @@ async def _probe(file_name: str) -> str:
 
 
 async def _collection(file_name: str, known: str | None) -> str:
-    """The collection the file's bytes are fetched from: known, the inventory's, or the first that has it."""
     if known:
         return known
     if (listed := collection_of(file_name)) is not None:
@@ -96,7 +69,6 @@ async def _collection(file_name: str, known: str | None) -> str:
 
 
 async def _file_name(target: Target, signed: SignedEnvelope) -> str | None:
-    """The target's file name: known already, or read off the BFF's answer about the document."""
     if target.file_name:
         return target.file_name
     body = await call({"op": "list"}, target, signed)
@@ -105,7 +77,6 @@ async def _file_name(target: Target, signed: SignedEnvelope) -> str | None:
 
 
 async def _named(name: str, signed: SignedEnvelope | None) -> Resolved | str:
-    """A document named by the model: an inventory row, or a file found in one of the turn's collections."""
     row = match_document(name)
     if isinstance(row, Unresolved):
         if row.ambiguous:
@@ -123,7 +94,6 @@ async def _named(name: str, signed: SignedEnvelope | None) -> Resolved | str:
 
 
 async def _open(document: str) -> Resolved | str:
-    """The canvas's own document or the conversation's subject (empty), or a document id. Needs the envelope."""
     signed = envelope()
     target = await resolve_target(document, signed)
     if isinstance(target, Unresolved):
@@ -136,7 +106,6 @@ async def _open(document: str) -> Resolved | str:
 
 
 async def resolve_document(document: str) -> Resolved | str:
-    """The file ``document`` means, or the sentence the model reads. Raises ``Refused`` from the BFF."""
     named = (document or "").strip()
     focus_id = get_focused_document_id()
     if named and focus_id and _key(named) == _key(get_focused_file_name()):

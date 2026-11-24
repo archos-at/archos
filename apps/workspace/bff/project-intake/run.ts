@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { submitBackgroundRun } from '@/lib/jobs/background-run'
 import type { JobPriority } from '@/lib/jobs/backend-client'
 import { resolveRunContext, type RunContext } from '@/lib/jobs/run-context'
+import { ingestBudgetSnapshot } from '@/lib/budgets/ingest-allowance'
 
 export const INTAKE_AGENT_TYPE = 'project_intake'
 
@@ -48,7 +49,9 @@ const PRIORITY: Record<IntakeTrigger, JobPriority> = { upload: 'bulk', click: 'i
 export async function submitIntakeRun(input: IntakeRunInput): Promise<string> {
   const subject = { organizationId: input.organizationId, projectId: input.projectId, userId: input.userId }
   const prompt = intakeInstruction(input.scope, input.trigger)
-  const context = intakeRunContext(await resolveRunContext(subject, prompt), input.collectionName)
+  const resolved = intakeRunContext(await resolveRunContext(subject, prompt), input.collectionName)
+  const context =
+    input.trigger === 'upload' ? { ...resolved, budget: await ingestBudgetSnapshot(input.organizationId) } : resolved
   const { jobId } = await submitBackgroundRun({
     subject,
     ownerEmail: input.email,

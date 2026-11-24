@@ -18,7 +18,7 @@ import type { AgentPrincipal } from '../principal'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -28,7 +28,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 const otherOffice: AgentPrincipal = { ...outside, session: { ...session, organizationId: 'org_2', userId: 'user_2' } }
 
 const READABLE = new Set(['p-1'])
@@ -52,7 +52,7 @@ afterEach(() => {
 const authInfoFor = (principal: AgentPrincipal): AuthInfo => ({ token: '', clientId: 'c', scopes: [], extra: { principal, mode: 'search' } })
 
 function modernRequest(method: string, params: Record<string, unknown>, signal?: AbortSignal): Request {
-  return new Request('https://app.piloti.test/api/mcp', {
+  return new Request('https://app.example.test/api/mcp', {
     method: 'POST',
     signal,
     headers: {
@@ -114,28 +114,28 @@ const updates = (all: Frame[]) => all.filter((frame) => frame.method === 'notifi
 describe('listening to a project', () => {
   it('delivers resource_updated after a publish, through the real SDK', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, outside, { resourceSubscriptions: ['piloti://project/p-1'], resourcesListChanged: true })
+    const response = await listen(handler, outside, { resourceSubscriptions: ['workspace://project/p-1'], resourcesListChanged: true })
     const pending = frames(response, (all) => updates(all).length > 0 && all.some((f) => f.method === 'notifications/resources/list_changed'))
     await new Promise((resolve) => setTimeout(resolve, 20))
     publishProjectChanged('org_1', 'p-1')
     publishProjectChanged('org_1', 'p-9')
     publishProjectListChanged('org_1')
     const all = await pending
-    expect(acknowledged(all)).toEqual({ resourcesListChanged: true, resourceSubscriptions: ['piloti://project/p-1'] })
-    expect(updates(all)).toEqual(['piloti://project/p-1'])
+    expect(acknowledged(all)).toEqual({ resourcesListChanged: true, resourceSubscriptions: ['workspace://project/p-1'] })
+    expect(updates(all)).toEqual(['workspace://project/p-1'])
     expect(all.some((f) => f.method === 'notifications/resources/list_changed')).toBe(true)
   })
 
   it('refuses to listen to a project the person may not read: the acknowledgement honors only what they can', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, outside, { resourceSubscriptions: ['piloti://project/p-2', 'piloti://guide', 'piloti://project/../x'] })
+    const response = await listen(handler, outside, { resourceSubscriptions: ['workspace://project/p-2', 'workspace://guide', 'workspace://project/../x'] })
     const all = await frames(response, (found) => found.length > 0)
     expect(acknowledged(all)).toEqual({})
   })
 
   it('does not deliver another organization’s change, even for the same project id', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, otherOffice, { resourceSubscriptions: ['piloti://project/p-1'], resourcesListChanged: true })
+    const response = await listen(handler, otherOffice, { resourceSubscriptions: ['workspace://project/p-1'], resourcesListChanged: true })
     const pending = frames(response, () => false)
     await new Promise((resolve) => setTimeout(resolve, 20))
     publishProjectChanged('org_1', 'p-1')
@@ -147,16 +147,16 @@ describe('listening to a project', () => {
 
   it('drops an event nobody stamped with an organization (the SDK’s own notify sugar)', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, outside, { resourceSubscriptions: ['piloti://project/p-1'] })
+    const response = await listen(handler, outside, { resourceSubscriptions: ['workspace://project/p-1'] })
     const pending = frames(response, () => false)
     await new Promise((resolve) => setTimeout(resolve, 20))
-    handler.bus.publish({ kind: 'resource_updated', uri: 'piloti://project/p-1' })
+    handler.bus.publish({ kind: 'resource_updated', uri: 'workspace://project/p-1' })
     expect(updates(await pending)).toEqual([])
   })
 
-  it('honors nothing for Piloti’s own principal', async () => {
+  it('honors nothing for the in-product agent’s own principal', async () => {
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, piloti, { resourceSubscriptions: ['piloti://project/p-1'], resourcesListChanged: true })
+    const response = await listen(handler, inProduct, { resourceSubscriptions: ['workspace://project/p-1'], resourcesListChanged: true })
     expect(acknowledged(await frames(response, (all) => all.length > 0))).toEqual({})
   })
 })
@@ -178,8 +178,8 @@ describe('capabilities', () => {
     expect(caps.prompts).toEqual({ listChanged: false })
   })
 
-  it('advertises no resources or prompts to Piloti', async () => {
-    const caps = await capabilitiesOf(piloti, 'modern')
+  it('advertises no resources or prompts to the in-product agent', async () => {
+    const caps = await capabilitiesOf(inProduct, 'modern')
     expect(caps.resources).toBeUndefined()
     expect(caps.prompts).toBeUndefined()
   })
@@ -206,15 +206,15 @@ describe('the bus over a shared transport (a fake Dragonfly)', () => {
     const { transport, handlers } = broker()
     await __setHubTransportForTests(transport)
     const handler = createAgentDoorHandler()
-    const response = await listen(handler, outside, { resourceSubscriptions: ['piloti://project/p-1'] })
+    const response = await listen(handler, outside, { resourceSubscriptions: ['workspace://project/p-1'] })
     const pending = frames(response, () => false)
     await new Promise((resolve) => setTimeout(resolve, 20))
     const [receive] = [...(handlers.get('rt:door:events') ?? [])]
-    receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_1', uri: 'piloti://project/p-1' } }))
-    receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_2', uri: 'piloti://project/p-1' } }))
+    receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_1', uri: 'workspace://project/p-1' } }))
+    receive(JSON.stringify({ origin: 'another-pod', payload: { kind: 'resource_updated', organizationId: 'org_2', uri: 'workspace://project/p-1' } }))
     receive('not json')
     publishProjectChanged('org_1', 'p-1')
     await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(updates(await pending)).toEqual(['piloti://project/p-1', 'piloti://project/p-1'])
+    expect(updates(await pending)).toEqual(['workspace://project/p-1', 'workspace://project/p-1'])
   })
 })

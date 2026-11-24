@@ -5,6 +5,7 @@ import { Workbook } from 'exceljs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedbackExport, feedbackWeeklyRecord } from '@/test-utils/feedback-export-fixtures'
 import type { FeedbackQuery } from '@/lib/feedback/filters'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const isOwner = { value: false }
 const locale = { value: 'de' as 'de' | 'en' }
@@ -15,7 +16,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user_1',
     organizationId: 'org_1',
-    email: 'owner@grid.com',
+    email: 'owner@example.test',
     role: 'admin',
   }),
 }))
@@ -195,7 +196,8 @@ describe('GET /api/platform/answer-feedback/export', () => {
     vi.mocked(getAnswerFeedbackExport).mockResolvedValueOnce(feedbackExport({ truncated: true }))
     const res = await GET(request('?format=xlsx'))
 
-    expect(res.headers.get('X-Grid-Export-Truncated')).toBe('5000')
+    expect(res.headers.get('X-Export-Truncated')).toBe('5000')
+    expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBe('5000')
     expect(res.headers.get('Content-Disposition')).toMatch(/_erste-5000\.xlsx"$/)
   })
 
@@ -203,7 +205,8 @@ describe('GET /api/platform/answer-feedback/export', () => {
     isOwner.value = true
     const res = await GET(request())
 
-    expect(res.headers.get('X-Grid-Export-Truncated')).toBeNull()
+    expect(res.headers.get('X-Export-Truncated')).toBeNull()
+    expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBeNull()
     expect(res.headers.get('Content-Disposition')).not.toContain('erste-')
   })
 
@@ -230,7 +233,7 @@ describe('GET /api/platform/answer-feedback/export', () => {
           ratings: expect.objectContaining({ topics: ['structural'] }),
         })
       )
-      expect(res.headers.get('X-Grid-Export-Ignored-Filters')).toBeNull()
+      expect(res.headers.get('X-Export-Ignored-Filters')).toBeNull()
       expect(getAnswerFeedbackExport).not.toHaveBeenCalled()
     })
 
@@ -250,14 +253,16 @@ describe('GET /api/platform/answer-feedback/export', () => {
       })
       const res = await GET(request('?summary=weekly'))
 
-      expect(res.headers.get('X-Grid-Export-Truncated')).toBe('5000')
+      expect(res.headers.get('X-Export-Truncated')).toBe('5000')
+      expect(res.headers.get(legacyHeaderName('X-Export-Truncated'))).toBe('5000')
       expect(res.headers.get('Content-Disposition')).toMatch(/_erste-5000\.csv"$/)
     })
 
     it('names the filters a rate cannot honour in a header', async () => {
       isOwner.value = true
       const res = await GET(request('?summary=weekly&verdict=down&reason=inaccurate&topic=structural'))
-      expect(res.headers.get('X-Grid-Export-Ignored-Filters')).toBe('verdict,reason')
+      expect(res.headers.get('X-Export-Ignored-Filters')).toBe('verdict,reason')
+      expect(res.headers.get(legacyHeaderName('X-Export-Ignored-Filters'))).toBe('verdict,reason')
     })
   })
 })

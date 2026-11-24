@@ -50,7 +50,7 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
   const sample: Sampled[] = []
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     service = await import('./service')
     const { readBevArchive } = await import('./bev-archive')
     const { importRelease } = await import('./import')

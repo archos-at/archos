@@ -1,20 +1,14 @@
-// @disk-inputs: ../agent-host/src/agent_host/routes/documents_jobs.py
 /**
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as agentHost from '@/lib/agent-host-contract.generated'
 import { BATCH_STATUS_MAX_IDS, fetchInChunks } from './status-batch'
-
-const ROUTE = join(__dirname, '..', '..', '..', '..', 'apps', 'agent-host', 'src', 'agent_host', 'routes', 'documents_jobs.py')
 
 describe('status batch contract', () => {
   it('sends no more job ids per call than the backend accepts', () => {
-    const limit = /^BATCH_STATUS_MAX_IDS\s*=\s*(\d+)/m.exec(readFileSync(ROUTE, 'utf8'))
-    expect(limit, 'BATCH_STATUS_MAX_IDS not found in documents_jobs.py').not.toBeNull()
-    expect(BATCH_STATUS_MAX_IDS).toBeLessThanOrEqual(Number(limit![1]))
+    expect(BATCH_STATUS_MAX_IDS).toBeLessThanOrEqual(agentHost.BATCH_STATUS_MAX_IDS)
   })
 })
 

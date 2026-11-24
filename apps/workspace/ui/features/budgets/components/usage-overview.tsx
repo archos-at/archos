@@ -36,6 +36,7 @@ export interface MemberSpend {
 export interface UsageResponse {
   unit: BudgetUnit
   summary: { day: SpendWindow; month: SpendWindow; perModel: ModelSpend[] }
+  ingest?: { month: SpendWindow; monthlyLimit: number | null }
   perMember: MemberSpend[] | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
   status: { blocked: boolean; blockedScope: string | null }
@@ -294,7 +295,7 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
         </Alert>
       )}
 
-      {/* An organization on its own key pays its provider, not Piloti: say
+      {/* An organization on its own key pays its provider, not the platform: say
           so once, where the reader would otherwise look for credits. */}
       {onOwnKey && (
         <p className="text-muted-foreground text-xs" data-testid="budget-own-key-note">
@@ -303,6 +304,7 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
       )}
 
       {/* Job 1 — the ratio against each limit. */}
+      <SectionLabel>{t('budgets.workTitle')}</SectionLabel>
       <BudgetMeter
         title={t('budgets.today')}
         total={usage.summary.day.amount}
@@ -315,6 +317,22 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
         limit={usage.orgBudget.monthlyLimit}
         formatAmount={amountLabel}
       />
+
+      {usage.ingest && (
+        <div data-testid="ingest-usage">
+          <SectionLabel>{t('budgets.ingestTitle')}</SectionLabel>
+          <div className="mt-1.5">
+            <BudgetMeter
+              title={t('budgets.thisMonth')}
+              total={usage.ingest.month.amount}
+              limit={usage.ingest.monthlyLimit}
+              formatAmount={amountLabel}
+              overNote={t('budgets.ingestOverLimit')}
+            />
+          </div>
+          <p className="text-muted-foreground mt-1.5 text-xs">{t('budgets.ingestNote')}</p>
+        </div>
+      )}
 
       {/* Job 3 — change over time (budget admins get the series from the API). */}
       {usage.dailyTrend && usage.dailyTrend.length > 0 && (

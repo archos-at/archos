@@ -1,18 +1,18 @@
 import { describe, expect, test, vi } from 'vitest'
 import { canShareNatively, conversationLink, passOnLink } from './share-link'
 
-const here = { origin: 'https://piloti.example' }
+const here = { origin: 'https://example.test' }
 
 describe('conversationLink', () => {
   test('is the project chat with the thread selected', () => {
     expect(
       conversationLink('conversation', 'c1', { ...here, pathname: '/app/projects/p1/chat' }),
-    ).toBe('https://piloti.example/app/projects/p1/chat?session=c1')
+    ).toBe('https://example.test/app/projects/p1/chat?session=c1')
   })
 
   test('works outside a project, where the chat route resolves the thread from history', () => {
     expect(conversationLink('conversation', 'c1', { ...here, pathname: '/app/chat' })).toBe(
-      'https://piloti.example/app/chat?session=c1',
+      'https://example.test/app/chat?session=c1',
     )
   })
 

@@ -3,10 +3,11 @@
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
+import { RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { RightsLostPanel } from '@/features/layout/components/RightsLostPanel'
 import { SessionsPanel } from '@/features/layout/components/SessionsPanel'
 import { useLayoutStore } from '@/features/layout/store'
-import { useChatStore } from '@/features/chat/store'
+import type { Session } from '@/features/layout/types'
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000)
 const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000)
@@ -25,6 +26,20 @@ const SESSIONS = [
   { id: 's-11', title: 'Aufzugsschacht Entrauchung', date: daysAgo(11) },
   { id: 's-12', title: 'Bauklasse und Gebäudehöhe Parzelle 1042', date: daysAgo(18) },
 ]
+
+const ACTIVITY: Record<string, Session['activity']> = { 's-1': 'working', 's-4': 'waiting', 's-5': 'answered', 's-7': 'failed' }
+const PARALLEL_SESSIONS: Session[] = SESSIONS.map((session) => ({ ...session, activity: ACTIVITY[session.id] ?? null }))
+const PARALLEL_RAIL: RailChats = {
+  items: PARALLEL_SESSIONS.slice(0, 7).map((session) => ({
+    id: session.id,
+    title: session.title,
+    href: `/dev/sessions?variant=parallel&session=${session.id}`,
+    current: session.id === 's-2',
+    temporary: session.temporary,
+    activity: session.activity,
+  })),
+  allHref: '/dev/sessions?variant=parallel',
+}
 
 const LOCKED_SESSIONS = [
   { id: 's-lost-1', title: '', date: minutesAgo(30), contentLocked: true },
@@ -85,13 +100,12 @@ export default function SessionsPreviewPage() {
   const variant = useSearchParams()?.get('variant') ?? 'default'
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
 
-  useEffect(() => {
-    setSessionsPanelOpen(true)
-  }, [setSessionsPanelOpen])
+  const railOnly = variant === 'parallel-rail'
+  const parallel = variant === 'parallel' || railOnly
 
   useEffect(() => {
-    useChatStore.setState({ isStreaming: variant === 'busy' })
-  }, [variant])
+    setSessionsPanelOpen(!railOnly)
+  }, [setSessionsPanelOpen, railOnly])
 
   useEffect(() => {
     if (variant !== 'search' && variant !== 'no-match') return
@@ -106,7 +120,7 @@ export default function SessionsPreviewPage() {
   }, [variant])
 
   const rightsLost = variant === 'rights-lost'
-  const sessions = variant === 'empty' ? [] : rightsLost ? [...LOCKED_SESSIONS, ...SESSIONS.slice(0, 5)] : SESSIONS
+  const sessions = variant === 'empty' ? [] : rightsLost ? [...LOCKED_SESSIONS, ...SESSIONS.slice(0, 5)] : parallel ? PARALLEL_SESSIONS : SESSIONS
 
   return (
     <div
@@ -117,13 +131,15 @@ export default function SessionsPreviewPage() {
           stays a direct flex child on desktop; hidden below `md`, matching the
           chat route where the standalone mobile bar is suppressed. */}
       <div className="hidden md:contents">
-        <AppSidebar
-          projectId="p-1"
-          projects={PROJECTS}
-          user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
-          authRequired={false}
-          canAccessInbox
-        />
+        <RailChatsSource value={parallel ? PARALLEL_RAIL : null}>
+          <AppSidebar
+            projectId="p-1"
+            projects={PROJECTS}
+            user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
+            authRequired={false}
+            canAccessInbox
+          />
+        </RailChatsSource>
       </div>
 
       {/* Chat-plane stand-in — the surface the sheet rises over. The sheet

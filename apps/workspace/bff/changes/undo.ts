@@ -11,6 +11,7 @@ import {
 import type { AgentChangeRow } from './repository'
 import { matchesState } from './state'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export type UndoPlan =
   | { kind: 'dismiss'; request: UpdateAnnotationRequest }
@@ -43,7 +44,7 @@ function undoCreate(row: AgentChangeRow, current: AnnotationView | undefined): U
     return { plan: { kind: 'dismiss', request: { status: 'dismissed', expectedStatus: 'proposed' } } }
   }
   if (current.status !== 'open') return movedOn()
-  if (current.replies.some((reply) => reply.authorKind !== 'piloti')) {
+  if (current.replies.some((reply) => !isAgentKind(reply.authorKind))) {
     return noWayBack('Somebody has answered in this thread, so taking the mark back would delete their answer.')
   }
   return { plan: { kind: 'delete' } }

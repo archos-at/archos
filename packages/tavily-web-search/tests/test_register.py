@@ -1,5 +1,3 @@
-"""Tests for the tavily_web_search agent-runtime registration."""
-
 import re
 import sys
 import types
@@ -15,10 +13,6 @@ from tavily_web_search.register import tavily_web_search
 
 @pytest.fixture
 def fake_langchain_tavily(monkeypatch):
-    """Install a fake `langchain_tavily` module so tests never hit the network.
-
-    Returns the `TavilySearch` MagicMock so tests can assert construction kwargs.
-    """
 
     module = types.ModuleType("langchain_tavily")
     instance = MagicMock()
@@ -128,9 +122,6 @@ class TestDomainFilterKwargs:
 
 
 def _override_setting(monkeypatch, values):
-    """Patch the platform retrieval-settings resolver: only the listed keys are
-    overridden, every other key falls through to its config fallback — exactly
-    what the real resolver does for unpinned keys."""
     from agent.common import retrieval_settings
 
     def fake_get(key, fallback):
@@ -140,9 +131,6 @@ def _override_setting(monkeypatch, values):
 
 
 class TestPlatformMaxResultsOverride:
-    """The web-search result count comes from Platform → Retrieval when pinned
-    there, and falls back to the YAML config value otherwise."""
-
     async def test_platform_override_builds_a_one_off_client(self, fake_langchain_tavily, monkeypatch):
         _override_setting(monkeypatch, {"web.max_results": 7})
 
@@ -191,10 +179,7 @@ class TestPlatformMaxResultsOverride:
 
 
 class TestLaneCapture:
-    """Shown web hits reach the per-round ledger with their round stamp."""
-
     async def test_result_urls_are_captured_with_the_round(self, fake_langchain_tavily):
-        """Result URLs are captured with the active round."""
         from agent.common import turn_status
 
         token = turn_status.begin_lane_capture()
@@ -208,8 +193,6 @@ class TestLaneCapture:
 
 
 class TestActionRow:
-    """One ``web`` row per call (ADR-0132): the query, then how many results came back."""
-
     @pytest.fixture
     def rows(self, monkeypatch):
         bodies = []
@@ -248,8 +231,6 @@ class TestActionRow:
 
 
 class TestStandaloneWithoutTheAgent:
-    """The standalone dist depends on no ``agent``: it imports and searches without one, drawing no row."""
-
     async def test_imports_and_searches_without_agent(self, fake_langchain_tavily, monkeypatch):
         import importlib.util
         from pathlib import Path
@@ -276,8 +257,6 @@ class TestStandaloneWithoutTheAgent:
 
 
 class TestLicensedTextNeverLeavesAsAQuery:
-    """A query repeating the office's licensed text is refused before Tavily sees it (ADR-0164, design 6.4)."""
-
     NORM = (
         "Die Mindesthöhe von Absturzsicherungen beträgt bei Absturzhöhen über zwölf Metern einhundertzehn Zentimeter."
     )
@@ -311,8 +290,6 @@ class TestLicensedTextNeverLeavesAsAQuery:
 
 
 class TestWebIsNoSourceForLaw:
-    """ADR-0175 and the staging QC: the web neither supplies a binding edition nor stands in for the corpus."""
-
     RESULTS = [
         {"url": "https://www.propellets.at/media/OIB-RL_2_2023.pdf", "title": "OIB-Richtlinie 2", "content": "40 m"},
         {"url": "https://archos.tech/glossar/oib-richtlinien", "title": "Glossar", "content": "2023 gilt"},
@@ -322,7 +299,6 @@ class TestWebIsNoSourceForLaw:
 
     @pytest.fixture
     def searched(self, fake_langchain_tavily):
-        """The base shelf holds the guideline: what is a copy is read from the turn's records, never a pattern."""
         from agent.common.norm_registry import NormFamily
         from agent.knowledge.inventory import set_norm_families
 
@@ -351,8 +327,6 @@ class TestWebIsNoSourceForLaw:
 
 
 class TestAResultIsItsRecords:
-    """Citations spec G26: only a record header names a source, and a page cannot write one."""
-
     async def _searched(self, fake_langchain_tavily, results, answer=None):
         payload = {"results": results} | ({"answer": answer} if answer else {})
         fake_langchain_tavily.return_value.ainvoke = AsyncMock(return_value=payload)
@@ -396,7 +370,6 @@ class TestAResultIsItsRecords:
         assert '<Document href="https://bucket.example.com/f.pdf">' in output
 
     async def test_a_copy_the_turn_cannot_replace_is_printed_with_its_note(self, fake_langchain_tavily):
-        """No knowledge context: the gate reads no law, so the mirror is labelled, not withheld (dev, 2026-11-10)."""
         output = await self._searched(
             fake_langchain_tavily,
             [

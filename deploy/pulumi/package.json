@@ -20,6 +20,7 @@
     "@kubernetes-models/gateway-api": "^2.0.0",
     "@types/node": "^22.20.5",
     "ajv": "^8.20.0",
+    "dockerfile-ast": "0.7.1",
     "http-message-signatures": "1.0.6",
     "structured-headers": "2.1.1",
     "typescript": "^6.0.3",

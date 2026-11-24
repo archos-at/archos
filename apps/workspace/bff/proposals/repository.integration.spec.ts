@@ -23,9 +23,9 @@
  *     returns the first, unchanged, while another card, another answer or
  *     another organization is its own; a card index needs its answer and is
  *     never negative; the two newer kinds are stored, an unknown one is not;
- *   - a Büroablage proposal (0146) has no project and moves only Büroablage
+ *   - a Bürobibliothek proposal (0146) has no project and moves only Bürobibliothek
  *     documents; its organization lists it on its shelf, another organization
- *     sees none of it, and Piloti's withdrawal deletes an open one and never a
+ *     sees none of it, and the agent's withdrawal deletes an open one and never a
  *     decided one;
  *   - an organization-scoped proposal (0176) has no project, is an `operation`
  *     and nothing else, and is listed on its own shelf; one open operation
@@ -110,7 +110,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
   const stale = () => new Date(Date.now() - 5 * 60 * 1000)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -334,7 +334,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
     })
   })
 
-  describe('the Büroablage (0146)', () => {
+  describe('the Bürobibliothek (0146)', () => {
     const OFFICE_SHELF_MOVE: FileOperationPayload = {
       operation: 'move',
       operations: [{ document: 'ÖNORM B 1800.pdf', source: 'office', target_folder: 'Normen', reason: 'Eine Norm.' }],
@@ -356,7 +356,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
         })
       )
 
-    it('stores a move of Büroablage documents without a project, and lists it on its shelf only', async () => {
+    it('stores a move of Bürobibliothek documents without a project, and lists it on its shelf only', async () => {
       const { row } = await shelved(ORG)
       expect(row).toMatchObject({ projectId: null, scope: 'office_shelf', originTraceId: 'abcdef0123456789abcdef0123456789' })
       const officeShelf = await repo.listShelfProposals(ORG, { scope: 'office_shelf' }, { statuses: ['proposed'], limit: 50 })
@@ -369,7 +369,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
       expect(project.map((entry) => entry.id)).not.toContain(row.id)
     })
 
-    it('refuses a Büroablage proposal that would reach into a project', async () => {
+    it('refuses a Bürobibliothek proposal that would reach into a project', async () => {
       await expect(
         shelved(ORG, { operation: 'move', operations: [{ document: 'a.pdf', source: 'project', target_folder: 'X' }] })
       ).rejects.toThrow()

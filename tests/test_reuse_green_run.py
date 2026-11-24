@@ -113,8 +113,12 @@ def test_a_fork_run_is_a_miss(reuse):
 
 
 @pytest.mark.parametrize("event", ["push", "workflow_dispatch", "schedule", "pull_request_target"])
-def test_only_a_pull_request_run_counts(reuse, event):
+def test_only_a_pull_request_or_merge_queue_run_counts(reuse, event):
     assert decide(reuse, fake_api(artifacts=[artifact()], run=green_run(event=event)))[0] is False
+
+
+def test_a_green_merge_queue_run_of_the_same_tree_is_a_hit(reuse):
+    assert decide(reuse, fake_api(artifacts=[artifact()], run=green_run(event="merge_group")))[0] is True
 
 
 def test_a_run_of_another_workflow_is_a_miss(reuse):

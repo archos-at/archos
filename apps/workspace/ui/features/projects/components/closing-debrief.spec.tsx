@@ -123,7 +123,7 @@ describe('ClosingDebrief', () => {
     expect(screen.queryByText('Verworfene Variante mit Stahlbeton.')).not.toBeInTheDocument()
   })
 
-  test('names who stands behind each decision as other projects will cite it: Piloti’s own note too', async () => {
+  test('names who stands behind each decision as other projects will cite it: the agent’s own note too', async () => {
     stubFetch({ memory: [...memory, drafted] })
     render(<ClosingDebrief projectId="p1" profile={profile} canWriteMemory />)
 

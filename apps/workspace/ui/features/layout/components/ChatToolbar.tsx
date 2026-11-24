@@ -50,7 +50,6 @@ const MENU_FOCUS_GUARD_MS = 250
 interface ChatToolbarProps {
   sessionTitle?: string
   onNewSession?: () => void
-  isNewSessionDisabled?: boolean
   isChatStarted?: boolean
   conversationId?: string | null
   isCollaborationEnabled?: boolean
@@ -61,7 +60,6 @@ interface ChatToolbarProps {
 export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
   sessionTitle = '',
   onNewSession,
-  isNewSessionDisabled = false,
   isChatStarted = true,
   conversationId = null,
   isCollaborationEnabled = false,
@@ -170,9 +168,9 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
   }, [toggleSessionsPanel, isAuthenticated])
 
   const handleNewSessionClick = useCallback(() => {
-    if (!isAuthenticated || isNewSessionDisabled) return
+    if (!isAuthenticated) return
     onNewSession?.()
-  }, [isAuthenticated, isNewSessionDisabled, onNewSession])
+  }, [isAuthenticated, onNewSession])
 
   return (
     <header ref={headerRef} className={cn(THREAD_GUTTER, 'bg-background absolute inset-x-0 top-0 z-20 min-h-12 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] max-md:landscape:flex max-md:landscape:items-start max-md:landscape:gap-2')}>
@@ -372,14 +370,10 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
           size="sm"
           className="size-11 gap-1.5 rounded-control px-0 max-sm:hidden sm:h-7 sm:w-auto sm:px-2"
           onClick={handleNewSessionClick}
-          disabled={!isAuthenticated || isNewSessionDisabled}
+          disabled={!isAuthenticated}
           aria-label={t('chatToolbar.createNewSession')}
           title={
-            !isAuthenticated
-              ? t('chatToolbar.signInToCreate')
-              : isNewSessionDisabled
-                ? t('chatToolbar.cannotCreateActive')
-                : t('chatToolbar.createNewSession')
+            !isAuthenticated ? t('chatToolbar.signInToCreate') : t('chatToolbar.createNewSession')
           }
         >
           <SquarePen className="size-4" aria-hidden="true" />
@@ -417,7 +411,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
               {/* New chat, on a phone only: a desktop keeps it in the open. */}
               <DropdownMenuItem
                 onSelect={handleNewSessionClick}
-                disabled={!isAuthenticated || isNewSessionDisabled}
+                disabled={!isAuthenticated}
                 className="sm:hidden"
                 data-testid="new-chat-menu-item"
               >

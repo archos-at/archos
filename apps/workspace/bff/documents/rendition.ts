@@ -276,7 +276,23 @@ async function convertDrawing(original: Blob, filename: string): Promise<Uint8Ar
   return pdfFrom(response, 'Drawing conversion')
 }
 
-async function convert(baseUrl: string, original: Blob, filename: string): Promise<Uint8Array> {
+export async function convertOfficeToPdf(original: Blob, filename: string, timeoutMs: number): Promise<Uint8Array> {
+  const baseUrl = gotenbergUrl()
+  if (!baseUrl) throw new RenditionUnavailableError('Office conversion is not configured (GOTENBERG_URL)')
+  await acquireSlot(`bytes\u0000${filename}`, true)
+  try {
+    return await convert(baseUrl, original, storageKeySegment(filename), timeoutMs)
+  } finally {
+    releaseSlot()
+  }
+}
+
+async function convert(
+  baseUrl: string,
+  original: Blob,
+  filename: string,
+  timeoutMs: number = GOTENBERG_TIMEOUT_MS,
+): Promise<Uint8Array> {
   const form = new FormData()
   form.append('files', original, filename)
 
@@ -285,7 +301,7 @@ async function convert(baseUrl: string, original: Blob, filename: string): Promi
     response = await fetch(`${baseUrl}/forms/libreoffice/convert`, {
       method: 'POST',
       body: form,
-      signal: AbortSignal.timeout(GOTENBERG_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (error) {
     throw new RenditionFailedError('Office conversion did not answer', { cause: error })

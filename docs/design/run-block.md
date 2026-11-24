@@ -12,7 +12,7 @@ design of what the reader sees of it.
 A run used to be told in four places at once: a banner at the top of the thread,
 a side panel with its own tabs, a stub sentence in the message list, and a status
 pill on the task card — each with its own vocabulary, none of them agreeing about
-what „running" meant. A person who handed Piloti a task and came back an hour
+what „running" meant. A person who handed the agent a task and came back an hour
 later had to reconstruct the run from four partial accounts.
 
 The block is the one element. It lives in the thread that commissioned the run,

@@ -1,5 +1,5 @@
 /* =============================================================================
-   GRID design tokens — the single source of truth for color, radius, shadow.
+   Design tokens — the single source of truth for color, radius, shadow.
 
    Design language: warm paper monochrome (click-dummy overhaul, see
    docs/design/click-dummy-overhaul-spec.md §4 and
@@ -82,7 +82,7 @@
   --source-project: oklch(0.578 0.144 152.3); /* #17914d — Projektwissen, doc icon */
   --source-project-tint: oklch(0.942 0.023 157.6); /* #e0f1e6 */
   --source-project-text: oklch(0.509 0.13 151.5); /* #0f7a3d */
-  --source-office: oklch(0.674 0.127 79); /* #c08c28 — Büroablage, archive-box icon */
+  --source-office: oklch(0.674 0.127 79); /* #c08c28 — Bürobibliothek, archive-box icon */
   --source-office-tint: oklch(0.951 0.033 88.1); /* #f8eed6 */
   --source-office-text: oklch(0.51 0.105 77.9); /* darkened a step so text on its tint clears AA (axe, /dev/settings) */
   --source-auto: oklch(0.609 0.006 106.6); /* #83837f — Automatisch / Lücke (knowledge gap) */
@@ -624,7 +624,7 @@
 
 /* =============================================================================
    Ink on paper: what a canvas draws ON a document's page (a mark's outline,
-   Piloti's pointer and the boxes it points out, a draft being set). The page
+   the agent's pointer and the boxes it points out, a draft being set). The page
    is the document's own paper and stays white in both themes, so this ink
    must not flip with the theme: `--foreground` turns paper-white in dark mode
    and vanished against the sheet. DOCUMENTED EXCEPTION: deliberately no

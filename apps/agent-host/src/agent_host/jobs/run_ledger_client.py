@@ -1,32 +1,3 @@
-"""The one door from this tier to a run's ledger: ``append`` and ``finish``.
-
-A run's ledger is FOLDED where the events are produced — here, in the job
-runner — and STORED where the reader is, on the run's message in the BFF's
-database. This module is the crossing between the two, and it is an HTTP call
-with a typed body rather than a database write for the reason every other
-backend→BFF write in this tier is one: the BFF is the single writer of
-``app`` (ADR-0003), and a workspace primitive is one HTTP API every
-consumer is an equal client of (ADR-0055).
-
-Three rules, and they are the same three ``conversation_output`` keeps.
-
-**The run id is the only identity.** It travels in the PATH; the body names no
-organization, no project and no person. The route reads all three off the
-``task_runs`` row, so a body that could name a tenant would be a body that could
-write into another one.
-
-**The payload is built by the contract's own models.** ``RunLedgerAppendRequest``
-and ``RunLedgerFinishRequest`` (``agent.common.run_ledger``) are validated
-against the JSON Schema the BFF exports from its zod, so a body that would come
-back as a 400 fails here, in this process, where the failure is a log line
-instead of a run whose account silently stopped updating.
-
-**Nothing here may fail a run.** Every call is best-effort and returns a bool.
-The ledger is bookkeeping ABOUT work that is already done and already stored;
-losing a flush costs the reader some of the account, and raising would cost them
-the run.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -48,24 +19,19 @@ LEDGER_TIMEOUT_SECONDS = 5.0
 
 
 class RunLedgerClient:
-    """POST the two ops of ``/api/internal/runs/{runId}/ledger``. Never raises."""
-
     def __init__(self, timeout: float = LEDGER_TIMEOUT_SECONDS) -> None:
         self._timeout = timeout
 
     async def append(self, run_id: str, body: RunLedgerAppendRequest) -> bool:
-        """More of the running account: phases opened or closed, steps, status."""
         return await self._post(run_id, body)
 
     async def finish(self, run_id: str, body: RunLedgerFinishRequest) -> bool:
-        """The terminal fact: what the run produced, or why it stopped."""
         if (body.result is None) == (body.error is None):
             logger.warning("Run %s: a finish op carries a result or an error, never both", run_id)
             return False
         return await self._post(run_id, body)
 
     async def _post(self, run_id: str, body: RunLedgerAppendRequest | RunLedgerFinishRequest) -> bool:
-        """Send one op. Returns True only when the BFF accepted it."""
         if not run_id:
             return False
         url = self._url(run_id)

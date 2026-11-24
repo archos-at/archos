@@ -8,7 +8,11 @@ export const conversationReads = pgTable(
     conversationId: text('conversation_id').notNull(),
     organizationId: text('organization_id')
       .notNull()
-      .default(sql`nullif(current_setting('grid.organization_id', true), '')`),
+      .default(
+        sql.raw(
+          `nullif(current_setting('app.organization_id', true), '')`
+        )
+      ),
     userId: text('user_id').notNull(),
     lastReadAt: timestamp('last_read_at', { withTimezone: true }).notNull().defaultNow(),
     lastReadMessageId: text('last_read_message_id'),

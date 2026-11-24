@@ -10,6 +10,7 @@ import { renderS3Config, s3ConfigSecret } from "./seaweedfs-identities";
 import { installSingleNodeSeaweedFS } from "./seaweedfs-single";
 import { filerToml, installSplitSeaweedFS, leveldbFilerToml } from "./seaweedfs-split";
 import type { SeaweedTopology } from "./seaweedfs-types";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface SeaweedFS extends SeaweedTopology {
   bucketInitJob: k8s.batch.v1.Job;
@@ -84,7 +85,7 @@ export function installSeaweedFS(
                 name: "bucket-init",
                 image: cfg.seaweedfs.image,
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 command: ["/bin/sh", "-c"],
                 args: [
                   `until wget -q -O /dev/null http://${master}/cluster/status; ` +

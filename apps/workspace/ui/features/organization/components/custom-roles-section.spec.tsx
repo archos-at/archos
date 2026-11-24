@@ -18,11 +18,11 @@ const GF: OrganizationRole = {
   name: 'Geschäftsführung',
   description: 'Sees fee agreements',
   custom: true,
-  permissions: ['org:archiv:manage', 'org:models:manage'],
+  permissions: ['org:office_shelf:manage', 'org:models:manage'],
 }
 const ASSIGNABLE: AssignablePermission[] = [
   { slug: 'org:models:manage', grantable: false },
-  { slug: 'org:archiv:manage', grantable: true },
+  { slug: 'org:office_shelf:manage', grantable: true },
   { slug: 'org:members:manage', grantable: true },
 ]
 
@@ -64,14 +64,14 @@ describe('CustomRolesSection', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the office’s roles with labelled permissions, and Piloti’s read-only', async () => {
+  it('lists the office’s roles with labelled permissions, and the agent’s read-only', async () => {
     stubApi({ roles: [ADMIN, GF], assignable: ASSIGNABLE })
     render(<CustomRolesSection />)
 
     const own = await screen.findByTestId('custom-roles-own')
     const gf = within(own).getByTestId('role-row-org-geschaeftsfuehrung')
     expect(gf).toHaveTextContent('Geschäftsführung')
-    expect(gf).toHaveTextContent('Manage Office filing')
+    expect(gf).toHaveTextContent('Manage Office library')
     expect(gf).toHaveTextContent('Manage AI models')
 
     const platform = screen.getByTestId('custom-roles-environment')
@@ -99,11 +99,11 @@ describe('CustomRolesSection', () => {
     expect(within(dialog).getByText(/do not hold this permission yourself/)).toBeInTheDocument()
 
     fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Projektleitung' } })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Manage Office filing' }))
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Manage Office library' }))
     fireEvent.click(within(dialog).getByTestId('custom-role-save'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
-    expect(bodyOf('POST')).toEqual({ name: 'Projektleitung', description: null, permissions: ['org:archiv:manage'] })
+    expect(bodyOf('POST')).toEqual({ name: 'Projektleitung', description: null, permissions: ['org:office_shelf:manage'] })
     await waitFor(() => expect(calls('GET').length).toBe(2))
   })
 
@@ -130,7 +130,7 @@ describe('CustomRolesSection', () => {
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(calls('PATCH')[0][0]).toBe('/api/organization/roles/org-geschaeftsfuehrung')
-    expect(bodyOf('PATCH')).toEqual({ permissions: ['org:archiv:manage'] })
+    expect(bodyOf('PATCH')).toEqual({ permissions: ['org:office_shelf:manage'] })
   })
 
   it('asks before throwing away unsaved changes', async () => {

@@ -7,8 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.search import _CHUNK_TRUNCATE_CHARS
 from knowledge_layer.search import format_results
-from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
 
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result
@@ -156,7 +156,7 @@ class TestProducerParserContract:
     def test_the_unclassified_hit_is_not_rendered_as_building_law(self):
         projekt, oib, archiv = roundtrip(self.PROJEKT, self.OIB, self.OFFICE_SHELF)
         assert source_lane(projekt) == ("project", "Projektwissen")
-        assert source_lane(archiv) == ("office", "Büroablage")
+        assert source_lane(archiv) == ("office", "Bürobibliothek")
         assert source_lane(oib) == ("building_law_oib", "OIB-Richtlinie")
 
     def test_all_hits_classified(self):
@@ -430,7 +430,7 @@ class TestTheTwoReadersAgree:
             shelf="project",
             agent_authored=True,
             content_type="table",
-            body="Von Piloti verfasst, von einer Person freigegeben.",
+            body="Vom Agenten verfasst, von einer Person freigegeben.",
         ),
         Hit(file_name="lose_notiz.pdf", body="Handnotiz ohne alles."),
         Hit(
@@ -470,9 +470,9 @@ class TestTheTwoReadersAgree:
 
     def test_the_structured_read_carries_the_fields_it_claims_to(self):
         structured, _ = self.read_both_ways(self.RICH_HITS)
-        oib, piloti, lose, langer = structured
+        oib, agent_hit, lose, langer = structured
         assert (oib.clause, oib.shelf, oib.doc_class, oib.score) == ("3.5.2", "base", "oib_guideline", 0.87)
-        assert (piloti.authored_by, piloti.shelf) == ("agent", "project")
+        assert (agent_hit.authored_by, agent_hit.shelf) == ("agent", "project")
         assert (lose.collection, lose.shelf, lose.doc_class, lose.clause) == (None, None, None, None)
         assert langer.chunk_text == "A" * _CHUNK_TRUNCATE_CHARS
 

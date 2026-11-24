@@ -71,12 +71,12 @@ describe('PermissionReference', () => {
   test('says so when no role grants a permission', () => {
     render(
       <PermissionReference
-        permissions={[permission({ slug: 'org:archiv:manage', name: 'Manage document Archiv' })]}
+        permissions={[permission({ slug: 'org:office_shelf:manage', name: 'Manage the office shelf' })]}
         roles={[role()]}
       />
     )
 
-    const row = rowFor('org:archiv:manage')
+    const row = rowFor('org:office_shelf:manage')
     expect(within(row).getByText(t('access.permissions.noRoles'))).toBeInTheDocument()
   })
 

@@ -1,0 +1,9 @@
+---
+operators:
+  - >
+    The API paths renamed in October (the office shelf, project tasks and agent
+    asks) no longer redirect from their old names; the workspace calls only the
+    new ones. The permission org:archiv:manage is retired: the next deploy's
+    authz-catalog Job takes it off every role and deletes it from WorkOS. Every
+    role that held it also holds org:office_shelf:manage, which is the only
+    slug checked now.

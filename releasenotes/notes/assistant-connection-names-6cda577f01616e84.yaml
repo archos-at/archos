@@ -1,0 +1,13 @@
+---
+# area: agents
+improvements:
+  - >
+    When you connect your own AI assistant to the workspace, the setup steps
+    now suggest the server name „workspace“. Assistants you have already
+    connected keep the name you gave them and need no change.
+deprecations:
+  - >
+    An assistant connected to your workspace now reads its guide, catalog and
+    project overviews under new addresses that start with „workspace://“. The
+    old addresses keep working until the end of 2026, so connected assistants
+    have time to pick up the new ones on their own.

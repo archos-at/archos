@@ -33,6 +33,7 @@ import {
 } from '@/lib/annotations/types'
 import { documentVersions } from './document-versions'
 import { documents } from './documents'
+import { AGENT_KINDS } from '@/lib/agent-kind'
 
 const list = (values: readonly string[]) => sql.raw(values.map((value) => `'${value}'`).join(', '))
 
@@ -115,15 +116,15 @@ export const documentAnnotations = pgTable(
     authorKnown: check('document_annotations_author_known', sql`${table.authorKind} IN (${list(ANNOTATION_AUTHORS)})`),
     statusKnown: check('document_annotations_status_known', sql`${table.status} IN (${list(ANNOTATION_STATUSES)})`),
     onlyAgentProposes: check(
-      'document_annotations_only_piloti_proposes',
-      sql`${table.status} <> 'proposed' OR ${table.authorKind} = 'piloti'`
+      'document_annotations_only_agent_proposes',
+      sql`${table.status} <> 'proposed' OR ${table.authorKind} IN (${list(AGENT_KINDS)})`
     ),
     acceptanceComplete: check(
       'document_annotations_acceptance_complete',
       sql`(${table.acceptedBy} IS NULL) = (${table.acceptedAt} IS NULL)`
     ),
     agentNeedsAPerson: check(
-      'document_annotations_piloti_needs_a_person',
+      'document_annotations_agent_needs_a_person',
       sql`${table.authorKind} = 'person' OR ${table.status} IN ('proposed', 'dismissed') OR ${table.acceptedBy} IS NOT NULL`
     ),
     closingComplete: check(

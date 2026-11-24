@@ -23,3 +23,4 @@ FROM (
 ) AS spend
 LEFT JOIN (SELECT id, name FROM workos_organizations) AS names ON names.id = spend.office
 ORDER BY day
+LIMIT 5000

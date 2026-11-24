@@ -1,0 +1,9 @@
+---
+# area: documents
+operators:
+  - >
+    Documents the agent writes are now filed under a new name prefix, and the
+    deploy renames the earlier ones itself once every workload runs the new
+    release. If the search index still holds a published agent document under
+    the old name afterwards, re-index that document. The runbook for the
+    brand-free stored names has the check.

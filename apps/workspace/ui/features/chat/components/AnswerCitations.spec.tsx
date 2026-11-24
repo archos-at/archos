@@ -101,3 +101,21 @@ describe('an answer arriving on a shared citation link', () => {
     expect(screen.queryByTestId('document-dialog')).toBeNull()
   })
 })
+
+describe('a link the answer wrote to a file it made', () => {
+  test('downloads the conversation’s draft instead of opening a page that does not exist', async () => {
+    const { MarkdownRenderer } = await import('@/shared/components/MarkdownRenderer')
+    const { useChatStore } = await import('../store')
+    useChatStore.setState({ currentConversation: { id: 's_1' } as never })
+    render(
+      <AnswerCitations documents={[]} anchorPrefix="src-d-">
+        <MarkdownRenderer content="Hier ist die Datei: [Regenbogen.pdf](/drafts/Regenbogen.pdf)" />
+      </AnswerCitations>,
+    )
+    const link = screen.getByRole('link', { name: 'Regenbogen.pdf' })
+    expect(link).toHaveAttribute('href', '/api/conversations/s_1/draft/download?path=%2Fdrafts%2FRegenbogen.pdf')
+    expect(link).toHaveAttribute('download')
+    expect(link).toHaveAttribute('data-testid', 'draft-file-reference')
+    expect(link.querySelector('svg')).not.toBeNull()
+  })
+})

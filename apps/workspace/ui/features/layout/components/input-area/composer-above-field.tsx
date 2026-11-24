@@ -4,6 +4,7 @@ import { HeightArrival } from '@/components/motion/height-arrival'
 import { FileChip } from './file-chip'
 import { UploadDestinationNote } from '../UploadDestination'
 import { ComposerSubjectBar } from '@/features/documents/components/composer-subject-bar'
+import { ComposerExcerptBar } from '@/features/chat/answer-excerpt'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { dropFileSubject } from '@/features/documents/lib/open-file-peek'
 import type { InputAreaController } from './use-input-area-controller'
@@ -29,6 +30,8 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
         }
         onResolved={controller.handleSubjectResolved}
       />
+
+      <ComposerExcerptBar excerpt={controller.composerExcerpt} onClear={controller.clearComposerExcerpt} />
 
       {/* Inline file chips — one per attached file, above the textarea.
                 Live status dot/spinner, retry on failure, ✕ to remove. */}

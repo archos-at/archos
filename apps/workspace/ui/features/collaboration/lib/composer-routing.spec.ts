@@ -4,6 +4,7 @@
 import { describe, expect, test } from 'vitest'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import type { DraftMention } from '@/lib/mentions/mention-text'
+import { PRODUCT_NAME } from '@/lib/brand'
 import {
   resolveAddressee,
   sendMessageOptions,
@@ -12,7 +13,7 @@ import {
 } from './composer-routing'
 
 const anna: DraftMention = { targetId: 'u-anna', display: 'Anna' }
-const piloti: DraftMention = { targetId: AGENT_MENTION_ID, display: 'Piloti' }
+const agent: DraftMention = { targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }
 
 const BASE: AddresseeInput = {
   text: '',
@@ -43,20 +44,20 @@ describe('resolveAddressee', () => {
     expect(routing).toEqual({ kind: 'mentions', mentions: [anna] })
   })
 
-  test('tagging @Piloti while awaiting takes the wait back (MN-9.3)', () => {
+  test('tagging the agent while awaiting takes the wait back (MN-9.3)', () => {
     const { mode, agentTagged } = resolve({
-      text: '@Piloti bitte',
-      mentions: [piloti],
+      text: `@${PRODUCT_NAME} bitte`,
+      mentions: [agent],
       awaitingHuman: true,
     })
     expect(mode).toBe('agent')
     expect(agentTagged).toBe(true)
   })
 
-  test('a person plus @Piloti addresses both (MN-1)', () => {
+  test('a person plus the agent addresses both (MN-1)', () => {
     const { mode, humans, agentTagged } = resolve({
-      text: '@Anna @Piloti hallo',
-      mentions: [anna, piloti],
+      text: `@Anna @${PRODUCT_NAME} hallo`,
+      mentions: [anna, agent],
     })
     expect(mode).toBe('people')
     expect(humans).toEqual([anna])
@@ -104,10 +105,10 @@ describe('resolveAddressee', () => {
     const allowed: Record<AddresseeMode, SendKind[]> = {
       people: ['mentions'],
       thread: ['awaiting'],
-      agent: ['fast', 'mentions'], // @Piloti alone: says "agent", sends structured
+      agent: ['fast', 'mentions'], // the agent alone: says "agent", sends structured
     }
-    for (const text of ['', 'hallo', '@Anna hallo', '@Piloti hallo', '@Anna @Piloti x'])
-      for (const mentions of [[], [anna], [piloti], [anna, piloti]])
+    for (const text of ['', 'hallo', '@Anna hallo', `@${PRODUCT_NAME} hallo`, `@Anna @${PRODUCT_NAME} x`])
+      for (const mentions of [[], [anna], [agent], [anna, agent]])
         for (const awaitingHuman of [false, true])
           for (const canCollaborate of [false, true]) {
             const { mode, routing } = resolve({

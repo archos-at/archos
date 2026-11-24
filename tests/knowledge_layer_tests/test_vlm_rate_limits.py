@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import vision_calls
 
 
@@ -41,7 +40,7 @@ def slept(monkeypatch):
 
 
 def _caption(client) -> str:
-    return adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=100)
+    return vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=100)
 
 
 def test_a_rate_limited_call_backs_off_and_succeeds(slept):

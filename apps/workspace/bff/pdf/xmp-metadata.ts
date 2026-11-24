@@ -1,136 +1,220 @@
-import { aiProvenanceXmp, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { AI_GENERATOR_NAME, aiProvenanceXmp, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import {
+  afterLiteralString,
+  dictionaryAt,
+  PdfMetadataError,
+  readPdfStructure,
+  type ObjectRef,
+  type PdfStructure,
+} from './pdf-structure'
 
-export class PdfMetadataError extends Error {
-  constructor(reason: string) {
-    super(`cannot add XMP metadata to this PDF: ${reason}`)
-    this.name = 'PdfMetadataError'
+export { PdfMetadataError } from './pdf-structure'
+
+export interface PdfMetadataUpdate {
+  xmp: string
+  info?: Readonly<Record<string, string>>
+}
+
+interface AppendedObject {
+  ref: ObjectRef
+  chunks: (string | Buffer)[]
+}
+
+const DELIMITER = /[\s/[\]<>()%]/
+
+function skipArray(text: string, start: number): number {
+  let depth = 0
+  let index = start
+  while (index < text.length) {
+    if (text[index] === '(') {
+      index = afterLiteralString(text, index)
+      continue
+    }
+    if (text.startsWith('<<', index)) {
+      index += dictionaryAt(text, index).length
+      continue
+    }
+    if (text[index] === '[') depth += 1
+    if (text[index] === ']' && --depth === 0) return index + 1
+    index += 1
+  }
+  throw new PdfMetadataError('unterminated array')
+}
+
+function skipValue(text: string, start: number): number {
+  let index = start
+  while (index < text.length && /\s/.test(text[index])) index += 1
+  if (text.startsWith('<<', index)) return index + dictionaryAt(text, index).length
+  if (text[index] === '<') return text.indexOf('>', index) + 1
+  if (text[index] === '(') return afterLiteralString(text, index)
+  if (text[index] === '[') return skipArray(text, index)
+  if (text[index] === '/') {
+    index += 1
+    while (index < text.length && !DELIMITER.test(text[index])) index += 1
+    return index
+  }
+  const token = /^[^\s/[\]<>()%]+(\s+\d+\s+R\b)?/.exec(text.slice(index, index + 64))
+  if (!token) throw new PdfMetadataError('unreadable dictionary value')
+  return index + token[0].length
+}
+
+export function withoutKeys(body: string, keys: ReadonlySet<string>): string {
+  let out = ''
+  let index = 0
+  for (;;) {
+    while (index < body.length && /\s/.test(body[index])) index += 1
+    if (index >= body.length) return out
+    if (body[index] !== '/') throw new PdfMetadataError('a dictionary key is not a name')
+    let end = index + 1
+    while (end < body.length && !DELIMITER.test(body[end])) end += 1
+    const valueEnd = skipValue(body, end)
+    if (!keys.has(body.slice(index + 1, end))) out += ` ${body.slice(index, valueEnd).trim()}`
+    index = valueEnd
   }
 }
 
-interface ObjectRef {
-  number: number
-  generation: number
+const literalString = (value: string): string => `(${value.replace(/[\\()]/g, (char) => `\\${char}`)})`
+
+const xrefEntry = (offset: number, generation: number): string =>
+  `${String(offset).padStart(10, '0')} ${String(generation).padStart(5, '0')} n \n`
+
+function groupedByNumber<T extends { ref: ObjectRef }>(items: readonly T[]): T[][] {
+  const sorted = [...items].sort((a, b) => a.ref.number - b.ref.number)
+  const groups: T[][] = []
+  for (const item of sorted) {
+    const last = groups.at(-1)
+    if (last && last[last.length - 1].ref.number + 1 === item.ref.number) last.push(item)
+    else groups.push([item])
+  }
+  return groups
+}
+
+function infoBody(structure: PdfStructure, info: Readonly<Record<string, string>>): string {
+  let kept = ''
+  if (structure.info) {
+    try {
+      kept = withoutKeys(structure.dictionaryOf(structure.info).slice(2, -2), new Set(Object.keys(info)))
+    } catch {
+      kept = ''
+    }
+  }
+  const added = Object.entries(info)
+    .map(([key, value]) => ` /${key} ${literalString(value)}`)
+    .join('')
+  return `${kept}${added}`
+}
+
+interface PlannedUpdate {
+  objects: AppendedObject[]
+  info: ObjectRef | null
+  next: number
+}
+
+function planUpdate(structure: PdfStructure, update: PdfMetadataUpdate): PlannedUpdate {
+  const catalog = structure.dictionaryOf(structure.root)
+  const body = withoutKeys(catalog.slice(2, -2), new Set(['Metadata']))
+  let next = structure.size
+  const metadata: ObjectRef = { number: next++, generation: 0 }
+  const xmpBytes = Buffer.from(update.xmp, 'utf8')
+  const objects: AppendedObject[] = [
+    { ref: structure.root, chunks: [`<<${body} /Metadata ${metadata.number} 0 R >>`] },
+    {
+      ref: metadata,
+      chunks: [`<< /Type /Metadata /Subtype /XML /Length ${xmpBytes.length} >>\nstream\n`, xmpBytes, '\nendstream'],
+    },
+  ]
+  let info = structure.info
+  if (update.info) {
+    info = { number: next++, generation: 0 }
+    objects.push({ ref: info, chunks: [`<<${infoBody(structure, update.info)} >>`] })
+  }
+  return { objects, info, next }
+}
+
+class Appender {
+  private readonly parts: Buffer[]
+  offset: number
+
+  constructor(pdf: Uint8Array) {
+    this.parts = [Buffer.from(pdf)]
+    this.offset = pdf.length
+  }
+
+  append(chunk: string | Buffer): void {
+    const bytes = typeof chunk === 'string' ? Buffer.from(chunk, 'latin1') : chunk
+    this.parts.push(bytes)
+    this.offset += bytes.length
+  }
+
+  finish(): Uint8Array {
+    return new Uint8Array(Buffer.concat(this.parts))
+  }
+}
+
+function xrefStreamData(groups: readonly AppendedObject[][], offsets: ReadonlyMap<number, number>): Buffer {
+  const rows = groups.flat()
+  const data = Buffer.alloc(rows.length * 7)
+  rows.forEach((object, row) => {
+    data.writeUInt8(1, row * 7)
+    data.writeUInt32BE(offsets.get(object.ref.number) ?? 0, row * 7 + 1)
+    data.writeUInt16BE(object.ref.generation, row * 7 + 5)
+  })
+  return data
+}
+
+export function withPdfMetadata(pdf: Uint8Array, update: PdfMetadataUpdate): Uint8Array {
+  const structure = readPdfStructure(pdf)
+  const { objects, info, next } = planUpdate(structure, update)
+  const out = new Appender(pdf)
+
+  out.append('\n')
+  const offsets = new Map<number, number>()
+  for (const object of objects) {
+    offsets.set(object.ref.number, out.offset)
+    out.append(`${object.ref.number} ${object.ref.generation} obj\n`)
+    for (const chunk of object.chunks) out.append(chunk)
+    out.append('\nendobj\n')
+  }
+
+  const trailerKeys =
+    `/Root ${structure.root.number} ${structure.root.generation} R ` +
+    `${info ? `/Info ${info.number} ${info.generation} R ` : ''}${structure.id} /Prev ${structure.startxref}`
+  const xrefAt = out.offset
+
+  if (structure.xrefKind === 'table') {
+    let table = 'xref\n0 1\n0000000000 65535 f \n'
+    for (const group of groupedByNumber(objects)) {
+      table += `${group[0].ref.number} ${group.length}\n`
+      for (const object of group) table += xrefEntry(offsets.get(object.ref.number) ?? 0, object.ref.generation)
+    }
+    out.append(table)
+    out.append(`trailer\n<< /Size ${next} ${trailerKeys} >>\nstartxref\n${xrefAt}\n%%EOF\n`)
+    return out.finish()
+  }
+
+  const xref: AppendedObject = { ref: { number: next, generation: 0 }, chunks: [] }
+  offsets.set(xref.ref.number, xrefAt)
+  const groups = groupedByNumber([...objects, xref])
+  const data = xrefStreamData(groups, offsets)
+  const index = groups.map((group) => `${group[0].ref.number} ${group.length}`).join(' ')
+  out.append(
+    `${xref.ref.number} 0 obj\n<< /Type /XRef /Size ${next + 1} /W [1 4 2] /Index [${index}] ${trailerKeys} ` +
+      `/Length ${data.length} >>\nstream\n`,
+  )
+  out.append(data)
+  out.append(`\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`)
+  return out.finish()
 }
 
 export function withXmpMetadata(pdf: Uint8Array, xmp: string): Uint8Array {
-  const text = Buffer.from(pdf).toString('latin1')
-  const startxref = /startxref\s+(\d+)\s+%%EOF\s*$/.exec(text.slice(-1024))
-  if (!startxref) throw new PdfMetadataError('no startxref at the end of the file')
-  const previousXref = Number(startxref[1])
-  if (!text.startsWith('xref', previousXref)) {
-    throw new PdfMetadataError('the cross-reference is a stream, not a table')
-  }
-
-  const trailerAt = text.indexOf('trailer', previousXref)
-  if (trailerAt === -1) throw new PdfMetadataError('no trailer after the cross-reference table')
-  const trailer = dictionaryAt(text, text.indexOf('<<', trailerAt))
-  if (/\/Encrypt\b/.test(trailer)) throw new PdfMetadataError('the file is encrypted')
-  const root = rootOf(trailer)
-  const size = /\/Size\s+(\d+)/.exec(trailer)
-  if (!root || !size) throw new PdfMetadataError('the trailer names no /Root or /Size')
-
-  const catalogAt = offsetOf(text, previousXref, root)
-  const header = /^(\d+)\s+(\d+)\s+obj\b/.exec(text.slice(catalogAt, catalogAt + 32))
-  if (!header || Number(header[1]) !== root.number || Number(header[2]) !== root.generation) {
-    throw new PdfMetadataError('the cross-reference does not point at the catalog')
-  }
-  const catalog = dictionaryAt(text, text.indexOf('<<', catalogAt))
-  const metadata: ObjectRef = { number: Number(size[1]), generation: 0 }
-  const body = catalog.slice(2, -2).replace(/\/Metadata\s+\d+\s+\d+\s+R/, '')
-  const xmpBytes = Buffer.from(xmp, 'utf8')
-
-  const parts: Buffer[] = [Buffer.from(pdf)]
-  let offset = pdf.length
-  const append = (chunk: string | Buffer) => {
-    const bytes = typeof chunk === 'string' ? Buffer.from(chunk, 'latin1') : chunk
-    parts.push(bytes)
-    offset += bytes.length
-  }
-
-  append('\n')
-  const newCatalogAt = offset
-  append(`${root.number} ${root.generation} obj\n<<${body} /Metadata ${metadata.number} 0 R >>\nendobj\n`)
-  const metadataAt = offset
-  append(`${metadata.number} 0 obj\n<< /Type /Metadata /Subtype /XML /Length ${xmpBytes.length} >>\nstream\n`)
-  append(xmpBytes)
-  append('\nendstream\nendobj\n')
-
-  const xrefAt = offset
-  append(
-    'xref\n0 1\n0000000000 65535 f \n' +
-      `${root.number} 1\n${xrefEntry(newCatalogAt, root.generation)}` +
-      `${metadata.number} 1\n${xrefEntry(metadataAt, 0)}`
-  )
-  const info = /\/Info\s+\d+\s+\d+\s+R/.exec(trailer)?.[0] ?? ''
-  const id = /\/ID\s*\[[^\]]*\]/.exec(trailer)?.[0] ?? ''
-  append(
-    `trailer\n<< /Size ${metadata.number + 1} /Root ${root.number} ${root.generation} R ` +
-      `${info} ${id} /Prev ${previousXref} >>\nstartxref\n${xrefAt}\n%%EOF\n`
-  )
-  return new Uint8Array(Buffer.concat(parts))
+  return withPdfMetadata(pdf, { xmp })
 }
 
 export const withAiProvenanceXmp = (pdf: Uint8Array, marking: AiProvenanceMarking): Uint8Array =>
   withXmpMetadata(pdf, aiProvenanceXmp(marking))
 
-const xrefEntry = (offset: number, generation: number): string =>
-  `${String(offset).padStart(10, '0')} ${String(generation).padStart(5, '0')} n \n`
-
-function rootOf(trailer: string): ObjectRef | null {
-  const match = /\/Root\s+(\d+)\s+(\d+)\s+R/.exec(trailer)
-  return match ? { number: Number(match[1]), generation: Number(match[2]) } : null
-}
-
-function offsetOf(text: string, xrefAt: number, ref: ObjectRef): number {
-  const lines = text.slice(xrefAt, text.indexOf('trailer', xrefAt)).split(/\r?\n|\r/)
-  let line = 1
-  while (line < lines.length) {
-    const subsection = /^(\d+)\s+(\d+)\s*$/.exec(lines[line])
-    if (!subsection) break
-    const first = Number(subsection[1])
-    const count = Number(subsection[2])
-    if (ref.number >= first && ref.number < first + count) {
-      const entry = /^(\d{10})\s+(\d{5})\s+n/.exec(lines[line + 1 + ref.number - first])
-      if (entry) return Number(entry[1])
-      break
-    }
-    line += 1 + count
-  }
-  throw new PdfMetadataError(`object ${ref.number} is not in the last cross-reference section`)
-}
-
-function dictionaryAt(text: string, start: number): string {
-  if (start < 0 || !text.startsWith('<<', start)) throw new PdfMetadataError('no dictionary')
-  let depth = 0
-  let index = start
-  while (index < text.length) {
-    if (text.startsWith('<<', index)) {
-      depth += 1
-      index += 2
-    } else if (text.startsWith('>>', index)) {
-      depth -= 1
-      index += 2
-      if (depth === 0) return text.slice(start, index)
-    } else if (text[index] === '(') {
-      index = afterLiteralString(text, index)
-    } else if (text[index] === '<') {
-      const end = text.indexOf('>', index)
-      if (end === -1) throw new PdfMetadataError('unterminated hex string')
-      index = end + 1
-    } else {
-      index += 1
-    }
-  }
-  throw new PdfMetadataError('unterminated dictionary')
-}
-
-function afterLiteralString(text: string, start: number): number {
-  let depth = 0
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index]
-    if (char === '\\') index += 1
-    else if (char === '(') depth += 1
-    else if (char === ')' && --depth === 0) return index + 1
-  }
-  throw new PdfMetadataError('unterminated string')
-}
+export const withAiProvenancePdf = (pdf: Uint8Array, marking: AiProvenanceMarking): Uint8Array =>
+  withPdfMetadata(pdf, {
+    xmp: aiProvenanceXmp(marking),
+    info: { Keywords: marking, Creator: AI_GENERATOR_NAME, Producer: AI_GENERATOR_NAME },
+  })

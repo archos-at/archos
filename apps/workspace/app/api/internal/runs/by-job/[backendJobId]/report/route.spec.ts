@@ -17,7 +17,7 @@ const TARGET = { runId: RUN, conversationId: 's_conv_1', messageId: 'msg-1' }
 
 function call(body: unknown, headers: Record<string, string> = { 'x-grid-internal-token': SECRET }) {
   return POST(
-    new Request(`https://grid.test/api/internal/runs/by-job/${JOB}/report`, {
+    new Request(`https://example.test/api/internal/runs/by-job/${JOB}/report`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
@@ -28,7 +28,7 @@ function call(body: unknown, headers: Record<string, string> = { 'x-grid-interna
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(writeRunReport).mockResolvedValue(TARGET)
 })
 

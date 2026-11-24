@@ -86,11 +86,15 @@ export const MAX_INTAKE_DECISIONS = 60
 export const MAX_UNREAD_FILES = 200
 export const MAX_DOCUMENTS_READ = 500
 export const MAX_INTAKE_NEEDS = 500
+export const MAX_INTAKE_BUILDINGS = 20
+export const MAX_BUILDING_NAME_LENGTH = 80
 
 const key = z.string().min(1).max(200)
 const jobId = z.string().min(1).max(128)
 const instant = z.string().datetime({ offset: true })
 const count = z.number().int().min(0)
+const buildingId = z.string().regex(/^bldg[1-9]\d{0,3}$/)
+const buildingName = z.string().trim().min(1).max(MAX_BUILDING_NAME_LENGTH)
 const alternativeIndex = z.number().int().min(0).max(MAX_PROFILE_ALTERNATIVES - 1)
 
 const monthSchema = z.string().refine((value): value is Month => isMonth(value), 'A month, YYYY-MM.')
@@ -180,6 +184,12 @@ export const suggestionGroupSchema = z.object({
 })
 export type SuggestionGroup = z.infer<typeof suggestionGroupSchema>
 
+export const intakeBuildingSchema = z.object({
+  id: z.string().min(1).max(32),
+  name: z.string().min(1).max(200),
+})
+export type IntakeBuilding = z.infer<typeof intakeBuildingSchema>
+
 export const LOCATION_DETERMINANTS = SETUP_DETERMINANTS
 export type LocationDeterminant = SetupDeterminant
 
@@ -232,6 +242,7 @@ export const intakeViewSchema = z.object({
   openQuestions: z.array(needSchema).max(MAX_INTAKE_NEEDS),
   groups: z.array(suggestionGroupSchema),
   derivations: z.array(derivationReviewSchema),
+  buildings: z.array(intakeBuildingSchema).min(1),
   canDecide: z.boolean(),
   canComplete: z.boolean(),
   applicableLaw: projectLawSchema.optional(),
@@ -284,6 +295,21 @@ export const intakeDecisionsResponseSchema = z.object({
   intake: intakeViewSchema,
 })
 export type IntakeDecisionsResponse = z.infer<typeof intakeDecisionsResponseSchema>
+
+export const buildingOperationSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('add'), name: buildingName.optional() }).strict(),
+  z.object({ action: z.literal('rename'), buildingId, name: buildingName }).strict(),
+  z.object({ action: z.literal('remove'), buildingId }).strict(),
+])
+export type BuildingOperation = z.infer<typeof buildingOperationSchema>
+
+export const intakeBuildingRequestSchema = z.object({ operation: buildingOperationSchema }).strict()
+
+export const intakeBuildingResponseSchema = z.object({
+  buildingId,
+  intake: intakeViewSchema,
+})
+export type IntakeBuildingResponse = z.infer<typeof intakeBuildingResponseSchema>
 
 export const recordEvidenceSchema = z
   .object({

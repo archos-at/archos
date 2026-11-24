@@ -48,7 +48,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const session = (overrides: Partial<AuthorizedSession> = {}): AuthorizedSession => ({
   userId: 'user_1',
-  email: 'someone@grid.com',
+  email: 'someone@example.test',
   name: 'Someone',
   accessToken: 'token',
   organizationId: 'org_1',
@@ -67,7 +67,7 @@ describe('listProjects', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     listProjectsInOrg.mockResolvedValue([ALPHA, BETA, GAMMA])
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
   })
 
   it('returns ONLY the projects the member holds project:view on', async () => {

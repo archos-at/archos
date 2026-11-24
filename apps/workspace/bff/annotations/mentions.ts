@@ -4,7 +4,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { mayOpenDocument, type OpenableDocument } from '@/lib/documents/may-open'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { reconcileMentions } from '@/lib/mentions/mention-text'
 import type { MarkMention } from './types'
@@ -26,7 +26,7 @@ export async function keepMentions(
   { piloti }: { piloti: boolean }
 ): Promise<MarkMention[]> {
   const standing = standingMentions(text, submitted)
-  const isAgent = (mention: MarkMention) => mention.targetId === AGENT_MENTION_ID
+  const isAgent = (mention: MarkMention) => isAgentMentionId(mention.targetId)
   const keptAgent = (mention: MarkMention) => piloti && mention.display === PRODUCT_NAME
   const people = isCollaborationEnabled(session) ? standing.filter((mention) => !isAgent(mention)) : []
   if (people.length === 0) return standing.filter((mention) => isAgent(mention) && keptAgent(mention))
@@ -52,13 +52,13 @@ export function newlyMentioned(
     ...new Set(
       after
         .map((mention) => mention.targetId)
-        .filter((targetId) => targetId !== AGENT_MENTION_ID && targetId !== writerUserId && !already.has(targetId))
+        .filter((targetId) => !isAgentMentionId(targetId) && targetId !== writerUserId && !already.has(targetId))
     ),
   ]
 }
 
 export const mentionsAgent = (mentions: readonly MarkMention[]): boolean =>
-  mentions.some((mention) => mention.targetId === AGENT_MENTION_ID)
+  mentions.some((mention) => isAgentMentionId(mention.targetId))
 
 export function noLongerMentioned(
   before: readonly MarkMention[],
@@ -69,7 +69,7 @@ export function noLongerMentioned(
     ...new Set(
       before
         .map((mention) => mention.targetId)
-        .filter((targetId) => targetId !== AGENT_MENTION_ID && !still.has(targetId))
+        .filter((targetId) => !isAgentMentionId(targetId) && !still.has(targetId))
     ),
   ]
 }

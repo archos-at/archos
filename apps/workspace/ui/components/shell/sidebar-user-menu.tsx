@@ -140,7 +140,7 @@ export function SidebarUserMenu({
         data-tour={tourAnchor}
       >
         <span className="relative flex shrink-0">
-          {/* A reply from the Piloti team waits under „Mein Feedback": the
+          {/* A reply from the team that builds the agent waits under „Mein Feedback": the
               count is on that row, one level down, and without a mark here
               nobody opens the menu to find it. */}
           <AttentionDot show={feedbackUpdatedCount > 0} className="absolute -top-0.5 -right-0.5 z-10" />
@@ -276,8 +276,8 @@ export function SidebarUserMenu({
             {t('userMenu.whatsNew')}
           </Link>
         </DropdownMenuItem>
-        {/* The one door to the people who build Piloti, next to the tour
-            because both are "help with Piloti itself": „Mein Feedback" holds
+        {/* The one door to the people who build the agent, next to the tour
+            because both are "help with the agent itself": „Mein Feedback" holds
             the replies and „Neues Feedback" alike. The pill says how many
             threads have news since the member last looked. */}
         {feedbackAvailable && (

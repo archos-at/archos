@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import re
+from collections.abc import Awaitable
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+SCHEMA_VERSION = 1
+
+PAGES_PART = "pages.md"
+INDEX_PART = "index.json"
+
+TEXT_DIRECTORY = "_text/"
+
+FETCH_TIMEOUT_SECONDS = 6.0
+
+SOURCE_TEXT_LAYER = "text_layer"
+SOURCE_OCR = "ocr"
+SOURCE_VLM_READING = "vlm_reading"
+
+_VERSION_SEGMENT = re.compile(r"/v(\d+)/")
+
+
+@dataclass(frozen=True)
+class Page:
+    number: int
+    text: str
+    source: str = SOURCE_TEXT_LAYER
+    content_types: tuple[str, ...] = ()
+
+    @property
+    def is_drawing(self) -> bool:
+        return self.source == SOURCE_VLM_READING or "drawing" in self.content_types
+
+
+@dataclass
+class PageText:
+    pages: list[Page]
+    origin: str
+    page_count: int
+    failed_pages: tuple[int, ...] = ()
+    refused: str | None = None
+    by_number: dict[int, Page] = field(default_factory=dict, repr=False)
+
+    def __post_init__(self) -> None:
+        self.by_number = {page.number: page for page in self.pages}
+
+    @property
+    def rebuilt(self) -> bool:
+        return self.origin == "chunks"
+
+
+Resolver = Callable[[str, str], Awaitable[Any]]
+Fetcher = Callable[[str, str | None, tuple[int, int] | None], bytes | None]
+ChunkReader = Callable[[str, str], list[tuple[Any, str, dict[str, Any]]] | None]
+
+
+async def _resolve(collection: str, file_name: str) -> Any:
+    from .view_image import _resolve_storage_location
+
+    return await _resolve_storage_location(collection, file_name)
+
+
+def _fetch(key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> bytes | None:
+    from agent.common import seaweed_s3
+
+    try:
+        client = seaweed_s3.s3_client()
+        if client is None:
+            return None
+        kwargs: dict[str, Any] = {"Bucket": bucket or seaweed_s3.default_bucket(), "Key": key}
+        if byte_range is not None:
+            kwargs["Range"] = f"bytes={byte_range[0]}-{byte_range[1]}"
+        return client.get_object(**kwargs)["Body"].read()
+    except Exception as error:  # noqa: BLE001 - absent is the common case, and every failure means "rebuild"
+        logger.debug("stored_pages: no %s (%s)", key, type(error).__name__)
+        return None
+
+
+def _read_chunks(collection: str, file_name: str) -> list[tuple[Any, str, dict[str, Any]]] | None:
+    from agent.knowledge.collection_pages import _document_hits
+    from agent.knowledge.collection_pages import own_page_texts
+
+    hits = _document_hits(collection, file_name)
+    rows = [
+        (hit.payload.get("page_label"), text, dict(hit.payload or {}))
+        for hit, text in zip(hits, own_page_texts(hits), strict=True)
+        if text
+    ]
+    return rows or None
+
+
+def text_prefix(storage_key: str) -> str | None:
+    if "/" not in storage_key:
+        return None
+    return f"{storage_key.rsplit('/', 1)[0]}/{TEXT_DIRECTORY}"
+
+
+def key_version(storage_key: str) -> int | None:
+    found = _VERSION_SEGMENT.findall(storage_key)
+    return int(found[-1]) if found else None
+
+
+def check_index(index: Any, *, document_id: str | None, storage_key: str) -> str | None:
+    if not isinstance(index, dict) or index.get("schema_version") != SCHEMA_VERSION:
+        return "schema"
+    meta = index.get("file")
+    pages = index.get("pages")
+    if not isinstance(meta, dict) or not isinstance(pages, list):
+        return "schema"
+    if not document_id or str(meta.get("document_id") or "") != document_id:
+        return "mismatch"
+    expected = key_version(storage_key)
+    stored = meta.get("version")
+    if expected is not None and isinstance(stored, int) and stored != expected:
+        return "mismatch"
+    return None
+
+
+def _page_entries(index: dict[str, Any]) -> list[dict[str, Any]]:
+    entries = []
+    for entry in index.get("pages") or ():
+        if not isinstance(entry, dict):
+            continue
+        number, offset, length = entry.get("page"), entry.get("offset"), entry.get("length")
+        if isinstance(number, int) and isinstance(offset, int) and isinstance(length, int) and number > 0:
+            entries.append(entry)
+    return entries
+
+
+def pages_from_body(index: dict[str, Any], body: bytes, *, base: int = 0, wanted: set[int] | None = None) -> list[Page]:
+    pages: list[Page] = []
+    for entry in _page_entries(index):
+        number = entry["page"]
+        if wanted is not None and number not in wanted:
+            continue
+        start = entry["offset"] - base
+        length = entry["length"]
+        if start < 0 or start + length > len(body):
+            continue
+        text = body[start : start + length].decode("utf-8", errors="replace").rstrip("\n")
+        source = str(entry.get("source") or SOURCE_TEXT_LAYER)
+        pages.append(Page(number=number, text=text, source=source))
+    return pages
+
+
+def pages_from_chunks(rows: list[tuple[Any, str, dict[str, Any]]]) -> list[Page]:
+    texts: dict[int, list[str]] = {}
+    types: dict[int, set[str]] = {}
+    for label, text, metadata in rows:
+        try:
+            number = int(str(label).strip())
+        except TypeError, ValueError:
+            number = 1
+        number = max(1, number)
+        texts.setdefault(number, []).append(text.strip())
+        content_type = str((metadata or {}).get("content_type") or "").strip()
+        if content_type:
+            types.setdefault(number, set()).add(content_type)
+    return [
+        Page(
+            number=number,
+            text="\n\n".join(part for part in texts[number] if part),
+            source="chunks",
+            content_types=tuple(sorted(types.get(number, ()))),
+        )
+        for number in sorted(texts)
+    ]
+
+
+async def read_stored(
+    collection: str,
+    file_name: str,
+    *,
+    wanted: set[int] | None = None,
+    resolve: Resolver | None = None,
+    fetch: Fetcher | None = None,
+) -> PageText | None:
+    resolve = resolve or _resolve
+    fetch = fetch or _fetch
+    try:
+        location = await asyncio.wait_for(resolve(collection, file_name), FETCH_TIMEOUT_SECONDS)
+    except Exception as error:  # noqa: BLE001 - fail-open: rebuild
+        logger.info("stored_pages: lookup failed for a document (%s)", type(error).__name__)
+        return None
+    if not location:
+        return None
+    storage_key, bucket = location[0], location[1]
+    prefix = text_prefix(str(storage_key))
+    if prefix is None:
+        return None
+    raw_index = await _fetch_part(fetch, prefix + INDEX_PART, bucket, None)
+    if raw_index is None:
+        return None
+    try:
+        index = json.loads(raw_index.decode("utf-8"))
+    except UnicodeDecodeError, json.JSONDecodeError:
+        logger.warning("stored_pages: an index.json does not parse; rebuilding from the chunks")
+        return None
+    refusal = check_index(index, document_id=getattr(location, "document_id", None), storage_key=str(storage_key))
+    if refusal is not None:
+        logger.warning("stored_pages: index.json refused (%s); rebuilding from the chunks", refusal)
+        return None
+    entries = [entry for entry in _page_entries(index) if wanted is None or entry["page"] in wanted]
+    meta = index["file"]
+    page_count = int(meta.get("page_count") or len(_page_entries(index)) or 0)
+    failed = tuple(int(n) for n in meta.get("failed_pages") or () if isinstance(n, int))
+    if not entries:
+        return PageText(pages=[], origin="stored", page_count=page_count, failed_pages=failed)
+    start = min(entry["offset"] for entry in entries)
+    end = max(entry["offset"] + entry["length"] for entry in entries)
+    if end <= start:
+        pages = [Page(number=entry["page"], text="", source=str(entry.get("source") or "")) for entry in entries]
+        return PageText(pages=pages, origin="stored", page_count=page_count, failed_pages=failed)
+    body = await _fetch_part(fetch, prefix + PAGES_PART, bucket, (start, end - 1))
+    if body is None:
+        return None
+    wanted_numbers = {entry["page"] for entry in entries}
+    pages = pages_from_body(index, body, base=start, wanted=wanted_numbers)
+    return PageText(pages=pages, origin="stored", page_count=page_count, failed_pages=failed)
+
+
+async def _fetch_part(fetch: Fetcher, key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> bytes | None:
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(fetch, key, bucket, byte_range), FETCH_TIMEOUT_SECONDS)
+    except Exception as error:  # noqa: BLE001 - fail-open: rebuild
+        logger.info("stored_pages: fetch of %s failed (%s)", key.rsplit("/", 1)[-1], type(error).__name__)
+        return None
+
+
+async def rebuild(collection: str, file_name: str, *, read_chunks: ChunkReader | None = None) -> PageText | None:
+    rows = await asyncio.to_thread(read_chunks or _read_chunks, collection, file_name)
+    if not rows:
+        return None
+    pages = pages_from_chunks(rows)
+    return PageText(pages=pages, origin="chunks", page_count=max((page.number for page in pages), default=0))
+
+
+async def read_pages(
+    collection: str,
+    file_name: str,
+    *,
+    wanted: set[int] | None = None,
+    resolve: Resolver | None = None,
+    fetch: Fetcher | None = None,
+    read_chunks: ChunkReader | None = None,
+    stored: bool = True,
+) -> PageText | None:
+    if stored:
+        found = await read_stored(collection, file_name, wanted=wanted, resolve=resolve, fetch=fetch)
+        if found is not None:
+            return found
+    return await rebuild(collection, file_name, read_chunks=read_chunks)

@@ -1,7 +1,7 @@
 import { OFFICE_TIME_ZONE } from '@/lib/format'
 import type { Locale } from '@/i18n/config'
 
-export const MAIL_THREAD_RENDER_VERSION = 3
+export const MAIL_THREAD_RENDER_VERSION = 4
 
 export interface MailThreadRenderCopy {
   unverifiedDomain: string
@@ -13,6 +13,7 @@ export interface MailThreadRenderCopy {
   continues: (name: string) => string
   received: (at: Date) => string
   dateOutOfRange: string
+  subject: string
   replyTo: string
   forwardedBy: string
   to: string
@@ -76,6 +77,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
       return `eingegangen ${p.day}.${p.month}.${p.year}, ${p.hour}:${p.minute}`
     },
     dateOutOfRange: 'Das Datum der E-Mail war nicht plausibel; sie ist nach dem Eingang eingeordnet.',
+    subject: 'Betreff',
     replyTo: 'Antwort auf',
     forwardedBy: 'Weitergeleitet von',
     to: 'An',
@@ -104,6 +106,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
     continues: (name) => `Continues “${name}”`,
     received: (at) => `received ${isoDateTime(at)}`,
     dateOutOfRange: "The mail's date was not plausible; it is placed by its receipt.",
+    subject: 'Subject',
     replyTo: 'Reply to',
     forwardedBy: 'Forwarded by',
     to: 'To',

@@ -103,7 +103,7 @@ export const profile = {
         name: 'Claude Code',
         hint: 'In the terminal',
         s1: 'Add the server with this command:',
-        s2: 'Start Claude Code, type /mcp and choose piloti.',
+        s2: 'Start Claude Code, type /mcp and choose {serverName}.',
         s3: 'Sign in with your {productName} account when the browser opens.',
       },
       cursor: {

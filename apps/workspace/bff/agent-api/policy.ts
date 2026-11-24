@@ -3,8 +3,9 @@ import { AGENT_OPERATIONS, findOperation } from './catalog'
 import { type AgentDoor, audienceOf, isExposedTo, isOnDoor } from './exposure'
 import { AGENT_DOMAINS, type AgentDomain, type AgentOperation, type Sensitivity, annotationsOf } from './operation'
 import type { AgentPrincipal } from './principal'
+import { LEGACY_SENSITIVE_SCOPE } from './legacy-names'
 
-export const SENSITIVE_SCOPE = 'piloti:sensitive'
+export const SENSITIVE_SCOPE = 'documents:sensitive'
 
 export const SENSITIVE_SCOPE_ENFORCED_BY_WORKOS = false
 
@@ -24,9 +25,8 @@ export function maySeeSensitive(
   scopeEnforced: boolean = SENSITIVE_SCOPE_ENFORCED_BY_WORKOS,
 ): boolean {
   if (principal.actor !== 'external_agent') return false
-  return (
-    (principal.sensitiveOptIns ?? []).includes(sensitivity) && scopeEnforced && principal.scopes.includes(SENSITIVE_SCOPE)
-  )
+  const holdsScope = principal.scopes.includes(SENSITIVE_SCOPE) || principal.scopes.includes(LEGACY_SENSITIVE_SCOPE)
+  return (principal.sensitiveOptIns ?? []).includes(sensitivity) && scopeEnforced && holdsScope
 }
 
 export function visibleDomains(door: AgentDoor = 'office'): readonly AgentDomain[] {

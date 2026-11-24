@@ -1,24 +1,3 @@
-"""The citation grammar of one source, compiled from its record's ``lookup.locus``.
-
-A legal text is cited by signs (``§``, ``Art``), the words for a provision's
-parts (``Abs``, ``Z``, ``lit.``, ``Satz``) and the words joining a list
-(``und``, ``bis``). Those are the source's, never this module's: it turns the
-record's words into the regexes the reference reader (``address.py``) and the
-text splitter (``sections.py``) run, and holds no word of any language.
-
-Three spelling rules, so a record lists words and not regexes:
-
-* a form ending in a full stop is an abbreviation; one longer than a letter
-  may be written without its stop (``vgl`` for ``vgl.``), a one-letter one may
-  not (``s.``, ``u.``);
-* of a part's several forms the longest is the full word and takes no stop,
-  the shorter ones may (``Abs.``, ``Z.``); a part with one form may too
-  (``lit.``);
-* a unit takes a stop after any form only when the record says ``dot``.
-
-A dash is always a range, whatever the record's range words.
-"""
-
 from __future__ import annotations
 
 import re
@@ -32,7 +11,6 @@ DASHES = ("–", "-")
 
 
 def _form(form: str, *, dot: bool) -> str:
-    """One spelling as a regex; see the module docstring for the stop."""
     stem = form[:-1] if form.endswith(".") else form
     if form.endswith("."):
         tail = r"\.?" if len(stem) > 1 else r"\."
@@ -43,7 +21,6 @@ def _form(form: str, *, dot: bool) -> str:
 
 
 def _word(form: str) -> str:
-    """A joining word, bounded on both sides where it ends in a letter (``\\bund\\b``, ``\\bu\\.``)."""
     pattern = _form(form, dot=False)
     return pattern + r"\b" if re.search(r"\w$", form) else pattern
 
@@ -53,27 +30,22 @@ def _longest_first(forms) -> list[str]:
 
 
 def _part(forms: tuple[str, ...]) -> str:
-    """A provision part's forms as one alternation: the full word bare, its abbreviations with a stop."""
     longest = max(len(form) for form in forms)
     alternatives = [_form(f, dot=len(forms) == 1 or len(f) < longest) for f in _longest_first(forms)]
     return "(?:" + "|".join(alternatives) + ")"
 
 
 def unit_pattern(unit: LocusUnit, *, repeat: bool = True) -> str:
-    """A unit's sign, every form, doubled where the record says it may be (``§§``)."""
     body = "(?:" + "|".join(_form(f, dot=unit.dot) for f in _longest_first(unit.forms)) + ")"
     return body + "+" if repeat and unit.repeatable else body
 
 
 def _flags(unit: LocusUnit) -> int:
-    """A word unit reads in any case (``artikel``); a symbol has none."""
     return re.IGNORECASE if unit.word else 0
 
 
 @dataclass(frozen=True)
 class Grammar:
-    """The compiled regexes of one source's citation grammar."""
-
     units: tuple[LocusUnit, ...]
     first: dict[str, re.Pattern[str]]
     signed: dict[str, re.Pattern[str]]
@@ -89,12 +61,10 @@ class Grammar:
     range_word: str
 
     def unit_index(self, match: re.Match[str]) -> int:
-        """Which unit a :attr:`section_line` match is of."""
         return next(i for i in range(len(self.units)) if match.group(f"u{i}"))
 
 
 def compile_grammar(locus: Locus) -> Grammar:
-    """The regexes of ``locus``; see the module docstring for the spelling rules."""
     units = locus.units
     joins = [*_longest_first(locus.conjunctions), *_longest_first(locus.range_words)]
     join_words = "|".join([",", *(_word(w) for w in joins), *(re.escape(d) for d in DASHES)])
@@ -129,7 +99,6 @@ def compile_grammar(locus: Locus) -> Grammar:
 
 
 def _qualifier(locus: Locus, join: str) -> str:
-    """What narrows one provision: numbered parts, lettered items, an ordinal sentence; each with its list."""
     numbered = "(?:" + "|".join(_part(p) for p in (locus.subsection, locus.item) if p) + ")"
     branches = [rf"{numbered}\s*{_NUMBER}\b(?:{join}(?:{numbered}\s*)?{_NUMBER}\b(?!\.\s*\w))*"]
     if locus.letter:
@@ -141,12 +110,6 @@ def _qualifier(locus: Locus, join: str) -> str:
 
 
 def _trailing_reference(locus: Locus) -> re.Pattern[str]:
-    """The word that introduced a later reference, left dangling once the reference is cut out.
-
-    The space before a closing parenthesis is taken only WITH the parenthesis: a
-    bare ``\\s*\\)?`` lets two repetitions share the same spaces, which
-    backtracks exponentially on "(s. (s. (s. …" (CodeQL py/redos).
-    """
     if not locus.see_also:
         return re.compile(r"(?!)")
     words = "(?:" + "|".join(_form(w, dot=False) for w in _longest_first(locus.see_also)) + ")"

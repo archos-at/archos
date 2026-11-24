@@ -1,6 +1,7 @@
 // @disk-inputs: app/globals.css
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import postcss, { type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
@@ -8,11 +9,19 @@ import { SectionLabel } from './section-label'
 
 const ROOT = join(__dirname, '..', '..', '..')
 
-function eyebrowRule(): string {
-  const css = readFileSync(join(ROOT, 'app', 'globals.css'), 'utf8')
-  const match = /\.card-eyebrow\s*\{([^}]*)\}/.exec(css)
-  if (!match) throw new Error('.card-eyebrow is missing from app/globals.css')
-  return match[1]
+function eyebrowDeclarations(): Map<string, string> {
+  const css = postcss.parse(readFileSync(join(ROOT, 'app', 'globals.css'), 'utf8'))
+  const rules: Rule[] = []
+  css.walkRules('.card-eyebrow', (rule) => {
+    rules.push(rule)
+  })
+  const [rule] = rules
+  if (!rule) throw new Error('.card-eyebrow is missing from app/globals.css')
+  const declarations = new Map<string, string>()
+  rule.walkDecls((declaration) => {
+    declarations.set(declaration.prop, declaration.value)
+  })
+  return declarations
 }
 
 describe('SectionLabel', () => {
@@ -39,9 +48,9 @@ describe('SectionLabel', () => {
   })
 
   it('takes its size from `.card-eyebrow`, which sets no case and no tracking', () => {
-    const rule = eyebrowRule()
-    expect(rule).toMatch(/font-size:\s*12px/)
-    expect(rule).not.toMatch(/text-transform/)
-    expect(rule).not.toMatch(/letter-spacing/)
+    const declarations = eyebrowDeclarations()
+    expect(declarations.get('font-size')).toBe('12px')
+    expect(declarations.has('text-transform')).toBe(false)
+    expect(declarations.has('letter-spacing')).toBe(false)
   })
 })

@@ -1,0 +1,18 @@
+export const mockFile = {
+  id: 'doc-1',
+  filename: 'plan.pdf',
+  displayName: null,
+  fileSize: 1048576,
+  contentType: 'application/pdf',
+  status: 'ready',
+  folderId: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  errorMessage: null,
+  summary: null,
+  pageCount: null,
+  chunkCount: null,
+  contentTypes: null,
+  tags: null,
+  topics: null,
+  capture: null,
+}

@@ -15,6 +15,7 @@ import {
   getSpendTotals,
   setBudgetPolicy,
 } from './service'
+import { consumed } from './spend-windows'
 import {
   platformOrgBudgetPutSchema,
   type PlatformOrgBudget,
@@ -46,8 +47,8 @@ async function readBudget(session: UserSession, organizationId: string): Promise
       dailyLimit: budget.dailyLimit,
       monthlyLimit: budget.monthlyLimit,
       explicit: budget.explicit,
-      dayUsed: budget.unit === 'token' ? spend.day.tokens : spend.day.credits,
-      monthUsed: budget.unit === 'token' ? spend.month.tokens : spend.month.credits,
+      dayUsed: consumed(spend.day, budget.unit),
+      monthUsed: consumed(spend.month, budget.unit),
       canManage,
     }
   })

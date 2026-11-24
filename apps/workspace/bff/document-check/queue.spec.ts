@@ -39,7 +39,7 @@ describe('queueDocumentCheck', () => {
     expect(await queueDocumentCheck(request, NOW)).toBe(true)
 
     const checkId = documentCheckId('doc-1', 'v1')
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('piloti-notices', 'org-1')
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('revision-suggestions', 'org-1')
     expect(insertJobIfAbsent).toHaveBeenCalledWith({
       kind: 'document_check',
       organizationId: 'org-1',

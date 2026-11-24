@@ -5,20 +5,15 @@ import { I18nProvider } from '@/i18n'
 import { useChatStore } from '@/features/chat/store'
 import { DocumentDraftCard } from '@/features/cards/components/DocumentDraftCard'
 import { PRODUCT_NAME } from '@/lib/brand'
-
-function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
-  return (
-    <section className="flex w-[680px] max-w-full flex-col gap-2">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      <p className="text-xs text-muted-foreground">{note}</p>
-      {children}
-    </section>
-  )
-}
+import type { Conversation } from '@/features/chat/types'
+import { FileDraftExamples, Panel } from './file-examples'
 
 export default function DocumentDraftCardPreview() {
   if (process.env.NODE_ENV !== 'development') notFound()
-  useChatStore.setState({ projectId: 'proj-demo' })
+  useChatStore.setState({
+    projectId: 'proj-demo',
+    currentConversation: { id: 'conv-demo', messages: [] } as unknown as Conversation,
+  })
 
   return (
     <I18nProvider initialLocale="de" fixedLocale>
@@ -26,6 +21,8 @@ export default function DocumentDraftCardPreview() {
         data-testid="document-draft-card-preview"
         className="flex min-h-screen flex-col items-center gap-10 bg-background p-10"
       >
+        <FileDraftExamples />
+
         <Panel
           title="Überarbeiteter Entwurf, noch nicht abgelegt"
           note={"Dreimal geschrieben: einmal angelegt, zweimal auf Zuruf geändert. Titel ist die erste Überschrift im Dokument, darunter der Pfad im Arbeitsordner — bewusst als Pfad und nicht als Dateiname, denn der Entwurf liegt nicht in den Projektdateien. „Ins Projekt übernehmen“ schreibt die Bitte in die Eingabezeile; abgelegt wird von " + PRODUCT_NAME + "."}

@@ -6,11 +6,12 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import type { AnnotationChange } from '@/lib/annotations/room-types'
 import type { DocumentReview } from '../../hooks/use-document-review'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind, type AgentKind } from '@/lib/agent-kind'
 
 export const ANNOUNCE_AFTER_MS = 3_000
 
 export type Heard =
-  | { kind: 'change'; actor: { name: string; kind: 'person' | 'piloti'; userId: string }; change: AnnotationChange; ids: readonly string[] }
+  | { kind: 'change'; actor: { name: string; kind: 'person' | AgentKind; userId: string }; change: AnnotationChange; ids: readonly string[] }
   | { kind: 'answered' }
 
 type Translate = ReturnType<typeof useTranslations>
@@ -34,13 +35,13 @@ export function announcementOf(
   }
   const lines = [...groups.values()].map(({ actor, change, ids }) => {
     const count = ids.size
-    if (change === 'created' && actor.kind === 'piloti') return t('review.announce.agentProposed', { count })
+    if (change === 'created' && isAgentKind(actor.kind)) return t('review.announce.agentProposed', { count })
     const numbers = [...ids]
       .map(numberOf)
       .filter((number): number is number => number !== null)
       .sort((a, b) => a - b)
       .join(', ')
-    const name = actor.kind === 'piloti' ? PRODUCT_NAME : actor.name
+    const name = isAgentKind(actor.kind) ? PRODUCT_NAME : actor.name
     return t(`review.announce.${change}`, { name, count, numbers }).replace(/\s+$/, '').replace(/\s{2,}/g, ' ')
   })
   if (answered) lines.push(t('review.announce.agentAnswered'))

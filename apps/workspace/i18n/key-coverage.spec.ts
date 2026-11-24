@@ -3,90 +3,89 @@
  * @vitest-environment node
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { withProductName } from '@/lib/brand'
 import { en } from './dictionaries/en'
 import { de } from './dictionaries/de'
 import type { Namespace } from './namespace'
 import { getByPath } from './translate'
-import { SOURCE_DIRS } from '@/test-utils/source-tree'
+import { nodesOf, parseSource, ts } from '@/test-utils/source-ast'
+import { srcEntries, srcPath } from '@/test-utils/source-tree'
 
-const I18N_DIR = join(process.cwd(), 'i18n')
+const ROOT = process.cwd()
 
-function sourceFiles(dir?: string, found: string[] = []): string[] {
-  if (!dir) return SOURCE_DIRS.flatMap((root) => sourceFiles(join(process.cwd(), root)))
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      if (path === I18N_DIR || entry.name === 'node_modules') continue
-      sourceFiles(path, found)
-    } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-      found.push(path)
-    }
-  }
-  return found
+const TRANSLATOR_FACTORIES = new Set(['useTranslations', 'getTranslations', 'getStoreTranslator'])
+
+function sourceFiles(): string[] {
+  return srcEntries(ROOT).filter((key) => /\.tsx?$/.test(key) && !key.startsWith('i18n/'))
 }
 
-function translatorBindings(source: string): Map<string, string> {
+function translatorBindings(source: ts.SourceFile): Map<string, string> {
   const bindings = new Map<string, string>()
-  const call =
-    /(?:const|let)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations|getStoreTranslator)\(\s*(\w+)Copy\s*(?:,\s*'([^']*)'\s*)?\)/g
-  for (const match of source.matchAll(call)) {
-    bindings.set(match[1], match[3] ? `${match[2]}.${match[3]}` : match[2])
+  for (const declaration of nodesOf(source, ts.isVariableDeclaration)) {
+    const initializer = declaration.initializer
+    const call = initializer && ts.isAwaitExpression(initializer) ? initializer.expression : initializer
+    if (!ts.isIdentifier(declaration.name) || !call || !ts.isCallExpression(call)) continue
+    if (!ts.isIdentifier(call.expression) || !TRANSLATOR_FACTORIES.has(call.expression.text)) continue
+    const [copy, scope] = call.arguments
+    if (!copy || !ts.isIdentifier(copy) || !/^\w+Copy$/.test(copy.text)) continue
+    const namespace = copy.text.slice(0, -'Copy'.length)
+    const scoped = scope && ts.isStringLiteral(scope) && scope.text !== '' ? `${namespace}.${scope.text}` : namespace
+    bindings.set(declaration.name.text, scoped)
   }
   return bindings
 }
 
-function referencedKeys(source: string, bindings: Map<string, string>): string[] {
-  const keys: string[] = []
-  for (const [variable, namespace] of bindings) {
-    const call = new RegExp(`\\b${variable}\\(\\s*'([^']+)'`, 'g')
-    for (const match of source.matchAll(call)) {
-      keys.push(namespace ? `${namespace}.${match[1]}` : match[1])
-    }
-  }
-  return keys
+function translatorCalls(source: ts.SourceFile, bindings: Map<string, string>) {
+  return nodesOf(source, ts.isCallExpression).flatMap((call) => {
+    if (!ts.isIdentifier(call.expression)) return []
+    const namespace = bindings.get(call.expression.text)
+    const [first] = call.arguments
+    if (namespace === undefined || !first) return []
+    return [{ namespace, first }]
+  })
 }
 
-function referencedKeyPrefixes(source: string, bindings: Map<string, string>): string[] {
-  const prefixes: string[] = []
-  for (const [variable, namespace] of bindings) {
-    const call = new RegExp(`\\b${variable}\\(\\s*\`([^\`]+)\``, 'g')
-    for (const match of source.matchAll(call)) {
-      const head = match[1].split('${')[0].replace(/\.$/, '')
-      if (!head) continue // fully dynamic, e.g. t(`${section}.title`) — nothing static to check
-      prefixes.push(namespace ? `${namespace}.${head}` : head)
-    }
-  }
-  return prefixes
+function referencedKeys(source: ts.SourceFile, bindings: Map<string, string>): string[] {
+  return translatorCalls(source, bindings).flatMap(({ namespace, first }) =>
+    ts.isStringLiteral(first) && first.text !== '' ? [`${namespace}.${first.text}`] : [],
+  )
 }
+
+function referencedKeyPrefixes(source: ts.SourceFile, bindings: Map<string, string>): string[] {
+  return translatorCalls(source, bindings).flatMap(({ namespace, first }) => {
+    const text = ts.isNoSubstitutionTemplateLiteral(first)
+      ? first.text
+      : ts.isTemplateExpression(first)
+        ? first.head.text
+        : undefined
+    const head = text?.replace(/\.$/, '')
+    return head ? [`${namespace}.${head}`] : []
+  })
+}
+
+const scanned = sourceFiles().map((file) => {
+  const source = parseSource(srcPath(file, ROOT))
+  const bindings = translatorBindings(source)
+  return {
+    file,
+    keys: referencedKeys(source, bindings),
+    prefixes: referencedKeyPrefixes(source, bindings),
+  }
+})
+const keyRefs = scanned.flatMap(({ file, keys }) => keys.map((key) => ({ key, file })))
+const prefixRefs = scanned.flatMap(({ file, prefixes }) => prefixes.map((prefix) => ({ prefix, file })))
 
 describe('translation keys resolve against the dictionary', () => {
-  const unresolved: string[] = []
-  const danglingPrefixes: string[] = []
-  let checked = 0
-  let prefixesChecked = 0
-
-  for (const file of sourceFiles()) {
-    const source = readFileSync(file, 'utf8')
-    const bindings = translatorBindings(source)
-    if (bindings.size === 0) continue
-
-    for (const key of referencedKeys(source, bindings)) {
-      checked++
-      if (typeof getByPath(en, key) !== 'string') unresolved.push(`${key}  (${file})`)
-    }
-
-    for (const prefix of referencedKeyPrefixes(source, bindings)) {
-      prefixesChecked++
+  const unresolved = keyRefs
+    .filter(({ key }) => typeof getByPath(en, key) !== 'string')
+    .map(({ key, file }) => `${key}  (${file})`)
+  const danglingPrefixes = prefixRefs
+    .filter(({ prefix }) => {
       const node = getByPath(en, prefix)
-      if (node === undefined || typeof node !== 'object') {
-        danglingPrefixes.push(`${prefix}  (${file})`)
-      }
-    }
-  }
+      return node === undefined || typeof node !== 'object'
+    })
+    .map(({ prefix, file }) => `${prefix}  (${file})`)
 
   it('every literal key a component asks for exists', () => {
     expect(
@@ -107,8 +106,8 @@ describe('translation keys resolve against the dictionary', () => {
   })
 
   it('is actually looking at the call sites', () => {
-    expect(checked).toBeGreaterThan(1500)
-    expect(prefixesChecked).toBeGreaterThan(50)
+    expect(keyRefs.length).toBeGreaterThan(1500)
+    expect(prefixRefs.length).toBeGreaterThan(50)
   })
 })
 

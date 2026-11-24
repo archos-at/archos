@@ -48,7 +48,7 @@ const PROJECT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 const ORG_ID = 'org_123'
 
 const makeRequest = (query: string, token?: string) =>
-  new Request(`https://grid.test/api/internal/memory/digest${query}`, {
+  new Request(`https://example.test/api/internal/memory/digest${query}`, {
     method: 'GET',
     headers: token ? { 'x-grid-internal-token': token } : {},
   })

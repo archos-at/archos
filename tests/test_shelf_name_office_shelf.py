@@ -16,12 +16,12 @@ DICTIONARIES = REPO_ROOT / "apps" / "workspace" / "i18n" / "dictionaries"
 PROMPTS = sorted((REPO_ROOT / "packages" / "agent" / "src" / "agent" / "agents").glob("*/prompts/*"))
 BUILTIN_SKILLS = sorted((REPO_ROOT / "packages" / "agent" / "src" / "agent" / "skills" / "builtin").rglob("SKILL.md"))
 
-NAME_DE = "Büroablage"
-NAME_EN = "Office filing"
+NAME_DE = "Bürobibliothek"
+NAME_EN = "Office library"
 
-_OFFICE_ARCHIVE_TERM = re.compile(r"B(?:ü|ue|u)ro-?\s?[Aa]rchiv", re.IGNORECASE)
+_OFFICE_ARCHIVE_TERM = re.compile(r"B(?:ü|ue|u)ro-?\s?(?:[Aa]rchiv|[Aa]blage)", re.IGNORECASE)
 _BARE_OFFICE_SHELF = re.compile(r"(?<![\w-])Archiv(?![\wäöü])")
-_EN_OLD = re.compile(r"(?i:office[- ]archive|office-wide archive)|(?<![\w/-])Archiv(?![\w])")
+_EN_OLD = re.compile(r"(?i:office[- ]archive|office-wide archive|office filing)|(?<![\w/-])Archiv(?![\w])")
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 _LINE_COMMENT = re.compile(r"^\s*//.*$", re.MULTILINE)
@@ -101,7 +101,8 @@ class TestOneNameInBothRuntimes:
         assert SHELF_QUALIFIERS[Shelf.OFFICE_SHELF] == NAME_DE
 
     def test_the_retired_name_is_read_but_never_written(self):
-        assert RETIRED_SHELF_QUALIFIERS == {"Büroarchiv": Shelf.OFFICE_SHELF}
+        assert RETIRED_SHELF_QUALIFIERS == {"Büroablage": Shelf.OFFICE_SHELF, "Büroarchiv": Shelf.OFFICE_SHELF}
+        assert "Büroablage" not in SHELF_QUALIFIERS.values()
         assert "Büroarchiv" not in SHELF_QUALIFIERS.values()
 
     @pytest.mark.parametrize(

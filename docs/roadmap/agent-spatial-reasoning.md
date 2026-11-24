@@ -69,7 +69,7 @@ or what is above it.
 The index is a **flat table of isolated elements**: every fact in it is an
 attribute of one element considered alone. Not one column relates two elements.
 
-Three consequences, which between them explain every model question Piloti
+Three consequences, which between them explain every model question the agent
 cannot answer:
 
 | missing | what becomes unaskable |
@@ -243,7 +243,7 @@ existing `project_profile_patch` card already does for Gebäudeklasse.
   exactly this pipeline for European permit authorities, on IFC + CityGML +
   IDS, covering setbacks, heights and shadow studies, with a rule-formalisation
   tool and a published building-compliance ontology. This is the closest thing
-  to an institutional standard for what Piloti does, and it is where OIB-style
+  to an institutional standard for what the agent does, and it is where OIB-style
   checks are heading.
 - The generic ACC literature converges on a four-stage pipeline — rule
   interpretation → model preparation → rule execution → reporting — and reports

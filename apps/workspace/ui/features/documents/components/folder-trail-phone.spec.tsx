@@ -40,6 +40,6 @@ describe('a phone’s crumb inside a folder', () => {
 
   it('one level down, names the top level itself', () => {
     renderAt('a')
-    expect(within(screen.getByTestId('folder-trail-phone')).getByRole('button', { name: 'Files' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('folder-trail-phone')).getByRole('button', { name: 'Documents' })).toBeInTheDocument()
   })
 })

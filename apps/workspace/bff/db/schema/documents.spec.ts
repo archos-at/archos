@@ -3,87 +3,34 @@
  * @vitest-environment node
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { PgDialect, getTableConfig } from 'drizzle-orm/pg-core'
+import { getTableColumns } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { AUTHORED_REF_KINDS, DOCUMENT_AUTHORS, documents } from './documents'
 import { GENERATED_DOCUMENT_PRODUCER_REF_KINDS } from '@/lib/documents/generated'
 import { projectFolders } from './project-folders'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from '@/lib/documents/document-status'
+import { callsTo, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
+import { parseSql, readSql, startsWith, type SqlStatement, type SqlToken } from '@/test-utils/sql-statements'
 
 const CONSTRAINT = 'documents_session_requires_conversation'
-
-const MIGRATION = readFileSync(join(process.cwd(), 'migrations/0049_session_documents.sql'), 'utf8')
-
 const AUTHORSHIP_CONSTRAINT = 'documents_authorship_requires_provenance'
-
-const MIGRATION_0063 = readFileSync(
-  join(process.cwd(), 'migrations/0063_agent_authored_documents.sql'),
-  'utf8'
-)
-
-const MIGRATION_0064 = readFileSync(
-  join(process.cwd(), 'migrations/0064_generated_document_idempotency.sql'),
-  'utf8'
-)
-const MIGRATION_0065 = readFileSync(
-  join(process.cwd(), 'migrations/0065_diagram_document_producer_idempotency.sql'),
-  'utf8'
-)
-const MIGRATION_0066 = readFileSync(
-  join(process.cwd(), 'migrations/0066_authored_ref_names_its_kind.sql'),
-  'utf8'
-)
-
-const REPOSITORY_DIR = join(process.cwd(), 'bff/documents/repository')
-const DOCUMENTS_REPOSITORY = [
-  join(process.cwd(), 'bff/documents/repository.ts'),
-  ...readdirSync(REPOSITORY_DIR).map((name) => join(REPOSITORY_DIR, name)),
-]
-  .map((file) => readFileSync(file, 'utf8'))
-  .join('\n')
-
+const AGENT_INDEX = 'documents_agent_authored_idx'
+const FOLDER_INDEX = 'uniq_project_folders_parent_name'
 const IDEMPOTENCY_INDEX = 'uniq_documents_authored_ref_producer_per_project'
-const SUPERSEDED_INDEX = 'uniq_documents_authored_run_per_project'
-const RENAMED_INDEX = 'uniq_documents_authored_run_producer_per_project'
+const PROBE = 'findDocumentAuthoredByRef'
+const PROBE_FILE = 'bff/documents/repository/lookup-by-ref.ts'
 
-function statement(sql: string): RegExp {
-  return new RegExp(`^${sql.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm')
-}
+const SESSION_MIGRATION = readSql('migrations/0049_session_documents.sql')
+const AGENT_MIGRATION = readSql('migrations/0063_agent_authored_documents.sql')
+const AUTHORSHIP_MIGRATION = readSql('migrations/0066_authored_ref_names_its_kind.sql')
+const FOLDER_MIGRATION = readSql('migrations/0111_project_folder_grants.sql')
 
-function indexColumns(migration: string, name: string): string[] {
-  const match = migration.match(
-    new RegExp(`CREATE UNIQUE INDEX "${name}"\\s*ON "documents" \\(([^)]*)\\)`)
-  )
-  if (!match) throw new Error(`the migration declares no ${name}`)
-  return match[1].split(',').map((column) => column.trim().replace(/"/g, ''))
-}
+const EXPECTED =
+  "(scope = 'session') = (conversation_id is not null) and (scope <> 'session' or project_id is null)"
 
-function probeColumns(): string[] {
-  const start = DOCUMENTS_REPOSITORY.indexOf('export async function findDocumentAuthoredByRef')
-  expect(start, 'findDocumentAuthoredByRef still exists').toBeGreaterThan(-1)
-  const rest = DOCUMENTS_REPOSITORY.slice(start + 1)
-  const end = rest.indexOf('export async function')
-  const body = end === -1 ? rest : rest.slice(0, end)
-  return [...body.matchAll(/eq\(documents\.(\w+),/g)]
-    .map(([, column]) => column.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))
-    .sort()
-}
-
-function probeAuthorshipPredicate(): string | null {
-  const start = DOCUMENTS_REPOSITORY.indexOf('export async function findDocumentAuthoredByRef')
-  expect(start, 'findDocumentAuthoredByRef still exists').toBeGreaterThan(-1)
-  const rest = DOCUMENTS_REPOSITORY.slice(start + 1)
-  const end = rest.indexOf('export async function')
-  const body = end === -1 ? rest : rest.slice(0, end)
-  const uncommented = body.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
-  return /ne\(documents\.authoredBy,\s*'user'\)/.test(uncommented)
-    ? "<> 'user'"
-    : /eq\(documents\.authoredBy,\s*'agent'\)/.test(uncommented)
-      ? "= 'agent'"
-      : null
-}
+const EXPECTED_AUTHORSHIP =
+  "authored_by = 'user' or (authored_by_producer is not null and authored_by_ref is not null and authored_by_ref_kind is not null)"
 
 function inFlightStatuses(): string[] {
   return [...IN_FLIGHT_DOCUMENT_STATUSES]
@@ -98,63 +45,156 @@ function canonical(expression: string): string {
     .toLowerCase()
 }
 
-const EXPECTED =
-  "(scope = 'session') = (conversation_id is not null) and (scope <> 'session' or project_id is null)"
-
-function migrationCheckBody(source: string, constraint: string): string {
-  const match = source.match(
-    new RegExp(`ADD CONSTRAINT "${constraint}"\\s*CHECK\\s*\\(([\\s\\S]*?)\\)\\s*NOT VALID`)
-  )
-  if (!match) throw new Error(`the migration declares no ${constraint} CHECK`)
-  return match[1]
-}
-
 function schemaCheckBody(constraint: string): string {
   const check = getTableConfig(documents).checks.find((entry) => entry.name === constraint)
   if (!check) throw new Error(`the drizzle table declares no ${constraint} check`)
   return new PgDialect().sqlToQuery(check.value).sql
 }
 
+function schemaTokens(constraint: string): SqlToken[] {
+  const statement = parseSql(schemaCheckBody(constraint))[0]
+  if (!statement) throw new Error(`the drizzle table renders no ${constraint} expression`)
+  return statement.tokens
+}
+
+function isSymbol(token: SqlToken | undefined, text: string): boolean {
+  return token?.kind === 'symbol' && token.text === text
+}
+
+function parenthesised(tokens: SqlToken[], open: number): SqlToken[] {
+  if (!isSymbol(tokens[open], '(')) throw new Error('a migration statement opens no parenthesis where expected')
+  let depth = 0
+  for (let i = open; i < tokens.length; i += 1) {
+    if (isSymbol(tokens[i], '(')) depth += 1
+    else if (isSymbol(tokens[i], ')')) {
+      depth -= 1
+      if (depth === 0) return tokens.slice(open + 1, i)
+    }
+  }
+  throw new Error('a migration statement has unbalanced parentheses')
+}
+
+function splitTopLevel(tokens: SqlToken[]): SqlToken[][] {
+  const parts: SqlToken[][] = []
+  let current: SqlToken[] = []
+  let depth = 0
+  for (const token of tokens) {
+    if (isSymbol(token, '(')) depth += 1
+    if (isSymbol(token, ')')) depth -= 1
+    if (depth === 0 && isSymbol(token, ',')) {
+      parts.push(current)
+      current = []
+    } else current.push(token)
+  }
+  return [...parts, current]
+}
+
+function keyOf(part: SqlToken[]): string {
+  const coalesce = part.findIndex((token) => token.kind === 'word' && token.text.toLowerCase() === 'coalesce')
+  if (coalesce >= 0) return `coalesce(${part[coalesce + 2]?.text})`
+  return part.find((token) => token.kind === 'quoted' || token.kind === 'word')?.text ?? ''
+}
+
+function indexKeys(statement: SqlToken[]): string[] {
+  const on = statement.findIndex((token) => token.kind === 'word' && token.text.toUpperCase() === 'ON')
+  const open = statement.findIndex((token, i) => i > on && isSymbol(token, '('))
+  return splitTopLevel(parenthesised(statement, open)).map(keyOf)
+}
+
+function shape(tokens: SqlToken[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i]
+    if (token.kind !== 'string' && token.text === 'documents' && isSymbol(tokens[i + 1], '.')) i += 1
+    else if (isSymbol(token, '<') && isSymbol(tokens[i + 1], '>')) {
+      out.push('<>')
+      i += 1
+    } else out.push(token.kind === 'string' ? `'${token.text}'` : token.text.toLowerCase())
+  }
+  return out
+}
+
+function whereText(statement: SqlToken[]): string {
+  const at = statement.findIndex((token) => token.kind === 'word' && token.text.toUpperCase() === 'WHERE')
+  if (at < 0) throw new Error('the index declares no WHERE predicate')
+  return shape(statement.slice(at + 1)).join(' ')
+}
+
+function createdIndex(migration: SqlStatement[], name: string): SqlStatement {
+  const found = migration.find(
+    (statement) =>
+      startsWith(statement, 'CREATE') && statement.tokens.some((token) => token.kind === 'quoted' && token.text === name),
+  )
+  if (!found) throw new Error(`the migration creates no index ${name}`)
+  return found
+}
+
+function checkBody(migration: SqlStatement[], name: string): SqlToken[] {
+  for (const { tokens } of migration) {
+    const at = tokens.findIndex(
+      (token, i) =>
+        token.kind === 'quoted' &&
+        token.text === name &&
+        tokens[i - 1]?.text.toUpperCase() === 'CONSTRAINT' &&
+        tokens[i + 1]?.text.toUpperCase() === 'CHECK',
+    )
+    if (at >= 0) return parenthesised(tokens, at + 2)
+  }
+  throw new Error(`the migration adds no CHECK ${name}`)
+}
+
+const SQL_NAME = new Map(
+  Object.entries(getTableColumns(documents)).map(([key, column]): [string, string] => [key, column.name]),
+)
+
+function probeFunction(): ts.FunctionDeclaration {
+  const found = nodesOf(parseSource(PROBE_FILE), ts.isFunctionDeclaration).find((fn) => fn.name?.text === PROBE)
+  if (!found) throw new Error(`${PROBE_FILE} no longer declares ${PROBE}`)
+  return found
+}
+
+function filteredColumn(node: ts.Expression | undefined): string {
+  if (!node || !ts.isPropertyAccessExpression(node) || !ts.isIdentifier(node.expression) || node.expression.text !== 'documents') {
+    throw new Error(`${PROBE} filters on something other than a documents column`)
+  }
+  return SQL_NAME.get(node.name.text) ?? node.name.text
+}
+
+function literal(node: ts.Expression | undefined): string {
+  return node && ts.isStringLiteral(node) ? `'${node.text}'` : ''
+}
+
+function probeEquals(): string[] {
+  return callsTo(probeFunction(), 'eq')
+    .map((call) => filteredColumn(call.arguments[0]))
+    .sort()
+}
+
+function probeNotEquals(): string[] {
+  return callsTo(probeFunction(), 'ne').map(
+    (call) => `${filteredColumn(call.arguments[0])} <> ${literal(call.arguments[1])}`,
+  )
+}
+
 describe('the documents scope partition', () => {
-  it('forbids a session row from also naming a project (migration 0049)', () => {
-    expect(canonical(migrationCheckBody(MIGRATION, CONSTRAINT))).toBe(EXPECTED)
+  it('keeps the two spellings identical', () => {
+    expect(shape(checkBody(SESSION_MIGRATION, CONSTRAINT))).toEqual(shape(schemaTokens(CONSTRAINT)))
   })
 
   it('states the same rule in the drizzle table, not a weaker one', () => {
     expect(canonical(schemaCheckBody(CONSTRAINT))).toBe(EXPECTED)
   })
-
-  it('keeps the two spellings identical', () => {
-    expect(canonical(schemaCheckBody(CONSTRAINT))).toBe(
-      canonical(migrationCheckBody(MIGRATION, CONSTRAINT))
-    )
-  })
 })
 
-const EXPECTED_AUTHORSHIP =
-  "authored_by = 'user' or (authored_by_producer is not null and authored_by_ref is not null and authored_by_ref_kind is not null)"
-
 describe('authorship on documents', () => {
-  it('makes a row no person wrote name its producer, its reference AND what that reference is', () => {
-    expect(canonical(migrationCheckBody(MIGRATION_0066, AUTHORSHIP_CONSTRAINT))).toBe(
-      EXPECTED_AUTHORSHIP
+  it('keeps the two spellings identical', () => {
+    expect(shape(checkBody(AUTHORSHIP_MIGRATION, AUTHORSHIP_CONSTRAINT))).toEqual(
+      shape(schemaTokens(AUTHORSHIP_CONSTRAINT)),
     )
   })
 
   it('states the same rule in the drizzle table, not a weaker one', () => {
     expect(canonical(schemaCheckBody(AUTHORSHIP_CONSTRAINT))).toBe(EXPECTED_AUTHORSHIP)
-  })
-
-  it('keeps the two spellings identical', () => {
-    expect(canonical(schemaCheckBody(AUTHORSHIP_CONSTRAINT))).toBe(
-      canonical(migrationCheckBody(MIGRATION_0066, AUTHORSHIP_CONSTRAINT))
-    )
-  })
-
-  it('replaces 0063\u2019s constraint rather than adding a second one', () => {
-    expect(MIGRATION_0066).toMatch(
-      statement(`ALTER TABLE \"documents\" DROP CONSTRAINT \"${AUTHORSHIP_CONSTRAINT}\"`)
-    )
   })
 
   it('gives every producer a reference kind, so none can be filed unresolvable', () => {
@@ -181,28 +221,28 @@ describe('authorship on documents', () => {
 describe('the indexes drizzle cannot declare', () => {
   it('keeps documents_agent_authored_idx partial, and only in the migration', () => {
     const declared = getTableConfig(documents).indexes.map((entry) => entry.config.name)
-    expect(declared).not.toContain('documents_agent_authored_idx')
-    expect(MIGRATION_0063).toMatch(
-      /CREATE INDEX "documents_agent_authored_idx"\s*ON "documents" \("project_id", "created_at" DESC\)\s*WHERE "authored_by" = 'agent'/
-    )
+    expect(declared).not.toContain(AGENT_INDEX)
+    const statement = createdIndex(AGENT_MIGRATION, AGENT_INDEX)
+    expect(indexKeys(statement.tokens)).toEqual(['project_id', 'created_at'])
+    expect(whereText(statement.tokens)).toBe("authored_by = 'agent'")
   })
 
-  it('keeps uniq_project_folders_parent_name COALESCE-keyed, and only in the migration', () => {
+  it('does not declare uniq_project_folders_parent_name in drizzle, so only the migrations build it', () => {
+    const folders = getTableConfig(projectFolders)
     const declared = [
-      ...getTableConfig(projectFolders).indexes.map((entry) => entry.config.name),
-      ...getTableConfig(projectFolders).uniqueConstraints.map((entry) => entry.name),
+      ...folders.indexes.map((entry) => entry.config.name),
+      ...folders.uniqueConstraints.map((entry) => entry.name),
     ]
-    expect(declared).not.toContain('uniq_project_folders_parent_name')
-    expect(MIGRATION_0063).toMatch(
-      /CREATE UNIQUE INDEX "uniq_project_folders_parent_name"[\s\S]*?coalesce\("parent_id"/
-    )
+    expect(declared).not.toContain(FOLDER_INDEX)
   })
 
-  it('widens the folder index to both shelves in 0102, COALESCE-keyed on the project too', () => {
-    const widened = readFileSync(join(process.cwd(), 'migrations/0102_archiv_folders.sql'), 'utf8')
-    expect(widened).toMatch(
-      /CREATE UNIQUE INDEX "uniq_project_folders_parent_name"[\s\S]*?"organization_id"[\s\S]*?coalesce\("project_id"[\s\S]*?coalesce\("parent_id"/
-    )
+  it('keys the folder-name index on both shelves, COALESCE-keyed on the project and the parent', () => {
+    expect(indexKeys(createdIndex(FOLDER_MIGRATION, FOLDER_INDEX).tokens)).toEqual([
+      'organization_id',
+      'coalesce(project_id)',
+      'coalesce(parent_id)',
+      'name',
+    ])
   })
 
   it('declares the shelf constraints the migration adds, so provisioning from the schema builds them', () => {
@@ -224,28 +264,18 @@ describe('the indexes drizzle cannot declare', () => {
 
 describe('the idempotency index and the probe it belongs to', () => {
   it('keys on exactly the columns the probe filters by', () => {
-    expect(indexColumns(MIGRATION_0066, IDEMPOTENCY_INDEX).sort()).toEqual(probeColumns())
-  })
-
-  it('found real columns on both sides, not two empty lists', () => {
-    expect(probeColumns()).toEqual([
-      'authored_by_producer',
-      'authored_by_ref',
-      'organization_id',
-      'project_id',
-    ])
+    expect(probeEquals()).toEqual(['authored_by_producer', 'authored_by_ref', 'organization_id', 'project_id'])
+    expect(indexKeys(createdIndex(AUTHORSHIP_MIGRATION, IDEMPOTENCY_INDEX).tokens).sort()).toEqual(probeEquals())
   })
 
   it('is UNIQUE and partial on <> user, so a human row is never rejected', () => {
-    expect(MIGRATION_0066).toMatch(
-      new RegExp(
-        `CREATE UNIQUE INDEX "${IDEMPOTENCY_INDEX}"\\s*ON "documents" \\([^)]*\\)\\s*WHERE "authored_by" <> 'user'`
-      )
-    )
+    const statement = createdIndex(AUTHORSHIP_MIGRATION, IDEMPOTENCY_INDEX)
+    expect(startsWith(statement, 'CREATE', 'UNIQUE', 'INDEX')).toBe(true)
+    expect(whereText(statement.tokens)).toBe("authored_by <> 'user'")
   })
 
-  it('applies the index\u2019s predicate in the probe too, not only its columns', () => {
-    expect(probeAuthorshipPredicate()).toBe("<> 'user'")
+  it('applies the index’s predicate in the probe too, not only its columns', () => {
+    expect(probeNotEquals()).toEqual([whereText(createdIndex(AUTHORSHIP_MIGRATION, IDEMPOTENCY_INDEX).tokens)])
   })
 
   it('lives only in the migration, like every other partial index here', () => {
@@ -254,18 +284,6 @@ describe('the idempotency index and the probe it belongs to', () => {
       ...getTableConfig(documents).uniqueConstraints.map((entry) => entry.name),
     ]
     expect(declared).not.toContain(IDEMPOTENCY_INDEX)
-  })
-
-  it('replaces 0064\u2019s index rather than standing beside it', () => {
-    expect(MIGRATION_0064).toMatch(statement(`CREATE UNIQUE INDEX "${SUPERSEDED_INDEX}"`))
-    expect(MIGRATION_0065).toMatch(statement(`DROP INDEX IF EXISTS "${SUPERSEDED_INDEX}"`))
-    expect(MIGRATION_0065).not.toMatch(statement(`CREATE UNIQUE INDEX "${SUPERSEDED_INDEX}"`))
-  })
-
-  it('leaves no index behind under the name 0066 renamed away from', () => {
-    expect(MIGRATION_0066).toMatch(statement(`CREATE UNIQUE INDEX "${IDEMPOTENCY_INDEX}"`))
-    expect(MIGRATION_0066).toMatch(statement(`DROP INDEX IF EXISTS "${RENAMED_INDEX}"`))
-    expect(MIGRATION_0066).not.toMatch(/^ALTER INDEX/m)
   })
 })
 

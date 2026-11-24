@@ -1,27 +1,3 @@
-"""Which DXF the agent means, its bytes, and its site, cached (ADR-0153).
-
-The document is resolved the way ``look`` resolves one (``look/resolve.py``): by
-the name the model gives, else the document open on the canvas or the
-conversation's subject, inside the scope the turn's signed envelope allows.
-The object key then comes from the BFF's scoped lookup
-(``GET /api/internal/document-file``), the one ``look`` reads through: it
-answers only for a collection the envelope signs, and for a restricted folder
-only when everyone in the conversation may read it NOW (ADR-0088). The bytes are
-read on the backend's read-only object-store credential (ADR-0039). A read is
-reported (``note_collections_read``), so the turn admits the folder it came from
-like a passage of it.
-
-**The cache holds sites, keyed by object key, and is never a way in.** Every
-call resolves the document through the BFF first; only a caller the BFF has just
-answered for reaches the lookup, so a cached site is only ever handed to someone
-allowed its bytes. The key names a version's own object (``…/v3/Lageplan.dxf``),
-so a new Fassung is a new key and never served the old site. Bounded to a few
-sites and to their source bytes per process: parsing a whole cadastral community
-takes seconds, and the second question about the same file should not. Parallel
-calls on one file parse it once; a parse that outlasts ``PARSE_TIMEOUT_S`` is
-answered with a sentence while it finishes in the background.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +7,11 @@ from dataclasses import dataclass
 
 from agent import project_context
 from agent.common import bff_http
-from agent.common import seaweed_s3
+from agent.common import seaweed_s3  # noqa: F401 - patched by the tests through this module
+from agent.common.stored_file import DOCUMENT_FILE_PATH  # noqa: F401 - the route the tests assert on
+from agent.common.stored_file import StoredFileUnavailable
+from agent.common.stored_file import locate_stored_file
+from agent.common.stored_file import read_stored_file
 from agent.drawings.dxf_source import UnreadableDrawingError
 from agent.drawings.dxf_source import read_dxf
 from agent.drawings.site import Site
@@ -40,8 +20,6 @@ from agent.knowledge.restricted_use import note_collections_read
 
 from ..canvas.calls import Refused
 from ..look.resolve import resolve_document
-
-DOCUMENT_FILE_PATH = "/api/internal/document-file"
 
 MAX_DXF_BYTES = 150 * 1024 * 1024
 
@@ -63,18 +41,14 @@ NO_ENVELOPE = (
 
 @dataclass(frozen=True)
 class LoadedSite:
-    """The site, and the file name the answer names."""
-
     file_name: str
     site: Site
 
 
-class SiteUnavailableError(Exception):
-    """The file could not be read: a sentence the model relays as it is."""
+class SiteUnavailableError(Exception): ...
 
 
 async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> LoadedSite | str:
-    """The site of the DXF ``document`` names, or the sentence the model reads instead."""
     try:
         resolved = await resolve_document(document)
     except Refused as refused:
@@ -142,46 +116,31 @@ def _remember(cache_key: _CacheKey, site: Site, size: int) -> None:
             _CACHE.popitem(last=False)
 
 
+_REASONS = {
+    "refused": "'{name}' is not a file this conversation may read.",
+    "unreachable": "The document service could not be reached; try again shortly.",
+    "missing": "'{name}' has no stored file yet.",
+    "no_store": "This deployment cannot read stored files (no object-store credential).",
+    "too_large": "The DXF is larger than 150 MB; ask for an extract of the area in question.",
+    "read_failed": "The stored DXF could not be read; try again shortly.",
+}
+
+
 def _locate(collection: str, file_name: str, headers: dict[str, str]) -> tuple[str, str]:
-    """The bucket and key of the document's bytes, from the BFF's scoped lookup."""
     try:
-        body = bff_http.get_json(
-            DOCUMENT_FILE_PATH, timeout=10.0, query={"collection": collection, "filename": file_name}, headers=headers
-        )
-    except bff_http.BffRefusedError as exc:
-        raise SiteUnavailableError(f"'{file_name}' is not a file this conversation may read.") from exc
-    except bff_http.BffError as exc:
-        raise SiteUnavailableError("The document service could not be reached; try again shortly.") from exc
-    key = body.get("storageKey") if isinstance(body, dict) else None
-    if not isinstance(key, str) or not key:
-        raise SiteUnavailableError(f"'{file_name}' has no stored file yet.")
-    bucket = body.get("storageBucket")
-    return (bucket if isinstance(bucket, str) and bucket else seaweed_s3.default_bucket()), key
+        return locate_stored_file(collection, file_name, headers)
+    except StoredFileUnavailable as exc:
+        raise SiteUnavailableError(_REASONS[exc.reason].format(name=file_name)) from exc
 
 
 def _read(bucket: str, key: str) -> bytes:
-    client = seaweed_s3.s3_client()
-    if client is None:
-        raise SiteUnavailableError("This deployment cannot read stored files (no object-store credential).")
     try:
-        head = client.head_object(Bucket=bucket, Key=key)
-        if int(head.get("ContentLength") or 0) > MAX_DXF_BYTES:
-            raise SiteUnavailableError(_TOO_LARGE)
-        data = client.get_object(Bucket=bucket, Key=key)["Body"].read(MAX_DXF_BYTES + 1)
-        if len(data) > MAX_DXF_BYTES:
-            raise SiteUnavailableError(_TOO_LARGE)
-        return data
-    except SiteUnavailableError:
-        raise
-    except Exception as exc:  # noqa: BLE001 - any store fault is one sentence to the model, logged by the caller
-        raise SiteUnavailableError("The stored DXF could not be read; try again shortly.") from exc
-
-
-_TOO_LARGE = "The DXF is larger than 150 MB; ask for an extract of the area in question."
+        return read_stored_file(bucket, key, MAX_DXF_BYTES)
+    except StoredFileUnavailable as exc:
+        raise SiteUnavailableError(_REASONS[exc.reason]) from exc
 
 
 def clear_cache() -> None:
-    """Forget every cached site (tests)."""
     with _CACHE_LOCK:
         _CACHE.clear()
         _PARSING.clear()

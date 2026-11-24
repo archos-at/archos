@@ -1,70 +1,39 @@
-"""The working directory's doors: ``DELETE`` to sweep it, ``GET`` to read it.
-
-A conversation's drafts are the one thing it owns that deleting the
-conversation does not remove. Everything else is a row in ``app`` and goes
-with the parent; the working directory lives in the LangGraph store, under a
-namespace keyed by conversation id (``draft_store.draft_namespace``), which the
-BFF cannot reach — the Python tier is the only side that speaks to that store.
-
-So the BFF's conversation deletion calls the ``DELETE`` door, and this calls the
-store. Same treatment as the maintenance purge routes it sits beside:
-internal-token only, never on the AuthMiddleware external-path allowlist, and
-idempotent — a conversation whose drafts are already gone answers ``204``
-exactly as one whose drafts went on this call, because a purger that has to
-distinguish "deleted" from "was not there" would have to retry the second one
-forever.
-
-It refuses nothing else. There is no tenancy check here and there must not be
-one: this tier is trusting about tenancy by design (ADR-0003, ADR-0007), the BFF
-decided the caller may delete this conversation before it addressed the route,
-and the namespace is the whole of the predicate.
-
-The read doors
---------------
-The unfiled draft card cannot preview what the model wrote without a way to
-fetch the bytes into the browser — the model writes, the reader cannot open.
-So the same namespace is also served read-only: ``GET
-/v1/drafts/{conversation_id}`` lists one conversation's drafts as ``{path,
-bytes, version}`` without content, and the same URL with ``?path=`` — or ``GET
-/v1/drafts/{conversation_id}/{path...}`` — returns one draft as ``{path,
-content, version}``, plus its ``filing`` record when the draft has been filed.
-
-Read-only is literal: these routes call ``asearch``/``aget`` and nothing else,
-so they cannot write the store, and they never touch ``app``
-(single-writer rule, ADR-0003). What they refuse:
-
-- anything but the internal token, exactly as the ``DELETE`` door does;
-- a conversation id that is not one namespace element (blank, ``..`` anywhere,
-  a separator, over-long) — ``400``;
-- a path outside the working directory or containing ``..`` — ``400``, decided
-  by the SAME refusal the write verbs enforce (``draft_store.path_refusal``),
-  so a read can never name a file a write could not have created;
-- a single read past the drafts ceiling (256 KB per conversation) — ``413``
-  rather than streaming unbounded bytes;
-- a well-formed address the store has nothing under — ``404``, the same
-  nothing-to-discard convention the ``DELETE`` door's callers already treat as
-  success (most conversations never wrote a draft).
-"""
-
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable
+from collections.abc import Callable
 
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Query
 from fastapi import Request
 from fastapi import Response
+from pydantic import BaseModel
+from pydantic import Field
 
 from agent.tools.documents import draft_store
+from agent.tools.documents.draft_store import BASE64
+from agent.tools.documents.draft_store import FILED_AT_DRAFT_VERSION_KEY
+from agent.tools.documents.draft_store import FILED_DOCUMENT_KEY
+from agent.tools.documents.draft_store import FILED_HASH_KEY
+from agent.tools.documents.draft_store import FILED_KIND_KEY
+from agent.tools.documents.draft_store import FILED_STATE_KEY
+from agent.tools.documents.draft_store import FILED_VERSION_KEY
 from agent.tools.documents.draft_store import MAX_DRAFT_BYTES
 from agent.tools.documents.draft_store import VERSION_KEY
+from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import delete_conversation_drafts
+from agent.tools.documents.draft_store import derived_from_value
 from agent.tools.documents.draft_store import draft_bytes
 from agent.tools.documents.draft_store import draft_namespace
 from agent.tools.documents.draft_store import filing_from_value
+from agent.tools.documents.draft_store import filing_record
 from agent.tools.documents.draft_store import modernize_draft_path
 from agent.tools.documents.draft_store import path_refusal
+from agent.tools.documents.draft_store import stored_bytes
+from agent.tools.documents.draft_store import stored_size
+from agent.tools.execute.tool_data import delete_conversation_tool_data
 
 from .internal_auth import _require_internal_token
 
@@ -72,11 +41,20 @@ logger = logging.getLogger(__name__)
 
 _LIST_PAGE_SIZE = 100
 
+
+class FilingBody(BaseModel):
+    document_id: str = Field(alias="documentId", min_length=1, max_length=64)
+    version_id: str = Field(alias="versionId", min_length=1, max_length=64)
+    content_hash: str = Field(alias="contentHash", min_length=1, max_length=128)
+    state: str = Field(min_length=1, max_length=40)
+    draft_version: int | None = Field(default=None, alias="draftVersion", ge=1)
+    kind: str = Field(default="", max_length=20, pattern="^(revision)?$")
+
+
 _MAX_CONVERSATION_ID_LENGTH = 200
 
 
 def _checked_conversation_id(conversation_id: str) -> str:
-    """Reject an id that is not one namespace element, before it reaches the store."""
     if (
         not conversation_id
         or not conversation_id.strip()
@@ -90,15 +68,12 @@ def _checked_conversation_id(conversation_id: str) -> str:
     return conversation_id
 
 
-def _checked_draft_path(path: str) -> str:
-    """The one read path, normalised to the stored key shape (``/drafts/….md``).
+def _internal_conversation(request: Request, conversation_id: str) -> str:
+    _require_internal_token(request)
+    return _checked_conversation_id(conversation_id)
 
-    The ``?path=`` spelling and the ``/{path...}`` suffix spelling meet here: a
-    bare ``drafts/…`` gains its leading slash, and then the SAME refusal the
-    write verbs enforce decides — one definition of what the working directory
-    may hold, kept in ``draft_store``. A path under the root's German name (a
-    stored card, an older tab) reads as the English one.
-    """
+
+def _checked_draft_path(path: str) -> str:
     path = modernize_draft_path(path)
     candidate = path if path.startswith("/") else f"/{path}"
     if path_refusal(candidate) is not None:
@@ -107,13 +82,11 @@ def _checked_draft_path(path: str) -> str:
 
 
 def _item_content(value: dict) -> str:
-    """The stored text of one draft item, totalled the way the write guards total it."""
     raw = value.get("content")
     return "\n".join(raw) if isinstance(raw, list) else str(raw or "")
 
 
 async def _list_drafts(conversation_id: str) -> list[dict]:
-    """Every draft in one conversation's namespace: path, bytes, version. No content."""
     store = await draft_store.get_draft_store()
     namespace = draft_namespace(conversation_id)
     entries: list[dict] = []
@@ -121,12 +94,12 @@ async def _list_drafts(conversation_id: str) -> list[dict]:
     while True:
         page = await store.asearch(namespace, limit=_LIST_PAGE_SIZE, offset=offset)
         for item in page:
-            text = _item_content(item.value)
             entries.append(
                 {
                     "path": str(item.key),
-                    "bytes": draft_bytes(text),
+                    "bytes": stored_size(item.value),
                     "version": int(item.value.get(VERSION_KEY) or 0),
+                    "encoding": str(item.value.get("encoding") or "utf-8"),
                 }
             )
         if len(page) < _LIST_PAGE_SIZE:
@@ -137,28 +110,89 @@ async def _list_drafts(conversation_id: str) -> list[dict]:
 
 
 async def _read_draft(conversation_id: str, draft_path: str) -> dict:
-    """One draft's content and version, plus its filing record when it has been filed."""
     store = await draft_store.get_draft_store()
     namespace = draft_namespace(conversation_id)
     item = await store.aget(namespace, draft_path)
     if item is None:
         raise HTTPException(status_code=404, detail="Draft not found")
-    content = _item_content(item.value)
-    if draft_bytes(content) > MAX_DRAFT_BYTES:
-        raise HTTPException(status_code=413, detail="Draft exceeds the readable size")
-    answer: dict = {
-        "path": draft_path,
-        "content": content,
-        "version": int(item.value.get(VERSION_KEY) or 0),
-    }
+    version = int(item.value.get(VERSION_KEY) or 0)
+    if item.value.get("encoding") == BASE64:
+        answer: dict = {"path": draft_path, "encoding": BASE64, "bytes": stored_size(item.value), "version": version}
+    else:
+        content = _item_content(item.value)
+        if draft_bytes(content) > MAX_DRAFT_BYTES:
+            raise HTTPException(status_code=413, detail="Draft exceeds the readable size")
+        answer = {"path": draft_path, "content": content, "version": version}
     filing = filing_from_value(item.value)
     if filing:
         answer["filing"] = filing
+        answer["filed_at_version"] = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
+        answer["filed"] = {
+            "documentId": filing.get(FILED_DOCUMENT_KEY, ""),
+            "versionId": filing.get(FILED_VERSION_KEY, ""),
+            "contentHash": filing.get(FILED_HASH_KEY, ""),
+            "state": filing.get(FILED_STATE_KEY, ""),
+            "kind": str(item.value.get(FILED_KIND_KEY) or ""),
+        }
+    derived = derived_from_value(item.value)
+    if derived:
+        answer["derived_from"] = derived
     return answer
 
 
+async def _raw_draft(conversation_id: str, draft_path: str) -> Response:
+    store = await draft_store.get_draft_store()
+    item = await store.aget(draft_namespace(conversation_id), draft_path)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return Response(content=stored_bytes(item.value), media_type="application/octet-stream")
+
+
+async def _backend(conversation_id: str) -> DraftBackend:
+    return DraftBackend(store=await draft_store.get_draft_store(), conversation_id=conversation_id)
+
+
+async def _guarded[T](conversation_id: str, action: str, work: Callable[[], Awaitable[T]]) -> T:
+    try:
+        return await work()
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to %s in the working directory of conversation %s", action, conversation_id)
+        raise HTTPException(status_code=500, detail=f"Failed to {action}")
+
+
+async def _record_filing(conversation_id: str, draft_path: str, body: FilingBody) -> dict:
+    backend = await _backend(conversation_id)
+    usage = await backend.ausage(draft_path)
+    if usage.content is None:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    record = filing_record(body.model_dump(by_alias=True))
+    version = body.draft_version
+    filed_at = version if version is not None and version <= usage.version else usage.version
+    await backend.arecord_filing(draft_path, record, draft_version=filed_at, kind=body.kind)
+    return {"path": draft_path, "filed_at_version": filed_at, "version": usage.version}
+
+
+async def _remove(conversation_id: str, draft_path: str) -> Response:
+    if not await (await _backend(conversation_id)).aremove(draft_path):
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return Response(status_code=204)
+
+
+async def _read_one(conversation_id: str, draft_path: str, *, raw: bool) -> dict | Response:
+    try:
+        if raw:
+            return await _raw_draft(conversation_id, draft_path)
+        return await _read_draft(conversation_id, draft_path)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to read the working directory of conversation %s", conversation_id)
+        raise HTTPException(status_code=500, detail="Failed to read drafts")
+
+
 def add_draft_routes(router: APIRouter) -> None:
-    """Add the internal working-directory cleanup and read routes to the FastAPI app."""
 
     @router.delete(
         "/v1/drafts/{conversation_id}",
@@ -168,8 +202,9 @@ def add_draft_routes(router: APIRouter) -> None:
         summary="Drop one conversation's working directory (internal)",
     )
     async def delete_drafts(conversation_id: str, request: Request) -> Response:
-        _require_internal_token(request)
+        conversation_id = _internal_conversation(request, conversation_id)
         try:
+            await delete_conversation_tool_data(conversation_id)
             await delete_conversation_drafts(conversation_id)
         except Exception:
             logger.exception("Failed to drop the working directory of conversation %s", conversation_id)
@@ -202,19 +237,56 @@ def add_draft_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="No drafts for this conversation")
         return {"conversation_id": conversation_id, "drafts": drafts}
 
-    @router.get(
-        "/v1/drafts/{conversation_id}/{file_path:path}",
+    _add_one_draft_routes(router)
+    _add_read_route(router)
+
+
+def _add_one_draft_routes(router: APIRouter) -> None:
+    @router.put(
+        "/v1/drafts/{conversation_id}/filing",
         tags=["drafts"],
-        summary="Read one conversation's draft by path suffix (internal)",
+        summary="Record that a draft was filed into the project, so every path sees one filing (internal)",
     )
-    async def read_draft(conversation_id: str, file_path: str, request: Request) -> dict:
+    async def record_filing(
+        conversation_id: str,
+        request: Request,
+        body: FilingBody,
+        path: str = Query(description="Draft path, e.g. /drafts/raumbuch.xlsx"),
+    ) -> dict:
+        _require_internal_token(request)
+        _checked_conversation_id(conversation_id)
+        draft_path = _checked_draft_path(path)
+        return await _guarded(
+            conversation_id, "record a filing", lambda: _record_filing(conversation_id, draft_path, body)
+        )
+
+    @router.delete(
+        "/v1/drafts/{conversation_id}/{file_path:path}",
+        status_code=204,
+        response_class=Response,
+        tags=["drafts"],
+        summary="Delete one draft of a conversation (internal)",
+    )
+    async def delete_draft(conversation_id: str, file_path: str, request: Request) -> Response:
         _require_internal_token(request)
         _checked_conversation_id(conversation_id)
         draft_path = _checked_draft_path(file_path)
-        try:
-            return await _read_draft(conversation_id, draft_path)
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception("Failed to read the working directory of conversation %s", conversation_id)
-            raise HTTPException(status_code=500, detail="Failed to read drafts")
+        return await _guarded(conversation_id, "delete a draft", lambda: _remove(conversation_id, draft_path))
+
+
+def _add_read_route(router: APIRouter) -> None:
+    @router.get(
+        "/v1/drafts/{conversation_id}/{file_path:path}",
+        tags=["drafts"],
+        summary="Read one conversation's draft by path suffix, or its bytes with ?raw=true (internal)",
+        response_model=None,
+    )
+    async def read_draft(
+        conversation_id: str,
+        file_path: str,
+        request: Request,
+        raw: bool = Query(default=False, description="Answer the file's bytes instead of its JSON preview"),
+    ) -> dict | Response:
+        _require_internal_token(request)
+        _checked_conversation_id(conversation_id)
+        return await _read_one(conversation_id, _checked_draft_path(file_path), raw=raw)

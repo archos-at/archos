@@ -49,14 +49,6 @@ def _row_to_document(store, row: Any, collection: str | None = None) -> Availabl
 
 
 def _attach_supersedes(documents: list[AvailableDocument]) -> list[AvailableDocument]:
-    """Fill ``supersedes``, the reverse of ``superseded_by``, over one collection's rows.
-
-    Derived on every read and never stored, so there is one fact to keep true.
-    A link counts only while the newer document still has its row: a purge that
-    can be undone leaves the links that point at it (:meth:`unregister`), and this
-    guard is what reads them as nothing until the row is back. An older document
-    whose newer one is gone is current again, not hidden.
-    """
     present = {doc.file_name for doc in documents}
     replaced: dict[str, list[str]] = {}
     for doc in documents:
@@ -70,18 +62,6 @@ def _attach_supersedes(documents: list[AvailableDocument]) -> list[AvailableDocu
 
 
 def _iso_date(raw: Any) -> str | None:
-    """``created_at`` as the ``YYYY-MM-DD`` the office saw on its clock (Europe/Vienna).
-
-    A datetime on Postgres, a ``YYYY-MM-DD HH:MM:SS`` string on SQLite; both
-    are written by ``CURRENT_TIMESTAMP`` and so are UTC when naive. The
-    column is ``TIMESTAMP WITH TIME ZONE`` (here and in
-    ``deploy/compose/init-db.sql``), so Postgres returns an aware value; a
-    naive one only comes from SQLite, whose ``CURRENT_TIMESTAMP`` is UTC, or
-    from a table created before that, on a server whose ``TimeZone`` is UTC
-    (the Postgres image default). Taking
-    the UTC date filed an upload made at 00:30 in Vienna under the day
-    before, and „was ist seit heute neu“ missed it.
-    """
     if raw is None:
         return None
     if isinstance(raw, datetime):
@@ -100,7 +80,6 @@ def _iso_date(raw: Any) -> str | None:
 
 
 def get_all(store, collection: str) -> list[AvailableDocument]:
-    """Get all documents with metadata for a collection (sync)."""
     from sqlalchemy import text
 
     try:
@@ -117,12 +96,6 @@ def get_all(store, collection: str) -> list[AvailableDocument]:
 
 
 def get_many(store, collection: str, filenames: list[str]) -> list[AvailableDocument]:
-    """The rows of ``filenames`` only (sync): what a change to one file needs, not the whole collection.
-
-    ``superseded_by`` reads as in :meth:`get_all`: a link counts only while
-    the newer document still has its row. ``supersedes`` is left unset,
-    because deriving it takes every row of the collection.
-    """
     if not filenames:
         return []
     from sqlalchemy import bindparam
@@ -156,7 +129,6 @@ def get_many(store, collection: str, filenames: list[str]) -> list[AvailableDocu
 
 
 async def get_all_async(store, collection: str) -> list[AvailableDocument]:
-    """Get all documents with metadata for a collection (async)."""
     from sqlalchemy import text
 
     try:

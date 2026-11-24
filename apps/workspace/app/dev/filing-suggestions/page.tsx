@@ -15,6 +15,7 @@ import type { ListedProposal, ProposedChangeView } from '@/lib/proposals/types'
 import { useFakeProposalClient } from '../_fixtures/fake-proposals'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { SectionLabel } from '@/components/ui/section-label'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 type FileProposal = Extract<ProposedChangeView, { kind: 'file_operation' }>
 
@@ -24,7 +25,7 @@ const proposal = (id: string, patch: Partial<FileProposal>): FileProposal => ({
   id,
   projectId: 'p1',
   status: 'proposed',
-  proposedByKind: 'piloti',
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: null,

@@ -14,10 +14,16 @@ from starlette.testclient import TestClient
 
 from agent_host.legacy_headers import SERVICE_HEADERS
 from agent_host.legacy_headers import LegacyHeaderNamesMiddleware
+from agent_host.legacy_headers import legacy_header
+from agent_host.legacy_headers import with_legacy_header_names
 from agent_host.legacy_headers import with_legacy_names
 
 ROOT = Path(__file__).resolve().parents[1]
 WS_PROXY = ROOT / "apps" / "workspace" / "bff" / "proxy" / "ws-upgrade-headers.js"
+
+
+def test_a_renamed_header_keeps_the_name_its_readers_still_accept():
+    assert legacy_header("x-chat-mode") == "x-aiq-mode"
 
 
 def test_a_new_name_is_copied_onto_the_old_one():
@@ -31,6 +37,18 @@ def test_an_old_name_already_sent_wins():
     headers = with_legacy_names([(b"x-organization-id", b"new"), (b"x-grid-organization-id", b"old")])
 
     assert [value for name, value in headers if name == b"x-grid-organization-id"] == [b"old"]
+
+
+def test_a_worker_header_written_under_its_new_name_gets_the_old_one_too():
+    headers = with_legacy_header_names({"x-project-id": "proj-1", "x-request-id": "r"})
+
+    assert headers == {"x-project-id": "proj-1", "x-grid-project-id": "proj-1", "x-request-id": "r"}
+
+
+def test_an_old_worker_name_the_caller_set_wins():
+    headers = with_legacy_header_names({"x-project-id": "new", "x-grid-project-id": "old"})
+
+    assert headers["x-grid-project-id"] == "old"
 
 
 def test_a_reader_of_the_old_name_sees_a_header_sent_under_the_new_one():

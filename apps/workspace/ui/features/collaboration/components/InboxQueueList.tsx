@@ -16,7 +16,9 @@ import { cn } from '@/lib/utils'
 import type { InboxQueueGroup } from '../lib/inbox-queue'
 import { inboxDue } from '../lib/inbox-due'
 import { inboxReason } from '../lib/inbox-reason'
+import { normNoticeOf } from '../lib/inbox-norm-notice'
 import { InboxItemFace } from './InboxItemFace'
+import { InboxNormActions, InboxNormLines } from './InboxNormNotice'
 
 export interface InboxQueueListProps {
   groups: readonly InboxQueueGroup[]
@@ -182,12 +184,29 @@ function EntryFrame({ item, href, current, onFollow, className, children }: Entr
 }
 
 function WaitingEntry(props: EntryProps): JSX.Element {
-  const { item } = props
+  const { item, onFollow } = props
   const t = useTranslations(collaborationCopy)
   const { locale } = useLocale()
-  const { title } = inboxItemCopy(item, t, namespaceRoot(collaborationCopy, locale), locale)
+  const { title, body } = inboxItemCopy(item, t, namespaceRoot(collaborationCopy, locale), locale)
   const reason = inboxReason(item, t)
   const due = inboxDue(item, t, locale)
+  const notice = item.href ? normNoticeOf(item) : null
+  if (notice) {
+    return (
+      <>
+        <EntryFrame {...props} className="flex-col gap-0.5 px-2 py-2">
+          <span className={cn('line-clamp-2 text-sm leading-snug text-foreground', !item.read && 'font-medium')}>{title}</span>
+          <InboxNormLines notice={notice} body={body} />
+        </EntryFrame>
+        <InboxNormActions
+          item={item}
+          notice={notice}
+          onFollow={(event) => onFollow(event, item)}
+          className="mt-0 px-2 pb-2"
+        />
+      </>
+    )
+  }
   return (
     <EntryFrame {...props} className="flex-col gap-0.5 px-2 py-2">
       <span className={cn('line-clamp-2 text-sm leading-snug text-foreground', !item.read && 'font-medium')}>

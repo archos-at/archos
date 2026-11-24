@@ -85,7 +85,7 @@ describe('the project Protokoll', () => {
     mark({ documentId: 'doc_b', documentName: 'Schnitt A-A.pdf', number: 1, body: 'Höhenkote fehlt.' }),
   ]
 
-  it('groups by document in the order they came, the office’s marks by number and Piloti’s proposals apart', () => {
+  it('groups by document in the order they came, the office’s marks by number and the agent’s proposals apart', () => {
     const groups = groupByDocument(marks)
     expect(groups.map((group) => group.documentName)).toEqual(['Grundriss EG.pdf', 'Schnitt A-A.pdf'])
     expect(groups[0].selection.marks.map((annotation) => annotation.number)).toEqual([2, 4])

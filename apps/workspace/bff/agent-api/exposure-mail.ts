@@ -4,6 +4,7 @@ import { ARCHIVE_BYTES, HELD_MAIL, OFFERED, SENSITIVE, externalOnly, withheldAs 
 export const MAIL_EXPOSURE = {
   'inbound-mail-address-create': OFFERED,
   'inbound-mail-address-delete': OFFERED,
+  'inbound-mail-address-forwards-set': OFFERED,
   'inbound-mail-address-get': OFFERED,
   'inbound-mail-address-rotate': OFFERED,
   'inbound-mail-dismiss': OFFERED,
@@ -15,6 +16,12 @@ export const MAIL_EXPOSURE = {
     'the original message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
   ),
   'inbound-mail-part-content-get': externalOnly(HELD_MAIL),
+  'inbound-mail-report': {
+    external: false,
+    agent: false,
+    reason:
+      'warns colleagues in their inbox that a mail is fraud; only a person who read the mail makes that call, never an agent or an outside one a mail could steer',
+  },
   'inbound-mail-restore': OFFERED,
   'inbound-mail-text-get': externalOnly(HELD_MAIL),
   'mail-import-cancel': OFFERED,

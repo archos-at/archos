@@ -194,7 +194,7 @@ describe('openRealtimeStream', () => {
     expect(hubStats()).toEqual({ topics: 0, listeners: 0 })
   })
 
-  it('carries what Piloti is reading, as a Piloti peer acting for its person', async () => {
+  it('carries what the agent is reading, as the agent\'s peer acting for its person', async () => {
     const read = reader(await openRealtimeStream(SESSION, ['doc:doc_1'], request('')))
     await settle()
 
@@ -210,7 +210,7 @@ describe('openRealtimeStream', () => {
       ch: 'doc:doc_1',
       event: {
         kind: 'activity',
-        peer: { peerId: 'piloti-conv_42', userId: 'user_1', name: PRODUCT_NAME, kind: 'piloti', forName: 'Anna Berger' },
+        peer: { peerId: 'agent-conv_42', userId: 'user_1', name: PRODUCT_NAME, kind: 'agent', forName: 'Anna Berger' },
         state: 'reading',
         box: { page: 1, x: 0.1, y: 0.2, w: 0.3, h: 0.1 },
         label: 'Fluchtweg prüfen',

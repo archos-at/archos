@@ -1,12 +1,13 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import type { BaseKnowledgeList } from '@/lib/base-knowledge/wire'
+import type { BaseKnowledgeList, NormRecognition } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
 import { countByFolder, countEntries } from '@/lib/base-knowledge/office/listing'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { BaseKnowledgeWorkspace } from './base-knowledge-workspace'
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), search: '' }))
@@ -14,6 +15,32 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: navigation.push, replace: navigation.replace, back: navigation.back }),
   usePathname: () => '/app/base-knowledge',
   useSearchParams: () => new URLSearchParams(navigation.search),
+}))
+
+const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
+vi.mock('sonner', () => ({ toast }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
+
+vi.mock('@/shared/context', () => ({
+  useAppConfig: () => ({ fileUpload: { acceptedTypes: '.pdf,.docx', acceptedMimeTypes: ['application/pdf'], maxFileSize: 100 * 1024 * 1024 } }),
+}))
+
+const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[], asNorm: [] as (boolean | undefined)[] }))
+vi.mock('@/features/documents', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/documents')>()),
+  useOfficeShelfDocuments: (options: { collectionName?: string; asNorm?: boolean; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
+    shelfUpload.collections.push(options.collectionName)
+    shelfUpload.asNorm.push(options.asNorm)
+    return {
+      uploadFiles: async (files: File[]) => {
+        options.onStored?.(shelfUpload.stored)
+        return files.length
+      },
+      isUploading: false,
+      error: null,
+      clearError: () => {},
+    }
+  },
 }))
 
 vi.mock('@/features/documents/file-preview', () => ({
@@ -26,6 +53,42 @@ vi.mock('@/features/documents/file-preview', () => ({
       </div>
     ) : null,
 }))
+
+const RECOGNITION: NormRecognition = {
+  proposals: [
+    {
+      entryId: 'edition_norm',
+      documentId: 'doc-norm',
+      fileName: 'OENORM_B_5371.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 5371',
+      editionLabel: null,
+      topicId: 'topic-treppen',
+      editionOf: null,
+      duplicate: false,
+    },
+    {
+      entryId: 'edition_edition',
+      documentId: 'doc-edition',
+      fileName: 'OENORM_B_1600_2023-02-01_de.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 1600',
+      editionLabel: '2023-02-01',
+      topicId: 'topic-barrierefrei',
+      editionOf: { entryId: 'edition_b1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
+      duplicate: false,
+    },
+  ],
+  plain: [{ documentId: 'doc-plan', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: null, folderPath: null, platformHeld: false }],
+  topics: {
+    rootId: 'folder-root',
+    folders: [
+      { id: 'topic-treppen', parentId: 'folder-root', name: 'Treppen', path: 'Grundlagen des Büros/Treppen', description: null },
+      { id: 'topic-barrierefrei', parentId: 'folder-root', name: 'Barrierefreiheit', path: 'Grundlagen des Büros/Barrierefreiheit', description: null },
+    ],
+    nextCursor: null,
+  },
+}
 
 const listOf = (entries = BASE_KNOWLEDGE_ENTRIES, canManage = true): BaseKnowledgeList => ({
   canManage,
@@ -55,12 +118,20 @@ const renderWorkspace = () =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>
       <TooltipProvider>
-        <BaseKnowledgeWorkspace />
+        <BaseKnowledgeWorkspace uploadCollection="archiv_org-1" />
       </TooltipProvider>
     </I18nProvider>,
   )
 
+function deskWidth(width: number): void {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+}
+
+beforeEach(() => deskWidth(1100))
+
 afterEach(() => {
+  vi.mocked(capturePosthog).mockClear()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   navigation.push.mockReset()
   navigation.replace.mockReset()
@@ -72,9 +143,9 @@ describe('BaseKnowledgeWorkspace', () => {
   it('opens on an explanation of what belongs here when the office has none', async () => {
     stubFetch(listOf([]), { rootId: null, folders: [], nextCursor: null })
     renderWorkspace()
-    expect(await screen.findByText('Noch keine Grundlagen hinterlegt')).toBeTruthy()
+    expect(await screen.findByText('Noch keine Normen hinterlegt')).toBeTruthy()
     expect(screen.getByText(/gehören hierher, nicht Projektunterlagen oder Vorlagen/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: /Grundlage hinzufügen/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /^Hochladen$/ }).length).toBeGreaterThan(0)
   })
 
   it('lists entries with what needs a person counted, and asks the server for a filter', async () => {
@@ -102,40 +173,219 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(calls.some((call) => call.url.includes('folderId=00000000-0000-4000-8000-000000000002'))).toBe(true)
   })
 
-  it('adds standards as their forms, one after another, each confirmation leading to the next', async () => {
-    const [first, second] = BASE_KNOWLEDGE_ENTRIES.filter((entry) => entry.status === 'proposed')
-    const uploads = [first, second]
+  it('uploads into the Bürobibliothek and opens one dialog for the norms it recognised', async () => {
+    shelfUpload.stored = [
+      { documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' },
+      { documentId: 'doc-edition', fileName: 'OENORM_B_1600_2023-02-01_de.pdf' },
+      { documentId: 'doc-plan', fileName: 'Plankopf_Vorlage_A0.pdf' },
+    ]
     stubFetch(listOf())
     const fetchMock = vi.mocked(fetch)
     const answer = fetchMock.getMockImplementation()!
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input)
-      if (url === '/api/base-knowledge/upload') return Response.json(uploads.shift())
-      if (url.endsWith('/confirm')) return Response.json({ ...first, status: 'confirmed' })
+      if (url === '/api/base-knowledge/recognize') return Response.json(RECOGNITION)
+      if (url === '/api/base-knowledge/settle') {
+        return Response.json({
+          results: [
+            { entryId: 'edition_norm', outcome: 'confirmed', error: null },
+            { entryId: 'edition_edition', outcome: 'edition_added', error: null },
+          ],
+        })
+      }
       return answer(input, init)
     })
-    const view = renderWorkspace()
+    renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
-    await userEvent.upload(screen.getByTestId('base-knowledge-file-input'), [
-      new File(['a'], 'a.pdf', { type: 'application/pdf' }),
-      new File(['b'], 'b.pdf', { type: 'application/pdf' }),
-    ])
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith(`/app/base-knowledge?entry=${first.id}`, { scroll: false }))
-    expect(uploads).toHaveLength(0)
+    expect(shelfUpload.collections.at(-1)).toBe('archiv_org-1')
+    expect(shelfUpload.asNorm.at(-1)).toBe(true)
+    await userEvent.upload(screen.getByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
 
-    navigation.search = `entry=${first.id}`
-    view.rerender(
-      <I18nProvider initialLocale="de" fixedLocale>
-        <TooltipProvider>
-          <BaseKnowledgeWorkspace />
-        </TooltipProvider>
-      </I18nProvider>,
+    const dialog = await screen.findByTestId('norm-dialog')
+    expect(within(dialog).getByText('2 Normen erkannt')).toBeTruthy()
+    expect(within(dialog).getAllByTestId('norm-dialog-row')).toHaveLength(2)
+    expect(within(dialog).getByTestId('norm-dialog-info').textContent).toBe('neue Ausgabe von ÖNORM B 1600 (bisher 2017-04-01)')
+    expect(within(dialog).getByTestId('norm-dialog-plain').textContent).toBe(
+      '1 weitere Datei ist keine Norm und liegt unter Ordner (oberste Ebene).',
     )
-    expect((await screen.findByTestId('base-knowledge-adding')).textContent).toBe('Neue Grundlage 1 von 2')
-    const licence = screen.queryByRole('checkbox', { name: /Lizenz gilt für unser ganzes Büro/ })
-    if (licence) await userEvent.click(licence)
-    await userEvent.click(screen.getByRole('button', { name: 'Bestätigen und weiter' }))
-    await waitFor(() => expect(navigation.replace).toHaveBeenLastCalledWith(`/app/base-knowledge?entry=${second.id}`, { scroll: false }))
+    const edition = within(dialog).getByRole('textbox', { name: 'Ausgabe: OENORM_B_5371.pdf' })
+    expect(edition.getAttribute('aria-invalid')).toBe('true')
+    await userEvent.type(edition, '2021-01-15')
+    expect(edition.getAttribute('aria-invalid')).toBeNull()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Bestätigen' }))
+
+    await waitFor(() => expect(screen.queryByTestId('norm-dialog')).toBeNull())
+    const settle = fetchMock.mock.calls.find(([url]) => url === '/api/base-knowledge/settle')
+    expect(JSON.parse(String(settle?.[1]?.body))).toEqual({
+      rows: [
+        { entryId: 'edition_norm', kind: 'technical_standard', designation: 'ÖNORM B 5371', editionLabel: '2021-01-15', topicId: 'topic-treppen' },
+        { entryId: 'edition_edition', editionLabel: '2023-02-01' },
+      ],
+    })
+  })
+
+  it('leaves the norms proposed on Später, and Jetzt prüfen opens them again', async () => {
+    const pending = BASE_KNOWLEDGE_ENTRIES.filter((entry) => entry.status === 'proposed')
+    shelfUpload.stored = [{ documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' }]
+    const calls = stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === '/api/base-knowledge/recognize') return Response.json(RECOGNITION)
+      if (String(input).includes('attention=proposed')) return Response.json(listOf(pending))
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await userEvent.upload(await screen.findByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
+    await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
+    await waitFor(() => expect(screen.queryByTestId('norm-dialog')).toBeNull())
+    expect(calls.some((call) => call.url === '/api/base-knowledge/settle')).toBe(false)
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: RECOGNITION.proposals.length, source: 'office_shelf_upload' })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: RECOGNITION.proposals.length, confirmed: 0, source: 'office_shelf_upload' }))
+
+    const line = screen.getByTestId('base-knowledge-pending')
+    expect(line.textContent).toContain(`${pending.length} Normen warten auf Bestätigung.`)
+    await userEvent.click(within(line).getByRole('button', { name: 'Jetzt prüfen' }))
+    await screen.findByTestId('norm-dialog')
+    const reopened = fetchMock.mock.calls.filter(([url]) => url === '/api/base-knowledge/recognize')
+    expect(reopened).toHaveLength(2)
+    expect(JSON.parse(String(reopened[1][1]?.body))).toEqual({ documentIds: pending.map((entry) => entry.documentId) })
+    expect(capturePosthog).toHaveBeenLastCalledWith('norm_dialog_shown', { rows: RECOGNITION.proposals.length, source: 'review_pending' })
+  })
+
+  it('sends a plain file to Ordner and says so, with the way there', async () => {
+    shelfUpload.stored = [{ documentId: 'doc-plan', fileName: 'Plankopf_Vorlage_A0.pdf' }]
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === '/api/base-knowledge/recognize') {
+        return Response.json({ ...RECOGNITION, proposals: [], plain: [{ ...RECOGNITION.plain[0], folderId: 'folder-plans', folderPath: 'Pläne' }] })
+      }
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await userEvent.upload(await screen.findByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    const [message, options] = toast.mock.calls.at(-1) as [string, { action: { label: string; onClick: () => void } }]
+    expect(message).toBe('1 Datei unter Ordner › Pläne abgelegt. Sie ist keine Norm.')
+    expect(options.action.label).toBe('In Ordnern zeigen')
+    options.action.onClick()
+    expect(navigation.push).toHaveBeenCalledWith('/app/office-shelf?folder=folder-plans')
+    expect(screen.queryByTestId('norm-dialog')).toBeNull()
+  })
+
+  it('says of a lone guideline the platform already knows that it knows it, not merely that it is no norm', async () => {
+    shelfUpload.stored = [{ documentId: 'doc-oib', fileName: 'OIB-Richtlinie_2_2023.pdf' }]
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === '/api/base-knowledge/recognize') {
+        return Response.json({
+          ...RECOGNITION,
+          proposals: [],
+          plain: [{ documentId: 'doc-oib', fileName: 'OIB-Richtlinie_2_2023.pdf', folderId: null, folderPath: null, platformHeld: true }],
+        })
+      }
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await userEvent.upload(await screen.findByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(toast.mock.calls.at(-1)?.[0]).toMatch(
+      /^1 Datei unter Ordner \(oberste Ebene\) abgelegt\. Diese Richtlinie kennt \S+ schon, sie bleibt eine normale Datei\.$/,
+    )
+  })
+
+  it('takes files dropped on the norms tab through the same upload', async () => {
+    shelfUpload.stored = [{ documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' }]
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => (String(input) === '/api/base-knowledge/recognize' ? Response.json(RECOGNITION) : answer(input, init)))
+    renderWorkspace()
+    const workspace = await screen.findByTestId('base-knowledge-workspace')
+    const file = new File(['a'], 'OENORM_B_5371.pdf', { type: 'application/pdf' })
+    fireEvent.drop(workspace, { dataTransfer: { files: [file], items: [{ kind: 'file', type: 'application/pdf', getAsFile: () => file }], types: ['Files'] } })
+    expect(await screen.findByTestId('norm-dialog')).toBeTruthy()
+  })
+
+  it('takes a file from Ordner the way „Als Norm führen“ does and opens the norm dialog for it', async () => {
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/base-knowledge/recognize') return Response.json({ ...RECOGNITION, proposals: RECOGNITION.proposals.slice(0, 1), plain: [] })
+      if (url.startsWith('/api/documents?')) return Response.json({ documents: [{ id: 'doc-norm', filename: 'OENORM_B_5371.pdf' }] })
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    await userEvent.click(await screen.findByTestId('base-knowledge-from-shelf'))
+    const candidates = await screen.findByTestId('base-knowledge-shelf-candidates')
+    await userEvent.click(within(candidates).getByRole('button', { name: 'Übernehmen' }))
+
+    const dialog = await screen.findByTestId('norm-dialog')
+    expect(within(dialog).getAllByTestId('norm-dialog-row')).toHaveLength(1)
+    const recognize = fetchMock.mock.calls.find(([url]) => url === '/api/base-knowledge/recognize')
+    expect(JSON.parse(String(recognize?.[1]?.body))).toEqual({ documentIds: ['doc-norm'], asNorm: true })
+    expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/base-knowledge' && init?.method === 'POST')).toBe(false)
+  })
+
+  it('reads like the Ordner tab: the shelf’s header, then one tool row of search, kind, Thema anlegen, Hochladen and ⋯', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    const header = screen.getByTestId('office-shelf-header')
+    const row = within(header).getByTestId('files-tool-row')
+    expect(row.getAttribute('data-tier')).toBe('wide')
+    const order = [
+      within(row).getByRole('textbox', { name: 'Normen & Richtlinien durchsuchen' }),
+      within(row).getByRole('combobox', { name: 'Art' }),
+      within(row).getByRole('button', { name: 'Thema anlegen' }),
+      within(row).getByRole('button', { name: 'Hochladen' }),
+      within(row).getByTestId('base-knowledge-more'),
+    ]
+    for (const [index, control] of order.slice(1).entries()) {
+      expect(order[index].compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(within(header).queryByTestId('base-knowledge-pending')).toBeNull()
+    expect(within(screen.getByTestId('base-knowledge-scroll')).getByTestId('base-knowledge-pending')).toBeTruthy()
+  })
+
+  it('keeps So funktioniert es in the ⋯, not in a row of its own above the list', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    expect(screen.queryByTestId('base-knowledge-guide')).toBeNull()
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    await userEvent.click(await screen.findByTestId('base-knowledge-guide-toggle'))
+    const guide = screen.getByTestId('base-knowledge-guide')
+    expect(within(guide).getByText('1 · Hinzufügen')).toBeTruthy()
+    await userEvent.click(within(guide).getByTestId('base-knowledge-guide-close'))
+    expect(screen.queryByTestId('base-knowledge-guide')).toBeNull()
+  })
+
+  it('shows its topics as the Ordner tab’s folder cards, each with its whole name', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    const topics = await screen.findByTestId('base-knowledge-topics')
+    const cards = within(topics).getAllByTestId(/^folder-card-/)
+    const names = BASE_KNOWLEDGE_FOLDERS.folders.filter((folder) => folder.parentId === BASE_KNOWLEDGE_FOLDERS.rootId).map((folder) => folder.name)
+    expect(cards).toHaveLength(names.length)
+    for (const name of names) expect(within(topics).getAllByTitle(name).length).toBeGreaterThan(0)
+  })
+
+  it('names the folder action of the norms tab a topic', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    expect(screen.getByRole('button', { name: 'Thema anlegen' })).toBeTruthy()
   })
 
   it('holds the place under a scrim while the file loads, and a further press replaces rather than stacks', async () => {
@@ -166,7 +416,11 @@ describe('BaseKnowledgeWorkspace', () => {
     const viewer = await screen.findByRole('dialog', { name: 'ÖNORM B 1600.pdf' })
     const facts = within(viewer).getByTestId('standard-facts')
     expect(within(facts).getByText('Ausgabe')).toBeTruthy()
-    expect(within(facts).getByText('Zuletzt geprüft')).toBeTruthy()
+    expect(within(facts).getByText('Aktualität')).toBeTruthy()
+    expect(facts.getAttribute('aria-label')).toBe('Norm')
+    for (const label of ['Bezeichnung', 'Aktualität']) {
+      expect(within(facts).getByText(label).closest('[data-slot=inspector-row-body]')?.hasAttribute('data-stacked'), label).toBe(true)
+    }
     await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
     expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
   })
@@ -223,7 +477,7 @@ describe('BaseKnowledgeWorkspace', () => {
       }),
     )
     renderWorkspace()
-    expect(await screen.findByText(/Diese Grundlage konnte nicht geladen werden/)).toBeTruthy()
+    expect(await screen.findByText(/Diese Norm konnte nicht geladen werden/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Erneut versuchen|Nochmal/ })).toBeTruthy()
     await userEvent.click(screen.getByTestId('base-knowledge-back'))
     expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge', { scroll: false })
@@ -247,8 +501,9 @@ describe('BaseKnowledgeWorkspace', () => {
     stubFetch(listOf(BASE_KNOWLEDGE_ENTRIES, false))
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
-    expect(screen.queryByTestId('base-knowledge-upload')).toBeNull()
+    expect(screen.queryByTestId('project-upload-input')).toBeNull()
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
-    expect(screen.queryByRole('button', { name: /Neuer Ordner/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Neuer Ordner|Thema anlegen/ })).toBeNull()
+    expect(screen.queryByTestId('base-knowledge-review-pending')).toBeNull()
   })
 })

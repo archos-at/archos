@@ -182,7 +182,7 @@ describe('the composer screens a message against the office’s „Sensible Date
     )
   })
 
-  test("an answer to Piloti's question is screened like a question", async () => {
+  test("an answer to the agent's question is screened like a question", async () => {
     interaction.pending = { id: 'ask_01', content: { input_type: 'text', text: 'Welches Konto?' } }
     const user = userEvent.setup()
     render(<InputArea isAuthenticated connectionMode="sse" />)

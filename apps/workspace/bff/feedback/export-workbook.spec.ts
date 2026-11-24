@@ -82,7 +82,7 @@ describe('the answer-feedback workbook', () => {
       expect(row.getCell(columnIndex('models')).value).toBe('anthropic/claude-sonnet-4.5; openai/gpt-5-mini')
     })
 
-    it('links the answer in Piloti and its trace in Langfuse', async () => {
+    it('links the answer in the app and its trace in Langfuse', async () => {
       const row = sheet(await readBack(), 'Bewertungen').getRow(2)
       const link = row.getCell(columnIndex('app_url')).value as CellHyperlinkValue
 

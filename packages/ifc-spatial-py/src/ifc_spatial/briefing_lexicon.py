@@ -1,5 +1,3 @@
-"""The room lexicon: which German room names mean which use, and how sure each match is."""
-
 from __future__ import annotations
 
 from ifc_spatial.briefing_constants import _FREIBEREICH

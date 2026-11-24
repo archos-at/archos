@@ -16,6 +16,9 @@ export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [
     'workflow:manage',
     'project:workflows:manage',
   ]),
+  ...retired('ADR-0024 office shelf rename, runbook step 3: every role holding it also holds org:office_shelf:manage', [
+    'org:archiv:manage',
+  ]),
   ...retired("ADR-0038's amendment of 2026-10-27: no skill resource was ever created", [
     'skill:view',
     'skill:run',

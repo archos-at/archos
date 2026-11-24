@@ -103,25 +103,25 @@ beforeEach(() => {
 describe('onWakeEnded', () => {
   const wake = { ...ref, actorUserId: 'user_me' }
 
-  it('tells who delegated a mark that Piloti is done with it', async () => {
+  it('tells who delegated a mark that the agent is done with it', async () => {
     await onWakeEnded({ ...wake, trigger: 'assigned', outcome: 'answered' })
 
     expect(emitted()).toMatchObject({
       organizationId: 'org_1',
       recipientUserId: 'user_me',
-      type: 'piloti.work_done',
+      type: 'agent.work_done',
       resourceType: 'document',
       resourceId: 'doc_1',
       anchorId: 'ann_1',
-      groupKey: 'piloti.work_done:document:doc_1:ann_1',
+      groupKey: 'agent.work_done:document:doc_1:ann_1',
       payload: { subject: 'Grundriss EG.pdf', related: '4' },
     })
   })
 
-  it('tells who delegated a mark that Piloti could not work it', async () => {
+  it('tells who delegated a mark that the agent could not work it', async () => {
     await onWakeEnded({ ...wake, trigger: 'assigned', outcome: 'failed' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.work_failed', recipientUserId: 'user_me', anchorId: 'ann_1' })
+    expect(emitted()).toMatchObject({ type: 'agent.work_failed', recipientUserId: 'user_me', anchorId: 'ann_1' })
   })
 
   it('quotes what the mark says, on one line, so the person knows which one it was', async () => {
@@ -151,7 +151,7 @@ describe('onWakeEnded', () => {
     expect(JSON.stringify(payload)).not.toContain('budget is exhausted')
   })
 
-  it('names what woke Piloti on work that was done, never a cause, so a delegation’s end says the mark is back', async () => {
+  it('names what woke the agent on work that was done, never a cause, so a delegation’s end says the mark is back', async () => {
     await onWakeEnded({ ...wake, trigger: 'assigned', outcome: 'answered', reason: 'ignored' })
 
     expect(emitted().payload).toMatchObject({ variant: 'assigned' })
@@ -166,10 +166,10 @@ describe('onWakeEnded', () => {
     },
   )
 
-  it.each(['thread_mention', 'thread_reply'] as const)('tells who asked (%s) when Piloti answered', async (trigger) => {
+  it.each(['thread_mention', 'thread_reply'] as const)('tells who asked (%s) when the agent answered', async (trigger) => {
     await onWakeEnded({ ...wake, trigger, outcome: 'answered' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.work_done', recipientUserId: 'user_me' })
+    expect(emitted()).toMatchObject({ type: 'agent.work_done', recipientUserId: 'user_me' })
   })
 
   it.each(['thread_mention', 'thread_reply'] as const)(
@@ -178,11 +178,11 @@ describe('onWakeEnded', () => {
       await onWakeEnded({ ...wake, trigger, outcome: 'failed' })
 
       expect(emitted()).toMatchObject({
-        type: 'piloti.work_failed',
+        type: 'agent.work_failed',
         recipientUserId: 'user_me',
         anchorId: 'ann_1',
         actorUserId: null,
-        groupKey: 'piloti.work_failed:document:doc_1:ann_1',
+        groupKey: 'agent.work_failed:document:doc_1:ann_1',
         payload: { subject: 'Grundriss EG.pdf', related: '4', variant: 'error' },
       })
     },
@@ -197,7 +197,7 @@ describe('onWakeEnded', () => {
     },
   )
 
-  it('carries no actor, so the person is told about Piloti’s work and not dropped as their own act', async () => {
+  it('carries no actor, so the person is told about the agent’s work and not dropped as their own act', async () => {
     await onWakeEnded({ ...wake, trigger: 'assigned', outcome: 'answered' })
 
     expect(emitted().actorUserId).toBeNull()
@@ -222,19 +222,19 @@ describe('onWakeEnded', () => {
 describe('onAgentWrote', () => {
   const write = { ...ref, onBehalfOf: 'user_me', assigneeUserId: null, replyId: null }
 
-  it('asks the person the turn acted for when Piloti sets a Rückfrage nobody is responsible for', async () => {
+  it('asks the person the turn acted for when the agent sets a Rückfrage nobody is responsible for', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(mark({ status: 'proposed' }))
 
     await onAgentWrote({ ...write, what: 'question' })
 
     expect(emitted()).toMatchObject({
       recipientUserId: 'user_me',
-      type: 'piloti.asks_you',
+      type: 'agent.asks_you',
       resourceType: 'document',
       resourceId: 'doc_1',
       anchorId: 'ann_1',
       actorUserId: null,
-      groupKey: 'piloti.asks_you:document:doc_1:ann_1',
+      groupKey: 'agent.asks_you:document:doc_1:ann_1',
       payload: { subject: 'Grundriss EG.pdf', related: '4', excerpt: 'Ist die Brüstungshöhe hier 1,00 m?' },
     })
   })
@@ -247,14 +247,14 @@ describe('onAgentWrote', () => {
     expect(emitted().recipientUserId).toBe('user_zustaendig')
   })
 
-  it('quotes the reply, not the mark, when Piloti follows up in the thread', async () => {
+  it('quotes the reply, not the mark, when the agent follows up in the thread', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(
       mark({ replies: [{ id: 'reply_1', body: 'Und die Absturzsicherung?' } as AnnotationRecord['replies'][number]] }),
     )
 
     await onAgentWrote({ ...write, what: 'reply', replyId: 'reply_1' })
 
-    expect(emitted()).toMatchObject({ type: 'piloti.asks_you', payload: { excerpt: 'Und die Absturzsicherung?' } })
+    expect(emitted()).toMatchObject({ type: 'agent.asks_you', payload: { excerpt: 'Und die Absturzsicherung?' } })
   })
 
   it('cuts a long question to a line', async () => {
@@ -314,7 +314,7 @@ describe('onMarkSettledByPerson', () => {
     await onMarkSettledByPerson({ ...settle, closed: false })
 
     const [input] = vi.mocked(resolveInboxItemsAnchoredOn).mock.calls[0]
-    expect(input).toEqual({ organizationId: 'org_1', types: ['piloti.asks_you'], anchorId: 'ann_1' })
+    expect(input).toEqual({ organizationId: 'org_1', types: ['agent.asks_you'], anchorId: 'ann_1' })
     expect(input).not.toHaveProperty('recipientUserId')
   })
 
@@ -325,7 +325,7 @@ describe('onMarkSettledByPerson', () => {
     const [input] = vi.mocked(resolveInboxItemsAnchoredOn).mock.calls[0]
     expect(input).toEqual({
       organizationId: 'org_1',
-      types: ['piloti.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned'],
+      types: ['agent.asks_you', 'annotation.assigned_to_you', 'annotation.mentioned'],
       anchorId: 'ann_1',
     })
     expect(input).not.toHaveProperty('recipientUserId')
@@ -407,7 +407,7 @@ describe('markParticipants', () => {
     expect(markParticipants(mark)).toEqual(['user_author', 'user_zustaendig', 'user_delegator', 'user_replier'])
   })
 
-  it('counts everyone the mark or a reply mentions as taking part, never Piloti', () => {
+  it('counts everyone the mark or a reply mentions as taking part, never the agent', () => {
     const mark = people({
       mentions: [{ targetId: 'user_named', display: 'Nina' }],
       replies: [
@@ -425,7 +425,15 @@ describe('markParticipants', () => {
     expect(markParticipants(mark)).toEqual(['user_author', 'user_replier', 'user_named', 'user_asked'])
   })
 
-  it('takes the person who took Piloti’s mark over as its author, and nobody for an untaken proposal', () => {
+  it('never counts the agent under its new id either', () => {
+    const mark = people({
+      replies: [{ authorKind: 'person', createdBy: 'user_replier', mentions: [{ targetId: 'agent:core', display: PRODUCT_NAME }] }],
+    })
+
+    expect(markParticipants(mark)).toEqual(['user_author', 'user_replier'])
+  })
+
+  it('takes the person who took the agent’s mark over as its author, and nobody for an untaken proposal', () => {
     expect(markAuthor(people({ authorKind: 'piloti', createdBy: 'user_asker', acceptedBy: 'user_taker' }))).toBe('user_taker')
     expect(markParticipants(people({ authorKind: 'piloti', createdBy: 'user_asker', acceptedBy: null }))).toEqual([])
   })
@@ -463,7 +471,7 @@ describe('onAssigneeChanged', () => {
     expect(merged).toHaveProperty('reminder', null)
   })
 
-  it('says Piloti did it for the asker when Piloti changed the mark', async () => {
+  it('says the agent did it for the asker when the agent changed the mark', async () => {
     await onAssigneeChanged({ ...act, byAgent: true, previousAssigneeUserId: null, assigneeUserId: 'user_bob' })
 
     expect(emitted()).toMatchObject({ actorUserId: 'user_anna', payload: { variant: 'piloti' } })
@@ -531,7 +539,7 @@ describe('onDueChanged', () => {
     expect(merged).toHaveProperty('reminder', null)
   })
 
-  it('says the date was cleared, and that Piloti did it for the person it worked for', async () => {
+  it('says the date was cleared, and that the agent did it for the person it worked for', async () => {
     await onDueChanged({ ...act, byAgent: true, assigneeUserId: 'user_bob', dueOn: null })
 
     expect(emitted()).toMatchObject({ actorUserId: 'user_anna', payload: { variant: 'due_cleared_piloti', dueOn: null } })
@@ -613,14 +621,14 @@ describe('onMarkReplied', () => {
     expect(recipients()).toEqual(['user_author', 'user_zustaendig'])
   })
 
-  it('leaves out the person Piloti’s turn acted for, who woke it and hears that Piloti is done', async () => {
+  it('leaves out the person the agent’s turn acted for, who woke it and hears that the agent is done', async () => {
     await onMarkReplied({ ...reply, actorUserId: 'user_delegator', byAgent: true, mark: thread, mayOpen: everyone })
 
     expect(recipients()).toEqual(['user_author', 'user_zustaendig', 'user_replier'])
     expect(vi.mocked(emitInboxItems).mock.calls[0][0][0].actorUserId).toBeNull()
   })
 
-  it('leaves out the Zuständige Piloti’s open Rückfrage asks: they have that row', async () => {
+  it('leaves out the open Rückfrage asks of the agent that a person took over: they have that row', async () => {
     const question = { ...thread, authorKind: 'piloti' as const, acceptedBy: 'user_author', kind: 'question' as const }
 
     await onMarkReplied({ ...reply, actorUserId: 'user_delegator', byAgent: true, mark: question, mayOpen: everyone })
@@ -702,7 +710,7 @@ describe('onMarkMoved', () => {
     })
   })
 
-  it('tells the person who took Piloti’s mark over, as its author', async () => {
+  it('tells the person who took the agent’s mark over, as its author', async () => {
     await onMarkMoved({ ...move, move: 'resolved', mark: people({ authorKind: 'piloti', acceptedBy: 'user_taker' }) })
 
     expect(recipients()).toEqual(['user_taker'])
@@ -728,7 +736,7 @@ describe('onMarkDeleted', () => {
       groupAnchor: { isNot: 'set:' },
     })
     expect(MARK_ANCHORED_INBOX_TYPES).toEqual(
-      expect.arrayContaining(['piloti.asks_you', 'annotation.assigned_to_you', 'annotation.activity']),
+      expect.arrayContaining(['agent.asks_you', 'annotation.assigned_to_you', 'annotation.activity']),
     )
   })
 

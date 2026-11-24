@@ -32,7 +32,7 @@ describe('the registry names a push policy for every type', () => {
   })
 
   it('is on by default for what is addressed to the person and off for ambient activity', () => {
-    for (const type of ['mention.requested', 'piloti.asks_you', 'task_run.waiting', 'document.review_requested'] as const) {
+    for (const type of ['mention.requested', 'agent.asks_you', 'task_run.waiting', 'document.review_requested'] as const) {
       expect(isPushWanted(type, DEFAULT_PUSH_PREFERENCES)).toBe(true)
     }
     for (const type of ['conversation.activity', 'upload.completed', 'document.new_revision'] as const) {
@@ -53,7 +53,7 @@ describe('a person’s choices override the default per category', () => {
     expect(isPushWanted('conversation.activity', on)).toBe(true)
     const off = applyPushPreferencesPatch(DEFAULT_PUSH_PREFERENCES, { categories: { requests: false } })
     expect(isPushWanted('mention.requested', off)).toBe(false)
-    expect(isPushWanted('piloti.intake_ready', off)).toBe(false)
+    expect(isPushWanted('agent.intake_ready', off)).toBe(false)
     expect(isPushWanted('mention.answered', off)).toBe(true)
   })
 

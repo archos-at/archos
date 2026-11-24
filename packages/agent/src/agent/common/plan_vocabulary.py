@@ -1,12 +1,3 @@
-"""The German spellings the research plan carried before the English names.
-
-One table per vocabulary, read-only. The plan travels as text (the
-``plan_json`` fence in a stored message), as edits the plan card sends back
-(``approve {...}``), and as a checkpointed ``PlanResponse``; a browser tab, a
-pod or a checkpoint from before the rename still holds the old spellings.
-Nothing writes these: every reader maps them to the English name on the way in.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -32,11 +23,6 @@ LEGACY_PLAN_KEYS: dict[str, str] = {
 
 
 def modernize_plan(raw: Any) -> Any:
-    """A plan object with the English keys and values, whichever spelling it came in.
-
-    Anything that is not a mapping is returned untouched. A key present in both
-    spellings keeps the English one.
-    """
     if not isinstance(raw, dict):
         return raw
     out = dict(raw)

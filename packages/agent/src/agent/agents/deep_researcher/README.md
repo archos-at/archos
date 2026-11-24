@@ -270,7 +270,7 @@ The agent loads prompts from `packages/agent/src/agent/agents/deep_researcher/pr
 | `writer.j2` | Final synthesis and citation contract for the writer subagent |
 | `source_registry.j2` | Template for the verified source list shown to the writer |
 
-All prompts identify the agent as Piloti, a colleague in a planning
+All prompts identify the agent as a colleague in a planning
 office; the legal corpus (OIB, RIS) is one of its sources. They carry domain
 conventions for regulation-anchored citations, while remaining usable for
 general research requests.
@@ -293,8 +293,9 @@ general research requests.
   workflow submits the job via
   `agent_host.jobs.submit.submit_agent_job` and immediately returns the job
   id, on the research queue (ADR-0021). The worker
-  (`agent_host.jobs.runner`, replayed identically by the research worker and by
-  `agent_host.jobs.worker`) rebuilds the agent from the workflow config and forwards
+  (`agent_host.jobs.agent_run` and `agent_host.jobs.agent_construction`, with
+  `agent_host.jobs.runner` for the forwarded request context, replayed identically by
+  the research worker and by `agent_host.jobs.worker`) rebuilds the agent from the workflow config and forwards
   `user_info`, `clarifier_result`, `project_context`, `available_documents`,
   and `data_sources` onto the state so both paths render identical prompts.
   Response cards are generated post-hoc from the final report in the job

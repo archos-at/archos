@@ -1,5 +1,3 @@
-"""The IFC cards: the viewer, schedules, compliance, an element, a diff and the model picker."""
-
 from typing import Literal
 
 from pydantic import AliasChoices
@@ -11,7 +9,9 @@ from agent.cards.card_model import CardModel
 
 
 class IfcPropertyMatch(CardModel):
-    """One property predicate, in ifc_query's own filter grammar."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "One property predicate, in ifc_query's own filter grammar."}
+    )
 
     name: str = Field(min_length=1, description="Property name, e.g. 'IsExternal' or 'FireRating'")
     set: str | None = Field(
@@ -28,21 +28,25 @@ class IfcPropertyMatch(CardModel):
 
 
 class IfcElementMatch(CardModel):
-    """The SET of elements to highlight, as a filter rather than a list of ids.
-
-    Exactly the ``filters`` object passed to ``ifc_query`` — the browser re-runs
-    it against the model, so the highlight covers every matching element and
-    nothing has to survive the model's context window.
-
-    ``ifc_query`` spells its filter keys in camelCase (``ifcTypes``,
-    ``nameContains``) and this card is authored in snake_case like every other
-    card field. The agent is told to reuse the filter it already wrote, so BOTH
-    spellings are accepted and normalise to the snake_case field: without the
-    aliases a copied filter validated cleanly with every key silently dropped,
-    leaving an empty match, and a highlight group that selects nothing.
-    """
-
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
+            "description": (
+                "The SET of elements to highlight, as a filter rather than a list of ids.\n"
+                "\n"
+                "Exactly the ``filters`` object passed to ``ifc_query`` — the browser re-runs\n"
+                "it against the model, so the highlight covers every matching element and\n"
+                "nothing has to survive the model's context window.\n"
+                "\n"
+                "``ifc_query`` spells its filter keys in camelCase (``ifcTypes``,\n"
+                "``nameContains``) and this card is authored in snake_case like every other\n"
+                "card field. The agent is told to reuse the filter it already wrote, so BOTH\n"
+                "spellings are accepted and normalise to the snake_case field: without the\n"
+                "aliases a copied filter validated cleanly with every key silently dropped,\n"
+                "leaving an empty match, and a highlight group that selects nothing."
+            )
+        },
+    )
 
     ifc_types: list[str] | None = Field(
         default=None,
@@ -62,36 +66,33 @@ class IfcElementMatch(CardModel):
     properties: list[IfcPropertyMatch] | None = Field(default=None, description="Property predicates, all required")
 
     def is_empty(self) -> bool:
-        """True when no criterion was given at all.
-
-        An empty filter means "every element in the building", which would
-        light up the whole model under a label like *nicht erfüllt*. The
-        frontend refuses it, so without this check the card validated, the
-        group reached the browser, and it was dropped there — the legend lost
-        an entry with no signal to anyone.
-        """
         return not any(
             (self.ifc_types, self.storeys, self.name_contains, self.material, self.classification, self.properties)
         )
 
 
 class IfcHighlight(CardModel):
-    """One set of model elements to call out, with a verdict.
-
-    EXACTLY ONE of ``match`` or ``global_ids`` — never both, never neither.
-    (Stated here because the rendered card catalogue lists a model's fields
-    from ``model_fields`` and never sees a ``model_validator``: both selectors
-    therefore appear as plain optionals, and the worked example — one group of
-    each kind — reads as permission to supply both. A highlight that does is
-    dropped, taking its whole card with it.)
-
-    Prefer ``match`` whenever the
-    answer is about a set rather than about elements you named. An id list has
-    to travel through the model's context, so "the 420 external walls" arrived
-    as whatever fitted and the card highlighted a fraction of the answer while
-    the legend claimed all of it. A filter is re-run in the browser: the whole
-    set lights up, and it costs the model a filter it has already written.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One set of model elements to call out, with a verdict.\n"
+                "\n"
+                "EXACTLY ONE of ``match`` or ``global_ids`` — never both, never neither.\n"
+                "(Stated here because the rendered card catalogue lists a model's fields\n"
+                "from ``model_fields`` and never sees a ``model_validator``: both selectors\n"
+                "therefore appear as plain optionals, and the worked example — one group of\n"
+                "each kind — reads as permission to supply both. A highlight that does is\n"
+                "dropped, taking its whole card with it.)\n"
+                "\n"
+                "Prefer ``match`` whenever the\n"
+                "answer is about a set rather than about elements you named. An id list has\n"
+                'to travel through the model\'s context, so "the 420 external walls" arrived\n'
+                "as whatever fitted and the card highlighted a fraction of the answer while\n"
+                "the legend claimed all of it. A filter is re-run in the browser: the whole\n"
+                "set lights up, and it costs the model a filter it has already written."
+            )
+        }
+    )
 
     global_ids: list[str] | None = Field(
         default=None,
@@ -119,11 +120,6 @@ class IfcHighlight(CardModel):
 
     @model_validator(mode="after")
     def exactly_one_selector(self) -> IfcHighlight:
-        """A group with neither selects nothing; with both, the two disagree.
-
-        Both is the dangerous one: the renderer would have to pick, and either
-        choice silently discards half of what the model asked for.
-        """
         if (self.global_ids is None) == (self.match is None):
             raise ValueError("give exactly one of 'global_ids' or 'match'")
         if self.match is not None and self.match.is_empty():
@@ -132,14 +128,19 @@ class IfcHighlight(CardModel):
 
 
 class IfcViewerCard(CardModel):
-    """The project's IFC model, rendered in 3D, with findings highlighted on it.
-
-    Use when the answer is ABOUT specific parts of the building and seeing them
-    beats reading their names — a compliance finding on particular walls, the
-    rooms that fall below a required area, the escape route being discussed.
-    Do NOT use it as a decorative "here is your building": an unhighlighted
-    viewer says nothing a sentence does not.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "The project's IFC model, rendered in 3D, with findings highlighted on it.\n"
+                "\n"
+                "Use when the answer is ABOUT specific parts of the building and seeing them\n"
+                "beats reading their names — a compliance finding on particular walls, the\n"
+                "rooms that fall below a required area, the escape route being discussed.\n"
+                'Do NOT use it as a decorative "here is your building": an unhighlighted\n'
+                "viewer says nothing a sentence does not."
+            )
+        }
+    )
 
     type: Literal["ifc_viewer"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Brandabschnitte – EG'")
@@ -158,16 +159,21 @@ class IfcViewerCard(CardModel):
 
 
 class IfcScheduleCard(CardModel):
-    """The project's Raumbuch (room schedule) straight from the model.
-
-    The card names WHICH table to show; the frontend fetches the numbers from
-    the model itself. The model therefore cannot get an area wrong, because it
-    never supplies one — the same reason the viewer card carries GlobalIds and
-    not geometry.
-
-    Use when the user asks for room areas, a Flächenaufstellung, or "what rooms
-    are on the second floor".
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "The project's Raumbuch (room schedule) straight from the model.\n"
+                "\n"
+                "The card names WHICH table to show; the frontend fetches the numbers from\n"
+                "the model itself. The model therefore cannot get an area wrong, because it\n"
+                "never supplies one — the same reason the viewer card carries GlobalIds and\n"
+                "not geometry.\n"
+                "\n"
+                'Use when the user asks for room areas, a Flächenaufstellung, or "what rooms\n'
+                'are on the second floor".'
+            )
+        }
+    )
 
     type: Literal["ifc_schedule"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Flächenaufstellung'")
@@ -182,22 +188,27 @@ class IfcScheduleCard(CardModel):
 
 
 class IfcComplianceCard(CardModel):
-    """The Prüfbuch: OIB requirements with their verdict against this model.
-
-    Carries only WHICH requirements to show; the frontend runs the catalogue and
-    renders the counts, the thresholds and the failing elements itself. The
-    model therefore cannot state that a building complies, because it never
-    supplies a verdict — the same reason the schedule card carries no areas.
-
-    Use when the user asks whether the model meets a requirement, what is still
-    open, or what they have to add to the model. Prefer it over prose whenever
-    the answer is a list of requirements: the card stays correct after the model
-    changes, and a sentence does not.
-
-    NEVER present this as proof of compliance (a Nachweis). The catalogue reads only published
-    property values, it reads no geometry, and escape-route lengths, guardrail
-    heights and fire-compartment sizes are not in it at all.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "The Prüfbuch: OIB requirements with their verdict against this model.\n"
+                "\n"
+                "Carries only WHICH requirements to show; the frontend runs the catalogue and\n"
+                "renders the counts, the thresholds and the failing elements itself. The\n"
+                "model therefore cannot state that a building complies, because it never\n"
+                "supplies a verdict — the same reason the schedule card carries no areas.\n"
+                "\n"
+                "Use when the user asks whether the model meets a requirement, what is still\n"
+                "open, or what they have to add to the model. Prefer it over prose whenever\n"
+                "the answer is a list of requirements: the card stays correct after the model\n"
+                "changes, and a sentence does not.\n"
+                "\n"
+                "NEVER present this as proof of compliance (a Nachweis). The catalogue reads only published\n"
+                "property values, it reads no geometry, and escape-route lengths, guardrail\n"
+                "heights and fire-compartment sizes are not in it at all."
+            )
+        }
+    )
 
     type: Literal["ifc_compliance"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Anforderungen Brandschutz'")
@@ -218,12 +229,17 @@ class IfcComplianceCard(CardModel):
 
 
 class IfcElementCard(CardModel):
-    """One element of the model, in full, with a link into the 3D view.
-
-    Use when the answer is ABOUT a specific element the user will want to look
-    at — the wall that fails a requirement, the door being discussed. The card
-    carries only the GlobalId; every property shown is read live from the model.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "One element of the model, in full, with a link into the 3D view.\n"
+                "\n"
+                "Use when the answer is ABOUT a specific element the user will want to look\n"
+                "at — the wall that fails a requirement, the door being discussed. The card\n"
+                "carries only the GlobalId; every property shown is read live from the model."
+            )
+        }
+    )
 
     type: Literal["ifc_element"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Aussenwand Nord'")
@@ -238,12 +254,17 @@ class IfcElementCard(CardModel):
 
 
 class IfcDiffCard(CardModel):
-    """What changed between two revisions of the model.
-
-    Names the two files; the frontend computes the comparison by IFC GlobalId.
-    Use for "what changed since the last submission" — the question a pair of
-    plan PDFs cannot answer.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "What changed between two revisions of the model.\n"
+                "\n"
+                "Names the two files; the frontend computes the comparison by IFC GlobalId.\n"
+                'Use for "what changed since the last submission" — the question a pair of\n'
+                "plan PDFs cannot answer."
+            )
+        }
+    )
 
     type: Literal["ifc_diff"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Änderungen seit Einreichung'")
@@ -255,20 +276,25 @@ class IfcDiffCard(CardModel):
 
 
 class IfcModelPickerCard(CardModel):
-    """A clickable list of the project's IFC models — pick one to open in the viewer.
-
-    Emit for "zeig mir das Modell" / "welches Modell" when the user wants to SEE
-    or OPEN the building and the project may hold several models. The old answer
-    to that was a prose bullet list of file names the user had to read and retype;
-    this card renders each model as a tile that opens the BIM viewer on click,
-    client-side, with no second turn.
-
-    It carries only WHICH view to offer — never a list of file names. The renderer
-    reads the project's actual models from the live model list (the same source
-    the viewer resolves against), so the model here cannot name a file that does
-    not exist: there is nothing to invent. An empty project renders nothing and
-    the written answer stands on its own, which is the fail-open the prose gave.
-    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "A clickable list of the project's IFC models — pick one to open in the viewer.\n"
+                "\n"
+                'Emit for "zeig mir das Modell" / "welches Modell" when the user wants to SEE\n'
+                "or OPEN the building and the project may hold several models. The old answer\n"
+                "to that was a prose bullet list of file names the user had to read and retype;\n"
+                "this card renders each model as a tile that opens the BIM viewer on click,\n"
+                "client-side, with no second turn.\n"
+                "\n"
+                "It carries only WHICH view to offer — never a list of file names. The renderer\n"
+                "reads the project's actual models from the live model list (the same source\n"
+                "the viewer resolves against), so the model here cannot name a file that does\n"
+                "not exist: there is nothing to invent. An empty project renders nothing and\n"
+                "the written answer stands on its own, which is the fail-open the prose gave."
+            )
+        }
+    )
 
     type: Literal["ifc_model_picker"]
     title: str = Field(min_length=1, description="Short heading, e.g. 'Welches Modell möchten Sie öffnen?'")

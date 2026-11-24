@@ -1,6 +1,7 @@
 import type { InboxItem, InboxItemType } from '@/lib/db/schema/inbox'
 import { INBOX_ITEM_TYPES } from '@/lib/db/schema/inbox'
-import { INBOX_TYPE_DEFINITIONS, type InboxEmailDefault } from './registry'
+import { inboxTypeDefinition, type InboxEmailDefault } from './registry'
+import { canonicalInboxType } from './types'
 
 export type InboxEmailCandidate = Pick<
   InboxItem,
@@ -8,8 +9,8 @@ export type InboxEmailCandidate = Pick<
 >
 
 export function emailDefaultFor(type: string): InboxEmailDefault {
-  return (INBOX_ITEM_TYPES as readonly string[]).includes(type)
-    ? INBOX_TYPE_DEFINITIONS[type as InboxItemType].email
+  return (INBOX_ITEM_TYPES as readonly string[]).includes(canonicalInboxType(type))
+    ? inboxTypeDefinition(type).email
     : { send: 'never' }
 }
 

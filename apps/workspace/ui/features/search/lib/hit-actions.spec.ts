@@ -5,7 +5,7 @@ import { documentHitActionEntries, documentHitActions } from './hit-actions'
 
 const labels = {
   open: 'Öffnen',
-  ask: 'Piloti fragen',
+  ask: 'Den Agenten fragen',
   openCurrent: 'Aktuelle Fassung öffnen',
   openPoints: 'Offene Punkte',
   showInFolder: 'Im Ordner zeigen',
@@ -22,7 +22,7 @@ describe('documentHitActions', () => {
     expect(documentHitActions({ shelf: 'project', projectId: 'p1', superseded: true })).toContain('openCurrent')
   })
 
-  it('offers no chat for a document of the Büroablage, which has no project chat to start it in', () => {
+  it('offers no chat for a document of the Bürobibliothek, which has no project chat to start it in', () => {
     expect(documentHitActions({ shelf: 'office_shelf', projectId: null, superseded: true })).toEqual([
       'open',
       'openCurrent',

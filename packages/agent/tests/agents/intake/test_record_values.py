@@ -6,10 +6,10 @@ from agent_testing.intake import NEEDS_BODY
 from agent_testing.intake import recorded_all
 from agent_testing.intake import validator
 
-from agent.agents.intake.tools import IntakeSession
-from agent.agents.intake.tools import RecordedValue
-from agent.agents.intake.tools import record_values
-from agent.agents.intake.tools import withdraw_values
+from agent.agents.intake.recording import record_values
+from agent.agents.intake.session import IntakeSession
+from agent.agents.intake.tool_inputs import RecordedValue
+from agent.agents.intake.withdrawal import withdraw_values
 
 
 @pytest.fixture
@@ -303,7 +303,7 @@ class TestWithdrawingOwnSuggestions:
 
 class TestTheNeedsAnswer:
     def test_a_confirmed_input_is_shown_as_confirmed_after_the_open_ones(self):
-        from agent.agents.intake.tools import render_needs
+        from agent.agents.intake.needs_rendering import render_needs
 
         confirmed = {**NEEDS_BODY["needs"][0], "key": "building_type@bldg1", "decisive": False, "state": "confirmed"}
         text = render_needs({**NEEDS_BODY, "needs": [confirmed, *NEEDS_BODY["needs"]]})
@@ -314,8 +314,8 @@ class TestTheNeedsAnswer:
         )
 
     def test_a_bounded_answer_names_the_call_that_shows_the_rest(self):
-        from agent.agents.intake.tools import MAX_RENDERED_NEEDS
-        from agent.agents.intake.tools import render_needs
+        from agent.agents.intake.needs_rendering import MAX_RENDERED_NEEDS
+        from agent.agents.intake.needs_rendering import render_needs
 
         many = [
             {**NEEDS_BODY["needs"][1], "key": f"k{index}", "decisive": False} for index in range(MAX_RENDERED_NEEDS + 5)

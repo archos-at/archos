@@ -22,6 +22,7 @@ import { formatBytes } from '@/lib/format'
 import { useAppConfig } from '@/shared/context'
 import { DEFAULT_ACCEPTED_FILE_TYPES, DEFAULT_MAX_FILE_SIZE } from '../constants'
 import { withZipAccepted } from '../lib/zip-types'
+import { withMailArchivesAccepted } from '../lib/mail-archive'
 import { documentsOnlyAccept, photoIntake, prepareSitePhotos } from '../lib/site-photo'
 
 interface ProjectUppyUploadProps {
@@ -37,6 +38,7 @@ interface ProjectUppyUploadProps {
   pickFilesRef?: MutableRefObject<(() => void) | null>
   pickFolderRef?: MutableRefObject<(() => void) | null>
   onSendByMail?: () => void
+  acceptsMailArchives?: boolean
 }
 
 export function ProjectUppyUpload({
@@ -50,6 +52,7 @@ export function ProjectUppyUpload({
   pickFilesRef,
   pickFolderRef,
   onSendByMail,
+  acceptsMailArchives = false,
 }: ProjectUppyUploadProps) {
   const t = useTranslations(filesCopy)
   const tCapture = useTranslations(captureCopy)
@@ -81,7 +84,8 @@ export function ProjectUppyUpload({
     imageUploadBlockedReason: fileUpload?.imageUploadBlockedReason ?? null,
   })
   const photoEntries = allowFolders && touch
-  const filesAccept = photoEntries ? documentsOnlyAccept(acceptedTypes) : acceptedTypes
+  const documentsAccept = photoEntries ? documentsOnlyAccept(acceptedTypes) : acceptedTypes
+  const filesAccept = acceptsMailArchives ? withMailArchivesAccepted(documentsAccept) : documentsAccept
 
   const handleChange =
     (source: 'camera' | 'picker' = 'picker') =>
@@ -266,6 +270,7 @@ export function ProjectUppyUpload({
           <p className="text-muted-foreground px-2.5 pb-1.5 pt-1 text-xs leading-snug" role="note" data-testid="project-upload-limits">
             {!touch && <span className="block">{t('uploadZone.dropAnywhere')}</span>}
             {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
+            {acceptsMailArchives && <span className="mt-1 block">{t('uploadZone.mailArchives')}</span>}
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

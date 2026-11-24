@@ -34,7 +34,7 @@ const REAL_TOKEN = 'a-real-secret-token'
 const BACKEND_JOB_ID = 'backend-job-1'
 
 const makeRequest = (body: unknown, token?: string) =>
-  new Request(`https://grid.test/api/internal/jobs/${BACKEND_JOB_ID}/outcome`, {
+  new Request(`https://example.test/api/internal/jobs/${BACKEND_JOB_ID}/outcome`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

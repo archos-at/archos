@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pypdfium2 as pdfium
 import pytest
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import pdf_rasters
 from PIL import Image
 
 
@@ -136,10 +137,10 @@ def _extract_records(**overrides: object) -> tuple[list[dict], int, int]:
         "min_height": 100,
         "skip_pages": frozenset(),
         "max_images": None,
-        "max_pixels": adapter.MAX_IMAGE_PIXELS,
+        "max_pixels": limits.MAX_IMAGE_PIXELS,
     }
     kwargs.update(overrides)
-    return adapter._extract_image_records("ignored.pdf", **kwargs)  # type: ignore[arg-type]
+    return pdf_rasters._extract_image_records("ignored.pdf", **kwargs)  # type: ignore[arg-type]
 
 
 def _extract(**overrides: object) -> tuple[list[dict], int]:
@@ -281,7 +282,7 @@ def test_a_metadata_less_over_budget_raster_costs_only_its_sizing_decode(monkeyp
 def test_the_refusal_count_survives_the_analysis_wrapper(monkeypatch, ledger) -> None:
     _install(monkeypatch, _Document([_Page([_ImageObject((20000, 20000), ledger), _ImageObject((700, 700), ledger)])]))
 
-    images, over_cap, over_pixel_budget = adapter._embedded_images_for_analysis(
+    images, over_cap, over_pixel_budget = pdf_rasters._embedded_images_for_analysis(
         "ignored.pdf", rendered_pages=set(), enabled=True
     )
 
@@ -316,16 +317,16 @@ def test_only_one_full_resolution_raster_is_open_at_a_time(monkeypatch, ledger) 
 
 
 def test_a_downscaled_raster_outlives_the_bitmap_it_came_from(monkeypatch, ledger) -> None:
-    with adapter.pdfium_lock():
-        image = adapter._downscaled_raster(_ImageObject((3200, 1600), ledger))
+    with pdf_rasters.pdfium_lock():
+        image = pdf_rasters._downscaled_raster(_ImageObject((3200, 1600), ledger))
 
-    assert image.size == (adapter.VLM_MAX_IMAGE_DIM, adapter.VLM_MAX_IMAGE_DIM // 2)
+    assert image.size == (limits.VLM_MAX_IMAGE_DIM, limits.VLM_MAX_IMAGE_DIM // 2)
     assert image.getpixel((0, 0)) == (0, 0, 0)
 
 
 def test_an_untouched_raster_is_detached_from_its_bitmap(monkeypatch, ledger) -> None:
-    with adapter.pdfium_lock():
-        image = adapter._downscaled_raster(_ImageObject((400, 300), ledger))
+    with pdf_rasters.pdfium_lock():
+        image = pdf_rasters._downscaled_raster(_ImageObject((400, 300), ledger))
 
     assert image.size == (400, 300)
     assert image.getpixel((0, 0)) == (0, 0, 0)
@@ -335,15 +336,15 @@ def test_the_first_page_render_is_clamped_to_the_page_render_bound(monkeypatch) 
     document = _RenderDocument((2384.0, 3370.0))
     _install(monkeypatch, document)
 
-    adapter._render_first_pdf_page("ignored.pdf", scale=2)
+    pdf_rasters._render_first_pdf_page("ignored.pdf", scale=2)
 
-    assert document.record["scale"] == pytest.approx(adapter.PAGE_RENDER_MAX_DIM / 3370.0)
+    assert document.record["scale"] == pytest.approx(limits.PAGE_RENDER_MAX_DIM / 3370.0)
 
 
 def test_an_ordinary_sheet_still_renders_at_the_requested_scale(monkeypatch) -> None:
     document = _RenderDocument((595.0, 842.0))
     _install(monkeypatch, document)
 
-    adapter._render_first_pdf_page("ignored.pdf", scale=2)
+    pdf_rasters._render_first_pdf_page("ignored.pdf", scale=2)
 
     assert document.record["scale"] == 2

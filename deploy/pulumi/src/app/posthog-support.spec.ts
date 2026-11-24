@@ -59,7 +59,7 @@ describe("PostHog Support wiring", () => {
     expect(Object.keys(data ?? {})).not.toContain("POSTHOG_PERSONAL_API_KEY");
   });
 
-  it("reads the key from the Secret and defaults the project id to Piloti's EU project", async () => {
+  it("reads the key from the Secret and defaults the project id to the platform's EU project", async () => {
     const { env, secret } = render(
       { "grid-oib:posthogPersonalApiKey": "phx_test" }, // pragma: allowlist secret
       ["grid-oib:posthogPersonalApiKey"],

@@ -17,10 +17,10 @@ services:
       de: Anthropic (USA) — KI-Assistent in der Entwicklung (Claude Code in Issues und Pull Requests); erhält Quellcode, Issue-Texte und CI-Protokolle, keine Daten aus {productName}.
       en: Anthropic (USA) — AI assistant in development (Claude Code on issues and pull requests); receives source code, issue text and CI logs, no data from {productName}.
   - id: registries
-    hosts: [ghcr.io, raw.githubusercontent.com, charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
+    hosts: [ghcr.io, raw.githubusercontent.com, packages.typst.org, charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
     copy:
-      de: Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.
-      en: Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
+      de: Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Typst, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.
+      en: Package registries, Helm charts and base images (PyPI, npm, Typst, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
   - id: letsencrypt
     hosts: [acme-v02.api.letsencrypt.org, acme-staging-v02.api.letsencrypt.org]
     copy:

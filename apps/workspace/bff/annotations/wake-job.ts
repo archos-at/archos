@@ -24,6 +24,7 @@ import { delegationEventId } from './wake-ids'
 import { announceAgentWork } from './agent-work'
 import { findWake, handBackDelegation, settleWake } from './wake-repository'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const WAKE_REQUIRES = [
   'user_message.trigger',
@@ -133,7 +134,7 @@ async function handBack(organizationId: string, payload: AgentWakePayload, doc: 
         kind: 'annotations.changed',
         annotationIds: [mark.id],
         change: 'updated',
-        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: 'piloti' },
+        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: AGENT_KIND },
       }).catch(() => undefined)
     }
     return handedBack
@@ -214,7 +215,7 @@ export async function runAgentWake(
     organizationId,
   })
   if (!session) return end('suppressed', 'the person is no longer a member')
-  if (!wakesEnabled(session)) return end('suppressed', 'piloti-wakes is off for the organization')
+  if (!wakesEnabled(session)) return end('suppressed', 'agent-thread-replies is off for the organization')
   const doc = await writableDocument(session, payload.documentId)
   if (!doc) return end('suppressed', 'the person may no longer write the document')
   const mark = await findDocumentAnnotation(organizationId, doc.id, payload.annotationId)

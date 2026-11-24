@@ -224,6 +224,34 @@ class TestFocusRegion:
         assert {"user_message.focus_region", "user_message.reply_in_thread"} <= set(ACCEPTED_CLIENT_FIELDS)
 
 
+class TestAnswerExcerpt:
+    def _message(self, excerpt: str) -> dict:
+        return {
+            "type": "user_message",
+            "conversation_id": "c1",
+            "message_id": "m1",
+            "text": "Woher kommt das?",
+            "answer_excerpt": excerpt,
+        }
+
+    def test_a_question_carries_the_selected_part_of_an_answer(self) -> None:
+        message = CLIENT_MESSAGE.validate_python(self._message("höchstens 40 m"))
+        assert message.answer_excerpt == "höchstens 40 m"
+
+    def test_a_selected_part_is_bounded(self) -> None:
+        from agent.common.wire_v2 import MAX_ANSWER_EXCERPT_CHARS
+
+        CLIENT_MESSAGE.validate_python(self._message("x" * MAX_ANSWER_EXCERPT_CHARS))
+        for refused in ("", "x" * (MAX_ANSWER_EXCERPT_CHARS + 1)):
+            with pytest.raises(ValidationError):
+                CLIENT_MESSAGE.validate_python(self._message(refused))
+
+    def test_the_field_is_named_in_the_hello(self) -> None:
+        from agent.common.wire_v2 import ACCEPTED_CLIENT_FIELDS
+
+        assert "user_message.answer_excerpt" in ACCEPTED_CLIENT_FIELDS
+
+
 class TestViewerAction:
     def _value(self, name: str, **args) -> dict:
         return {

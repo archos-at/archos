@@ -17,7 +17,7 @@ import { POST } from './route'
 const REAL_TOKEN = 'a-real-secret-token'
 
 const makeRequest = (token?: string) =>
-  new Request('https://grid.test/api/internal/maintenance/reconcile-vectors', {
+  new Request('https://example.test/api/internal/maintenance/reconcile-vectors', {
     method: 'POST',
     headers: { ...(token ? { 'x-grid-internal-token': token } : {}) },
   })

@@ -23,6 +23,7 @@ const HEADS = { file: STORE_SPEC, name: 'moves the heads on confirmation, record
 const APPEND_ONLY = { file: STORE_SPEC, name: 'refuses to update or delete a revision, a body or a check on its own' }
 const CROSS_OWNER = { file: STORE_SPEC, name: 'refuses a copy on another office’s edition, and a tenant write of a platform row' }
 const RESIDUE = { file: STORE_SPEC, name: 'leaves nothing behind once the document is deleted' }
+const UNLISTED = { file: STORE_SPEC, name: 'takes an entry off the norms and back with its heads, values and checks, and lets a new proposal replace it' }
 const PROPOSAL = { file: SERVICE_SPEC, name: 'takes what the caller read over what the reading guessed, and says whose values they are' }
 const NAMED = { file: TURN_SPEC, name: 'names the standard, its edition, its file and its last check' }
 const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna, not in Graz, and says when the authority is unknown' }
@@ -80,7 +81,7 @@ const REVIEW_FOUR_EYES = {
 const ROUND_TRIP = { file: PLATFORM_SPEC, name: 'a rollback round trip: each head returns to where it was, and every move is kept' }
 const LISTING = {
   file: PLATFORM_SPEC,
-  name: 'a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before',
+  name: 'a second office reads the platform’s records once entitled to Austria, and is told of no norm listed without text',
 }
 const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
@@ -140,6 +141,8 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_records.document_id', consumer: STORE, test: RESIDUE },
   { element: 'knowledge_records.created_by', consumer: STORE, test: ISOLATION },
   { element: 'knowledge_records.created_at', consumer: STORE, test: ISOLATION },
+  { element: 'knowledge_records.unlisted_at', consumer: STORE, test: UNLISTED },
+  { element: 'knowledge_records.unlisted_head_revision_id', consumer: STORE, test: UNLISTED },
   { element: 'knowledge_revisions.revision_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_revisions.record_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_revisions.record_type', consumer: STORE, test: HEADS },
@@ -199,11 +202,11 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_manifestation_revisions.licence_class=licensed', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'keeps a licensed copy metadata-only until the office states its licence covers AI processing' } },
   { element: 'knowledge_manifestation_revisions.licence_class=public_open', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'uses a public copy’s text without any statement' } },
   { element: 'knowledge_manifestation_revisions.licence_class=public_restricted', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'uses a public copy’s text without any statement' } },
-  { element: 'point.office_id', consumer: 'packages/knowledge-layer/src/vector_store/scope.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_office_a_never_reads_office_bs_point_in_a_shared_scope' } },
+  { element: 'point.office_id', consumer: 'packages/knowledge-layer/src/knowledge_layer/vector_store/scope.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_office_a_never_reads_office_bs_point_in_a_shared_scope' } },
   { element: 'point.licence_class', consumer: 'apps/agent-host/src/agent_host/routes/knowledge_mark.py', test: { file: MARK_SPEC, name: 'test_the_mark_lands_on_every_chunk_of_the_file' } },
-  { element: 'point.ai_processing_attested', consumer: 'packages/knowledge-layer/src/vector_store/schema.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_the_seams_attestation_and_quote_cap_ride_along' } },
-  { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
-  { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/schema.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
+  { element: 'point.ai_processing_attested', consumer: 'packages/knowledge-layer/src/knowledge_layer/vector_store/schema.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_the_seams_attestation_and_quote_cap_ride_along' } },
+  { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/knowledge_layer/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
+  { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/knowledge_layer/vector_store/schema.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
   { element: 'knowledge_records.country_id', consumer: RECORD_VISIBILITY, test: LISTING },
   { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },

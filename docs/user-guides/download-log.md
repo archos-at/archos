@@ -13,7 +13,7 @@ One entry each time ARCHOS hands a document's bytes to a person:
 
 | What the person did | Recorded | Shown in the log as |
 |---|---|---|
-| **Downloaded** a file (the download button) | Always, wherever the file is filed: a project folder, the Büroablage, a chat attachment | `Download` |
+| **Downloaded** a file (the download button) | Always, wherever the file is filed: a project folder, the Bürobibliothek, a chat attachment | `Download` |
 | **Opened** a file in the viewer (preview, PDF viewer, text preview, a version from the version list, the 3D model) | Only when the file is in a folder with its own access list, or in a folder below one | `Vorschau`, `Im Viewer geöffnet`, `Textvorschau`, `Version geöffnet`, `3D-Modell geöffnet` |
 
 Each entry holds: the person (their WorkOS user id), the organization, the
@@ -23,7 +23,9 @@ list, the time, and which of the above it was. Names and email addresses are
 not copied into the log; the page looks them up when an admin reads it.
 
 Not recorded: thumbnails (they are not the file), what ARCHOS's agent reads
-while answering (that is use of a folder, which has its own record), the
+while answering (that is use of a folder, which has its own record; this
+includes a document the agent copies into a script it runs, an open decision in
+[`agent-code-execution.md`](../design/agent-code-execution.md#decisions)), the
 platform's shared knowledge base, exports of a chat answer, and the opening of
 documents in ordinary folders. That last one is a decision, not an oversight:
 the preview link of an ordinary folder is a link to the whole file, so a person
