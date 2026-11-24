@@ -47,5 +47,6 @@ async function sessionFor(
     roles: membership.roles,
     permissions: [...permissions],
     featureFlags,
+    pinnedForTurn: true,
   }
 }

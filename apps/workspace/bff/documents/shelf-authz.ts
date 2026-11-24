@@ -9,7 +9,7 @@ const PROJECT_WRITE_PERMISSIONS = ['project:documents:write', 'project:edit'] as
 
 function requireOwnShelf(session: AuthorizedSession, userId: string): void {
   if (userId !== session.userId) throw new NotFoundError()
-  requirePersonalShelfDoor()
+  requirePersonalShelfDoor(session)
 }
 
 export async function requireShelfRead(session: AuthorizedSession, shelf: DocumentShelf): Promise<void> {

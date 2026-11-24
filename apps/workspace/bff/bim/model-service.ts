@@ -58,7 +58,7 @@ async function assertDocumentReadable(
       return
     case 'personal':
       if (document.ownerUserId !== session.userId) throw new NotFoundError(notFoundMessage)
-      requirePersonalShelfDoor()
+      requirePersonalShelfDoor(session)
       return
     case 'project': {
       if (document.projectId === null) throw new NotFoundError(notFoundMessage)

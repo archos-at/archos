@@ -123,7 +123,7 @@ export async function reachFor(session: AuthorizedSession, scope: SearchScope): 
     return { ...base, projects: [reached], officeShelf: null, folderIds }
   }
   if (scope.kind === 'personal') {
-    requirePersonalShelfDoor()
+    requirePersonalShelfDoor(session)
     const shelf = personalShelf(session.userId)
     const folderIds = scope.folderId ? await folderSubtree(session.organizationId, shelf, scope.folderId, []) : null
     const personal = { collection: personalShelfCollectionName(session.organizationId, session.userId), userId: session.userId }

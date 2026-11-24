@@ -48,7 +48,7 @@ export async function getAccessibleDocument(
     }
     case 'personal': {
       if (doc.ownerUserId !== session.userId) throw new NotFoundError()
-      requirePersonalShelfDoor()
+      requirePersonalShelfDoor(session)
       return doc
     }
     case 'project': {

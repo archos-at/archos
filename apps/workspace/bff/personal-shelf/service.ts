@@ -35,7 +35,7 @@ export interface PersonalShelfListResult {
 }
 
 function ownShelf(session: AuthorizedSession): PersonalShelf {
-  requirePersonalShelfDoor()
+  requirePersonalShelfDoor(session)
   return personalShelf(session.userId)
 }
 const ownReader = (session: AuthorizedSession): ShelfReader => memberReader(session.userId)

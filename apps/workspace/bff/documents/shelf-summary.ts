@@ -63,7 +63,7 @@ export function summarizePersonalShelfDocuments(
   session: AuthorizedSession,
   options: ShelfSummaryOptions = {},
 ): Promise<ShelfSummary> {
-  requirePersonalShelfDoor()
+  requirePersonalShelfDoor(session)
   return readShelfSummary(personalShelf(session.userId), session.organizationId, {
     reader: memberReader(session.userId),
     authoredBy: options.authoredBy,

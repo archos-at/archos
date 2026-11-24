@@ -31,17 +31,28 @@ const IN_PRODUCT_DOOR = callDoorOf({ principal: { actor: AGENT_KIND } as AgentPr
 
 describe('which doors reach a person’s own shelf (ADR-0191)', () => {
   it('lets the person in the app and their own mcp agent in', async () => {
-    expect(mayReachPersonalShelf()).toBe(true)
-    expect(await through('mcp', async () => mayReachPersonalShelf())).toBe(true)
+    expect(mayReachPersonalShelf(me)).toBe(true)
+    expect(await through('mcp', async () => mayReachPersonalShelf(me))).toBe(true)
   })
 
   it.each<CallDoor>(['a2a', 'platform', IN_PRODUCT_DOOR])('lets the %s door reach nothing', async (door) => {
-    expect(await through(door, async () => mayReachPersonalShelf())).toBe(false)
+    expect(await through(door, async () => mayReachPersonalShelf(me))).toBe(false)
     await expect(through(door, () => requireShelfRead(me, personalShelf('u-me')))).rejects.toBeInstanceOf(NotFoundError)
   })
 
   it('refuses an acting call that names no door', async () => {
-    expect(await runAsActingSession(me, async () => mayReachPersonalShelf(), 'agent')).toBe(false)
+    expect(await runAsActingSession(me, async () => mayReachPersonalShelf(me), 'agent')).toBe(false)
+  })
+})
+
+describe('a turn’s pinned session, as the internal routes resolve it for the in-product agent', () => {
+  const pinned = { ...me, pinnedForTurn: true } as AuthorizedSession
+
+  it('reaches nothing of the shelf, not even its own requester’s document', async () => {
+    expect(mayReachPersonalShelf(pinned)).toBe(false)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ id: 'd-own', scope: 'personal', projectId: null, ownerUserId: 'u-me' }))
+    await expect(getAccessibleDocument(pinned, 'd-own')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(requireShelfRead(pinned, personalShelf('u-me'))).rejects.toBeInstanceOf(NotFoundError)
   })
 })
 

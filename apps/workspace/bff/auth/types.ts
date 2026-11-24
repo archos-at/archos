@@ -29,6 +29,7 @@ export interface AuthorizedSession extends UserSession {
   organizationMembershipId: string
   role: string
   permissions: string[]
+  pinnedForTurn?: true
 }
 
 export function rolesOf(session: Pick<UserSession, 'role' | 'roles'>): string[] {
