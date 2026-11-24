@@ -3936,6 +3936,10 @@
     "de": "Die @-Liste zeigt Ihre Kolleginnen und Kollegen wieder an, sobald die Verbindung zur Anmeldung wiederhergestellt ist. Zuvor konnte eine fehlgeschlagene Abfrage sie für mehrere Minuten leer lassen."
   },
   {
+    "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+    "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+  },
+  {
     "en": "The Archiv and the inbox now rise as a large panel over whatever you were looking at, instead of taking over the whole screen as a separate page. Open one from inside a project and the project stays visible underneath, so you never lose your place — close it and you are exactly where you left off.",
     "de": "Das Archiv und die Inbox erscheinen jetzt als großes Panel über der gerade geöffneten Ansicht, statt als separate Seite den ganzen Bildschirm einzunehmen. Öffnen Sie eines davon innerhalb eines Projekts, bleibt das Projekt darunter sichtbar. So verlieren Sie nicht den Überblick – beim Schließen gelangen Sie genau an die Stelle zurück, an der Sie aufgehört haben."
   },
