@@ -8,6 +8,7 @@ import {
   judgeWorkspaceRead,
   ownRestrictingFolders,
   recordWorkspaceHandOut,
+  shelfUseSinceJudged,
 } from './conversation-audience'
 import type { AgentOperation } from './operation'
 import type { TargetInput } from './operation-targets'
@@ -42,6 +43,7 @@ export interface ReadGate {
     },
     input?: TargetInput,
   ): Promise<string | null>
+  afterRead(op: { readonly path?: AgentOperation['path']; readonly spansProjects?: AgentOperation['spansProjects'] }, input?: TargetInput): Promise<string | null>
   mayHandOnLink(): Promise<boolean>
 }
 
@@ -62,6 +64,10 @@ function buildGate(principal: AgentPrincipal): ReadGate {
       if ('refusal' in judged) return judged.refusal
       if (judged.personalShelf && !(await admitPersonalShelfRead(principal))) return READ_REFUSALS.personalShelf
       return (await recordWorkspaceHandOut(principal, now, judged.handOut)) ? null : READ_REFUSALS.audienceChanged
+    },
+    async afterRead(op, input = {}) {
+      if (!op.path || !(await audienceOnce())) return null
+      return shelfUseSinceJudged(principal, { path: op.path, spansProjects: op.spansProjects }, input)
     },
     async mayHandOnLink() {
       const now = await audienceOnce()

@@ -89,6 +89,8 @@ export async function readOperationBody(
     const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent')
     record(result.status)
     if (!result.ok) return { refusal: `${name} was refused (HTTP ${result.status}).` }
+    const late = await readGateFor(ctx.principal).afterRead(op, input)
+    if (late) return { refusal: late }
     return { body: result.body }
   } catch (error) {
     if (error instanceof OperationInputError) {
@@ -163,6 +165,10 @@ export async function executeOperation(
     }
     const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx) })
     record(result.status)
+    const late = annotationsOf(op).readOnlyHint ? await gate.afterRead(op, input) : null
+    if (late) {
+      return { refusal: problemFailure(late, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
+    }
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
       return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }

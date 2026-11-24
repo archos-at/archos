@@ -26,6 +26,7 @@ vi.mock('./conversation-audience', async (importOriginal) => ({
   conversationAudienceOf: vi.fn(),
   ownRestrictingFolders: vi.fn(async () => ['folder_own']),
   recordWorkspaceHandOut: vi.fn(),
+  shelfUseSinceJudged: vi.fn(async () => null),
 }))
 
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
@@ -38,6 +39,7 @@ import {
   conversationAudienceOf,
   ownRestrictingFolders,
   recordWorkspaceHandOut,
+  shelfUseSinceJudged,
 } from './conversation-audience'
 import { callDecision, visibleOperations } from './policy'
 import { callOperation } from './dispatch'
@@ -228,6 +230,20 @@ describe('in a conversation that is the requester’s alone', () => {
       vi.mocked(callOperation).mock.invocationCallOrder[0],
     )
     expect(callOperation).toHaveBeenCalledTimes(2)
+  })
+
+  it('withholds what a read brought back when a chat it named drew on its owner’s shelf meanwhile', async () => {
+    vi.mocked(placesOf).mockResolvedValue([{ projectId: 'proj_1', conversationId: null }])
+    vi.mocked(shelfUseSinceJudged).mockResolvedValueOnce(READ_REFUSALS.personalShelf)
+    vi.mocked(callOperation).mockResolvedValueOnce({ status: 200, ok: true, body: { title: 'Bewerbung privat' } })
+
+    const result = await runOperation(ctx(inProduct()), 'project-get', { params: { id: 'proj_1' } })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result)).not.toContain('Bewerbung privat')
+    expect(shelfUseSinceJudged).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ path: '/api/projects/[id]' }), {
+      params: { id: 'proj_1' },
+    })
   })
 
   it('runs a read of another project in reach as a hand-out of that project', async () => {

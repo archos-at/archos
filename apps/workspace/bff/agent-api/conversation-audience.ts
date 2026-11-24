@@ -181,6 +181,22 @@ function namesPersonalScope(input: TargetInput): boolean {
   return input.query?.scope === 'personal' || body.scope === 'personal'
 }
 
+export async function shelfUseSinceJudged(
+  principal: AgentPrincipal,
+  op: Pick<AgentOperation, 'path' | 'spansProjects'>,
+  input: TargetInput,
+): Promise<string | null> {
+  const targets = namedTargets(principal, op, input)
+  if (typeof targets === 'string' || targets.length === 0) return null
+  const { organizationId, userId } = principal.session
+  return withTenant(tenantOf(principal), async () => {
+    for (const place of await placesOf(organizationId, userId, targets)) {
+      if (place && (await otherChatShelfRefusal(principal, place, organizationId)) === 'refused') return READ_REFUSALS.personalShelf
+    }
+    return null
+  })
+}
+
 async function otherChatShelfRefusal(
   principal: AgentPrincipal,
   place: TargetPlace,
