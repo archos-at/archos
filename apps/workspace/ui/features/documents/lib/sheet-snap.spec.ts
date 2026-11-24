@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { SnapScale } from '@/lib/drawing-tape/snap-wire'
 import {
   buildSnapIndex,
+  pageWideRatio,
   provisionalArea,
   provisionalLength,
   snapPoint,
@@ -122,5 +123,18 @@ describe('provisional numbers', () => {
       )
     ).toBeNull()
     expect(provisionalArea(square.slice(0, 2), [page])).toBeNull()
+  })
+})
+
+describe('pageWideRatio', () => {
+  const scale = (region: SnapScale['region'], ratio: number | null) =>
+    ({ region, state: 'estimated', source: 'scale_note', metresPerShare: null, ratio }) as SnapScale
+
+  it('names the ratio the whole page agrees on, and none for a frame, a disagreement or no scale', () => {
+    expect(pageWideRatio([scale(null, 100), scale(null, 100)])).toBe(100)
+    expect(pageWideRatio([scale([0, 0, 0.5, 0.5], 50)])).toBeNull()
+    expect(pageWideRatio([scale(null, 100), scale(null, 50)])).toBeNull()
+    expect(pageWideRatio([scale(null, null)])).toBeNull()
+    expect(pageWideRatio(null)).toBeNull()
   })
 })

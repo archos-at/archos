@@ -91,8 +91,8 @@ describe('DocumentActionsMenu — a surface’s own actions', () => {
 })
 
 describe('DocumentActionsMenu — deleting', () => {
-  it('asks first, names the document, and reports it upward on confirm', async () => {
-    server.use(http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 204 })))
+  it('asks first, names the document and the bin, and reports it upward on confirm', async () => {
+    server.use(http.post('/api/documents/:id/bin', () => HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })))
     const onDeleted = vi.fn()
     const user = userEvent.setup()
     render(<DocumentActionsMenu document={DOCUMENT} scope="files" onDeleted={onDeleted} />)
@@ -101,7 +101,7 @@ describe('DocumentActionsMenu — deleting', () => {
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
     expect(await screen.findByText('Delete “Einreichplan_EG.pdf”?')).toBeInTheDocument()
-    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
+    expect(screen.getByText(/can be restored/i)).toBeInTheDocument()
 
     await user.click(screen.getByTestId('document-delete-confirm'))
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith('doc-1'))
@@ -126,7 +126,7 @@ describe('DocumentActionsMenu — deleting', () => {
   })
 
   it('leaves the question on screen when the delete fails', async () => {
-    server.use(http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 500 })))
+    server.use(http.post('/api/documents/:id/bin', () => new HttpResponse(null, { status: 500 })))
     const onDeleted = vi.fn()
     const user = userEvent.setup()
     render(<DocumentActionsMenu document={DOCUMENT} scope="files" onDeleted={onDeleted} />)
@@ -142,7 +142,7 @@ describe('DocumentActionsMenu — deleting', () => {
   it('says a legal hold keeps the document, instead of a generic failure', async () => {
     const toastError = vi.spyOn((await import('sonner')).toast, 'error')
     server.use(
-      http.delete('/api/documents/:id', () =>
+      http.post('/api/documents/:id/bin', () =>
         HttpResponse.json(
           { error: 'held', code: 'CONFLICT', details: { reason: 'legal_hold', entityType: 'document' } },
           { status: 409 }

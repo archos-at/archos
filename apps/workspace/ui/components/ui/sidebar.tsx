@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-is-mobile'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useSidebarPeek } from '@/components/ui/sidebar-peek'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar.width'
@@ -37,6 +38,8 @@ type SidebarContextValue = {
   setOpen: (open: boolean | ((value: boolean) => boolean)) => void
   isMobile: boolean
   toggleSidebar: () => void
+  peek: boolean
+  setPeek: (peek: boolean) => void
   width: number
   setWidth: (width: number) => void
 }
@@ -95,6 +98,8 @@ function SidebarProvider({
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const [width, _setWidth] = React.useState(SIDEBAR_WIDTH)
+  const [peeking, setPeek] = React.useState(false)
+  const peek = peeking && !open && !isMobile
 
   React.useEffect(() => {
     if (openProp !== undefined) return
@@ -142,10 +147,12 @@ function SidebarProvider({
       setOpen,
       isMobile,
       toggleSidebar,
+      peek,
+      setPeek,
       width,
       setWidth,
     }),
-    [state, open, setOpen, isMobile, toggleSidebar, width, setWidth],
+    [state, open, setOpen, isMobile, toggleSidebar, peek, width, setWidth],
   )
 
   const wrapperStyle: SidebarStyle = {
@@ -174,14 +181,17 @@ function SidebarProvider({
 function Sidebar({
   side = 'left',
   collapsible = 'offcanvas',
+  peekOnHover = false,
   className,
   children,
   ...props
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right'
   collapsible?: 'offcanvas' | 'icon'
+  peekOnHover?: boolean
 }): React.JSX.Element | null {
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, peek, setPeek } = useSidebar()
+  const peekHandlers = useSidebarPeek(peekOnHover && collapsible === 'icon' && state === 'collapsed', peek, setPeek)
 
 
   if (isMobile) return null
@@ -190,7 +200,9 @@ function Sidebar({
     <div
       className="group peer hidden text-sidebar-foreground md:block"
       data-state={state}
-      data-collapsible={state === 'collapsed' ? collapsible : ''}
+      data-collapsible={state === 'collapsed' && !peek ? collapsible : ''}
+      data-gap={state === 'collapsed' ? collapsible : ''}
+      data-peek={peek || undefined}
       data-side={side}
       data-slot="sidebar"
     >
@@ -212,9 +224,9 @@ function Sidebar({
         data-slot="sidebar-gap"
         className={cn(
           'relative w-(--sidebar-width) bg-transparent',
-          'group-data-[collapsible=offcanvas]:w-0',
+          'group-data-[gap=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
-          'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+          'group-data-[gap=icon]:w-(--sidebar-width-icon)',
         )}
       />
       <div
@@ -225,9 +237,11 @@ function Sidebar({
             ? 'left-0 group-data-[collapsible=offcanvas]:-translate-x-full'
             : 'right-0 group-data-[collapsible=offcanvas]:translate-x-full',
           'group-data-[side=left]:border-r group-data-[side=right]:border-l border-sidebar-border', 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+          'group-data-[peek]:z-30 group-data-[peek]:animate-rail-peek motion-reduce:group-data-[peek]:animate-none',
           className,
         )}
         {...props}
+        {...peekHandlers}
       >
         <div
           data-sidebar="sidebar"
@@ -261,7 +275,7 @@ function SidebarRail({
   onKeyDown,
   ...props
 }: React.ComponentProps<'button'>): React.JSX.Element {
-  const { toggleSidebar, setOpen, state, width, setWidth } = useSidebar()
+  const { toggleSidebar, setOpen, state, peek, width, setWidth } = useSidebar()
   const [resizing, setResizing] = React.useState(false)
   const dragRef = React.useRef<RailDrag | null>(null)
   const suppressClickRef = React.useRef(false)
@@ -315,7 +329,7 @@ function SidebarRail({
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>): void => {
     onPointerDown?.(event)
     if (event.button !== 0 || event.defaultPrevented) return
-    const startWidth = state === 'collapsed' ? SIDEBAR_WIDTH_ICON : width
+    const startWidth = state === 'collapsed' && !peek ? SIDEBAR_WIDTH_ICON : width
     dragRef.current = {
       startX: event.clientX,
       startWidth,
@@ -527,7 +541,7 @@ function SidebarMenuButton({
   tooltipWhenExpanded?: boolean
 } & VariantProps<typeof sidebarMenuButtonVariants>): React.JSX.Element {
   const Comp = asChild ? Slot : 'button'
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, peek } = useSidebar()
 
   const button = (
     <Comp
@@ -547,7 +561,7 @@ function SidebarMenuButton({
 
   const tooltipProps = typeof tooltip === 'string' ? { children: tooltip } : tooltip
 
-  const expanded = state !== 'collapsed'
+  const expanded = state !== 'collapsed' || peek
   return (
     <Tooltip delayDuration={expanded && tooltipWhenExpanded ? 700 : undefined}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>

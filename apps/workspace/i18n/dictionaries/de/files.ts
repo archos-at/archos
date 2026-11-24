@@ -409,7 +409,8 @@ export const files: typeof en.files = {
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
     searchPlaceholder: 'Suchen…',
-    searchPlaceholderEverything: 'Filtern, Enter sucht alles…',
+    searchPlaceholderProject: 'In der Projektablage suchen …',
+    searchPlaceholderOffice: 'In der Bürobibliothek suchen …',
     searchLabel: 'Dateien durchsuchen',
     noMatch: 'Keine Dateien entsprechen „{query}“',
     noMatchDescription:
@@ -724,13 +725,20 @@ export const files: typeof en.files = {
     action: 'Dokument löschen',
     title: '„{name}“ löschen?',
     confirm:
-      'Dadurch wird das Dokument aus diesem Projekt entfernt. Dies kann nicht rückgängig gemacht werden.',
+      'Das Dokument kommt in den Papierkorb des Projekts. Dort lässt es sich wiederherstellen, bis es endgültig gelöscht wird.',
     confirmAction: 'Löschen',
     cancel: 'Abbrechen',
     deleting: 'Wird gelöscht…',
     success: '„{name}“ wurde aus dem Projekt entfernt',
     error: 'Das Dokument konnte nicht gelöscht werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
+  },
+  erase: {
+    title: '„{name}“ löschen?',
+    confirm: 'Die zurückgehaltene Datei wird endgültig gelöscht. Sie kommt nicht in den Papierkorb.',
+    confirmAction: 'Endgültig löschen',
+    deleting: 'Wird gelöscht…',
+    error: 'Das Dokument konnte nicht gelöscht werden',
   },
   zip: {
     reading: 'ZIP wird gelesen…',
@@ -997,6 +1005,8 @@ export const files: typeof en.files = {
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
     headlineNothingToRead: '{count, plural, one {# Dokument, nicht in der Wissensbasis} other {# Dokumente, keines in der Wissensbasis}}',
+    unreadHint: '{count, plural, one {# Dokument konnte nicht gelesen werden.} other {# Dokumente konnten nicht gelesen werden.}}',
+    unreadHintShow: 'Ansehen',
     states: {
       readable: '{count} gelesen',
       reading: '{count, plural, one {# wird gelesen} other {# werden gelesen}}',
@@ -1680,6 +1690,7 @@ export const files: typeof en.files = {
       scale: {
         button: {
           none: 'Ohne Maßstab',
+          estimated: 'Maßstab {ratio}, geschätzt',
           one: 'Maßstab {ratio}',
           two: 'Maßstab {ratio} · {other}',
           count: '{count, plural, one {# Maßstab} other {# Maßstäbe}}',
@@ -1692,6 +1703,7 @@ export const files: typeof en.files = {
         you: 'Sie',
         where: {
           page: 'ganze Seite',
+          document: 'alle Seiten',
           topLeft: 'Rahmen oben links',
           top: 'Rahmen oben',
           topRight: 'Rahmen oben rechts',
@@ -1732,6 +1744,7 @@ export const files: typeof en.files = {
           cancel: 'Abbrechen',
           next: 'Weiter',
           wholePage: 'Ganze Seite',
+          wholeDocument: 'Alle Seiten',
           gives: 'ergibt {ratio}',
         },
         form: {
@@ -1739,7 +1752,7 @@ export const files: typeof en.files = {
           lengthLabel: 'Wahre Länge der Strecke',
           unit: 'm',
           lengthInvalid: 'Geben Sie eine Länge über 0 ein',
-          region: 'Gilt im Rahmen',
+          region: 'Gilt für',
           regionMisses: 'Ohne beide Punkte',
           replaces: 'Ersetzt Maßstab {ratio}',
           ratio: 'Maßstab',
@@ -1760,13 +1773,13 @@ export const files: typeof en.files = {
           firstPoint: 'Klicken Sie auf den Anfang einer bekannten Strecke',
           secondPoint: 'Klicken Sie auf das Ende der Strecke',
           length: 'Wie lang ist die Strecke in Wirklichkeit?',
-          region: 'Ziehen Sie einen Rahmen um die Zeichnung, für die der Maßstab gilt',
+          region: 'Wo gilt der Maßstab? Ziehen Sie einen Rahmen.',
         },
         nextTouch: {
           firstPoint: 'Tippen Sie auf den Anfang einer bekannten Strecke',
           secondPoint: 'Tippen Sie auf das Ende der Strecke',
           length: 'Wie lang ist die Strecke in Wirklichkeit?',
-          region: 'Ziehen Sie einen Rahmen um die Zeichnung, für die der Maßstab gilt',
+          region: 'Wo gilt der Maßstab? Ziehen Sie einen Rahmen.',
         },
       },
     },

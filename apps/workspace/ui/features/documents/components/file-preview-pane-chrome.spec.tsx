@@ -217,7 +217,7 @@ describe('FilePreviewPane', () => {
     })
 
     it('closes itself once the document it describes has been deleted', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({})))
       const onClose = vi.fn()
       const onDeleted = vi.fn()
       const user = userEvent.setup()

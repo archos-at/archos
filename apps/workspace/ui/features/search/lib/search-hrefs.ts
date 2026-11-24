@@ -10,6 +10,7 @@ import type {
   ProjectHit,
   SearchBody,
   SearchHit,
+  SearchKind,
   SearchScopeQuery,
   SearchShelf,
 } from '@/lib/search/search-wire'
@@ -80,8 +81,8 @@ export function conversationHitHref(hit: Pick<ConversationHit, 'id' | 'projectId
   return hit.projectId ? `/app/projects/${encodeURIComponent(hit.projectId)}/chat${session}` : `/app/chat${session}`
 }
 
-export function searchPageHref(text: string, projectId: string | null = null): string {
-  const query = writeSearchParams({ ...EMPTY_SEARCH_STATE, text, projectId }).toString()
+export function searchPageHref(text: string, projectId: string | null = null, kinds: readonly SearchKind[] | null = null): string {
+  const query = writeSearchParams({ ...EMPTY_SEARCH_STATE, text, projectId, kinds: kinds ? [...kinds] : null }).toString()
   return query ? `/app/search?${query}` : '/app/search'
 }
 

@@ -938,6 +938,22 @@ body {
   }
 }
 
+@keyframes rail-peek {
+  from {
+    clip-path: inset(0 calc(100% - var(--sidebar-width-icon)) 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+/* The folded rail opening over the page under the pointer: the whole rail is
+   laid out at once and uncovered from its strip, so nothing in it or beside it
+   is laid out twice. Callers add `motion-reduce:animate-none`. */
+@utility animate-rail-peek {
+  animation: rail-peek var(--motion-base) var(--ease-entrance);
+}
+
 @keyframes progress-sweep {
   0% {
     transform: translateX(-100%);

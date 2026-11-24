@@ -115,6 +115,8 @@ export async function setCalibration(
       from: input.from,
       to: input.to,
       lengthM: input.lengthM,
+      scope: input.scope ?? 'page',
+      pageSize: input.pageSize ?? null,
       createdBy: session.userId,
     })
     captured(session, 'drawing_calibration_set', doc.id, row.page)

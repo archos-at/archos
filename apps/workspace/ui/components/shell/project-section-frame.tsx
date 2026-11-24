@@ -26,7 +26,7 @@ import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
 import { SECTION_CONTENT_WIDTH } from './section-layout'
 import { SectionToolRow, SectionToolRowScope } from './section-tool-row'
-import { PlaceContext, SectionPlaceUp, type SectionPlace } from './section-place'
+import { PlaceContext, SectionPlaceLine, SectionPlaceUp, type SectionPlace } from './section-place'
 import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -258,7 +258,9 @@ export function ProjectSectionFrame({
   const allFiles = files && (subpage ?? 'files/all') === 'files/all'
   const ownSearch = allFiles
   const opened = files && pathname.split('/').filter(Boolean).length > 5
-  const place = allFiles ? placeState : null
+  const reached = allFiles ? placeState : null
+  const place = phone ? reached : null
+  const pathPlace = phone ? null : reached
   const toolRow = files && actions !== null && (phone ? !actionsOnTitle : allFiles)
   const title = place ? <BreakableName text={place.title} /> : allFiles ? t('sections.files') : files ? t(`subpages.${subpage}.title`) : sectionLabel
   const projectStep = <span className="max-w-[16rem] shrink-0 truncate" title={projectName}>{projectName}</span>
@@ -337,6 +339,11 @@ export function ProjectSectionFrame({
             <SectionToolRow className="mt-4">{actions}</SectionToolRow>
           )}
         </div>
+        {pathPlace && (
+          <div className={cn('shrink-0 px-4 md:px-8', SECTION_CONTENT_WIDTH)}>
+            <SectionPlaceLine place={pathPlace} />
+          </div>
+        )}
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
     </SectionToolRowScope>

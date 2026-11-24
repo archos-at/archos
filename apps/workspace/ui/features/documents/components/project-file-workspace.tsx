@@ -135,7 +135,6 @@ export function ProjectFileWorkspace({
         renderHeader={(controls) => (
           <ProjectSectionActions>{controls}</ProjectSectionActions>
         )}
-        onOpenSearch={search.open}
         initialFolders={initialFolders}
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}

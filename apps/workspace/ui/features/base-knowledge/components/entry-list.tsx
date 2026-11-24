@@ -1,25 +1,26 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { Check, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
-import { SectionLabel } from '@/components/ui/section-label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Toggle } from '@/components/ui/toggle'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesBody, EntryCounts } from '@/lib/base-knowledge/wire'
-import type { Attention, BaseKnowledgeFilters } from '../hooks/use-base-knowledge'
+import { OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
+import { cn } from '@/lib/utils'
+import type { Attention, BaseKnowledgeFilters, Kind } from '../hooks/use-base-knowledge'
 import { EntryTable } from './entry-table'
 
-const ATTENTION: { key: Attention | null; label: 'filter.all' | 'filter.proposed' | 'filter.newerEdition' | 'filter.checkDue'; count: keyof EntryCounts }[] = [
-  { key: null, label: 'filter.all', count: 'all' },
-  { key: 'proposed', label: 'filter.proposed', count: 'proposed' },
-  { key: 'newer_edition', label: 'filter.newerEdition', count: 'newerEdition' },
-  { key: 'check_due', label: 'filter.checkDue', count: 'checkDue' },
+const ATTENTION: { key: Attention | null; label: 'filter.all' | 'filter.proposed' | 'filter.newerEdition' | 'filter.checkDue'; count: keyof EntryCounts; asks: boolean }[] = [
+  { key: null, label: 'filter.all', count: 'all', asks: false },
+  { key: 'proposed', label: 'filter.proposed', count: 'proposed', asks: true },
+  { key: 'newer_edition', label: 'filter.newerEdition', count: 'newerEdition', asks: true },
+  { key: 'check_due', label: 'filter.checkDue', count: 'checkDue', asks: false },
 ]
+const ALL = 'all'
 
 interface EntryListProps {
   list: BaseKnowledgeList
@@ -34,20 +35,85 @@ interface EntryListProps {
   onOpen: (entry: BaseKnowledgeEntry) => void
   loadingMore: boolean
   onLoadMore: () => void
-  labelled?: boolean
+  topics: readonly { id: string; name: string }[]
+  onTopic: (folderId: string | null) => void
 }
 
 function AttentionFilters({ counts, value, onChange }: { counts: EntryCounts; value: Attention | null; onChange: (next: Attention | null) => void }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label={t('column.status')} data-testid="base-knowledge-attention">
-      {ATTENTION.map(({ key, label, count }) => (
-        <Toggle key={label} variant="chip" size="sm" className="text-name" pressed={value === key} onPressedChange={() => onChange(key)}>
-          <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('column.status')} data-testid="base-knowledge-attention">
+      {ATTENTION.map(({ key, label, count, asks }) => (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+          data-testid={`base-knowledge-attention-${key ?? 'all'}`}
+          className={cn(
+            'text-name focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 transition-colors duration-quick focus-visible:outline-none focus-visible:ring-2',
+            value === key ? 'bg-desk text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
           {t(label)}
-          <span className="text-muted-foreground tabular-nums">{counts[count]}</span>
-        </Toggle>
+          <span
+            className={cn(
+              'text-meta rounded-full px-1.5 font-medium tabular-nums',
+              asks && counts[count] > 0 ? 'bg-warning-subtle text-warning' : value === key ? 'bg-sheet' : 'bg-desk text-foreground'
+            )}
+          >
+            {counts[count]}
+          </span>
+        </button>
       ))}
+    </div>
+  )
+}
+
+function TopicAndKind({
+  topics,
+  topic,
+  onTopic,
+  kind,
+  onKind,
+}: {
+  topics: readonly { id: string; name: string }[]
+  topic: string | null
+  onTopic: (folderId: string | null) => void
+  kind: Kind | null
+  onKind: (kind: Kind | null) => void
+}): JSX.Element {
+  const t = useTranslations(baseKnowledgeCopy)
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      {topics.length > 0 && (
+        <Select value={topic ?? ALL} onValueChange={(value) => onTopic(value === ALL ? null : value)}>
+          <SelectTrigger size="sm" className="w-40" aria-label={t('column.topic')} data-testid="base-knowledge-topic-filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t('filter.topicAll')}</SelectItem>
+            {topics.map((entry) => (
+              <SelectItem key={entry.id} value={entry.id}>
+                {entry.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Select value={kind ?? ALL} onValueChange={(value) => onKind(value === ALL ? null : (value as Kind))}>
+        <SelectTrigger size="sm" className="w-36" aria-label={t('column.kind')} data-testid="base-knowledge-kind-filter">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t('filter.kindAll')}</SelectItem>
+          {OFFICE_WORK_KINDS.map((value) => (
+            <SelectItem key={value} value={value}>
+              {t(`kind.${value}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -75,7 +141,8 @@ function MoveTo({ folders, onMove }: { folders: BaseKnowledgeFolders; onMove: (f
 export function EntryList(props: EntryListProps): JSX.Element {
   const { list, folders, filters, onFilters, selected } = props
   const t = useTranslations(baseKnowledgeCopy)
-  const filtered = filters.attention !== null || filters.kind !== null || filters.search.trim() !== ''
+  const filtered = filters.attention !== null || filters.kind !== null || filters.folderId !== null || filters.search.trim() !== ''
+  const topicName = new Map(props.topics.map((topic) => [topic.id, topic.name]))
   return (
     <section aria-label={t('list.label')} className="flex min-w-0 flex-col gap-2" data-testid="base-knowledge-list">
       {selected.size > 0 ? (
@@ -90,12 +157,8 @@ export function EntryList(props: EntryListProps): JSX.Element {
         </SelectionBar>
       ) : (
         <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          {props.labelled && (
-            <SectionLabel as="h2" className="px-0">
-              {t('list.label')}
-            </SectionLabel>
-          )}
           <AttentionFilters counts={list.counts} value={filters.attention} onChange={(attention) => onFilters({ attention })} />
+          <TopicAndKind topics={props.topics} topic={filters.folderId} onTopic={props.onTopic} kind={filters.kind} onKind={(kind) => onFilters({ kind })} />
         </div>
       )}
       {list.entries.length === 0 ? (
@@ -118,6 +181,7 @@ export function EntryList(props: EntryListProps): JSX.Element {
           onToggle={(id, on) => props.onSelect([id], on)}
           onToggleAll={(on) => props.onSelect(list.entries.map((entry) => entry.id), on)}
           onOpen={props.onOpen}
+          topicOf={props.topics.length > 0 ? (entry) => (entry.folderId ? (topicName.get(entry.folderId) ?? null) : null) : undefined}
         />
       )}
       <LoadMore
