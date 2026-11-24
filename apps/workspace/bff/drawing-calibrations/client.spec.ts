@@ -21,6 +21,8 @@ const calibration = (id: string, page = 1): CalibrationView => ({
   from: { x: 0.2, y: 0.5 },
   to: { x: 0.6, y: 0.5 },
   lengthM: 12.5,
+  scope: 'page',
+  referenceSize: null,
   status: 'active',
   createdBy: 'user_1',
   createdAt: '2026-11-02T09:00:00.000Z',

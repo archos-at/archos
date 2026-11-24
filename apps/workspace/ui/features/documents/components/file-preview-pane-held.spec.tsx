@@ -57,11 +57,13 @@ describe('FilePreviewPane', () => {
       render(<FilePreviewPane file={HELD} projectId="proj-1" onDeleted={onDeleted} onClose={onClose} />)
 
       await user.click(await screen.findByTestId('preview-held-delete'))
+      expect(await screen.findByRole('dialog')).toHaveTextContent(/does not go to the bin/)
       await user.click(await screen.findByTestId('document-delete-confirm'))
 
       await waitFor(() => expect(onDeleted).toHaveBeenCalledWith('doc-1'))
       expect(onClose).toHaveBeenCalled()
       expect(called(fetchMock, '/api/documents/doc-1', 'DELETE')).toBe(true)
+      expect(called(fetchMock, '/api/documents/doc-1/bin', 'POST')).toBe(false)
     })
 
     it('offers the uploader who may not decide „Prüfung anfragen" instead', async () => {

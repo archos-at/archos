@@ -42,6 +42,9 @@ export const research = {
     research: 'Research',
     moreActions: 'More actions',
     renameSession: 'Rename chat',
+    rename: 'Rename',
+    delete: 'Delete',
+    changedOn: 'Changed {date}',
     researching: 'Researching',
   },
 

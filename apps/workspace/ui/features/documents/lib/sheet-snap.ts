@@ -11,6 +11,13 @@ export interface Snapped {
   kind: Exclude<SnapKind, 'free'>
 }
 
+export function pageWideRatio(scales: readonly SnapScale[] | null): number | null {
+  const ratios = (scales ?? []).flatMap((scale) =>
+    scale.region === null && scale.ratio !== null ? [scale.ratio] : []
+  )
+  return ratios.length > 0 && ratios.every((ratio) => ratio === ratios[0]) ? ratios[0] : null
+}
+
 const CELLS = 96
 const SAMPLES_PER_LEG = 9
 

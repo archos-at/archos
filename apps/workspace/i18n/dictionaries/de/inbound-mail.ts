@@ -567,7 +567,6 @@ export const inboundMail: typeof en.inboundMail = {
 
   state: {
     filing: 'Wird abgelegt …',
-    filingSlow: 'Das dauert länger als üblich. Die Ablage läuft weiter; Sie können die E-Mail verlassen.',
     decidedByOther: 'Jemand anderes hat diese E-Mail inzwischen bearbeitet.',
     partialFailure: '{failed} von {total} Dateien konnten nicht abgelegt werden.',
     partialFailureAll: '{failed, plural, one {Die Datei konnte nicht abgelegt werden.} other {Keine der # Dateien konnte abgelegt werden.}}',

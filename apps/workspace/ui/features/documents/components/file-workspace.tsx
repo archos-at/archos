@@ -12,6 +12,7 @@ import type { FileItem, FolderItem } from '../file-types'
 import type { DocumentWireRow } from '../lib/file-item'
 import type { FileShelf } from '../lib/file-shelf'
 import type { RootSortShelf } from '@/lib/filing/root-sort-types'
+import { activeFilterCount } from '../lib/file-filters'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { useFileWorkspaceListing } from '../hooks/use-file-workspace-listing'
 import { useFileWorkspaceChanges } from '../hooks/use-file-workspace-changes'
@@ -55,7 +56,6 @@ export interface FileWorkspaceProps {
   shelf: FileShelf
   renderHeader: (controls: ReactNode, state: { count: number | null }) => ReactNode
   moreEntries?: readonly ActionMenuEntry[]
-  onOpenSearch?: (text: string) => void
   initialFolders?: readonly FolderItem[]
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
@@ -69,7 +69,6 @@ export function FileWorkspace({
   shelf,
   renderHeader,
   moreEntries,
-  onOpenSearch,
   initialFolders,
   initialFiles,
   initialNextCursor = null,
@@ -181,6 +180,7 @@ export function FileWorkspace({
         onUpload={handleUpload}
         isUploading={isUploading}
         onSendByMail={shelf.inboundMail?.openAddress}
+        onImportMailArchive={shelf.openMailImport}
         acceptsMailArchives={Boolean(shelf.takeMailArchives)}
         {...props}
       />
@@ -218,11 +218,13 @@ export function FileWorkspace({
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      binHref={shelf.bin?.href}
       openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
-      renderFilter={(compact) => (
+      filterCount={activeFilterCount(filters, canCollaborate)}
+      renderFilter={(compact, anchored) => (
         <FileFilterMenu
+          anchored={anchored}
           canCollaborate={canCollaborate}
           filters={filters}
           onFiltersChange={setFilters}
@@ -236,9 +238,9 @@ export function FileWorkspace({
       search={{
         value: search.query,
         onChange: search.setQuery,
-        onSubmit: onOpenSearch ? () => onOpenSearch(search.query.trim()) : search.run,
+        onSubmit: search.run,
         onClear: search.clear,
-        opensSearch: Boolean(onOpenSearch),
+        placeholder: t(shelf.source === 'project' ? 'browser.searchPlaceholderProject' : 'browser.searchPlaceholderOffice'),
       }}
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}
@@ -427,6 +429,7 @@ export function FileWorkspace({
                 label: t('workspace.uploadDocuments'),
               })}
               brief={briefSurface.brief}
+              unreadHint={briefSurface.unreadHint}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
               selection={

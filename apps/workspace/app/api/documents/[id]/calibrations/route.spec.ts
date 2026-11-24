@@ -72,7 +72,7 @@ describe('POST /api/documents/[id]/calibrations', () => {
     const res = await post(BODY)
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual({ calibration: { id: CALIBRATION_ID } })
-    expect(setCalibration).toHaveBeenCalledWith(SESSION, DOC_ID, BODY)
+    expect(setCalibration).toHaveBeenCalledWith(SESSION, DOC_ID, { ...BODY, scope: 'page' })
   })
 
   it('400s a point outside the region, equal points and a missing region before the service runs', async () => {

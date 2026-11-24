@@ -10,6 +10,7 @@ import {
   setCalibrationRequestSchema,
   type CalibrationPoint,
   type CalibrationRegion,
+  type CalibrationScope,
   type CalibrationView,
   type SetCalibrationRequest,
 } from '@/lib/drawing-calibrations/wire'
@@ -19,6 +20,7 @@ export interface CalibrationDraft {
   readonly from: CalibrationPoint | null
   readonly to: CalibrationPoint | null
   readonly region: CalibrationRegion | null
+  readonly scope: CalibrationScope
 }
 
 export type CalibrationBlock =
@@ -58,6 +60,7 @@ export const emptyDraft = (page: number): CalibrationDraft => ({
   from: null,
   to: null,
   region: null,
+  scope: 'page',
 })
 
 export function pickPoint(
@@ -93,7 +96,7 @@ export function stepBack(state: DraftState): DraftState | null {
   const { draft } = state
   switch (stepOf(state)) {
     case 'review':
-      return { ...state, draft: { ...draft, region: null } }
+      return { ...state, draft: { ...draft, region: null, scope: 'page' } }
     case 'region':
       return { ...state, lengthM: null }
     case 'length':
@@ -117,6 +120,10 @@ export function withRegion(
     ...draft,
     region: { x, y, w: round(Math.min(region.w, 1 - x)), h: round(Math.min(region.h, 1 - y)) },
   }
+}
+
+export function withWholeDocument(draft: CalibrationDraft): CalibrationDraft {
+  return { ...draft, region: WHOLE_PAGE, scope: 'document' }
 }
 
 export const STANDARD_SCALES = [
@@ -161,7 +168,21 @@ export function proposalOf(
   const told = { ...none, ratio, standard }
   if (!region) return { ...told, blocked: 'region' }
   if (!inRegion(from, region) || !inRegion(to, region)) return { ...told, blocked: 'regionMisses' }
-  const onPage = active.filter((entry) => entry.page === page)
+  if (draft.scope === 'document') {
+    const replaces = active.find((entry) => entry.scope === 'document') ?? null
+    const request = setCalibrationRequestSchema.safeParse({
+      page,
+      region,
+      from,
+      to,
+      lengthM,
+      scope: 'document',
+      pageSize: pageSize ? { widthPt: pageSize.width, heightPt: pageSize.height } : undefined,
+    })
+    if (!request.success) return { ...told, replaces, blocked: 'length' }
+    return { ...told, blocked: null, replaces, request: request.data }
+  }
+  const onPage = active.filter((entry) => entry.scope === 'page' && entry.page === page)
   const overlaps =
     onPage.find((entry) => regionRelation(region, entry.region) === 'overlaps') ?? null
   const replaces = onPage.find((entry) => regionRelation(region, entry.region) === 'same') ?? null
@@ -177,6 +198,8 @@ export const requestOf = (entry: CalibrationView): SetCalibrationRequest => ({
   from: entry.from,
   to: entry.to,
   lengthM: entry.lengthM,
+  scope: entry.scope,
+  ...(entry.referenceSize ? { pageSize: entry.referenceSize } : {}),
 })
 
 export type RegionPlace =
@@ -204,17 +227,20 @@ export function regionPlace(region: CalibrationRegion): RegionPlace {
 }
 
 export type RegionName =
+  | { kind: 'document' }
   | { kind: 'place'; place: RegionPlace }
   | { kind: 'detail'; place: RegionPlace; within: CalibrationView }
 
-export type Framed = Pick<CalibrationView, 'id' | 'page' | 'region'>
+export type Framed = Pick<CalibrationView, 'id' | 'page' | 'region' | 'scope'>
 
 export function regionName(entry: Framed, others: readonly CalibrationView[]): RegionName {
+  if (entry.scope === 'document') return { kind: 'document' }
   const place = regionPlace(entry.region)
   const within = others
     .filter(
       (other) =>
         other.id !== entry.id &&
+        other.scope === 'page' &&
         other.page === entry.page &&
         regionRelation(entry.region, other.region) === 'inside'
     )
@@ -222,5 +248,8 @@ export function regionName(entry: Framed, others: readonly CalibrationView[]): R
   return within ? { kind: 'detail', place, within } : { kind: 'place', place }
 }
 
+const wholeDocumentFirst = (a: CalibrationView, b: CalibrationView) =>
+  Number(b.scope === 'document') - Number(a.scope === 'document')
+
 export const byAreaDescending = (a: CalibrationView, b: CalibrationView) =>
-  b.region.w * b.region.h - a.region.w * a.region.h
+  b.region.w * b.region.h - a.region.w * a.region.h || wholeDocumentFirst(a, b)

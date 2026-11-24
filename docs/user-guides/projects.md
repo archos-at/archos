@@ -44,7 +44,7 @@ Opening a project (`/app/projects/{id}`) lands you in **Chat** — the project r
 | **Jobs** | `/app/projects/{id}/jobs` | This project's scheduled prompts, and their run history (feature-flagged) |
 | **Skills** | `/app/projects/{id}/skills` | The organization's skill toolbox (feature-flagged) |
 | **Bürobibliothek** | `/app/office-shelf` | The office's org-wide shared files (feature-flagged) |
-| **Inbox** | `/app/inbox` | Mentions, shares, and operational notices (feature-flagged) |
+| **Inbox** | `/app/inbox` | Mentions, shares, and operational notices (feature-flagged); opened from the bell beside your name, not a sidebar section |
 | **Overview** | `/app/projects/{id}/settings` | The project hub, last among the project's sections in the sidebar: a dashboard of tiles, among them [Similar projects](#similar-projects), with members, memory, usage, documents and similar projects as sections behind it |
 
 Every section except **Chat** shares one page header: a `{project} / {section}` breadcrumb, the section title, a one-line subtitle, and optional actions on the right. Chat is the exception — it is a full-bleed conversation surface with its own toolbar.

@@ -444,4 +444,16 @@ describe('InputArea', () => {
     expect(mockSendMessage).not.toHaveBeenCalled()
   })
 
+
+  test('the AI notice stands under the composer of a running chat, and not on an empty one', () => {
+    const { unmount } = render(<InputArea isAuthenticated />)
+    expect(screen.queryByTestId('ai-disclosure')).not.toBeInTheDocument()
+    unmount()
+
+    mockConversationMessages = [{ id: 'm1', role: 'user', content: 'Wie viele Stellplätze?' }]
+    render(<InputArea isAuthenticated />)
+
+    expect(screen.getByTestId('ai-disclosure')).toHaveTextContent(new RegExp(`^${PRODUCT_NAME} is an AI`))
+    expect(screen.getByTestId('ai-disclosure').className).not.toMatch(/bg-/)
+  })
 })

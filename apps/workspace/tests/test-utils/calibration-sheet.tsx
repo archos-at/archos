@@ -23,6 +23,8 @@ export const calibrationView = (overrides: Partial<CalibrationView> = {}): Calib
   from: { x: 0.25, y: 0.5 },
   to: { x: 0.75, y: 0.5 },
   lengthM: 21,
+  scope: 'page',
+  referenceSize: null,
   status: 'active',
   createdBy: 'user_anna',
   createdAt: '2026-11-04T09:12:00.000Z',
@@ -42,7 +44,8 @@ export function recordingClient(initial: readonly CalibrationView[] = [], canCal
   }))
   const set = vi.fn<CalibrationClient['set']>(async (_documentId: string, input: SetCalibrationRequest) => {
     made += 1
-    const view = calibrationView({ ...input, id: `44444444-4444-4444-8444-44444444444${made}`, createdBy: 'user_me' })
+    const { pageSize, ...rest } = input
+    const view = calibrationView({ ...rest, referenceSize: pageSize ?? null, id: `44444444-4444-4444-8444-44444444444${made}`, createdBy: 'user_me' })
     held = [...held, view]
     return view
   })
@@ -60,10 +63,12 @@ export function CalibrationSheet({
   client,
   tool: initialTool = 'measure',
   pageSize = SHEET_SIZE,
+  estimatedRatio = null,
 }: {
   client: CalibrationClient
   tool?: HostTool
   pageSize?: { width: number; height: number }
+  estimatedRatio?: number | null
 }): JSX.Element {
   const [tool, setTool] = useState<HostTool>(initialTool)
   const calibration = useReviewCalibration(
@@ -81,7 +86,7 @@ export function CalibrationSheet({
       <div data-page={1} data-page-width-pt={pageSize.width} data-page-height-pt={pageSize.height} data-testid="sheet">
         <CalibrationPageLayer page={1} calibration={calibration} />
       </div>
-      <ScaleControl calibration={calibration} page={1} />
+      <ScaleControl calibration={calibration} page={1} estimatedRatio={estimatedRatio} />
       <button type="button" onClick={() => setTool('select' satisfies ReviewTool)}>
         put the tool down
       </button>

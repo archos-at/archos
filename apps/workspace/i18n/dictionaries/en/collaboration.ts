@@ -207,11 +207,22 @@ export const collaboration = {
   },
 
   inbox: {
-    title: 'Inbox',
-    dock: {
-      close: 'Close the inbox',
-      all: 'All entries and the archive',
+    bell: {
+      late: '{count} overdue',
+      news: '{count, plural, one {# news item} other {# news items}}',
+      open: 'Open inbox',
+      back: 'Leave the inbox',
     },
+    page: {
+      done: 'Mark as done',
+      review: 'Open in the review view',
+      personal: 'Personal',
+      back: 'Back',
+      opened: 'Opened entry',
+      pick: 'Pick an entry on the left.',
+      go: 'Open',
+    },
+    title: 'Inbox',
     navLabel: 'Inbox',
     badgeAria:
       '{count, plural, one {# item needs} other {# items need}} your attention',
