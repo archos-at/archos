@@ -13,6 +13,7 @@ vi.mock('@/lib/documents/document-storage-keys', () => ({
 }))
 
 vi.mock('@/lib/drawing-calibrations/page-read', () => ({ activeCalibrationsOfPage: vi.fn() }))
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ admitPersonalShelf: vi.fn(async () => []) }))
 
 vi.mock('@/lib/conversations/restricted-use', () => ({
   drawableRestrictedCollections: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
 
 import { GET } from './route'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
+import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 import { withTenant } from '@/lib/db/tenant-context'
 import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
@@ -275,10 +277,21 @@ describe('GET /api/internal/document-file', () => {
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
     })
 
-    it('serves the owner’s own shelf under their signed envelope', async () => {
+    it('serves the owner’s own shelf only once its live admission under the turn’s decision holds (ADR-0193)', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
       const own = 'personal_org_1__user_asker'
-      expect((await GET(request(`?collection=${own}&filename=plan.png`, 'test-token', envelope({ collectionScope: [own] })))).status).toBe(200)
+      const url = `?collection=${own}&filename=plan.png`
+      const headers = { ...envelope({ collectionScope: [own] }), ...decided([own], { restricted: [own] }) }
+
+      expect((await GET(request(url, 'test-token', envelope({ collectionScope: [own] })))).status).toBe(404)
+      expect((await GET(request(url, 'test-token', headers))).status).toBe(404)
+      vi.mocked(admitPersonalShelf).mockResolvedValueOnce([own])
+      expect((await GET(request(url, 'test-token', headers))).status).toBe(200)
+      expect(admitPersonalShelf).toHaveBeenLastCalledWith(
+        { organizationId: 'org_1', conversationId: 's_conv_1', userId: 'user_asker' },
+        [own],
+        expect.objectContaining({ conversationId: 's_conv_1' }),
+      )
     })
   })
 
