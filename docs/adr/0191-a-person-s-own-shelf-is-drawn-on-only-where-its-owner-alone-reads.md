@@ -2,7 +2,7 @@
 status: proposed
 date: 2026-11-24
 decision-makers: product owner (Matthias)
-consulted: the survey of chat scope and sharing, [`docs/audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md); the „Mein Bereich“ concept (ticket 81)
+consulted: the survey of chat scope and sharing, [`docs/audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md); how other products do it, [`docs/audit/shared-ai-context-elsewhere-2026-11.md`](../audit/shared-ai-context-elsewhere-2026-11.md); the „Mein Bereich“ concept (ticket 81)
 informed: everyone who builds on documents, retrieval or chats
 ---
 
@@ -49,16 +49,19 @@ without being recorded.
    project's answer stands on what the project can see. A personal file may
    later enter a project chat only by an explicit act (attaching it), recorded
    like a restricted folder. That act is not part of this decision.
-5. **Using something personal is recorded on the chat, and widening asks.** When
-   a turn draws on the personal shelf or on personal memory, the chat records
-   it, as `conversation_source_projects` records a project. Sharing a chat that
-   carries the record asks its owner first and says what the others will see:
-   the answers, never the files. Once shared, the chat draws on neither any
-   more, as rule 4 of ADR-0180 already holds for memory.
+5. **Using the personal shelf is recorded on the chat, and widening asks.** When
+   a turn actually reads from the personal shelf, the chat records it, as
+   `conversation_source_projects` records a project. Sharing a chat that carries
+   the record asks its owner first and says what the others will see: the
+   answers, never the files. Once shared, the chat draws on the shelf no more.
+   Personal memory is not recorded: it reaches every solo turn, so recording it
+   would make every share ask. Once a chat is shared, the next turn no longer
+   receives it (ADR-0180, rule 4); earlier answers may still reflect the owner's
+   preferences, and that risk is accepted.
 
 ## Consequences
 
-* One rule covers files and memory: whose reach a source has, and who reads the
+* One rule covers the shelf and memory: whose reach a source has, and who reads the
   chat. A shared chat behaves the same whatever personal material its owner has.
 * The project of a turn is fixed by the server; a chat continued from another
   page no longer reads that page's project.
@@ -67,6 +70,9 @@ without being recorded.
 * Out of scope here and kept possible: attaching a personal file to a project
   chat, filing a personal file into a project („In Projekt ablegen“), moving a
   chat into a project.
+
+How the context is decided and carried is ADR-0192; this decision is its
+fourth slice.
 
 ### Confirmation
 
