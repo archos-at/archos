@@ -2,6 +2,8 @@ import { act, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { RAIL_CHAT_LIMIT, useRailChats } from '@/components/shell/rail-chats'
+import { useRailSide } from '@/components/shell/rail-side'
+import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { useLayoutStore } from '../store'
@@ -91,9 +93,10 @@ describe('RailChatsProvider', () => {
 
   test('each side asks the server for its own newest chats', () => {
     show('/app/personal-shelf')
-    expect(loadServerConversations).toHaveBeenLastCalledWith(undefined, 'personal')
+    expect(loadServerConversations).toHaveBeenNthCalledWith(1, undefined, 'personal')
+    loadServerConversations.mockClear()
     show('/app/projects/p1/files')
-    expect(loadServerConversations).toHaveBeenLastCalledWith('p1', 'project')
+    expect(loadServerConversations).toHaveBeenNthCalledWith(1, 'p1', 'project')
   })
 
   test('a shared chat says so', () => {
@@ -175,5 +178,64 @@ describe('RailChatsProvider', () => {
 
     expect(deleteConversation).toHaveBeenCalledWith('c6')
     expect(replace).toHaveBeenCalledWith('/app/projects/p1/chat')
+  })
+
+  describe('at most eight chats a side, the open one always among them', () => {
+    const many = (count: number) => Array.from({ length: count }, (_, i) => conversation(`m${i}`, day(30 - i)))
+
+    test('eight at most, the newest, and „Alle Chats“ while there are more', () => {
+      useChatStore.setState({ conversations: many(12), currentConversation: null })
+      show('/app/projects/p1/files')
+      expect(RAIL_CHAT_LIMIT).toBe(8)
+      expect(captured?.items.map((item) => item.id)).toEqual(['m0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7'])
+      expect(captured?.more).toBe(true)
+    })
+
+    test('the open chat stays when it is older than the eighth: the seven newest and it', () => {
+      const chats = many(12)
+      useChatStore.setState({ conversations: chats, currentConversation: chats[10]! })
+      show('/app/projects/p1/chat')
+      const ids = captured?.items.map((item) => item.id)
+      expect(ids).toEqual(['m0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm10'])
+      expect(captured?.items.at(-1)?.current).toBe(true)
+    })
+
+    test('no „Alle Chats“ when every chat is listed', () => {
+      useChatStore.setState({ conversations: many(5), currentConversation: null })
+      show('/app/projects/p1/files')
+      expect(captured?.items).toHaveLength(5)
+      expect(captured?.more).toBe(false)
+    })
+  })
+
+  describe('switching the side (the rail’s transition)', () => {
+    beforeEach(() => {
+      useRailSide.getState().settle()
+      useChatStore.setState({
+        conversations: [
+          conversation('mine-personal', day(9), { projectId: null }),
+          conversation('in-p1', day(8), { projectId: 'p1' }),
+        ],
+      })
+    })
+
+    test('the other side’s chats stand at once, never an empty list, before the route lands', () => {
+      show('/app/personal-shelf')
+      expect(captured?.items.map((item) => item.id)).toEqual(['mine-personal'])
+
+      act(() => useRailSide.getState().begin({ mode: 'project', projectId: 'p1' }))
+
+      expect(captured?.items.map((item) => item.id)).toEqual(['in-p1'])
+      expect(captured?.allHref).toBe('/app/projects/p1/chat')
+    })
+
+    test('mounting the rail warms the other side’s chats once, beside its own', () => {
+      recordRecentProject('p1')
+      show('/app/personal-shelf')
+      expect(loadServerConversations.mock.calls).toEqual([
+        [undefined, 'personal'],
+        ['p1', 'project'],
+      ])
+    })
   })
 })

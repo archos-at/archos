@@ -13,6 +13,13 @@ import { getConversationsClient, isRightsLost } from '../lib/conversations-clien
 
 export const hydratingConversationIds = new Set<string>()
 
+const SIDE_FRESH_MS = 20_000
+const sideLoads = new Map<string, { at: number; pending: Promise<void> }>()
+
+export function forgetSideLoads(): void {
+  sideLoads.clear()
+}
+
 export const createSessionServerSyncSlice: StateCreator<
   ChatStore,
   [['zustand/devtools', never]],
@@ -23,8 +30,8 @@ export const createSessionServerSyncSlice: StateCreator<
     | 'hydrateConversationMessages'
     | '_lockConversation'
   >
-> = (set, get) => ({
-  loadServerConversations: async (projectId?: string, place?: 'personal' | 'project') => {
+> = (set, get) => {
+  const loadSide = async (projectId?: string, place?: 'personal' | 'project'): Promise<void> => {
     try {
       const conversationsClient = await getConversationsClient()
       const serverConvs = await conversationsClient.list(projectId, place)
@@ -95,6 +102,17 @@ export const createSessionServerSyncSlice: StateCreator<
     } finally {
       set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
+  }
+
+  return {
+  loadServerConversations: (projectId?: string, place?: 'personal' | 'project') => {
+    if (!place) return loadSide(projectId, place)
+    const key = `${place}:${projectId ?? ''}`
+    const known = sideLoads.get(key)
+    if (known && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
+    const pending = loadSide(projectId, place)
+    sideLoads.set(key, { at: Date.now(), pending })
+    return pending
   },
 
   hydrateConversationMessages: async (conversationId: string) => {
@@ -169,4 +187,5 @@ export const createSessionServerSyncSlice: StateCreator<
       'lockConversation'
     )
   },
-})
+}
+}

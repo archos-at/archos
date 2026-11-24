@@ -1,11 +1,13 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
-import { PERSONAL_CHAT_PATH, chatSideOf, railModeOf } from '@/components/shell/rail-mode'
+import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
+import { readRecentProjectIds } from '@/components/shell/recent-projects'
+import { shownSide, useRailSide } from '@/components/shell/rail-side'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -19,14 +21,24 @@ export function chatPathOf(projectId: string | null): string {
   return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : PERSONAL_CHAT_PATH
 }
 
+export function newestWithCurrent<T>(rows: readonly T[], limit: number, isCurrent: (row: T) => boolean): T[] {
+  const newest = rows.slice(0, limit)
+  if (newest.some(isCurrent)) return newest
+  const current = rows.find(isCurrent)
+  return current ? [...rows.slice(0, limit - 1), current] : newest
+}
+
 const under = (pathname: string, base: string): boolean => pathname === base || pathname.startsWith(`${base}/`)
 
 export function RailChatsProvider({ children, pathname: pathnameOverride }: { children: ReactNode; pathname?: string }): JSX.Element {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
-  const projectId = projectIdFromPathname(pathname)
-  const mode = railModeOf(pathname)
-  const side = chatSideOf(pathname) ?? null
+  const routeMode = railModeOf(pathname)
+  const pending = useRailSide((state) => state.pending)
+  const shown = shownSide(pending, routeMode ? { mode: routeMode, projectId: projectIdFromPathname(pathname) } : null)
+  const mode = shown?.mode ?? null
+  const projectId = shown?.projectId ?? null
+  const side = mode === 'project' ? projectId : null
   const rows = useSessionRows(side)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
@@ -51,15 +63,33 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
 
+  const loadSide = useCallback(
+    (sideProjectId: string | null): void => {
+      void (sideProjectId ? loadServerConversations(sideProjectId, 'project') : loadServerConversations(undefined, 'personal'))
+    },
+    [loadServerConversations]
+  )
+  const onWarmOtherSide = useCallback((): void => {
+    if (mode === 'project') loadSide(null)
+    const recent = mode === 'personal' ? readRecentProjectIds()[0] : undefined
+    if (recent) loadSide(recent)
+  }, [mode, loadSide])
+
   useEffect(() => {
-    if (mode === 'personal') void loadServerConversations(undefined, 'personal')
-    else if (mode === 'project' && projectId) void loadServerConversations(projectId, 'project')
-  }, [mode, projectId, loadServerConversations])
+    if (mode === 'personal') loadSide(null)
+    else if (mode === 'project' && projectId) loadSide(projectId)
+  }, [mode, projectId, loadSide])
+  const warmedOnMount = useRef(false)
+  useEffect(() => {
+    if (mode === null || warmedOnMount.current) return
+    warmedOnMount.current = true
+    onWarmOtherSide()
+  }, [mode, onWarmOtherSide])
 
   const value = useMemo<RailChats | null>(() => {
     if (mode === null) return null
     return {
-      items: rows.slice(0, RAIL_CHAT_LIMIT).map((row) => ({
+      items: newestWithCurrent(rows, RAIL_CHAT_LIMIT, (row) => onChatPath(row.projectId) && row.id === openId).map((row) => ({
         id: row.id,
         title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || t('sessionsPanel.untitledSession'),
         href: `${chatPathOf(row.projectId)}?session=${encodeURIComponent(row.id)}`,
@@ -76,8 +106,10 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
       onOpenAll,
       onRename: updateConversationTitle,
       onDelete: setDeleting,
+      onWarmOtherSide,
+      more: rows.length > RAIL_CHAT_LIMIT,
     }
-  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, t, tCollab])
+  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, onWarmOtherSide, t, tCollab])
 
   const confirmDelete = (): void => {
     if (!deleting) return

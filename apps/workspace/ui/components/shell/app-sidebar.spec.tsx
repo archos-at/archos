@@ -474,6 +474,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
       { id: 'c2', title: 'Fluchtweglänge im Erdgeschoss', href: '/app/projects/p1/chat?session=c2', current: true },
     ],
     allHref: '/app/projects/p1/chat',
+    more: true,
     onOpen: vi.fn(),
     onOpenAll: vi.fn(),
     ...over,
@@ -496,6 +497,19 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(within(sectionsNav).queryByText('Rettungswege Bürogebäude GK4 Wien')).toBeNull()
     expect(sectionsNav.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Recent chats' })).toBeInTheDocument()
+  })
+
+  test('a quiet section label over quieter, tighter rows; „All chats“ only while more chats exist', () => {
+    const { unmount } = renderWith({ ...chats(), more: false })
+    const list = screen.getByRole('list', { name: 'Recent chats' })
+    expect(within(list).queryByRole('link', { name: 'All chats' })).toBeNull()
+    const heading = screen.getByRole('button', { name: 'Recent chats' })
+    expect(heading).toHaveClass('text-meta', 'text-subtle', 'h-6', 'pointer-coarse:h-11')
+    expect(heading.querySelector('svg')).toHaveClass('opacity-0', 'group-hover/heading:opacity-100', 'group-focus-visible/heading:opacity-100')
+    const row = within(list).getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' })
+    expect(row).toHaveClass('h-7', 'text-subtle', 'pointer-coarse:h-11')
+    expect(within(list).getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toHaveClass('text-foreground', 'font-medium')
+    unmount()
   })
 
   test('the heading folds the list away and back, and the browser remembers it', async () => {

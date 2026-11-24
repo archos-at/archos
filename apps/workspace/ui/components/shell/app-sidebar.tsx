@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
-import { motion, springGlide } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnap, springGlide } from '@/components/motion'
+import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import {
   Sidebar,
   SidebarContent,
@@ -44,12 +45,22 @@ import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
 import { RailChatList, useRailChats } from './rail-chats'
 import { RailModeSwitch } from './rail-mode-switch'
+import { shownSide, useRailSide } from './rail-side'
 import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, type RailMode } from './rail-mode'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
 import { sectionAnchor } from '@/lib/onboarding/product-tour'
 
+
+const SIDE_DIRECTION: Record<RailMode, number> = { personal: -1, project: 1 }
+const SIDE_SLIDE_PX = 10
+
+const SIDE_VARIANTS = {
+  enter: (direction: number) => ({ opacity: 0, x: direction * SIDE_SLIDE_PX }),
+  shown: { opacity: 1, x: 0 },
+  leave: (direction: number) => ({ opacity: 0, x: -direction * SIDE_SLIDE_PX, transition: direction === 0 ? motionInstant : motionSnap }),
+}
 export function railActivePillId(iconRail: boolean): string {
   return `rail-active-project-${iconRail ? 'icon' : 'full'}`
 }
@@ -70,6 +81,7 @@ export interface AppSidebarProps {
   canAccessInbox: boolean
   inboundMailEnabled?: boolean
   pathname?: string
+  navigateSide?: (href: string) => void
 }
 
 export interface RailItemModel {
@@ -122,6 +134,7 @@ function AppSidebarFrame({
   canAccessInbox,
   inboundMailEnabled = false,
   pathname: pathnameOverride,
+  navigateSide,
 }: AppSidebarProps) {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
@@ -130,9 +143,13 @@ function AppSidebarFrame({
   const { state, isMobile, peek } = useSidebar()
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
-  const mode: RailMode = projectId === null ? 'personal' : 'project'
+  const pending = useRailSide((state) => state.pending)
+  const side = shownSide(pending, { mode: projectId === null ? 'personal' : 'project', projectId })!
+  const mode: RailMode = side.mode
+  const sideProjectId = side.projectId
+  const reduceMotion = useReducedMotion()
 
-  const base = projectId === null ? '' : `/app/projects/${projectId}`
+  const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile && !peek
@@ -244,28 +261,38 @@ function AppSidebarFrame({
         >
           <SidebarBrand iconRail={iconRail} />
           <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
-            <RailModeSwitch mode={mode} collapsed={iconRail} />
+            <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} />
           </div>
           {projectId !== null && <ProjectRecorder projectId={projectId} />}
+        </SidebarHeader>
+
+        <SidebarContent className={cn('relative min-h-0 flex-1 gap-0 overflow-hidden', column)}>
+          <AnimatePresence initial={false} mode="popLayout" custom={reduceMotion ? 0 : SIDE_DIRECTION[mode]}>
+            <motion.div
+              key={mode}
+              data-slot="rail-side"
+              data-side={mode}
+              custom={reduceMotion ? 0 : SIDE_DIRECTION[mode]}
+              variants={SIDE_VARIANTS}
+              initial="enter"
+              animate="shown"
+              exit="leave"
+              transition={reduceMotion ? motionInstant : motionQuick}
+              className="flex min-h-0 flex-1 flex-col"
+            >
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
               keeps it as a tile of its initials, on the selector's own line,
               so nothing below it moves when the rail opens under the pointer. */}
-          {projectId !== null && (
-            <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
-              <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
+          {sideProjectId !== null && (
+            <div className={cn('mt-1 flex h-10 shrink-0 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
+              <ProjectSwitcher projects={projects} activeProjectId={sideProjectId} collapsed={iconRail} />
             </div>
           )}
-        </SidebarHeader>
-
-        <SidebarContent
-          className={cn(
-            'min-h-0 flex-1 gap-0 overflow-hidden',
-            mode === 'personal' && !iconRail ? 'mt-4' : 'mt-3',
-            column
-          )}
-        >
-          <nav aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectSections')} className="shrink-0 py-px">
+          <nav
+            aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectSections')}
+            className={cn('shrink-0 py-px', mode === 'personal' && !iconRail ? 'mt-4' : 'mt-3')}
+          >
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
           {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
@@ -273,6 +300,8 @@ function AppSidebarFrame({
               and the office's doorways, which both stay put. The icon rail has no room for a title: there
               „Chat“ is its glyph, and the chat's toolbar names its door. */}
           {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
+            </motion.div>
+          </AnimatePresence>
         </SidebarContent>
 
         <SidebarFooter

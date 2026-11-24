@@ -34,6 +34,7 @@ vi.mock('@/adapters/api/conversations-client', () => ({
 }))
 
 import { useChatStore } from '../store'
+import { forgetSideLoads } from './session-server-sync'
 import { isAwaitingServerMessages, markAwaitingServerMessages } from './chat-storage'
 import { isConversationOnServer } from '../lib/conversation-on-server'
 import type { ChatMessage, Conversation } from '../types'
@@ -76,6 +77,7 @@ const resetStore = () => {
 }
 
 beforeEach(() => {
+  forgetSideLoads()
   localStorage.clear()
   vi.clearAllMocks()
   mockConversationsClient.list.mockResolvedValue([])
