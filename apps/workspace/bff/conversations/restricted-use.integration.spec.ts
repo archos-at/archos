@@ -445,8 +445,9 @@ describe.skipIf(!url)('restricted use against Postgres (migrations 0112, 0111)',
     })
     const admission = await inOrg(ORG, () => use.admitRestrictedUse(request(drew, admitted), [restricted]))
     expect(admission.admitted).toEqual([restricted])
-    await inOrg(ORG, () => use.markTurnAnswer(request(drew, later)))
-    await inOrg(ORG, () => use.markTurnAnswer(request(open, openAnswer)))
+    const { markAnswerRestrictedUse } = await import('@/lib/conversations/restricted-use-repository')
+    await inOrg(ORG, () => markAnswerRestrictedUse(db, ORG, drew, later))
+    await inOrg(ORG, () => markAnswerRestrictedUse(db, ORG, open, openAnswer))
 
     const vote = (messageId: string, claimed: string | null, voter: string, comment: string) =>
       inOrg(ORG, () =>

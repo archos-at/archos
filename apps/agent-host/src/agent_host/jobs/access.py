@@ -19,6 +19,7 @@ from agent.common.db_utils import present_columns
 from agent.common.db_utils import present_indexes
 from agent.common.source_kinds import is_office_shelf_collection
 from agent.knowledge.restricted_collections import base_collection_of
+from agent.knowledge.scoping import signed_scope_names
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
@@ -309,7 +310,7 @@ def signed_job_scope(
         return None
     return SignedJobScope(
         organization_id=context.organization_id,
-        project_collection=derive_project_collection(context.collection_scope),
+        project_collection=derive_project_collection(signed_scope_names(context)),
         conversation_id=context.conversation_id,
     )
 

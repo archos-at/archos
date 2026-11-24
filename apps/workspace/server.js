@@ -28,7 +28,7 @@ const { parse } = require('url')
 const crypto = require('crypto')
 
 const { bootLogLine } = require('./bff/boot-line.js')
-const { turnContextHeaders } = require('./bff/turns/turn-headers.js')
+const { socketTurnHeaders } = require('./bff/turns/turn-headers.js')
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
@@ -456,7 +456,7 @@ const startServer = async () => {
           // nosemgrep: javascript.express.security.express-data-exfiltration.express-data-exfiltration
           Object.assign(
             req.headers,
-            turnContextHeaders(result.data, {
+            socketTurnHeaders(result.data, {
               issuedAt: Date.now(),
               secret: process.env.INTERNAL_API_TOKEN,
             })

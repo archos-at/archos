@@ -242,11 +242,6 @@ export async function recordedForeignRestrictedFolders(
   )
 }
 
-export async function markTurnAnswer(request: RestrictedUseRequest): Promise<void> {
-  if (!request.answerMessageId) return
-  await markAnswerRestrictedUse(getDb(), request.organizationId, request.conversationId, request.answerMessageId)
-}
-
 export async function recordedSourceProjects(conversationId: string, organizationId: string): Promise<string[]> {
   return listRestrictingSourceProjects(getDb(), organizationId, conversationId)
 }

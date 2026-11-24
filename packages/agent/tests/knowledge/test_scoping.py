@@ -10,32 +10,11 @@ from agent_testing.envelope import signed_headers
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.scoping import ScopedCollection
-from agent.knowledge.scoping import _base64url_decode
 from agent.knowledge.scoping import _parse_scope_payload
 from agent.knowledge.scoping import get_collection_scope_from_context
 from agent.knowledge.scoping import get_scoped_collections_from_context
 from agent.project_context import _as_scope_entries
 from agent.project_context import _scope_names
-
-
-class TestBase64UrlDecode:
-    def test_standard_padded(self):
-        assert _base64url_decode("SGVsbG8=") == b"Hello"
-
-    def test_missing_padding(self):
-        assert _base64url_decode("SGVsbG8") == b"Hello"
-
-    def test_urlsafe_chars(self):
-        encoded = base64.urlsafe_b64encode(b"\xfb\xff\xff\xff").decode().rstrip("=")
-        assert "+" not in encoded and "/" not in encoded
-        assert _base64url_decode(encoded) == b"\xfb\xff\xff\xff"
-
-    def test_empty_string(self):
-        assert _base64url_decode("") == b""
-
-    def test_double_padding(self):
-        val = base64.urlsafe_b64encode(b"ab").decode()
-        assert _base64url_decode(val) == b"ab"
 
 
 class _HeaderContext:
@@ -203,3 +182,13 @@ class TestSignedEnvelopePrecedence:
         headers["x-grid-request-context-sig"] = "deadbeef" * 8
         with _headers(headers):
             assert get_collection_scope_from_context() is None
+
+
+def test_a_reader_of_another_request_takes_its_scope_only_from_a_signed_envelope():
+    from agent.knowledge.scoping import signed_scope_names
+    from agent.project_context import RequestContext
+
+    assert signed_scope_names(RequestContext(collection_scope=["proj_x"])) is None
+    assert signed_scope_names(RequestContext(collection_scope=["proj_x"], envelope_signature="sig")) == ["proj_x"]
+    assert signed_scope_names(RequestContext(envelope_signature="sig")) is None
+    assert signed_scope_names(None) is None

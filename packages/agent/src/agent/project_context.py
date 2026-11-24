@@ -118,24 +118,6 @@ def _base64url_decode_text(raw: str) -> str:
         return raw
 
 
-def _read_encoded_header(name: str) -> str | None:
-    raw = _read_header(name)
-    if not raw:
-        return None
-    return _base64url_decode_text(raw)
-
-
-def _read_json_header(name: str) -> Any | None:
-    raw = _read_header(name)
-    if not raw:
-        return None
-    try:
-        return json.loads(_base64url_decode_text(raw))
-    except Exception:
-        logger.debug("Failed to decode/parse %s as JSON", name, exc_info=True)
-        return None
-
-
 def _normalize_raw_id(value: str | None) -> str | None:
     if not value:
         return None
@@ -199,11 +181,6 @@ def _as_epoch_millis(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return int(value)
-
-
-def _read_memory_reflection_flag() -> bool:
-    raw = _read_header(MEMORY_REFLECTION_FEATURE_HEADER)
-    return (raw or "").strip().lower() == "true"
 
 
 @dataclass(frozen=True)

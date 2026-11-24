@@ -6,7 +6,7 @@ import fixtureData from '../tests/fixtures/request_context.json'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { callsTo, parseSourceText, ts } from '@/test-utils/source-ast'
-import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, turnContextHeaders } from './turns/turn-headers.js'
+import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, socketTurnHeaders, turnContextHeaders } from './turns/turn-headers.js'
 
 import {
   buildRequestContextEnvelope,
@@ -513,6 +513,21 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
     }
   })
 
+  it('signs no collection scope and sends no plain scope header for a socket turn, which takes its scope from the decision (ADR-0192)', () => {
+    const data = {
+      header: 'scope',
+      scopedCollections: [{ collection: 'proj_1', shelf: 'project' }],
+      scope: ['proj_1'],
+      organizationId: 'org_1',
+      userId: 'user_1',
+      conversationId: 's_conv_1',
+    }
+    const socket = socketTurnHeaders(data, { issuedAt: NOW, secret: SECRET })
+    expect(decodeEnvelope(socket)).not.toHaveProperty('collectionScope')
+    expect(socket).not.toHaveProperty('x-collection-scope')
+    expect(decodeEnvelope(turnContextHeaders(data, { issuedAt: NOW, secret: SECRET }))).toHaveProperty('collectionScope')
+  })
+
   it('signs a caller’s kind in the same bytes as the canonical builder', () => {
     const input: RequestContextInput = {
       organizationId: 'org_1', userId: 'user_1', conversationId: 's_conv_1', issuedAt: Date.now(),
@@ -561,9 +576,10 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
 })
 
 describe('server.js hands the gateway the scope route data', () => {
-  it('calls turnContextHeaders once, with the scope route result and the mint time, never a query parameter', () => {
+  it('calls socketTurnHeaders once, with the scope route result and the mint time, never a query parameter', () => {
     const server = parseSourceText(readFileSync(new URL('../server.js', import.meta.url), 'utf8'), 'server.js')
-    const calls = callsTo(server, 'turnContextHeaders')
+    expect(callsTo(server, 'turnContextHeaders')).toEqual([])
+    const calls = callsTo(server, 'socketTurnHeaders')
     expect(calls.map((call) => dottedName(call.arguments[0]))).toEqual(['result.data'])
     expect(calls.map((call) => propertyNames(call.arguments[1]))).toEqual([['issuedAt', 'secret']])
   })

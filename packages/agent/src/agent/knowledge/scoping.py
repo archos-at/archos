@@ -1,4 +1,3 @@
-import base64
 import logging
 import os
 from dataclasses import dataclass
@@ -24,13 +23,6 @@ def _normalize_collection_name(name: str) -> str:
     while name.startswith("s_s_"):
         name = name[2:]
     return name
-
-
-def _base64url_decode(value: str) -> bytes:
-    padding = 4 - len(value) % 4
-    if padding != 4:
-        value += "=" * padding
-    return base64.urlsafe_b64decode(value)
 
 
 class _UnreadableScopeEntry:
@@ -125,6 +117,13 @@ def _drawable_only(entries: list[ScopedCollection] | None) -> list[ScopedCollect
     return [
         entry for entry in entries if not is_restricted_collection(entry.collection) or use.allows(entry.collection)
     ]
+
+
+def signed_scope_names(context: Any) -> list[str] | None:
+    if context is None or not getattr(context, "envelope_signature", None):
+        return None
+    scope = getattr(context, "collection_scope", None)
+    return list(scope) if scope is not None else None
 
 
 def get_collection_scope_from_context() -> list[str] | None:

@@ -2,7 +2,7 @@ import 'server-only'
 import type { JobAttempt, AgentWakeStopPayload } from '@/lib/jobs-queue/types'
 import { cancelHeadlessTurn, chatSocketUrl } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { socketTurnHeaders } from '@/lib/turns/turn-headers.js'
 import { documentThreadConversationId } from './wake-ids'
 import { findWake } from './wake-repository'
 
@@ -22,7 +22,7 @@ export async function runAgentWakeStop(
     conversationId,
     turnId: payload.wakeId,
     headers: {
-      ...turnContextHeaders({ organizationId, userId: payload.actorUserId, conversationId, contextKind: 'headless' }, { issuedAt: Date.now(), secret }),
+      ...socketTurnHeaders({ organizationId, userId: payload.actorUserId, conversationId, contextKind: 'headless' }, { issuedAt: Date.now(), secret }),
       ...HEADLESS_MODE_HEADERS,
     },
   })
