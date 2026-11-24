@@ -14,6 +14,7 @@ import { MentionPicker } from '@/features/collaboration/components/MentionPicker
 import { SlashCommandPicker } from '@/features/skills/components/SlashCommandPicker'
 import { ComposerSearchPicker } from '@/features/search'
 import { useInputAreaController } from './input-area/use-input-area-controller'
+import { useComposerArriving } from '../hooks/use-composer-arrival'
 import type { InputAreaProps } from './input-area/use-input-area-controller'
 import { ComposerAboveField } from './input-area/composer-above-field'
 import { ComposerField } from './input-area/composer-field'
@@ -25,14 +26,18 @@ export type { ConnectionMode } from './input-area/use-input-area-controller'
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
   const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
+  const arriving = useComposerArriving(props.isAuthenticated ?? false)
 
   return (
     <div
       ref={controller.composerRootRef}
+      data-arriving={arriving || undefined}
+      data-testid="composer-root"
       className={cn(
         THREAD_COLUMN,
         THREAD_GUTTER,
-        'flex flex-col pt-3 pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] sm:pt-4 sm:pb-4'
+        'flex flex-col pt-3 pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] sm:pt-4 sm:pb-4',
+        'data-arriving:**:transition-none'
       )}
     >
       {/* The mention picker is anchored to the composer CARD and opens above it,

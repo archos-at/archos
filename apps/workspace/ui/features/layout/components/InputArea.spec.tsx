@@ -258,6 +258,21 @@ describe('InputArea', () => {
     } as unknown as ReturnType<typeof useWebSocketChat>)
   })
 
+  test('lands its controls without easing until the session is confirmed, so a load does not fade them up', () => {
+    const { rerender } = render(<InputArea isAuthenticated={false} />)
+    const root = screen.getByTestId('composer-root')
+    expect(root).toHaveAttribute('data-arriving')
+    expect(root.className).toContain('data-arriving:**:transition-none')
+
+    rerender(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a composer that mounts signed in, as after a switch, has nothing to land', () => {
+    render(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
   test('does not render the Auto mode selector button', () => {
     render(<InputArea isAuthenticated={true} />)
 
