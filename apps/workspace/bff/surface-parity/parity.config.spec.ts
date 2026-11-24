@@ -77,7 +77,7 @@ describe('the surface parity registry', () => {
       const label = `${name}.${side}`
       if ('exempt' in form) expect(form.exempt.length, label).toBeGreaterThan(30)
       else if ('gap' in form) {
-        expect(form.gap.slice, label).toMatch(/^V\d+/)
+        expect(form.gap.slice, label).toMatch(/^(V\d+|[a-z][a-z-]* slice \d+$)/)
         expect(form.gap.reason.length, label).toBeGreaterThan(30)
       } else expect(Object.values(form).filter(Boolean).length, `${label} names no component, card or step`).toBeGreaterThan(0)
     }

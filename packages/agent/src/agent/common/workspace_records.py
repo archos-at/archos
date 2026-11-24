@@ -17,7 +17,7 @@ LISTING_TOOL = "list_files"
 LISTING_MAX_CHARS = 12_000
 _LISTING_REFUSALS = re.compile(r"^(?:`\w+` must be|Invalid |Unknown )", re.IGNORECASE)
 
-DRAWING_TOOL = "dxf_measure"
+DRAWING_TOOLS = frozenset({"dxf_measure", "drawing_measure"})
 _DRAWING_ANSWER_START = "File: "
 
 PROPOSED_PREFIX = "Proposed"
@@ -80,9 +80,10 @@ def drawing_record(tool_name: str, text: str) -> WorkspaceRecord | None:
     from agent.common.tool_calls import tool_basename
 
     stripped = text.strip()
-    if tool_basename(tool_name or "") != DRAWING_TOOL or not stripped.startswith(_DRAWING_ANSWER_START):
+    tool = tool_basename(tool_name or "")
+    if tool not in DRAWING_TOOLS or not stripped.startswith(_DRAWING_ANSWER_START):
         return None
-    return WorkspaceRecord(DRAWING_TOOL, "read", stripped[:LISTING_MAX_CHARS])
+    return WorkspaceRecord(tool, "read", stripped[:LISTING_MAX_CHARS])
 
 
 def _agent_authored(value: Any) -> bool:

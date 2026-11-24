@@ -51,6 +51,7 @@ _SEARCH_CORPORA: tuple[tuple[str, str], ...] = (
     ("list_files", "documents"),
     ("ifc_", "ifc"),
     ("dxf_measure", "documents"),
+    ("drawing_measure", "documents"),
     ("project_lookup", "otherProjects"),
 )
 
