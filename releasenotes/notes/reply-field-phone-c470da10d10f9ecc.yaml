@@ -4,3 +4,6 @@ fixes:
   - >
     On a phone, the reply field under an annotation in the Postfach is as tall as
     its Senden button, so a tap lands in it instead of beside it.
+  - >
+    On a phone, the line that folds a background check in a chat open and shut is
+    as tall as a fingertip, so it no longer takes a second try.
