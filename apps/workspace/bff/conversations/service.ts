@@ -30,6 +30,7 @@ import { sanitizeStages } from './message-stages'
 import { restrictingOtherProjects, type RestrictingOtherProject } from './cross-project-use'
 import { lockedConversationIds } from './restricted-use'
 import { readerCut } from './reader-cut'
+import { hidesShelfChatFromAgent } from './shelf-titles'
 import {
   findConversationInOrg,
   findConversationRead,
@@ -111,7 +112,9 @@ export async function listConversations(
     resourceIdsWithGrants(session.organizationId, 'conversation', rows.map((row) => row.id)),
   ])
   const listed = (row: Conversation): ListedConversation => ({
-    ...(locked.has(row.id) ? withheldConversation(row) : { ...row, contentLocked: false }),
+    ...(locked.has(row.id) || hidesShelfChatFromAgent(row, session.userId)
+      ? withheldConversation(row)
+      : { ...row, contentLocked: false }),
     shared: isShared(row.visibility, granted.has(row.id) ? 1 : 0),
   })
   return {

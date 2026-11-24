@@ -170,6 +170,15 @@ stay off, because a run would carry the personal content out of the chat. A
 personal file enters a project only by an explicit act (ADR-0193, rule 4),
 never through a chat that read it.
 
+Its title, tags and subject can carry what it read, so an agent sees them only
+where it may draw on that shelf: the owner's in-product agent in a turn whose
+decision allows the shelf, or the owner's own connected agent. To any other
+agent call, the conversation list shows such a chat without title, tags or
+subject, and the workspace search leaves it out, since a hit on its title would
+already tell. The person's own list and search are unchanged
+(`bff/conversations/shelf-titles.ts`; the call sets `ownShelfReadable` on its
+acting session, `bff/agent-api/own-shelf.ts`).
+
 The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
 turn no longer injects it (ADR-0180, rule 4, fresh each turn). Earlier answers

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { withConversationOrigin } from './operation-origin'
+import { ownShelfReadable } from './own-shelf'
 import type { CallToolResult } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -86,7 +87,7 @@ export async function readOperationBody(
       record(403)
       return { refusal: refused }
     }
-    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent')
+    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { ownShelfReadable: ownShelfReadable(ctx) })
     record(result.status)
     if (!result.ok) return { refusal: `${name} was refused (HTTP ${result.status}).` }
     return { body: result.body }
@@ -161,7 +162,7 @@ export async function executeOperation(
       record(403)
       return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
-    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx) })
+    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx), ownShelfReadable: ownShelfReadable(ctx) })
     record(result.status)
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
       return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
