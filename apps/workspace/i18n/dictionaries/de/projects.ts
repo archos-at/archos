@@ -4,7 +4,7 @@ export const projects: typeof en.projects = {
   list: {
     heading: 'Projekte',
     description:
-      'Jedes Bauprojekt in einem Arbeitsbereich: Dokumente, Mitglieder, Aufgaben, Recherche und Chat, mit Büroablage und Baurecht zur Hand.',
+      'Jedes Bauprojekt in einem Arbeitsbereich: Dokumente, Mitglieder, Aufgaben, Recherche und Chat, mit Bürobibliothek und Baurecht zur Hand.',
     loading: 'Projekte werden geladen…',
     searchPlaceholder: 'Name, Ort oder Bauherr…',
     searchAria: 'Projekte nach Name, Adresse oder Bauherr durchsuchen',
@@ -311,10 +311,10 @@ export const projects: typeof en.projects = {
     mailWaitingAria: '{count, plural, one {# E-Mail wartet in {name} auf Ablage} other {# E-Mails warten in {name} auf Ablage}}',
   },
   officeShelfCard: {
-    title: 'Büroablage',
+    title: 'Bürobibliothek',
     subtitle:
       'Das organisationsweite Wissen Ihres Büros — geteilte Dokumente und bewährte Details, in jedem Projekt verfügbar.',
-    aria: 'Büroablage der Organisation öffnen',
+    aria: 'Bürobibliothek der Organisation öffnen',
   },
   dialog: {
     newProject: 'Neues Projekt',
@@ -436,7 +436,7 @@ export const projects: typeof en.projects = {
     tryAgain: 'Erneut versuchen',
     emptyTitle: 'Noch keine Tiefenrecherchen',
     emptyDescription:
-      'Tiefenrecherchen erscheinen hier, sobald Sie {productName} im Chat eine umfassende Frage stellen. Es arbeitet Dateien, Büroablage und Baurecht durch und liefert einen belegten Bericht, den Sie erneut aufrufen können.',
+      'Tiefenrecherchen erscheinen hier, sobald Sie {productName} im Chat eine umfassende Frage stellen. Es arbeitet Dateien, Bürobibliothek und Baurecht durch und liefert einen belegten Bericht, den Sie erneut aufrufen können.',
     emptyAction: 'Einen Lauf im Chat starten',
     viewReport: 'Bericht ansehen',
     viewProgress: 'Fortschritt ansehen',

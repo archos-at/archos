@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from agent.cards.surface_ranking import SurfaceMode
 
-_SOURCE_LABEL = {"project": "Projekt", "office": "Büroablage"}
+_SOURCE_LABEL = {"project": "Projekt", "office": "Bürobibliothek"}
 _BRIEF_SNIPPET_MAX = 120
 _BRIEF_SUMMARY_MAX = 160
 

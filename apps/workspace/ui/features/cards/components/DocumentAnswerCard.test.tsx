@@ -189,7 +189,7 @@ describe('DocumentAnswerCard', () => {
     await waitFor(() => expect(screen.getByText('Bericht.pdf')).toBeInTheDocument())
     expect(screen.getByText('The assistant referenced this file.')).toBeInTheDocument()
     expect(screen.getByTestId('document-answer-unresolved')).toHaveAttribute('href', '/app/office-shelf')
-    expect(screen.getByText('Open in Office filing')).toBeInTheDocument()
+    expect(screen.getByText('Open in Office library')).toBeInTheDocument()
     expect(screen.queryByText('Project')).not.toBeInTheDocument()
   })
 

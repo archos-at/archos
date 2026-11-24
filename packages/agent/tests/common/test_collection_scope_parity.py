@@ -37,7 +37,13 @@ def test_the_legacy_qualifier_strings_resolve_to_the_same_shelf(mirror_source: s
     assert mirrored, "the frontend mirror declares no legacy qualifiers"
     for label, shelf in mirrored:
         assert shelf_for_qualifier(label) == Shelf(shelf), f"{label!r} disagrees across the two runtimes"
-    assert {label for label, _ in mirrored} >= {"Büroablage", "Büroarchiv", "Projektwissen", "Basiswissen"}
+    assert {label for label, _ in mirrored} >= {
+        "Bürobibliothek",
+        "Büroablage",
+        "Büroarchiv",
+        "Projektwissen",
+        "Basiswissen",
+    }
 
 
 def test_the_lane_kind_prefixes_match(mirror_source: str):

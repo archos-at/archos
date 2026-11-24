@@ -8,7 +8,7 @@
  *
  * What it proves, each a claim about who may see what:
  *   - the backend is asked about the reader's project, the projects they may
- *     chat in, the office's closed projects and the Büroablage, and about no
+ *     chat in, the office's closed projects and the Bürobibliothek, and about no
  *     project they cannot read and no restricted folder they are not cleared
  *     for; the envelope is signed for exactly those plus the source's own;
  *   - a hit from a collection the call did not name is dropped, whatever the

@@ -9,7 +9,7 @@ export const capture: typeof en.capture = {
     photoLibraryHint: 'Fotos auf diesem Gerät',
     chooseFile: 'Datei auswählen',
     chooseFileHint: 'PDF, Office und weitere',
-    destinationChat: 'Landet nur in diesem Chat. Für die Projektdateien unter „Dateien“ hochladen.',
+    destinationChat: 'Landet nur in diesem Chat. Für das Projekt in der Ablage hochladen.',
   },
   photos: {
     fileNamePrefix: 'Foto',

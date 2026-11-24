@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     The tables piloti_wakes, piloti_changes and piloti_asks are renamed to

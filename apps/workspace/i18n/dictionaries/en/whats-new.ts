@@ -28,7 +28,7 @@ export const whatsNew = {
   },
   areas: {
     projects: 'Projects and setup',
-    documents: 'Files and office shelf',
+    documents: 'Documents and office library',
     answers: 'Questions and answers',
     search: 'Search',
     'building-law': 'Building law and norms',

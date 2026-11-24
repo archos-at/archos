@@ -29,7 +29,7 @@ describe('classifySourceSignal', () => {
   })
 
   test('classifies archive sources as office', () => {
-    expect(classifySourceSignal({ id: 'buero_archiv', name: 'Büroablage' })).toBe('office')
+    expect(classifySourceSignal({ id: 'buero_archiv', name: 'Bürobibliothek' })).toBe('office')
   })
 
   test('falls back to the name when the id is opaque', () => {

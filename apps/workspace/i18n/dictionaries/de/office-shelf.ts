@@ -1,19 +1,19 @@
 export const officeShelf = {
-  title: 'Büroablage',
+  title: 'Bürobibliothek',
   subtitle: 'Gemeinsame Dokumente, die jedem Projekt Ihrer Organisation zur Verfügung stehen',
   backToApp: 'Zurück zu den Projekten',
   backToProject: 'Zurück zum Projekt',
   backToNamedProject: 'Zurück zu {name}',
   toast: {
-    ingestionComplete: '„{name}“ ist jetzt in der Büroablage – zitierbar',
+    ingestionComplete: '„{name}“ ist jetzt in der Bürobibliothek – zitierbar',
   },
   places: {
-    label: 'Bereiche der Büroablage',
-    files: 'Ordner',
+    label: 'Bereiche der Bürobibliothek',
+    files: 'Dateien',
     norms: 'Normen & Richtlinien',
   },
   workspace: {
-    dropToUpload: 'Dateien hier ablegen, um sie in die Büroablage aufzunehmen',
+    dropToUpload: 'Dateien hier ablegen, um sie in die Bürobibliothek aufzunehmen',
   },
   folderNorms: {
     foundOne: '1 Datei hier ist eine Norm.',
@@ -81,14 +81,14 @@ export const officeShelf = {
     },
   },
   delete: {
-    action: 'Aus der Büroablage löschen',
+    action: 'Aus der Bürobibliothek löschen',
     title: '„{name}“ löschen?',
     confirm:
       'Dadurch wird das Dokument für die gesamte Organisation entfernt. Dies kann nicht rückgängig gemacht werden.',
     confirmAction: 'Löschen',
     cancel: 'Abbrechen',
     deleting: 'Wird gelöscht…',
-    success: '„{name}“ wurde aus der Büroablage entfernt',
+    success: '„{name}“ wurde aus der Bürobibliothek entfernt',
     error: 'Das Dokument konnte nicht gelöscht werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
   },

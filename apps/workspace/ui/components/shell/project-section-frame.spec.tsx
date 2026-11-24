@@ -77,10 +77,10 @@ describe('ProjectSectionFrame', () => {
     )
     const tabs = screen.getByTestId('files-tabs')
     const names = Array.from(tabs.querySelectorAll('a')).map((link) => link.textContent)
-    expect(names).toEqual(['Folders', 'Project mail', 'Open points', 'Bin'])
+    expect(names).toEqual(['Files', 'Project mail', 'Open points', 'Bin'])
     expect(screen.getByRole('link', { name: 'Project mail' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { level: 1, name: 'Project mail' })).toBeInTheDocument()
-    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent('Stadthaus WienFiles')
+    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent('Stadthaus WienDocuments')
     expect(screen.getByRole('banner').querySelector('h1 + p')).toBeNull()
     unmount()
 
@@ -91,10 +91,10 @@ describe('ProjectSectionFrame', () => {
       </ProjectSectionFrame>,
     )
     expect(screen.queryByRole('link', { name: 'Project mail' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Folders' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { level: 1, name: 'Files' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Files' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { level: 1, name: 'Documents' })).toBeInTheDocument()
     expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien$/)
-    expect(screen.getByRole('link', { name: 'Folders' })).toHaveAttribute('href', '/app/projects/p1/files')
+    expect(screen.getByRole('link', { name: 'Files' })).toHaveAttribute('href', '/app/projects/p1/files')
   })
 
   test('the E-Mail-Eingang tab writes its count as the list and the rail do, „50+“ when the read stopped at a page', () => {

@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     The compliance check now takes requirements only from the Richtlinien and

@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     Removing someone from a project or changing their role now takes effect on

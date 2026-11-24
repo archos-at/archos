@@ -96,7 +96,7 @@ function requireOfficeShelfMove(typed: KindPayload): void {
     typed.payload.operation === 'move' &&
     typed.payload.operations.every((item) => item.source === 'office')
   if (!fits) {
-    throw new UnprocessableError('A proposal on the Büroablage can only move its documents', {
+    throw new UnprocessableError('A proposal on the Bürobibliothek can only move its documents', {
       reason: 'proposal-office-shelf-move-only',
     })
   }

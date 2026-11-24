@@ -245,7 +245,7 @@ describe('a held document re-dispatched with an earlier pass on record', () => {
   })
 })
 
-describe('a quarantined Büroablage document', () => {
+describe('a quarantined Bürobibliothek document', () => {
   beforeEach(() => {
     store(quarantined({ scope: 'office_shelf', projectId: null }))
   })

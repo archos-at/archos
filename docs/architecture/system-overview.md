@@ -17,7 +17,7 @@
 The platform is the **workspace in which a planning office runs its work**: every
 project, every process, the whole organization. Architects work inside
 **projects**. A project holds its intake (the facts that decide the rest of
-it), its files and the office's Büroablage, its building model (IFC, opened in
+it), its files and the office's Bürobibliothek, its building model (IFC, opened in
 the browser), its tasks and research, and its team. What the office knows
 carries from one project to the next, through project and organization memory.
 
@@ -168,7 +168,7 @@ or security, and every tenant-data mutation goes through one audited layer.
 The workspace surfaces, each with its own doc:
 
 - **Projects and intake:** [projects guide](../user-guides/projects.md)
-- **Files, Büroablage and document roles:** [documents guide](../user-guides/documents.md), [the agent in the file system](filesystem-design.md), [document roles](document-roles.md)
+- **Files, Bürobibliothek and document roles:** [documents guide](../user-guides/documents.md), [the agent in the file system](filesystem-design.md), [document roles](document-roles.md)
 - **Building model (IFC):** [IFC models guide](../user-guides/bim-models.md)
 - **Tasks and jobs:** §5.12 below, and [projects guide, Jobs](../user-guides/projects.md#jobs-feature-flagged)
 - **Research and reports:** [reports the agent writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
@@ -189,7 +189,7 @@ onto the message. → `docs/architecture/backend-deep-dive.md` §2.
 
 ### 5.2 The two knowledge systems
 Every normative claim is grounded in a passage retrieved this turn from the
-project, the Büroablage, or the Austrian building-regulation corpus. Not every
+project, the Bürobibliothek, or the Austrian building-regulation corpus. Not every
 answer is a ruling.
 
 The agent deliberately separates **retrieval** from **memory** — they answer

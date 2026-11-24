@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Document search now runs on a new embedding model. Search indexes built

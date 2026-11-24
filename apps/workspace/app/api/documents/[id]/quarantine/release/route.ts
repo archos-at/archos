@@ -8,7 +8,7 @@ export const POST = apiRoute<Params>(
   {
     authz: {
       enforcedBy:
-        'releaseQuarantinedDocument -> mayReviewQuarantine (org:projects:administer | project:manage on the project | org:office_shelf:manage for the Büroablage)',
+        'releaseQuarantinedDocument -> mayReviewQuarantine (org:projects:administer | project:manage on the project | org:office_shelf:manage for the Bürobibliothek)',
     },
   }
 )

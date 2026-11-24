@@ -88,7 +88,7 @@ export const runs: typeof en.runs = {
     restrictedReason:
       'Liegt in einem Ordner mit eingeschränktem Zugriff. Unterlagen und Bericht einer Recherche sind für alle im Projekt sichtbar, deshalb lässt sie sich nicht hinzufügen.',
     done: 'Fertig',
-    shelf: { project: 'Projekt', office_shelf: 'Büroablage', session: 'Dieser Chat', base: 'Regelwerke' },
+    shelf: { project: 'Projekt', office_shelf: 'Bürobibliothek', session: 'Dieser Chat', base: 'Regelwerke' },
   },
   cancel: {
     confirmTitle: 'Lauf abbrechen?',

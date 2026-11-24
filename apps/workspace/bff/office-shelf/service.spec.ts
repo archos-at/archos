@@ -249,7 +249,7 @@ describe('listOfficeShelf', () => {
     })
   })
 
-  it('lists every quarantined file to a curator of the Büroablage (ADR-0086)', async () => {
+  it('lists every quarantined file to a curator of the Bürobibliothek (ADR-0086)', async () => {
     vi.mocked(listOfficeShelfDocumentLevel).mockResolvedValue({ rows: [], nextCursor: null })
     vi.mocked(reconcileDocumentStatuses).mockResolvedValue([])
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)

@@ -447,7 +447,7 @@ export const collaboration: typeof en.collaboration = {
       },
       mailImportFailed: {
         title: 'Der Import von „{subject}“ wurde abgebrochen',
-        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste unter Dateien nennt den Grund.',
+        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste in der Ablage nennt den Grund.',
       },
       taskRunFailed: {
         title: '{productName} konnte „{subject}“ nicht abschließen',
@@ -528,8 +528,8 @@ export const collaboration: typeof en.collaboration = {
       agentProposalWaiting: {
         title: '{productName} hat einen Vorschlag für Sie',
         body: 'Der Vorschlag steht im Chat. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyProject: 'Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Büroablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyProject: 'Der Vorschlag steht bei der Datei in der Ablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Bürobibliothek. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
         variants: {
           move: { title: '{productName} schlägt einen neuen Ablageort vor' },
           rename: { title: '{productName} schlägt eine Umbenennung vor' },
@@ -538,7 +538,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
-          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Büroablage vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Bürobibliothek vor' },
         },
       },
       agentIntakeReady: {
@@ -711,10 +711,10 @@ export const collaboration: typeof en.collaboration = {
         body: 'Prüfen Sie, wohin jede Datei soll. Verschoben wird erst, was Sie übernehmen.',
         variants: {
           office: {
-            titleOne: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: 1 Datei',
-            titleMany: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: {count} Dateien',
-            titleNone: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
-            title: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
+            titleOne: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: 1 Datei',
+            titleMany: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: {count} Dateien',
+            titleNone: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
+            title: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
           },
         },
       },
@@ -865,14 +865,14 @@ export const collaboration: typeof en.collaboration = {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',
         body: 'Was bis dahin verschoben wurde, bleibt. Öffnen Sie die Dateien, um den Grund zu sehen.',
         variants: {
-          office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
+          office: { title: 'Die Sortierung der Bürobibliothek wurde abgebrochen' },
         },
       },
       officeShelfNormSuggested: {
-        title: '{actor} schlägt eine Norm für die Büroablage vor',
-        titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
-        titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
-        body: 'Aus „{subject}“. In der Büroablage finden alle Projekte sie.',
+        title: '{actor} schlägt eine Norm für die Bürobibliothek vor',
+        titleNoActor: 'Eine Norm wird für die Bürobibliothek vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Bürobibliothek ist entschieden',
+        body: 'Aus „{subject}“. In der Bürobibliothek finden alle Projekte sie.',
       },
       unknown: {
         title: 'Es gab Aktivität',
@@ -907,11 +907,11 @@ export const collaboration: typeof en.collaboration = {
       viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
     },
     normSuggestion: {
-      accept: 'In die Büroablage übernehmen',
+      accept: 'In die Bürobibliothek übernehmen',
       decline: 'Ablehnen',
       visibility: 'Danach ist sie für alle im Büro sichtbar.',
-      accepted: 'Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.',
-      unconfirmed: 'Liegt in der Büroablage, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
+      accepted: 'Bestätigt und in der Bürobibliothek. Das Projekt behält einen Verweis.',
+      unconfirmed: 'Liegt in der Bürobibliothek, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
       declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
       failed: 'Das hat nicht geklappt: {reason}',
       stale: 'Jemand hat schon entschieden.',

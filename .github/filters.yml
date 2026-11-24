@@ -140,6 +140,7 @@ backend:
   - 'apps/workspace/tests/fixtures/workspace/rendered.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_requests.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_responses.json'
+  - 'apps/workspace/tests/test-utils/generated-file.ts'
   - 'apps/workspace/tsconfig.json'
   - 'apps/workspace/ui/adapters/api/documents-schemas.ts'
   - 'apps/workspace/ui/features/a2ui/catalog.tsx'

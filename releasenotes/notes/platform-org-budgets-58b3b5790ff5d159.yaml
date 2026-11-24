@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     Platform operators can set each organization's monthly allowance directly

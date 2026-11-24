@@ -53,7 +53,7 @@ const de = {
   blockDerivedOne: 'Abgeleitet aus einer Quelle',
   sourceKinds: {
     building_law: 'Baurecht',
-    office: 'Büroablage',
+    office: 'Bürobibliothek',
     project: 'Projekt',
     web: 'Web',
     measurement: 'Modellmessung',
@@ -114,7 +114,7 @@ const en: UiCopy = {
   blockDerivedOne: 'Derived from one source',
   sourceKinds: {
     building_law: 'Building law',
-    office: 'Office archive',
+    office: 'Office library',
     project: 'Project',
     web: 'Web',
     measurement: 'Model measurement',

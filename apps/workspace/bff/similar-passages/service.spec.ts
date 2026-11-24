@@ -94,7 +94,7 @@ beforeEach(() => {
 })
 
 describe('the backend’s collection cap', () => {
-  it('stops adding projects before the collections pass it, the reader’s own project and the Büroablage kept', async () => {
+  it('stops adding projects before the collections pass it, the reader’s own project and the Bürobibliothek kept', async () => {
     for (const project of state.reach) state.cleared.set(project.id, restricted(project, 39))
 
     const response = await findSimilarPassages(session, request)
@@ -107,7 +107,7 @@ describe('the backend’s collection cap', () => {
     expect(response.projectsSearched).toBe(11)
   })
 
-  it('cuts the reader’s own project to the cap when it alone passes it, and still asks the Büroablage', async () => {
+  it('cuts the reader’s own project to the cap when it alone passes it, and still asks the Bürobibliothek', async () => {
     state.cleared.set('p1', restricted(state.reach[0], BACKEND_SEARCH_MAX_COLLECTIONS + 5))
 
     const response = await findSimilarPassages(session, request)
@@ -181,7 +181,7 @@ describe('a failed join to the documents', () => {
     await expect(findSimilarPassages(session, request)).rejects.toBeInstanceOf(ServiceUnavailableError)
   })
 
-  it('is the error state for the Büroablage’s hits too', async () => {
+  it('is the error state for the Bürobibliothek’s hits too', async () => {
     answering('archiv_org_1', 'musterdetail.pdf')
     vi.mocked(findOfficeShelfDocumentsByFilenames).mockRejectedValueOnce(new Error('connection terminated'))
 

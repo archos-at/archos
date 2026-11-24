@@ -31,7 +31,7 @@ result every time, and every verdict names the rule that matched.
 ## Where a person decides
 
 - **Quarantine release.** A quarantined file stays unread until an organization
-  admin, a project admin or (for the Büroablage) a curator releases or deletes
+  admin, a project admin or (for the Bürobibliothek) a curator releases or deletes
   it under **Organisation → Quarantäne**. ARCHOS never releases a file itself.
 - **A name match in the upload dialog.** The uploader can release a single file
   that a name term held back, such as a Bauvertrag in a folder called

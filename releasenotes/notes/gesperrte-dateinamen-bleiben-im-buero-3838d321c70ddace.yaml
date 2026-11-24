@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Confirming an upload preview checks your office's list once more before

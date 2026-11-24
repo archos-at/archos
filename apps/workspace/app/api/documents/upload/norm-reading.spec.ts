@@ -52,7 +52,7 @@ beforeEach(() => {
 })
 
 describe('POST /api/documents/upload — the norm reading of each file', () => {
-  it('counts a file of the Büroablage whose name reads as a norm, in its upload batch', async () => {
+  it('counts a file of the Bürobibliothek whose name reads as a norm, in its upload batch', async () => {
     expect((await post('OENORM_B_1600_2017-04-15.pdf', '?scope=office_shelf', { uploadBatchId: BATCH })).status).toBe(200)
 
     expect(captureServer).toHaveBeenCalledWith({

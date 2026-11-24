@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     Signing in no longer bounces between Piloti and the login page. If a sign-in

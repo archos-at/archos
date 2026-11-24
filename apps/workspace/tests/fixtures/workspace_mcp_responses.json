@@ -1,5 +1,5 @@
 {
-  "comment": "Written by workspace-contract.spec.ts from the real route; read by test_workspace_mcp_contract.py. Regenerate with UPDATE_FIXTURES=1.",
+  "comment": "Written by workspace-contract.spec.ts from the real route; read by test_workspace_mcp_contract.py. Regenerate with `task generate`.",
   "responses": {
     "call_read": {
       "status": 200,

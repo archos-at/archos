@@ -363,7 +363,7 @@ the session cache (`edition_id` has no line). Austria's style prints a publisher
 segment, `" ({publisher}, {place})"`), so an issuer the style names no place for is left out, never guessed.
 
 *Where an office norm came from (2026-11-19).* A source on a user's shelf names that shelf whatever document
-class it carries: a copy in the Büroablage is lane `office` ("Büroablage"), a norm only in a project's files is
+class it carries: a copy in the Bürobibliothek is lane `office` ("Bürobibliothek"), a norm only in a project's files is
 lane `project` ("Projektwissen"), a session's file "Private Sitzung" (`norm_registry.lane_for_hit`). Before, any
 class other than `other` won over the shelf, so a project's own ÖNORM with the class `external_standard` read
 "Externe Norm" under Baurecht & Richtlinien, and one with `law` "Rechtsquelle (RIS)": the line hid that the text

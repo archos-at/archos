@@ -129,7 +129,7 @@ describe('which norms the office holds are no longer binding for its projects', 
 })
 
 describe('the Postfach item', () => {
-  it('tells everyone who manages the Büroablage, once per norm and binding edition, naming the projects it affects', async () => {
+  it('tells everyone who manages the Bürobibliothek, once per norm and binding edition, naming the projects it affects', async () => {
     expect(await noticeNewEditions('org_1')).toEqual({ newer: 1, notified: 2, resolved: 0 })
     expect(knowledgeContextForTurn).not.toHaveBeenCalledWith('org_1', 'p_erdberg', undefined, null, 'run')
     expect(activeMembersHolding).toHaveBeenCalledWith('org_1', ORG_PERMISSIONS.officeShelfManage)

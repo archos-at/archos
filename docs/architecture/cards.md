@@ -147,7 +147,7 @@ catalog omits them entirely).
 
 | `type` | Shows | Emitted by |
 |---|---|---|
-| `document_grid` | project/Büroablage files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
+| `document_grid` | project/Bürobibliothek files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
 | `memory_proposal` **(interactive)** | a finding to be written to org- or project-scoped memory, for the user to confirm. With `proposal_id` it is the receipt of a stored `memory` proposal (same frame as the file card, `ProposalReceipt`): the note, its kind and confidence, where it goes, „Ersetzt: …“ for a correction, „Übernehmen“ / „Verwerfen“ for whoever `canDecide`, „Nur im Projekt merken“ for an office note, and who decided when. Without one, the browser writes it, as before | the `remember` tool |
 | `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von {productName} erstellt" byline; „Ins Projekt ablegen" files it, then the card opens it in the project and submits it for approval. A Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made is drawn by `FileDraftCard` instead (first page, Öffnen, Herunterladen; [agent-made-files-ux.md](../design/agent-made-files-ux.md)). One card per path per turn: a rewrite replaces the turn's earlier card | the working directory's `write_file` / `edit_file`, `execute` |
 | `task_created` | work the agent has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
@@ -664,9 +664,9 @@ sanctioned path, carrying **real** data:
   opens a named file; **`mode=one` + `query`** opens the best match;
   **`mode=many`** only when two or three files of the same kind are
   nearly tied. **`shelf=office_shelf` / `shelf=project`** keeps the search on
-  one shelf so a Büroablage browse cannot pull project files. A question
+  one shelf so a Bürobibliothek browse cannot pull project files. A question
   that only *lists* what is on a shelf ("welche Dateien hast du im
-  Büroablage") is answered from the shelf-grouped inventory, not this
+  Bürobibliothek") is answered from the shelf-grouped inventory, not this
   tool. Never invent names. See [ADR-0026](../adr/) for
   source-kind doctrine.
 

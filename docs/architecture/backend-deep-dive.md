@@ -737,11 +737,11 @@ this.
 `core/conversation_register.py`, aggregated across the collections in the
 request's header-based scope (or the base + session collection fallback when
 no scope header is present). Identity is `(collection, file_name)` — the same
-filename on the Büroablage and in a project is two documents (ADR-0047). The
+filename on the Bürobibliothek and in a project is two documents (ADR-0047). The
 cap (`AVAILABLE_DOCUMENTS_MAX`) keeps user-shelf files (archiv / project
 / session) first so the OIB corpus cannot evict them; a previous
 sort-then-slice let ~40 OIB filenames eat the window and made "welche Dateien
-hast du in der Büroablage" answer from Basiswissen. The prompt block is grouped
+hast du in der Bürobibliothek" answer from Basiswissen. The prompt block is grouped
 by shelf (`agent.knowledge.inventory.render_inventory_block`) and empty
 in-scope shelves render as empty rather than being omitted. The same list is
 then shared by the agent, clarifier, and deep-research paths for that turn
@@ -1549,7 +1549,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
 - **Display tagging** — `lane_for_hit` / `citations/source_identity.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
-  Projektwissen / Büroablage / Web via collection origin) for the research
+  Projektwissen / Bürobibliothek / Web via collection origin) for the research
   fan-out UI. Deterministic tagging only — no chunk-metadata dependency.
 
 ## 6c. IFC/BIM models — the building as queryable data (ADR-0045, 2026-08-08)

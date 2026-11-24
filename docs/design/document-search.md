@@ -131,7 +131,7 @@ operation's schema is the same zod object:
 
 Scope is a query parameter, as the documents API has it (`scope`, `projectId`,
 `folderId`; ADR-0131 rules 4 and 5): absent is the whole office, `projectId` one
-project, `scope=office_shelf` the Büroablage, `folderId` a subtree.
+project, `scope=office_shelf` the Bürobibliothek, `folderId` a subtree.
 
 ### One reach
 
@@ -367,7 +367,7 @@ chosen columns on a line under it, the order in a menu.
 - The field is a WAI-ARIA combobox: ↑ ↓ move an active option while focus
   stays in the field (`aria-activedescendant`), each kind's rows are a listbox
   (the register's rows, its table), and the active row carries a 2px ink rule.
-- A project's Dateien and the Büroablage: one field in the header. Typing
+- A project's Dateien and the Bürobibliothek: one field in the header. Typing
   filters the listing by name; Enter opens the search (`?mode=search&q=…`),
   scoped to the shelf and the open folder (`?folder=`). There is no second
   „Suche“ button beside it.
@@ -482,7 +482,7 @@ the document's Prüfansicht, and closing it returns to the search; „Im Ordner
 zeigen" opens the folder it lies in on its shelf; „Link kopieren" puts the
 document's own absolute address on the clipboard (without the passage or the
 way back, which are this reader's), and a toast says it did. A
-Büroablage document has no chat to start, so it offers no „Den Agenten fragen".
+Bürobibliothek document has no chat to start, so it offers no „Den Agenten fragen".
 With a row marked, Shift+F10 or the menu key opens its ⋯ while the focus
 stays in the field. Each action is an operation that already exists
 (`agent-ask-create`, `document-status`, `annotation-list`); none is new.

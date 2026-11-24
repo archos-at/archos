@@ -389,7 +389,7 @@ class TestBriefingNamesTheFolder:
             "many",
         )
         assert '- "a.pdf" (Projekt, Ordner Brandschutz)' in text
-        assert '- "b.pdf" (Büroablage)' in text
+        assert '- "b.pdf" (Bürobibliothek)' in text
 
 
 class TestBriefing:
