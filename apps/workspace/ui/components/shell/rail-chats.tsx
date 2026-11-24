@@ -153,7 +153,7 @@ const PENDING_ROW_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3'] as const
 
 function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   const t = useTranslations(navCopy)
-  const [bornProvisional] = useState(chat.provisional === true)
+  const [born] = useState({ provisional: chat.provisional === true, title: chat.title })
   const fade = useMotionToken(motionSnap)
   const unseen = chat.activity === 'answered' || chat.activity === 'failed'
   if (chat.provisional && !chat.title) {
@@ -166,8 +166,8 @@ function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   }
   return (
     <motion.span
-      key={chat.provisional ? 'provisional' : 'named'}
-      initial={bornProvisional && !chat.provisional ? { opacity: 0 } : false}
+      key={chat.title}
+      initial={born.provisional && chat.title !== born.title ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={fade}
       data-provisional={chat.provisional || undefined}

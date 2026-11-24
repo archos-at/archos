@@ -60,6 +60,7 @@ export const createConversationMetadataSlice: StateCreator<
     if (hasRun || !firstQuestion || !firstAnswer) return settle()
 
     namedConversations.add(conversationId)
+    const askedOver = conversation.title
 
     const payload = [
       { role: 'user' as const, content: firstQuestion },
@@ -77,7 +78,9 @@ export const createConversationMetadataSlice: StateCreator<
           settle()
           return
         }
-        retitle(conversationId, (c) => named(c, title), 'nameConversation')
+        const stillAsked = (c: Conversation): boolean => c.title === askedOver
+        if (!get().conversations.some((c) => c.id === conversationId && stillAsked(c))) return
+        retitle(conversationId, (c) => (stillAsked(c) ? named(c, title) : c), 'nameConversation')
         syncTitle(conversationId, title)
       })
       .catch((err) => {
