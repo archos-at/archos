@@ -203,7 +203,7 @@ async function foreignHandOut(
 ): Promise<ReadJudgement> {
   if (foreign.length === 0) return { handOut: { projectIds: [], folderIds: [] } }
   const projectIds = [...new Set(foreign.map(({ place }) => place.projectId))]
-  const reach = await audienceReachAmong(principal.session, audience.row, projectIds)
+  const reach = await audienceReachAmong(principal.session, principal.conversationId ?? null, audience.row, projectIds)
   const inReach = new Set(reach.projects.map((project) => project.id))
   if (projectIds.some((projectId) => !inReach.has(projectId))) return refuse(READ_REFUSALS.outsideReach)
   const folderIds: string[] = []
@@ -277,14 +277,14 @@ export async function proposalReachRefusal(
   if (!conversationId || targets.length === 0) return null
   const { organizationId, userId } = party.session
   const { row, solo } = await readContextAudience(organizationId, conversationId, userId)
-  if (solo) return null
+  if (workspaceReadOf(kindOf(null, 'ui'), conversationId, solo) === 'all') return null
   const places = await placesOf(organizationId, userId, targets)
   const own = party.projectId ?? row.projectId ?? null
   const projectIds = [
     ...new Set(places.flatMap((place) => (place?.projectId && place.projectId !== own ? [place.projectId] : []))),
   ]
   if (projectIds.length === 0) return null
-  const reach = await audienceReachAmong(party.session, row, projectIds)
+  const reach = await audienceReachAmong(party.session, conversationId, row, projectIds)
   const inReach = new Set(reach.projects.map((project) => project.id))
   return projectIds.every((projectId) => inReach.has(projectId)) ? null : READ_REFUSALS.proposalOutsideReach
 }

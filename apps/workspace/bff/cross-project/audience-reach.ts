@@ -39,25 +39,27 @@ export async function audienceReach(session: AuthorizedSession, conversationId: 
     readConversationRow(session.organizationId, conversationId),
     listChatProjects(session, 'newest'),
   ])
-  return reachOver(session, audience, chat)
+  return reachOver(session, conversationId, audience, chat)
 }
 
 export async function audienceReachAmong(
   session: AuthorizedSession,
+  conversationId: string | null,
   audience: ConversationAudienceRow,
   projectIds: readonly string[]
 ): Promise<AudienceReach> {
-  return reachOver(session, audience, await listChatProjectsAmong(session, projectIds))
+  return reachOver(session, conversationId, audience, await listChatProjectsAmong(session, projectIds))
 }
 
 async function reachOver(
   session: AuthorizedSession,
+  conversationId: string | null,
   audience: ConversationAudienceRow,
   chat: readonly Project[]
 ): Promise<AudienceReach> {
   const version = audience.version
   const ownProjectId = audience.projectId
-  const reach = otherProjectsOf('chat', 'conversation', isSoloAudience(audience, session.userId))
+  const reach = otherProjectsOf('chat', conversationId, isSoloAudience(audience, session.userId))
   if (reach.reach === 'chat-projects') return { projects: [...chat], restrictedFolders: reach.restrictedFolders, version, ownProjectId }
   const closed = chat.filter((project) => isProjectClosed(project))
   const others = otherReaders(audience.createdBy, audience.grantees, session.userId)
