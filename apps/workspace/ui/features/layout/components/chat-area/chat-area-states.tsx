@@ -1,5 +1,4 @@
 import { type FC } from 'react'
-import { usePathname } from 'next/navigation'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,10 +13,6 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { researchCopy } from '@/i18n/namespaces/research'
-import { projectIdFromPathname } from '@/components/shell'
-import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
-import { inboundMailPaths } from '@/lib/inbound-mail/paths'
-import { InboundMailWaitingLine } from '@/features/documents'
 import { WELCOME_OFFSET_FALLBACK } from '../../hooks/use-composer-metrics'
 import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
 
@@ -120,7 +115,6 @@ export const MessageListSkeleton: FC = () => {
 interface WelcomeStateProps {
   isAuthenticated?: boolean
   onSignIn?: () => void
-  inProject?: boolean
 }
 
 const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' => {
@@ -132,15 +126,12 @@ const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' =
 export const WelcomeState: FC<WelcomeStateProps> = ({
   isAuthenticated = false,
   onSignIn,
-  inProject = false,
 }) => {
   const t = useTranslations(researchCopy)
   const tChat = useTranslations(chatCopy)
   const { user } = useAuth()
   const composerSubject = useChatStore((s) => s.composerSubject)
   const tFiles = useTranslations(filesCopy)
-  const projectId = projectIdFromPathname(usePathname() ?? '')
-  const waitingMail = useInboundMailWaitingShown(inProject ? projectId : null)
 
   if (!isAuthenticated) {
     return (
@@ -179,6 +170,10 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
       <h1 className="text-foreground text-center text-[23px] font-medium">
         {heading}
       </h1>
+      <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
+        <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+        {tChat('privacy.newChat')}
+      </p>
 
       {/* The chat is about one file: say which. A named file is the state of
           THIS canvas, and it is not recoverable from anything else on
@@ -191,34 +186,6 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
         </p>
       )}
 
-      {/* One sentence, and only in a project: that the agent WRITES. The canvas is
-          otherwise deliberately quiet (the starters were cut for costing every
-          user on every new thread), and this earns its place because it is the
-          product's least discoverable capability — today it is found only by
-          someone who happens to phrase a request as a commission (ledger 23).
-          Below the file line, because a named subject is the state of THIS
-          canvas and this is a standing fact about the project.
-
-          Not shown when the thread is about one file: that reader has already
-          been told what this canvas is for, and two grey sentences under a
-          greeting is a paragraph. */}
-      {inProject && !composerSubject && (
-        <p className="text-muted-foreground mt-3 max-w-md text-center text-sm leading-relaxed">
-          {tChat('greeting.projectWrites')}
-        </p>
-      )}
-
-      {/* What waits for this reader at the project's start (the UI revision's „what happened since your last
-          visit“, its first line): mail to file, the rail's own number, quiet, and only while something waits. */}
-      {inProject && projectId && (waitingMail.count ?? 0) > 0 && (
-        <div className="mt-4">
-          <InboundMailWaitingLine
-            href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}
-            count={waitingMail.count ?? 0}
-            more={waitingMail.more}
-          />
-        </div>
-      )}
     </div>
   )
 }

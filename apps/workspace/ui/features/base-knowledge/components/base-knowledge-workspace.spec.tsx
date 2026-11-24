@@ -337,7 +337,7 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/base-knowledge' && init?.method === 'POST')).toBe(false)
   })
 
-  it('reads like the Ordner tab: the shelf’s header, then one tool row of search, kind, Thema anlegen, Hochladen and ⋯', async () => {
+  it('reads like the Dateien place: the shelf’s header, then one tool row of search, kind, Hochladen and ⋯', async () => {
     stubFetch(listOf())
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
@@ -347,7 +347,6 @@ describe('BaseKnowledgeWorkspace', () => {
     const order = [
       within(row).getByRole('textbox', { name: 'Normen & Richtlinien durchsuchen' }),
       within(row).getByRole('combobox', { name: 'Art' }),
-      within(row).getByRole('button', { name: 'Thema anlegen' }),
       within(row).getByRole('button', { name: 'Hochladen' }),
       within(row).getByTestId('base-knowledge-more'),
     ]
@@ -381,11 +380,13 @@ describe('BaseKnowledgeWorkspace', () => {
     for (const name of names) expect(within(topics).getAllByTitle(name).length).toBeGreaterThan(0)
   })
 
-  it('names the folder action of the norms tab a topic', async () => {
+  it('names the folder action of the norms tab a topic, behind its ⋯', async () => {
     stubFetch(listOf())
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
-    expect(screen.getByRole('button', { name: 'Thema anlegen' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Thema anlegen' })).toBeNull()
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    expect(await screen.findByTestId('base-knowledge-new-topic')).toHaveTextContent('Thema anlegen')
   })
 
   it('holds the place under a scrim while the file loads, and a further press replaces rather than stacks', async () => {

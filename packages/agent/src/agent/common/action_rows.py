@@ -17,9 +17,9 @@ from agent.common.tool_calls import tool_basename
 from agent.common.turn_status import clip
 from agent.common.turn_status import current_retrieval_round
 from agent.common.turn_status import current_subagent
-from agent.common.wire_v2 import ActionCounts
+from agent.common.wire_action import ActionCounts
+from agent.common.wire_action import ActionVerb
 from agent.common.wire_v2 import ActionStep
-from agent.common.wire_v2 import ActionVerb
 from agent.common.wire_v2 import ToolStep
 
 logger = logging.getLogger(__name__)

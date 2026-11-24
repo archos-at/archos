@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import postcss, { type Declaration, type Root, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
+import { ROW_GLYPH_PRESS } from '@/components/ui/row-hairline'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { calleeName, exportedNames, nodesOf, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
@@ -793,9 +794,9 @@ describe('a choice sits on its track', () => {
     expect(literalHasRun(moduleOf('SectionNav'), ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
   })
 
-  it('Dateien’s tabs sit on the same track, so grey alone means a press and never „chosen“', () => {
+  it('the Ablage’s places are words with a rule under the open one, never a second track beside the presses (KAN-86)', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'track') !== undefined || classesOfAttributes(element).includes('track'))).toEqual([true])
+    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'words') !== undefined)).toEqual([true])
   })
 
   it('every single choice on Dateien, the preview and the brief is segmented', () => {
@@ -1032,10 +1033,10 @@ describe('rows, weights and the phone', () => {
     expect(descriptions.filter((classes) => !classes.includes('sm:hidden'))).toHaveLength(1)
     expect(
       elementsNamed(bin, ['Button', 'BusyButton']).some(
-        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'RESTORE_PRESS',
+        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'ROW_GLYPH_PRESS',
       ),
     ).toBe(true)
-    expect((stringConst(bin, 'RESTORE_PRESS') ?? '').startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
+    expect(ROW_GLYPH_PRESS.startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
     expect(
       elementsNamed(bin, ['span']).some((element) => {
         const parent = elementOf(element)
@@ -1122,13 +1123,13 @@ describe('rows, weights and the phone', () => {
     expect(literalHasRun(row, ['text-muted-foreground', 'ml-auto', 'hidden', 'shrink-0', 'items-start', 'gap-4'])).toBe(true)
   })
 
-  it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
-    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-2 mt-6 min-w-0 phone:mt-4')).toBe(true)
+  it('the places stand under the tool row, their rule on the band’s rule (KAN-86)', () => {
+    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-4 mt-4 min-w-0 phone:mt-4')).toBe(true)
   })
 
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'track') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
+    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'words') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
     for (const name of ['InboundMailWorkspace', 'OpenPointsPanel']) {
       expect(elementsNamed(parseSource(moduleOf(name)), ['ProjectSectionActions']).some((element) => attributeOf(element, 'onTitleLine') !== undefined), name).toBe(true)
     }

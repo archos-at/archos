@@ -49,7 +49,7 @@ vi.mock('./connection-band', () => ({
     <div data-testid="connection-band" data-appearance={appearance} />
   ),
 }))
-vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
+vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div data-testid="user-menu" /> }))
 vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 
 vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
@@ -71,14 +71,18 @@ afterEach(() => {
   useShellOverlays.setState({ paletteOpen: false })
 })
 
-describe('the Inbox entry follows canAccessInbox, in both directions', () => {
-  test('shows the entry when the reader may reach the inbox', () => {
+describe('the inbox bell stands beside the person, for a reader who may reach the inbox', () => {
+  test('is in the rail footer next to the user menu, and is not a section of the nav', () => {
     render(<AppSidebar {...baseProps} canAccessInbox />)
-    expect(screen.getAllByText('Inbox').length).toBeGreaterThan(0)
+    const bell = screen.getByTestId('inbox-bell')
+    expect(bell).toHaveAttribute('href', '/app/inbox')
+    expect(bell.closest('[data-slot="rail-person"]')).toContainElement(screen.getByTestId('user-menu'))
+    expect(bell.closest('nav')).toBeNull()
   })
 
-  test('hides it when they may not', () => {
+  test('is absent when the reader cannot reach the inbox', () => {
     render(<AppSidebar {...baseProps} canAccessInbox={false} />)
+    expect(screen.queryByTestId('inbox-bell')).not.toBeInTheDocument()
     expect(screen.queryByText('Inbox')).not.toBeInTheDocument()
   })
 })
@@ -170,14 +174,14 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     expect(screen.queryByText('Office library')).not.toBeInTheDocument()
   })
 
-  test('orders Chat first and Inbox last in the section nav, with the search in the head and not among the doorways', () => {
+  test('orders Chat first in the section nav, with no inbox entry and the search in the head, not among the doorways', () => {
     const { container } = render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
     const navs = container.querySelectorAll('[data-sidebar="sidebar"] nav')
     expect(navs.length).toBeGreaterThan(0)
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Documents', 'Overview', 'Office library', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Documents', 'Overview', 'Office library'])
     expect(container.querySelector('[data-sidebar="sidebar"] a[href="/app/search"]')).toBeNull()
     expect(container.querySelector('[data-sidebar="sidebar"] [data-testid="shell-search"]')).not.toBeNull()
   })
@@ -208,7 +212,7 @@ describe('AppSidebar - the project hub stands with the project', () => {
 describe('AppSidebar - collapsed icon rail', () => {
   test('keeps nav labels in the a11y tree but does not paint them', async () => {
     const user = userEvent.setup()
-    render(<AppSidebar {...baseProps} />)
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
 
     const sections = screen.getByLabelText('Project sections')
     const org = screen.getByRole('navigation', { name: 'Organization' })

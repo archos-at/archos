@@ -710,9 +710,7 @@ agent is still reading a part with no place (`mailStillSettling`), it is read
 again at a growing pause (twice the poll, then ×1.5, at most 30 s). A re-read,
 a refusal's reload included, keeps every choice the person made while the mail
 has the same parts (`rebaseDraft`): only parts nobody touched take the new
-defaults. After a filing it is read until every part has landed; past 40 quick
-rounds it says „Das dauert länger als üblich. Die Ablage läuft weiter; Sie
-können die E-Mail verlassen.“ and keeps asking, slowly.
+defaults. A mail opened while its parts are filed says „Wird abgelegt …“.
 
 On a phone (390×844) the header, the text and the first attachment fit the
 first screen with the decision bar, and a mail's toasts („E-Mail verworfen ·
@@ -728,10 +726,12 @@ Fassung (`filedPlace` drops a message's version): „In E-Mail-Verlauf „{Name}
 abgelegt · Öffnen“; by a follow „Dem E-Mail-Verlauf „{Name}“ angefügt (Verlauf
 folgen)“. Where the viewer may not read the
 folder: „In Dateien abgelegt“ / „In einem E-Mail-Verlauf abgelegt“, never the
-place. One toast after a filing in the detail („1 Datei und der E-Mail-Text
-abgelegt“, „N Dateien abgelegt“, „E-Mail-Text abgelegt“) with a line per part
-(„E-Mail-Text → „Stellplatznachweis““, „Bescheid_MA37….pdf →
-Behörde/Bescheide · Fassung 1“) and „Ansehen“. A filing has no undo;
+place. A filing from the detail leaves the mail at once (below) and reports in
+one toast: „Wird abgelegt …“ until the parts have landed, then „1 Datei und
+der E-Mail-Text abgelegt“, „N Dateien abgelegt“ or „E-Mail-Text abgelegt“ with
+where each part went („E-Mail-Text → „Stellplatznachweis““, „Bescheid_MA37….pdf
+→ Behörde/Bescheide · Fassung 1“) and „Ansehen“, or the failure
+(`useLandingReport`, the same toast as a row's „Ablegen“). A filing has no undo;
 „Öffnen“ and „Ansehen“ are the way on. A mail of which something was filed and
 one part dismissed says „1 Teil verworfen · wiederherstellbar bis …“ instead
 of a page-wide „Verworfen · …“.
@@ -747,12 +747,14 @@ under the count („Bei 1 E-Mail muss der Absender bestätigt werden. Öffnen Si
 sie einzeln.“, the press's description), never behind an ⓘ. It never carries
 an acknowledgement and confirms with a dialog grouped by destination.
 
-**After a decision the next mail opens.** When the open mail no longer waits
-after the reader filed (once it landed) or dismissed it, the mail below it in
-the list opens, else the one above, and the focus goes to its row; with none
-left the list stands alone, on a phone too (`nextOpenAfter`, `wasDecided`; the
-detail's `onChanged`). A mail that still waits, a restore or a filing that
-failed, stays open. On a phone the open mail's header carries where it stands
+**After a decision the next mail opens.** When the reader filed the open mail
+(as soon as the filing is accepted, not when it lands: the detail's `onFiled`),
+or it no longer waits after a dismissal (`wasDecided`, the detail's
+`onChanged`), the mail below it in the list opens, else the one above, and the
+focus goes to its row; with none left the list stands alone, on a phone too
+(`nextOpenAfter`). The filed mail's row says „Wird abgelegt“ until it lands; a
+filing that failed leaves it waiting in the list. A mail that still waits after
+a restore stays open. On a phone the open mail's header carries where it stands
 and the step to its neighbours, where the address menu stands over the list:
 „2 von 9“ with ↑ „Vorige E-Mail“ and ↓ „Nächste E-Mail“ (`mail-stepper.tsx`,
 the rows on show, replaced not pushed); the list once came back after each

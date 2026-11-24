@@ -19,10 +19,12 @@ import { ComposerAboveField } from './input-area/composer-above-field'
 import { ComposerField } from './input-area/composer-field'
 import { ComposerControls } from './input-area/composer-controls'
 
+import { useChatStore } from '@/features/chat/store'
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
+  const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
 
   return (
     <div
@@ -114,24 +116,11 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         </PopoverContent>
       </Popover>
 
-      {/* AI-transparency disclosure (EU AI Act Art. 50): users must know they
-          interact with an AI system and that answers can be wrong. Kept to a
-          single compact line so it costs minimal vertical space on both mobile
-          and desktop, while staying persistently visible, legible and not
-          hidden behind a click, per the Art. 50(5) "clear and distinguishable"
-          standard. That standard is carried by the SENTENCE, which is
-          unabridged, always rendered and never collapsed; it used to be led by
-          a spark glyph as well, and the glyph was reinforcement rather than the
-          disclosure. The composer floats over the scrolling chat, so a light
-          blurred pill keeps it readable over messages behind it. */}
-      <div className="mt-1.5 flex justify-center">
-        {/* Frosted, not hand-derived: this hint sits ON the transcript, and the
-            alpha pair is what `backdrop-blur-sm` has to blur (the `supports-`
-            step is the no-blur fallback). */}
-        <p className="text-muted-foreground bg-muted/70 supports-[backdrop-filter]:bg-muted/45 inline-flex max-w-[calc(100%-1rem)] items-center rounded-lg px-2.5 py-1 text-center text-xs leading-snug backdrop-blur-sm">
+      {chatStarted && (
+        <p className="text-muted-foreground mt-1.5 px-2 text-center text-xs leading-snug" data-testid="ai-disclosure">
           {controller.t('inputArea.aiDisclosure')}
         </p>
-      </div>
+      )}
 
       {/* Manage-files dialog — one controlled instance shared by the desktop
           button and the mobile text entry. Mobile: a bottom sheet that slides up

@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffortInBackground } from '@/lib/best-effort'
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { DocumentAnnotationReplyRow, AgentWakeRow } from '@/lib/db/schema/document-annotations'
@@ -36,7 +37,6 @@ import { type AnnotationActor, PERSON, requireWritableDocument } from './annotat
 import { announce } from './annotation-events'
 import { viewOf } from './annotation-views'
 import {
-  bestEffort,
   traceSettled,
   spendMentions,
   traceWithdrawn,
@@ -56,7 +56,7 @@ export async function replyToAnnotation(
 ): Promise<{ annotation: AnnotationView; replyId: string; wake: WakeOutcome }> {
   const { doc, existing, reply, wake, mentioned } = await postReply(session, documentId, annotationId, input, actor)
   traceMentioned(session, doc, existing, mentioned, reply.body, reply.mentions, null, reply.id)
-  bestEffort('tell the thread', () =>
+  bestEffortInBackground('tell the thread', () =>
     onMarkReplied({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
@@ -164,7 +164,7 @@ async function removeReply(
   announce(session, doc.id, [existing.id], 'updated', actor)
   const left = existing.replies.filter((candidate) => candidate.id !== reply.id)
   const withdrawn = noLongerMentioned(reply.mentions, [existing.mentions, ...left.map((candidate) => candidate.mentions)])
-  bestEffort('clear the deleted reply’s rows', () =>
+  bestEffortInBackground('clear the deleted reply’s rows', () =>
     onReplyDeleted({ organizationId: session.organizationId, annotationId: existing.id, replyId: reply.id, withdrawn })
   )
 }
@@ -230,7 +230,7 @@ export async function editReply(
   })
   if (!updated) throw conflict()
   announce(session, doc.id, [existing.id], 'updated', actor)
-  bestEffort('reword the reply’s rows', () =>
+  bestEffortInBackground('reword the reply’s rows', () =>
     onReplyEdited({
       organizationId: session.organizationId,
       annotationId: existing.id,

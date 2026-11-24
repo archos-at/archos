@@ -19,6 +19,9 @@ import { useMailImports } from '../hooks/use-mail-imports'
 import { MailImportDialogView, type HandedArchives } from './mail-import-dialog'
 import { MailImportLine, mailImportOngoing } from './mail-import-line'
 import { ProjectNormNotices } from './project-norm-notices'
+import { FolderBinDialog } from './folder-bin-dialog'
+import { binHrefOf } from '../lib/bin-href'
+import { useBinParam } from '../hooks/use-bin-param'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 export type { FileAssignee, FileItem, FolderItem } from '../file-types'
@@ -72,6 +75,7 @@ export function ProjectFileWorkspace({
     setMailOpen(true)
   }, [])
   const search = useShelfSearchMode()
+  const bin = useBinParam()
   const [awaitingNorms, setAwaitingNorms] = useState<ReadonlySet<string>>(() => new Set())
   const onStored = useCallback(
     (uploads: StoredUpload[]) => setAwaitingNorms((current) => new Set([...current, ...uploads.map((upload) => upload.documentId)])),
@@ -91,13 +95,14 @@ export function ProjectFileWorkspace({
     collectionName,
     canManage: true,
     folderAccess: { projectId, canManage: canManageFolderAccess, initialRootAccess },
-    bin: { href: `/app/projects/${projectId}/files/bin` },
+    bin: { href: binHrefOf(`/app/projects/${projectId}/files`) },
     openPoints: { href: `/app/projects/${projectId}/files/open-points` },
     inboundMail,
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
     takeMailArchives: mailOffered ? takeMailArchives : undefined,
+    openMailImport: mailOffered ? () => setMailOpen(true) : undefined,
     useUpload: ({ collectionName: collection, folderId, onComplete }) =>
       useProjectDocuments({ projectId, collectionName: collection, folderId, onComplete, onStored: officeStandards ? onStored : undefined }),
     probeNames: (names) => probe.project(projectId, names),
@@ -154,6 +159,7 @@ export function ProjectFileWorkspace({
           )
         }}
       />
+      <FolderBinDialog projectId={projectId} open={bin.open} onOpenChange={bin.setOpen} />
       {mailOffered && (
         <MailImportDialogView
           projectId={projectId}

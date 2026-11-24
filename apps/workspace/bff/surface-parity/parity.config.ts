@@ -169,6 +169,19 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/components/file-preview-pane.tsx' },
     chat: { component: 'features/chat/components/ViewerActionRow.tsx' },
   },
+  measureOnSheet: {
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, tied to its linework, and keep it on the sheet',
+    tool: 'drawing_measure',
+    operations: ['document-measure', 'drawing-measure'],
+    canvas: { component: `${REVIEW}/measure/measure-layer.tsx` },
+    chat: { step: 'action' },
+  },
+  calibrateScale: {
+    summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
+    operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
+    canvas: { component: 'features/documents/components/review/measure/scale-control.tsx' },
+    chat: { card: 'operation_proposal', component: 'features/cards/components/CalibrationProposalPreview.tsx' },
+  },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 
 export type SurfaceCapabilityName = keyof typeof SURFACE_CAPABILITIES

@@ -98,6 +98,14 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByLabelText('Inbox')).not.toHaveAttribute('aria-current')
   })
 
+  test('the inbox doorway is a plain link to the page, lit while the reader is there', () => {
+    pathname = '/app/inbox'
+    render(<OrgHeader {...baseProps} />)
+    const inbox = screen.getByLabelText('Inbox')
+    expect(inbox).toHaveAttribute('aria-current', 'page')
+    expect(inbox).not.toHaveAttribute('aria-expanded')
+  })
+
   test('surfaces the pending count on the inbox doorway', () => {
     pending = 3
     render(<OrgHeader {...baseProps} />)

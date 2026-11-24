@@ -1,7 +1,7 @@
 'use client'
 
 import { fileExtensionLabel } from '../document-kind'
-import { useCallback, useState, type JSX } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import { AlertTriangle, Folder, MoreHorizontal, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -15,7 +15,7 @@ import {
 } from '@/adapters/api/folder-bin-client'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
-import { ROW_HAIRLINE, ROW_REVEAL } from '@/components/ui/row-hairline'
+import { ROW_GLYPH_PRESS, ROW_HAIRLINE, ROW_REVEAL } from '@/components/ui/row-hairline'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/ui/spinner'
@@ -27,14 +27,16 @@ import { FOLDER_NAME_TAKEN_REASON } from '@/lib/projects/folder-bin-codes'
 
 export interface FolderBinPanelProps {
   projectId: string
-  initial: FolderBinListing | null
+  initial?: FolderBinListing | null
+  inDialog?: boolean
 }
 
-export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX.Element {
+export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderBinPanelProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
-  const [listing, setListing] = useState<FolderBinListing | null>(initial)
+  const [listing, setListing] = useState<FolderBinListing | null>(initial ?? null)
   const [loadFailed, setLoadFailed] = useState(initial === null)
+  const frame = inDialog ? BIN_IN_DIALOG : BIN_PAGE
   const [busyId, setBusyId] = useState<string | null>(null)
   const [purging, setPurging] = useState<FolderBinEntry | null>(null)
 
@@ -50,6 +52,10 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
       setLoadFailed(true)
     }
   }, [projectId])
+  const loadsItself = initial === undefined
+  useEffect(() => {
+    if (loadsItself) void reload()
+  }, [loadsItself, reload])
 
   const loadMore = async (): Promise<void> => {
     if (!listing?.nextCursor) return
@@ -105,9 +111,17 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   }
 
 
+  if (!listing && !loadFailed) {
+    return (
+      <div className={frame} data-testid="folder-bin-loading">
+        <Spinner size="sm" className="self-center" />
+      </div>
+    )
+  }
+
   if (loadFailed || !listing) {
     return (
-      <div className={BIN_PAGE}>
+      <div className={frame}>
         <EmptyState
           variant="bare"
           icon={AlertTriangle}
@@ -125,7 +139,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   }
 
   return (
-    <div className={BIN_PAGE} data-testid="folder-bin">
+    <div className={frame} data-testid="folder-bin">
       {listing.entries.length === 0 ? (
         <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
@@ -200,7 +214,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   {/* Where the press would be, the reason it is not, in one muted line: a hole in the press column was a question. */}
                   {!entry.canRestore && entry.restoreBlocked && (
                     <span className="text-muted-foreground text-meta max-sm:hidden whitespace-nowrap" data-testid={`bin-blocked-${entry.folderId}`}>
-                      {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
+                      {t(inDialog ? `bin.restoreBlockedShort.${entry.restoreBlocked}` : `bin.restoreBlocked.${entry.restoreBlocked}`)}
                     </span>
                   )}
                   {/* Every row offers the same action, so at rest it is a ghost glyph and the labelled press comes
@@ -210,7 +224,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                     <Button
                       variant="secondary"
                       size="sm"
-                      className={RESTORE_PRESS}
+                      className={ROW_GLYPH_PRESS}
                       aria-label={t('bin.restore')}
                       disabled={busyId === entry.folderId}
                       onClick={() => void restore(entry)}
@@ -273,8 +287,5 @@ function binMetaLine(
   return { text: `${lead}${CLAUSE_JOIN}${fate}`, lead, fate, phone }
 }
 
-const RESTORE_PRESS =
-  'pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 pointer-fine:px-0 pointer-fine:text-muted-foreground pointer-fine:shadow-none pointer-fine:bg-transparent pointer-fine:group-hover/row:w-auto pointer-fine:group-hover/row:px-3.5 pointer-fine:group-hover/row:text-foreground pointer-fine:group-hover/row:bg-sheet pointer-fine:group-hover/row:shadow-press pointer-fine:group-focus-within/row:w-auto pointer-fine:group-focus-within/row:px-3.5 pointer-fine:group-focus-within/row:text-foreground pointer-fine:group-focus-within/row:bg-sheet pointer-fine:group-focus-within/row:shadow-press dark:pointer-fine:group-hover/row:bg-transparent dark:pointer-fine:group-focus-within/row:bg-transparent'
-
-
 const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 pb-4 md:px-8' // starts under the tabs, as every tab
+const BIN_IN_DIALOG = 'flex flex-col gap-6'

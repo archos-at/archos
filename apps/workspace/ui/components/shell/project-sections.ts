@@ -131,7 +131,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     i18nKey: 'inbox',
     label: { namespace: 'collaboration', key: 'inbox.navLabel' },
     gate: 'canAccessInbox',
-    inRail: true,
+    inRail: false,
     shortcutKey: 'i',
     group: 'org',
   },

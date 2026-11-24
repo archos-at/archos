@@ -90,7 +90,7 @@ contract is the chips. Option 3 breaks ADR-0068 and every rename of a phrase.
 
 1. **A new step kind, `action`: one row per call, typed, never raw.** It carries
    the call's verb (`search`, `list`, `read`, `look`, `lookup`, `law`, `web`,
-   `model`, `workspace`), its round, its status (`running`, `ok`, `empty`,
+   `model`, `workspace`, `measure`), its round, its status (`running`, `ok`, `empty`,
    `error`), a typed summary (query, match mode, target folder/document/
    operation, pages, shelf) and its outcome counts (hits, documents, files,
    folders), with `elapsed_ms`. A tool emits it itself, at start and at end,
@@ -129,6 +129,7 @@ contract is the chips. Option 3 breaks ADR-0068 and every rename of a phrase.
 | Description fan-out and literal prefetch in round 0 | the work is as parallel as it looks | shipped; the prefetch is marked (`RetrievalStep.prefetch`) and draws no row |
 | „Grundlagen · Entwurf“ replaces the findings card; uncited sources fold into one card; one warning in the header | the reader sees what the answer stands on | shipped |
 | The filesystem verbs (`ls`, `glob`, `grep`, `read_file`, ADR-0133) name a place, say when a search was incomplete, and link only when they returned a card | file search and folder opening read the way an architect speaks | shipped (see the amendment of 2026-10-27) |
+| `drawing_measure` (ADR-0190) emits a `measure` row for a clearance, distance, path or area and a `read` row for its listings, both with the file and page; a measured row carries the snapped shape (`ActionStep.measure`: points in page shares, value, unit, the scale's basis and 1:N) and draws the page clip with the span (the value once, in the row), the basis with its risk („geschätzt, noch nicht bestätigt“) and „In der Zeichnung zeigen“ under it; the row and the clip open the viewer zoomed to the shape, its box glowing and the shape drawn on the page; a printed figure reads „Liest Maßzahl in …“; a step with reads and measures is „Lesen und Messen“; „keine Zahl“ is an empty row, not an error, with the usual reason and the remedy („Maßstab festlegen“) | a measurement is checkable where it was taken | shipped |
 
 ### Amendment, 2026-10-22: the value test
 

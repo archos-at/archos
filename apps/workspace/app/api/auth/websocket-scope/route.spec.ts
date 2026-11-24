@@ -199,14 +199,14 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(await response.json()).toMatchObject({ projectId: 'proj_implicit' })
   })
 
-  it('falls back to the query project when the scope carries none', async () => {
+  it('reads no project when the scope carries none, whatever the query names', async () => {
     buildCollectionScopeFromRequest.mockResolvedValue(scopeReturning(undefined))
 
     const response = await upgrade()
 
     expect(response.status).toBe(200)
-    expect(getBudgetStatus).toHaveBeenCalledWith('org_1', 'user_1', 'proj_q')
-    expect(await response.json()).toMatchObject({ projectId: 'proj_q' })
+    expect(getBudgetStatus).toHaveBeenCalledWith('org_1', 'user_1', null)
+    expect(await response.json()).not.toHaveProperty('projectId')
   })
 
   it('preserves the scope authorization gate', async () => {

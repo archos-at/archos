@@ -1,0 +1,10 @@
+---
+# area: documents
+# One entry per user-visible change. This text is PUBLISHED, in English and in
+# German machine translation, to https://piloti.at/changelog — write it for the
+# architect using the product, not for the reviewer of your diff.
+improvements:
+  - >
+    When you set the scale of a drawing, the two points now snap to corners and
+    lines of the drawing, just like the measuring tape does, so the known length
+    is picked exactly.

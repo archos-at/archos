@@ -51,6 +51,7 @@ describe('ConversationPrivacyLineView', () => {
 
   test('a private chat says only the reader sees it until they share it', () => {
     render(<ConversationPrivacyLineView temporary={false} privateToReader />)
+    expect(screen.getByTestId('conversation-privacy-line')).toHaveClass('sm:hidden')
     expect(screen.getByTestId('conversation-private-line')).toHaveTextContent('Only you see this chat until you share it.')
   })
 })

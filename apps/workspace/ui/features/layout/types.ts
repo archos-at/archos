@@ -47,6 +47,8 @@ export interface Session {
   date: Date
   hasActiveDeepResearch?: boolean
   hasCompletedReport?: boolean
+  hasFailedResearch?: boolean
+  hasResearch?: boolean
   contentLocked?: boolean
   temporary?: boolean
   activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
