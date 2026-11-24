@@ -24,6 +24,7 @@ vi.mock('@/lib/documents/stored-copy', () => ({
 }))
 vi.mock('@/lib/pdf/cover-text', () => ({ readCoverText: vi.fn(async () => null) }))
 vi.mock('./repository', () => ({
+  binnedOfficeDocuments: vi.fn(async () => new Set()),
   keepInProject: vi.fn(async () => undefined),
   keptAmong: vi.fn(async () => new Set()),
   listProjectNormRows: vi.fn(async () => []),
@@ -55,7 +56,7 @@ import { readCoverText } from '@/lib/pdf/cover-text'
 import { heldWorks } from './held-works'
 import { normDecidersOf } from './managers'
 import { workKey, type HeldEdition } from './placement'
-import { keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
+import { binnedOfficeDocuments, keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
 import { listProjectNorms, placeProjectNorms } from './service'
 
 const MEMBER: AuthorizedSession = {
@@ -312,5 +313,26 @@ describe('the project’s view of its norms', () => {
       ['gone', 'removed', null, null],
     ])
     expect(listed.nextCursor).toBeNull()
+  })
+
+  it('shows a reference whose office shelf copy lies in the Papierkorb as removed, with nothing to open', async () => {
+    vi.mocked(listReferences).mockResolvedValue([
+      {
+        id: 'binned',
+        organizationId: 'org-1',
+        projectId: 'project-1',
+        folderId: null,
+        sourceDocumentId: 'source-binned',
+        officeDocumentId: 'office-doc-binned',
+        fileName: 'binned.pdf',
+        placedAs: 'moved',
+        createdBy: 'user-1',
+        createdAt: new Date('2026-11-19T10:00:00Z'),
+      },
+    ])
+    vi.mocked(binnedOfficeDocuments).mockResolvedValueOnce(new Set(['office-doc-binned']))
+    const listed = await listProjectNorms(MEMBER, 'project-1', {})
+    expect(listed.references.map((row) => [row.state, row.officeDocumentId, row.entryId])).toEqual([['removed', null, null]])
+    expect(binnedOfficeDocuments).toHaveBeenCalledWith('org-1', ['office-doc-binned'])
   })
 })

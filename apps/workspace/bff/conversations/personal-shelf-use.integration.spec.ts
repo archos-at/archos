@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Admitting a read of the owner's own shelf (ADR-0193 rule 5, migration 0264)
+ * Admitting a read of the owner's own shelf (ADR-0193 rule 5, migration 0265)
  * against a REAL Postgres, through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -32,7 +32,7 @@ describe('the personal shelf use suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('personal shelf use against Postgres (migration 0264)', () => {
+describe.skipIf(!url)('personal shelf use against Postgres (migration 0265)', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let use: typeof import('./personal-shelf-use')

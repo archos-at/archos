@@ -112,6 +112,7 @@ one-at-a-time      bff/projects/folder-bin-restore.integration.spec.ts
 one-at-a-time      bff/projects/folder-bin-purge.integration.spec.ts
 one-at-a-time      bff/projects/folder-bin-queue.integration.spec.ts
 one-at-a-time      bff/projects/folder-service.bin.integration.spec.ts
+one-at-a-time      bff/projects/office-shelf-bin.integration.spec.ts
 one-at-a-time      bff/organizations/deleted-folder-content-service.integration.spec.ts
 not-yet-run        bff/model-config/bootstrap-defaults.integration.spec.ts
 not-yet-run        bff/model-config/platform-defaults.integration.spec.ts

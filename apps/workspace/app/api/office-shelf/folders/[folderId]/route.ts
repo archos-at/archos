@@ -1,6 +1,6 @@
 import { apiRoute } from '@/lib/api/handler'
 import { deleteFolderHandler, updateFolderHandler } from '@/lib/documents/folder-route-handlers'
-import { deleteOfficeShelfFolder, updateOfficeShelfFolder } from '@/lib/office-shelf/folder-service'
+import { deleteOfficeShelfFolder, updateOfficeShelfFolder, type OfficeShelfFolderDeletion } from '@/lib/office-shelf/folder-service'
 
 type Params = { folderId: string }
 
@@ -12,6 +12,13 @@ export const PATCH = apiRoute<Params>(
 )
 
 export const DELETE = apiRoute<Params>(
-  deleteFolderHandler<Params>((params, session) => deleteOfficeShelfFolder(session, params.folderId)),
-  { authz: { enforcedBy: 'deleteOfficeShelfFolder (canManageOfficeShelf)' } }
+  deleteFolderHandler<Params, OfficeShelfFolderDeletion>((params, session, request) =>
+    deleteOfficeShelfFolder(session, params.folderId, request),
+  ),
+  {
+    authz: {
+      enforcedBy:
+        'deleteOfficeShelfFolder (canManageOfficeShelf): moveFolderToBin, which refuses a legal hold and a norm; a Thema of Normen & Richtlinien re-files',
+    },
+  }
 )

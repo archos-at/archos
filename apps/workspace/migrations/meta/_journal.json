@@ -1854,7 +1854,14 @@
       "idx": 264,
       "version": "7",
       "when": 1795602300000,
-      "tag": "0264_conversation_personal_shelf_use",
+      "tag": "0264_office_shelf_bin",
+      "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1795602400000,
+      "tag": "0265_conversation_personal_shelf_use",
       "breakpoints": true
     }
   ]

@@ -850,13 +850,17 @@ export const isEmptyVariant = (): boolean =>
 
 export function installInboxShim(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
-  const w = window as unknown as { __inboxShim?: boolean }
+  const w = window as unknown as { __inboxShim?: boolean; __inboxCleared?: boolean }
   if (!w.__inboxShim) {
     w.__inboxShim = true
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      const empty = isEmptyVariant()
+      if (url === '/api/inbox/archive') {
+        w.__inboxCleared = init?.method === 'POST'
+        return Response.json({ affected: PENDING.length, pending: w.__inboxCleared ? 0 : PENDING.length, archivedAt: new Date().toISOString() })
+      }
+      const empty = isEmptyVariant() || w.__inboxCleared === true
       if (url.startsWith('/api/inbox/summary')) {
         return Response.json({ pending: empty ? 0 : PENDING.length })
       }

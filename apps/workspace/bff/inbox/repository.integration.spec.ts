@@ -367,3 +367,62 @@ describe.skipIf(!url)('unread anchors of a document against Postgres', () => {
     expect(await asMe(() => repo.markResourceItemsRead(ORG_ANCHORS, ME, 'document', 'doc-1', set))).toBe(0)
   })
 })
+
+describe.skipIf(!url)('emptying the inbox against Postgres', () => {
+  const EMPTY_ORG = `${ORG}_empty`
+  const OTHER = 'user_inbox_empty_other'
+  const BEFORE = new Date('2026-09-01T08:00:00Z')
+  let repo: typeof import('./repository')
+  let withTenant: typeof import('@/lib/db/tenant-context').withTenant
+  let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
+  let db: ReturnType<typeof import('@/lib/db').getDb>
+
+  const as = <T>(userId: string, run: () => Promise<T>): Promise<T> => withTenant({ organizationId: EMPTY_ORG, userId }, run)
+  const insert = (userId: string, tail: string, type: string, actionable: boolean, readAt: Date | null, archivedAt: Date | null) =>
+    as(userId, () =>
+      db.execute(sql`
+        insert into inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id,
+                                 group_key, actionable, read_at, archived_at)
+        values (${EMPTY_ORG}, ${userId}, ${type}, 'conversation', ${`c-${tail}`}, ${`${type}:${EMPTY_ORG}-${tail}`}, ${actionable},
+                ${readAt?.toISOString() ?? null}::timestamptz, ${archivedAt?.toISOString() ?? null}::timestamptz)`)
+    )
+  const list = (filter: 'all' | 'archived') =>
+    as(ME, () => repo.listInboxItems(EMPTY_ORG, ME, { filter, limit: 100, types: repo.EVERY_INBOX_TYPE }))
+  const keys = (rows: { groupKey: string }[]) => rows.map((row) => row.groupKey.split('-').at(-1)).sort()
+
+  beforeAll(async () => {
+    vi.stubEnv('APP_DATABASE_URL', url)
+    const context = await import('@/lib/db/tenant-context')
+    withTenant = context.withTenant
+    withPlatformAccess = context.withPlatformAccess
+    db = (await import('@/lib/db')).getDb()
+    repo = await import('./repository')
+    await insert(ME, 'seen', 'mention.requested', true, BEFORE, null)
+    await insert(ME, 'fresh', 'mention.requested', true, null, null)
+    await insert(ME, 'news', 'conversation.activity', false, null, null)
+    await insert(ME, 'old', 'conversation.activity', false, BEFORE, BEFORE)
+    await insert(OTHER, 'theirs', 'mention.requested', true, null, null)
+  })
+
+  afterAll(async () => {
+    await withPlatformAccess('inbox empty spec cleanup', () =>
+      db.execute(sql`DELETE FROM inbox_items WHERE organization_id = ${EMPTY_ORG}`)
+    )
+  })
+
+  it('puts away every open row, a read open request too, and its undo brings back exactly those', async () => {
+    const at = new Date()
+    expect(await as(ME, () => repo.archiveAllInboxItems(EMPTY_ORG, ME, repo.EVERY_INBOX_TYPE, at))).toBe(3)
+    expect(await list('all')).toEqual([])
+    expect(await as(ME, () => repo.countPendingInboxItems(EMPTY_ORG, ME, repo.EVERY_INBOX_TYPE))).toBe(0)
+    expect(await as(OTHER, () => repo.countPendingInboxItems(EMPTY_ORG, OTHER, repo.EVERY_INBOX_TYPE))).toBe(1)
+
+    const archived = new Map((await list('archived')).map((row) => [row.groupKey.split('-').at(-1), row]))
+    expect(archived.get('seen')?.readAt?.toISOString()).toBe(BEFORE.toISOString())
+    expect(archived.get('fresh')?.readAt?.toISOString()).toBe(at.toISOString())
+
+    expect(await as(ME, () => repo.unarchiveInboxItemsArchivedAt(EMPTY_ORG, ME, repo.EVERY_INBOX_TYPE, at))).toBe(3)
+    expect(keys(await list('all'))).toEqual(['fresh', 'news', 'seen'])
+    expect(keys(await list('archived'))).toEqual(['old'])
+  })
+})

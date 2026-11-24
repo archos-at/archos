@@ -360,7 +360,7 @@ describe('the Papierkorb', () => {
         : answer(200, listing([]))
     )
     vi.stubGlobal('fetch', fetchMock)
-    render(createElement(FolderBinPanel, { projectId: 'p1', initial: listing([entry()], { canPurge: true }) }))
+    render(createElement(FolderBinPanel, { shelf: { kind: 'project', projectId: 'p1' }, initial: listing([entry()], { canPurge: true }) }))
 
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-purge-f-vertraege')).toBeNull()

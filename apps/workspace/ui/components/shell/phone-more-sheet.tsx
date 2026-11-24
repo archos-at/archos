@@ -36,6 +36,8 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { isCurrentDestination, moreDestinations, type MoreDestination, type MoreFlags } from './phone-more'
 import { PhoneProjectList } from './phone-project-list'
+import { railModeOf } from './rail-mode'
+import { RailModeSwitch } from './rail-mode-switch'
 import type { ProjectSwitcherProject } from './project-list'
 import { useShellOverlays } from './shell-overlays'
 import type { SidebarUser } from './sidebar-user-menu'
@@ -114,6 +116,7 @@ export function PhoneMoreSheet({
     if (open) setView(initialView)
   }, [open, initialView])
   const listing = view === 'projects' && selectable
+  const side = railModeOf(pathname)
 
   const destinations = moreDestinations(projectId, pathname, flags)
   const label = (destination: MoreDestination): string =>
@@ -171,6 +174,11 @@ export function PhoneMoreSheet({
         </SheetHeader>
         {listing && <PhoneProjectList projects={projects} activeProjectId={projectId} onDone={() => setOpen(false)} />}
         <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2', listing && 'hidden')}>
+          {side && (
+            <div className="px-4 pb-3" data-slot="phone-more-side">
+              <RailModeSwitch mode={side} collapsed={false} />
+            </div>
+          )}
           {selectable && (
             <button
               type="button"

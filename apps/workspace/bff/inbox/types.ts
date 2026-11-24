@@ -58,6 +58,10 @@ export interface InboxMutationResult {
   pending: number
 }
 
+export interface InboxArchiveAllResult extends InboxMutationResult {
+  archivedAt: string
+}
+
 export interface InboxSummaryResponse {
   pending: number
 }

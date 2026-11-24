@@ -274,6 +274,7 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'feedback-report-list': "the person's own product feedback to the product team, which belongs to no project",
   'feedback-office-report-list': "the office's product feedback to the product team, which belongs to no project",
   'office-shelf-folder-list': 'the office shelf, which belongs to no project',
+  'office-shelf-folder-bin-list': 'the office shelf’s bin, which belongs to no project',
   'document-list': SHELF_SCOPED,
   'document-summary-get': SHELF_SCOPED,
   'document-by-name-resolve': SHELF_SCOPED,

@@ -58,6 +58,8 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/documents/placement-repository.ts#takeAwaitingPlacementReingest':
     'The `placement_reingest` job takes the rows placement marked for their re-read. Rows to a job, nothing to a person; a quarantined row is never marked.',
   'lib/projects/folder-bin-repository.ts#listDocumentIdsInFolders': 'The Papierkorb moves a folder with every document in it.',
+  'lib/office-shelf/project-norms/repository.ts#binnedOfficeDocuments':
+    "Which office shelf copies a project's norm references name lie in the Papierkorb, so the reference reads as removed. Ids only.",
   'lib/projects/folder-bin-repository.ts#listDocumentPageInFolders':
     'The Papierkorb purges, takes out of retrieval and restores every document of a folder, in pages for its jobs.',
   'lib/projects/folder-bin-repository.ts#listRestoringDocumentPage':

@@ -147,7 +147,10 @@ export const EXPOSURE = {
   'saved-search-update': OFFERED,
 
   'office-shelf-folder-create': OFFERED,
+  'office-shelf-folder-bin-list': OFFERED,
+  'office-shelf-folder-bin-purge': OFFERED,
   'office-shelf-folder-delete': OFFERED,
+  'office-shelf-folder-restore': OFFERED,
   'office-shelf-folder-norms-list': OFFERED,
   'office-shelf-folder-norms-decide': externalOnly(
     'whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision',
@@ -258,10 +261,12 @@ export const EXPOSURE = {
   'assignment-remove': OFFERED,
   'conversation-awaiting-get': OFFERED,
   'conversation-mention-candidate-list': OFFERED,
+  'inbox-archive-all': withheld('ui-state', 'empties the person\'s inbox, open requests included; an agent doing it hides from them what waits on them'),
   'inbox-item-archive': withheld('ui-state', 'puts a request away from the person, who has not seen it; the same reason mark-read is withheld'),
   'inbox-item-mark-read': withheld('ui-state', 'what the person has seen; an agent marking it read hides news from them'),
   'inbox-item-mark-unread': withheld('ui-state', 'what the person has seen; theirs to mark'),
   'inbox-item-restore': withheld('ui-state', 'the reverse of archive, which an agent cannot do; what the person put away is theirs to bring back'),
+  'inbox-restore-all': withheld('ui-state', 'the undo of inbox-archive-all, which an agent cannot do'),
   'inbox-list': OFFERED,
   'inbox-summary-get': OFFERED,
   'inbox-unread-anchor-list': withheld('ui-state', 'the unread markers the document viewer draws; screen state'),

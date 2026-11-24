@@ -145,13 +145,13 @@ describe('useDocumentActions — deleting', () => {
     expect(success).toHaveBeenCalledWith(expect.stringMatching(/^“Einreichplan_EG\.pdf” is in the bin\. Restorable until .*2026\.$/))
   })
 
-  it('deletes an office shelf document for good, because that shelf has no bin', async () => {
+  it('moves an office shelf document to the Bürobibliothek’s bin and says until when (KAN-90)', async () => {
     const binned = vi.fn()
     const permanent = vi.fn()
     server.use(
       http.post('/api/documents/doc-1/bin', () => {
         binned()
-        return HttpResponse.json({}, { status: 409 })
+        return HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
       }),
       http.delete('/api/documents/doc-1', () => {
         permanent()
@@ -165,10 +165,9 @@ describe('useDocumentActions — deleting', () => {
       await hook.result.current.remove()
     })
 
-    expect(binned).not.toHaveBeenCalled()
-    expect(permanent).toHaveBeenCalledTimes(1)
-    expect(success).toHaveBeenCalledWith(expect.stringContaining('Einreichplan_EG.pdf'))
-    expect(success).not.toHaveBeenCalledWith(expect.stringContaining('bin'))
+    expect(binned).toHaveBeenCalledTimes(1)
+    expect(permanent).not.toHaveBeenCalled()
+    expect(success).toHaveBeenCalledWith(expect.stringMatching(/Einreichplan_EG\.pdf.*(bin|Papierkorb)/))
   })
 
   it('deletes a held project file for good, so its name never shows in the project bin', async () => {
