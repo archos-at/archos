@@ -157,6 +157,19 @@ describe('MainLayout', () => {
     expect(screen.queryByTestId('no-sources-banner')).toBeNull()
   })
 
+  test('a chat the reader joined later shows its readable part and why it ends, with no composer (ADR-0194)', () => {
+    chatStoreOverrides = {
+      currentConversation: { id: 'session-1', title: '', messages: [], contentLocked: true, withheldFrom: 'a_2' },
+    }
+
+    render(<MainLayout isAuthenticated={true} />)
+
+    expect(screen.getByTestId('chat-area')).toBeInTheDocument()
+    expect(screen.getByTestId('withheld-from-here')).toHaveTextContent('From here on, the chat draws on a source you may not open.')
+    expect(screen.queryByTestId('input-area')).toBeNull()
+    expect(screen.queryByTestId('rights-lost')).toBeNull()
+  })
+
   test('an ordinary chat shows its thread and no rights notice', () => {
     render(<MainLayout isAuthenticated={true} />)
 

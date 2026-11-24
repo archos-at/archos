@@ -239,6 +239,7 @@ export const EXPOSURE = {
   'conversation-message-add': OFFERED,
   'conversation-message-changes': OFFERED,
   'conversation-message-export': OFFERED,
+  'conversation-answer-trail-list': OFFERED,
   'conversation-message-list': OFFERED,
   'conversation-message-update': OFFERED,
   'conversation-message-usage': withheld('product-config', 'what one of the agent’s answers cost; billing, not office work'),

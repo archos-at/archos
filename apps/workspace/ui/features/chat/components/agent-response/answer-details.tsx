@@ -15,6 +15,7 @@ import { ConfidenceChip, type AnswerConfidence } from '../ConfidenceChip'
 import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
 import { CitationsRemovedNote, ResearchTruncatedNote, AnswerDegradedNote } from './answer-notes'
 import { ReadSourcesSection } from './read-sources'
+import { AnswerTrailSection } from './answer-trail'
 
 export const AnswerDetails = memo(function AnswerDetails({
   hasConfidence,
@@ -138,6 +139,9 @@ export const AnswerDetails = memo(function AnswerDetails({
           <AnswerDegradedNote degradedReasons={degradedReasons} />
           <CitationsRemovedNote citationsRemoved={citationsRemoved} />
           <ReadSourcesSection readSources={readSources} />
+          {conversationId && messageId ? (
+            <AnswerTrailSection conversationId={conversationId} messageId={messageId} />
+          ) : null}
           {(Boolean(timestamp) || Boolean(answerDurationMs)) && (
             <span className="text-subtle text-xs" data-testid="answer-time">
               {timestamp && formatTime(timestamp, locale)}

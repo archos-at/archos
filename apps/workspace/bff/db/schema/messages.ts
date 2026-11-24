@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { foreignKey, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, foreignKey, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { conversations } from './conversations'
 
 export const messages = pgTable(
@@ -20,6 +20,7 @@ export const messages = pgTable(
     runId: text('run_id'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    receivedSeq: bigint('received_seq', { mode: 'number' }).notNull().default(sql`nextval('messages_received_seq')`),
   },
   (table) => ({
     conversationCreatedIdx: index('messages_conversation_created_idx').on(

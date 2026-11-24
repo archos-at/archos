@@ -11,6 +11,7 @@ import { ComposerScrim } from './ComposerScrim'
 import { InputArea } from './InputArea'
 import { ChatDropZone } from './chat-drop-zone'
 import { RightsLostPanel } from './RightsLostPanel'
+import { WithheldFromHere } from './WithheldFromHere'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
 import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
@@ -45,6 +46,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     currentConversationId,
     currentConversationTitle,
     currentConversationLocked,
+    currentConversationPartlyReadable,
     messageCount,
     currentUserId,
     projectId,
@@ -53,6 +55,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
       currentConversationId: s.currentConversation?.id,
       currentConversationTitle: s.currentConversation?.title,
       currentConversationLocked: s.currentConversation?.contentLocked === true,
+      currentConversationPartlyReadable: s.currentConversation?.withheldFrom !== undefined,
       messageCount: s.currentConversation?.messages?.length ?? 0,
       currentUserId: s.currentUserId,
       projectId: s.projectId,
@@ -174,10 +177,15 @@ export const MainLayout: FC<MainLayoutProps> = ({
             </button>
           )}
 
-          {/* A chat the reader may no longer read has no transcript and no
-              composer here (ADR-0088): nothing of it is mounted, so nothing of
-              it is fetched or drawn. */}
-          {currentConversationLocked ? (
+          {/* A chat the reader may no longer read whole (ADR-0088) has no
+              composer. They see what comes before its first answer resting on
+              a source they may not open (ADR-0194), or nothing of it. */}
+          {currentConversationLocked && currentConversationPartlyReadable ? (
+            <>
+              <ChatArea isAuthenticated={isAuthenticated} onSignIn={onSignIn} canCollaborate={false} />
+              <WithheldFromHere />
+            </>
+          ) : currentConversationLocked ? (
             <RightsLostPanel />
           ) : (
             <>

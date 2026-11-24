@@ -16337,6 +16337,84 @@
         }
       }
     },
+    "/api/conversations/{id}/answers/trail": {
+      "get": {
+        "operationId": "conversation-answer-trail-list",
+        "summary": "Read what each answer of a conversation read",
+        "description": "Per answer, oldest first within the page, earlier ones through `nextCursor`: the projects and folders it read, each named only where the person may open it and otherwise withheld, and whether personal memory or the person’s own shelf was in play. Answers from before these records exist have no entry.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Page size (default 50, most 200).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Page size (default 50, most 200)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous `nextCursor`: earlier answers.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The previous `nextCursor`: earlier answers."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read what each answer of a conversation read",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/conversations": {
       "post": {
         "operationId": "conversation-create",
@@ -17363,7 +17441,7 @@
       "get": {
         "operationId": "conversation-message-list",
         "summary": "Read the messages of a conversation",
-        "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.",
+        "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes. `withheldFrom`, when present, is the first message left out: from that turn on the chat rests on a source the person may not open, so it and everything after are withheld.",
         "tags": [
           "conversations"
         ],

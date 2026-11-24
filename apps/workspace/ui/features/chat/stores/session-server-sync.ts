@@ -36,13 +36,15 @@ export const createSessionServerSyncSlice: StateCreator<
       for (const serverConv of serverConvs) {
         const idx = merged.findIndex((c) => c.id === serverConv.id)
         const locked = serverConv.contentLocked === true
+        const withheldFrom = locked && idx >= 0 ? merged[idx].withheldFrom : undefined
         const local: Conversation = {
           id: serverConv.id,
           userId: currentUserId ?? serverConv.createdBy ?? 'unknown',
           projectId: serverConv.projectId ?? (idx >= 0 ? merged[idx].projectId : null) ?? null,
           title: locked ? '' : (serverConv.title ?? (idx >= 0 ? merged[idx].title : '') ?? ''),
-          messages: idx >= 0 && !locked ? merged[idx].messages : [],
+          messages: idx >= 0 && (!locked || withheldFrom) ? merged[idx].messages : [],
           ...(locked ? { contentLocked: true } : {}),
+          ...(withheldFrom ? { withheldFrom } : {}),
           enabledDataSourceIds: idx >= 0 ? merged[idx].enabledDataSourceIds : undefined,
           createdAt: new Date(serverConv.createdAt as unknown as string),
           updatedAt: new Date(serverConv.updatedAt as unknown as string),
@@ -61,7 +63,7 @@ export const createSessionServerSyncSlice: StateCreator<
               null),
         }
         if (idx >= 0) {
-          if (merged[idx].contentLocked && !locked) markAwaitingServerMessages(local.id)
+          if ((merged[idx].contentLocked && !locked) || withheldFrom) markAwaitingServerMessages(local.id)
           merged[idx] = local
         } else {
           if (!locked) markAwaitingServerMessages(local.id)
@@ -83,7 +85,6 @@ export const createSessionServerSyncSlice: StateCreator<
 
       const { currentConversation } = get()
       if (
-        currentConversation?.contentLocked !== true &&
         currentConversation &&
         (currentConversation.messages.length === 0 ||
           isAwaitingServerMessages(currentConversation.id))
@@ -100,7 +101,6 @@ export const createSessionServerSyncSlice: StateCreator<
   hydrateConversationMessages: async (conversationId: string) => {
     const conversation = get().conversations.find((c) => c.id === conversationId)
     if (!conversation) return
-    if (conversation.contentLocked) return
     if (conversation.messages.length > 0 && !isAwaitingServerMessages(conversationId)) return
     if (get().currentConversation?.id === conversationId) get().setPendingMessagesFor(conversationId)
     if (hydratingConversationIds.has(conversationId)) return
@@ -110,7 +110,7 @@ export const createSessionServerSyncSlice: StateCreator<
 
     try {
       const conversationsClient = await getConversationsClient()
-      const serverMessages = await conversationsClient.listMessages(conversationId)
+      const { messages: serverMessages, withheldFrom } = await conversationsClient.listReadableMessages(conversationId)
       const messages = mapServerMessagesToChatMessages(serverMessages)
 
       const { conversations, currentConversation, isStreaming, isLoading } = get()
@@ -121,8 +121,8 @@ export const createSessionServerSyncSlice: StateCreator<
         return
       }
 
-      const { messages: merged } = mergeRemoteMessages(target.messages, messages, false)
-      const hydrated: Conversation = { ...target, messages: merged }
+      const merged = target.contentLocked ? messages : mergeRemoteMessages(target.messages, messages, false).messages
+      const hydrated: Conversation = { ...target, messages: merged, withheldFrom }
       const isCurrent = currentConversation?.id === conversationId
 
       clearAwaitingServerMessages(conversationId)
@@ -158,6 +158,7 @@ export const createSessionServerSyncSlice: StateCreator<
       subjectResourceType: null,
       subjectResourceId: null,
       contentLocked: true,
+      withheldFrom: undefined,
     })
     clearAwaitingServerMessages(conversationId)
     set(

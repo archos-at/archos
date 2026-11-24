@@ -35,6 +35,7 @@ batch              bff/conversations/erasure-queue.integration.spec.ts
 batch              bff/scheduling/conversation-trace-erasure.integration.spec.ts
 batch              bff/conversations/restricted-use.integration.spec.ts
 batch              bff/conversations/personal-shelf-use.integration.spec.ts
+batch              bff/conversations/message-page.integration.spec.ts
 batch              bff/feedback/restricted-feedback.integration.spec.ts
 batch              bff/tasks/subject-access.integration.spec.ts
 batch              bff/tasks/active-runs.integration.spec.ts
