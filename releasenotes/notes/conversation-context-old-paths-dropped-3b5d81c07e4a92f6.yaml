@@ -3,7 +3,7 @@
 operators:
   - >
     The agent reads what a turn may draw on only from a signed decision or
-    envelope; the plain headers and the old socket scope are gone. Deploy only
-    once no run or queued job from before the previous conversation-context
-    release is active. Every agent and worker needs INTERNAL_API_TOKEN, or it
-    reads nothing.
+    envelope. Deploy only once the conversation-context gate check says no run
+    or queued job from before the previous conversation-context release is
+    still active (see the gate runbook). Every agent and worker needs
+    INTERNAL_API_TOKEN, or it reads nothing.

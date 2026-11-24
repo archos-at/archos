@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
 
+from opentelemetry import metrics
+
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import compose_project_context
@@ -29,6 +31,11 @@ if TYPE_CHECKING:
     from .agent_job import JobRequest
 
 logger = logging.getLogger(__name__)
+
+ENVELOPE_LESS_RUNS = "jobs.envelope_less_runs"
+_envelope_less_runs = metrics.get_meter(__name__).create_counter(
+    ENVELOPE_LESS_RUNS, description="Runs the worker started without a signed request-context envelope"
+)
 
 _IDENTITY_HEADERS = ("x-project-id", "x-organization-id", "x-user-id")
 _ENVELOPE_HEADERS = {
@@ -250,6 +257,10 @@ async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | No
     envelope_headers = await envelope_headers_for_run(
         request.request_envelope, run_id=request.run_id, job_id=request.job_id, identity=identity
     )
+    if not envelope_headers:
+        _envelope_less_runs.add(
+            1, {"agent_type": request.registered_agent_type, "renewal": bool(request.request_envelope)}
+        )
     if envelope_headers:
         _inject_service_headers(
             state, {_ENVELOPE_HEADERS.get(name, name): value for name, value in envelope_headers.items()}

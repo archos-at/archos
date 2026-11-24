@@ -393,10 +393,13 @@ async def test_a_run_without_an_envelope_binds_its_identity_so_residency_and_byo
         return {}
 
     monkeypatch.setattr(agent_job_setup, "envelope_headers_for_run", no_envelope)
+    counted: list[dict] = []
+    monkeypatch.setattr(agent_job_setup._envelope_less_runs, "add", lambda _n, attributes: counted.append(attributes))
     identity = {"project_id": "proj-1", "organization_id": "org-1", "user_id": "user-1"}
 
     await agent_job_setup._inject_identity_headers(object(), _request(usage_context={"identity": identity}))
 
+    assert counted == [{"agent_type": "deep_researcher", "renewal": False}]
     bound = RequestContext.from_context()
     assert (bound.organization_id, bound.user_id, bound.project_id) == ("org-1", "user-1", "proj-1")
     assert bound.collection_scope is None
