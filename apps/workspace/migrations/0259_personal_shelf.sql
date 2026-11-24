@@ -28,6 +28,12 @@
 -- documents policy, so a version for a deleted document still fails on its
 -- foreign key, not on the policy. Annotations already ask that (0130).
 --
+-- ## What the office still counts
+--
+-- The storage quota is the organization's, personal shelves included, so its
+-- sum (`organization_storage_by_scope`) reads past the policy and returns
+-- totals per shelf, never a row.
+--
 -- ## When the owner leaves
 --
 -- Nothing deletes the rows, as nothing deletes personal memory (ADR-0180): they
@@ -60,6 +66,30 @@ REVOKE ALL ON FUNCTION personal_document_hidden(uuid) FROM PUBLIC;
 --> statement-breakpoint
 DO $$ BEGIN
   EXECUTE format('GRANT EXECUTE ON FUNCTION personal_document_hidden(uuid) TO %I, %I', rls_role('rw'), rls_role('platform'));
+END $$;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION organization_storage_by_scope()
+  RETURNS TABLE (scope text, bytes bigint, documents bigint, version_bytes bigint)
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  WITH items AS (
+    SELECT d.scope, coalesce(sum(d.file_size), 0)::bigint AS bytes, count(*)::bigint AS documents
+    FROM documents d WHERE d.organization_id = current_org() GROUP BY d.scope
+  ), overhead AS (
+    SELECT d.scope, coalesce(sum(v.file_size), 0)::bigint AS bytes
+    FROM document_versions v JOIN documents d ON d.id = v.document_id
+    WHERE v.organization_id = current_org() AND v.storage_key <> d.storage_key
+    GROUP BY d.scope
+  )
+  SELECT i.scope, i.bytes, i.documents, coalesce(o.bytes, 0)::bigint FROM items i LEFT JOIN overhead o ON o.scope = i.scope
+$$;
+--> statement-breakpoint
+COMMENT ON FUNCTION organization_storage_by_scope() IS
+  'The organization''s stored bytes and document counts per shelf, personal shelves included, for the storage quota: totals only, never a row (ADR-0191).';
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION organization_storage_by_scope() FROM PUBLIC;
+--> statement-breakpoint
+DO $$ BEGIN
+  EXECUTE format('GRANT EXECUTE ON FUNCTION organization_storage_by_scope() TO %I, %I', rls_role('rw'), rls_role('platform'));
 END $$;
 --> statement-breakpoint
 ALTER TABLE "documents" DROP CONSTRAINT IF EXISTS "documents_personal_has_owner";

@@ -1,8 +1,7 @@
 import 'server-only'
 import { and, eq, ne, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import { withPlatformAccess } from '@/lib/db/tenant-context'
-import { documentVersions } from '@/lib/db/schema/document-versions'
+import { MissingTenantContextError, getTenantContext, withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { documents, DOCUMENT_SCOPES, type DocumentScope, type NewDocument } from '@/lib/db/schema/documents'
 import { mapDocumentInsertError, ReplacedDocumentGoneError } from '@/lib/documents/unique-conflicts'
 
@@ -19,93 +18,52 @@ function isDocumentScope(value: string): value is DocumentScope {
   return (DOCUMENT_SCOPES as readonly string[]).includes(value)
 }
 
+interface ScopeTotal {
+  scope: string
+  bytes: number
+  documents: number
+  versionBytes: number
+}
+
+const STORAGE_BY_SCOPE = sql`SELECT scope, bytes, documents, version_bytes FROM organization_storage_by_scope()`
+
+function scopeTotals(rows: Iterable<Record<string, unknown>>): ScopeTotal[] {
+  return [...rows].map((row) => ({
+    scope: String(row.scope),
+    bytes: Number(row.bytes) || 0,
+    documents: Number(row.documents) || 0,
+    versionBytes: Number(row.version_bytes) || 0,
+  }))
+}
+
+async function storageByScope(organizationId: string): Promise<ScopeTotal[]> {
+  return withTenant({ organizationId }, async () => scopeTotals(await getDb().execute(STORAGE_BY_SCOPE)))
+}
+
 export async function aggregateStorageUsage(
   organizationId: string
 ): Promise<StorageUsageByScope> {
-  const db = getDb()
-
-  const [rows, overhead] = await Promise.all([
-    db
-      .select({
-        scope: documents.scope,
-        bytes: sql<string>`coalesce(sum(${documents.fileSize}), 0)::bigint`,
-        documents: sql<string>`count(*)::bigint`,
-      })
-      .from(documents)
-      .where(eq(documents.organizationId, organizationId))
-      .groupBy(documents.scope),
-    versionOverheadByScope(organizationId),
-  ])
-
   const usage = Object.fromEntries(
     [...DOCUMENT_SCOPES, 'total' as const].map((scope) => [scope, emptyScope()]),
   ) as StorageUsageByScope
 
-  for (const row of rows) {
-    const bytes = (Number(row.bytes) || 0) + (overhead.get(row.scope) ?? 0)
-    const count = Number(row.documents) || 0
+  for (const row of await storageByScope(organizationId)) {
+    const bytes = row.bytes + row.versionBytes
     usage.total = {
       bytes: usage.total.bytes + bytes,
-      documents: usage.total.documents + count,
+      documents: usage.total.documents + row.documents,
     }
     if (!isDocumentScope(row.scope)) continue
-    usage[row.scope] = { bytes, documents: count }
+    usage[row.scope] = { bytes, documents: row.documents }
   }
 
   return usage
 }
 
+const totalBytes = (rows: ScopeTotal[]): number => rows.reduce((sum, row) => sum + row.bytes + row.versionBytes, 0)
+
 export async function sumStorageBytes(organizationId: string): Promise<number> {
-  const [items, versions] = await Promise.all([
-    sumItemBytes(organizationId),
-    versionOverheadBytes(organizationId),
-  ])
-  return items + versions
-}
-
-async function sumItemBytes(organizationId: string): Promise<number> {
-  const db = getDb()
-  const [row] = await db
-    .select({ bytes: sql<string>`coalesce(sum(${documents.fileSize}), 0)::bigint` })
-    .from(documents)
-    .where(eq(documents.organizationId, organizationId))
-  return Number(row?.bytes) || 0
-}
-
-export async function versionOverheadByScope(
-  organizationId: string,
-): Promise<Map<string, number>> {
-  const db = getDb()
-  const rows = await db
-    .select({
-      scope: documents.scope,
-      bytes: sql<string>`coalesce(sum(${documentVersions.fileSize}), 0)::bigint`,
-    })
-    .from(documentVersions)
-    .innerJoin(documents, eq(documents.id, documentVersions.documentId))
-    .where(
-      and(
-        eq(documentVersions.organizationId, organizationId),
-        ne(documentVersions.storageKey, documents.storageKey),
-      ),
-    )
-    .groupBy(documents.scope)
-  return new Map(rows.map((row) => [row.scope, Number(row.bytes) || 0]))
-}
-
-export async function versionOverheadBytes(organizationId: string): Promise<number> {
-  const db = getDb()
-  const [row] = await db
-    .select({ bytes: sql<string>`coalesce(sum(${documentVersions.fileSize}), 0)::bigint` })
-    .from(documentVersions)
-    .innerJoin(documents, eq(documents.id, documentVersions.documentId))
-    .where(
-      and(
-        eq(documentVersions.organizationId, organizationId),
-        ne(documentVersions.storageKey, documents.storageKey),
-      ),
-    )
-  return Number(row?.bytes) || 0
+  return totalBytes(await storageByScope(organizationId))
 }
 
 export async function aggregateStorageUsageByOrganization(): Promise<
@@ -134,16 +92,6 @@ export async function aggregateStorageUsageByOrganization(): Promise<
   )
 }
 
-function versionOverheadSql(organizationId: string) {
-  return sql<string>`(
-    SELECT coalesce(sum(v.file_size), 0)::bigint
-    FROM document_versions v
-    JOIN documents d ON d.id = v.document_id
-    WHERE v.organization_id = ${organizationId}
-      AND v.storage_key <> d.storage_key
-  )`
-}
-
 export type DbTransaction = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
 export async function lockStorageQuota(tx: DbTransaction, organizationId: string): Promise<void> {
@@ -153,14 +101,9 @@ export async function lockStorageQuota(tx: DbTransaction, organizationId: string
 }
 
 export async function readStorageUsage(tx: DbTransaction, organizationId: string): Promise<number> {
-  const [row] = await tx
-    .select({
-      bytes: sql<string>`coalesce(sum(${documents.fileSize}), 0)::bigint`,
-      versionBytes: versionOverheadSql(organizationId),
-    })
-    .from(documents)
-    .where(eq(documents.organizationId, organizationId))
-  return (Number(row?.bytes) || 0) + (Number(row?.versionBytes) || 0)
+  const current = getTenantContext()
+  if (current?.kind !== 'tenant' || current.organizationId !== organizationId) throw new MissingTenantContextError()
+  return totalBytes(scopeTotals(await tx.execute(STORAGE_BY_SCOPE)))
 }
 
 export async function replaceDocumentWithinQuota(

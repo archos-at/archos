@@ -142,6 +142,15 @@ describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, 
     expect(await ids(OWNER, sql`select id from documents where id = ${SETTLING} and status = 'completed'`)).toEqual([SETTLING])
   })
 
+  it('counts every personal shelf toward the office quota for anyone, as totals and never as rows', async () => {
+    const { sumStorageBytes, aggregateStorageUsage } = await import('@/lib/storage/repository')
+    await as(OWNER, () => db.execute(sql`update documents set file_size = 7000 where id = ${DOCUMENT}`))
+    await as(OWNER, () => db.execute(sql`update documents set file_size = 300 where id = ${OFFICE_DOCUMENT}`))
+    expect(await as(COLLEAGUE, () => sumStorageBytes(ORG))).toBeGreaterThanOrEqual(7300)
+    expect((await as(COLLEAGUE, () => aggregateStorageUsage(ORG))).personal.bytes).toBeGreaterThanOrEqual(7000)
+    expect(await ids(COLLEAGUE, sql`select id from documents where id = ${DOCUMENT}`)).toEqual([])
+  })
+
   it('holds a personal row to its owner and keeps it out of every project', async () => {
     await expect(
       as(OWNER, () =>
