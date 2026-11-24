@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    The rows in the @-mention and /-command lists now round their corners to
+    match the list around them.
