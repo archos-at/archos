@@ -62,6 +62,7 @@ export const documentListColumns = {
   filename: documents.filename,
   projectId: documents.projectId,
   scope: documents.scope,
+  ownerUserId: documents.ownerUserId,
   displayName: documents.displayName,
   fileSize: documents.fileSize,
   contentType: documents.contentType,

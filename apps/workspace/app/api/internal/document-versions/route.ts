@@ -180,7 +180,7 @@ export const POST = internalApiRoute(
     const context = requireVerifiedContext(request)
     const body = await parseJsonBody(request, internalDocumentVersionRequestSchema)
     const session = await requirePinnedSession(context)
-    return withTenant({ organizationId: context.organizationId }, () =>
+    return withTenant({ organizationId: context.organizationId, userId: context.userId }, () =>
       runOp(session, body, request, context),
     )
   },

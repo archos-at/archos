@@ -100,6 +100,16 @@ export function buildOfficeShelfStorageKey(
   return shelfStorageKey(`org/${organizationId}/office_shelf`, documentId, filename, folderPath)
 }
 
+export function buildPersonalShelfStorageKey(
+  organizationId: string,
+  userId: string,
+  documentId: string,
+  filename: string,
+  folderPath?: string | null,
+): string {
+  return shelfStorageKey(`org/${organizationId}/personal/${userId}`, documentId, filename, folderPath)
+}
+
 function shelfStorageKey(
   ownerPrefix: string,
   documentId: string,

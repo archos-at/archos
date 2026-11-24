@@ -2,7 +2,7 @@ import 'server-only'
 import { announceIngestsFinished, finishedIngestOf, type FinishedIngest, type SettledBy } from '@/lib/analytics/ingest-events'
 import { findIngestAnnouncementFacts } from './repository'
 import type { ReconcilableDocument } from './reconcile-status'
-import { documentShelf } from './shelf'
+import { documentShelf, shelfKey } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 
 type SettledRow = { id: string; filename: string; updatedAt?: Date | string | null }
@@ -33,8 +33,9 @@ export function announceSettledShelves(
   const shelves = new Map<string, NonNullable<ReturnType<typeof documentShelf>>>()
   for (const row of rows) {
     if (!settledIds.has(row.id) || !('projectId' in row)) continue
-    const shelf = documentShelf(row as { projectId: string | null; scope?: string })
-    if (shelf) shelves.set(shelf.kind === 'project' ? shelf.projectId : 'office_shelf', shelf)
+    const placed = row as { projectId: string | null; scope?: string; ownerUserId?: string | null }
+    const shelf = documentShelf({ ...placed, ownerUserId: placed.ownerUserId ?? null })
+    if (shelf) shelves.set(shelfKey(shelf), shelf)
   }
   for (const shelf of shelves.values()) publishShelfChanged(organizationId, shelf)
 }

@@ -21,6 +21,7 @@ import {
   type SearchHit,
   type SearchKind,
   type SearchScopeQuery,
+  SearchShelf,
 } from '@/lib/search/search-wire'
 import { useSearchLabels } from '../hooks/use-search-labels'
 import { DocumentHitMenu, useHitMenus } from './hit-actions-menu'
@@ -142,12 +143,14 @@ function KindSection({
   )
 }
 
-function useWhere(): (shelf: 'project' | 'office_shelf', projectId: string | null, projectName: string | null, folderName?: string | null) => JSX.Element[] {
+function useWhere(): (shelf: SearchShelf, projectId: string | null, projectName: string | null, folderName?: string | null) => JSX.Element[] {
   const tWhere = useTranslations(searchCopy, 'where')
   const scope = useContext(HitScopeContext)
   const wrap = !useCompactRow()
   return (shelf, projectId, projectName, folderName = null) => {
-    const said = shelf === 'office_shelf' ? scope.scope === 'office_shelf' : scope.scope === 'project' && scope.projectId === projectId
+    const said =
+      shelf === 'personal' ||
+      (shelf === 'office_shelf' ? scope.scope === 'office_shelf' : scope.scope === 'project' && scope.projectId === projectId)
     const mark = said ? null : shelf === 'office_shelf' ? (
       <ShelfMark key="shelf" shelf="office_shelf" label={tWhere('officeShelf')} wrap={wrap} quiet={!wrap} />
     ) : projectName ? (

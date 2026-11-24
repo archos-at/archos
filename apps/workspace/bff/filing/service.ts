@@ -7,7 +7,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import type { UploadBatch } from '@/lib/db/schema/upload-batches'
 import { hasPassedScreening, memberReader, SCREENED_ONLY } from '@/lib/documents/document-reader'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
-import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/shelf'
+import { OFFICE_SHELF, projectShelf, type SharedShelf } from '@/lib/documents/shelf'
 import { surfaceStateOf } from '@/lib/documents/surface-state'
 import { documentTypeOf, DISCIPLINE_TAGS } from '@/lib/documents/tag-vocabulary'
 import type { FolderRow } from '@/lib/documents/shelf-folders'
@@ -53,7 +53,7 @@ export interface ShelfFolders {
   isRestricted: (folderId: string | null) => boolean
 }
 
-export async function shelfFolders(session: AuthorizedSession, shelf: DocumentShelf): Promise<ShelfFolders> {
+export async function shelfFolders(session: AuthorizedSession, shelf: SharedShelf): Promise<ShelfFolders> {
   const [rows, tree] = await Promise.all([
     shelf.kind === 'project' ? listProjectFolders(shelf.projectId, session) : listOfficeShelfFolders(session),
     shelf.kind === 'project'
@@ -70,7 +70,7 @@ export async function shelfFolders(session: AuthorizedSession, shelf: DocumentSh
   }
 }
 
-export async function shelfDocTypes(organizationId: string, shelf: DocumentShelf, folders: ShelfFolders) {
+export async function shelfDocTypes(organizationId: string, shelf: SharedShelf, folders: ShelfFolders) {
   const sample = await listFiledDocuments(organizationId, shelf, SCREENED_ONLY)
   const enriched = await reconcileDocumentStatuses(sample, organizationId, 'read')
   const samples: FiledSample[] = enriched
@@ -140,12 +140,12 @@ export function documentInput(
   }
 }
 
-async function baseKnowledgeDocuments(organizationId: string, shelf: DocumentShelf, rows: readonly Document[]): Promise<Set<string>> {
+async function baseKnowledgeDocuments(organizationId: string, shelf: SharedShelf, rows: readonly Document[]): Promise<Set<string>> {
   if (shelf.kind !== 'office_shelf' || rows.length === 0) return new Set()
   return new Set(await documentsWithEntries(organizationId, rows.map((row) => row.id)))
 }
 
-const proposalShelfOf = (shelf: DocumentShelf): ProposalShelf =>
+const proposalShelfOf = (shelf: SharedShelf): ProposalShelf =>
   shelf.kind === 'project' ? { scope: 'project', projectId: shelf.projectId } : { scope: 'office_shelf' }
 
 export async function reviewUploadFiling(
@@ -157,8 +157,9 @@ export async function reviewUploadFiling(
   const batch = await findUploadBatch(organizationId, batchId)
   if (!batch || batch.createdBy !== session.userId) return skipped('not-the-uploaders-batch')
   if (batch.scope === 'session') return skipped('chat-attachments')
+  if (batch.scope === 'personal') return skipped('personal-shelf')
   if (basis === 'name' && batch.completedAt) return skipped('already-read')
-  let shelf: DocumentShelf = OFFICE_SHELF
+  let shelf: SharedShelf = OFFICE_SHELF
   if (batch.scope === 'project') {
     if (!batch.projectId) return skipped('no-project')
     const project = await findProjectInOrg(batch.projectId, organizationId)

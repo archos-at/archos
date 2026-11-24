@@ -165,7 +165,7 @@ describe('GET /api/internal/document-versions/[versionId]/content', () => {
     it('opens the tenant slot from the organization it was given', async () => {
       versionExistsInOrg1()
       await GET(request(), params)
-      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1' })
+      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1', userId: null })
     })
 
     it('404s when the version is there but its document is not this tenant’s', async () => {
