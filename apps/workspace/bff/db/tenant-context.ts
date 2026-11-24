@@ -90,17 +90,22 @@ export function clearTenantContext(): void {
   enterTenantContext({ organizationId: null, userId: '' })
 }
 
-function personOfTenant(organizationId: string): string | null {
+function tenantOf(organizationId: string): TenantScope | null {
   const current = getTenantContext()
-  return current?.kind === 'tenant' && current.organizationId === organizationId ? current.userId : null
+  return current?.kind === 'tenant' && current.organizationId === organizationId ? current : null
+}
+
+function personOfTenant(organizationId: string): string | null {
+  return tenantOf(organizationId)?.userId ?? null
 }
 
 export function withTenant<T>(
   scope: { organizationId: string; userId?: string | null },
   fn: () => PromiseLike<T> | T
 ): Promise<T> {
-  const userId = scope.userId ?? personOfTenant(scope.organizationId)
-  return storage.run({ scope: { kind: 'tenant', organizationId: scope.organizationId, userId } }, async () => await fn())
+  const enclosing = scope.userId ? null : tenantOf(scope.organizationId)
+  const next: TenantScope = enclosing ?? { kind: 'tenant', organizationId: scope.organizationId, userId: scope.userId ?? null }
+  return storage.run({ scope: next }, async () => await fn())
 }
 
 export function withSystemReader<T>(

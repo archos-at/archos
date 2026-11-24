@@ -199,6 +199,22 @@ describe('the person of a tenant context, and the system reader (ADR-0191)', () 
     expect(inner).toEqual({ kind: 'tenant', organizationId: 'org_1', userId: 'user_1' })
   })
 
+  it('keeps a system reader whole when a repository opens the same organization inside it', async () => {
+    const inner = await withSystemReader('org_1', 'ingestion', () =>
+      withTenant({ organizationId: 'org_1' }, () => withTenant({ organizationId: 'org_1', userId: null }, () => getTenantContext()))
+    )
+    expect(inner).toEqual({ kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'ingestion' })
+  })
+
+  it('drops the system reader where a query names a person, or another organization', async () => {
+    const forAPerson = await withSystemReader('org_1', 'ingestion', () =>
+      withTenant({ organizationId: 'org_1', userId: 'user_1' }, () => getTenantContext())
+    )
+    expect(forAPerson).toEqual({ kind: 'tenant', organizationId: 'org_1', userId: 'user_1' })
+    const elsewhere = await withSystemReader('org_1', 'ingestion', () => withTenant({ organizationId: 'org_2' }, () => getTenantContext()))
+    expect(elsewhere).toEqual({ kind: 'tenant', organizationId: 'org_2', userId: null })
+  })
+
   it('carries no person into another organization', async () => {
     const inner = await withTenant({ organizationId: 'org_1', userId: 'user_1' }, () =>
       withTenant({ organizationId: 'org_2' }, () => getTenantContext())

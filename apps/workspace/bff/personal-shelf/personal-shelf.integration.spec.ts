@@ -20,6 +20,7 @@ const DOCUMENT = randomUUID()
 const OFFICE_DOCUMENT = randomUUID()
 const FOLDER = randomUUID()
 const VERSION = randomUUID()
+const SETTLING = randomUUID()
 
 describe('the personal shelf suite is not silently skipped in CI', () => {
   it('has a database to run against', () => {
@@ -125,6 +126,20 @@ describe.skipIf(!url)('a personal shelf against live Postgres (ADR-0191 rule 1, 
       withSystemReader(ORG, 'ingestion', async () => [...(await db.execute(query))].map((row) => String(row.id)))
     expect(await read(sql`select id from documents where id = ${DOCUMENT}`)).toEqual([DOCUMENT])
     expect(await read(sql`select id from project_folders where id = ${FOLDER}`)).toEqual([FOLDER])
+  })
+
+  it('lets ingestion settle a personal document through the repository it shares with every shelf', async () => {
+    const { setDocumentReconciledStatus } = await import('@/lib/documents/repository/reconcile')
+    await as(OWNER, () =>
+      db.execute(sql`
+        insert into documents (id, organization_id, scope, owner_user_id, created_by, filename, storage_key, collection_name, status, metadata)
+        values (${SETTLING}, ${ORG}, 'personal', ${OWNER}, ${OWNER}, 'Settling.pdf', 'k/5', 'personal_x', 'processing', '{"ingestJobId":"job-settle"}'::jsonb)`)
+    )
+    const settle = () =>
+      setDocumentReconciledStatus(SETTLING, ORG, { status: 'completed', errorMessage: null }, { status: 'processing', jobId: 'job-settle' })
+    expect(await withTenant({ organizationId: ORG }, settle)).toBe(false)
+    expect(await withSystemReader(ORG, 'ingestion', settle)).toBe(true)
+    expect(await ids(OWNER, sql`select id from documents where id = ${SETTLING} and status = 'completed'`)).toEqual([SETTLING])
   })
 
   it('holds a personal row to its owner and keeps it out of every project', async () => {
