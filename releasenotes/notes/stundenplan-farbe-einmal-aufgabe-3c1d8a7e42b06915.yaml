@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A one-off task now has the same colour on its card as its block in the

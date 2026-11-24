@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A deep research no longer stops when Piloti is briefly too busy to query a

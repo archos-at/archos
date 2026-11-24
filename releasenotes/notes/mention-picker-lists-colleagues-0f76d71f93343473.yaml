@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     The @ list shows your colleagues again as soon as the sign-in connection

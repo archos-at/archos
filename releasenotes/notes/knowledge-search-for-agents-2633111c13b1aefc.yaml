@@ -1,4 +1,5 @@
 ---
+# area: search
 fixes:
   - >
     When another AI assistant searches your documents through Piloti, a long

@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     When an answer names a file, such as „Beginnen Sie mit pd8280-2.pdf“, the

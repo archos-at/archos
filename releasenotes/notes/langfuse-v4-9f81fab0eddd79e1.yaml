@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     Langfuse moves to 4.48.0 and its ClickHouse to 26.8 LTS. Langfuse 3.x still

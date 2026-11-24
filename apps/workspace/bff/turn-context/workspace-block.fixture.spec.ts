@@ -3,9 +3,10 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { type WorkspaceFacts, renderWorkspaceBlock } from './workspace-block'
 
 const DIR = join(process.cwd(), 'tests/fixtures/workspace')
@@ -38,7 +39,7 @@ function render(): string {
   const fixture = {
     comment:
       'Written by bff/turn-context/workspace-block.fixture.spec.ts from office.json; served by ' +
-      'scripts/turn_census/fixture_workspace.py. Regenerate with UPDATE_FIXTURES=1.',
+      'scripts/turn_census/fixture_workspace.py. Regenerate with `task generate`.',
     workspace,
     proposalsHeader: withOne.at(-2),
     proposalLine: withOne.at(-1),
@@ -49,7 +50,6 @@ function render(): string {
 describe('the workspace eval’s WORKSPACE block', () => {
   it('is what the production renderer writes for the fixture office', () => {
     const rendered = render()
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(join(DIR, 'rendered.json'), rendered)
-    expect(readFileSync(join(DIR, 'rendered.json'), 'utf8')).toBe(rendered)
+    expectGenerated(join(DIR, 'rendered.json'), rendered)
   })
 })

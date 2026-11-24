@@ -1,4 +1,5 @@
 ---
+# area: answers
 features:
   - >
     When an answer rests on one place in a document, Piloti now opens it beside the chat once the

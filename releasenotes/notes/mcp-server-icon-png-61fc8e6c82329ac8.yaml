@@ -1,4 +1,5 @@
 ---
+# area: agents
 fixes:
   - >
     Piloti's connector in Claude and other AI assistants now shows the Piloti

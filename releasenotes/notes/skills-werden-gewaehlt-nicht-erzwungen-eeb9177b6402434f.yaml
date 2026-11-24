@@ -1,4 +1,5 @@
 ---
+# area: tasks
 improvements:
   - >
     Naming a skill with a slash now simply writes its name into your message,

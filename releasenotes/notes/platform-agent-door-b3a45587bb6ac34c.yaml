@@ -1,4 +1,5 @@
 ---
+# area: agents
 operators:
   - >
     Your own agent can now work the operator console through its own MCP server,

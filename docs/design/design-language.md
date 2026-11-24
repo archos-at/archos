@@ -543,7 +543,7 @@ insets too.
 Held statically by `apps/workspace/ui/components/ui/touch-target.spec.ts`,
 `apps/workspace/ui/components/ui/mobile-affordances.spec.ts` and
 `apps/workspace/ui/components/ui/breakpoints.spec.ts`. The browser
-measurement that once backed these (`task workspace:touch-audit`) went with the
+measurement that once backed these (`workspace:touch-audit`) went with the
 screenshot harness; capture a 390x844 viewport and look, until it is rewritten
 (`docs/contributing/testing-and-verification.md`).
 

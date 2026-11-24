@@ -65,7 +65,7 @@ fail on a difference.
 | `apps/workspace/bff/skills/platform-skills.ts` | `packages/agent/src/agent/skills/builtin/*/SKILL.md` | yes, the `sync-platform-skills` pre-commit hook |
 | `contracts/cards/schemas.json` | the card models (`packages/agent/src/agent/cards/models.py` and its card modules), via `scripts/generate_card_schema.py` | yes, the `card-schemas` pre-commit hook |
 | `apps/workspace/shared/cards/generated.ts` | `contracts/cards/schemas.json`, via `apps/workspace/scripts/generate-card-schemas.mjs` | yes, the same hook |
-| `docs/architecture/lifecycles.generated.md` | the declarations in `apps/workspace/bff/lifecycles/registry.ts` | yes, `apps/workspace/bff/lifecycles/registry.spec.ts` (rewrite with `UPDATE_FIXTURES=1`) |
+| `docs/architecture/lifecycles.generated.md` | the declarations in `apps/workspace/bff/lifecycles/registry.ts` | yes, `apps/workspace/bff/lifecycles/registry.spec.ts` (rewrite with `task generate`) |
 
 The card schema is a two-stage pipeline from Pydantic models to Zod. Neither
 generator has a `--check` flag, so the hook simply runs both: pre-commit fails

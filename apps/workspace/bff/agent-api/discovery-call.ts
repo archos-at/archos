@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api/errors'
 import { offersAppViews } from './app-host'
 import { type BackendOperation, callBackendOperation } from './backend-operations'
 import { actingDoorOf } from './call-origin'
+import { kindOf } from '@/lib/conversation-context/types'
 import {
   type OperationInput,
   OperationInputError,
@@ -41,7 +42,8 @@ export async function runBackendOperation(
       record(403)
       return failure(refused)
     }
-    const result = await callBackendOperation(op.name, input, ctx.principal.session, { projectId })
+    const { door, sessionSource } = actingDoorOf(ctx)
+    const result = await callBackendOperation(op.name, input, ctx.principal.session, { projectId, kind: kindOf(door, sessionSource) })
     record(result.status)
     return fromBackendResult(op, result)
   } catch (error) {

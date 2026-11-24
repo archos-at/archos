@@ -1,4 +1,5 @@
 ---
+# area: search
 operators:
   - >
     A search index rebuild now measures how long the stored passages really

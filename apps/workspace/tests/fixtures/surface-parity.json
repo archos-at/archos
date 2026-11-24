@@ -1,5 +1,5 @@
 {
- "comment": "Where each canvas capability is shown: apps/workspace/bff/surface-parity/parity.config.ts, written by parity.config.spec.ts (UPDATE_FIXTURES=1). `tool` is the name the model binds (`canvas__mark`, `look`).",
+ "comment": "Where each canvas capability is shown: apps/workspace/bff/surface-parity/parity.config.ts, written by parity.config.spec.ts (`task generate`). `tool` is the name the model binds (`canvas__mark`, `look`).",
  "capabilities": {
   "look": {
    "summary": "Look at a page or a box on it, then answer from what was seen",
@@ -371,6 +371,30 @@
    "chat": {
     "kind": "rendering",
     "component": "features/chat/components/ViewerActionRow.tsx",
+    "card": null,
+    "step": null
+   }
+  },
+  "calibrateScale": {
+   "summary": "Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for",
+   "tool": null,
+   "annotationOp": null,
+   "operations": [
+    "drawing-calibration-list",
+    "drawing-calibration-set",
+    "drawing-calibration-withdraw"
+   ],
+   "canvas": {
+    "kind": "gap",
+    "slice": "drawing-measure slice 5",
+    "reason": "the scale popover of the review view’s measure mode is built next",
+    "card": null,
+    "step": null
+   },
+   "chat": {
+    "kind": "gap",
+    "slice": "drawing-measure slice 6",
+    "reason": "the confirm card drawing the page clip with the reference span is built next",
     "card": null,
     "step": null
    }

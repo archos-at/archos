@@ -1,4 +1,5 @@
 ---
+# area: agents
 features:
   - >
     When your connected assistant finds a project, a document, a task run or a

@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     When a scheduled task finishes or fails, you now hear about it in your

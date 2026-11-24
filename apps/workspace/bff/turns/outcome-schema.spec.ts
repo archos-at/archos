@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { TURN_OUTCOME_WIRE_SCHEMAS, turnOutcomeJsonSchema } from './outcome-schema'
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/turn-outcome.schema.json')
@@ -12,11 +12,7 @@ const FIXTURE = join(process.cwd(), 'tests/fixtures/turn-outcome.schema.json')
 describe('turn outcome JSON Schema', () => {
   it('matches the committed fixture the chat socket loads', () => {
     const generated = `${JSON.stringify(turnOutcomeJsonSchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, generated, 'utf8')
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The wire schemas changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture in the same change.'
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('exports every schema the contract map names, and only those', () => {

@@ -1,4 +1,5 @@
 ---
+# area: agents
 features:
   - >
     Piloti now always uses its own tools to keep notes, search your documents,

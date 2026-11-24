@@ -562,7 +562,7 @@ describe('the Python agent’s read tools', () => {
       'knowledge-search',
       { projectId: PROJECT, query: 'Stellplätze' },
       session,
-      { projectId: PROJECT },
+      { projectId: PROJECT, kind: 'external' },
     )
     expect(callOperation).not.toHaveBeenCalled()
     expect(result.structuredContent).toEqual({ result: 'a passage' })

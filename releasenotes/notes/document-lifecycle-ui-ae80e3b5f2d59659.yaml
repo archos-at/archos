@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Dateien now shows each file's state: draft, in review, changes requested,

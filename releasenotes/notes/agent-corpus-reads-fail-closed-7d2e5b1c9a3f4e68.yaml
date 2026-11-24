@@ -1,3 +1,4 @@
+# area: general
 security:
   - >
     A search or read of the shared building-law base now returns nothing when a

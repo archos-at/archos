@@ -1,4 +1,6 @@
 import 'server-only'
+import { bestEffortInBackground } from '@/lib/best-effort'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { defaultLocale, type Locale } from '@/i18n/config'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -109,7 +111,7 @@ export async function createProposal(session: AuthorizedSession, input: CreatePr
     return row
   }
   auditProposalCreated(session, row, typed)
-  bestEffort('attention (created)', () =>
+  bestEffortInBackground('attention (created)', () =>
     onProposalCreated({
       organizationId: row.organizationId,
       projectId: row.projectId,
@@ -123,24 +125,22 @@ export async function createProposal(session: AuthorizedSession, input: CreatePr
   return row
 }
 
-function bestEffort(what: string, run: () => Promise<unknown>): void {
-  void Promise.resolve()
-    .then(run)
-    .catch((error: unknown) => {
-      console.warn(`[proposals] ${what} failed (non-fatal):`, error)
-    })
-}
-
 function afterDecision(session: AuthorizedSession, row: ProposedChangeRow): void {
   const status = row.status
   if (status === 'proposed') return
-  bestEffort('live publish', () => publishProposalDecided(row.id, status))
-  bestEffort('attention (decided)', () => onProposalDecided({ organizationId: row.organizationId, proposalId: row.id }))
+  bestEffortInBackground('live publish', () => publishProposalDecided(row.id, status))
+  bestEffortInBackground('attention (decided)', () => onProposalDecided({ organizationId: row.organizationId, proposalId: row.id }))
   auditProposalDecided(session, row)
+  captureServer({
+    event: 'proposal_decided',
+    distinctId: session.userId,
+    organizationId: row.organizationId,
+    properties: { kind: row.kind, status, scope: row.scope },
+  })
   const decision: Decision | null =
     status === 'dismissed' ? 'dismissed' : status === 'failed' ? null : 'accepted'
   if (!decision) return
-  bestEffort('decision score', () =>
+  bestEffortInBackground('decision score', () =>
     recordDecisionScore({
       organizationId: row.organizationId,
       subject: 'proposal',
@@ -433,6 +433,6 @@ export async function listShelfFileProposals(
 
 export async function withdrawProposal(organizationId: string, id: string): Promise<boolean> {
   const withdrawn = await deleteUndecidedProposedChange(organizationId, id, staleBefore())
-  if (withdrawn) bestEffort('attention (withdrawn)', () => onProposalDecided({ organizationId, proposalId: id }))
+  if (withdrawn) bestEffortInBackground('attention (withdrawn)', () => onProposalDecided({ organizationId, proposalId: id }))
   return withdrawn
 }

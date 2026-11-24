@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Opening a shared link to a project file works again, even when the link

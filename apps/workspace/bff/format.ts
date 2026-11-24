@@ -20,6 +20,15 @@ export const formatUsd = (
   return format.format(value)
 }
 
+export const formatMetres = (value: number, locale?: string): string =>
+  new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'meter',
+    unitDisplay: 'short',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  }).format(value)
+
 export const formatCount = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
     Number.isFinite(value) ? value : 0
