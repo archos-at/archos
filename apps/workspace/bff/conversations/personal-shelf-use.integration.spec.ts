@@ -114,6 +114,18 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0265)', ()
     expect(await usedAt(solo)).toBeNull()
   })
 
+  it('refuses an answer the decision does not name, and one with no record to write, marking nothing', async () => {
+    const conversationId = await chat()
+    const answer = randomUUID()
+    const decision = allowing(conversationId, answer)
+    const asked = (answerMessageId: string) =>
+      asOwner(() => use.admitPersonalShelf({ organizationId: ORG, conversationId, userId: OWNER, answerMessageId }, [own], decision))
+
+    expect(await asked(randomUUID())).toEqual([])
+    expect(await asked(answer)).toEqual([])
+    expect(await usedAt(conversationId)).toBeNull()
+  })
+
   it('refuses a document thread, whose answers reach the document’s readers as annotation replies', async () => {
     const thread = await chat('private', true)
     const admitted = await asOwner(() =>

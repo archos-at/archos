@@ -288,7 +288,7 @@ describe('GET /api/internal/document-file', () => {
       vi.mocked(admitPersonalShelf).mockResolvedValueOnce([own])
       expect((await GET(request(url, 'test-token', headers))).status).toBe(200)
       expect(admitPersonalShelf).toHaveBeenLastCalledWith(
-        { organizationId: 'org_1', conversationId: 's_conv_1', userId: 'user_asker' },
+        { organizationId: 'org_1', conversationId: 's_conv_1', userId: 'user_asker', answerMessageId: null },
         [own],
         expect.objectContaining({ conversationId: 's_conv_1' }),
       )
