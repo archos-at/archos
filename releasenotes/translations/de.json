@@ -1092,6 +1092,10 @@
     "de": "Eine Wortsuche, die nicht alle Ihre Dokumente durchsuchen konnte, wird in der Herleitung nicht mehr als vollständig angezeigt. Sie ist mit einem gestrichelten Ring markiert und weist darauf hin, dass ein fehlender Treffer kein Beweis ist; eine unvollständige Suche ohne Treffer erscheint unter „Offen“."
   },
   {
+    "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
+    "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
+  },
+  {
     "en": "ARCHOS suggests a folder and a Dokumentart for each attachment of a waiting mail, from the file names, the masked subject and the sender's domain only. Several complete mails can then be filed as suggested with one press.",
     "de": "ARCHOS schlägt für jeden Anhang einer wartenden Mail anhand des Dateinamens, des maskierten Betreffs und ausschließlich der Domain des Absenders einen Ordner und eine Dokumentart vor. Mehrere vollständige Mails lassen sich anschließend mit einem Klick wie vorgeschlagen ablegen."
   },

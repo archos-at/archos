@@ -33,6 +33,14 @@
       "notes": [
         {
           "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
+            "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
+          }
+        },
+        {
+          "section": "features",
           "area": "documents",
           "text": {
             "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
