@@ -8,11 +8,11 @@ import { mergeRemoteMessages } from '../lib/remote-message-merge'
 import { withUnseenAnswer } from '../lib/turn-selectors'
 import {
   createNewConversation,
-  generateTitle,
   updateConversationInList,
   withConversation,
 } from '../lib/conversation-records'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
+import { titledByFirstMessage } from '../lib/conversation-title'
 
 const withoutOpenConversation = (projectId: string | null) => ({
   projectId,
@@ -106,12 +106,8 @@ export const createConversationActions = (
         ...(metadata?.answerExcerpt ? { answerExcerpt: metadata.answerExcerpt } : {}),
       }
 
-      const hasUserMessage = conversation.messages.some((m) => m.messageType === 'user')
-      const shouldUpdateTitle = !hasUserMessage
-
       const updatedConversation: Conversation = {
-        ...conversation,
-        title: shouldUpdateTitle ? generateTitle(content) : conversation.title,
+        ...titledByFirstMessage(conversation, content),
         messages: [...conversation.messages, newMessage],
         updatedAt: new Date(),
       }

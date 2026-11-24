@@ -4,6 +4,7 @@ import type { SessionsSlice } from './sessions-store'
 import { getActiveLocale } from '@/i18n'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient } from '../lib/conversations-client-access'
+import { named, settledTitle } from '../lib/conversation-title'
 
 const namedConversations = new Set<string>()
 
@@ -19,55 +20,44 @@ export const createConversationMetadataSlice: StateCreator<
     | 'maybeGenerateConversationName'
     | 'saveDataSourcesToConversation'
   >
-> = (set, get) => ({
-  updateConversationTitle: (conversationId: string, title: string) => {
+> = (set, get) => {
+  const retitle = (conversationId: string, change: (conversation: Conversation) => Conversation, action: string): void => {
     const { currentConversation, conversations } = get()
+    const open = currentConversation?.id === conversationId ? change(currentConversation) : currentConversation
+    const listed = conversations.map((c) => (c.id === conversationId ? change(c) : c))
+    if (open === currentConversation && listed.every((c, i) => c === conversations[i])) return
+    set({ conversations: listed, currentConversation: open }, false, action)
+  }
 
-    const updatedConversations = conversations.map((c) =>
-      c.id === conversationId ? { ...c, title, updatedAt: new Date() } : c
-    )
-
-    const updatedCurrentConversation =
-      currentConversation?.id === conversationId
-        ? { ...currentConversation, title, updatedAt: new Date() }
-        : currentConversation
-
-    set(
-      {
-        conversations: updatedConversations,
-        currentConversation: updatedCurrentConversation,
-      },
-      false,
-      'updateConversationTitle'
-    )
-
+  const syncTitle = (conversationId: string, title: string): void => {
     getConversationsClient().then((conversationsClient) => {
       conversationsClient.updateTitle(conversationId, title).catch((err) => {
         console.warn('[updateConversationTitle] Failed to sync title to server:', err)
       })
     })
+  }
+
+  return {
+  updateConversationTitle: (conversationId: string, title: string) => {
+    retitle(conversationId, (conversation) => ({ ...named(conversation, title), updatedAt: new Date() }), 'updateConversationTitle')
+    syncTitle(conversationId, title)
   },
 
   maybeGenerateConversationName: (conversationId: string) => {
     if (namedConversations.has(conversationId)) return
+    const settle = (): void => retitle(conversationId, settledTitle, 'settleProvisionalTitle')
 
     const { conversations } = get()
     const conversation = conversations.find((c) => c.id === conversationId)
     if (!conversation) return
 
     const hasRun = conversation.messages.some((m) => Boolean(m.runLedger || m.deepResearchJobId))
-    if (hasRun) return
-
     const userMessages = conversation.messages.filter((m) => m.messageType === 'user')
-    if (userMessages.length !== 1) return
-
-    const firstQuestion = messagePlainText(userMessages[0])
-    if (!firstQuestion) return
-
+    const firstQuestion = userMessages.length === 1 ? messagePlainText(userMessages[0]) : ''
     const firstAnswer = conversation.messages.find(
       (m) => m.messageType === 'agent_response' && messagePlainText(m).length > 0
     )
-    if (!firstAnswer) return
+    if (hasRun || !firstQuestion || !firstAnswer) return settle()
 
     namedConversations.add(conversationId)
 
@@ -84,12 +74,15 @@ export const createConversationMetadataSlice: StateCreator<
         const title = result.title.trim()
         if (!title) {
           namedConversations.delete(conversationId)
+          settle()
           return
         }
-        get().updateConversationTitle(conversationId, title)
+        retitle(conversationId, (c) => named(c, title), 'nameConversation')
+        syncTitle(conversationId, title)
       })
       .catch((err) => {
         namedConversations.delete(conversationId)
+        settle()
         console.warn('[maybeGenerateConversationName] Failed to generate name:', err)
       })
   },
@@ -119,4 +112,5 @@ export const createConversationMetadataSlice: StateCreator<
       'saveDataSourcesToConversation'
     )
   },
-})
+  }
+}
