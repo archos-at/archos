@@ -22,6 +22,10 @@ vi.mock('./backend-operations', async (importOriginal) => ({
   callBackendOperation: vi.fn(),
 }))
 vi.mock('./operation-proposals', () => ({ proposeOperation: vi.fn() }))
+vi.mock('./operation-origin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./operation-origin')>()
+  return { withConversationOrigin: vi.fn(actual.withConversationOrigin) }
+})
 vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordOperationMissing: vi.fn() }))
 
 import { z } from 'zod'
@@ -44,6 +48,7 @@ import {
 import type { AgentOperation } from './operation'
 import { FAKE_OPERATIONS } from './test-operations'
 import { proposeOperation } from './operation-proposals'
+import { withConversationOrigin } from './operation-origin'
 import type { AgentPrincipal } from './principal'
 import { recordOperationCalled, recordOperationMissing } from './telemetry'
 
@@ -277,6 +282,19 @@ describe('call-operation', () => {
       expect.anything(),
       expect.objectContaining({ decision: 'propose', status: 202 }),
     )
+  })
+
+  it('runs what withConversationOrigin stamps with the turn’s conversation, on both direct paths', async () => {
+    const inChat: AgentPrincipal = { ...person, conversationId: 's_turn' }
+    const stamped = { params: {}, query: { stamped: true } }
+    vi.mocked(withConversationOrigin).mockReturnValueOnce(stamped).mockReturnValueOnce(stamped)
+
+    await callOperationTool(ctx(inChat), { name: 'project-list', input: { query: {} } })
+    await readOperationBody(ctx(inChat), 'project-list', { query: {} })
+
+    expect(withConversationOrigin).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: 'project-list' }), { query: {} }, 's_turn')
+    expect(withConversationOrigin).toHaveBeenNthCalledWith(2, expect.objectContaining({ name: 'project-list' }), { query: {} }, 's_turn')
+    expect(vi.mocked(callOperation).mock.calls.map((call) => call[1])).toEqual([stamped, stamped])
   })
 
   it('lets the in-product agent read directly', async () => {
