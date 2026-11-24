@@ -17,25 +17,26 @@ person knows who sees a thing.
 | Place | Who sees it | What lives there today |
 |---|---|---|
 | **Ich** (the person) | Only the person | Mein Gedächtnis, Profil, private chats (every chat starts private) |
-| **Projekt** | The project's members, by role | Chats once shared, Dateien, Modelle, E-Mail-Eingang, Offene Punkte, Projektgedächtnis, Aufgaben, Übersicht |
+| **Projekt** | The project's members, by role | Chats once shared, Dateien, Modelle, E-Mail-Eingang, Offene Punkte, Projektgedächtnis, Aufgaben, Projekteinstellungen |
 | **Büro** (the organization) | Everyone in the office, by role | Büroablage, Normen & Richtlinien, Skills, Anweisungen, Organisation |
 
 ## Projects
 
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
-| List, filter (Aktiv, Ruhend, Abgeschlossen) and search projects | Projekte (`/app/projects`), „Weitermachen“ first | — | — |
-| Create a project, running or closed (as a reference) | Projekte › Neues Projekt (dialog) | — | — |
+| Open the app | `/app` opens Neuer Chat in the area last used: the last project's new chat while it still opens, else a new personal chat | — | — |
+| See every project and search them | Projektübersicht (`/app/projects`), a window over the page, from Übersicht in the project picker: cards active, ruhend, abgeschlossen, with search and Neues Projekt | — | — |
+| Create a project, running or closed (as a reference) | Projektübersicht or project picker › Neues Projekt (dialog) | — | — |
 | Switch project | Rail › project selector; phone › Mehr | — | — |
 | Set the project up from its documents | Einrichtung (`/setup`): Projekt, Ablage, Erfassung, Rückfragen, Steckbrief | Reads the uploads, proposes each fact with its quote | Each fact |
 | Guided briefing | Einrichtung (`/intake`), eight modules, answers as Wert, Schätzung or noch offen | Derives Gebäudeklasse and which OIB-Richtlinien apply | — |
-| Steckbrief: address, dates, Beteiligte | Übersicht › Steckbrief › Bearbeiten (dialog) | Flags a document that contradicts it | Corrections |
-| Project hub | Übersicht (`/settings`): tiles for Dokumente, Projektgedächtnis, Nutzung, Mitglieder, Steckbrief, Projektstatus, Ähnliche Projekte | — | — |
-| Members and roles (Betrachter, Mitwirkender, Bearbeiter, Administrator) | Übersicht › Mitglieder (`project:members:manage`) | — | — |
-| Usage and the project's budget | Übersicht › Nutzung & Budget | — | — |
-| Pause, resume, close, reopen | Übersicht › Projektstatus; banner on every page | — | — |
+| Steckbrief: address, dates, Beteiligte | Projekteinstellungen › Steckbrief › Bearbeiten (dialog) | Flags a document that contradicts it | Corrections |
+| Project settings | Projekteinstellungen (`/settings`), by the gear in the picker or on a project's card: tiles for Dokumente, Projektgedächtnis, Nutzung, Mitglieder, Steckbrief, Projektstatus, Ähnliche Projekte | — | — |
+| Members and roles (Betrachter, Mitwirkender, Bearbeiter, Administrator) | Projekteinstellungen › Mitglieder (`project:members:manage`) | — | — |
+| Usage and the project's budget | Projekteinstellungen › Nutzung & Budget | — | — |
+| Pause, resume, close, reopen | Projekteinstellungen › Projektstatus; banner on every page | — | — |
 | Close a project and keep what it taught | Projekt abschließen: Abschluss, Was bleibt, Ausmisten | Proposes decisions and lessons to keep, files to clear out | Each item |
-| Similar closed projects | Übersicht › Ähnliche Projekte (up to 12) | Compares by profile, says what they decided and were told | — |
+| Similar closed projects | Projekteinstellungen › Ähnliche Projekte (up to 12) | Compares by profile, says what they decided and were told | — |
 
 ## Chat and answers
 
@@ -118,7 +119,7 @@ person knows who sees a thing.
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
 | What ARCHOS knows about me | Mein Gedächtnis (`/app/memory`): add, edit, pin, remove | Keeps notes from my chats | — |
-| What the project remembers | Übersicht › Projektgedächtnis („{n} zu prüfen“) | Records decisions, facts, open questions | Items to review |
+| What the project remembers | Projekteinstellungen › Projektgedächtnis („{n} zu prüfen“) | Records decisions, facts, open questions | Items to review |
 | Standing office instructions | Organisation › Übersicht › Anweisungen (admins) | Adds them to every request | — |
 | Conventions learned across projects | Organisation › „Was ARCHOS über das Büro gelernt hat“ (flag `office-conventions`) | Proposes them | Yes |
 
