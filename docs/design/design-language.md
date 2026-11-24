@@ -1033,7 +1033,12 @@ times stops being a physical cue and becomes texture.
   sends no press or key (a screen reader's virtual cursor) places them at once.
   A line that arrives after its count is fetched (mail waiting, a mail import)
   fades on `duration-snap`, and a thread replacing its skeleton fades on
-  `--motion-snap` too.
+  `--motion-snap` too. An `EmptyState` stands at once where the reader arrived
+  and fades on `duration-snap` only when their own press or key on the same
+  page emptied the list within the moment before
+  (`components/motion/reader-input`); its icon never zooms. A composer whose
+  session is still being confirmed on a fresh load lands its controls without
+  easing (`data-arriving` on its root), so they do not fade up from dimmed.
   A typing indicator already running when the thread mounts is simply there,
   and fades in only for a wait that begins in the open thread. The thread reopens
   where the reader left it (`lib/thread-positions`), and a side reopens the chat
@@ -1118,7 +1123,9 @@ times stops being a physical cue and becomes texture.
 - **Disabled eases.** A control turning disabled or dimmed (`opacity-50`,
   a `BusyButton` blocked past its delay) tweens its opacity on
   `--motion-quick`: the primitives name `opacity` in their transition lists,
-  so the state change reads as a change rather than a blink.
+  so the state change reads as a change rather than a blink. The exception is
+  the composer's first confirmation of the session on a load, which is
+  arrival, not a change.
 - **One press.** A `Button` or `TabsTrigger` dips on its own. Every other
   pressable (a citation chip, a copy link, a card row) composes `PRESSABLE`
   (`components/ui/press.ts`): colour, background, border, filter on
