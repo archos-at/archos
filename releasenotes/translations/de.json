@@ -1376,6 +1376,10 @@
     "de": "Eine offene Anmerkung aus einer früheren Revision lässt sich jetzt über ihre Karte in die aktuelle Revision übernehmen – oder alle auf einmal über die Liste. Nummer, Position und Kommentarverlauf bleiben dabei erhalten."
   },
   {
+    "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+    "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+  },
+  {
     "en": "An open document now shows what Piloti saw on each page, with the drawing type and scale, right under its summary, and a click on an entry turns the document to that page. Format, page count and size sit under the name, so the side panel keeps only what Piloti read, the Fassungen and the pages.",
     "de": "Ein geöffnetes Dokument zeigt jetzt direkt unter seiner Zusammenfassung, was Piloti auf jeder Seite erkannt hat, einschließlich Zeichnungstyp und Maßstab; ein Klick auf einen Eintrag springt zu dieser Seite. Format, Seitenzahl und Größe stehen unter dem Namen, sodass die Seitenleiste nur noch das enthält, was Piloti ausgelesen hat, die Fassungen und die Seiten."
   },
@@ -5850,9 +5854,5 @@
   {
     "en": "„offen“ now counts the same everywhere: Piloti's proposals that nobody has taken over are no longer counted as open in Dateien, in the Prüfansicht or before a Freigabe. They are named on their own, „2 offen · 12 Vorschläge“, so the number matches Offene Punkte and the Protokoll.",
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
-  },
-  {
-    "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
-    "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
   }
 ]
