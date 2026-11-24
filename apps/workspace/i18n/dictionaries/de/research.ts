@@ -290,12 +290,6 @@ export const research: typeof en.research = {
     researchLoadFailed: 'Deep-Research-Durchläufe konnten nicht geladen werden.',
     noRuns: 'Noch keine Deep-Research-Durchläufe',
     noRunsDescription: 'Deep-Research-Durchläufe aus diesem Projekt erscheinen hier.',
-    runStatus: {
-      running: 'Läuft',
-      completed: 'Bericht fertig',
-      failed: 'Fehlgeschlagen',
-      cancelled: 'Abgebrochen',
-    },
   },
 
 

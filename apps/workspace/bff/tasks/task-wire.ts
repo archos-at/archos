@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { DOCUMENT_LIST_CURSOR_MAX_LENGTH } from '@/lib/documents/list-cursor'
 import type { RunStatus } from '@/lib/runs/run-ledger-types'
 import {
+  TASK_KINDS,
   TASK_RUN_STATUSES,
   type TaskKind,
   type TaskReview,
@@ -31,6 +32,7 @@ export const taskRunListQuerySchema = z.object({
   limit: limitParam,
   cursor: cursorParam,
   taskId: z.guid().optional(),
+  kind: z.enum(TASK_KINDS).optional(),
   status: z.enum(TASK_RUN_STATUSES).optional(),
   review: z.enum(TASK_RUN_REVIEW_FILTERS).optional(),
 })

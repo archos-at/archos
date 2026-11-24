@@ -154,7 +154,7 @@ The list groups chats by day (Today, Yesterday, then the date) with sticky day h
 - **Document checkmark**: the chat has a finished research report
 - **Chat bubble**: any other chat
 
-Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A **Deep Research** section above the day groups lists this project's research runs — including headless/CLI ones that never touched this browser — each stating its status in words (*Running*, *Report ready*, *Failed*, *Cancelled*).
+Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A **Deep Research** section above the day groups lists this project's deep research runs, the ones started in a chat and the scheduled ones, under the run's own name, each stating its status in the same words as the task history (*Queued*, *Running*, *Done*, *Failed*, *Stopped*, *Skipped*). A run that is still going has a stop button there. An office without deep research sees neither the section nor the filter; reading a project's documents after an upload is not a research run and is not listed.
 
 The footer explains that chats are saved in your workspace and available on every device, and that research reports may expire on the server, and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It is scoped to the current project.
 

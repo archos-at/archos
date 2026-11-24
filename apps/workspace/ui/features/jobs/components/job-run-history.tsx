@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, CalendarClock, Hand, MessageSquare } from 'lucide-react'
-import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Item, ItemActions, ItemContent, ItemList } from '@/components/ui/item'
@@ -14,8 +14,9 @@ import { useLocale, useTranslations } from '@/i18n'
 import { jobsCopy } from '@/i18n/namespaces/jobs'
 import { tasksCopy } from '@/i18n/namespaces/tasks'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
-import { isActiveTaskRunStatus, type TaskRunStatus } from '@/lib/tasks/task-vocabulary'
+import { isActiveTaskRunStatus } from '@/lib/tasks/task-vocabulary'
 import { listJobRuns, type JobRun } from '@/adapters/api/jobs-client'
+import { RUN_STATUS_VARIANT } from '@/lib/tasks/run-display'
 import { taskThreadHref } from '@/features/tasks/lib/task-view'
 
 interface JobRunHistoryProps {
@@ -23,15 +24,6 @@ interface JobRunHistoryProps {
   jobId: string
 }
 
-const STATUS_VARIANT: Record<TaskRunStatus, NonNullable<BadgeProps['variant']>> = {
-  queued: 'info',
-  running: 'info',
-  succeeded: 'success',
-  failed: 'destructive',
-  interrupted: 'secondary',
-  skipped: 'warning',
-  error: 'destructive',
-}
 
 const TRIGGER_ICON = { schedule: CalendarClock, manual: Hand, delegated: MessageSquare } as const
 
@@ -113,7 +105,7 @@ export function JobRunHistory({ projectId, jobId }: JobRunHistoryProps): JSX.Ele
                 <TriggerIcon className="size-3" aria-hidden />
                 {t(`history.trigger.${run.trigger}`)}
               </Badge>
-              <Badge variant={STATUS_VARIANT[run.status]} className="shrink-0" data-testid="run-status">
+              <Badge variant={RUN_STATUS_VARIANT[run.status]} className="shrink-0" data-testid="run-status">
                 {tTasks(`status.${run.status}`)}
               </Badge>
               <time
