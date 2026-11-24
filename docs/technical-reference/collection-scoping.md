@@ -154,7 +154,7 @@ shelf `project`, only when ALL of these hold:
   `lib/authz/folder-roles.ts`, cached for `AUTHZ_CACHE_TTL_MS`; a lookup
   that fails clears nothing);
 - everyone the conversation is shared with may read it too
-  (`restrictedCollectionsForChatScope` in `lib/conversations/restricted-use.ts`).
+  (`readableRestrictedCollections` in `lib/conversations/restricted-use.ts`, the same rule the agent's turn-start check `drawableRestrictedCollections` asks; the turn reads the audience once, through `lib/conversation-context`).
 
 The same rule gates the collection proxy: `/api/v1/collections/<name>` with a
 restricted name is authorized as its project's collection and then 404s unless

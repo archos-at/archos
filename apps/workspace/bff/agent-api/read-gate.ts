@@ -63,7 +63,7 @@ function buildGate(principal: AgentPrincipal): ReadGate {
     },
     async mayHandOnLink() {
       const now = await audienceOnce()
-      return !now || now.solo
+      return !now || now.workspaceRead === 'all'
     },
   }
 }

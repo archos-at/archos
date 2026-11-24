@@ -3,11 +3,14 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { requireResourceAccess } from '@/lib/sharing/access'
-import { restrictedCollectionsForChatScope } from '@/lib/conversations/restricted-use'
+import { readableRestrictedCollections } from '@/lib/conversations/restricted-use'
+import { readConversationRow } from '@/lib/conversation-context/audience'
+import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import { getProjectFolderAccess } from '@/lib/authz/folder-access'
-import { ForbiddenError } from '@/lib/api/errors'
+import { ForbiddenError, isAuthzRefusal } from '@/lib/api/errors'
 import {
   computeCollectionScope,
+  encodeCollectionScopeHeader,
   sessionCollectionName,
   type CollectionShelf,
   resolveBaseCollectionName,
@@ -23,13 +26,12 @@ export interface RequestContext {
   includeProject?: boolean
   conversationId?: string
   interactiveChat?: boolean
+  audience?: ConversationAudienceRow
 }
 
 export type { CollectionShelf, ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
-export function encodeCollectionScopeHeader(collections: ScopedCollection[]): string {
-  return Buffer.from(JSON.stringify(collections)).toString('base64url')
-}
+export { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
 
 function isAuthRequired(): boolean {
   return process.env.REQUIRE_AUTH?.toLowerCase() === 'true'
@@ -65,14 +67,16 @@ async function resolveRestrictedCollections(
   session: AuthorizedSession,
   projectId: string,
   projectCollection: string,
-  conversationId: string | undefined
+  conversationId: string | undefined,
+  known: ConversationAudienceRow | undefined
 ): Promise<string[]> {
   if (!conversationId) return []
   const access = await getProjectFolderAccess(session, projectId, projectCollection)
   if (access.clearedRestrictedCollections.length === 0) return []
-  return restrictedCollectionsForChatScope(
-    session,
-    conversationId,
+  const audience = known ?? (await readConversationRow(session.organizationId, conversationId))
+  return readableRestrictedCollections(
+    { organizationId: session.organizationId, userId: session.userId, session },
+    audience,
     { projectId, projectCollection },
     access.clearedRestrictedCollections
   )
@@ -100,6 +104,7 @@ export async function buildCollectionScopeFromRequest(
   projectCollectionName: string | undefined
   conversationId: string | undefined
   verifiedConversationId: string | undefined
+  restrictedCollections: string[]
   projectReadOnly?: boolean
 }> {
   const anonymous = !isAuthRequired()
@@ -117,12 +122,17 @@ export async function buildCollectionScopeFromRequest(
     throw new ConversationProjectMismatchError()
   }
   const namedProject = conversationVerified ? (rowProject ?? undefined) : context.projectId
-  const projectId = includeProject ? namedProject : undefined
+  let projectId = includeProject ? namedProject : undefined
 
   let projectReadOnly = false
   if (projectId && session && !anonymous) {
-    const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
-    projectReadOnly = access.readsBecauseClosed
+    try {
+      const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
+      projectReadOnly = access.readsBecauseClosed
+    } catch (error) {
+      if (context.projectId || !isAuthzRefusal(error)) throw error
+      projectId = undefined
+    }
   }
 
   const projectCollectionName = includeProject
@@ -144,7 +154,8 @@ export async function buildCollectionScopeFromRequest(
           session as AuthorizedSession,
           projectId,
           projectCollectionName,
-          conversationId
+          conversationId,
+          context.audience
         )
       : []
 
@@ -186,6 +197,7 @@ export async function buildCollectionScopeFromRequest(
     projectCollectionName,
     conversationId,
     verifiedConversationId: conversationVerified ? conversationId : undefined,
+    restrictedCollections,
     projectReadOnly: Boolean(projectId) && projectReadOnly,
   }
 }
