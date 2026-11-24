@@ -250,7 +250,7 @@ The pattern is used in:
 
 **File**: `packages/agent/src/agent/knowledge/scoping.py`
 
-### In a chat turn: the turn's decision (ADR-0192)
+### In a chat turn: the turn's decision (ADR-0194)
 
 A chat turn asks the BFF for its decision before it reads any scope
 (`POST /api/internal/turn-decision`, from `_run` in

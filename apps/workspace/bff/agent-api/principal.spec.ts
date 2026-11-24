@@ -315,7 +315,7 @@ describe('The in-product agent (internal token and envelope)', () => {
     expect(junk).toMatchObject({ actor: 'agent', answerMessageId: null })
   })
 
-  it('carries the turn decision the agent sends, and refuses one the BFF did not sign (ADR-0192)', async () => {
+  it('carries the turn decision the agent sends, and refuses one the BFF did not sign (ADR-0194)', async () => {
     const decided = signDecision(decisionOf(closedContext('chat', 'conv_1'), { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), SECRET)
     const carried = await resolvePrincipal(
       inProduct({ ...envelope(), 'x-turn-decision': decided.header, 'x-turn-decision-signature': decided.signature }),
