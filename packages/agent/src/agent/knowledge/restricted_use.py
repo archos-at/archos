@@ -149,7 +149,7 @@ def admit(use: RestrictedUse, collections: Sequence[str]) -> set[str]:
 def restricted_use_from_decision(
     decision: TurnDecision, request: Any, *, answer_message_id: str | None = None
 ) -> RestrictedUse | None:
-    if not decision.restricted_collections:
+    if not decision.restricted_collections and not decision.recorded_restricted:
         return None
     return RestrictedUse(
         organization_id=getattr(request, "organization_id", None) or "",

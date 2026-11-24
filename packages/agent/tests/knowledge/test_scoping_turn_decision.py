@@ -250,3 +250,16 @@ def test_a_workos_shaped_personal_collection_is_the_owners_shelf():
     assert is_restricted_collection(name)
     assert _carried(SimpleNamespace(content=f"aus {name}, notes__v2", response_metadata={})) == {name}
     assert _carried(SimpleNamespace(content="personal_notes__v2.docx", response_metadata={})) == set()
+
+
+def test_a_shared_chat_that_recorded_restricted_use_still_refuses_a_shared_write():
+    from agent.tools.canvas.policy import shared_write_refusal
+
+    decision = signed_decision(may={"shelves": [], "restrictedCollections": []}, recordedRestricted=True)
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_2", project_id=None))
+    assert use is not None and use.confined is True and use.drawable == set()
+    token = bind_restricted_use(use)
+    try:
+        assert shared_write_refusal() is not None
+    finally:
+        reset_restricted_use(token)
