@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from agent.common import bff_http
+from agent.common.turn_decision import current_turn_decision
 from agent.stages.registry import iter_stages
 
 logger = logging.getLogger(__name__)
@@ -62,11 +63,12 @@ async def resolve_turn_flags(
     try:
         return await asyncio.to_thread(fetch_turn_flags, organization_id=organization_id, project_id=project_id)
     except Exception:
-        logger.warning("Live per-turn flags unavailable; using the connection-time value", exc_info=True)
+        decision = current_turn_decision()
+        logger.warning("Live per-turn flags unavailable; features follow the turn decision", exc_info=True)
         return TurnFlags(
             enabled_stages=legacy_enabled_stages(memory_reflection_enabled=memory_reflection_enabled),
-            deep_research_allowed=True,
-            tasks_allowed=True,
+            deep_research_allowed=decision is not None and decision.deep_research,
+            tasks_allowed=decision is not None and decision.tasks,
         )
 
 

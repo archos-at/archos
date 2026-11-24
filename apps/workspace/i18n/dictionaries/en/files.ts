@@ -1638,6 +1638,8 @@ export const files = {
       provisionalLabel: 'Provisionally {value}, measured when you finish',
       readingLabel: 'Measurement',
       withTolerance: '{value} ± {tolerance}',
+      printedCheck: { true: 'Printed figure {figure} agrees', false: 'Printed figure {figure} differs, please check', null: 'Printed figure {figure}, not compared' },
+      perimeter: 'Perimeter {value}',
       shape: { line: 'Distance', path: 'Path length', polygon: 'Area' },
       basis: {
         verified: 'Scale confirmed',
@@ -1886,6 +1888,7 @@ export const files = {
     mine: 'For you',
     measurementsGroup: 'Measurements',
     measurementsLegend: 'Dimensions on the sheet, not open items.',
+    measurementsTotal: 'Total of {count, plural, one {# measurement} other {# measurements}}',
     proposalsGroup: '{count, plural, one {# proposal from {productName}} other {# proposals from {productName}}}',
     walkProposals: 'Go through',
     walkPosition: '{index}/{total}',

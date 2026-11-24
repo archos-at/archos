@@ -97,10 +97,11 @@ describe('what each kind may draw on', () => {
     expect(mayPersonalShelf('run', mayPersonalMemory('run', 'conv', true), null)).toBe(false)
   })
 
-  it('reads the workspace fully when solo, only a document or project facts when shared, and not at all headless', () => {
+  it('reads the workspace fully when solo, and only a document or project facts when shared or headless', () => {
     expect(workspaceReadOf('chat', 'conv', true)).toBe('all')
     expect(workspaceReadOf('chat', 'conv', false)).toBe('document+projectFacts')
-    expect(workspaceReadOf('headless', 'conv', true)).toBe('none')
+    expect(workspaceReadOf('headless', 'conv', true)).toBe('document+projectFacts')
+    expect(workspaceReadOf('headless', null, true)).toBe('document+projectFacts')
   })
 
   it('reaches other projects as the asker when solo, as every reader when shared, and not at all headless', () => {

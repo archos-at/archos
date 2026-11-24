@@ -29,13 +29,15 @@ vi.mock('@/lib/turns/feature-entitlement', () => ({
 }))
 vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
   buildCollectionScopeFromRequest: vi.fn(
-    async (_session: unknown, request: { projectId?: string; audience?: ConversationAudienceRow; interactiveChat?: boolean }) => {
+    async (_session: unknown, request: { projectId?: string; conversationId?: string; audience?: ConversationAudienceRow; interactiveChat?: boolean }) => {
       const projectId = request.audience?.exists ? (request.audience.projectId ?? undefined) : request.projectId
       const restricted = request.interactiveChat && projectId ? [`proj_${projectId}_restricted`] : []
       const scopedCollections = [
         { collection: 'oib_knowledge', shelf: 'base' as const },
+        { collection: 'office_org_1', shelf: 'office_shelf' as const },
         ...(projectId ? [{ collection: `proj_${projectId}`, shelf: 'project' as const }] : []),
         ...restricted.map((collection) => ({ collection, shelf: 'project' as const })),
+        ...(request.conversationId ? [{ collection: `s_${request.conversationId}`, shelf: 'session' as const }] : []),
       ]
       return {
         scope: scopedCollections.map((entry) => entry.collection),
@@ -52,7 +54,7 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
 }))
 
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
-import { resolveConversationContext, resolveConversationScope } from './resolve'
+import { resolveConversationContext, resolveConversationScope, resolveRunConversationContext } from './resolve'
 import { conversationRecord, sourceFoldersOf } from '@/lib/conversations/restricted-use'
 import { featureEntitlement } from '@/lib/turns/feature-entitlement'
 
@@ -145,7 +147,10 @@ describe('resolveConversationContext', () => {
   })
 
   it('gives a run without a chat, a headless job and an external caller nothing personal', async () => {
+    state.rows = [row({ projectId: 'p1' })]
     const run = await resolveConversationContext(session, { kind: 'run', projectId: 'p1' })
+    const runInChat = await resolveConversationContext(session, { kind: 'run', conversationId: 's_c' })
+    expect(runInChat.may).toMatchObject({ personalMemory: true, restrictedCollections: [] })
     const headless = await resolveConversationContext(session, { kind: 'headless', conversationId: 's_c', projectId: 'p1' })
     const external = await resolveConversationContext(session, { kind: 'external', conversationId: 's_c' })
 
@@ -153,8 +158,33 @@ describe('resolveConversationContext', () => {
       expect(context.may).toMatchObject({ personalMemory: false, personalShelf: false })
     }
     expect(headless.may.shelves.map((entry) => entry.collection)).toEqual(['proj_p1'])
-    expect(headless.may.workspaceRead).toBe('none')
-    expect(state.reads).toBe(0)
+    expect(headless.may.workspaceRead).toBe('document+projectFacts')
+    expect(headless.may.restrictedCollections).toEqual([])
+    expect(external.conversationId).toBeNull()
+  })
+
+  it('narrows the document check, now headless, to its project and its conversation (#1909)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const asChat = await resolveConversationContext(session, { kind: 'chat', conversationId: 's_c' })
+    const headless = await resolveConversationContext(session, { kind: 'headless', conversationId: 's_c' })
+
+    expect(asChat.may.shelves.map((entry) => entry.shelf)).toEqual(['base', 'office_shelf', 'project', 'project', 'session'])
+    expect(headless.conversationId).toBe('s_c')
+    expect(headless.may.shelves).toEqual([{ collection: 'proj_p1', shelf: 'project' }])
+    expect(headless.may).toMatchObject({
+      restrictedCollections: [],
+      personalMemory: false,
+      otherProjects: { reach: 'none' },
+      workspaceRead: 'document+projectFacts',
+    })
+  })
+
+  it('gives a run the office shelf and its chat’s session collection, but never a restricted folder (#1909)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const run = await resolveConversationContext(session, { kind: 'run', conversationId: 's_c' })
+
+    expect(run.may.shelves.map((entry) => entry.collection)).toEqual(['oib_knowledge', 'office_org_1', 'proj_p1', 's_s_c'])
+    expect(run.may.restrictedCollections).toEqual([])
   })
 
   it('resolves only the scope for the socket upgrade: no record, entitlement or folder reads', async () => {
@@ -166,5 +196,21 @@ describe('resolveConversationContext', () => {
     expect(conversationRecord).not.toHaveBeenCalled()
     expect(featureEntitlement).not.toHaveBeenCalled()
     expect(sourceFoldersOf).not.toHaveBeenCalled()
+  })
+
+  it('decides a run in its chat, reading the row once, and without it when the chat is in another project or in none', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const inProject = await resolveRunConversationContext(session, { projectId: 'p1', conversationId: 's_c', kind: 'run' })
+    expect(inProject.conversationId).toBe('s_c')
+    expect(state.reads).toBe(1)
+
+    for (const elsewhere of [row({ projectId: 'p2' }), row({ projectId: null })]) {
+      state.rows = [elsewhere]
+      state.reads = 0
+      const run = await resolveRunConversationContext(session, { projectId: 'p1', conversationId: 's_c', kind: 'run' })
+      expect(run.conversationId).toBeNull()
+      expect(run.may.shelves.map((entry) => entry.collection)).not.toContain('s_s_c')
+      expect(state.reads).toBe(1)
+    }
   })
 })

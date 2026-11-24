@@ -109,7 +109,7 @@ describe('POST /api/documents/{id}/measure', () => {
     await measureOnSheet('doc_1', DISTANCE, run)
 
     expect(getAccessibleDocument).toHaveBeenCalledWith(session, 'doc_1', 'read')
-    expect(signedEnvelopeHeaders).toHaveBeenCalledWith(session, 'proj_1', 'secret-for-test')
+    expect(signedEnvelopeHeaders).toHaveBeenCalledWith(session, 'proj_1', 'secret-for-test', 'chat')
     expect(backend).toHaveBeenCalledTimes(1)
     const [url, init] = backend.mock.calls[0]
     expect(url).toBe('http://backend.internal:8000/v1/internal/drawing-tape')

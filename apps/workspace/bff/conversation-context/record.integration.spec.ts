@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { closedContext } from './context.fixtures'
+import { decisionOf } from './wire'
 
 vi.mock('server-only', () => ({}))
 
@@ -58,13 +59,12 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () =>
   it('writes one row per answer, keeps it and its reads to its conversation, and merges what the turn read', async () => {
     const answer = randomUUID()
     const context = closedContext('chat', 's_ac_1')
-    const decided = { ...context, audience: { ...context.audience, solo: true, version: 3 } }
-    expect(await inOrg(ORG, () => record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_1', answerMessageId: answer }, decided))).toBe(true)
-    expect(
-      await inOrg(ORG, () =>
-        record.recordAnswerContext({ organizationId: ORG, userId: USER, conversationId: 's_ac_other', answerMessageId: answer }, decided),
-      ),
-    ).toBe(false)
+    const asker = { organizationId: ORG, userId: USER }
+    const decided = decisionOf({ ...context, audience: { ...context.audience, solo: true, version: 3 } }, asker, answer, Date.now())
+    const elsewhere = decisionOf(closedContext('chat', 's_ac_other'), asker, answer, Date.now())
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(decided, null))).toBe(true)
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(elsewhere, null))).toBe(false)
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(decisionOf(context, asker, null, Date.now()), null))).toBe(false)
     await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_1', answer, { folders: ['f2', 'f1'], projects: ['p1'] }))
     await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_1', answer, { folders: ['f1'], projects: [] }))
     await inOrg(ORG, () => record.recordAnswerReads(db, ORG, 's_ac_other', answer, { folders: ['f_elsewhere'], projects: ['p_elsewhere'] }))
@@ -80,5 +80,16 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () =>
       readProjects: ['p1'],
     })
     expect(await inOrg(OTHER_ORG, () => db.select().from(schema.answerContexts).where(eq(schema.answerContexts.messageId, answer)))).toEqual([])
+  })
+
+  it('writes the record of a headless turn in its conversation, under its kind', async () => {
+    const answer = randomUUID()
+    const context = closedContext('headless', 's_ac_check')
+    const headless = { ...context, may: { ...context.may, workspaceRead: 'document+projectFacts' as const } }
+    const project = randomUUID()
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(decisionOf(headless, { organizationId: ORG, userId: USER }, answer, Date.now()), project))).toBe(true)
+
+    const [row] = await rowOf(ORG, answer)
+    expect(row).toMatchObject({ conversationId: 's_ac_check', kind: 'headless', workspaceRead: 'document+projectFacts', projectId: project })
   })
 })

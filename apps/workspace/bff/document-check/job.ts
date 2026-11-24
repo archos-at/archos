@@ -134,7 +134,7 @@ async function startCheck(
 
   let context: Awaited<ReturnType<typeof resolveTurnContext>>
   try {
-    context = await resolveTurnContext(session, { projectId: document.projectId ?? undefined, conversationId })
+    context = await resolveTurnContext(session, { projectId: document.projectId ?? undefined, conversationId, kind: 'headless' })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) return end(`budget: ${error.message}`)
     if (isAuthzRefusal(error)) return end('the person may no longer chat here')

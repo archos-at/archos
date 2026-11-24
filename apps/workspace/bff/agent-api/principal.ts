@@ -33,6 +33,8 @@ import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { AGENT_KIND, type AgentKind } from '@/lib/agent-kind'
+import { decisionFromRequest } from '@/lib/conversation-context'
+import type { ConversationDecision } from '@/lib/conversation-context/wire'
 
 export type AgentActor = 'external_agent' | AgentKind
 
@@ -44,6 +46,7 @@ export interface AgentPrincipal {
   conversationId?: string | null
   projectId?: string | null
   answerMessageId?: string | null
+  decision?: ConversationDecision | null
   sensitiveOptIns?: readonly Sensitivity[]
   door?: AgentDoor
 }
@@ -222,6 +225,7 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
   if (denied) return challenge(denied)
   try {
     const context = requireVerifiedContext(request)
+    const decision = decisionFromRequest(request)
     const session = await requirePinnedSession(context)
     return {
       actor: AGENT_KIND,
@@ -231,6 +235,7 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
       conversationId: context.conversationId,
       projectId: context.projectId,
       answerMessageId: answerMessageIdOf(request),
+      decision,
     }
   } catch (error) {
     if (error instanceof ApiError) {
