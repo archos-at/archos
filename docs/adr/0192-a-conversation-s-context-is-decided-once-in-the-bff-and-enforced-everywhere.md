@@ -13,7 +13,7 @@ informed: everyone who touches retrieval, memory, sharing, the agent-api or the 
 What a chat turn may draw on depends on who reads the chat, and that is decided
 many times today:
 
-- the audience row is read at sixteen call sites in the BFF;
+- the audience row is read at fifteen call sites in the BFF;
 - solo or shared is decided at five points;
 - the search scope is signed when the chat's socket opens and stays valid for up
   to six hours (`REQUEST_CONTEXT_MAX_AGE_MS`), across every turn on that socket;
@@ -36,40 +36,47 @@ keep the personal shelf in a chat after it was shared.
    - what the turn may draw on;
    - what the chat has already drawn on.
 
-   The per-turn call the agent already makes (`POST /api/internal/turn-context`)
-   is where it runs. That call returns the decision with a freshly signed scope for
-   this turn. The socket's envelope carries identity only. Every rule the turn
-   follows comes from this one value: the scope, memory, workspace reads, the
-   prompt's audience line, and what a run may draw on.
+   It runs in a light per-turn call (`turn-decision`) that the agent makes before
+   it reads any scope, where the restricted-use pre-check runs today, and it
+   returns a decision signed for this turn. The prompt blocks (`turn-context`)
+   read that decision instead of re-deciding. Only the scope leaves the socket's
+   envelope. Runs are decided at submit and at each envelope renewal. Every rule
+   the turn follows comes from this one value: the scope, memory, workspace reads,
+   the prompt's audience line, features, and what a run may draw on.
 2. **The BFF decides, because it alone holds the facts.** Identity, project roles,
    grants, folder restrictions and the per-user row-level policies live in the BFF
    and WorkOS. The Python service holds none of them.
 3. **Python enforces and never re-derives.** It binds the turn's decision once,
    into a frozen run context that never enters a prompt. Where a read shapes an
-   answer, it fails closed: with no valid decision it reads no project, personal or
-   restricted source, and an empty scope stays empty. It keeps what only it can
+   answer, it fails closed: with no valid decision it reads nothing, and an empty
+   scope stays empty. The bound scope never widens during a turn. It keeps what only it can
    see: which sources a tool actually read, reported back the way restricted folders
    are today (`admit`).
 
    The routes that legitimately run without an envelope keep their own guard:
-   ingestion, drafts and job actions.
+   the eight exempt prefixes of the envelope middleware, ingestion, and the
+   worker identity headers.
 4. **A changed audience narrows; it does not stall.** `conversations` gains an
-   `audience_version`. Triggers bump it on any change of visibility or grants. The
-   context carries the version it was decided under, so a live check is one
-   primary-key read.
+   `audience_version`. Triggers bump it on any change of visibility, creator,
+   project or grants, and raise if the bump is lost. The context carries the
+   version it was decided under, so a live check is one primary-key read.
 
    Writes and widening keep taking the audience lock and comparing the version. A
-   new chat's `0` counts as its creator alone, as `'new'` does today.
+   chat with no row yet carries version `null`, which keeps today's `'new'`
+   rule; `0` is an ordinary version and never means alone.
 
    On a mismatch the BFF re-resolves and the turn continues under the narrower
    context. Only a read or write that would cross the new audience is refused.
-5. **Every caller has a kind, and each kind's reach is stated.**
-   - `chat`
-   - `run` (tasks, deep research)
-   - `headless` (document check, wake jobs, agent asks)
-   - `external` (an MCP client)
+5. **Every caller has a kind, and each kind's reach is stated.** The kinds are
+   derived from the code's existing `CallDoor` and `SessionSource`:
+   - `chat`: a turn in a conversation, including wake turns and asks;
+   - `run`: tasks and deep research;
+   - `headless`: document check, intake, jobs that serve no reader;
+   - `external`: `mcp`, `a2a` and script callers.
 
-   An external client never draws on personal sources.
+   Nothing without a conversation gets personal memory or the personal shelf,
+   and neither does an external caller. A missing row reads as solo, so solo
+   alone never grants anything personal. The table is in the design.
 
 ## Consequences
 
@@ -82,16 +89,16 @@ keep the personal shelf in a chat after it was shared.
   „Gelesen“ under an answer, withheld sources for someone who joins later, a
   preview before sharing, asking privately in a shared chat
   (`conversation-context.md`, „What it makes possible“).
-* The socket's scope cache in `server.js` loses its reason to exist, because the
-  scope no longer lives on the socket.
+* The upgrade cache in `server.js` stops holding a scope. It keeps caching the
+  rest of the answer and keeps its cap on concurrent upgrades.
 * The workspace block's line about shared chats is generated from the context, so
   the prompt and the code cannot disagree.
 * `isShared` (viewer-independent; it decides whether a chat is local-first or
   server-held, ADR-0033) and solo (relative to the asker) stay two predicates over
   one shared primitive. Merging them would move chats between storage models.
-* Feature entitlements (deep research, tasks) are carried in the same per-turn
-  answer, so a short BFF outage no longer opens them. They are not audience rules
-  and keep their own source.
+* Features (deep research, tasks) are carried in the same decision as
+  entitlement and not confined, so a short BFF outage no longer opens them, and a
+  turn on restricted folders keeps them off as `settle_restriction` does today.
 
 ### Confirmation
 
@@ -100,8 +107,10 @@ keep the personal shelf in a chat after it was shared.
 * A turn's collections follow the conversation row whatever the request names.
 * A chat shared between two turns no longer draws on the personal shelf in the
   second turn.
-* The agent searches nothing when the turn's decision is missing or unsigned.
+* The agent reads nothing when the turn's decision is missing or unsigned.
 * A stale `audience_version` narrows the turn instead of refusing it.
+* A run, headless job or external call never receives personal memory or the
+  personal shelf.
 * The TypeScript, CommonJS and Python sides parse one generated schema fixture.
 
 The design, the migration order and the slices are in
