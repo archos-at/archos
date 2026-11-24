@@ -49,7 +49,7 @@ const PRIORITY: Record<IntakeTrigger, JobPriority> = { upload: 'bulk', click: 'i
 export async function submitIntakeRun(input: IntakeRunInput): Promise<string> {
   const subject = { organizationId: input.organizationId, projectId: input.projectId, userId: input.userId }
   const prompt = intakeInstruction(input.scope, input.trigger)
-  const resolved = intakeRunContext(await resolveRunContext(subject, prompt), input.collectionName)
+  const resolved = intakeRunContext(await resolveRunContext(subject, prompt, { kind: 'headless' }), input.collectionName)
   const context =
     input.trigger === 'upload' ? { ...resolved, budget: await ingestBudgetSnapshot(input.organizationId) } : resolved
   const { jobId } = await submitBackgroundRun({

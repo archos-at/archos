@@ -39,8 +39,11 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectFederalState: vi.fn(),
 }))
 
-vi.mock('@/lib/retrieval-scope/collection-scope', () => ({
-  computeCollectionScope: vi.fn(),
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationContext: vi.fn(),
+}))
+vi.mock('@/lib/auth/pinned-session', () => ({
+  resolvePinnedRequesterSession: vi.fn(async (who: { userId: string; organizationId: string }) => ({ ...who })),
 }))
 
 vi.mock('@/lib/request-context', async (importActual) => ({
@@ -97,7 +100,8 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { requireSkillsEnabled } from '@/lib/authz/feature-flags'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { findProjectInOrg } from '@/lib/projects/repository'
-import { computeCollectionScope } from '@/lib/retrieval-scope/collection-scope'
+import { resolveConversationContext } from '@/lib/conversation-context'
+import { closedContext } from '@/lib/conversation-context/types'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { loadProjectFederalState, loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 import { resolveSelectableSkills, resolveSkillSnapshot } from '@/lib/skills/service'
@@ -213,7 +217,10 @@ beforeEach(() => {
   vi.mocked(requireSkillsEnabled).mockReturnValue(null)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(findProjectInOrg).mockResolvedValue({ collectionName: 'proj_x', status: 'active' } as never)
-  vi.mocked(computeCollectionScope).mockReturnValue(['proj_x'])
+  vi.mocked(resolveConversationContext).mockImplementation(async (_session, request) => {
+    const closed = closedContext(request.kind, request.conversationId ?? null)
+    return { ...closed, may: { ...closed.may, shelves: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_x', shelf: 'project' }] } }
+  })
   vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
   vi.mocked(loadProjectPromptView).mockResolvedValue(null)
   vi.mocked(loadProjectFederalState).mockResolvedValue(null)
@@ -754,25 +761,21 @@ describe('submitAgentRun', () => {
     })
   })
 
-  it('never searches a restricted folder: its report is filed for the whole project (ADR-0087)', async () => {
-    const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
-    vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
-
+  it('decides a run as a run, in its conversation, so it never searches a restricted folder (ADR-0087, ADR-0192)', async () => {
     await submitAgentRun(spec)
 
-    expect(vi.mocked(computeCollectionScope).mock.calls[0][1]).not.toHaveProperty('restrictedCollections')
+    expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', projectId: spec.projectId })
     const submitted = vi.mocked(submitJob).mock.calls[0][0]
-    expect(submitted.collection_scope).toContain('proj_x')
-    expect((submitted.collection_scope ?? []).filter((name) => /_r[0-9a-f]{12}$/.test(name))).toEqual([])
+    expect(submitted.collection_scope).toEqual(['oib_knowledge', 'proj_x'])
   })
 
-  it('searches the base corpus for a project whatever its site: the run knowledge context picks the countries (ADR-0173)', async () => {
-    const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
-    vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
+  it('reads nothing when the requester is no longer a member', async () => {
+    const { resolvePinnedRequesterSession } = await import('@/lib/auth/pinned-session')
+    vi.mocked(resolvePinnedRequesterSession).mockResolvedValueOnce(null)
 
     await submitAgentRun(spec)
 
-    expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toContain(actual.resolveBaseCollectionName())
+    expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toBeNull()
   })
 })
 

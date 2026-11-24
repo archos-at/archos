@@ -138,6 +138,24 @@ holds a scope.
 **Runs** are decided at submit and at every envelope renewal
 (`renewRunEnvelope`, hourly). They are not decided at the socket.
 
+**Every caller signs its kind.** The request envelope carries `contextKind`
+(`run`, `headless`, `external`), appended last and left out for a chat turn, so a
+chat envelope keeps its signed bytes and an envelope without it reads as `chat`.
+`turn-decision` decides with that kind. The callers:
+- `resolveRunContext` (`bff/jobs/run-context.ts`) resolves a task run, its renewal
+  and a project intake through `resolveConversationContext` with kind `run` (with
+  the run's conversation) or `headless`, as the requester's pinned session. A run
+  that has lost its requester reads nothing. A run gains the office shelf and the
+  session collection it lacked, and still no restricted folder: a run admits
+  nothing it reads, so restricted collections are only a chat's.
+- The document check is `headless` (`bff/document-check/job.ts`): only the
+  project shelf, no personal memory, and a workspace read only of a document or
+  a project's facts. The agent-api's backend operations are `external`.
+- A wake turn and an agent's ask stay `chat`, as the table says.
+- The jobs proxy (`app/api/jobs/async/[...path]/route.ts`) keeps
+  `buildCollectionScopeFromRequest`, which already builds the run's shelves (no
+  audience, no restricted folder), and signs kind `run`.
+
 ## The audience version
 
 `conversations.audience_version integer not null default 0`. Existing rows start

@@ -65,7 +65,7 @@ export function mayPersonalShelf(personalMemory: boolean, projectId: string | nu
 }
 
 export function workspaceReadOf(kind: ContextKind, conversationId: string | null, solo: boolean): WorkspaceRead {
-  if (kind === 'headless') return 'none'
+  if (kind === 'headless') return 'document+projectFacts'
   if (kind === 'external' || conversationId === null || solo) return 'all'
   return 'document+projectFacts'
 }

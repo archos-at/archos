@@ -324,6 +324,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
       ],
       issuedAt: expect.any(Number),
       requester: { name: 'Test User', email: 'user@app.example', organizationName: null },
+      contextKind: 'run',
     })
   })
 

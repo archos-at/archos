@@ -16,7 +16,7 @@ export interface TurnDecisionResponse {
 
 export async function decideTurn(
   session: AuthorizedSession,
-  envelope: Pick<VerifiedRequestContext, 'organizationId' | 'userId' | 'conversationId' | 'projectId'>,
+  envelope: Pick<VerifiedRequestContext, 'organizationId' | 'userId' | 'conversationId' | 'projectId' | 'contextKind'>,
   answerMessageId: string | null,
   now: number = Date.now(),
 ): Promise<TurnDecisionResponse> {
@@ -25,7 +25,7 @@ export async function decideTurn(
   const context = await resolveConversationContext(session, {
     conversationId: envelope.conversationId ?? undefined,
     projectId: envelope.projectId ?? undefined,
-    kind: 'chat',
+    kind: envelope.contextKind,
   })
   if (answerMessageId && context.conversationId) {
     const party = {

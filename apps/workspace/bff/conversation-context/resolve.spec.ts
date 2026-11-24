@@ -143,7 +143,10 @@ describe('resolveConversationContext', () => {
   })
 
   it('gives a run without a chat, a headless job and an external caller nothing personal', async () => {
+    state.rows = [row({ projectId: 'p1' })]
     const run = await resolveConversationContext(session, { kind: 'run', projectId: 'p1' })
+    const runInChat = await resolveConversationContext(session, { kind: 'run', conversationId: 's_c' })
+    expect(runInChat.may).toMatchObject({ personalMemory: true, restrictedCollections: [] })
     const headless = await resolveConversationContext(session, { kind: 'headless', conversationId: 's_c', projectId: 'p1' })
     const external = await resolveConversationContext(session, { kind: 'external', conversationId: 's_c' })
 
@@ -151,7 +154,8 @@ describe('resolveConversationContext', () => {
       expect(context.may).toMatchObject({ personalMemory: false, personalShelf: false })
     }
     expect(headless.may.shelves.map((entry) => entry.collection)).toEqual(['proj_p1'])
-    expect(headless.may.workspaceRead).toBe('none')
-    expect(state.reads).toBe(0)
+    expect(headless.may.workspaceRead).toBe('document+projectFacts')
+    expect(headless.may.restrictedCollections).toEqual([])
+    expect(external.conversationId).toBeNull()
   })
 })

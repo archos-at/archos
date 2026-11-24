@@ -95,7 +95,7 @@ async function signFor(run: TaskRun, now: number): Promise<RunEnvelopeOutcome> {
   }
 
   const subject = { organizationId: run.organizationId, projectId: run.projectId, userId: run.requesterUserId }
-  const context = await resolveRunContext(subject, run.plan.prompt)
+  const context = await resolveRunContext(subject, run.plan.prompt, { kind: 'run', conversationId })
   const { header, signature } = buildRequestContextEnvelope(
     runRequestContextInput(subject, context, conversationId, now),
     process.env.INTERNAL_API_TOKEN,

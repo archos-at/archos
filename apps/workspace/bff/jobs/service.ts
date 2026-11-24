@@ -315,8 +315,8 @@ export async function submitAgentRun(spec: AgentRunSpec): Promise<SubmittedAgent
   }
   const { organizationId, projectId, userId } = spec
   const subject = { organizationId, projectId, userId }
-  const context = await resolveRunContext(subject, spec.prompt)
   const conversationId = spec.conversationId
+  const context = await resolveRunContext(subject, spec.prompt, { kind: 'run', conversationId })
 
   const { jobId, queued } = await submitBackgroundRun({
     subject,

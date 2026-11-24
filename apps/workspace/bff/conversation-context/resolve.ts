@@ -58,7 +58,7 @@ async function rowOf(
 }
 
 function drawsOnRestricted(kind: ContextKind, conversationId: string | null): boolean {
-  return conversationId !== null && (kind === 'chat' || kind === 'run')
+  return conversationId !== null && kind === 'chat'
 }
 
 export async function resolveConversationContext(
@@ -67,7 +67,7 @@ export async function resolveConversationContext(
   options: ContextOptions = {},
 ): Promise<ConversationContext> {
   const { kind } = request
-  const conversationId = kind === 'external' || kind === 'headless' ? null : (request.conversationId ?? null)
+  const conversationId = kind === 'external' ? null : (request.conversationId ?? null)
   const row = await rowOf(session, conversationId, options)
   const userId = session?.userId ?? ''
   const audience = isAuthorized(session) ? audienceOf(row, userId) : { row, solo: false, version: row.version }

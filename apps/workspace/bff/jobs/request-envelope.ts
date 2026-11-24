@@ -35,6 +35,7 @@ export function signJobRequestContext(
     conversationId: scope.verifiedConversationId ?? null,
     issuedAt: now,
     requester: requesterOf(session),
+    contextKind: 'run',
     ...submit,
   }
   return buildRequestContextWireHeaders(input, process.env.INTERNAL_API_TOKEN)

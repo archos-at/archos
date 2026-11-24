@@ -45,6 +45,7 @@ const crypto = require('crypto')
  * @property {ReadonlyArray<string> | undefined} [disabledSources]
  * @property {string | null | undefined} [federalState]
  * @property {Requester | null | undefined} [requester] who `userId` is, by name (envelope-only)
+ * @property {'run' | 'headless' | 'external' | undefined} [contextKind] the caller's kind; absent for a chat turn
  */
 
 /**
@@ -90,6 +91,7 @@ function requesterOf(value) {
  * @property {number | null} [issuedAt]
  * @property {'bff'} [contextTransport]
  * @property {Requester | null} [requester]
+ * @property {'run' | 'headless' | 'external' | null} [contextKind]
  */
 
 /**
@@ -130,6 +132,7 @@ function buildRequestContextEnvelopeHeaders(input, secret) {
   if (input.contextTransport) payload.contextTransport = input.contextTransport
   const requester = requesterOf(input.requester)
   if (requester) payload.requester = requester
+  if (input.contextKind) payload.contextKind = input.contextKind
 
   const json = JSON.stringify(payload)
   /** @type {Record<string, string>} */
@@ -210,6 +213,7 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         issuedAt,
         contextTransport: authenticated ? 'bff' : undefined,
         requester: data.requester,
+        contextKind: data.contextKind,
       },
       secret,
     ),

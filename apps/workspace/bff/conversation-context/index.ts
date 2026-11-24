@@ -17,19 +17,21 @@ export interface PromptFacts {
 const CLOSED: PromptFacts = { solo: false, personalMemory: false, workspaceRead: 'none' }
 
 export async function promptFacts(
-  context: Pick<VerifiedRequestContext, 'organizationId' | 'userId' | 'conversationId'>,
+  context: Pick<VerifiedRequestContext, 'organizationId' | 'userId' | 'conversationId'> &
+    Partial<Pick<VerifiedRequestContext, 'contextKind'>>,
   decision: ConversationDecision | null,
 ): Promise<PromptFacts> {
   const { organizationId, userId, conversationId } = context
-  if (decision && decision.conversationId !== conversationId) return CLOSED
-  if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf('chat', null, false) }
+  const kind = context.contextKind ?? 'chat'
+  if (decision && (decision.conversationId !== conversationId || decision.kind !== kind)) return CLOSED
+  if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf(kind, null, false) }
   try {
     const { solo: now } = await readContextAudience(organizationId, conversationId, userId)
     const solo = now && (decision?.solo ?? true)
     return {
       solo,
-      personalMemory: mayPersonalMemory('chat', conversationId, solo) && (decision?.may.personalMemory ?? true),
-      workspaceRead: narrower(workspaceReadOf('chat', conversationId, solo), decision?.may.workspaceRead),
+      personalMemory: mayPersonalMemory(kind, conversationId, solo) && (decision?.may.personalMemory ?? true),
+      workspaceRead: narrower(workspaceReadOf(kind, conversationId, solo), decision?.may.workspaceRead),
     }
   } catch (error) {
     console.warn('[Conversation Context] The audience could not be read; the turn is closed:', error)

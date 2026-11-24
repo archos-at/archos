@@ -28,6 +28,17 @@ export interface RequestContextInput {
   issuedAt?: number | null
   contextTransport?: 'bff'
   requester?: RequestPerson | null
+  contextKind?: SignedContextKind | null
+}
+
+export const SIGNED_CONTEXT_KINDS = ['run', 'headless', 'external'] as const
+
+export type SignedContextKind = (typeof SIGNED_CONTEXT_KINDS)[number]
+
+export type EnvelopeContextKind = 'chat' | SignedContextKind
+
+function contextKindOf(value: unknown): EnvelopeContextKind {
+  return (SIGNED_CONTEXT_KINDS as readonly unknown[]).includes(value) ? (value as SignedContextKind) : 'chat'
 }
 
 export interface RequestPerson {
@@ -176,6 +187,9 @@ export function buildRequestContextEnvelopePayload(input: RequestContextInput): 
   if (requester) {
     payload.requester = requester
   }
+  if (input.contextKind) {
+    payload.contextKind = input.contextKind
+  }
 
   return payload
 }
@@ -227,6 +241,7 @@ export interface VerifiedRequestContext {
   conversationId: string | null
   issuedAt: number
   collectionScope: readonly string[]
+  contextKind: EnvelopeContextKind
 }
 
 function scopeNames(raw: unknown): string[] {
@@ -284,6 +299,7 @@ export function verifyRequestContextEnvelope(
     conversationId: typeof fields.conversationId === 'string' ? fields.conversationId : null,
     issuedAt,
     collectionScope: scopeNames(fields.collectionScope),
+    contextKind: contextKindOf(fields.contextKind),
   }
 }
 

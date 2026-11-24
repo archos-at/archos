@@ -168,7 +168,7 @@ describe('callBackendOperation', () => {
       ok: true,
       body: { tool: 'knowledge_search', result: 'passage' },
     })
-    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: PROJECT })
+    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: PROJECT, kind: 'external' })
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://aiq-api:8000/v1/internal/tools/knowledge_search')
     const headers = init.headers as Record<string, string>
@@ -252,7 +252,7 @@ describe('callBackendOperation', () => {
     const lookup = await callBackendOperation('law-lookup', { question: 'Par. 1 BO' }, session, {})
     expect(lookup.status).toBe(200)
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: undefined })
+    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: undefined, kind: 'external' })
     expect((fetchMock.mock.calls[0] as [string])[0]).toBe(
       'http://aiq-api:8000/v1/internal/tools/law_lookup'
     )

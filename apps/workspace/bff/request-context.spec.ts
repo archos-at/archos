@@ -320,7 +320,19 @@ describe('verifyRequestContextEnvelope', () => {
       conversationId: 's_conv_1',
       issuedAt: NOW,
       collectionScope: [],
+      contextKind: 'chat',
     })
+  })
+
+  it('signs a caller’s kind last, so a chat envelope keeps its bytes, and reads an unknown kind as a chat', () => {
+    const base = { organizationId: 'org_1', userId: 'user_1', issuedAt: NOW }
+    expect(Object.keys(buildRequestContextEnvelopePayload({ ...base, contextKind: 'headless' })).at(-1)).toBe('contextKind')
+    expect(buildRequestContextEnvelopePayload(base)).not.toHaveProperty('contextKind')
+    const headless = buildRequestContextEnvelope({ ...base, contextKind: 'headless' }, SECRET)
+    expect(verifyRequestContextEnvelope(headless.header, headless.signature, SECRET, NOW)?.contextKind).toBe('headless')
+    const json = JSON.stringify({ ...base, contextKind: 'root' })
+    const forgedKind = Buffer.from(json).toString('base64url')
+    expect(verifyRequestContextEnvelope(forgedKind, signRequestContextEnvelope(json, SECRET), SECRET, NOW)?.contextKind).toBe('chat')
   })
 
   it('reads the signed scope names in both entry shapes (ADR-0047), dropping anything else', () => {
@@ -499,6 +511,18 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
     for (const other of [mint('s_conv_2', NOW), mint('s_conv_1', NOW + 1)]) {
       expect(verifyRequestContextEnvelope(headers['x-request-context'], other['x-request-context-sig'], SECRET, NOW)).toBeNull()
     }
+  })
+
+  it('signs a caller’s kind in the same bytes as the canonical builder', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1', userId: 'user_1', conversationId: 's_conv_1', issuedAt: Date.now(),
+      contextTransport: 'bff', requester: { name: 'Ada', email: null, organizationName: null }, contextKind: 'headless',
+    }
+    const canonical = buildRequestContextEnvelope(input, 'fixture-secret')
+    expect(commonJsEnvelopeHeaders(input, 'fixture-secret')).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
   })
 
   it('matches the signed bytes for compact capsules and every legacy fixture', () => {

@@ -52,6 +52,7 @@ const run = {
 } as unknown as TaskRun
 
 const runContext: RunContext = {
+  kind: 'run',
   budget: { remainingOrgUsd: 12.5, remainingUserUsd: null, remainingProjectUsd: null },
   modelOverrides: { deep_research: 'model-b' },
   collectionScope: ['oib_base', 'proj_x'],
@@ -123,6 +124,7 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
       conversationId: CONVERSATION,
       issuedAt: envelope.issuedAt,
       collectionScope: ['oib_base', 'proj_x'],
+      contextKind: 'run',
     })
     const payload = JSON.parse(Buffer.from(envelope.header, 'base64url').toString('utf8'))
     expect(payload).toMatchObject({
@@ -151,6 +153,7 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
     expect(resolveRunContext).toHaveBeenCalledWith(
       { organizationId: 'org_1', projectId: PROJECT, userId: 'user_requester' },
       'Fluchtwege prüfen, OIB-RL 4',
+      { kind: 'run', conversationId: CONVERSATION },
     )
   })
 

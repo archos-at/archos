@@ -368,7 +368,7 @@ async function signedEnvelope(
   projectId: string | undefined,
   secret: string
 ): Promise<Record<string, string>> {
-  const context = await resolveTurnContext(session, { projectId })
+  const context = await resolveTurnContext(session, { projectId, kind: 'external' })
   const headers = turnContextHeaders(context, { issuedAt: Date.now(), secret })
   return Object.fromEntries(
     ENVELOPE_HEADERS.flatMap((name) => (headers[name] ? [[name, headers[name]]] : []))
