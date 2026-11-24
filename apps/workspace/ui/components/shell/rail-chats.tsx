@@ -5,13 +5,14 @@ import { createContext, useCallback, useContext, useEffect, useId, useState } fr
 import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
-import { motion, motionSnap, springGlide, useMotionToken } from '@/components/motion'
+import { motion, motionSnap, useMotionToken } from '@/components/motion'
 import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
+import { RailActivePill } from './rail-active-pill'
 
 export const RAIL_CHAT_LIMIT = 8
 
@@ -153,7 +154,7 @@ const PENDING_ROW_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3'] as const
 
 function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   const t = useTranslations(navCopy)
-  const [bornProvisional] = useState(chat.provisional === true)
+  const [born] = useState({ provisional: chat.provisional === true, title: chat.title })
   const fade = useMotionToken(motionSnap)
   const unseen = chat.activity === 'answered' || chat.activity === 'failed'
   if (chat.provisional && !chat.title) {
@@ -166,8 +167,8 @@ function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   }
   return (
     <motion.span
-      key={chat.provisional ? 'provisional' : 'named'}
-      initial={bornProvisional && !chat.provisional ? { opacity: 0 } : false}
+      key={chat.title}
+      initial={born.provisional && chat.title !== born.title ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={fade}
       data-provisional={chat.provisional || undefined}
@@ -237,7 +238,7 @@ export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | nul
               )}
             >
               {chat.current && (
-                <motion.span layoutId={pillId} data-pill-id={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
+                <RailActivePill pillId={pillId} at={chat.id} />
               )}
               <RailChatTitle chat={chat} />
               <RailChatActivity activity={chat.activity} />

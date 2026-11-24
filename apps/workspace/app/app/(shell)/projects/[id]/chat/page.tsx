@@ -1,4 +1,6 @@
 import { type ReactNode } from 'react'
+import { redirect } from 'next/navigation'
+import { chatRouteElsewhere } from '@/lib/conversations/chat-route'
 import { getUserSession } from '@/lib/auth/session'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
 import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
@@ -10,11 +12,20 @@ import { ProjectChatClient } from './project-chat-client'
 
 interface ProjectChatPageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ session?: string }>
 }
 
-const ProjectChatPage = async ({ params }: ProjectChatPageProps): Promise<ReactNode> => {
+const ProjectChatPage = async ({ params, searchParams }: ProjectChatPageProps): Promise<ReactNode> => {
   return runWithTenantSlot(async () => {
     const { id } = await params
+    const { session: conversationId } = await searchParams
+    if (conversationId) {
+      const session = await getUserSession().catch(() => null)
+      if (session?.organizationId && session.organizationMembershipId) {
+        const elsewhere = await chatRouteElsewhere(session as AuthorizedSession, conversationId, id)
+        if (elsewhere) redirect(elsewhere)
+      }
+    }
 
     let canCollaborate = false
     let organizationId: string | null = null

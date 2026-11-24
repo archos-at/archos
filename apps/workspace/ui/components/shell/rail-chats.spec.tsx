@@ -81,6 +81,16 @@ describe('RailChatList — a chat on its way to a name, and a list on its way fr
     expect(named).toHaveClass('h-8')
   })
 
+  test('a first line that settles without a name keeps its element: only the ink changes, nothing blinks', () => {
+    const { rerender } = render(<RailChatList chats={provisional()} />)
+    const before = screen.getByText('Wie viele Stellplätze')
+    rerender(<RailChatList chats={provisional({ provisional: false })} />)
+    const after = screen.getByText('Wie viele Stellplätze')
+    expect(after).toBe(before)
+    expect(after).not.toHaveAttribute('data-provisional')
+    expect(after).not.toHaveClass('text-subtle')
+  })
+
   test('a first message without words shows a short pending title, named for screen readers', () => {
     render(<RailChatList chats={provisional({ title: '' })} />)
     expect(screen.getByTestId('rail-chat-title-pending').querySelector('[data-slot="skeleton"]')).toBeInTheDocument()

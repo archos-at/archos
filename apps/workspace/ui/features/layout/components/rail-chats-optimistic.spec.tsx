@@ -135,7 +135,7 @@ describe('Letzte Chats takes a new chat the moment its first message is sent', (
     expect(rows()?.map((row) => row.id)).toEqual(['older'])
   })
 
-  test('after a reload, a chat the server does not list and that is not open never comes back', () => {
+  test('a provisional chat the server does not list and that is not open stays out', () => {
     useChatStore.setState({
       conversations: [chat('stale', day(8), { title: 'Alt', titleProvisional: true }), chat('older', day(7))],
       serverSides: { 'personal:': { ids: ['older'], since: +day(9) } },
@@ -188,5 +188,48 @@ describe('while a side’s first listing is on its way', () => {
     useChatStore.setState({ serverSides: {} })
     show('/app/personal-shelf')
     await waitFor(() => expect(captured?.loading).toBe(false))
+  })
+})
+
+describe('a provisional title always ends', () => {
+  const asking = () => chat('asking', day(10), { title: 'Frage', titleProvisional: true, messages: [said('q', 'user', 'Frage')] })
+
+  test('a turn that fails before any answer settles it', () => {
+    useChatStore.setState({ conversations: [asking()], currentConversation: null })
+    useChatStore.getState().beginTurn('asking', 'q')
+    useChatStore.getState().failTurn('q')
+    expect(useChatStore.getState().conversations[0]).toMatchObject({ title: 'Frage' })
+    expect(useChatStore.getState().conversations[0]?.titleProvisional).toBeUndefined()
+  })
+
+  test('a turn that is dropped settles it', () => {
+    useChatStore.setState({ conversations: [asking()], currentConversation: null })
+    useChatStore.getState().beginTurn('asking', 'q')
+    useChatStore.getState().dropTurn('q')
+    expect(useChatStore.getState().conversations[0]?.titleProvisional).toBeUndefined()
+  })
+
+  test('a chat the reader loses the rights to is no longer waiting for a name', () => {
+    useChatStore.setState({ conversations: [asking()], currentConversation: null })
+    useChatStore.getState()._lockConversation('asking')
+    expect(useChatStore.getState().conversations[0]).toMatchObject({ title: '', contentLocked: true })
+    expect(useChatStore.getState().conversations[0]?.titleProvisional).toBeUndefined()
+  })
+
+  test('a rename while the name is being generated wins over the generated name', async () => {
+    let answer: (result: { title: string }) => void = () => {}
+    client.generateTitle.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    useChatStore.setState({
+      conversations: [chat('both', day(10), { title: 'Frage', titleProvisional: true, messages: [said('q', 'user', 'Frage'), said('a', 'agent_response', 'Antwort')] })],
+      currentConversation: null,
+    })
+    useChatStore.getState().maybeGenerateConversationName('both')
+    await waitFor(() => expect(client.generateTitle).toHaveBeenCalled())
+    useChatStore.getState().updateConversationTitle('both', 'Mein Name')
+
+    await act(async () => answer({ title: 'Generiert' }))
+
+    expect(useChatStore.getState().conversations[0]?.title).toBe('Mein Name')
+    expect(client.updateTitle).toHaveBeenCalledTimes(1)
   })
 })

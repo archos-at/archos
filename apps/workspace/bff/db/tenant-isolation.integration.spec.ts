@@ -579,7 +579,7 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     )
-    expect(cause.message).toMatch(/row-level security/i)
+    expect(cause.message).toMatch(/row-level security|its office, project, side and creator are fixed/i)
 
     const survived = await withPlatformAccess('test: verify no cross-tenant link', () =>
       db.execute(

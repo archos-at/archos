@@ -157,6 +157,24 @@ describe('chat storage, one key per conversation', () => {
     expect(restored?.state.currentConversation?.id).toBe('open')
   })
 
+  test('a reload forgets that a name was coming, and drops a message the server never accepted', async () => {
+    const storage = createResilientStorage()!
+    const open: Conversation = {
+      ...conv('open', 2),
+      title: 'Erste Zeile',
+      titleProvisional: true,
+      messages: [text('q', 'Erste Zeile', { role: 'user', messageType: 'user' }), text('r', 'Bitte prüfen', { role: 'user', messageType: 'user', unsent: true })],
+    }
+    storage.setItem(KEY, value([open], open))
+
+    const restored = await createResilientStorage()!.getItem(KEY)
+    const [again] = restored!.state.conversations
+    expect(again).toMatchObject({ title: 'Erste Zeile' })
+    expect(again!.titleProvisional).toBeUndefined()
+    expect(again!.messages.map((m) => m.id)).toEqual(['q'])
+    expect(restored!.state.currentConversation?.titleProvisional).toBeUndefined()
+  })
+
   test('a conversation too large to store alone is left to the server, and nothing else is lost', () => {
     const storage = createResilientStorage()!
     const small = conv('small', 1, 100)

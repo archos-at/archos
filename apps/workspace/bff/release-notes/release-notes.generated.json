@@ -441,6 +441,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A link to a chat now always opens it where it belongs: a personal chat never opens inside a project, and a project's chat never on the personal side or in another project.",
+            "de": "Ein Link zu einem Chat öffnet ihn jetzt immer dort, wo er hingehört: Ein persönlicher Chat öffnet sich nie innerhalb eines Projekts, und ein Projekt-Chat nie im persönlichen Bereich oder in einem anderen Projekt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
@@ -645,6 +653,22 @@
           "text": {
             "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
             "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A new chat's provisional title in „Letzte Chats“ no longer stays grey after a failed answer or a reload, and a name you give a chat while ARCHOS is naming it is kept.",
+            "de": "Der vorläufige Titel eines neuen Chats wird in „Letzte Chats“ nach einer fehlgeschlagenen Antwort oder einem Neuladen nicht mehr grau angezeigt, und ein von Ihnen vergebener Name bleibt erhalten, wenn ARCHOS den Chat gerade benennt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+            "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
           }
         },
         {

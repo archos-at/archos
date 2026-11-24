@@ -1,0 +1,7 @@
+---
+# area: general
+security:
+  - >
+    Before an answer may search any files, the server checks once more, against
+    the chat itself, that it searches only its own side: a personal chat never a
+    project's files, a project's chat never another project's.
