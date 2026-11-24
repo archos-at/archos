@@ -56,13 +56,13 @@ does not.
 
 `kind` is derived from the vocabulary the code already has
 (`bff/agent-api/call-door.ts`: `CallDoor`, `SessionSource`); it is not a second
-one.
+one. A signed envelope without a kind reads as `chat` (envelopes signed before the kind existed); a kind that is present but unknown is refused, never widened.
 
 | Kind | Who | Base, office shelf, project | Restricted folders, other projects | Personal memory | Personal shelf |
 |---|---|---|---|---|---|
 | `chat` | a turn in a conversation, including a wake turn and an agent's ask in a chat | yes | what every reader may read | when `solo` | when `solo` and the chat has no project |
-| `run` | tasks and deep research; with a conversation, that chat's audience | yes | as `chat` when it has a conversation, otherwise none | as `chat` when it has a conversation, otherwise no | no: a run's decision lives up to an hour, past a share |
-| `headless` | document check, project intake, wake stop, jobs that serve no reader | the project only | none | no | no |
+| `run` | tasks and deep research; with a conversation in the run's own project, that chat's audience; a chat in another project or in none counts as no conversation | yes, with the office shelf | none, with or without a conversation: a run's decision lives up to an hour | as `chat` when it has a conversation, otherwise no | no: a run's decision lives up to an hour, past a share |
+| `headless` | document check, project intake, wake stop, jobs that serve no reader | the project only; its workspace read is the one document it serves and the project's facts | none | no | no |
 | `external` | the `mcp`, `a2a` and `platform` doors and `script` sessions; the built-in agent's door is `chat`, `run` or `headless` by what started it | yes, with the caller's rights, through the agent-api | through the agent-api's per-target checks | no | never drawn into a context; through the `mcp` door the person's own agent may upload to, list, search and read their own shelf, through `a2a` and `platform` nothing |
 
 **The predicates.** Each is defined once, in `types.ts`.
