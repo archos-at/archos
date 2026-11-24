@@ -53,7 +53,7 @@ export function MailImportLine({
   const now = ongoing(state, t)
   if (!now) return null
   return (
-    <SuggestionPanel className="animate-in fade-in-0 duration-base motion-reduce:animate-none" data-testid="mail-import-line">
+    <SuggestionPanel className="animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none" data-testid="mail-import-line">
       <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1 text-xs">
         <Mail className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 font-medium break-all">{now.label}</span>

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./project-overview-sheet', () => ({ ProjectOverviewSheet: vi.fn(() => null) }))
+vi.mock('../project-overview-sheet', () => ({ ProjectOverviewSheet: vi.fn(() => null) }))
 vi.mock('@/i18n/server', () => ({ getTranslations: async () => (key: string) => key }))
 
 import ProjectsPage from './page'

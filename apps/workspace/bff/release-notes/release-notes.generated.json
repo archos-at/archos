@@ -336,6 +336,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
+            "de": "Beim Wechsel zwischen Persönlich und einem Projekt oder zwischen Projekten werden Bewegungen, die Sie nicht ausgelöst haben, nicht mehr wiederholt: Das Chat-Eingabefeld bleibt an Ort und Stelle, die Begrüßung erscheint direkt dort und bei langsamen Wechseln wird das Ladefenster der Projektübersicht nicht mehr kurz eingeblendet. Der neue Bereich bleibt einfach ruhig stehen, damit Ihr Blick bei Ihrer Aufgabe bleibt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "general",
           "text": {
