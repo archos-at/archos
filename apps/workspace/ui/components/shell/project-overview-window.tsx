@@ -11,7 +11,7 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import type { OverviewProject } from '@/lib/projects/overview-project'
-import { PROJECT_OVERVIEW_PATH } from './landing'
+import { isOverviewPath } from './landing'
 import { useProjectOverview } from './project-overview-entry'
 
 const STANDALONE_CLOSE_HREF = '/app'
@@ -43,7 +43,7 @@ export function ProjectOverviewWindow({ projects, viewerActivity, after }: Proje
     setLeaving(false)
   }, [pathname, setAsked])
 
-  const onItsOwnPage = pathname === PROJECT_OVERVIEW_PATH
+  const onItsOwnPage = isOverviewPath(pathname)
   const open = asked || (onItsOwnPage && !leaving)
   const create = asked ? askedCreate : searchParams?.get('new') === '1'
 
