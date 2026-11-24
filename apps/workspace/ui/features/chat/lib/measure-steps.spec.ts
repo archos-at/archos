@@ -34,7 +34,7 @@ const action = (extra: Partial<StoredAction> = {}): StoredAction => ({
 })
 
 describe('measureStepPlace', () => {
-  test('opens the page at the box round the shape, padded where the shape is a vertical line', () => {
+  test('opens the page at the box round the shape, widened where it is a vertical line and padded so the glow frames it', () => {
     const measured = measureStepPlace(action())!
     expect(measured.place).toMatchObject({
       document: { id: 'doc-1', name: 'Grundriss EG.pdf', shelf: 'stored' },
@@ -42,9 +42,11 @@ describe('measureStepPlace', () => {
       frame: 'page',
     })
     const [x0, y0, x1, y1] = measured.box
-    expect(x1 - x0).toBeCloseTo(0.02)
-    expect([y0, y1]).toEqual([0.5, 0.56])
-    expect(x0).toBeCloseTo(0.29)
+    expect(x1 - x0).toBeCloseTo(0.028)
+    expect(x0).toBeCloseTo(0.286)
+    expect(y0).toBeCloseTo(0.491)
+    expect(y1).toBeCloseTo(0.569)
+    expect(measured.place.region).toEqual([x0, y0, x1 - x0, y1 - y0])
   })
 
   test('nothing to draw without a shape or a document the person can open', () => {
@@ -61,7 +63,7 @@ describe('the shape on the clip', () => {
         [0, 0.999],
         [0, 1],
       ])
-    ).toEqual([0, 0.98, 0.02, 1])
+    ).toEqual([0, 0.976, 0.024, 1])
   })
 
   test('points map from the page into the mark the clip drew', () => {
@@ -114,13 +116,13 @@ describe('the value and its basis', () => {
 
   test('the basis says whose scale it is, or that a dimension figure was read', () => {
     const shape = action().measure!
-    expect(basisLine(t, shape, 'de')).toBe('Maßstab 1:100, geschätzt')
+    expect(basisLine(t, shape, 'de')).toBe('Maßstab 1:100, geschätzt, noch nicht bestätigt')
     expect(basisLine(t, { ...shape, basis: 'confirmed' }, 'de')).toBe('Maßstab 1:100, bestätigt')
     expect(basisLine(t, { ...shape, basis: 'confirmed', ratio: undefined }, 'de')).toBe(
       'Maßstab bestätigt'
     )
     expect(basisLine(t, { ...shape, basis: 'printed', ratio: undefined }, 'de')).toBe(
-      'aus einer Maßzahl abgelesen'
+      'abgelesen, nicht gemessen'
     )
   })
 })

@@ -2,31 +2,33 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { FileX2, Lock } from 'lucide-react'
+import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PageSheet } from '@/features/knowledge'
+import { PageSheet } from '@/features/knowledge/page-clip'
 import { useSeenOnce } from '@/hooks/use-seen-once'
 import { useLocale, useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { calibrationRatio } from '@/lib/drawing-calibrations/display-ratio'
+import { CALIBRATION_SET_OPERATION } from '@/lib/drawing-calibrations/operation'
 import { formatMetres } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useServerProposal } from '../hooks/use-server-proposal'
 import { drawCalibrationClip, type ClipPoint, type DrawnClip } from '../lib/calibration-clip'
-import { CALIBRATION_SET_OPERATION } from '../lib/calibration-operation'
-import { proposedCalibrationOf, type ProposedCalibration } from '../lib/calibration-proposal'
+import { CLIP_ASPECT, proposedCalibrationOf, type ProposedCalibration } from '../lib/calibration-proposal'
 import { ProposalReceipt } from './ProposalReceipt'
 import { FailureReasons } from './ProposalReceipts'
 
 const FALLBACK_WIDTH = 320
 const MAX_CLIP_HEIGHT = 380
-const WAITING_ASPECT = 3 / 2
+export const CLIP_TIMEOUT_MS = 20_000
 const LABEL_OFFSET_PX = 13
 const MARKER_RADIUS = 4
 
 type Clip = { status: 'waiting' } | DrawnClip
 type Refusal = 'denied' | 'unavailable' | 'incomplete'
 type Drawn = Extract<DrawnClip, { status: 'drawn' }>
+type Place = { document: string | null; page: number }
 
 const percent = (share: number): string => `${share * 100}%`
 
@@ -46,19 +48,23 @@ export function CalibrationReceipt({
     () => proposedCalibrationOf(CALIBRATION_SET_OPERATION, shownInput),
     [shownInput]
   )
-  const documentName =
-    proposal?.targets?.find(
-      (target) => target.type === 'document' && target.id === proposed?.documentId
-    )?.name ?? null
+  const target = proposal?.targets?.find(
+    (entry) => entry.type === 'document' && entry.id === proposed?.documentId
+  )
+  const documentName = target?.name ?? null
   const [clip, setClip] = useState<Clip>({ status: 'waiting' })
-  const reading = !proposed && !proposal && server.problem === null
+  const reading = !proposal && server.problem === null
   const refusal: Refusal | null = !proposed
     ? 'incomplete'
-    : clip.status === 'denied' || clip.status === 'unavailable'
-      ? clip.status
-      : null
+    : target && target.name === null
+      ? 'denied'
+      : clip.status === 'denied' || clip.status === 'unavailable'
+        ? clip.status
+        : null
+  const ratio =
+    proposed && clip.status === 'drawn' ? calibrationRatio(proposed.calibration, clip.pagePt) : null
 
-  const place = (page: number) =>
+  const placeText = (page: number) =>
     documentName
       ? t('cards.calibrationProposal.caption', { document: documentName, page })
       : t('cards.calibrationProposal.captionPage', { page })
@@ -66,19 +72,24 @@ export function CalibrationReceipt({
   return (
     <ProposalReceipt
       server={server}
-      eyebrow={<SectionLabel>{t('cards.calibrationProposal.eyebrow')}</SectionLabel>}
+      eyebrow={
+        <SectionLabel className="max-sm:hidden">
+          {t('cards.calibrationProposal.eyebrow')}
+        </SectionLabel>
+      }
       open={
         reading ? null : proposed && !refusal ? (
           <CalibrationQuestion
             proposed={proposed}
-            caption={place(proposed.calibration.page)}
+            place={{ document: documentName, page: proposed.calibration.page }}
+            ratio={ratio}
             clip={clip}
             onClip={setClip}
           />
         ) : (
           <CalibrationRefusal
             reason={refusal ?? 'incomplete'}
-            caption={proposed ? place(proposed.calibration.page) : null}
+            place={proposed ? { document: documentName, page: proposed.calibration.page } : null}
           />
         )
       }
@@ -91,6 +102,7 @@ export function CalibrationReceipt({
             }
       }
       prompt={null}
+      footnote={refusal ? undefined : t('cards.calibrationProposal.dismissMeaning')}
       acceptBlocked={
         !refusal && clip.status === 'waiting' ? t('cards.calibrationProposal.waiting') : undefined
       }
@@ -98,7 +110,9 @@ export function CalibrationReceipt({
         switch (decided.status) {
           case 'applied':
           case 'partially_applied':
-            return t('cards.calibrationProposal.applied')
+            return ratio
+              ? t('cards.calibrationProposal.appliedRatio', { ratio })
+              : t('cards.calibrationProposal.applied')
           case 'failed':
             return t('cards.proposalReceipt.failed')
           default:
@@ -112,7 +126,7 @@ export function CalibrationReceipt({
           <p className="text-meta text-muted-foreground" data-testid="calibration-receipt">
             {t('cards.calibrationProposal.receipt', {
               length: formatMetres(proposed.calibration.lengthM, locale),
-              place: place(proposed.calibration.page),
+              place: placeText(proposed.calibration.page),
             })}
           </p>
         )
@@ -121,40 +135,63 @@ export function CalibrationReceipt({
   )
 }
 
-function CalibrationRefusal({ reason, caption }: { reason: Refusal; caption: string | null }) {
+function PlaceCaption({ place }: { place: Place }) {
+  const t = useTranslations(chatCopy)
+  const pageText = t(
+    place.document ? 'cards.calibrationProposal.captionTail' : 'cards.calibrationProposal.captionPage',
+    { page: place.page }
+  )
+  return (
+    <p
+      className="text-meta text-muted-foreground flex min-w-0 whitespace-pre"
+      data-testid="calibration-caption"
+    >
+      {place.document ? (
+        <>
+          <MiddleTruncate text={place.document} />
+          <span className="shrink-0">{` · ${pageText}`}</span>
+        </>
+      ) : (
+        pageText
+      )}
+    </p>
+  )
+}
+
+function CalibrationRefusal({ reason, place }: { reason: Refusal; place: Place | null }) {
   const t = useTranslations(chatCopy)
   const Icon = reason === 'denied' ? Lock : FileX2
   return (
     <div className="flex flex-col gap-2" data-testid="calibration-refusal" data-reason={reason}>
-      <div className="bg-muted/60 text-muted-foreground rounded-inline flex items-start gap-2 p-3 text-sm">
-        <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div className="bg-muted/60 text-foreground rounded-inline flex items-start gap-2 p-3 text-sm">
+        <Icon aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
         <p>{t(`cards.calibrationProposal.refused.${reason}`)}</p>
       </div>
-      {caption && <p className="text-meta text-muted-foreground">{caption}</p>}
+      {place && <PlaceCaption place={place} />}
     </div>
   )
 }
 
 function CalibrationQuestion({
   proposed,
-  caption,
+  place,
+  ratio,
   clip,
   onClip,
 }: {
   proposed: ProposedCalibration
-  caption: string
+  place: Place
+  ratio: string | null
   clip: Clip
   onClip: (clip: Clip) => void
 }) {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
-  const { calibration } = proposed
-  const length = formatMetres(calibration.lengthM, locale)
-  const ratio = clip.status === 'drawn' ? calibrationRatio(calibration, clip.pagePt) : null
+  const length = formatMetres(proposed.calibration.lengthM, locale)
   return (
     <figure className="flex flex-col gap-3" data-testid="calibration-preview">
       <CalibrationClip proposed={proposed} clip={clip} onClip={onClip} length={length} />
-      <figcaption className="flex flex-col gap-1">
+      <figcaption className="flex min-w-0 flex-col gap-1">
         <p className="text-section text-foreground" data-testid="calibration-question">
           {t('cards.calibrationProposal.question', { length })}
         </p>
@@ -163,9 +200,7 @@ function CalibrationQuestion({
             {t('cards.calibrationProposal.meaning', { ratio })}
           </p>
         )}
-        <p className="text-meta text-muted-foreground" data-testid="calibration-caption">
-          {caption}
-        </p>
+        <PlaceCaption place={place} />
       </figcaption>
     </figure>
   )
@@ -196,15 +231,23 @@ function CalibrationClip({
     if (!seen || !canvas) return
     const controller = new AbortController()
     told.current({ status: 'waiting' })
+    const timer = window.setTimeout(() => {
+      controller.abort()
+      told.current({ status: 'unavailable' })
+    }, CLIP_TIMEOUT_MS)
     void drawCalibrationClip({
       proposed,
       canvas,
       fit: { width: frameRef.current?.clientWidth || FALLBACK_WIDTH, maxHeight: MAX_CLIP_HEIGHT },
       signal: controller.signal,
     }).then((drawn) => {
+      window.clearTimeout(timer)
       if (!controller.signal.aborted) told.current(drawn)
     })
-    return () => controller.abort()
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seen, key])
 
@@ -218,7 +261,7 @@ function CalibrationClip({
       <PageSheet
         className="rounded-inline max-w-full overflow-hidden"
         style={{
-          aspectRatio: drawn ? drawn.aspect : WAITING_ASPECT,
+          aspectRatio: drawn ? drawn.aspect : CLIP_ASPECT,
           width: drawn ? drawn.width : '100%',
           maxHeight: drawn ? undefined : MAX_CLIP_HEIGHT,
         }}

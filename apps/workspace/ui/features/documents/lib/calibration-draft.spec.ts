@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { calibrationView } from '@/test-utils/calibration-sheet'
-import { emptyDraft, pickPoint, proposalOf, regionPlace, withRegion, type CalibrationDraft } from './calibration-draft'
+import {
+  emptyDraft,
+  pickPoint,
+  proposalOf,
+  regionName,
+  regionPlace,
+  stepBack,
+  stepOf,
+  withPoint,
+  withRegion,
+  type CalibrationDraft,
+} from './calibration-draft'
 
 const PAGE = { width: 1190.55, height: 841.89 }
 const FROM = { x: 0.25, y: 0.5 }
@@ -35,10 +46,12 @@ describe('picking the reference points', () => {
 })
 
 describe('what a draft amounts to', () => {
-  it('asks for the points, then the frame, in the order a person meets them', () => {
+  it('asks for the points, then the length, then the frame, in the order a person meets them', () => {
     expect(proposalOf(null, null, PAGE, []).blocked).toBe('firstPoint')
     expect(proposalOf(emptyDraft(1), 21, PAGE, []).blocked).toBe('firstPoint')
     expect(proposalOf(pickPoint(emptyDraft(1), 1, FROM), 21, PAGE, []).blocked).toBe('secondPoint')
+    expect(proposalOf(twoPoints(), null, PAGE, []).blocked).toBe('length')
+    expect(proposalOf(twoPoints(), 21, PAGE, []).blocked).toBe('region')
   })
 
   it('shows 1:100 for two points half a 1190.55 pt page apart and 21 m, before there is a frame', () => {
@@ -55,7 +68,7 @@ describe('what a draft amounts to', () => {
     expect(proposal.request).toEqual({ page: 1, region: BOX, from: FROM, to: TO, lengthM: 21 })
   })
 
-  it('refuses a frame that misses a point, and asks for the length last', () => {
+  it('refuses a frame that misses a point, and a cleared length', () => {
     expect(proposalOf(withRegion(twoPoints(), 1, { x: 0.3, y: 0.3, w: 0.2, h: 0.4 }), 21, PAGE, []).blocked).toBe('regionMisses')
     expect(proposalOf(withRegion(twoPoints(), 1, BOX), null, PAGE, [])).toMatchObject({ blocked: 'length', request: null })
   })
@@ -76,7 +89,44 @@ describe('what a draft amounts to', () => {
   })
 })
 
+describe('the steps of setting a scale', () => {
+  it('walks first point, second point, length, frame, review', () => {
+    const first = pickPoint(emptyDraft(1), 1, FROM)
+    expect(stepOf({ draft: emptyDraft(1), lengthM: null })).toBe('firstPoint')
+    expect(stepOf({ draft: first, lengthM: null })).toBe('secondPoint')
+    expect(stepOf({ draft: twoPoints(), lengthM: null })).toBe('length')
+    expect(stepOf({ draft: twoPoints(), lengthM: 21 })).toBe('region')
+    expect(stepOf({ draft: withRegion(twoPoints(), 1, BOX), lengthM: 21 })).toBe('review')
+  })
+
+  it('steps back one step at a time, and leaves only from the first', () => {
+    const review = { draft: withRegion(twoPoints(), 1, BOX), lengthM: 21 }
+    const frame = stepBack(review)
+    expect(frame).toEqual({ draft: twoPoints(), lengthM: 21 })
+    const length = stepBack(frame!)
+    expect(length).toEqual({ draft: twoPoints(), lengthM: null })
+    const second = stepBack(length!)
+    expect(second?.draft).toMatchObject({ from: FROM, to: null })
+    const first = stepBack(second!)
+    expect(first?.draft).toMatchObject({ from: null, to: null })
+    expect(stepBack(first!)).toBeNull()
+  })
+
+  it('moves a placed point, and never places one that is not there', () => {
+    expect(withPoint(twoPoints(), 'to', { x: 0.8, y: 0.55 }).to).toEqual({ x: 0.8, y: 0.55 })
+    const empty = emptyDraft(1)
+    expect(withPoint(empty, 'from', FROM)).toBe(empty)
+  })
+})
+
 describe('where a frame lies, in words', () => {
+  it('names a frame inside another scale as its detail', () => {
+    const page = calibrationView({ region: { x: 0, y: 0, w: 1, h: 1 } })
+    const detail = calibrationView({ id: '55555555-5555-4555-8555-555555555555', region: { x: 0.7, y: 0.1, w: 0.2, h: 0.2 } })
+    expect(regionName(detail, [page, detail])).toEqual({ kind: 'detail', place: 'topRight', within: page })
+    expect(regionName(page, [page, detail])).toEqual({ kind: 'place', place: 'page' })
+  })
+
   it('names the whole page and the nine places of a sheet', () => {
     expect(regionPlace({ x: 0, y: 0, w: 1, h: 0.95 })).toBe('page')
     expect(regionPlace({ x: 0.05, y: 0.05, w: 0.2, h: 0.2 })).toBe('topLeft')

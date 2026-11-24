@@ -16,6 +16,8 @@ export interface PagePlaceButtonProps {
   thumbnailMaxHeight?: number
   marks?: readonly PageRegion[]
   overlay?: (frame: DrawnFrame) => ReactNode
+  pageOverlay?: ReactNode
+  zoomToRegion?: boolean
   children?: ReactNode
   className?: string
   eager?: boolean
@@ -29,6 +31,8 @@ export const PagePlaceButton: FC<PagePlaceButtonProps> = ({
   thumbnailMaxHeight,
   marks,
   overlay,
+  pageOverlay,
+  zoomToRegion,
   children,
   className,
   eager,
@@ -69,7 +73,16 @@ export const PagePlaceButton: FC<PagePlaceButtonProps> = ({
         {children}
       </button>
       {open && (
-        <PagePlaceDialog place={place} open={open} onOpenChange={setOpen} color={color} imageUrl={imageUrl} regions={marks} />
+        <PagePlaceDialog
+          place={place}
+          open={open}
+          onOpenChange={setOpen}
+          color={color}
+          imageUrl={imageUrl}
+          regions={marks}
+          zoomToRegion={zoomToRegion}
+          overlay={pageOverlay}
+        />
       )}
     </>
   )

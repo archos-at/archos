@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { pageQueryShape } from '@/lib/api/offset-page'
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export const CALIBRATION_STATUSES = ['active', 'superseded', 'withdrawn'] as const
@@ -78,15 +77,6 @@ export const setCalibrationRequestSchema = z
     }
   })
 export type SetCalibrationRequest = z.infer<typeof setCalibrationRequestSchema>
-
-export const listCalibrationsQuerySchema = z
-  .object({
-    ...pageQueryShape,
-    page: z.coerce.number().int().min(1).max(100_000).optional().describe('Only this page’s calibrations.'),
-    status: z.enum(CALIBRATION_STATUSES).optional().describe('Default `active`.'),
-  })
-  .strict()
-export type ListCalibrationsQuery = z.infer<typeof listCalibrationsQuerySchema>
 
 export const calibrationDocumentParamsSchema = z.object({ id: z.string().uuid() })
 export const calibrationParamsSchema = calibrationDocumentParamsSchema.extend({ calibrationId: z.string().uuid() })

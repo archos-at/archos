@@ -13,6 +13,7 @@ import { PageSheet } from '@/features/knowledge/components/pdf-viewer-atoms'
 import { CalibrationPageLayer } from '@/features/documents/components/review/calibration-page-layer'
 import { ScaleControl } from '@/features/documents/components/review/measure/scale-control'
 import { useReviewCalibration } from '@/features/documents/hooks/use-review-calibration'
+import { useCoarsePointer } from '@/features/documents/hooks/use-coarse-pointer'
 import type {
   CalibrationPoint,
   CalibrationRegion,
@@ -86,6 +87,7 @@ interface Draft {
   to: CalibrationPoint
   region: CalibrationRegion
   lengthM: number
+  stopAt?: 'length' | 'region'
 }
 
 const SETTING: Draft = { from: SPAN_FROM, to: SPAN_TO, region: LAYOUT_REGION, lengthM: 21 }
@@ -115,18 +117,21 @@ const Scenario: FC<{
     { client }
   )
   const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, setLength } = calibration
+  const docksOnTouch = useCoarsePointer() && draft?.stopAt !== undefined
   const seeded = useRef(false)
   useEffect(() => {
-    if (!shown || !pageSizes[1] || seeded.current) return
+    if (!shown || !pageSizes[1] || seeded.current || docksOnTouch) return
     seeded.current = true
     if (open) setOpen(true)
     if (!draft) return
     beginSetting(1)
     pick(1, draft.from)
     pick(1, draft.to)
-    drawRegion(1, draft.region)
+    if (draft.stopAt === 'length') return
     setLength(draft.lengthM)
-  }, [shown, pageSizes, open, draft, setOpen, beginSetting, pick, drawRegion, setLength])
+    if (draft.stopAt === 'region') return
+    drawRegion(1, draft.region)
+  }, [shown, pageSizes, open, draft, docksOnTouch, setOpen, beginSetting, pick, drawRegion, setLength])
 
   return (
     <div className="bg-desk rounded-surface relative p-4 pt-16" style={{ width }}>
@@ -181,9 +186,29 @@ const SCENARIOS: readonly {
     open: true,
   },
   {
+    id: 'nested-measuring',
+    title: 'Zwei Maßstäbe beim Messen',
+    note: 'Das Popover ist zu: Die Rahmen bleiben leise sichtbar, mit ihrem Maßstab, damit man sieht, wo 1:20 gilt.',
+    saved: [PAGE_SCALE, DETAIL_SCALE],
+  },
+  {
+    id: 'step-length',
+    title: 'Schritt 2: die Länge',
+    note: 'Zwei Punkte sitzen; die schmale Leiste fragt die Länge und zeigt schon das Verhältnis. Auf dem Telefon sitzt sie unten.',
+    saved: [],
+    draft: { ...SETTING, stopAt: 'length' },
+  },
+  {
+    id: 'step-region',
+    title: 'Schritt 3: der Rahmen',
+    note: 'Rahmen ziehen, oder ausdrücklich „Ganze Seite“. Zurück und Esc gehen einen Schritt zurück.',
+    saved: [],
+    draft: { ...SETTING, stopAt: 'region' },
+  },
+  {
     id: 'setting',
-    title: 'Maßstab wird festgelegt',
-    note: 'Zwei Punkte, der Rahmen, die Länge: 1:100 steht da, bevor gespeichert wird.',
+    title: 'Maßstab prüfen und speichern',
+    note: 'Punkte, Länge, Rahmen: 1:100 steht da, bevor gespeichert wird.',
     saved: [],
     draft: SETTING,
   },

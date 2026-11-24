@@ -24,9 +24,9 @@ import { toPageCalibration } from './page-read'
 import {
   type CalibrationListResponse,
   type CalibrationView,
-  type ListCalibrationsQuery,
   type SetCalibrationRequest,
 } from './wire'
+import type { ListCalibrationsQuery } from './list-wire'
 
 function captured(
   session: AuthorizedSession,

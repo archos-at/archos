@@ -686,9 +686,11 @@ export const chat: typeof en.chat = {
     calibrationProposal: {
       eyebrow: 'Maßstab bestätigen',
       question: 'Ist die markierte Strecke {length} lang?',
-      meaning: 'Dann gilt in diesem Bereich der Zeichnung der Maßstab {ratio}.',
+      meaning: 'Dann rechnet {productName} alle Messungen in diesem Bereich mit Maßstab {ratio}. Bisher ist er geschätzt.',
+      dismissMeaning: 'Verwerfen: Der Maßstab bleibt geschätzt.',
       caption: '{document} · Seite {page}',
       captionPage: 'Seite {page}',
+      captionTail: 'Seite {page}',
       receipt: '{length} · {place}',
       picture: 'Seite {page}, Ausschnitt mit der markierten Strecke',
       drawing: 'Ausschnitt wird geladen',
@@ -697,14 +699,15 @@ export const chat: typeof en.chat = {
       accepting: 'Wird bestätigt …',
       refused: {
         denied:
-          'Sie können diese Zeichnung nicht öffnen. Ohne die markierte Strecke lässt sich der Maßstab hier nicht bestätigen.',
+          'Sie können diese Zeichnung nicht öffnen und den Maßstab deshalb nicht prüfen. Bitten Sie jemanden mit Zugriff, ihn zu bestätigen.',
         unavailable:
-          'Der Ausschnitt der Zeichnung lässt sich nicht zeichnen. Ohne die markierte Strecke lässt sich der Maßstab hier nicht bestätigen.',
+          'Die Zeichnung lässt sich gerade nicht anzeigen, deshalb können Sie den Maßstab hier nicht prüfen. Laden Sie die Seite später neu oder bitten Sie {productName}, den Maßstab noch einmal vorzuschlagen.',
         incomplete:
           'Diesem Vorschlag fehlt, wo die Strecke liegt oder wie lang sie ist. Bitten Sie {productName}, den Maßstab noch einmal vorzuschlagen.',
       },
-      applied: 'Maßstab bestätigt.',
-      dismissed: 'Maßstab nicht bestätigt.',
+      applied: 'Maßstab bestätigt. Messungen in diesem Bereich gelten jetzt als bestätigt.',
+      appliedRatio: 'Maßstab {ratio} bestätigt. Messungen in diesem Bereich gelten jetzt als bestätigt.',
+      dismissed: 'Maßstab nicht bestätigt. Er bleibt geschätzt.',
     },
     operationProposal: {
       eyebrow: 'Aktion',
@@ -1049,12 +1052,13 @@ export const chat: typeof en.chat = {
     measure: {
       basis: {
         confirmed: 'Maßstab 1:{ratio}, bestätigt',
-        estimated: 'Maßstab 1:{ratio}, geschätzt',
+        estimated: 'Maßstab 1:{ratio}, geschätzt, noch nicht bestätigt',
         confirmedPlain: 'Maßstab bestätigt',
-        estimatedPlain: 'Maßstab geschätzt',
-        printed: 'aus einer Maßzahl abgelesen',
+        estimatedPlain: 'Maßstab geschätzt, noch nicht bestätigt',
+        printed: 'abgelesen, nicht gemessen',
       },
-      open: '{document}, S.\u00A0{page} öffnen',
+      open: 'In der Zeichnung zeigen: {document}, S.\u00A0{page}',
+      show: 'In der Zeichnung zeigen',
     },
     look: {
       place: 'S.\u00A0{page}, {where}',
@@ -1096,6 +1100,8 @@ export const chat: typeof en.chat = {
       innerQuote: '‚{text}‘',
       readOff: 'abgelesen, nicht gemessen',
       noNumber: 'keine Zahl',
+      noNumberNote:
+        'Meist ist der Maßstab dieser Seite unbekannt. Legen Sie ihn in der Zeichnung fest: „Messen“, dann „Maßstab festlegen“.',
       kind: {
         search: 'Suchen',
         read: 'Lesen',
@@ -1104,6 +1110,7 @@ export const chat: typeof en.chat = {
         model: 'Modell abfragen',
         workspace: 'Arbeitsbereich',
         measure: 'Messen',
+        readMeasure: 'Lesen und Messen',
       },
       shelf: {
         project: 'im Projekt',
@@ -1156,6 +1163,7 @@ export const chat: typeof en.chat = {
         model: 'Fragt das Gebäudemodell ab:',
         workspace: 'Arbeitsbereich:',
         measure: 'Misst',
+        measurePrinted: 'Liest Maßzahl in',
       },
       done: {
         search: 'Gesucht: {name}',

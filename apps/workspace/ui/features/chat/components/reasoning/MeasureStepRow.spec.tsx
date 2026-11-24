@@ -55,7 +55,7 @@ afterEach(() => restore())
 const roundOf = (step: Record<string, unknown>) => workRounds(storedSteps([step]))[0]!
 
 describe('a drawing_measure step', () => {
-  test('says what it measured where, with the value, the clip with the span, and the scale it stands on', async () => {
+  test('says what it measured where, the value once, the clip with the span, the scale and its risk, and that it opens', async () => {
     restore = installLayoutObservers({ frameWidth: 200 })
     render(<RoundCalls round={roundOf(measured())} eager />)
     const row = screen.getByTestId('work-row')
@@ -63,18 +63,27 @@ describe('a drawing_measure step', () => {
     expect(row).toHaveTextContent('Misst Grundriss EG.pdf, S. 2')
     expect(within(row).getByTestId('work-row-result')).toHaveTextContent('1,76 m')
     const step = within(row).getByTestId('measure-step')
-    expect(step).toHaveTextContent('Maßstab 1:100, geschätzt')
+    expect(within(step).getByTestId('measure-basis')).toHaveTextContent(
+      'Maßstab 1:100, geschätzt, noch nicht bestätigt'
+    )
+    expect(step).toHaveTextContent('In der Zeichnung zeigen')
     await waitFor(() => expect(within(step).getByTestId('measure-shape')).toBeInTheDocument())
-    expect(within(step).getByTestId('measure-label')).toHaveTextContent('1,76 m')
+    expect(within(step).queryByTestId('measure-label')).toBeNull()
     expect(within(step).getByTestId('measure-shape').querySelectorAll('path')).toHaveLength(2)
   })
 
-  test('the clip opens the drawing at the page', async () => {
+  test.each([
+    ['the clip', /^In der Zeichnung zeigen: Grundriss EG\.pdf, S\.\s2$/],
+    ['the row', /^Misst Grundriss EG\.pdf, S\.\s2: 1,76\sm – öffnen$/],
+  ])('%s opens the drawing at the measured place, framed and with the shape drawn', async (_what, name) => {
     restore = installLayoutObservers({ frameWidth: 200 })
     const user = userEvent.setup()
     render(<RoundCalls round={roundOf(measured())} eager />)
-    await user.click(screen.getByRole('button', { name: /Grundriss EG\.pdf, S\.\s2 öffnen/ }))
-    expect(await screen.findByTestId('pdf-viewer-dialog')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name }))
+    const viewer = await screen.findByTestId('pdf-viewer-dialog')
+    expect(await within(viewer).findByTestId('region-mark')).toBeInTheDocument()
+    expect(await within(viewer).findByTestId('measure-on-page')).toBeInTheDocument()
+    expect(viewer).toHaveTextContent('1,76 m')
   })
 
   test('an area marks each corner', async () => {
@@ -97,13 +106,15 @@ describe('a drawing_measure step', () => {
     const shape = await screen.findByTestId('measure-shape')
     expect(shape.querySelector('polygon')).not.toBeNull()
     expect(shape.querySelectorAll('path')).toHaveLength(4)
-    expect(screen.getByTestId('measure-step')).toHaveTextContent('aus einer Maßzahl abgelesen')
+    expect(screen.getByTestId('work-row')).toHaveTextContent('Liest Maßzahl in Grundriss EG.pdf, S. 2')
+    expect(screen.getByTestId('measure-basis')).toHaveTextContent('abgelesen, nicht gemessen')
   })
 
-  test('no number: the row says so, and there is no clip', () => {
+  test('no number: the row says so, why it usually is, and what to do, and there is no clip', () => {
     const empty = measured({ status: 'empty', measure: undefined })
     render(<RoundCalls round={roundOf(empty)} />)
     expect(screen.getByTestId('work-row-result')).toHaveTextContent('keine Zahl')
+    expect(screen.getByTestId('work-row-note')).toHaveTextContent('„Maßstab festlegen“')
     expect(screen.queryByTestId('measure-step')).toBeNull()
   })
 

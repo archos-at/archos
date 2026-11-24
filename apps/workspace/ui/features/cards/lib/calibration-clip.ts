@@ -1,7 +1,7 @@
 import type { PageSizePt } from '@/lib/drawing-calibrations/display-ratio'
 import type { CalibrationPoint } from '@/lib/drawing-calibrations/wire'
-import { documentParameters, loadPdfjs, maxCanvasPixels, placeClip, rasterFor } from '@/features/knowledge'
-import { spanBox, type ProposedCalibration } from './calibration-proposal'
+import { documentParameters, loadPdfjs, maxCanvasPixels, rasterFor } from '@/features/knowledge/page-clip'
+import { spanCrop, type ProposedCalibration } from './calibration-proposal'
 
 export type ClipPoint = { x: number; y: number }
 
@@ -21,6 +21,8 @@ const statusOf = (error: unknown): number | undefined => {
   const status = (error as { status?: unknown } | null)?.status
   return typeof status === 'number' ? status : undefined
 }
+
+const LEGIBLE_PX_PER_PT = 1.6
 
 const DENIED_STATUSES = new Set([401, 403, 404])
 
@@ -49,7 +51,7 @@ export async function drawCalibrationClip(options: {
     if (signal.aborted || pageNumber > doc.numPages) return { status: 'unavailable' }
     const page = await doc.getPage(pageNumber)
     const base = page.getViewport({ scale: 1 })
-    const { crop } = placeClip(base, spanBox(from, to))
+    const crop = spanCrop(base, from, to, fit.width / LEGIBLE_PX_PER_PT)
     const aspect = crop.width / crop.height
     const width = Math.max(1, Math.round(Math.min(fit.width, fit.maxHeight * aspect)))
     const scale = width / crop.width

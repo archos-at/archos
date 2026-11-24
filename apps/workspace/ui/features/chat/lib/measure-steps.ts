@@ -1,4 +1,4 @@
-import type { PagePlace } from '@/features/knowledge'
+import type { PagePlace } from '@/features/knowledge/page-clip'
 import type { Translator } from '@/i18n'
 import type { StoredMeasure } from '@/lib/conversations/message-measure'
 import type { StoredAction } from '@/lib/conversations/message-provenance'
@@ -21,11 +21,19 @@ const clampSpan = (low: number, high: number): [number, number] => {
   return [start, Math.min(1, start + Math.max(MIN_SPAN, high - low))]
 }
 
+const PAD_SHARE = 0.15
+const MIN_PAD = 0.004
+
+const padSpan = ([low, high]: [number, number]): [number, number] => {
+  const pad = Math.max(MIN_PAD, (high - low) * PAD_SHARE)
+  return [Math.max(0, low - pad), Math.min(1, high + pad)]
+}
+
 export function shapeBox(points: readonly Point[]): Box {
   const xs = points.map(([x]) => x)
   const ys = points.map(([, y]) => y)
-  const [x0, x1] = clampSpan(Math.min(...xs), Math.max(...xs))
-  const [y0, y1] = clampSpan(Math.min(...ys), Math.max(...ys))
+  const [x0, x1] = padSpan(clampSpan(Math.min(...xs), Math.max(...xs)))
+  const [y0, y1] = padSpan(clampSpan(Math.min(...ys), Math.max(...ys)))
   return [x0, y0, x1, y1]
 }
 

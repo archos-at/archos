@@ -677,9 +677,11 @@ export const chat = {
     calibrationProposal: {
       eyebrow: 'Confirm the scale',
       question: 'Is the marked length {length}?',
-      meaning: 'Then the scale in this part of the drawing is {ratio}.',
+      meaning: 'Then {productName} works out every measurement in this area at scale {ratio}. So far it is estimated.',
+      dismissMeaning: 'Dismiss: the scale stays estimated.',
       caption: '{document} · page {page}',
       captionPage: 'Page {page}',
+      captionTail: 'page {page}',
       receipt: '{length} · {place}',
       picture: 'Page {page}, clip with the marked length',
       drawing: 'Loading the clip',
@@ -688,14 +690,15 @@ export const chat = {
       accepting: 'Confirming…',
       refused: {
         denied:
-          'You cannot open this drawing. Without the marked length the scale cannot be confirmed here.',
+          'You cannot open this drawing, so you cannot check the scale. Ask someone with access to confirm it.',
         unavailable:
-          'The clip of the drawing cannot be drawn. Without the marked length the scale cannot be confirmed here.',
+          'The drawing cannot be shown right now, so you cannot check the scale here. Reload the page later, or ask {productName} to propose the scale again.',
         incomplete:
           'This proposal does not say where the length lies or how long it is. Ask {productName} to propose the scale again.',
       },
-      applied: 'Scale confirmed.',
-      dismissed: 'Scale not confirmed.',
+      applied: 'Scale confirmed. Measurements in this area now count as confirmed.',
+      appliedRatio: 'Scale {ratio} confirmed. Measurements in this area now count as confirmed.',
+      dismissed: 'Scale not confirmed. It stays estimated.',
     },
     operationProposal: {
       eyebrow: 'Action',
@@ -1038,12 +1041,13 @@ export const chat = {
     measure: {
       basis: {
         confirmed: 'scale 1:{ratio}, confirmed',
-        estimated: 'scale 1:{ratio}, estimated',
+        estimated: 'scale 1:{ratio}, estimated, not yet confirmed',
         confirmedPlain: 'scale confirmed',
-        estimatedPlain: 'scale estimated',
-        printed: 'read from a dimension figure',
+        estimatedPlain: 'scale estimated, not yet confirmed',
+        printed: 'read off, not measured',
       },
-      open: 'Open {document}, p.\u00A0{page}',
+      open: 'Show in the drawing: {document}, p.\u00A0{page}',
+      show: 'Show in the drawing',
     },
     look: {
       place: 'p.\u00A0{page}, {where}',
@@ -1085,6 +1089,8 @@ export const chat = {
       innerQuote: '‘{text}’',
       readOff: 'read off, not measured',
       noNumber: 'no number',
+      noNumberNote:
+        'Usually the scale of this page is unknown. Set it in the drawing: “Measure”, then “Set scale”.',
       kind: {
         search: 'Search',
         read: 'Reading',
@@ -1093,6 +1099,7 @@ export const chat = {
         model: 'Query the model',
         workspace: 'Workspace',
         measure: 'Measure',
+        readMeasure: 'Read and measure',
       },
       shelf: {
         project: 'in the project',
@@ -1145,6 +1152,7 @@ export const chat = {
         model: 'Queries the building model for',
         workspace: 'Workspace:',
         measure: 'Measures',
+        measurePrinted: 'Reads a dimension figure in',
       },
       done: {
         search: 'Searched: {name}',

@@ -307,7 +307,11 @@ const verbAndObject = (
       return { verb: t('thinking.work.verb.workspace'), object: target ?? '' }
     case 'measure':
       return {
-        verb: t('thinking.work.verb.measure'),
+        verb: t(
+          action.measure?.basis === 'printed'
+            ? 'thinking.work.verb.measurePrinted'
+            : 'thinking.work.verb.measure'
+        ),
         object: target ? placeObject(t, target, pages) : '',
       }
   }
@@ -364,8 +368,9 @@ export function workParts(
     }
   if (action.status === 'empty') {
     const result = emptyResult(t, action)
-    return action.incomplete
-      ? { ...parts, ...incomplete(t, result, false) }
+    if (action.incomplete) return { ...parts, ...incomplete(t, result, false) }
+    return action.verb === 'measure' && !action.missing
+      ? { ...parts, result, tone: 'empty', note: t('thinking.work.noNumberNote') }
       : { ...parts, result, tone: 'empty' }
   }
   const found = foundOf(t, action, folded ? folded.counts : action.counts)

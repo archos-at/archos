@@ -41,6 +41,7 @@ export interface ProposalReceiptProps<K extends ProposedChangeKind> {
   acceptBlocked?: string
   accept?: { label: string; working: string } | null
   prompt?: string | null
+  footnote?: string
 }
 
 export function ProposalReceipt<K extends ProposedChangeKind>({
@@ -54,6 +55,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
   acceptBlocked,
   accept,
   prompt,
+  footnote,
 }: ProposalReceiptProps<K>) {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
@@ -193,6 +195,11 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
             {t('cards.proposalReceipt.reject')}
           </Button>
         </div>
+      )}
+      {proposal?.canDecide && footnote && (
+        <p className="card-caption text-muted-foreground sm:text-right" data-testid="proposal-footnote">
+          {footnote}
+        </p>
       )}
     </ProposalShell>
   )

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@/test-utils'
+import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,7 +9,7 @@ import type { ProposedChangeView } from '@/lib/proposals/types'
 import type { AnswerCard } from '@/shared/cards/schemas'
 import { proposedCalibrationOf } from '../lib/calibration-proposal'
 import { AnswerCards } from './AnswerCards'
-import { CalibrationReceipt } from './CalibrationProposalPreview'
+import { CalibrationReceipt, CLIP_TIMEOUT_MS } from './CalibrationProposalPreview'
 import {
   decidedByAnna,
   PROPOSAL_ID,
@@ -20,7 +20,7 @@ import {
   startRecording,
 } from './proposal-test-kit'
 
-const pdf = vi.hoisted(() => ({ opened: [] as string[], status: null as number | null }))
+const pdf = vi.hoisted(() => ({ opened: [] as string[], status: null as number | null, hang: false }))
 
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => ({
   documentParameters: (url: string) => ({ url }),
@@ -28,8 +28,9 @@ vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => ({
     getDocument: ({ url }: { url: string }) => {
       pdf.opened.push(url)
       return {
-        promise:
-          pdf.status !== null
+        promise: pdf.hang
+          ? new Promise(() => undefined)
+          : pdf.status !== null
             ? Promise.reject(
                 Object.assign(new Error('Unexpected server response'), { status: pdf.status })
               )
@@ -95,6 +96,7 @@ let restore: () => void = () => undefined
 beforeEach(() => {
   pdf.opened = []
   pdf.status = null
+  pdf.hang = false
   startRecording()
   restore = installLayoutObservers({ frameWidth: 600 })
 })
@@ -109,17 +111,17 @@ describe('a proposed calibration, clip drawn', () => {
     const { container } = render(card)
 
     expect(await screen.findByTestId('calibration-meaning')).toHaveTextContent(
-      /^Then the scale in this part of the drawing is 1:100\.$/
+      /^Then ARCHOS works out every measurement in this area at scale 1:100\. So far it is estimated\.$/
     )
     expect(screen.getByText('Confirm the scale')).toBeInTheDocument()
     expect(screen.getByTestId('calibration-question')).toHaveTextContent(
       /^Is the marked length 21\.00\sm\?$/
     )
     expect(screen.getByTestId('calibration-question')).toHaveClass('text-section')
-    expect(screen.getByTestId('calibration-caption')).toHaveTextContent(
-      /^Grundriss EG\.pdf · page 2$/
-    )
-    expect(screen.getByTestId('calibration-caption')).toHaveClass('text-meta')
+    const caption = screen.getByTestId('calibration-caption')
+    expect(within(caption).getByTitle('Grundriss EG.pdf')).toBeInTheDocument()
+    expect(caption).toHaveTextContent(/ · page 2$/)
+    expect(caption).toHaveClass('text-meta')
     expect(
       screen.getByRole('img', { name: 'Page 2, clip with the marked length' })
     ).toBeInTheDocument()
@@ -131,6 +133,9 @@ describe('a proposed calibration, clip drawn', () => {
     expect(container).not.toHaveTextContent('Apply')
     expect(screen.getByRole('button', { name: 'Confirm' })).not.toHaveAttribute('aria-disabled')
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.getByTestId('proposal-footnote')).toHaveTextContent(
+      'Dismiss: the scale stays estimated.'
+    )
   })
 
   it('asks it in German, the length as German writes it', async () => {
@@ -141,14 +146,15 @@ describe('a proposed calibration, clip drawn', () => {
       </I18nProvider>
     )
     expect(await screen.findByTestId('calibration-meaning')).toHaveTextContent(
-      /^Dann gilt in diesem Bereich der Zeichnung der Maßstab 1:100\.$/
+      /^Dann rechnet ARCHOS alle Messungen in diesem Bereich mit Maßstab 1:100\. Bisher ist er geschätzt\.$/
     )
     expect(screen.getByText('Maßstab bestätigen')).toBeInTheDocument()
     expect(screen.getByTestId('calibration-question')).toHaveTextContent(
       /^Ist die markierte Strecke 21,00\sm lang\?$/
     )
-    expect(screen.getByTestId('calibration-caption')).toHaveTextContent(
-      /^Grundriss EG\.pdf · Seite 2$/
+    expect(screen.getByTestId('calibration-caption')).toHaveTextContent(/ · Seite 2$/)
+    expect(screen.getByTestId('proposal-footnote')).toHaveTextContent(
+      'Verwerfen: Der Maßstab bleibt geschätzt.'
     )
     expect(screen.getByRole('button', { name: 'Bestätigen' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verwerfen' })).toBeInTheDocument()
@@ -159,10 +165,10 @@ describe('a proposed calibration, clip drawn', () => {
     render(card)
     const line = await screen.findByTestId('calibration-span')
 
-    // The span is centred in a 3:2 clip with 35 % of its length either side: 0.5 / 1.7 of the clip in from each edge.
+    // The span is centred in a 3:2 clip with 18 % of its length either side, tight enough to read its figure.
     const share = (attribute: string) => parseFloat(line.getAttribute(attribute) ?? '')
-    expect(share('x1')).toBeCloseTo((0.35 / 1.7) * 100, 1)
-    expect(share('x2')).toBeCloseTo((1.35 / 1.7) * 100, 1)
+    expect(share('x1')).toBeCloseTo((0.18 / 1.36) * 100, 1)
+    expect(share('x2')).toBeCloseTo((1.18 / 1.36) * 100, 1)
     expect(share('y1')).toBeCloseTo(50, 3)
     expect(share('y2')).toBeCloseTo(50, 3)
     expect(line).toHaveAttribute('stroke', 'var(--paper-ink)')
@@ -189,7 +195,9 @@ describe('a proposed calibration, clip drawn', () => {
 
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(posts()).toEqual([`POST /api/proposals/${PROPOSAL_ID}/apply`]))
-    expect(await screen.findByTestId('proposal-status')).toHaveTextContent(/^Scale confirmed\.$/)
+    expect(await screen.findByTestId('proposal-status')).toHaveTextContent(
+      /^Scale 1:100 confirmed\. Measurements in this area now count as confirmed\.$/
+    )
     expect(screen.getByTestId('calibration-receipt')).toHaveTextContent(
       /^21\.00\sm · Grundriss EG\.pdf · page 2$/
     )
@@ -211,7 +219,7 @@ describe('a proposed calibration, clip drawn', () => {
     await user.click(screen.getByRole('button', { name: 'Discard' }))
     await waitFor(() => expect(posts()).toEqual([`POST /api/proposals/${PROPOSAL_ID}/dismiss`]))
     expect(await screen.findByTestId('proposal-status')).toHaveTextContent(
-      /^Scale not confirmed\.$/
+      /^Scale not confirmed\. It stays estimated\.$/
     )
   })
 
@@ -274,8 +282,8 @@ describe('a proposed calibration, clip not drawn', () => {
   })
 
   it.each([
-    ['denied', 'a reader who may not open the document', 404, 'You cannot open this drawing.'],
-    ['unavailable', 'a file that does not load', 500, 'The clip of the drawing cannot be drawn.'],
+    ['denied', 'a reader who may not open the document', 404, 'Ask someone with access to confirm it.'],
+    ['unavailable', 'a file that does not load', 500, 'The drawing cannot be shown right now'],
   ])(
     'refuses confirming (%s) for %s: the reason, no generic receipt, no „Confirm“',
     async (reason, _name, status, words) => {
@@ -293,6 +301,35 @@ describe('a proposed calibration, clip not drawn', () => {
       expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
     }
   )
+
+  it('refuses up front, without opening the file, when the server names no document the reader may see', async () => {
+    serve(calibration({ targets: [{ type: 'document', id: DOCUMENT_ID, name: null }] }))
+    render(card)
+
+    expect(await screen.findByTestId('calibration-refusal')).toHaveAttribute('data-reason', 'denied')
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(screen.queryByTestId('proposal-footnote')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(pdf.opened).toEqual([])
+  })
+
+  it('stops waiting for a clip that never loads and refuses with the reason', async () => {
+    pdf.hang = true
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      serve(calibration())
+      render(card)
+      await screen.findByTestId('proposal-accept-blocked')
+      await vi.advanceTimersByTimeAsync(CLIP_TIMEOUT_MS)
+      expect(await screen.findByTestId('calibration-refusal')).toHaveAttribute(
+        'data-reason',
+        'unavailable'
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
 
   it('refuses a proposal whose input is incomplete, without opening anything', async () => {
     const { lengthM: _dropped, ...partial } = BODY

@@ -4,7 +4,7 @@ import {
   type CalibrationPoint,
   type SetCalibrationRequest,
 } from '@/lib/drawing-calibrations/wire'
-import { isCalibrationProposal } from './calibration-operation'
+import { isCalibrationProposal } from '@/lib/drawing-calibrations/operation'
 
 export interface ProposedCalibration {
   documentId: string
@@ -22,17 +22,34 @@ export function proposedCalibrationOf(
   return { documentId: params.data.id, calibration: body.data }
 }
 
-const SPAN_PAD = 0.01
+export const CLIP_ASPECT = 3 / 2
+const SPAN_MARGIN = 0.18
+const MIN_CROP_PT = 72
 
-export function spanBox(
+export interface CropPt {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export function spanCrop(
+  page: { width: number; height: number },
   from: CalibrationPoint,
-  to: CalibrationPoint
-): [number, number, number, number] {
-  const pad = (low: number, high: number): [number, number] =>
-    high - low >= 2 * SPAN_PAD
-      ? [low, high]
-      : [Math.max(0, (low + high) / 2 - SPAN_PAD), Math.min(1, (low + high) / 2 + SPAN_PAD)]
-  const [x0, x1] = pad(Math.min(from.x, to.x), Math.max(from.x, to.x))
-  const [y0, y1] = pad(Math.min(from.y, to.y), Math.max(from.y, to.y))
-  return [x0, y0, x1, y1]
+  to: CalibrationPoint,
+  minWidthPt = MIN_CROP_PT
+): CropPt {
+  const across = Math.abs(to.x - from.x) * page.width * (1 + 2 * SPAN_MARGIN)
+  const down = Math.abs(to.y - from.y) * page.height * (1 + 2 * SPAN_MARGIN)
+  const wide = Math.max(across, down * CLIP_ASPECT, MIN_CROP_PT, minWidthPt)
+  const width = Math.min(wide, page.width)
+  const height = Math.min(wide / CLIP_ASPECT, page.height)
+  const place = (centre: number, size: number, total: number): number =>
+    Math.min(Math.max(0, centre - size / 2), total - size)
+  return {
+    x: place(((from.x + to.x) / 2) * page.width, width, page.width),
+    y: place(((from.y + to.y) / 2) * page.height, height, page.height),
+    width,
+    height,
+  }
 }

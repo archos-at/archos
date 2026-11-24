@@ -5,6 +5,11 @@ import { CalibrationSheet, captureSurface, clickAt, dragBox, recordingClient, SH
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
+async function enterLength() {
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'True length of the distance' }), { target: { value: '21' } })
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+}
+
 async function setting() {
   render(<CalibrationSheet client={recordingClient().client} />)
   await waitFor(() => expect(screen.getByTestId('scale-button')).toBeEnabled())
@@ -32,7 +37,24 @@ describe('the calibration page layer', () => {
     clickAt(0.75, 0.5)
     expect(screen.getByTestId('calibration-point-to')).toBeInTheDocument()
     expect(screen.getByTestId('calibration-span').querySelectorAll('line[stroke-dasharray]')).toHaveLength(0)
+    expect(captureSurface().className).toContain('touch-pan-y')
+    await enterLength()
     expect(captureSurface().className).toContain('touch-none')
+  })
+
+  it('lets a placed point be dragged by a hit area wider than its marker, ringed while it moves', async () => {
+    await setting()
+    clickAt(0.25, 0.5)
+    clickAt(0.75, 0.5)
+    const handle = screen.getByTestId('calibration-handle-to')
+    expect(handle.className).toContain('pointer-coarse:size-11')
+    vi.spyOn(screen.getByTestId('calibration-layer-1'), 'getBoundingClientRect').mockReturnValue(captureSurface().getBoundingClientRect())
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 3, clientX: 750, clientY: 350 })
+    expect(handle).toHaveAttribute('data-dragging', 'true')
+    fireEvent.pointerMove(handle, { pointerId: 3, clientX: 800, clientY: 350 })
+    fireEvent.pointerUp(handle, { pointerId: 3, clientX: 800, clientY: 350 })
+    expect(handle).not.toHaveAttribute('data-dragging')
+    expect(handle).toHaveStyle({ left: '80%', top: '50%' })
   })
 
   it('takes a press that travelled for a pan, and a second finger for a pinch', async () => {
@@ -49,10 +71,13 @@ describe('the calibration page layer', () => {
     expect(screen.queryByTestId('calibration-point-from')).toBeNull()
   })
 
-  it('draws the frame by dragging once both points are set, and a slip is no frame', async () => {
+  it('draws the frame by dragging once the points and the length are set, and a slip is no frame', async () => {
     await setting()
     clickAt(0.25, 0.5)
     clickAt(0.75, 0.5)
+    dragBox({ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.7 })
+    expect(screen.queryByTestId('calibration-draft-region')).toBeNull()
+    await enterLength()
     dragBox({ x: 0.2, y: 0.3 }, { x: 0.205, y: 0.305 })
     expect(screen.queryByTestId('calibration-draft-region')).toBeNull()
     dragBox({ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.7 })

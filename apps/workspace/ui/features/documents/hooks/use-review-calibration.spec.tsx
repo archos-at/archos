@@ -37,6 +37,29 @@ async function complete(hook: ReturnType<typeof mount>) {
 }
 
 describe('useReviewCalibration', () => {
+  it('steps back one step at a time, and leaves the setting only from the first', async () => {
+    const hook = mount(recordingClient().client)
+    await complete(hook)
+    const steps = [hook.result.current.step]
+    for (let i = 0; i < 5; i++) {
+      act(() => hook.result.current.back())
+      steps.push(hook.result.current.step)
+    }
+    expect(steps).toEqual(['review', 'region', 'length', 'secondPoint', 'firstPoint', null])
+    expect(hook.result.current.setting).toBe(false)
+  })
+
+  it('takes the whole page as the frame only when asked, and moves a placed point', async () => {
+    const hook = mount(recordingClient().client)
+    await complete(hook)
+    act(() => hook.result.current.back())
+    expect(hook.result.current.draft?.region).toBeNull()
+    act(() => hook.result.current.wholePage())
+    expect(hook.result.current.draft?.region).toEqual({ x: 0, y: 0, w: 1, h: 1 })
+    act(() => hook.result.current.movePoint('to', { x: 0.7, y: 0.5 }))
+    expect(hook.result.current.draft?.to).toEqual({ x: 0.7, y: 0.5 })
+  })
+
   it('asks for nothing until the measure tool is first in hand, then keeps the list', async () => {
     const { client, list } = recordingClient([calibrationView()])
     const hook = mount(client, { tool: 'select' })
@@ -62,16 +85,22 @@ describe('useReviewCalibration', () => {
     expect(hook.result.current.shown).toBe(false)
   })
 
-  it('labels the page by its largest scale, counts the others, and names a page without one', async () => {
+  it('labels the page by both its scales, counts three or more, and names a page without one', async () => {
     const big = calibrationView()
     const detail = calibrationView({ id: '55555555-5555-4555-8555-555555555555', region: { x: 0.2, y: 0.2, w: 0.2, h: 0.2 }, lengthM: 4.2 })
+    const third = calibrationView({ id: '77777777-7777-4777-8777-777777777777', region: { x: 0.5, y: 0.5, w: 0.2, h: 0.2 }, lengthM: 10.5 })
     const hook = mount(recordingClient([detail, big]).client)
     await waitFor(() => expect(hook.result.current.shown).toBe(true))
     expect(hook.result.current.labelFor(1)).toBe('2 scales')
     act(() => hook.result.current.reportPageSize(1, SHEET_SIZE))
     expect(hook.result.current.onPage(1)).toEqual([big, detail])
-    expect(hook.result.current.labelFor(1)).toBe('Scale 1:100 +1')
+    expect(hook.result.current.labelFor(1)).toBe('Scale 1:100 · 1:20')
     expect(hook.result.current.labelFor(2)).toBe('No scale')
+
+    const three = mount(recordingClient([big, detail, third]).client)
+    await waitFor(() => expect(three.result.current.shown).toBe(true))
+    act(() => three.result.current.reportPageSize(1, SHEET_SIZE))
+    expect(three.result.current.labelFor(1)).toBe('3 scales')
   })
 
   it('offers no setting to a reader who may not calibrate', async () => {
@@ -155,10 +184,12 @@ describe('useReviewCalibration', () => {
     expect(hook.result.current.calibrations).toEqual([kept])
   })
 
-  it('drops the draft and closes the popover when the measure tool is put down, or the popover closes', async () => {
+  it('keeps the draft when the popover closes, and drops it only on cancel or when the tool is put down', async () => {
     const hook = mount(recordingClient().client)
     await complete(hook)
     act(() => hook.result.current.setOpen(false))
+    expect(hook.result.current).toMatchObject({ setting: true, open: true, step: 'review', lengthM: 21 })
+    act(() => hook.result.current.cancel())
     expect(hook.result.current).toMatchObject({ setting: false, draft: null, lengthM: null })
 
     act(() => hook.result.current.beginSetting(1))

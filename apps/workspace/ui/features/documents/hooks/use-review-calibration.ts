@@ -4,9 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { calibrationClient, regionOverlap, type CalibrationClient } from '@/lib/drawing-calibrations/client'
+import {
+  calibrationClient,
+  regionOverlap,
+  type CalibrationClient,
+} from '@/lib/drawing-calibrations/client'
 import { calibrationRatio, type PageSizePt } from '@/lib/drawing-calibrations/display-ratio'
-import type { CalibrationPoint, CalibrationRegion, CalibrationView } from '@/lib/drawing-calibrations/wire'
+import type {
+  CalibrationPoint,
+  CalibrationRegion,
+  CalibrationView,
+} from '@/lib/drawing-calibrations/wire'
 import { reviewToast } from '../components/review/review-toaster'
 import {
   byAreaDescending,
@@ -14,24 +22,37 @@ import {
   pickPoint,
   proposalOf,
   requestOf,
+  stepBack,
+  stepOf,
+  WHOLE_PAGE,
+  withPoint,
   withRegion,
   type CalibrationDraft,
+  type DraftEnd,
 } from '../lib/calibration-draft'
 import { DECISION_UNDO_MS, type DocumentReview, type ReviewTool } from './use-document-review'
 
 export type CalibrationHost = Pick<DocumentReview, 'documentId' | 'load' | 'me'> & {
   tool: ReviewTool | 'measure'
-  annotations: ReadonlyArray<Pick<DocumentReview['annotations'][number], 'createdBy' | 'createdByName'>>
+  annotations: ReadonlyArray<
+    Pick<DocumentReview['annotations'][number], 'createdBy' | 'createdByName'>
+  >
 }
 
 export type SaveFailure = { kind: 'overlaps'; overlapping: string | null } | { kind: 'failed' }
 
 type Listed = { documentId: string; calibrations: CalibrationView[]; canCalibrate: boolean }
 
-const withEntry = (held: Listed | null, documentId: string, change: (list: CalibrationView[]) => CalibrationView[]) =>
-  held?.documentId === documentId ? { ...held, calibrations: change(held.calibrations) } : held
+const withEntry = (
+  held: Listed | null,
+  documentId: string,
+  change: (list: CalibrationView[]) => CalibrationView[]
+) => (held?.documentId === documentId ? { ...held, calibrations: change(held.calibrations) } : held)
 
-export function useReviewCalibration(host: CalibrationHost, options: { client?: CalibrationClient } = {}) {
+export function useReviewCalibration(
+  host: CalibrationHost,
+  options: { client?: CalibrationClient } = {}
+) {
   const { documentId, tool, me, annotations } = host
   const client = options.client ?? calibrationClient
   const t = useTranslations(filesCopy)
@@ -59,7 +80,11 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
     const ticket = ++reads.current.ticket
     const result = await client.list(documentId)
     if (reads.current.documentId !== documentId || reads.current.ticket !== ticket) return
-    setListed({ documentId, calibrations: result.calibrations, canCalibrate: result.canCalibrate && result.versionId !== null })
+    setListed({
+      documentId,
+      calibrations: result.calibrations,
+      canCalibrate: result.canCalibrate && result.versionId !== null,
+    })
   }, [client, documentId])
 
   useEffect(() => {
@@ -85,7 +110,9 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
 
   const reportPageSize = useCallback((page: number, size: PageSizePt) => {
     setPageSizes((sizes) =>
-      sizes[page]?.width === size.width && sizes[page]?.height === size.height ? sizes : { ...sizes, [page]: size }
+      sizes[page]?.width === size.width && sizes[page]?.height === size.height
+        ? sizes
+        : { ...sizes, [page]: size }
     )
   }, [])
 
@@ -102,13 +129,15 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
   )
   const labelFor = useCallback(
     (page: number) => {
-      const [first, ...others] = onPage(page)
-      if (!first) return t('review.measure.scale.button.none')
-      const ratio = ratioOf(first)
-      if (!ratio) return t('review.measure.scale.button.count', { count: others.length + 1 })
-      return others.length === 0
-        ? t('review.measure.scale.button.one', { ratio })
-        : t('review.measure.scale.button.more', { ratio, count: others.length })
+      const entries = onPage(page)
+      const ratios = entries.map(ratioOf)
+      const [first, second] = ratios
+      if (entries.length === 0) return t('review.measure.scale.button.none')
+      if (entries.length === 1 && first)
+        return t('review.measure.scale.button.one', { ratio: first })
+      if (entries.length === 2 && first && second)
+        return t('review.measure.scale.button.two', { ratio: first, other: second })
+      return t('review.measure.scale.button.count', { count: entries.length })
     },
     [onPage, ratioOf, t]
   )
@@ -127,16 +156,29 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
     },
     [canCalibrate]
   )
-  const setOpen = useCallback(
-    (next: boolean) => {
-      setOpenState(next)
-      if (!next) {
-        cancel()
-        hover(null)
-      }
-    },
-    [cancel]
-  )
+  const setOpen = useCallback((next: boolean) => {
+    setOpenState(next)
+    if (!next) hover(null)
+  }, [])
+  const back = useCallback(() => {
+    if (!draft) return
+    const previous = stepBack({ draft, lengthM })
+    setSaveFailure(null)
+    if (!previous) {
+      cancel()
+      return
+    }
+    setDraft(previous.draft)
+    setLength(previous.lengthM)
+  }, [draft, lengthM, cancel])
+  const movePoint = useCallback((end: DraftEnd, point: CalibrationPoint) => {
+    setSaveFailure(null)
+    setDraft((held) => (held ? withPoint(held, end, point) : held))
+  }, [])
+  const wholePage = useCallback(() => {
+    setSaveFailure(null)
+    setDraft((held) => (held ? withRegion(held, held.page, WHOLE_PAGE) : held))
+  }, [])
   const pick = useCallback((page: number, point: CalibrationPoint) => {
     setSaveFailure(null)
     setDraft((held) => (held ? pickPoint(held, page, point) : held))
@@ -145,12 +187,12 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
     setSaveFailure(null)
     setDraft((held) => (held ? withRegion(held, page, region) : held))
   }, [])
-  const resetPoints = useCallback(() => setDraft((held) => (held ? emptyDraft(held.page) : held)), [])
   const changeLength = useCallback((value: number | null) => {
     setSaveFailure(null)
     setLength(value)
   }, [])
 
+  const step = draft ? stepOf({ draft, lengthM }) : null
   const proposal = useMemo(
     () => proposalOf(draft, lengthM, draft ? (pageSizes[draft.page] ?? null) : null, calibrations),
     [draft, lengthM, pageSizes, calibrations]
@@ -172,14 +214,18 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
         ])
       )
       const ratio = ratioOf(made)
-      setSaid(ratio ? t('review.measure.scale.saved', { ratio }) : t('review.measure.scale.savedPlain'))
+      setSaid(
+        ratio ? t('review.measure.scale.saved', { ratio }) : t('review.measure.scale.savedPlain')
+      )
       setDraft(null)
       setLength(null)
       refresh().catch(() => undefined)
       return true
     } catch (error) {
       const overlap = regionOverlap(error)
-      setSaveFailure(overlap ? { kind: 'overlaps', overlapping: overlap.overlapping } : { kind: 'failed' })
+      setSaveFailure(
+        overlap ? { kind: 'overlaps', overlapping: overlap.overlapping } : { kind: 'failed' }
+      )
       if (overlap) refresh().catch(() => undefined)
       return false
     } finally {
@@ -192,7 +238,12 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
     async (entry: CalibrationView) => {
       try {
         const made = await client.set(entry.documentId, requestOf(entry))
-        setListed((held) => withEntry(held, entry.documentId, (list) => [...list.filter((one) => one.id !== made.id), made]))
+        setListed((held) =>
+          withEntry(held, entry.documentId, (list) => [
+            ...list.filter((one) => one.id !== made.id),
+            made,
+          ])
+        )
         refresh().catch(() => undefined)
       } catch {
         toast.error(t('review.measure.scale.restoreFailed'), reviewToast())
@@ -210,11 +261,15 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
         toast.error(t('review.measure.scale.removeFailed'), reviewToast())
         return false
       }
-      setListed((held) => withEntry(held, documentId, (list) => list.filter((one) => one.id !== entry.id)))
+      setListed((held) =>
+        withEntry(held, documentId, (list) => list.filter((one) => one.id !== entry.id))
+      )
       hover((held) => (held === entry.id ? null : held))
       refresh().catch(() => undefined)
       toast(
-        ratio ? t('review.measure.scale.removed', { ratio }) : t('review.measure.scale.removedPlain'),
+        ratio
+          ? t('review.measure.scale.removed', { ratio })
+          : t('review.measure.scale.removedPlain'),
         reviewToast({
           id: `calibration-removed-${entry.id}`,
           duration: DECISION_UNDO_MS,
@@ -241,9 +296,14 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
       onPage,
       ratioOf,
       labelFor,
-      open: shown && open,
+      measuring,
+      open: shown && (open || setting),
       setOpen,
       setting,
+      step: setting ? step : null,
+      back,
+      movePoint,
+      wholePage,
       draft: setting ? draft : null,
       lengthM,
       setLength: changeLength,
@@ -252,7 +312,6 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
       cancel,
       pick,
       drawRegion,
-      resetPoints,
       save,
       saving,
       saveFailure,
@@ -266,7 +325,42 @@ export function useReviewCalibration(host: CalibrationHost, options: { client?: 
       nameOf,
       said,
     }),
-    [shown, loading, canCalibrate, calibrations, onPage, ratioOf, labelFor, open, setOpen, setting, draft, lengthM, changeLength, proposal, beginSetting, cancel, pick, drawRegion, resetPoints, save, saving, saveFailure, withdraw, restore, hoveredId, pageSizes, reportPageSize, me, nameOf, said]
+    [
+      shown,
+      loading,
+      canCalibrate,
+      calibrations,
+      onPage,
+      ratioOf,
+      labelFor,
+      measuring,
+      open,
+      setOpen,
+      setting,
+      step,
+      back,
+      movePoint,
+      wholePage,
+      draft,
+      lengthM,
+      changeLength,
+      proposal,
+      beginSetting,
+      cancel,
+      pick,
+      drawRegion,
+      save,
+      saving,
+      saveFailure,
+      withdraw,
+      restore,
+      hoveredId,
+      pageSizes,
+      reportPageSize,
+      me,
+      nameOf,
+      said,
+    ]
   )
 }
 

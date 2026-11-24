@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   CALIBRATION_LIFECYCLE,
   inRegion,
-  listCalibrationsQuerySchema,
   regionRelation,
   setCalibrationRequestSchema,
 } from './wire'
+import { listCalibrationsQuerySchema } from './list-wire'
 
 const VALID = {
   page: 1,

@@ -26,7 +26,8 @@ import {
 import { projectProtocolQuerySchema } from '@/lib/annotations/project-types'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { listCalibrationsQuerySchema, setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
+import { listCalibrationsQuerySchema } from '@/lib/drawing-calibrations/list-wire'
+import { setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 
 const documentParams = z.object({
