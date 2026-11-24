@@ -6,7 +6,7 @@ features:
     whether Meine Ablage or your personal memory was in play.
   - >
     If you join a chat later and may not open every source it used, you now see
-    it up to the first answer that rests on such a source, instead of nothing.
+    it up to the question that led to such a source, instead of nothing.
 operators:
   - >
     The messages list carries withheldFrom for a reader who joined later. The
