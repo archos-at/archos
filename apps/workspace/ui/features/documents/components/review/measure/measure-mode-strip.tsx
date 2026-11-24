@@ -18,10 +18,12 @@ import { TAPE_MODES, type SheetTape, type TapeMode } from '../../../hooks/use-sh
 export const MODE_KEYS: Record<TapeMode, string> = { distance: 'D', path: 'W', area: 'F' }
 
 export function MeasureModeStrip({
+  unscaled = false,
   tape,
   scale,
   onExit,
 }: {
+  unscaled?: boolean
   tape: SheetTape
   scale: ReactNode
   onExit: () => void
@@ -40,6 +42,7 @@ export function MeasureModeStrip({
         segmented
         size="sm"
         value={tape.mode}
+        disabled={unscaled}
         aria-label={t('review.measure.modesLabel')}
         onValueChange={(value) => {
           if ((TAPE_MODES as readonly string[]).includes(value)) tape.setMode(value as TapeMode)
@@ -65,16 +68,22 @@ export function MeasureModeStrip({
           </Tooltip>
         ))}
       </ToggleGroup>
-      <ToolbarIconButton
-        aria-label={t('review.measure.undoPoint')}
-        title={t('review.measure.undoPoint')}
-        aria-keyshortcuts="Backspace"
-        data-testid="measure-undo-point"
-        disabled={!undoable || tape.phase === 'measuring'}
-        onClick={tape.undo}
-      >
-        <Undo2 aria-hidden />
-      </ToolbarIconButton>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ToolbarIconButton
+            aria-label={t('review.measure.undoPoint')}
+            aria-keyshortcuts="Backspace"
+            data-testid="measure-undo-point"
+            disabled={!undoable || tape.phase === 'measuring'}
+            onClick={tape.undo}
+          >
+            <Undo2 aria-hidden />
+          </ToolbarIconButton>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {t('review.measure.undoPoint')} <Kbd className="ml-1">⌫</Kbd>
+        </TooltipContent>
+      </Tooltip>
       {tape.mode !== 'distance' && (
         <ToolbarTextButton
           disabled={!tape.canFinish}
@@ -89,14 +98,16 @@ export function MeasureModeStrip({
       <ToolbarDivider />
       {scale}
       <ToolbarDivider />
-      <ToolbarIconButton
-        aria-label={t('review.measure.exit')}
-        title={t('review.measure.exit')}
-        data-testid="measure-exit"
-        onClick={onExit}
-      >
-        <X aria-hidden />
-      </ToolbarIconButton>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ToolbarIconButton aria-label={t('review.measure.exit')} data-testid="measure-exit" onClick={onExit}>
+            <X aria-hidden />
+          </ToolbarIconButton>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {t('review.measure.exit')} <Kbd className="ml-1">M</Kbd>
+        </TooltipContent>
+      </Tooltip>
     </FloatingToolbar>
   )
 }

@@ -1627,6 +1627,7 @@ export const files: typeof en.files = {
         },
         zoom: 'Zum genauen Messen mit zwei Fingern hineinzoomen',
       },
+      closeArea: 'Fläche schließen',
       snapped: { vertex: 'Ecke', edge: 'auf Linie' },
       noScale:
         'Für diese Seite ist kein Maßstab bekannt. Legen Sie zuerst den Maßstab fest, dann können Sie messen.',
@@ -1662,7 +1663,7 @@ export const files: typeof en.files = {
       },
       measuring: 'Wird gemessen …',
       failed: 'Das hat nicht geklappt. Bitte noch einmal versuchen.',
-      notePlaceholder: 'Notiz zur Messung (optional)',
+      notePlaceholder: 'Name auf dem Blatt (optional), z. B. Flurbreite',
       keep: 'Behalten',
       discard: 'Verwerfen',
       kept: 'Anmerkung {number}, Messung: {value}',

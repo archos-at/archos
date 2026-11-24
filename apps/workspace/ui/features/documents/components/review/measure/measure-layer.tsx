@@ -46,11 +46,13 @@ function KeptMeasure({
   size,
   selected,
   onSelect,
+  passThrough,
 }: {
   annotation: AnnotationView
   size: PageSize
   selected: boolean
   onSelect: () => void
+  passThrough: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -98,7 +100,8 @@ function KeptMeasure({
           className={cn(
             MEASURE_LABEL_AT_CLASS,
             measureLabelClass('paper'),
-            'focus-visible:ring-ring/60 pointer-events-auto z-30 outline-none focus-visible:ring-2',
+            'focus-visible:ring-ring/60 z-30 outline-none focus-visible:ring-2',
+            passThrough ? 'pointer-events-none' : 'pointer-events-auto',
             selected && 'bg-paper-ink text-paper-ink-foreground'
           )}
           style={{ left: x, top: y }}
@@ -149,6 +152,13 @@ export function MeasureLayer({
       : null
 
   const unscaled = tape.unscaled(page)
+  const [first] = tape.points
+  const closing =
+    hover !== null &&
+    placing &&
+    tape.mode === 'area' &&
+    tape.points.length >= 3 &&
+    Math.hypot((hover.at[0] - first[0]) * size.width, (hover.at[1] - first[1]) * size.height) <= 10
   const onMove = (event: ReactPointerEvent<HTMLDivElement>) =>
     tape.pointer(page, share(event.currentTarget, event), size)
   return (
@@ -180,6 +190,7 @@ export function MeasureLayer({
           size={size}
           selected={annotation.id === selectedId}
           onSelect={() => select(annotation.id === selectedId ? null : annotation.id)}
+          passThrough={active && !blocked}
         />
       ))}
       {(here || hover) && (
@@ -209,7 +220,7 @@ export function MeasureLayer({
           )}
         </svg>
       )}
-      {hover && placing && hover.kind !== 'free' && (
+      {hover && placing && (closing || hover.kind !== 'free') && (
         <span
           aria-hidden
           data-testid="measure-snap-tag"
@@ -219,7 +230,7 @@ export function MeasureLayer({
           )}
           style={{ left: hover.at[0] * size.width + 10, top: hover.at[1] * size.height - 8 }}
         >
-          {t(`review.measure.snapped.${hover.kind}`)}
+          {closing ? t('review.measure.closeArea') : t(`review.measure.snapped.${hover.kind === 'free' ? 'vertex' : hover.kind}`)}
         </span>
       )}
       {(engineValue || provisional) && shown.length >= 2 && (

@@ -351,6 +351,17 @@ describe('the measure layer', () => {
     expect(review.select).toHaveBeenCalledWith('ann_m')
   })
 
+  it('lets a click on a kept label through to the drawing while measuring', () => {
+    layer(tapeWith({ active: true }))
+    expect(screen.getByTestId('measure-kept-ann_m')).toHaveClass('pointer-events-none')
+  })
+
+  it('says the area closes when the pointer is back on the first corner', () => {
+    const points: [number, number][] = [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]
+    layer(tapeWith({ active: true, mode: 'area', page: 1, points, hover: { page: 1, at: [0.1, 0.1], kind: 'vertex' } }))
+    expect(screen.getByTestId('measure-snap-tag')).toHaveTextContent('Fläche schließen')
+  })
+
   it('unselects a selected kept measure on a second click', async () => {
     const { review } = layer(tapeWith({ active: false }), { selectedId: 'ann_m' })
     expect(screen.getByTestId('measure-kept-ann_m')).toHaveAttribute('aria-pressed', 'true')
@@ -461,7 +472,7 @@ describe('the reading', () => {
 describe('the measurement draft', () => {
   const body = (onKeep = vi.fn(async () => undefined), onDiscard = vi.fn()) => {
     render(<MeasureDraftBody reading={READING} onKeep={onKeep} onDiscard={onDiscard} />)
-    return { onKeep, onDiscard, note: screen.getByPlaceholderText('Notiz zur Messung (optional)') }
+    return { onKeep, onDiscard, note: screen.getByPlaceholderText('Name auf dem Blatt (optional), z. B. Flurbreite') }
   }
 
   it('keeps with the trimmed note on Behalten', async () => {

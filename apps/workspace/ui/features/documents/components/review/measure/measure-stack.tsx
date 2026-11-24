@@ -57,6 +57,7 @@ export function MeasureStack({
   return (
     <>
       <MeasureModeStrip
+        unscaled={tape.unscaled(shownPage)}
         tape={tape}
         onExit={() => review.setTool('select')}
         scale={scale ?? <ScaleControl calibration={{ labelFor }} page={shownPage} />}
