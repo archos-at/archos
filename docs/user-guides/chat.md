@@ -22,7 +22,10 @@ project, and it does not read any project's files (ADR-0193).
 **„Letzte Chats“** lists the side you are on: under Persönlich your chats
 without a project, under Projekt that project's chats: at most eight, newest
 first and always with the chat you have open, with a people mark when you share
-one. When the side has more, **„Alle Chats“** ends the list and opens that
+one. A new chat appears at the top the moment you send its first message,
+titled by that message's first line in a lighter grey until ARCHOS names it;
+the name then takes its place in the same row. While the list loads, grey
+placeholder rows stand in. When the side has more, **„Alle Chats“** ends the list and opens that
 side's history. Switching between Persönlich and Projekt moves the rail at once;
 the page follows when it has loaded. The chat you had open stays on its side:
 the other side reopens the chat you last had open there (a new one if there

@@ -632,6 +632,10 @@
     "de": "Eine fehlende Chat-Berechtigung nennt jetzt Piloti statt eines internen Rechercheschritts. Der letzte Schritt der Herleitung zeigt, wie weit das Lesen gekommen ist, nicht eine Bewertung der Antwort."
   },
   {
+    "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
+    "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
+  },
+  {
     "en": "A new chat now opens with the greeting and the input box together in the middle of the screen, instead of the greeting floating high and the input pinned to the bottom edge. As soon as you ask something, the input returns to the bottom and the answer gets the full height.",
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
@@ -4020,6 +4024,10 @@
     "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
   },
   {
+    "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+    "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+  },
+  {
     "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
     "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
   },
@@ -5858,6 +5866,10 @@
   {
     "en": "While research runs, its block shows the evidence gathered so far in each round. Jetzt schreiben ends the research after the current round and writes the report from what has been found.",
     "de": "Während die Recherche läuft, zeigt ihr Block je Runde die bisher gesammelten Belege. „Jetzt schreiben“ beendet die Recherche nach der laufenden Runde und schreibt den Bericht aus dem, was bisher gefunden wurde."
+  },
+  {
+    "en": "While the sidebar loads your recent chats, grey placeholder rows stand in for them, and the rows are a little taller and easier to read. The list no longer appears late or out of nowhere.",
+    "de": "Während die Seitenleiste Ihre letzten Chats lädt, erscheinen graue Platzhalterzeilen, die etwas höher und besser lesbar sind. Die Liste erscheint nicht mehr verspätet oder plötzlich."
   },
   {
     "en": "Whoever commissioned a report can now release it. Piloti files a report under the name of the person who asked for it, and that person was treated as its author and so could not release it.",

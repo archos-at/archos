@@ -9,6 +9,7 @@ export function RailActivePill({ pillId, at }: { pillId: string; at: string }): 
     <motion.span
       layoutId={pillId}
       layoutDependency={at}
+      data-pill-id={pillId}
       data-slot="rail-active-pill"
       aria-hidden
       className="bg-sheet absolute inset-0 rounded-control shadow-xs"

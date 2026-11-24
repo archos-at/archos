@@ -4,9 +4,7 @@ export function conversationMatchesProject(
   conversation: { projectId?: string | null },
   activeProjectId: string | null | undefined,
 ): boolean {
-  if (!activeProjectId) return true
-  if (!conversation.projectId) return true
-  return conversation.projectId === activeProjectId
+  return (conversation.projectId ?? null) === (activeProjectId ?? null)
 }
 
 export function isJobConversation(conversation: { jobId?: string | null }): boolean {

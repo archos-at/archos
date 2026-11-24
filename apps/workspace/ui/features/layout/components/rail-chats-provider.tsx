@@ -81,12 +81,24 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
 
+  const [loadingSides, setLoadingSides] = useState<ReadonlySet<string>>(() => new Set())
   const loadSide = useCallback(
     (sideProjectId: string | null): void => {
-      void (sideProjectId ? loadServerConversations(sideProjectId, 'project') : loadServerConversations(undefined, 'personal'))
+      const key = sideProjectId ? serverSideKey('project', sideProjectId) : serverSideKey('personal')
+      setLoadingSides((was) => (was.has(key) ? was : new Set(was).add(key)))
+      const settled = (): void =>
+        setLoadingSides((was) => {
+          if (!was.has(key)) return was
+          const next = new Set(was)
+          next.delete(key)
+          return next
+        })
+      const load = sideProjectId ? loadServerConversations(sideProjectId, 'project') : loadServerConversations(undefined, 'personal')
+      void Promise.resolve(load).then(settled, settled)
     },
     [loadServerConversations]
   )
+  const loading = mode !== null && listing === undefined && loadingSides.has(serverSideKey(mode, side))
   const onWarmOtherSide = useCallback((): void => {
     if (mode === 'project') loadSide(null)
     const recent = mode === 'personal' ? readRecentProjectIds()[0] : undefined
@@ -110,7 +122,8 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
     return {
       items: newestWithCurrent(rows, RAIL_CHAT_LIMIT, (row) => onChatPath(row.projectId) && row.id === openId).map((row) => ({
         id: row.id,
-        title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || t('sessionsPanel.untitledSession'),
+        title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || (row.titleProvisional ? '' : t('sessionsPanel.untitledSession')),
+        provisional: !row.contentLocked && row.titleProvisional,
         href: `${chatPathOf(row.projectId)}?session=${encodeURIComponent(row.id)}`,
         current: onChatPath(row.projectId) && row.id === openId,
         temporary: row.temporary,
@@ -127,8 +140,9 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
       onDelete: setDeleting,
       onWarmOtherSide,
       more: rows.length > RAIL_CHAT_LIMIT,
+      loading,
     }
-  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, onWarmOtherSide, t, tCollab])
+  }, [mode, rows, loading, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, onWarmOtherSide, t, tCollab])
 
   const confirmDelete = async (): Promise<void> => {
     if (!deleting) return
