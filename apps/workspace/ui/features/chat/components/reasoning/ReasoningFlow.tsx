@@ -16,7 +16,7 @@ import {
 import { deriveTraceLanes } from '../../lib/trace-lanes'
 import { buildCitationModel } from '../../lib/citations'
 import { retrievalRounds } from '../../lib/retrieval-rounds'
-import { FALLBACK_W, measuredFanWidth, planFan } from './flow/flow-layout'
+import { FALLBACK_W, measuredFanWidth, planFan, sheetRoom } from './flow/flow-layout'
 import { defaultFoldedRounds, SpineFolding, GraphInteraction } from './flow/round-kind'
 import { buildGraph } from './flow/build-graph'
 import { FlowInner } from './flow/flow-inner'
@@ -52,7 +52,7 @@ export const ReasoningFlow: FC<ReasoningFlowProps> = (props) => {
     () => sourceCards ?? buildCitationModel({ traceLanes: deriveTraceLanes(steps), citations }),
     [sourceCards, steps, citations]
   )
-  const layout = useMemo(() => planFan(width || FALLBACK_W, cards.length), [width, cards.length])
+  const layout = useMemo(() => planFan(sheetRoom(width || FALLBACK_W), cards.length), [width, cards.length])
 
   const [foldOverrides, setFoldOverrides] = useState<ReadonlyMap<number, boolean>>(new Map())
   const rounds = useMemo(() => withActionRounds(retrievalRounds(steps), steps), [steps])
