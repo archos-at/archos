@@ -99,6 +99,14 @@
           "section": "fixes",
           "area": "answers",
           "text": {
+            "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+            "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
             "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
           }

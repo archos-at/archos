@@ -128,6 +128,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+    "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
+  },
+  {
     "en": "A chat question no longer waits up to twenty seconds while a colleague's upload to the project or the office filing is still being read; only a file you attached to the conversation itself holds the answer.",
     "de": "Eine Chatfrage wartet nicht mehr bis zu 20 Sekunden, während der Upload eines Kollegen ins Projekt oder in die Büroablage noch eingelesen wird; für die Antwort wird nur eine Datei herangezogen, die Sie direkt an die Unterhaltung angehängt haben."
   },
