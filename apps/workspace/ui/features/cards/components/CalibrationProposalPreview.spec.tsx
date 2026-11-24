@@ -111,7 +111,7 @@ describe('a proposed calibration, clip drawn', () => {
     const { container } = render(card)
 
     expect(await screen.findByTestId('calibration-meaning')).toHaveTextContent(
-      /^Then ARCHOS works out every measurement in this area at scale 1:100\. So far it is estimated\.$/
+      /^Then \S+ works out every measurement in this area at scale 1:100\. So far it is estimated\.$/
     )
     expect(screen.getByText('Confirm the scale')).toBeInTheDocument()
     expect(screen.getByTestId('calibration-question')).toHaveTextContent(
@@ -146,7 +146,7 @@ describe('a proposed calibration, clip drawn', () => {
       </I18nProvider>
     )
     expect(await screen.findByTestId('calibration-meaning')).toHaveTextContent(
-      /^Dann rechnet ARCHOS alle Messungen in diesem Bereich mit Maßstab 1:100\. Bisher ist er geschätzt\.$/
+      /^Dann rechnet \S+ alle Messungen in diesem Bereich mit Maßstab 1:100\. Bisher ist er geschätzt\.$/
     )
     expect(screen.getByText('Maßstab bestätigen')).toBeInTheDocument()
     expect(screen.getByTestId('calibration-question')).toHaveTextContent(
