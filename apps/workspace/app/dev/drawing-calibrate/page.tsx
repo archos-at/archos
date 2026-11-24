@@ -23,6 +23,7 @@ import {
   CROSSING_REGION,
   DETAIL_SCALE,
   DOCUMENT_ID,
+  DOCUMENT_SCALE,
   fixtureClient,
   LAYOUT_REGION,
   LAYOUT_SCALE,
@@ -88,6 +89,7 @@ interface Draft {
   region: CalibrationRegion
   lengthM: number
   stopAt?: 'length' | 'region'
+  everyPage?: boolean
 }
 
 const SETTING: Draft = { from: SPAN_FROM, to: SPAN_TO, region: LAYOUT_REGION, lengthM: 21 }
@@ -116,7 +118,7 @@ const Scenario: FC<{
     },
     { client }
   )
-  const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, setLength } = calibration
+  const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, wholeDocument, setLength } = calibration
   const docksOnTouch = useCoarsePointer() && draft !== undefined
   const seeded = useRef(false)
   useEffect(() => {
@@ -130,8 +132,9 @@ const Scenario: FC<{
     if (draft.stopAt === 'length') return
     setLength(draft.lengthM)
     if (draft.stopAt === 'region') return
-    drawRegion(1, draft.region)
-  }, [shown, pageSizes, open, draft, docksOnTouch, setOpen, beginSetting, pick, drawRegion, setLength])
+    if (draft.everyPage) wholeDocument()
+    else drawRegion(1, draft.region)
+  }, [shown, pageSizes, open, draft, docksOnTouch, setOpen, beginSetting, pick, drawRegion, wholeDocument, setLength])
 
   return (
     <div className="bg-desk rounded-surface relative p-4 pt-16" style={{ width }}>
@@ -201,7 +204,7 @@ const SCENARIOS: readonly {
   {
     id: 'step-region',
     title: 'Schritt 3: der Rahmen',
-    note: 'Rahmen ziehen, oder ausdrücklich „Ganze Seite“. Zurück und Esc gehen einen Schritt zurück.',
+    note: 'Rahmen ziehen, oder ausdrücklich „Ganze Seite“ oder „Alle Seiten“. Zurück und Esc gehen einen Schritt zurück.',
     saved: [],
     draft: { ...SETTING, stopAt: 'region' },
   },
@@ -211,6 +214,20 @@ const SCENARIOS: readonly {
     note: 'Punkte, Länge, Rahmen: 1:100 steht da, bevor gespeichert wird.',
     saved: [],
     draft: SETTING,
+  },
+  {
+    id: 'every-page',
+    title: 'Maßstab für alle Seiten prüfen',
+    note: 'Wie der Rahmen, nur „Gilt für: alle Seiten“. Er gilt für jede Seite, die keinen eigenen Maßstab hat.',
+    saved: [],
+    draft: { ...SETTING, everyPage: true },
+  },
+  {
+    id: 'every-page-saved',
+    title: 'Maßstab für alle Seiten, mit Detail',
+    note: 'Seite 1 hat 1:20 im Detail, sonst gilt der Maßstab für alle Seiten. Die Zeile „alle Seiten“ steht auf jeder Seite.',
+    saved: [DOCUMENT_SCALE, DETAIL_SCALE],
+    open: true,
   },
   {
     id: 'overlap',

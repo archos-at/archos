@@ -514,7 +514,13 @@ export function DocumentReviewMode({
                   review={review}
                   page={viewPage ?? 1}
                   touch={touch}
-                  scale={<ScaleControl calibration={calibration} page={viewPage ?? 1} />}
+                  scale={<ScaleControl
+                      calibration={calibration}
+                      page={viewPage ?? 1}
+                      estimatedRatio={
+                        review.tape.scaleOf(viewPage ?? 1)?.find((entry) => entry.ratio !== null)?.ratio ?? null
+                      }
+                    />}
                   onSetScale={calibration.beginSetting}
                   settingScale={calibration.setting}
                 />

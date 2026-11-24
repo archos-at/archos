@@ -1648,6 +1648,7 @@ export const files = {
       scale: {
         button: {
           none: 'No scale',
+          estimated: 'Scale {ratio}, estimated',
           one: 'Scale {ratio}',
           two: 'Scale {ratio} · {other}',
           count: '{count, plural, one {# scale} other {# scales}}',
@@ -1660,6 +1661,7 @@ export const files = {
         you: 'You',
         where: {
           page: 'whole page',
+          document: 'all pages',
           topLeft: 'frame top left',
           top: 'frame at the top',
           topRight: 'frame top right',
@@ -1700,6 +1702,7 @@ export const files = {
           cancel: 'Cancel',
           next: 'Next',
           wholePage: 'Whole page',
+          wholeDocument: 'All pages',
           gives: 'gives {ratio}',
         },
         form: {
@@ -1707,7 +1710,7 @@ export const files = {
           lengthLabel: 'True length of the distance',
           unit: 'm',
           lengthInvalid: 'Enter a length above 0',
-          region: 'Holds within the frame',
+          region: 'Holds for',
           regionMisses: 'Misses a point',
           replaces: 'Replaces scale {ratio}',
           ratio: 'Scale',
@@ -1728,13 +1731,13 @@ export const files = {
           firstPoint: 'Click the start of a distance you know',
           secondPoint: 'Click the end of the distance',
           length: 'How long is the distance in reality?',
-          region: 'Drag a frame around the drawing the scale holds for',
+          region: 'Where does the scale hold? Drag a frame.',
         },
         nextTouch: {
           firstPoint: 'Tap the start of a distance you know',
           secondPoint: 'Tap the end of the distance',
           length: 'How long is the distance in reality?',
-          region: 'Drag a frame around the drawing the scale holds for',
+          region: 'Where does the scale hold? Drag a frame.',
         },
       },
     },

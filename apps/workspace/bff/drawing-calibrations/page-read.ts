@@ -8,6 +8,12 @@ import { MAX_PAGE_CALIBRATIONS, type PageCalibration } from './wire'
 
 export const toPageCalibration = (row: DrawingCalibrationRow): PageCalibration => ({
   id: row.id,
+  scope: row.scope,
+  page: row.page,
+  referenceSize:
+    row.referenceWidthPt !== null && row.referenceHeightPt !== null
+      ? { widthPt: row.referenceWidthPt, heightPt: row.referenceHeightPt }
+      : null,
   region: { x: row.regionX, y: row.regionY, w: row.regionW, h: row.regionH },
   from: { x: row.pointAX, y: row.pointAY },
   to: { x: row.pointBX, y: row.pointBY },

@@ -32,7 +32,7 @@ describe('activeCalibrationsOfPage', () => {
   it('hands the tool the active calibrations of the page, bounded, as an internal read', async () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
     vi.mocked(listDrawingCalibrations).mockResolvedValue([ROW])
-    expect(await activeCalibrationsOfPage('org_1', TARGET)).toEqual([
+    expect(await activeCalibrationsOfPage('org_1', TARGET)).toMatchObject([
       { id: 'cal_1', region: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 }, from: { x: 0.15, y: 0.25 }, to: { x: 0.35, y: 0.25 }, lengthM: 4 },
     ])
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('drawing-measure', 'org_1')

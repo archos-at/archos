@@ -33,6 +33,23 @@ async function walkTo(frame: { from: { x: number; y: number }; to: { x: number; 
 
 const FRAME = { from: { x: 0.2, y: 0.3 }, to: { x: 0.8, y: 0.7 } }
 
+describe('the strip button where the sheet carries an estimated scale', () => {
+  it('names the estimate instead of „No scale“, until a scale is set', async () => {
+    const { client } = recordingClient()
+    render(<CalibrationSheet client={client} estimatedRatio={100} />)
+    expect(await screen.findByRole('button', { name: 'Scale 1:100, estimated' })).toBeInTheDocument()
+  })
+
+  it('shows a scale for every page on a page that has none of its own', async () => {
+    const everyPage = calibrationView({ page: 4, scope: 'document', region: { x: 0, y: 0, w: 1, h: 1 }, referenceSize: { widthPt: 1190.55, heightPt: 841.89 } })
+    const { client } = recordingClient([everyPage])
+    render(<CalibrationSheet client={client} estimatedRatio={50} />)
+    expect(await screen.findByRole('button', { name: /^Scale 1:/ })).toBeInTheDocument()
+    await openPopover()
+    expect(within(screen.getByTestId('calibration-list')).getByText(/all pages/)).toBeInTheDocument()
+  })
+})
+
 describe('the scale control of the measure mode', () => {
   it('states the page’s scale on the strip, and „No scale“ where it has none', async () => {
     const { client } = recordingClient()
