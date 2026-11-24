@@ -10,6 +10,12 @@ function projectAssumptionText(project: Pick<Project, 'profile'>, key: string): 
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+export function projectCity(project: Pick<Project, 'profile'>): string | null {
+  const address = projectSiteAddress(project)
+  const place = address?.split(',').at(-1)?.replace(/^\s*(?:[A-Z]{1,2}-)?\d{4,5}\s+/, '').trim()
+  return place || null
+}
+
 export function projectSiteAddress(project: Pick<Project, 'profile'>): string | null {
   return (
     projectFactText(project, 'site_address') ??

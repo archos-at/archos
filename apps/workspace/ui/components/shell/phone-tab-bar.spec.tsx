@@ -54,7 +54,7 @@ describe('PhoneTabBar — inside a project', () => {
     expect(links.map((link) => link.textContent)).toEqual([
       'Chat',
       'Documents',
-      'Overview',
+      'Settings',
       expect.stringContaining('Inbox'),
     ])
     expect(within(bar()).getByRole('link', { name: 'Documents' })).toHaveAttribute(

@@ -4,14 +4,14 @@ export const errors = {
     title: "We couldn't find that",
     description:
       "The page or project you're looking for doesn't exist, or you no longer have access to it.",
-    action: 'Back to projects',
+    action: 'Back to start',
   },
   appError: {
     code: 'Error',
     title: 'Something went wrong',
-    description: 'An unexpected error occurred. You can try again, or head back to your projects.',
+    description: 'An unexpected error occurred. You can try again, or go back to the start.',
     action: 'Try again',
-    backAction: 'Back to projects',
+    backAction: 'Back to start',
     report: 'Report the error',
     reference: 'Reference: {reference}',
     reportSubject: 'Error in {productName}',

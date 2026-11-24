@@ -26,7 +26,7 @@ async function resolveChatTarget(conversationId: string): Promise<string | null>
 const ChatRedirectPage = async ({ searchParams }: ChatRedirectPageProps): Promise<ReactNode> => {
   const { session } = await searchParams
   const target = session ? await resolveChatTarget(session) : null
-  redirect(target ?? '/app/projects')
+  redirect(target ?? '/app')
 }
 
 export default ChatRedirectPage

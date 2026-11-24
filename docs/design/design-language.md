@@ -589,7 +589,7 @@ a rule and not a filing convention.
 |---|---|---|
 | Atom | `components/ui/` for the product-wide kit; a local `*-atoms.tsx` or a `viewer/`-style kit folder for a surface's own | One decision each: a shape, a control, a piece of material. Knows no domain |
 | Molecule | `components/ui/`, `components/<area>/` | A few atoms with one job. `SearchField`, `PageHeader`, `RaisedCard`, `LoadError` |
-| Organism | `components/<area>/`, `features/<domain>/components/` | A meaningful chunk of a screen. `ProjectCard`, the viewer rail, the model stage |
+| Organism | `components/<area>/`, `features/<domain>/components/` | A meaningful chunk of a screen. The project overview's card, the viewer rail, the model stage |
 | Route | `app/**` | Composition and data, not markup |
 
 Three rules carry the weight:
@@ -714,11 +714,11 @@ the preview rail is the reference (`docs/ux/file-upload-and-explorer.md`, „The
 preview pane"). A disclosure inside a group is a row with a trailing chevron,
 never a fourth eyebrow.
 
-**Project card** — "a project, listed" has ONE component: `ProjectCard`
-(`components/projects/project-card.tsx`). Rails, grids, pickers and any future
-project surface render that card; a surface that genuinely needs another
-arrangement (the dense projects-home row) is composed from
-`components/projects/project-atoms.tsx`, the same material the card is made of.
+**Project card** — "a project, listed" has ONE component: the project
+overview's card (`ProjectOverview` in `components/projects/project-overview.tsx`).
+Any future project surface that lists projects as cards renders that card; a
+surface that genuinely needs another arrangement (the picker's row) is composed
+from `components/projects/project-atoms.tsx`, the same material the card is made of.
 Never hand-roll a lookalike — two of them drift on the first token retune. The
 inventory, the honesty constraints on status and timestamps, and the decision
 procedure are in **`docs/design/project-surfaces.md`**.

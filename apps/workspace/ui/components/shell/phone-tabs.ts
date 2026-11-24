@@ -55,7 +55,7 @@ function projectTab(
     key,
     href: sectionLinkHref(section, base),
     icon: section.icon,
-    label: section.label ?? { namespace: 'nav', key: `sections.${section.i18nKey}` },
+    label: section.label ?? { namespace: 'nav', key: key === 'settings' ? 'sections.settingsShort' : `sections.${section.i18nKey}` },
     active,
     tourAnchor: sectionAnchor(key),
   }

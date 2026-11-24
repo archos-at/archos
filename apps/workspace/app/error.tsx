@@ -1,5 +1,6 @@
 'use client'
 
+import { FIRST_PLACE } from '@/components/shell/landing'
 import { useEffect } from 'react'
 import Link from 'next/link'
 
@@ -51,7 +52,7 @@ export default function RouteError({
           ) : (
             <>
               <Button asChild>
-                <Link href="/app/projects">{t('appError.backAction')}</Link>
+                <Link href={FIRST_PLACE}>{t('appError.backAction')}</Link>
               </Button>
               <Button variant="ghost" asChild>
                 <a href={errorReportHref(t, address, error.digest)}>{t('appError.report')}</a>
