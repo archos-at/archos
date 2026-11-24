@@ -4,6 +4,8 @@ import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS, PAGE_SHEET_WINDOW_CLA
 
 export const PAGE_SHEET_SKELETON_SLOT = 'page-sheet-skeleton'
 
+export const WINDOW_SKELETON_CARDS = 9
+
 export function PageSheetSkeleton({
   loadingLabel,
   size = 'page',
@@ -24,8 +26,8 @@ export function PageSheetSkeleton({
           <div className="flex flex-col gap-5 p-6" aria-hidden>
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-9 w-full rounded-control" />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[0, 1, 2].map((key) => (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-slot="page-sheet-skeleton-cards">
+              {Array.from({ length: WINDOW_SKELETON_CARDS }, (_, key) => (
                 <Skeleton key={key} className="h-[92px] w-full rounded-[10px]" />
               ))}
             </div>
