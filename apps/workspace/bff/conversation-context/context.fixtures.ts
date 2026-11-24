@@ -36,5 +36,7 @@ export function scopeWith(shelves: ScopedCollection[], projectId: string | null)
     projectCollectionName: null,
     shelves,
     restrictedCollections: [],
+    verifiedConversationId: null,
+    projectReadOnly: false,
   }
 }

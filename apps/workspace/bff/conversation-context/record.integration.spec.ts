@@ -81,4 +81,15 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () =>
     })
     expect(await inOrg(OTHER_ORG, () => db.select().from(schema.answerContexts).where(eq(schema.answerContexts.messageId, answer)))).toEqual([])
   })
+
+  it('writes the record of a headless turn in its conversation, under its kind', async () => {
+    const answer = randomUUID()
+    const context = closedContext('headless', 's_ac_check')
+    const headless = { ...context, may: { ...context.may, workspaceRead: 'document+projectFacts' as const } }
+    const project = randomUUID()
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(decisionOf(headless, { organizationId: ORG, userId: USER }, answer, Date.now()), project))).toBe(true)
+
+    const [row] = await rowOf(ORG, answer)
+    expect(row).toMatchObject({ conversationId: 's_ac_check', kind: 'headless', workspaceRead: 'document+projectFacts', projectId: project })
+  })
 })

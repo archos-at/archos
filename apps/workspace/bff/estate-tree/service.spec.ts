@@ -32,6 +32,7 @@ const context = (patch: Partial<VerifiedRequestContext> = {}): VerifiedRequestCo
   conversationId: 's_conv_1',
   issuedAt: Date.now(),
   collectionScope: ['oib_knowledge', 'archiv_org_1', 'proj_1', 's_conv_1'],
+  contextKind: 'chat',
   ...patch,
 })
 
