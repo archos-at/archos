@@ -25,7 +25,7 @@ import { FileTile } from './file-browser-tile'
 import { SemanticSearchResults } from './file-browser-semantic-results'
 import { BriefSliceListing } from './file-browser-slice-listing'
 import { FilingViewBar } from './filing-bar'
-import { FileGrid } from './file-grid'
+import { FileGrid, FOLDER_GRID } from './file-grid'
 import { FileListView } from './file-list-view'
 import { FolderRow } from './folder-table-row'
 import { FolderActionsTrigger, FolderObjectMenu } from './folder-object-menu'
@@ -554,7 +554,7 @@ export function FileBrowserPane({
                     {t('folders.heading')}
                   </SectionLabel>
                 )}
-                <FileGrid className="md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]" /* a name of one line: 196px cut half */>
+                <FileGrid className={FOLDER_GRID}>
                   {childFolders.map((folder) => (
                     <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
                   ))}
