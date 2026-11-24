@@ -230,19 +230,14 @@ On 401/403, the WebSocket connection is rejected with the appropriate status cod
 ## HTTP proxy routes
 
 There is no HTTP chat route: a chat turn runs on the WebSocket alone (ADR-0068). The HTTP proxies read `projectId` and
-`conversationId`, call `buildCollectionScopeFromRequest`, and include the header when proxying to the backend:
+`conversationId` and resolve the scope through the conversation-context module with kind `run`
+(`resolveConversationScope`, ADR-0192), which builds it with `buildCollectionScopeFromRequest` and never draws
+a restricted folder:
 
-```typescript
-const { headerValue } = await buildCollectionScopeFromRequest(session, {
-  projectId: body.projectId,
-  conversationId,
-})
-// Forwarded as: 'X-Grid-Collection-Scope': headerValue
-```
-
-The pattern is used in:
-- `apps/workspace/app/api/v1/[...path]/route.ts` — generic API proxy
-- `apps/workspace/app/api/jobs/async/[...path]/route.ts` — async job proxy
+- `apps/workspace/app/api/v1/[...path]/route.ts`: the generic API proxy (`scopeHeader`)
+- `apps/workspace/app/api/jobs/async/[...path]/route.ts`: the async job proxy (`jobScope`, signed by
+  `signJobRequestContext` in `apps/workspace/bff/jobs/request-envelope.ts`)
+- `apps/workspace/bff/runs/service.ts`: a run's cancel and document hand-off (`jobControlCaller`)
 
 ---
 
@@ -271,8 +266,9 @@ turn (`packages/agent/src/agent/common/turn_decision.py`). While a turn is bound
   restricted-use pre-check no longer runs beside it; `admit` still reports what a
   tool read.
 
-Outside a chat turn (jobs, intake) nothing is bound, and the reads below apply
-unchanged until slice 3 gives those callers their kind.
+Outside a chat turn (runs, intake, external calls) no decision is bound: the
+reads below take the signed envelope, whose scope the BFF decided with the
+caller's kind (`contextKind`: `run`, `headless`, `external`).
 
 ### `get_collection_scope_from_context()`
 
