@@ -66,4 +66,14 @@ describe('the Persönlich | Projekt switch moves at once (the rail’s transitio
     expect(warm).toHaveBeenCalled()
     expect(prefetch).toHaveBeenCalledWith('/app/projects/p1/chat')
   })
+
+  test('a modified arrow (Alt+← is the browser’s back) does not switch', async () => {
+    const user = userEvent.setup()
+    show('project')
+    screen.getByRole('radio', { name: 'Project' }).focus()
+
+    await user.keyboard('{Alt>}{ArrowLeft}{/Alt}')
+
+    expect(push).not.toHaveBeenCalled()
+  })
 })

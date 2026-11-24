@@ -72,6 +72,9 @@ const ProjectChatContent = ({
   }, [projectId, setProjectId, loadServerConversations])
 
   const sessionParam = searchParams?.get('session') ?? null
+  useEffect(() => {
+    if (sessionParam) void loadServerConversations(projectId, 'project', sessionParam)
+  }, [sessionParam, projectId, loadServerConversations])
   const sessionHydratedRef = useRef<string | null>(null)
 
   useEffect(() => {

@@ -38,6 +38,9 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
   }, [newParam, isAuthenticated, pathname, router, startNewSessionDraft])
 
   const sessionParam = searchParams?.get('session') ?? null
+  useEffect(() => {
+    if (sessionParam) void loadServerConversations(undefined, 'personal', sessionParam)
+  }, [sessionParam, loadServerConversations])
   const hydrated = useRef<string | null>(null)
   useEffect(() => {
     if (!isAuthenticated || !sessionParam || newParam || !userId || hydrated.current === sessionParam) return

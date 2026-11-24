@@ -7,7 +7,7 @@ export interface RailSide {
   projectId: string | null
 }
 
-const SETTLE_AFTER_MS = 4000
+const SETTLE_AFTER_MS = 10_000
 
 interface RailSideState {
   pending: RailSide | null

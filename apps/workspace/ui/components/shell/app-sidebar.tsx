@@ -141,12 +141,12 @@ function AppSidebarFrame({
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { state, isMobile, peek } = useSidebar()
-  const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
   const pending = useRailSide((state) => state.pending)
   const side = shownSide(pending, { mode: projectId === null ? 'personal' : 'project', projectId })!
   const mode: RailMode = side.mode
   const sideProjectId = side.projectId
+  const inboundMail = useInboundMailWaiting(sideProjectId, inboundMailEnabled)
   const reduceMotion = useReducedMotion()
 
   const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`

@@ -40,4 +40,21 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
       ['p1', 'project'],
     ])
   })
+
+  it('a failed fetch is not remembered: the next ask fetches again', async () => {
+    list.mockRejectedValueOnce(new Error('offline')).mockResolvedValue([])
+    const { loadServerConversations } = useChatStore.getState()
+    await loadServerConversations('p1', 'project')
+    await loadServerConversations('p1', 'project')
+
+    expect(list).toHaveBeenCalledTimes(2)
+  })
+
+  it('a fresh side is fetched again when the chat a link asks for is not in it', async () => {
+    const { loadServerConversations } = useChatStore.getState()
+    await loadServerConversations('p1', 'project')
+    await loadServerConversations('p1', 'project', 's_new')
+
+    expect(list).toHaveBeenCalledTimes(2)
+  })
 })

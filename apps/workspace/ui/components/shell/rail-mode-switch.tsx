@@ -48,7 +48,8 @@ export function RailModeSwitch({
 
   const go = (next: RailMode): void => {
     if (next === shown) return
-    begin({ mode: next, projectId: next === 'personal' ? null : (readRecentProjectIds()[0] ?? null) })
+    const projectId = next === 'personal' ? null : (readRecentProjectIds()[0] ?? null)
+    if (next === 'personal' || projectId) begin({ mode: next, projectId })
     ;(navigate ?? router.push)(sideHref(next))
   }
   const warmOther = (): void => {
@@ -87,8 +88,9 @@ export function RailModeSwitch({
       onFocus={warmOther}
       onKeyDown={(event) => {
         const next = ARROW_SIDE[event.key]
-        if (next) go(next)
+        if (next && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) go(next)
       }}
+      loop={false}
       aria-label={t('railMode')}
       data-testid="rail-mode-switch"
       data-shown={shown}

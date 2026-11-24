@@ -31,11 +31,11 @@ export const createSessionServerSyncSlice: StateCreator<
     | '_lockConversation'
   >
 > = (set, get) => {
-  const loadSide = async (projectId?: string, place?: 'personal' | 'project'): Promise<void> => {
+  const loadSide = async (projectId?: string, place?: 'personal' | 'project'): Promise<boolean> => {
     try {
       const conversationsClient = await getConversationsClient()
       const serverConvs = await conversationsClient.list(projectId, place)
-      if (!serverConvs || serverConvs.length === 0) return
+      if (!serverConvs || serverConvs.length === 0) return true
 
       const { conversations, currentUserId } = get()
       const merged = [...conversations]
@@ -97,20 +97,26 @@ export const createSessionServerSyncSlice: StateCreator<
       ) {
         void get().hydrateConversationMessages(currentConversation.id)
       }
+      return true
     } catch (err) {
       console.warn('[loadServerConversations] Failed to load server conversations:', err)
+      return false
     } finally {
       set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
   }
 
   return {
-  loadServerConversations: (projectId?: string, place?: 'personal' | 'project') => {
-    if (!place) return loadSide(projectId, place)
+  loadServerConversations: (projectId?: string, place?: 'personal' | 'project', wantConversationId?: string) => {
+    if (!place) return loadSide(projectId, place).then(() => undefined)
     const key = `${place}:${projectId ?? ''}`
     const known = sideLoads.get(key)
-    if (known && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
-    const pending = loadSide(projectId, place)
+    const hasWanted = !wantConversationId || get().conversations.some((c) => c.id === wantConversationId)
+    if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
+    const pending: Promise<void> = loadSide(projectId, place).then((ok) => {
+      if (ok) sideLoads.set(key, { at: Date.now(), pending })
+      else sideLoads.delete(key)
+    })
     sideLoads.set(key, { at: Date.now(), pending })
     return pending
   },
