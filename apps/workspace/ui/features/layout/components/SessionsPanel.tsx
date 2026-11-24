@@ -30,7 +30,7 @@ import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
 import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
 import { cancelRun } from '@/lib/runs/run-view-client'
-import { taskThreadHref } from '@/features/tasks/lib/task-view'
+import { runThreadHref } from '@/lib/tasks/run-display'
 import { useDeepResearchRuns } from '../hooks/use-deep-research-runs'
 import { groupSessionsByDate } from '../lib/group-sessions-by-date'
 import { HISTORY_SCOPES, SCOPE_LABEL_KEY, isHistoryScope, type HistoryScope } from '../lib/history-scope'
@@ -173,7 +173,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   )
 
   const runHref = useCallback(
-    (run: JobRun): string | null => (projectId ? taskThreadHref(projectId, run) : null),
+    (run: JobRun): string | null => (projectId ? runThreadHref(projectId, run) : null),
     [projectId]
   )
 

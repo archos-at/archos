@@ -1,25 +1,11 @@
 import type { TaskRunView } from '@/lib/tasks/task-wire'
 import type { TaskRunStatus } from '@/lib/tasks/task-vocabulary'
+import { isBrokenRunStatus, runThreadHref } from '@/lib/tasks/run-display'
 
 export type { TaskRunSummary, TaskRunView } from '@/lib/tasks/task-wire'
 
 const ACTIVE_STATUSES: ReadonlySet<TaskRunStatus> = new Set(['queued', 'running'])
 
-const BROKEN_STATUSES: ReadonlySet<TaskRunStatus> = new Set(['failed', 'error'])
-
-export const RUN_STATUS_VARIANT: Record<TaskRunStatus, 'info' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
-  queued: 'info',
-  running: 'info',
-  succeeded: 'success',
-  failed: 'destructive',
-  interrupted: 'secondary',
-  skipped: 'warning',
-  error: 'destructive',
-}
-
-export function isBrokenRunStatus(status: TaskRunStatus): boolean {
-  return BROKEN_STATUSES.has(status)
-}
 
 export function isActiveTask(task: TaskRunView): boolean {
   return ACTIVE_STATUSES.has(task.status)
@@ -27,16 +13,7 @@ export function isActiveTask(task: TaskRunView): boolean {
 
 export type TaskResultTarget = { kind: 'document' | 'conversation'; href: string } | null
 
-function conversationQuery(task: TaskRunView): string {
-  const session = `session=${encodeURIComponent(task.conversationId ?? '')}`
-  if (!task.runMessageId) return session
-  return `${session}&run=${encodeURIComponent(task.id)}#message-${encodeURIComponent(task.runMessageId)}`
-}
-
-export function taskThreadHref(projectId: string, task: TaskRunView): string | null {
-  if (!task.conversationId) return null
-  return `/app/projects/${encodeURIComponent(projectId)}/chat?${conversationQuery(task)}`
-}
+export const taskThreadHref = runThreadHref
 
 export function taskResultTarget(projectId: string, task: TaskRunView): TaskResultTarget {
   const project = encodeURIComponent(projectId)
@@ -62,7 +39,7 @@ export function matchesFilter(task: TaskRunView, filter: TaskFilter): boolean {
     case 'unreviewed':
       return task.status === 'succeeded' && task.review === null
     case 'failed':
-      return BROKEN_STATUSES.has(task.status)
+      return isBrokenRunStatus(task.status)
   }
 }
 

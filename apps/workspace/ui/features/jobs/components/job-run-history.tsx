@@ -16,7 +16,8 @@ import { tasksCopy } from '@/i18n/namespaces/tasks'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import { isActiveTaskRunStatus } from '@/lib/tasks/task-vocabulary'
 import { listJobRuns, type JobRun } from '@/adapters/api/jobs-client'
-import { RUN_STATUS_VARIANT, taskThreadHref } from '@/features/tasks/lib/task-view'
+import { RUN_STATUS_VARIANT } from '@/lib/tasks/run-display'
+import { taskThreadHref } from '@/features/tasks/lib/task-view'
 
 interface JobRunHistoryProps {
   projectId: string

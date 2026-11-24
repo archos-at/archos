@@ -14,8 +14,8 @@ import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { researchCopy } from '@/i18n/namespaces/research'
 import type { JobRun } from '@/adapters/api/jobs-client'
-import { isActiveTask, isBrokenRunStatus, RUN_STATUS_VARIANT } from '@/features/tasks/lib/task-view'
-import type { TaskRunStatus } from '@/lib/tasks/task-vocabulary'
+import { isBrokenRunStatus, RUN_STATUS_VARIANT } from '@/lib/tasks/run-display'
+import { isActiveTaskRunStatus, type TaskRunStatus } from '@/lib/tasks/task-vocabulary'
 import { tasksCopy } from '@/i18n/namespaces/tasks'
 
 interface DeepResearchSectionProps {
@@ -185,7 +185,7 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
                       stop it here. The stretched link covers the whole
                       row, so the button sits above it (`relative z-10`)
                       the way the chat rows' overlay actions do. */}
-                  {isActiveTask(run) && (
+                  {isActiveTaskRunStatus(status) && (
                     <Button
                       variant="ghost"
                       size="icon"
