@@ -120,6 +120,17 @@ describe('the tape snapping points on a sheet', () => {
     expect(t.tape().kinds).toEqual(['vertex', 'edge', 'free'])
   })
 
+  it('places a point exactly where it is put when the snap is overridden, hover included', async () => {
+    const t = setup({ measure: vi.fn<TapeMeasure>(() => new Promise(() => {})) })
+    await t.loadPage()
+    act(() => t.tape().setMode('path'))
+    act(() => t.tape().pointer(1, [0.198, 0.203], SIZE, true))
+    expect(t.tape().hover).toEqual({ page: 1, at: [0.198, 0.203], kind: 'free' })
+    act(() => t.tape().add(1, [0.198, 0.203], SIZE, true))
+    expect(t.tape().points).toEqual([[0.198, 0.203]])
+    expect(t.tape().kinds).toEqual(['free'])
+  })
+
   it('shows the hover snapped, and drops it when the pointer leaves', async () => {
     const t = setup()
     await t.loadPage()
