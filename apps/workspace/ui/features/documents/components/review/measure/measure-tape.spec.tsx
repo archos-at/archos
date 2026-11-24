@@ -361,9 +361,17 @@ describe('the measure layer', () => {
     expect(review.select).toHaveBeenCalledWith('ann_m')
   })
 
-  it('lets a click on a kept label through to the drawing while measuring', () => {
-    layer(tapeWith({ active: true }))
+  it('lets a click on a kept label through to the drawing while a measurement is in hand', () => {
+    layer(tapeWith({ active: true, page: 1, points: [[0.1, 0.1]] }))
     expect(screen.getByTestId('measure-kept-ann_m')).toHaveClass('pointer-events-none')
+  })
+
+  it('lets a kept label be selected while measuring when nothing is in hand', async () => {
+    const { review } = layer(tapeWith({ active: true }))
+    const label = screen.getByTestId('measure-kept-ann_m')
+    expect(label).toHaveClass('pointer-events-auto')
+    await userEvent.click(label)
+    expect(review.select).toHaveBeenCalledWith('ann_m')
   })
 
   it('says the area closes when the pointer is back on the first corner', () => {
