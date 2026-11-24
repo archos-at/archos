@@ -1,0 +1,12 @@
+---
+# area: general
+improvements:
+  - >
+    A new chat now appears in „Letzte Chats“ the moment you send its first
+    message, titled by that message's first line in a lighter grey until
+    ARCHOS names it in the same row. You see at once which chat you are in,
+    even before the answer arrives.
+  - >
+    While the sidebar loads your recent chats, grey placeholder rows stand in
+    for them, and the rows are a little taller and easier to read. The list no
+    longer appears late or out of nowhere.
