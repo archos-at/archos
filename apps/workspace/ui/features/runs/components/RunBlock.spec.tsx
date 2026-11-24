@@ -212,6 +212,11 @@ describe('RunBlock — the fold', () => {
     expect(screen.getByTestId('run-body')).toBeInTheDocument()
   })
 
+  it('is a 44px row to a finger: its title is one line of 12px type', () => {
+    render(<RunBlock ledger={finished('doc-1')} title={TITLE} />)
+    expect(screen.getByRole('button', { name: new RegExp(TITLE) })).toHaveClass('pointer-coarse:min-h-11')
+  })
+
   it('honours defaultOpen on a terminal run', () => {
     render(<RunBlock ledger={finished('doc-1')} title={TITLE} defaultOpen />)
     expect(screen.getByTestId('run-body')).toBeInTheDocument()
