@@ -23,7 +23,7 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { getDb } from '@/lib/db'
 import { findGrantForSubject } from '@/lib/sharing/repository'
-import { buildCollectionScopeFromRequest } from './collection-scope-request'
+import { buildCollectionScopeFromRequest, ConversationProjectMismatchError } from './collection-scope-request'
 
 const CONVERSATION_ID = 'conv_private_of_a_colleague'
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -158,5 +158,70 @@ describe('a caller who reads a closed project only because it is closed (ADR-009
     const result = await buildCollectionScopeFromRequest(session, { projectId: PROJECT_ID })
 
     expect(result.projectReadOnly).toBe(false)
+  })
+})
+
+describe('the conversation row decides which project a turn reads (ADR-0191 rule 2)', () => {
+  const OTHER_PROJECT = '9a1c7e00-4f89-11d3-9a0c-0305e82c3302'
+
+  function ownRow(projectId: string | null): void {
+    vi.mocked(findConversationTenancy).mockResolvedValue({
+      organizationId: 'org_1',
+      projectId,
+      visibility: 'private',
+      createdBy: session.userId,
+      deletedAt: null,
+    })
+  }
+
+  it('reads the row’s project when the request names none', async () => {
+    ownRow(PROJECT_ID)
+
+    const result = await buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID })
+
+    expect(result.projectId).toBe(PROJECT_ID)
+    expect(requireProjectAccess).toHaveBeenCalledWith(session, PROJECT_ID, expect.anything())
+  })
+
+  it('refuses a request that names another project than the row', async () => {
+    ownRow(PROJECT_ID)
+
+    const failure = await buildCollectionScopeFromRequest(session, {
+      conversationId: CONVERSATION_ID,
+      projectId: OTHER_PROJECT,
+    }).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ConversationProjectMismatchError)
+    expect(isAuthzRefusal(failure)).toBe(true)
+  })
+
+  it('refuses a project for a chat without one, so the page’s open project is never a source', async () => {
+    ownRow(null)
+
+    await expect(
+      buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID, projectId: PROJECT_ID }),
+    ).rejects.toBeInstanceOf(ConversationProjectMismatchError)
+  })
+
+  it('reads no project for a chat without one', async () => {
+    ownRow(null)
+
+    const result = await buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID })
+
+    expect(result.projectId).toBeUndefined()
+    expect(result.scope.some((collection) => collection.startsWith('proj_'))).toBe(false)
+    expect(requireProjectAccess).not.toHaveBeenCalled()
+  })
+
+  it('takes the request’s project for a first turn whose row does not exist yet', async () => {
+    vi.mocked(findConversationTenancy).mockResolvedValue(null)
+
+    const result = await buildCollectionScopeFromRequest(session, {
+      conversationId: 'conv_brand_new',
+      projectId: PROJECT_ID,
+    })
+
+    expect(result.projectId).toBe(PROJECT_ID)
+    expect(requireProjectAccess).toHaveBeenCalledWith(session, PROJECT_ID, expect.anything())
   })
 })

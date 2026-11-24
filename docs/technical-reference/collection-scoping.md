@@ -102,11 +102,19 @@ function buildCollectionScopeHeader(scope: string[]): string
 
 The main entry point for SSE and WebSocket routes. It:
 
-1. Resolves the active project ID:
-   - Uses the explicit `projectId` from the request body if provided
-   - Otherwise reads `active_project_id` from the user's `user_preferences` Drizzle row
+1. Resolves the project from the conversation row (ADR-0191 rule 2):
+   - With a `conversationId` whose row exists, the row's `project_id` is the
+     project, `null` meaning none. A request `projectId` that differs is refused
+     with `ConversationProjectMismatchError` (403): a chat without a project
+     never reads the project the page has open.
+   - With no row yet (the first turn of a chat minted in the browser, ADR-0033),
+     the request's `projectId` is taken; `createConversation` stamps the same
+     one on the row.
+   - With no `conversationId` (deep research, runs), the request's `projectId`.
+   - No request project means no project. The stored `active_project_id`
+     preference is no longer read.
 
-2. Enforces project access via `requireProjectAccess(session, projectId, 'project:view')` when auth is required
+2. Enforces project access via `requireProjectAccess(session, projectId, CHAT_PERMISSIONS)` when auth is required
 
 3. Calls `computeCollectionScope` and `buildCollectionScopeHeader`
 
