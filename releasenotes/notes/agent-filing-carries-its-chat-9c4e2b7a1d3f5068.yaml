@@ -1,0 +1,8 @@
+---
+# area: agents
+operators:
+  - >
+    When the agent uploads a file or files a diagram, directly or through an
+    accepted proposal, the server now names the chat it came from. The same
+    filing rules as a person's own filing then apply: a chat that read a
+    restricted folder or Meine Ablage cannot file into a place others read.

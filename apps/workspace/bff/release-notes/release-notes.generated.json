@@ -297,6 +297,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
+            "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
@@ -325,6 +333,30 @@
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
             "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+            "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+            "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+            "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
           }
         },
         {
