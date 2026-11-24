@@ -28,6 +28,7 @@ const ProjectChatContent = ({
 }: ProjectChatClientProps): ReactNode => {
   const { isAuthenticated, signIn } = useAuth()
   const setProjectId = useChatStore((s) => s.setProjectId)
+  const enterSide = useChatStore((s) => s.enterSide)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const setComposerPrefill = useChatStore((s) => s.setComposerPrefill)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
@@ -66,12 +67,15 @@ const ProjectChatContent = ({
   }, [newParam, isAuthenticated, searchParams, pathname, router, startNewSessionDraft])
 
   useEffect(() => {
-    setProjectId(projectId)
+    enterSide(projectId)
     void loadServerConversations(projectId, 'project')
     return () => setProjectId(null)
-  }, [projectId, setProjectId, loadServerConversations])
+  }, [projectId, enterSide, setProjectId, loadServerConversations])
 
   const sessionParam = searchParams?.get('session') ?? null
+  useEffect(() => {
+    if (sessionParam) void loadServerConversations(projectId, 'project', sessionParam)
+  }, [sessionParam, projectId, loadServerConversations])
   const sessionHydratedRef = useRef<string | null>(null)
 
   useEffect(() => {

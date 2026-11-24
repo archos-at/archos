@@ -61,6 +61,7 @@ const CHATS: RailChats = {
     { id: 'c2', title: 'Zweite Frage', href: '/app/projects/p1/chat/c2', current: false, activity: 'working' },
   ],
   allHref: '/app/projects/p1/chats',
+  more: true,
 }
 
 function renderRail(props: Partial<typeof BASE_PROPS> = {}, chats: RailChats | null = null) {
@@ -287,7 +288,11 @@ describe('the app rail’s material', () => {
     const sectionNav = chatSection.previousElementSibling as HTMLElement
     expect(sectionNav.tagName).toBe('NAV')
     expect(sectionNav.compareDocumentPosition(chatSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(classesOf(sectionNav.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['mt-3', 'min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
+    expect(classesOf(sectionNav)).toContain('mt-3')
+    const side = sectionNav.parentElement as HTMLElement
+    expect(side.getAttribute('data-slot')).toBe('rail-side')
+    expect(classesOf(side)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'flex-col']))
+    expect(classesOf(side.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
 
     expect(classesOf(chatList)).toEqual(expect.arrayContaining(['overflow-y-auto', '-mx-px', 'p-px']))
     expect(RAIL_CHAT_LIMIT).toBeGreaterThan(0)

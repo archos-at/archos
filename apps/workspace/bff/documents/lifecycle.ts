@@ -209,6 +209,7 @@ export async function recordUploadedVersion(
       contentType: bytes.contentType,
       fileSize: bytes.fileSize,
       contentHash: bytes.contentHash,
+      originConversationId: stored?.originConversationId ?? null,
       request,
     })
   } catch (error) {
@@ -220,7 +221,7 @@ export async function recordUploadedVersion(
 type UploadedBytes = Pick<
   DocumentVersion,
   'storageKey' | 'storageBucket' | 'contentType' | 'fileSize' | 'contentHash'
->
+> & { originConversationId?: string | null }
 
 export async function recordUploadedVersionOrDiscard(
   session: AuthorizedSession,

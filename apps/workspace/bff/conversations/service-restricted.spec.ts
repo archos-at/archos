@@ -79,6 +79,7 @@ vi.mock('./engagement', () => ({
 }))
 
 import { NotFoundError, ResourceRightsLostError } from '@/lib/api/errors'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import { threadIsAwaitingHuman } from '@/lib/mentions/service'
 import type { Message } from '@/lib/db/schema/messages'
 import { emitInboxItems } from '@/lib/inbox/service'
@@ -177,6 +178,30 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
 
   beforeEach(() => {
     vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, userIds) => new Set(userIds))
+  })
+
+  describe('a chat that read its owner’s shelf (ADR-0193)', () => {
+    const shelfRow = (id: string, createdBy: string) =>
+      ({ ...(row(id, 'Bewerbung Sanierung privat') as object), createdBy, personalShelfUsedAt: new Date('2026-11-01T00:00:00Z') }) as never
+    beforeEach(() => {
+      vi.mocked(listVisibleConversations).mockResolvedValue([shelfRow('s_mine', 'user_me'), shelfRow('s_ina', 'user_ina')])
+      vi.mocked(lockedConversationIds).mockResolvedValue(new Set())
+    })
+    const titles = (page: Awaited<ReturnType<typeof listConversations>>) => page.conversations.map((chat) => chat.title)
+
+    it('keeps its title in the person’s own list', async () => {
+      expect(titles(await listConversations(session))).toEqual(['Bewerbung Sanierung privat', 'Bewerbung Sanierung privat'])
+    })
+
+    it('lists it without title, tags or subject to an agent, unless the call may read the owner’s shelf and the chat is theirs', async () => {
+      const asAgent = await runAsActingSession(session, () => listConversations(session), 'agent')
+      expect(asAgent.conversations.map(({ title, tags, subjectResourceId }) => ({ title, tags, subjectResourceId }))).toEqual([
+        { title: null, tags: [], subjectResourceId: null },
+        { title: null, tags: [], subjectResourceId: null },
+      ])
+      const asOwnShelfTurn = await runAsActingSession(session, () => listConversations(session), 'agent', { ownShelfReadable: true })
+      expect(titles(asOwnShelfTurn)).toEqual(['Bewerbung Sanierung privat', null])
+    })
   })
 
   describe('the list keeps it, under a neutral title', () => {

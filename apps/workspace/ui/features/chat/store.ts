@@ -10,6 +10,7 @@ import { createSessionsSlice } from './stores/sessions-store'
 import { createInteractionSlice } from './stores/interaction-store'
 import { chatIndexKey, createResilientStorage } from './stores/chat-storage'
 import { moveStoredChat } from './stores/chat-storage-rename'
+export { serverSideKey } from './stores/server-sides'
 import {
   logStoreHydration,
   logExternalStorageEvent,

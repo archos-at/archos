@@ -60,7 +60,9 @@ export function DevRailChats({ pathname, empty = false, children }: { pathname: 
   )
   useEffect(() => {
     const conversations = empty ? [] : TITLES.map(conversation)
-    useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null })
+    const listing = { ids: conversations.map((c) => c.id), since: Date.now() }
+    const serverSides = Object.fromEntries(['personal:', 'project:p-1', 'project:p-2'].map((key) => [key, listing]))
+    useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null, serverSides })
   }, [empty, projectId])
   return <RailChatsProvider pathname={pathname}>{children}</RailChatsProvider>
 }

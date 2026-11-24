@@ -53,6 +53,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      originConversationId: null,
       asNorm: false,
     })
   })
@@ -66,6 +67,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      originConversationId: null,
       asNorm: false,
     })
   })

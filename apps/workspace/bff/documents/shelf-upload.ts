@@ -52,6 +52,7 @@ export interface ShelfUploadInput {
   documentType?: DocumentTypeTag
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
+  originConversationId?: string | null
 }
 
 export interface UploadDocumentResult {
@@ -346,6 +347,7 @@ export async function uploadToShelf(
     contentType: storedContentType(file),
     fileSize: file.size,
     contentHash,
+    originConversationId: input.originConversationId ?? null,
   })
 
   await input.beforeDispatch?.(documentId)

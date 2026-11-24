@@ -291,6 +291,22 @@
           "section": "improvements",
           "area": "general",
           "text": {
+            "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
+            "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "„Letzte Chats“ in the sidebar is shorter and quieter: at most eight chats, under a lighter heading, and the one you have open stays among them once it has a message or a title. „Alle Chats“ appears when there are more.",
+            "de": "„Letzte Chats“ in der Seitenleiste ist kürzer und dezenter: maximal acht Chats unter einer zurückhaltenderen Überschrift. Der geöffnete Chat bleibt dabei, sobald er eine Nachricht oder einen Titel hat. „Alle Chats“ wird angezeigt, wenn es mehr Chats gibt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
             "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
             "de": "Die Ecken in der gesamten App sind etwas enger gerundet; Menüs, Tabs und Schalter stimmen ihre inneren Rundungen auf die umgebenden Ecken ab."
           }
@@ -333,6 +349,22 @@
           "text": {
             "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
             "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
+            "de": "Beim Wechsel zwischen Persönlich und einem Projekt oder zwischen Projekten werden Bewegungen, die Sie nicht ausgelöst haben, nicht mehr wiederholt: Das Chat-Eingabefeld bleibt an Ort und Stelle, die Begrüßung erscheint direkt dort und bei langsamen Wechseln wird das Ladefenster der Projektübersicht nicht mehr kurz eingeblendet. Der neue Bereich bleibt einfach ruhig stehen, damit Ihr Blick bei Ihrer Aufgabe bleibt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+            "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
           }
         },
         {

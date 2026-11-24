@@ -34,6 +34,7 @@ const client = vi.hoisted(() => ({
 vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: client }))
 
 import { useChatStore } from '../store'
+import { forgetSideLoads } from './session-server-sync'
 import type { ChatMessage, Conversation } from '../types'
 import { chatMessagesKey, isAwaitingServerMessages } from './chat-storage'
 
@@ -89,6 +90,7 @@ const conversation = (id: string): Conversation | undefined =>
   useChatStore.getState().conversations.find((candidate) => candidate.id === id)
 
 beforeEach(() => {
+  forgetSideLoads()
   localStorage.clear()
   vi.clearAllMocks()
   useChatStore.setState({
