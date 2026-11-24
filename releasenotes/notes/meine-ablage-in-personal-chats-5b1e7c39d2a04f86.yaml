@@ -3,6 +3,6 @@
 operators:
   - >
     A solo chat without a project now draws on its owner's own shelf, admitted
-    live and recorded on the chat (migration 0264 adds
+    live and recorded on the chat (migration 0265 adds
     conversations.personal_shelf_used_at, no backfill). Sharing such a chat is
     refused with personal-shelf-content until its creator confirms.
