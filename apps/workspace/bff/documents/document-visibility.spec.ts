@@ -51,13 +51,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/projects/cleanup-repository.ts#deleteEmptyCreatedFolder':
     'Undo of a clean-out: removes a folder only when NO document is filed in it, held ones included.',
 
-  'lib/storage/repository.ts#aggregateStorageUsage': 'Quota: a held file occupies storage like any other (ADR-0086, Consequences).',
   'lib/storage/repository.ts#aggregateStorageUsageByOrganization': 'Quota, per organization, for the platform view: every byte.',
-  'lib/storage/repository.ts#readStorageUsage': 'Quota admission under the lock: every byte, or a held upload is free storage.',
-  'lib/storage/repository.ts#sumItemBytes': 'Quota: item bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadByScope': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadBytes': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadSql': 'Quota: the version-overhead fragment the sums above share.',
 
   'lib/documents/placement-repository.ts#listPlacementRows':
     "Placement moves every document whose folder's access changed into the right collection, held ones too, or a held file stays in a collection readers it should not have can search once it passes.",
@@ -115,8 +109,6 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
   'lib/documents/version-repository/insert.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom|documentVersions':
     "The agent's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
-  'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadBytes|documentVersions': 'Quota: version bytes, every row.',
 
   'lib/bim/element-queries.ts#elementScope|bimModels':
     "The tenant half of every element query's WHERE, on a model id `getAccessibleModel` or `runBimQuery` already read.",
