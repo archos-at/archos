@@ -42,7 +42,6 @@ batch              bff/similar-passages/service.integration.spec.ts
 batch              bff/permits/repository.integration.spec.ts
 batch              bff/drawing-calibrations/repository.integration.spec.ts
 batch              bff/annotations/repository.integration.spec.ts
-batch              bff/drawing-calibrations/repository.integration.spec.ts
 batch              bff/annotations/project-repository.integration.spec.ts
 batch              bff/proposals/repository.integration.spec.ts
 batch              bff/agent-api/operation-proposals.integration.spec.ts
