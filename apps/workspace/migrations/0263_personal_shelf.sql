@@ -1,4 +1,4 @@
--- 0262: a person's own shelf, „Meine Ablage“ (ADR-0193 rule 1).
+-- 0263: a person's own shelf, „Meine Ablage“ (ADR-0193 rule 1).
 --
 -- A third shelf beside a project and the office shelf, with the scope value
 -- `personal` and its owner on the row (`owner_user_id`). The upload pipeline,
