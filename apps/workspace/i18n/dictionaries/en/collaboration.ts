@@ -79,6 +79,10 @@ export const collaboration = {
     escalateConfirm: 'Take ownership?',
     escalateHint:
       'As a project admin you can take ownership of this conversation. This is recorded in the audit trail.',
+    personalConfirm: 'Share a chat with personal content?',
+    personalConfirmHint:
+      'This chat drew on “Meine Ablage” or your personal notes. Whoever sees it reads the answers, not your files. Afterwards the chat no longer draws on them.',
+    personalConfirmAction: 'Share anyway',
     errors: {
       lastOwner: 'This conversation must keep at least one owner. Make someone else an owner first.',
       containerAccessRequired:
@@ -102,6 +106,9 @@ export const collaboration = {
         'This person may not open every other project this conversation draws on, so it cannot be shared with them.',
       crossProjectContentSelf:
         'You may not open every other project this conversation draws on, so you cannot take it over.',
+      personalContentShareFirst:
+        'This chat drew on “Meine Ablage” or your personal notes. Share it through “Share” first, then you can mention others.',
+      personalContentOwner: 'This chat rests on its owner’s personal content. Only its owner can share it.',
       crossProjectContentProject:
         'This conversation draws on content from other projects, so it cannot be made visible to the whole project. Share it with individual people who may open those projects instead.',
       loadFailed: 'Sharing settings could not be loaded.',

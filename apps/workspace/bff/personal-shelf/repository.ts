@@ -1,8 +1,9 @@
 import 'server-only'
 import { and, eq } from 'drizzle-orm'
+import { withTenant } from '@/lib/db/tenant-context'
 import { getDb } from '@/lib/db'
 import { documents, type Document } from '@/lib/db/schema/documents'
-import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
+import { documentVisibleTo, memberReader, type DocumentReader } from '@/lib/documents/visibility'
 
 export async function findPersonalShelfDocument(
   documentId: string,
@@ -41,4 +42,22 @@ export async function deletePersonalShelfDocumentRow(
         eq(documents.ownerUserId, ownerUserId),
       ),
     )
+}
+
+export async function hasPersonalShelfDocuments(organizationId: string, ownerUserId: string): Promise<boolean> {
+  const [row] = await withTenant({ organizationId, userId: ownerUserId }, () =>
+    getDb()
+      .select({ id: documents.id })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.organizationId, organizationId),
+          eq(documents.scope, 'personal'),
+          eq(documents.ownerUserId, ownerUserId),
+          documentVisibleTo(memberReader(ownerUserId)),
+        ),
+      )
+      .limit(1),
+  )
+  return row !== undefined
 }

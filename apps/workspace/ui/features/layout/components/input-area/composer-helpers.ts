@@ -42,6 +42,10 @@ export function mentionRefusalMessage(
       return name
         ? tCollab('sharing.errors.crossProjectContent', { name })
         : tCollab('sharing.errors.crossProjectContentSomeone')
+    case SHARING_ERROR_REASONS.personalContentConfirm:
+      return tCollab('sharing.errors.personalContentShareFirst')
+    case SHARING_ERROR_REASONS.personalContentOwner:
+      return tCollab('sharing.errors.personalContentOwner')
     default:
       return null
   }

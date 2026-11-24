@@ -148,8 +148,8 @@ class TestNoBindingNote:
 
 
 class TestShelf:
-    def test_the_enum_holds_exactly_the_four_shelves(self):
-        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base"}
+    def test_the_enum_holds_exactly_the_five_shelves(self):
+        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base", "personal"}
 
     @pytest.mark.parametrize(
         "value,expected",
@@ -245,3 +245,13 @@ class TestLegacyShelfValue:
         assert office_shelf_organization_id("office_shelf_org1") == "org1"
         assert office_shelf_organization_id("archiv_org1") == "org1"
         assert office_shelf_organization_id("proj_x") is None
+
+
+class TestPersonalShelf:
+    def test_is_read_from_the_scope_and_from_its_collection_name(self):
+        assert parse_shelf("personal") is Shelf.PERSONAL
+        assert legacy_shelf_for_collection_name("personal_org_1__user_1") is Shelf.PERSONAL
+
+    def test_is_named_meine_ablage(self):
+        assert shelf_qualifier(Shelf.PERSONAL) == "Meine Ablage"
+        assert SHELF_QUALIFIERS[Shelf.PERSONAL] == "Meine Ablage"

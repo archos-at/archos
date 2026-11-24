@@ -65,6 +65,8 @@ const revoke = vi.fn(async () => true)
 const escalate = vi.fn(async () => true)
 const refresh = vi.fn()
 const dismissFailure = vi.fn()
+const confirmPersonalContent = vi.fn(async () => true)
+const dismissPersonalConfirmation = vi.fn()
 const reloadCandidates = vi.fn()
 
 type CandidatesResult = ReturnType<typeof useShareCandidates>
@@ -83,6 +85,9 @@ function sharing(overrides: Partial<UseSharingResult> = {}): UseSharingResult {
     loading: false,
     loadError: false,
     failure: null,
+    personalConfirmation: false,
+    confirmPersonalContent,
+    dismissPersonalConfirmation,
     dismissFailure,
     saving: false,
     refresh,
@@ -624,5 +629,31 @@ describe('ShareDialog — passing the link on', () => {
   test('shows no link section where the resource has no address', () => {
     renderDialog()
     expect(screen.queryByTestId('share-link')).not.toBeInTheDocument()
+  })
+})
+
+describe('a chat that drew on its owner’s personal content (ADR-0191 rule 5)', () => {
+  test('asks the owner first, says the others see the answers and not the files, and shares on confirm', async () => {
+    const user = userEvent.setup()
+    confirmPersonalContent.mockClear()
+    render(<ShareDialog open onOpenChange={vi.fn()} resourceId="conv-1" sharing={sharing({ personalConfirmation: true })} />)
+
+    expect(await screen.findByText('Share a chat with personal content?')).toBeInTheDocument()
+    expect(screen.getByText(/Whoever sees it reads the answers, not your files\./)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Share anyway' }))
+
+    expect(confirmPersonalContent).toHaveBeenCalledTimes(1)
+  })
+
+  test('shares nothing when the owner cancels', async () => {
+    const user = userEvent.setup()
+    confirmPersonalContent.mockClear()
+    render(<ShareDialog open onOpenChange={vi.fn()} resourceId="conv-1" sharing={sharing({ personalConfirmation: true })} />)
+
+    await screen.findByText('Share a chat with personal content?')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(confirmPersonalContent).not.toHaveBeenCalled()
+    expect(dismissPersonalConfirmation).toHaveBeenCalled()
   })
 })

@@ -54,6 +54,7 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `conversation-reads.ts` | `conversation_reads` |
 | `conversation-restricted-folders.ts` | `conversation_restricted_folders` |
 | `conversation-source-projects.ts` | `conversation_source_projects` |
+| `conversation-personal-sources.ts` | `conversation_personal_sources` |
 | `document-access-log.ts` | `document_access_log` (the download log) |
 | `document-quarantine-decisions.ts` | `document_quarantine_decisions` (the content gate's decisions owed to the audit trail) |
 | `document-revision-announcements.ts` | `document_revision_announcements` (which new Fassungen `document.new_revision` has announced, once each) |
@@ -1416,6 +1417,28 @@ it is judged in the tree of the project it belongs to (through
 conversation's creator keeps reading it.
 
 ---
+
+## conversation_personal_sources (migration 0259, ADR-0191)
+
+What a chat drew on that is one person's alone: their own shelf („Meine Ablage“,
+`personal_shelf`) or their personal memory (`personal_memory`). Written by
+`recordPersonalSources` (`bff/conversations/personal-use.ts`) when a turn's
+scope holds the owner's shelf with something on it
+(`buildCollectionScopeFromRequest`), when a turn is given personal notes
+(`loadPersonalMemory`), and when the agent opens one of the owner's documents
+(`recordPersonalRead`). A source that cannot be recorded is not drawn on. Read by
+`assertPersonalUseConfirmed`, inside `assertMayWidenConversation` and under the
+lock of `widenConversationAudience`: sharing such a chat asks its owner to
+confirm (`personal-content-confirm`), and nobody else may widen it
+(`personal-content-owner`). Once shared, the chat is no longer solo and draws on
+neither source any more.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `organization_id` | `text` | NOT NULL, PK | RLS: `organization_id = current_org()` |
+| `conversation_id` | `text` | NOT NULL, PK | No FK, as 0125: the first turn of a new chat runs before its row exists |
+| `source` | `text` | NOT NULL, PK, CHECK `personal_shelf` \| `personal_memory` | |
+| `first_at`, `last_at` | `timestamptz` | NOT NULL, CHECK `last_at >= first_at` | |
 
 ## conversation_source_projects (migration 0125, ADR-0094)
 

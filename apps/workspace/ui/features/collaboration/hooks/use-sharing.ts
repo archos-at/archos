@@ -9,6 +9,7 @@ import type {
   ShareCandidate,
   ShareableResourceType,
 } from '@/lib/sharing/types'
+import { SHARING_ERROR_REASONS } from '@/lib/sharing/types'
 import { createRetryLadder, type RetryLadder } from '@/shared/utils/backoff'
 import { useLiveEvents } from './use-live-events'
 import {
@@ -40,6 +41,9 @@ export interface UseSharingResult {
   refresh: () => void
   setVisibility: (visibility: ResourceVisibility) => Promise<boolean>
   grant: (subjectUserId: string, role?: ResourceRole) => Promise<boolean>
+  personalConfirmation: boolean
+  confirmPersonalContent: () => Promise<boolean>
+  dismissPersonalConfirmation: () => void
   changeRole: (subjectUserId: string, role: ResourceRole) => Promise<boolean>
   revoke: (subjectUserId: string) => Promise<boolean>
   escalate: () => Promise<boolean>
@@ -54,6 +58,7 @@ export function useSharing(
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [failure, setFailure] = useState<SharingFailure | null>(null)
+  const [personalRetry, setPersonalRetry] = useState<(() => Promise<ResourceSharingState>) | null>(null)
   const [saving, setSaving] = useState(false)
   const seq = useRef(0)
   const retryRef = useRef<RetryLadder | null>(null)
@@ -120,8 +125,12 @@ export function useSharing(
   })
 
   const mutate = useCallback(
-    async (request: () => Promise<ResourceSharingState>): Promise<boolean> => {
+    async (
+      request: () => Promise<ResourceSharingState>,
+      confirmed?: () => Promise<ResourceSharingState>,
+    ): Promise<boolean> => {
       setFailure(null)
+      setPersonalRetry(null)
       setSaving(true)
       try {
         const data = await request()
@@ -132,7 +141,12 @@ export function useSharing(
         setLoading(false)
         return true
       } catch (error) {
-        setFailure(error instanceof SharingRequestError ? error.failure : NO_FAILURE_DETAIL)
+        const failed = error instanceof SharingRequestError ? error.failure : NO_FAILURE_DETAIL
+        if (confirmed && failed.reason === SHARING_ERROR_REASONS.personalContentConfirm) {
+          setPersonalRetry(() => confirmed)
+          return false
+        }
+        setFailure(failed)
         return false
       } finally {
         setSaving(false)
@@ -150,9 +164,22 @@ export function useSharing(
     saving,
     refresh: restart,
     setVisibility: async (visibility) =>
-      resourceId ? mutate(() => setResourceVisibility(resourceType, resourceId, visibility)) : false,
+      resourceId
+        ? mutate(
+            () => setResourceVisibility(resourceType, resourceId, visibility),
+            () => setResourceVisibility(resourceType, resourceId, visibility, { confirmPersonalContent: true }),
+          )
+        : false,
     grant: async (subjectUserId, role = 'collaborator') =>
-      resourceId ? mutate(() => grantResourceAccess(resourceType, resourceId, subjectUserId, role)) : false,
+      resourceId
+        ? mutate(
+            () => grantResourceAccess(resourceType, resourceId, subjectUserId, role),
+            () => grantResourceAccess(resourceType, resourceId, subjectUserId, role, { confirmPersonalContent: true }),
+          )
+        : false,
+    personalConfirmation: personalRetry !== null,
+    confirmPersonalContent: async () => (personalRetry ? mutate(personalRetry) : false),
+    dismissPersonalConfirmation: () => setPersonalRetry(null),
     changeRole: async (subjectUserId, role) =>
       resourceId ? mutate(() => changeResourceRole(resourceType, resourceId, subjectUserId, role)) : false,
     revoke: async (subjectUserId) =>

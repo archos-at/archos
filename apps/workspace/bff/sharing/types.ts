@@ -50,4 +50,6 @@ export const SHARING_ERROR_REASONS = {
   crossProjectContent: 'cross-project-content',
   crossProjectContentSelf: 'cross-project-content-self',
   crossProjectContentProject: 'cross-project-content-project',
+  personalContentConfirm: 'personal-content-confirm',
+  personalContentOwner: 'personal-content-owner',
 } as const

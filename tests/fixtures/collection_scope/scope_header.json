@@ -45,6 +45,47 @@
       "header": "W3siY29sbGVjdGlvbiI6Im9pYl9rbm93bGVkZ2UiLCJzaGVsZiI6ImJhc2UifSx7ImNvbGxlY3Rpb24iOiJhcmNoaXZfb3JnXzEiLCJzaGVsZiI6Im9mZmljZV9zaGVsZiJ9LHsiY29sbGVjdGlvbiI6InByb2pfM2YyNTA0ZTAtNGY4OS0xMWQzLTlhMGMtMDMwNWU4MmMzMzAxIiwic2hlbGYiOiJwcm9qZWN0In0seyJjb2xsZWN0aW9uIjoic19jb252X2FiYyIsInNoZWxmIjoic2Vzc2lvbiJ9XQ"
     },
     {
+      "name": "a chat without a project, its owner's own shelf in scope (ADR-0191)",
+      "emittedByBff": true,
+      "entries": [
+        {
+          "collection": "oib_knowledge",
+          "shelf": "base"
+        },
+        {
+          "collection": "office_shelf_org_1",
+          "shelf": "office_shelf"
+        },
+        {
+          "collection": "personal_org_1__user_1",
+          "shelf": "personal"
+        },
+        {
+          "collection": "s_conv_abc",
+          "shelf": "session"
+        }
+      ],
+      "parsed": [
+        {
+          "collection": "oib_knowledge",
+          "shelf": "base"
+        },
+        {
+          "collection": "office_shelf_org_1",
+          "shelf": "office_shelf"
+        },
+        {
+          "collection": "personal_org_1__user_1",
+          "shelf": "personal"
+        },
+        {
+          "collection": "s_conv_abc",
+          "shelf": "session"
+        }
+      ],
+      "header": "W3siY29sbGVjdGlvbiI6Im9pYl9rbm93bGVkZ2UiLCJzaGVsZiI6ImJhc2UifSx7ImNvbGxlY3Rpb24iOiJvZmZpY2Vfc2hlbGZfb3JnXzEiLCJzaGVsZiI6Im9mZmljZV9zaGVsZiJ9LHsiY29sbGVjdGlvbiI6InBlcnNvbmFsX29yZ18xX191c2VyXzEiLCJzaGVsZiI6InBlcnNvbmFsIn0seyJjb2xsZWN0aW9uIjoic19jb252X2FiYyIsInNoZWxmIjoic2Vzc2lvbiJ9XQ"
+    },
+    {
       "name": "a project collection whose name carries no prefix still states its shelf",
       "emittedByBff": true,
       "entries": [

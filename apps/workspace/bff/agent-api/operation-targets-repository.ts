@@ -18,6 +18,7 @@ export interface TargetPlace {
   projectId: string | null
   conversationId: string | null
   document?: { folderId: string | null; passedScreening: boolean }
+  personal?: true
 }
 
 const place = (projectId: string | null, conversationId: string | null = null): TargetPlace => ({
@@ -51,15 +52,17 @@ export async function findTargetPlace(
       return {
         ...place(doc.projectId, doc.conversationId ?? null),
         document: { folderId: doc.folderId ?? null, passedScreening: hasPassedScreening(doc) },
+        ...(doc.scope === 'personal' ? { personal: true as const } : {}),
       }
     }
     case 'folder': {
       const [row] = await db
-        .select({ projectId: projectFolders.projectId })
+        .select({ projectId: projectFolders.projectId, scope: projectFolders.scope })
         .from(projectFolders)
         .where(and(eq(projectFolders.id, target.id), eq(projectFolders.organizationId, organizationId)))
         .limit(1)
-      return row ? place(row.projectId) : null
+      if (!row) return null
+      return row.scope === 'personal' ? { ...place(null), personal: true } : place(row.projectId)
     }
     case 'bim_model': {
       const model = await findBimModelById(target.id, organizationId, memberReader(userId))

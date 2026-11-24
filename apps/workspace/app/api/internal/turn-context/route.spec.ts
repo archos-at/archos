@@ -11,6 +11,7 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({ loadProjectPromptView: vi.
 vi.mock('@/lib/org-instructions/service', () => ({ resolveOrgInstructions: vi.fn() }))
 vi.mock('@/lib/projects/memory-service', () => ({ buildProjectMemoryDigest: vi.fn() }))
 vi.mock('@/lib/personal-memory/service', () => ({ buildPersonalMemoryDigest: vi.fn() }))
+vi.mock('@/lib/conversations/personal-use', () => ({ recordPersonalSources: vi.fn(async () => undefined) }))
 vi.mock('@/lib/conversations/temporary', () => ({ isTemporaryConversation: vi.fn() }))
 vi.mock('@/lib/projects/proposal-decisions', async (original) => ({
   ...(await original<typeof import('@/lib/projects/proposal-decisions')>()),
@@ -56,6 +57,7 @@ import { withTenant, withPlatformAccess } from '@/lib/db/tenant-context'
 import { loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
 import { buildProjectMemoryDigest } from '@/lib/projects/memory-service'
+import { recordPersonalSources } from '@/lib/conversations/personal-use'
 import { buildPersonalMemoryDigest } from '@/lib/personal-memory/service'
 import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import { buildProposalDecisionsBlock } from '@/lib/projects/proposal-decisions'
@@ -257,9 +259,30 @@ describe('POST /api/internal/turn-context', () => {
     const { data } = await (await call()).json()
 
     expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
+    expect(recordPersonalSources).toHaveBeenCalledWith('org_1', 's_text-conversation', ['personal_memory'])
     expect(isSoloAudience).toHaveBeenCalledWith(expect.anything(), 'user_1')
     expect(readConversationAudience).toHaveBeenCalledTimes(1)
     expect(readConversationAudience).toHaveBeenCalledWith(expect.anything(), 'org_1', 's_text-conversation')
+  })
+
+  it('gives no personal memory it could not record on the chat (ADR-0191 rule 5)', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+    vi.mocked(recordPersonalSources).mockRejectedValueOnce(new Error('db down'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const { data } = await (await call()).json()
+
+    expect(data.personalMemory).toBeNull()
+    warn.mockRestore()
+  })
+
+  it('records no personal use when there was none to give', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue(null)
+    vi.mocked(recordPersonalSources).mockClear()
+
+    await call()
+
+    expect(recordPersonalSources).not.toHaveBeenCalled()
   })
 
   it('fails closed: no personal memory when the audience cannot be read', async () => {

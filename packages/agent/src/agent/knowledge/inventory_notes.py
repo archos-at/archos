@@ -6,7 +6,7 @@ from agent.common.source_kinds import SHELF_QUALIFIERS
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
 
-INVENTORY_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION, Shelf.BASE)
+INVENTORY_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.PERSONAL, Shelf.SESSION, Shelf.BASE)
 
 _IN_FLIGHT_MAX_NAMED = 5
 

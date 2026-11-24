@@ -22,7 +22,7 @@ _turn_documents: ContextVar[tuple[Any, ...]] = ContextVar("turn_documents", defa
 
 _norm_families: ContextVar[tuple[Any, ...]] = ContextVar("norm_families", default=())
 
-_USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
+_USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.PERSONAL, Shelf.SESSION)
 
 
 _SHELF_BLURBS: dict[Shelf, str] = {
@@ -37,6 +37,10 @@ _SHELF_BLURBS: dict[Shelf, str] = {
         "on every session of this project — this project's files only. NOT the Bürobibliothek, NOT base/OIB."
     ),
     Shelf.SESSION: ("only this chat — attachments uploaded here. Not visible in other sessions."),
+    Shelf.PERSONAL: (
+        "only this person, in a chat without a project that is theirs alone — Meine Ablage, their own files. "
+        "NOT a project's files, NOT the Bürobibliothek."
+    ),
 }
 
 _LISTING_CUES = (

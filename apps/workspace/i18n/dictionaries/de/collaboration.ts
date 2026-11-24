@@ -82,6 +82,10 @@ export const collaboration: typeof en.collaboration = {
     escalateConfirm: 'Eigentümerschaft übernehmen?',
     escalateHint:
       'Als Projekt-Administrator können Sie die Eigentümerschaft an diesem Chat übernehmen. Das wird im Audit-Protokoll festgehalten.',
+    personalConfirm: 'Chat mit persönlichen Inhalten teilen?',
+    personalConfirmHint:
+      'Dieser Chat hat auf „Meine Ablage“ oder Ihre persönlichen Notizen zurückgegriffen. Wer ihn sieht, liest die Antworten, nicht Ihre Dateien. Danach greift der Chat nicht mehr darauf zurück.',
+    personalConfirmAction: 'Trotzdem teilen',
     errors: {
       lastOwner:
         'Dieser Chat braucht mindestens einen Eigentümer. Machen Sie zuerst eine andere Person zum Eigentümer.',
@@ -108,6 +112,9 @@ export const collaboration: typeof en.collaboration = {
         'Diese Person darf nicht jedes andere Projekt öffnen, auf das sich dieser Chat stützt. Deshalb kann er nicht mit ihr geteilt werden.',
       crossProjectContentSelf:
         'Sie dürfen nicht jedes andere Projekt öffnen, auf das sich dieser Chat stützt, und können ihn deshalb nicht übernehmen.',
+      personalContentShareFirst:
+        'Dieser Chat stützt sich auf „Meine Ablage“ oder Ihre persönlichen Notizen. Teilen Sie ihn zuerst über „Teilen“, dann können Sie andere erwähnen.',
+      personalContentOwner: 'Dieser Chat stützt sich auf persönliche Inhalte seiner Besitzerin oder seines Besitzers. Nur diese Person kann ihn teilen.',
       crossProjectContentProject:
         'Dieser Chat stützt sich auf Inhalte aus anderen Projekten und kann deshalb nicht für das ganze Projekt sichtbar gemacht werden. Teilen Sie ihn mit einzelnen Personen, die diese Projekte öffnen dürfen.',
       loadFailed: 'Die Einstellungen zum Teilen konnten nicht geladen werden.',

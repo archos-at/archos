@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AlertTriangle, MoreHorizontal, ShieldCheck, UserMinus, X } from 'lucide-react'
 
@@ -55,6 +55,7 @@ type PendingConfirm =
   | { kind: 'remove'; entry: ResourceAccessEntry }
   | { kind: 'escalate' }
   | { kind: 'leave' }
+  | { kind: 'personal' }
 
 export interface ShareDialogProps {
   open: boolean
@@ -91,6 +92,10 @@ export function ShareDialog({
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<PendingConfirm | null>(null)
 
+  useEffect(() => {
+    if (sharing.personalConfirmation) setPending({ kind: 'personal' })
+  }, [sharing.personalConfirmation])
+
   const roleLabel = (role: ResourceRole): string => t(`sharing.roles.${role}`)
 
   const restrictedContentMessage = (value: SharingFailure): string => {
@@ -119,6 +124,7 @@ export function ShareDialog({
     if (value.reason === SHARING_ERROR_REASONS.crossProjectContentProject) {
       return t('sharing.errors.crossProjectContentProject')
     }
+    if (value.reason === SHARING_ERROR_REASONS.personalContentOwner) return t('sharing.errors.personalContentOwner')
     if (value.reason === SHARING_ERROR_REASONS.containerAccessRequired) {
       return t('sharing.errors.containerAccessRequired')
     }
@@ -181,6 +187,14 @@ export function ShareDialog({
     onConfirm: () => Promise<boolean>
   } | null => {
     if (!pending) return null
+    if (pending.kind === 'personal') {
+      return {
+        title: t('sharing.personalConfirm'),
+        description: t('sharing.personalConfirmHint'),
+        confirmLabel: t('sharing.personalConfirmAction'),
+        onConfirm: () => sharing.confirmPersonalContent(),
+      }
+    }
     if (pending.kind === 'visibility') {
       return {
         title: t('sharing.visibilityHeading'),
@@ -470,7 +484,9 @@ export function ShareDialog({
           <ConfirmDialog
             open
             onOpenChange={(next) => {
-              if (!next) setPending(null)
+              if (next) return
+              setPending(null)
+              sharing.dismissPersonalConfirmation()
             }}
             title={confirm.title}
             description={confirm.description}

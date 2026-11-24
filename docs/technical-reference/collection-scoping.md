@@ -129,6 +129,17 @@ async function buildCollectionScopeFromRequest(
 
 ---
 
+## The person's own shelf (ADR-0191)
+
+An interactive chat turn without a project whose conversation its asker alone
+reads (no row yet, or private, created by the asker, granted to nobody else;
+`mayDrawOnPersonal` in `bff/conversations/personal-use.ts`) also searches the
+asker's own shelf, `personal_<org>__<user>` with shelf `personal`. A project
+chat never does, even its owner's alone, and neither does a shared chat. When
+the shelf holds a document, the turn records the use in
+`conversation_personal_sources` first; if that write fails the shelf is left
+out. The agent names such a passage „Meine Ablage“ (`Shelf.PERSONAL`).
+
 ## Restricted folders (ADR-0087, ADR-0088, ADR-0097)
 
 A folder with its own access list that not every project member reads

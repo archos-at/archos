@@ -1,6 +1,6 @@
 import type { UserSession } from '@/lib/auth/types'
 
-export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
+export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base' | 'personal'
 
 export interface ScopedCollection {
   collection: string
@@ -19,6 +19,7 @@ export interface ScopeContext {
   conversationId?: string
   baseCollection?: string
   officeShelfCollectionName?: string
+  personalCollectionName?: string
   restrictedCollections?: readonly string[]
 }
 
@@ -44,6 +45,10 @@ export function computeCollectionScope(
       scope.push(projectCollectionName)
       scope.push(...(context.restrictedCollections ?? []))
     }
+  }
+
+  if (context.personalCollectionName && !context.projectId && !context.projectCollectionName) {
+    scope.push(context.personalCollectionName)
   }
 
   if (context.conversationId) {

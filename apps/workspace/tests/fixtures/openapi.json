@@ -20152,6 +20152,10 @@
                       "project",
                       "organization"
                     ]
+                  },
+                  "confirmPersonalContent": {
+                    "description": "The owner confirms sharing a chat that drew on their own shelf or personal notes (ADR-0191).",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -20263,6 +20267,10 @@
                           "collaborator",
                           "owner"
                         ]
+                      },
+                      "confirmPersonalContent": {
+                        "description": "The owner confirms sharing a chat that drew on their own shelf or personal notes (ADR-0191).",
+                        "type": "boolean"
                       }
                     },
                     "required": [

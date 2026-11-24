@@ -636,7 +636,7 @@ def lane_for_hit(
     known_shelf = parse_shelf(shelf) or legacy_shelf_for_collection_name(collection)
     if source_format == MAIL_SOURCE_FORMAT:
         return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)
-    users_shelf = known_shelf in (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
+    users_shelf = known_shelf in (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION, Shelf.PERSONAL)
     if doc_class and not users_shelf:
         from agent.knowledge.document_classification import DOCUMENT_CLASS_LANES
         from agent.knowledge.document_classification import canonical_doc_class
@@ -649,8 +649,8 @@ def lane_for_hit(
         return ("office", "Bürobibliothek")
     if known_shelf is Shelf.PROJECT:
         return ("project", "Projektwissen")
-    if known_shelf is Shelf.SESSION:
-        return ("project", "Private Sitzung")
+    if known_shelf in (Shelf.SESSION, Shelf.PERSONAL):
+        return ("project", "Private Sitzung" if known_shelf is Shelf.SESSION else "Meine Ablage")
     return _lane_for_source(file_name=file_name, source_url=source_url, collection=collection, registry=registry)
 
 

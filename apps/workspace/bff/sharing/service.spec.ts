@@ -521,6 +521,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
       kind: 'person',
       userId: 'user_member',
       self: false,
+      confirmedPersonal: false,
     })
     expect(consumeLimit).not.toHaveBeenCalled()
     expect(upsertGrant).not.toHaveBeenCalled()
@@ -532,13 +533,31 @@ describe('a conversation that drew on a restricted folder reaches only people cl
     expect(widenConversationAudience).toHaveBeenCalledWith(
       session,
       'conv_1',
-      { kind: 'person', userId: 'user_member', self: false },
+      { kind: 'person', userId: 'user_member', self: false, confirmedPersonal: false },
       expect.any(Function),
     )
     expect(upsertGrant).toHaveBeenCalledWith(
       expect.objectContaining({ subjectUserId: 'user_member', role: 'viewer' }),
       widenings.executor,
     )
+  })
+
+  it('carries the owner’s confirmation of personal content to the guard (ADR-0191 rule 5)', async () => {
+    await grantResourceAccess(session, 'conversation', 'conv_1', {
+      subjectUserId: 'user_member',
+      role: 'viewer',
+      confirmPersonalContent: true,
+    })
+    expect(widenConversationAudience).toHaveBeenCalledWith(
+      session,
+      'conv_1',
+      { kind: 'person', userId: 'user_member', self: false, confirmedPersonal: true },
+      expect.any(Function),
+    )
+
+    stubCallerAccess('owner', 'private')
+    await setResourceVisibility(session, 'conversation', 'conv_1', 'project', undefined, { confirmPersonalContent: true })
+    expect(assertMayWidenConversation).toHaveBeenLastCalledWith(session, 'conv_1', { kind: 'visibility', confirmedPersonal: true })
   })
 
   it('announces nothing when the guard refuses under its lock', async () => {
@@ -562,7 +581,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
     const error = await refusal(setResourceVisibility(session, 'conversation', 'conv_1', 'project'))
 
     expect(error.details).toMatchObject({ reason: 'restricted-content-project' })
-    expect(assertMayWidenConversation).toHaveBeenCalledWith(session, 'conv_1', { kind: 'visibility' })
+    expect(assertMayWidenConversation).toHaveBeenCalledWith(session, 'conv_1', { kind: 'visibility', confirmedPersonal: false })
     expect(updateConversationVisibilityInOrg).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
 

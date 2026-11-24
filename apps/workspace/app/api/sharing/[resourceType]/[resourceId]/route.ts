@@ -2,7 +2,8 @@ import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { getSharingState, setResourceVisibility } from '@/lib/sharing/service'
 import { requireShareableType } from '@/lib/sharing/registry'
-import { visibilitySchema } from '@/lib/sharing/sharing-wire'
+import { confirmedByThePerson, visibilitySchema } from '@/lib/sharing/sharing-wire'
+import { currentActingSession } from '@/lib/agent-api/acting-session'
 
 type Params = { resourceType: string; resourceId: string }
 
@@ -19,13 +20,14 @@ export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
     const gated = requireCollaborationEnabled(session)
     if (gated) return gated
-    const { visibility } = await parseJsonBody(request, visibilitySchema)
+    const { visibility, confirmPersonalContent } = await parseJsonBody(request, visibilitySchema)
     return setResourceVisibility(
       session,
       requireShareableType(params.resourceType),
       params.resourceId,
       visibility,
-      request
+      request,
+      { confirmPersonalContent: confirmedByThePerson(confirmPersonalContent, currentActingSession() !== undefined) }
     )
   },
   { authz: { enforcedBy: 'setResourceVisibility (requireResourceAccess owner)' } }

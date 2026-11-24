@@ -110,6 +110,7 @@ export async function setResourceVisibility(
   resourceId: string,
   visibility: ResourceVisibility,
   request?: Request,
+  { confirmPersonalContent = false }: { confirmPersonalContent?: boolean } = {},
 ): Promise<ResourceSharingState> {
   const access = await requireResourceAccess(session, resourceType, resourceId, 'owner')
   await requireResourceWriteAccess(session, resourceType, resourceId)
@@ -126,7 +127,7 @@ export async function setResourceVisibility(
   }
 
   if (visibility !== 'private') {
-    await assertMayWiden(session, resourceType, resourceId, { kind: 'visibility' })
+    await assertMayWiden(session, resourceType, resourceId, { kind: 'visibility', confirmedPersonal: confirmPersonalContent })
   }
 
   const previousAudience = await resolveParticipants(session.organizationId, resourceType, resourceId)
@@ -136,7 +137,7 @@ export async function setResourceVisibility(
   const written =
     visibility === 'private'
       ? await write()
-      : await widen(session, resourceType, resourceId, { kind: 'visibility' }, write)
+      : await widen(session, resourceType, resourceId, { kind: 'visibility', confirmedPersonal: confirmPersonalContent }, write)
   if (!written) throw new NotFoundError()
 
   await recordAuditEvent({
@@ -163,6 +164,7 @@ export async function setResourceVisibility(
 export interface GrantAccessInput {
   subjectUserId: string
   role: ResourceRole
+  confirmPersonalContent?: boolean
 }
 
 export async function grantResourceAccess(
@@ -184,7 +186,12 @@ export async function grantResourceAccess(
     throw new BadRequestError(`Role "${input.role}" is not available for this resource`)
   }
 
-  const widening: AudienceWidening = { kind: 'person', userId: input.subjectUserId, self: false }
+  const widening: AudienceWidening = {
+    kind: 'person',
+    userId: input.subjectUserId,
+    self: false,
+    confirmedPersonal: input.confirmPersonalContent === true,
+  }
   await assertMayWiden(session, resourceType, resourceId, widening)
 
   const limit = await consumeLimit(SHARE_LIMIT, memberSubject(session))

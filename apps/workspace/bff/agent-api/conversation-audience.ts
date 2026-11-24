@@ -1,4 +1,5 @@
 import 'server-only'
+import { mayDrawOnPersonal, recordPersonalSources } from '@/lib/conversations/personal-use'
 
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
@@ -87,12 +88,16 @@ export const READ_REFUSALS = {
     'This conversation is shared, and that change names a project not everyone who reads it may open: its card, ' +
     'and what the change returns, would sit here. Tell the person to make the change in ' + PRODUCT_NAME + ' themselves, or to ' +
     'ask in a conversation that is theirs alone.',
+  personal:
+    'That is on the person’s own shelf, which ' + PRODUCT_NAME + ' draws on only in a conversation without a project that ' +
+    'is theirs alone; this one is shared or belongs to a project. Tell the person to open it themselves, or to ask in ' +
+    'such a conversation.',
   audienceChanged:
     'Who reads this conversation changed while ' + PRODUCT_NAME + ' was reading, so nothing was read. Call again: the read is ' +
     'judged against the readers the conversation has now.',
 } as const
 
-export type ReadJudgement = { refusal: string } | { handOut: CrossProjectHandOut }
+export type ReadJudgement = { refusal: string } | { handOut: CrossProjectHandOut; personal?: true }
 
 const refuse = (refusal: string): ReadJudgement => ({ refusal })
 
@@ -139,6 +144,7 @@ export async function judgeWorkspaceRead(
   return withTenant(tenantOf(principal), async () => {
     const places = await placesOf(organizationId, userId, targets)
     let touchesOwn = targets.length === 0
+    let personal = false
     const foreign: ForeignPlace[] = []
     for (const [index, place] of places.entries()) {
       const target = targets[index] as OperationTarget
@@ -148,6 +154,11 @@ export async function judgeWorkspaceRead(
           continue
         }
         return refuse(READ_REFUSALS.unknown)
+      }
+      if (place.personal) {
+        if (!mayDrawOnPersonal(audience.row, userId, principal.projectId ?? null)) return refuse(READ_REFUSALS.personal)
+        personal = true
+        continue
       }
       const refused = await placeRefusal(principal, audience, place, organizationId)
       if (refused) return refuse(refused)
@@ -167,6 +178,7 @@ export async function judgeWorkspaceRead(
     const own = audience.solo && touchesOwn && principal.projectId ? await ownFolders() : []
     return {
       handOut: { projectIds: handOut.handOut.projectIds, folderIds: [...own, ...handOut.handOut.folderIds] },
+      ...(personal ? { personal: true as const } : {}),
     }
   })
 }
@@ -250,6 +262,14 @@ export async function ownRestrictingFolders(principal: AgentPrincipal): Promise<
   if (!principal.projectId) return []
   const projectId = principal.projectId
   return withTenant(tenantOf(principal), () => restrictingFolders(principal.session, projectId))
+}
+
+export async function recordPersonalRead(principal: AgentPrincipal): Promise<void> {
+  const conversationId = principal.conversationId
+  if (!conversationId) return
+  await withTenant(tenantOf(principal), () =>
+    recordPersonalSources(principal.session.organizationId, conversationId, ['personal_shelf'])
+  )
 }
 
 export async function recordWorkspaceHandOut(

@@ -7,6 +7,7 @@ import {
   conversationAudienceOf,
   judgeWorkspaceRead,
   ownRestrictingFolders,
+  recordPersonalRead,
   recordWorkspaceHandOut,
 } from './conversation-audience'
 import type { AgentOperation } from './operation'
@@ -59,6 +60,7 @@ function buildGate(principal: AgentPrincipal): ReadGate {
         (ownFolders ??= ownRestrictingFolders(principal)),
       )
       if ('refusal' in judged) return judged.refusal
+      if (judged.personal) await recordPersonalRead(principal)
       return (await recordWorkspaceHandOut(principal, now, judged.handOut)) ? null : READ_REFUSALS.audienceChanged
     },
     async mayHandOnLink() {

@@ -24,6 +24,7 @@ import type { DbExecutor } from '@/lib/db/executor'
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { SHARING_ERROR_REASONS } from '@/lib/sharing/types'
+import { assertPersonalUseConfirmed } from './personal-use-widening'
 import {
   listRecordedSourceFolders,
   listRecordedSourceFoldersFor,
@@ -426,8 +427,8 @@ export async function admitRestrictedUse(
 }
 
 export type AudienceWidening =
-  | { kind: 'person'; userId: string; self: boolean }
-  | { kind: 'visibility' }
+  | { kind: 'person'; userId: string; self: boolean; confirmedPersonal?: boolean }
+  | { kind: 'visibility'; confirmedPersonal?: boolean }
 
 interface Uncovered {
   folders: string[]
@@ -573,6 +574,7 @@ export async function assertMayWidenConversation(
   ])
   const missing = uncovered(widening, restrictedRecord(context, recorded), projects, context)
   if (!isCovered(missing)) throw await wideningRefusal(session, widening, missing, context)
+  await assertPersonalUseConfirmed(session, getDb(), conversationId, widening)
 }
 
 export async function widenConversationAudience<T>(
@@ -590,6 +592,7 @@ export async function widenConversationAudience<T>(
     const projects = await listRestrictingSourceProjects(tx, organizationId, conversationId)
     refusal.missing = uncovered(widening, recorded, projects, context)
     if (!isCovered(refusal.missing)) return null
+    await assertPersonalUseConfirmed(session, tx, conversationId, widening)
     return { value: await write(tx) }
   })
   if (result === null) throw await wideningRefusal(session, widening, refusal.missing, context)

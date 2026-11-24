@@ -1,4 +1,5 @@
 import 'server-only'
+import { recordPersonalSources } from '@/lib/conversations/personal-use'
 import { drewOnOtherProjects } from '@/lib/conversations/cross-project-use'
 import { loadReferenceBrief } from '@/lib/cross-project/reference-brief'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -102,10 +103,15 @@ function readSoloAudience(context: VerifiedRequestContext): Promise<boolean | nu
 }
 
 async function loadPersonalMemory(context: VerifiedRequestContext, solo: Promise<boolean | null>): Promise<string | null> {
-  if (context.conversationId && (await solo) !== true) return null
-  return advisory('load the personal memory', () =>
-    buildPersonalMemoryDigest({ organizationId: context.organizationId, userId: context.userId }),
-  )
+  const { conversationId, organizationId, userId } = context
+  if (conversationId && (await solo) !== true) return null
+  const digest = await advisory('load the personal memory', () => buildPersonalMemoryDigest({ organizationId, userId }))
+  if (!digest || !conversationId) return digest
+  const recorded = await advisory('record the use of personal memory', async () => {
+    await recordPersonalSources(organizationId, conversationId, ['personal_memory'])
+    return true
+  })
+  return recorded ? digest : null
 }
 
 async function loadOfficeStandards(organizationId: string, projectId: string | null, knowledge: Promise<TurnKnowledge>) {

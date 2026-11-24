@@ -14,6 +14,10 @@ export interface SharingFailure {
   folders?: readonly string[]
 }
 
+export interface PersonalContentConfirmation {
+  confirmPersonalContent?: boolean
+}
+
 export const NO_FAILURE_DETAIL: SharingFailure = { reason: null, message: null }
 
 export type ShareCandidatesResponse = ShareCandidate[] | { candidates: ShareCandidate[] }
@@ -86,16 +90,24 @@ export const setResourceVisibility = (
   resourceType: ShareableResourceType,
   resourceId: string,
   visibility: ResourceVisibility,
+  { confirmPersonalContent }: PersonalContentConfirmation = {},
 ): Promise<ResourceSharingState> =>
-  sendSharingChange(sharingPath(resourceType, resourceId), jsonRequest('PATCH', { visibility }))
+  sendSharingChange(
+    sharingPath(resourceType, resourceId),
+    jsonRequest('PATCH', { visibility, ...(confirmPersonalContent ? { confirmPersonalContent } : {}) }),
+  )
 
 export const grantResourceAccess = (
   resourceType: ShareableResourceType,
   resourceId: string,
   subjectUserId: string,
   role: ResourceRole,
+  { confirmPersonalContent }: PersonalContentConfirmation = {},
 ): Promise<ResourceSharingState> =>
-  sendSharingChange(`${sharingPath(resourceType, resourceId)}/grants`, jsonRequest('POST', { subjectUserId, role }))
+  sendSharingChange(
+    `${sharingPath(resourceType, resourceId)}/grants`,
+    jsonRequest('POST', { subjectUserId, role, ...(confirmPersonalContent ? { confirmPersonalContent } : {}) }),
+  )
 
 export const changeResourceRole = (
   resourceType: ShareableResourceType,

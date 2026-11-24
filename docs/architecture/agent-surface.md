@@ -227,6 +227,10 @@ read, with the audience read once per MCP request):
   turn's answer, in one transaction. A conversation shared in the meantime
   records nothing, and the read is refused (`READ_REFUSALS.audienceChanged`).
   The record is judged when read, so a project closed now restricts nobody.
+  A document or folder on the person's own shelf („Meine Ablage“) is read only
+  in a chat without a project that the person alone reads (`mayDrawOnPersonal`,
+  ADR-0191), and the read is recorded (`conversation_personal_sources`);
+  anywhere else it is refused (`READ_REFUSALS.personal`).
   The answer's id comes from the agent in `x-grid-answer-message-id`
   (`turn_answer_message_id`), as the other internal tools send `answerMessageId`.
 - **What a read may carry.** A route answers as the requester and does not say

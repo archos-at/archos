@@ -51,6 +51,7 @@ const state = vi.hoisted(() => ({
   tx: { tx: true },
 }))
 
+vi.mock('./personal-use-widening', () => ({ assertPersonalUseConfirmed: vi.fn(async () => undefined) }))
 vi.mock('@/lib/db', () => ({
   getDb: () => ({ transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(state.tx) }),
 }))
@@ -131,6 +132,8 @@ import {
   widenConversationAudience,
 } from './restricted-use'
 import { folderTree } from '@/lib/authz/folder-access'
+import { ConflictError } from '@/lib/api/errors'
+import { assertPersonalUseConfirmed } from './personal-use-widening'
 
 const ORG = 'org_1'
 const PROJECT = 'project_1'
@@ -284,6 +287,18 @@ describe('widening a conversation — per person', () => {
       (error: { details?: unknown }) => error.details
     )
   }
+
+  it('asks about personal material in both checks, under the lock before the write (ADR-0191 rule 5)', async () => {
+    const write = vi.fn(async () => 'granted')
+    vi.mocked(assertPersonalUseConfirmed).mockClear()
+    await assertMayWidenConversation(session, CONV, toIna)
+    expect(assertPersonalUseConfirmed).toHaveBeenCalledWith(session, expect.anything(), CONV, toIna)
+
+    vi.mocked(assertPersonalUseConfirmed).mockRejectedValueOnce(new ConflictError('confirm', { reason: 'personal-content-confirm' }))
+    expect(await refusalOf(widenConversationAudience(session, CONV, toIna, write))).toEqual({ reason: 'personal-content-confirm' })
+    expect(assertPersonalUseConfirmed).toHaveBeenLastCalledWith(session, state.tx, CONV, toIna)
+    expect(write).not.toHaveBeenCalled()
+  })
 
   it('lets anyone in while the chat recorded nothing', async () => {
     const write = vi.fn(async () => 'granted')
