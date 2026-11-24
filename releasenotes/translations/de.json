@@ -4044,6 +4044,10 @@
     "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
   },
   {
+    "en": "The E-Mail-Eingang and Offene Punkte now have a search where Dateien has its own, at the start of the Ablage's row of tools: „Im E-Mail-Eingang suchen …“ finds mails by sender, subject or the name of an attachment, „In den offenen Punkten suchen …“ finds points by their text, their document or who is responsible. The list narrows as you type, Escape clears the search, and it survives a reload.",
+    "de": "Der E-Mail-Eingang und die Offenen Punkte haben jetzt eine Suche an derselben Stelle wie Dateien, am Anfang der Werkzeugzeile der Ablage: „Im E-Mail-Eingang suchen …“ findet E-Mails nach Absender, Betreff oder dem Namen eines Anhangs, „In den offenen Punkten suchen …“ findet Punkte nach ihrem Text, ihrem Dokument oder der zuständigen Person. Die Liste wird schon beim Tippen kürzer, Escape leert die Suche, und sie bleibt auch nach dem Neuladen erhalten."
+  },
+  {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
     "de": "Der E-Mail-Verlauf kennzeichnet eine direkt abgelegte E-Mail. Beim Ursprung eines weitergeleiteten Dokuments wird angegeben, wer es verfasst und wer es weitergeleitet hat. Die Projekteinstellungen, der Adressdialog und die Anleitung auf der Website beschreiben das direkte Ablegen."
   },

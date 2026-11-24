@@ -6,7 +6,9 @@ import { render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { CONTROL_HEIGHT } from '@/components/ui/control-height'
+import { SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { FilesHeaderControls } from './files-header-controls'
+import { TOOL_ROW_SEARCH_CLASS } from './file-search-bar'
 
 function german(ui: ReactElement): ReturnType<typeof render> {
   return render(
@@ -42,6 +44,27 @@ describe('FilesHeaderControls', () => {
     expect(screen.queryByRole('button', { name: 'Suche' })).toBeNull()
     await userEvent.type(field, '{Enter}')
     expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('in the tool row, takes the box every Ablage place’s search takes, its tools at the row’s end, and Escape clears it', async () => {
+    const onClear = vi.fn()
+    german(
+      <SectionToolRowScope enabled>
+        <FilesHeaderControls
+          phone={false}
+          view="list"
+          onViewChange={() => {}}
+          renderFilter={() => null}
+          upload={<Button size="sm">Hochladen</Button>}
+          search={{ value: 'EP-03', onChange: () => {}, onSubmit: () => {}, onClear, placeholder: 'In der Projektablage suchen …' }}
+        />
+      </SectionToolRowScope>
+    )
+    const field = screen.getByRole('textbox', { name: 'Dateien durchsuchen' })
+    expect(field.closest('form')).toHaveClass(...TOOL_ROW_SEARCH_CLASS.split(' '))
+    expect(screen.getByRole('button', { name: 'Hochladen' }).parentElement).toHaveClass('ml-auto')
+    await userEvent.type(field, '{Escape}')
+    expect(onClear).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the short placeholder on a phone and where the shelf names no scope', () => {

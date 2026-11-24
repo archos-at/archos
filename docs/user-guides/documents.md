@@ -13,7 +13,7 @@ mail, confirmed by their domain, is filed directly), and its text becomes an
 
 A file goes to one of two places, and the place decides who can use it:
 
-- **The project's Ablage** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). The Ablage's header is one row under its title: the search, **„Auswählen“**, the bin (the Papierkorb opens as a window over the page), **„Hochladen“** and **⋯**, and under it the places „Dateien“, „E-Mail-Eingang“ and „Offene Punkte“. The head stays put when you switch places: the title is „Ablage“ on each of them, the place you are in is the underlined word, and a place's own tools take the same row (on the E-Mail-Eingang „Adresse kopieren“ and „Mehr zur Adresse“, on Offene Punkte „Protokoll exportieren“), so only the content under the places changes. Upload with **„Hochladen“** (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**, and in a project, under „E-Mails“, **„Per E-Mail senden …“** and **„Outlook-Archiv importieren …“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Bürobibliothek has the same controls for the whole office (see [The Bürobibliothek](#the-bürobibliothek-adr-0024)).
+- **The project's Ablage** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). The Ablage's header is one row under its title: the search, **„Auswählen“**, the bin (the Papierkorb opens as a window over the page), **„Hochladen“** and **⋯**, and under it the places „Dateien“, „E-Mail-Eingang“ and „Offene Punkte“. The head stays put when you switch places: the title is „Ablage“ on each of them, the place you are in is the underlined word, and a place's own tools take the same row (on the E-Mail-Eingang „Adresse kopieren“ and „Mehr zur Adresse“, on Offene Punkte „Protokoll exportieren“), so only the content under the places changes. Every place starts that row with its search, in the same place and as wide: „In der Projektablage suchen …“ on Dateien, „Im E-Mail-Eingang suchen …“ and „In den offenen Punkten suchen …“ on the other two; each searches what its own place lists, and Escape clears it. Upload with **„Hochladen“** (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**, and in a project, under „E-Mails“, **„Per E-Mail senden …“** and **„Outlook-Archiv importieren …“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Bürobibliothek has the same controls for the whole office (see [The Bürobibliothek](#the-bürobibliothek-adr-0024)).
 - **Meine Ablage** — your own files (`personal_{org}__{user}` collection). Only you see them: not your colleagues, not an administrator. Open it from the rail's **„Persönlich“** side, with the same head and controls as a project's Ablage (folders, upload, preview, search, delete): over the title **„Meine Ablage“** stands „Persönlich · Nur Sie“, and when you open a folder the head stays where it is and the way to the folder is the line under it, ← one level up at its start. Your own connected agent can work in it with your rights; a project chat never draws on it. Deleting a file here deletes it at once, as in the Bürobibliothek (ADR-0193).
 - **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
@@ -139,6 +139,17 @@ Two filters answer the meeting's questions:
 - **Zuständig: Für Sie** keeps the marks you are responsible for, as **Für Sie** does in the Prüfansicht.
 - **Frist: Überfällig** keeps the marks whose Frist has passed; **Bald** those
   due today or in the next seven days.
+
+**In den offenen Punkten suchen …**, at the start of the tool row, narrows the
+list as you type to the marks whose text, document name or responsible person
+holds every word you typed („berger brandschutz“). It searches the marks loaded
+so far (a project with many opens on its first 50; **Weitere laden** under the
+list brings more, and they are searched too), together with the filters. The
+search stays in the page's address (`?q=`) as the filters do, so a reload or
+the way back from the Prüfansicht keeps it. When nothing matches the page says
+so („Kein offener Punkt passt zu „statik““) with **Suche leeren**; Escape in
+the field clears it too. The Protokoll follows the filters, not the search. On
+a phone there is no search on this page.
 
 **Protokoll exportieren** downloads what the list shows, with the filters you
 set, as one PDF, Word or Markdown file: each document under its own heading,

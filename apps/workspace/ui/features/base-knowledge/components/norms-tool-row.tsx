@@ -5,7 +5,7 @@ import { CircleHelp, FolderInput, FolderPlus, ListChecks, MoreHorizontal, Pencil
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { SectionLevelTools, useSectionNewFolder, useSectionToolTier } from '@/components/shell/project-section-frame'
-import { FileSearchField } from '@/features/documents'
+import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -50,7 +50,7 @@ export function NormsToolRow({ phone, search, onSearch, upload, onFromShelf, onN
   ]
   const field = (
     <FileSearchField
-      className={phone ? 'flex-1' : 'min-w-40 flex-1'}
+      className={phone ? 'flex-1' : TOOL_ROW_SEARCH_CLASS}
       size={phone ? 'default' : 'sm'}
       value={search}
       onChange={onSearch}
@@ -83,7 +83,7 @@ export function NormsToolRow({ phone, search, onSearch, upload, onFromShelf, onN
   return (
     <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="base-knowledge-controls">
       {field}
-      <div className={cn('flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
+      <div className={cn('ml-auto flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
         <SectionLevelTools />
         {upload}
         {more}
