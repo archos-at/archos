@@ -3,21 +3,20 @@
 import type { JSX } from 'react'
 import { createContext, useContext } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Bookmark, History, RotateCw, Search, Users } from 'lucide-react'
+import { ArrowRight, Building2, FileText, Folder, MessageSquare, MessageSquareWarning, RotateCw } from 'lucide-react'
 
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDelayedFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
 import { searchCopy } from '@/i18n/namespaces/search'
 import { cn } from '@/lib/utils'
-import type { SavedSearchView } from '@/lib/search/saved-search-client'
-import { SEARCH_KINDS, type SearchHit, type SearchResponse, type SearchScopeQuery } from '@/lib/search/search-wire'
+import { SEARCH_KINDS, type SearchHit, type SearchKind, type SearchResponse, type SearchScopeQuery } from '@/lib/search/search-wire'
 import { PALETTE_HITS_PER_KIND } from '../hooks/use-palette-search'
+import type { OpenedEntry } from '../lib/recent-opened'
 import { hitHref } from '../lib/search-hrefs'
 import {
   PALETTE_HIT_CLASS,
   PALETTE_STALE_CLASS,
-  PaletteAside,
   PaletteEmpty,
   PaletteGlyph,
   PaletteGroupHeading,
@@ -173,12 +172,12 @@ export function PaletteSearchResults({
               forceMount
               value={PALETTE_ALL_RESULTS_VALUE}
               onSelect={() => onOpen(allHref)}
-              className={cn(itemClassName, firstAnswer && 'data-[selected=true]:bg-transparent')}
+              className={cn(itemClassName, 'font-medium', firstAnswer && 'data-[selected=true]:bg-transparent')}
               data-testid="palette-workspace-search"
             >
-              <PaletteGlyph icon={Search} />
-              {/* Nothing here is no promise of nothing there: the page searches with filters, and further than three of a kind. */}
-              <PaletteLabel>{empty ? t('palette.continueInSearch') : t('palette.allResults', { text: words })}</PaletteLabel>
+              {/* Nothing here is no promise of nothing there: the page searches with filters, and further than a few of a kind. */}
+              <span className="min-w-0 truncate">{empty ? t('palette.continueInSearch') : allResultsLabel(t, response)}</span>
+              <ArrowRight className="text-muted-foreground" aria-hidden />
             </CommandItem>
           </CommandGroup>
         </>
@@ -203,77 +202,52 @@ export function paletteHits(response: SearchResponse | null, perKind: number = P
   return SEARCH_KINDS.flatMap((kind): SearchHit[] => response?.sections[kind]?.hits.slice(0, perKind) ?? [])
 }
 
-export interface PaletteSearchStartProps {
-  inProject: boolean
-  recent: readonly string[]
-  saved: readonly SavedSearchView[] | null
-  onRecent: (text: string) => void
-  onSaved: (item: SavedSearchView) => void
-  onOpenSearch: () => void
+type Translate = (key: string, values?: Record<string, string | number>) => string
+
+function allResultsLabel(t: Translate, response: SearchResponse | null): string {
+  const sections = SEARCH_KINDS.map((kind) => response?.sections[kind]).filter((section) => section !== undefined)
+  const total = sections.reduce((sum, section) => sum + section.total, 0)
+  if (total === 0 || sections.some((section) => section.totalIsLowerBound)) return t('palette.allResults')
+  return t('palette.allResultsCount', { count: total })
+}
+
+const OPENED_ICON: Record<SearchKind, LucideIcon> = {
+  document: FileText,
+  annotation: MessageSquareWarning,
+  folder: Folder,
+  project: Building2,
+  conversation: MessageSquare,
+}
+
+function openedWhere(t: Translate, entry: OpenedEntry): string {
+  const kind = entry.kind === 'document' ? null : t(`palette.opened.${entry.kind}`)
+  const place = entry.officeShelf ? t('where.officeShelf') : entry.projectName
+  return [kind, place, entry.folderName].filter((part): part is string => Boolean(part)).join(t('where.separator'))
+}
+
+export interface PaletteRecentOpenedProps {
+  entries: readonly OpenedEntry[]
+  onOpen: (href: string) => void
   itemClassName?: string
 }
 
-export function PaletteSearchStart({ inProject, recent, saved, onRecent, onSaved, onOpenSearch, itemClassName }: PaletteSearchStartProps): JSX.Element {
+export function PaletteRecentOpened({ entries, onOpen, itemClassName }: PaletteRecentOpenedProps): JSX.Element {
   const t = useTranslations(searchCopy)
+  if (entries.length === 0) return <PaletteEmpty title={t('palette.start')} hint={t('palette.startHint')} testId="palette-start" />
   return (
-    <>
-      <CommandGroup forceMount>
-        <CommandItem forceMount value={PALETTE_ALL_RESULTS_VALUE} onSelect={onOpenSearch} className={itemClassName} data-testid="palette-workspace-search">
-          <PaletteGlyph icon={Search} top />
-          <PaletteLabel hint={t(inProject ? 'palette.hint.project' : 'palette.hint.office')} hintTestId="palette-search-hint">
-            {t('palette.open')}
-          </PaletteLabel>
+    <CommandGroup heading={t('palette.recentOpened')} forceMount data-testid="palette-recent-opened">
+      {entries.map((entry) => (
+        <CommandItem
+          key={entry.href}
+          forceMount
+          value={`${PALETTE_SEARCH_VALUE_PREFIX}opened:${entry.href}`}
+          onSelect={() => onOpen(entry.href)}
+          className={cn(itemClassName, PALETTE_HIT_CLASS, 'gap-3')}
+        >
+          <PaletteGlyph icon={OPENED_ICON[entry.kind]} top />
+          <PaletteLabel hint={openedWhere(t, entry) || undefined}>{entry.title}</PaletteLabel>
         </CommandItem>
-      </CommandGroup>
-      {recent.length > 0 ? (
-        <CommandGroup heading={t('palette.recent')} data-testid="palette-recent">
-          {recent.map((entry) => (
-            <PaletteRow key={entry} value={`${PALETTE_SEARCH_VALUE_PREFIX}recent:${entry}`} icon={History} onSelect={() => onRecent(entry)} className={itemClassName}>
-              {entry}
-            </PaletteRow>
-          ))}
-        </CommandGroup>
-      ) : null}
-      {saved && saved.length > 0 ? (
-        <CommandGroup heading={t('saved.label')} data-testid="palette-saved">
-          {saved.map((item) => (
-            <PaletteRow
-              key={item.id}
-              value={`${PALETTE_SEARCH_VALUE_PREFIX}saved:${item.id}`}
-              icon={item.ownedByMe ? Bookmark : Users}
-              onSelect={() => onSaved(item)}
-              className={itemClassName}
-              aside={item.ownedByMe ? undefined : item.ownerName ? t('saved.byColleague', { name: item.ownerName }) : t('saved.fromColleague')}
-            >
-              {item.name}
-            </PaletteRow>
-          ))}
-        </CommandGroup>
-      ) : null}
-    </>
-  )
-}
-
-function PaletteRow({
-  value,
-  icon,
-  onSelect,
-  className,
-  aside,
-  children,
-}: {
-  value: string
-  icon: LucideIcon
-  onSelect: () => void
-  className?: string
-  aside?: string
-  children: string
-}): JSX.Element {
-  return (
-    <CommandItem value={value} onSelect={onSelect} className={className}>
-      <PaletteGlyph icon={icon} />
-      <PaletteLabel>{children}</PaletteLabel>
-      {aside ? <PaletteAside>{aside}</PaletteAside> : null}
-    </CommandItem>
+      ))}
+    </CommandGroup>
   )
 }

@@ -7,8 +7,8 @@ import { render, screen, waitFor, within } from '@/test-utils'
 import { server } from '@/mocks/server'
 import { I18nProvider } from '@/i18n'
 import type { SearchBody } from '@/lib/search/search-wire'
-import { SEARCH_FIXTURE_RESPONSE, SEARCH_FIXTURE_SAVED } from '@/app/dev/_fixtures/search'
-import { RECENT_SEARCHES_KEY } from '@/features/search/lib/recent-searches'
+import { SEARCH_FIXTURE_RESPONSE } from '@/app/dev/_fixtures/search'
+import { RECENT_OPENED_KEY } from '@/features/search/lib/recent-opened'
 import { CommandPalette } from './command-palette'
 
 const push = vi.fn()
@@ -31,7 +31,7 @@ let asked: Array<{ query: string; body: SearchBody }> = []
 function palette(): ReactElement {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <CommandPalette open onOpenChange={() => {}} authRequired canViewOrganization />
+      <CommandPalette open onOpenChange={() => {}} />
     </I18nProvider>
   )
 }
@@ -43,14 +43,12 @@ describe('CommandPalette: the workspace search', () => {
     asked = []
     push.mockClear()
     pathname = '/app/projects'
-    window.localStorage.removeItem(RECENT_SEARCHES_KEY)
+    window.localStorage.removeItem(RECENT_OPENED_KEY)
     server.use(
       http.post('*/api/search', async ({ request }) => {
         asked.push({ query: new URL(request.url).search, body: (await request.json()) as SearchBody })
         return HttpResponse.json(SEARCH_FIXTURE_RESPONSE)
       }),
-      http.get('*/api/search/saved', () => HttpResponse.json({ savedSearches: SEARCH_FIXTURE_SAVED, nextCursor: null })),
-      http.get('*/api/projects', () => HttpResponse.json([{ id: PROJECT, name: 'Wohnhaus Seestadt Baufeld J7' }]))
     )
   })
 
@@ -63,12 +61,31 @@ describe('CommandPalette: the workspace search', () => {
     expect(asked).toHaveLength(1)
   })
 
-  it('scopes the search to the project the reader is in', async () => {
+  it('searches the whole office from inside a project too, and says so', async () => {
     pathname = `/app/projects/${PROJECT}/files`
     render(palette())
+    expect(screen.getByTestId('palette-scope')).toHaveTextContent('im ganzen Büro')
     await userEvent.type(field(), 'EP-03')
     await waitFor(() => expect(asked).toHaveLength(1))
-    expect(asked[0].query).toBe(`?scope=project&projectId=${PROJECT}`)
+    expect(asked[0].query).toBe('')
+  })
+
+  it('narrows to one kind of thing: files, chats or projects', async () => {
+    render(palette())
+    expect(within(screen.getByTestId('palette-kinds')).getAllByRole('radio').map((kind) => kind.textContent)).toEqual([
+      'Alles',
+      'Dateien',
+      'Chats',
+      'Projekte',
+    ])
+    await userEvent.type(field(), 'Fluchtweg')
+    await waitFor(() => expect(asked).toHaveLength(1))
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    await waitFor(() => expect(asked).toHaveLength(2))
+    expect(asked[1].body).toEqual({ text: 'Fluchtweg', limit: 8, facets: false, kinds: ['conversation'] })
+    await userEvent.click(screen.getByTestId('palette-kind-files'))
+    await waitFor(() => expect(asked).toHaveLength(3))
+    expect(asked[2].body).toEqual({ text: 'Fluchtweg', limit: 3, facets: false, kinds: ['document', 'annotation', 'folder'] })
   })
 
   it('groups the hits by kind, draws them as the search page does, and ends with all of them', async () => {
@@ -89,7 +106,7 @@ describe('CommandPalette: the workspace search', () => {
 
     const options = screen.getAllByRole('option')
     const all = screen.getByTestId('palette-workspace-search')
-    expect(all).toHaveTextContent('Alle Treffer für „Fluchtweg“')
+    expect(all).toHaveTextContent(/^Alle \d+ Treffer mit Filtern öffnen$/)
     const lastHit = options.findLastIndex((option) => option.dataset.testid?.startsWith('palette-search-hit-'))
     expect(options.indexOf(all)).toBe(lastHit + 1)
     expect(options[0]).toBe(concept)
@@ -159,14 +176,13 @@ describe('CommandPalette: the workspace search', () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1))
   })
 
-  it('opens the first hit on Enter, and remembers what was searched', async () => {
+  it('opens the first hit on Enter, at the passage that was found', async () => {
     render(palette())
     await userEvent.type(field(), 'Fluchtweg')
     const concept = await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
     await waitFor(() => expect(concept).toHaveAttribute('aria-selected', 'true'))
     await userEvent.keyboard('{Enter}')
     expect(push).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^/app/projects/${PROJECT}/files\\?doc=${CONCEPT}&page=7&highlight=`)))
-    expect(JSON.parse(window.localStorage.getItem(RECENT_SEARCHES_KEY) ?? '[]')).toEqual(['Fluchtweg'])
   })
 
   it('opens every hit on the search page from the last search row', async () => {
@@ -220,35 +236,37 @@ describe('CommandPalette: the workspace search', () => {
     expect(calls).toBe(2)
   })
 
-  it('before anything is typed: what the search reaches, the recent searches and the saved ones, and the commands', async () => {
-    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(['EP-05', 'Fluchtweg']))
+  it('before anything is typed: nothing to choose until something was opened from here', async () => {
     render(palette())
-    expect(screen.getByTestId('palette-search-hint')).toHaveTextContent('Name, Plankopf, Art und Inhalt')
-    const recent = screen.getByTestId('palette-recent')
-    expect(within(recent).getAllByRole('option').map((row) => row.textContent)).toEqual(['EP-05', 'Fluchtweg'])
-    const saved = await screen.findByTestId('palette-saved')
-    expect(saved).toHaveTextContent('Einreichpläne, aktuell')
-    expect(saved).toHaveTextContent('Geteilt von Max Gruber')
-    expect(screen.getByText('Profil')).toBeInTheDocument()
+    expect(screen.getByTestId('palette-start')).toHaveTextContent('Noch nichts geöffnet')
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(asked).toHaveLength(0)
-
-    await userEvent.click(within(recent).getByText('EP-05'))
-    expect(field()).toHaveValue('EP-05')
-    await waitFor(() => expect(asked.at(-1)?.body.text).toBe('EP-05'))
   })
 
-  it('runs a saved search where it was saved', async () => {
+  it('lists what was opened from here last, newest first, and opens it again', async () => {
+    const view = render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await userEvent.click(await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`))
+    view.unmount()
+    push.mockClear()
+
     render(palette())
-    const saved = await screen.findByTestId('palette-saved')
-    await userEvent.click(within(saved).getByText('Einreichpläne, aktuell'))
-    expect(push).toHaveBeenCalledWith(`/app/search?view=register&sort=plan_number&dir=asc&project=${PROJECT}&type=submission_drawing`)
+    const recent = screen.getByTestId('palette-recent-opened')
+    expect(within(recent).getByText('Zuletzt geöffnet')).toBeInTheDocument()
+    const rows = within(recent).getAllByRole('option')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Brandschutzkonzept Wohnhaus Seestadt J7')
+    expect(rows[0]).toHaveTextContent('Wohnhaus Seestadt Baufeld J7')
+    await userEvent.click(rows[0])
+    expect(push).toHaveBeenCalledWith(`/app/projects/${PROJECT}/files?doc=${CONCEPT}`)
   })
 
-  it('keeps the commands: typing a command’s name still finds it below the search rows', async () => {
+  it('holds no command: no project list, no section, no theme switch, no sign-out', async () => {
     render(palette())
     await userEvent.type(field(), 'Profil')
-    expect(await screen.findByText('Profil')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('Profil'))
-    expect(push).toHaveBeenCalledWith('/app/profile')
+    await screen.findByTestId('palette-workspace-search')
+    for (const command of ['Profil', 'Design umschalten', 'Abmelden', 'Neues Projekt', 'Alle Projekte']) {
+      expect(screen.queryByText(command)).not.toBeInTheDocument()
+    }
   })
 })

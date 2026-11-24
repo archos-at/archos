@@ -13,6 +13,7 @@ export const nav: typeof en.nav = {
   temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
+  pinSidebar: 'Seitenleiste geöffnet lassen',
   expandSidebar: 'Seitenleiste ausklappen',
   resizeSidebar: 'Breite der Seitenleiste ändern',
   resizeDock: 'Breite der Leiste neben der Seite ändern',
@@ -102,7 +103,7 @@ export const nav: typeof en.nav = {
     },
   },
   search: {
-    open: 'Suchen und springen',
+    open: 'Suche',
   },
   projectSheet: {
     description: 'Zuletzt geöffnete Projekte zuerst, danach alle laufenden.',

@@ -1,21 +1,13 @@
 export const shortcuts = {
   palette: {
-    title: 'Command palette',
-    description: 'Search for a project or action and jump straight to it.',
-    placeholder: 'Type a command or search…',
-    empty: 'No results found.',
-    groups: {
-      projects: 'Projects',
-      currentProject: 'Current project',
-      general: 'General',
-    },
-    intake: 'Setup',
-    toggleTheme: 'Toggle theme',
+    title: 'Search',
+    description: 'Find and open files, chats and projects across the office.',
+    placeholder: 'Find files, chats and projects …',
     hints: {
-      move: 'to move',
-      open: 'to open',
-      close: 'to close',
-      all: 'for all results',
+      move: 'choose',
+      open: 'open',
+      close: 'close',
+      all: 'all results',
     },
   },
   cheatsheet: {
@@ -35,7 +27,7 @@ export const shortcuts = {
     },
     projectScopeNote: 'Section jumps open that section of the project you are in.',
     items: {
-      palette: 'Open the command palette',
+      palette: 'Open the search',
       cheatsheet: 'Show this overview',
       dismiss: 'Close a dialog or menu',
       sendMessage: 'Send message',
@@ -66,8 +58,8 @@ export const shortcuts = {
   },
   preference: {
     title: 'Keyboard shortcuts',
-    description: 'Quick navigation with the command palette and shortcut keys.',
+    description: 'Quick navigation with the search and shortcut keys.',
     label: 'Enable keyboard shortcuts',
-    hint: 'Turns the command palette (Ctrl+K / ⌘K) and all shortcut keys on or off on this device.',
+    hint: 'Turns the search shortcut (Ctrl+K / ⌘K) and all shortcut keys on or off on this device.',
   },
 }

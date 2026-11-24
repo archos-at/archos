@@ -206,23 +206,6 @@
   {
     "type": "dependency",
     "from": "ui/components/shell/command-palette.tsx",
-    "to": "ui/features/layout/store.ts",
-    "unresolvedTo": "@/features/layout/store",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/components/shell/command-palette.tsx",
     "to": "ui/features/search/index.ts",
     "unresolvedTo": "@/features/search",
     "dependencyTypes": [

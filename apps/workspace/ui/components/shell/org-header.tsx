@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, MessageSquarePlus } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -97,13 +97,7 @@ export function OrgHeader({
               active={pathname === '/app/office-shelf' || pathname.startsWith('/app/office-shelf/') || pathname.startsWith('/app/base-knowledge')}
             />
           )}
-          {/* The workspace search (ADR-0136); ⌘K reaches it from anywhere too. */}
-          <OrgHeaderIconLink
-            href="/app/search"
-            label={t('sections.search')}
-            icon={Search}
-            active={pathname === '/app/search' || pathname.startsWith('/app/search/')}
-          />
+          <ShellSearchButton />
           {canAccessInbox && (
             <OrgHeaderIconLink
               href="/app/inbox"
@@ -123,7 +117,6 @@ export function OrgHeader({
               onClick={() => openFeedback()}
             />
           )}
-          <ShellSearchButton className="md:hidden" />
           {/* Space, not a rule, between the doorways and the person. */}
           <div className="hidden w-2 md:block" aria-hidden />
           <SidebarUserMenu

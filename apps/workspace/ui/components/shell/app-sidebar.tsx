@@ -131,7 +131,7 @@ function AppSidebarFrame({
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
-  const { state, isMobile } = useSidebar()
+  const { state, isMobile, peek } = useSidebar()
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
   const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
@@ -140,8 +140,8 @@ function AppSidebarFrame({
   const base = `/app/projects/${projectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
-  const iconRail = state === 'collapsed' && !isMobile
-  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
+  const iconRail = state === 'collapsed' && !isMobile && !peek
+  const chatOpen = railChats?.items.some((chat) => chat.current) ?? false
   const back = phoneBackTarget(pathname, projectId)
   const pageHasHeader = framesProjectPage(pathname, projectId)
 
@@ -162,7 +162,7 @@ function AppSidebarFrame({
         icon: item.icon,
         label: sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
-        within: item.key === 'chat' && chatOpen,
+        within: item.key === 'chat' && chatOpen && !iconRail,
         badgeCount: item.key === 'inbox' ? inboxPending : 0,
         door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
@@ -245,7 +245,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" data-scope="project" aria-label={t('projectNavigation')}>
+      <Sidebar collapsible="icon" peekOnHover data-scope="project" aria-label={t('projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -259,15 +259,15 @@ function AppSidebarFrame({
           className={cn(
             'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             column,
-            iconRail && 'overflow-hidden pb-px'
+            iconRail && 'overflow-hidden'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
-              keeps it as a tile of its initials, or a collapsed rail could
-              not say which project its sections belong to. */}
-          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+              keeps it as a tile of its initials, on the selector's own line,
+              so nothing below it moves when the rail opens under the pointer. */}
+          <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
             <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
           </div>
         </SidebarHeader>

@@ -5858,5 +5858,13 @@
   {
     "en": "„offen“ now counts the same everywhere: Piloti's proposals that nobody has taken over are no longer counted as open in Dateien, in the Prüfansicht or before a Freigabe. They are named on their own, „2 offen · 12 Vorschläge“, so the number matches Offene Punkte and the Protokoll.",
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
+  },
+  {
+    "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now only the search: it finds files, chats and projects across the whole office, shows what you opened from it last, and leads to the search with filters. Profile, design and sign-out are in the menu at your name.",
+    "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt nur noch die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, zeigt, was Sie zuletzt von dort geöffnet haben, und führt zur Suche mit Filtern. Profil, Design und Abmelden stehen im Menü an Ihrem Namen."
+  },
+  {
+    "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
+    "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
   }
 ]

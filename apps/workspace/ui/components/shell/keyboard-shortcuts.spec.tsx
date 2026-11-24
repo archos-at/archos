@@ -43,50 +43,20 @@ describe('KeyboardShortcuts', () => {
     )
   })
 
-  test('⌘K opens the palette with project + general groups', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
-
-    pressCmdK()
-
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
-    expect(await screen.findByText('Alpine Tower')).toBeInTheDocument()
-    expect(screen.getByText('Donau Loft')).toBeInTheDocument()
-    expect(screen.getByText('Projects')).toBeInTheDocument()
-    expect(screen.getByText('General')).toBeInTheDocument()
-    expect(screen.getByText('New project')).toBeInTheDocument()
-    expect(screen.getByText('Organization')).toBeInTheDocument()
-    expect(screen.getByText('Profile')).toBeInTheDocument()
-    expect(screen.getByText('Toggle theme')).toBeInTheDocument()
-    expect(screen.getByText('Sign out')).toBeInTheDocument()
-    expect(screen.queryByText('Current project')).toBeNull()
-  })
-
-  test('inside a project the palette lists the section commands', async () => {
+  test('⌘K opens the search, which holds no command', async () => {
     pathname = '/app/projects/p1/chat'
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     pressCmdK()
 
-    expect(await screen.findByText('Current project')).toBeInTheDocument()
-    for (const section of ['Chat', 'Files', 'Overview', 'Setup']) {
-      expect(screen.getByText(section)).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
+    for (const command of ['Current project', 'General', 'New project', 'Organization', 'Profile', 'Toggle theme', 'Sign out', 'Alpine Tower']) {
+      expect(screen.queryByText(command)).toBeNull()
     }
-    expect(screen.queryByText('Members')).toBeNull()
-    expect(screen.queryByText('Research')).toBeNull()
-  })
-
-  test('org and sign-out entries follow their capability props', async () => {
-    render(<KeyboardShortcuts authRequired={false} canViewOrganization={false} />)
-
-    pressCmdK()
-
-    expect(await screen.findByText('New project')).toBeInTheDocument()
-    expect(screen.queryByText('Organization')).toBeNull()
-    expect(screen.queryByText('Sign out')).toBeNull()
   })
 
   test('? opens the shortcuts cheatsheet', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -94,7 +64,7 @@ describe('KeyboardShortcuts', () => {
     for (const group of ['General', 'Jump to', 'Chat']) {
       expect(screen.getByRole('heading', { level: 3, name: group })).toBeInTheDocument()
     }
-    expect(screen.getByText('Open the command palette')).toBeInTheDocument()
+    expect(screen.getByText('Open the search')).toBeInTheDocument()
     expect(screen.getByText('Close a dialog or menu')).toBeInTheDocument()
     expect(screen.getByText('Send message')).toBeInTheDocument()
     expect(screen.getByText('New line')).toBeInTheDocument()
@@ -102,7 +72,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('the cheatsheet documents every jump the handler actually binds', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization canAccessOfficeShelf />)
+    render(<KeyboardShortcuts canViewOrganization canAccessOfficeShelf />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -120,7 +90,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a gated-off shortcut group row disappears with its feature', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -129,7 +99,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('g then p navigates to the projects list', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
@@ -139,7 +109,7 @@ describe('KeyboardShortcuts', () => {
 
   test('g then a section key jumps within the project the user is in', async () => {
     pathname = '/app/projects/p1/chat'
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'f' })
@@ -149,7 +119,7 @@ describe('KeyboardShortcuts', () => {
 
   test('a project-scoped jump outside a project does nothing', () => {
     pathname = '/app/profile'
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'f' })
@@ -159,7 +129,7 @@ describe('KeyboardShortcuts', () => {
 
   test('cross-project doorways jump from anywhere, and stay gated', async () => {
     pathname = '/app/profile'
-    const { unmount } = render(<KeyboardShortcuts authRequired canViewOrganization canAccessOfficeShelf />)
+    const { unmount } = render(<KeyboardShortcuts canViewOrganization canAccessOfficeShelf />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'a' })
@@ -167,7 +137,7 @@ describe('KeyboardShortcuts', () => {
 
     unmount()
     push.mockClear()
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'a' })
@@ -175,7 +145,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a lone modifier keypress does not spend the armed leader', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
@@ -186,7 +156,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('Escape cancels a pending leader sequence', () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Escape' })
@@ -196,7 +166,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('an unbound second key disarms the leader instead of navigating', () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'z' })
@@ -207,7 +177,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a bare modifier keypress does not spend the armed leader', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
@@ -220,7 +190,7 @@ describe('KeyboardShortcuts', () => {
     render(
       <>
         <input aria-label="Field" />
-        <KeyboardShortcuts authRequired canViewOrganization />
+        <KeyboardShortcuts canViewOrganization />
       </>,
     )
 
@@ -238,7 +208,7 @@ describe('KeyboardShortcuts', () => {
     window.localStorage.setItem(SHORTCUTS_PREFERENCE_KEY, 'false')
     const addListener = vi.spyOn(window, 'addEventListener')
 
-    const { container } = render(<KeyboardShortcuts authRequired canViewOrganization />)
+    const { container } = render(<KeyboardShortcuts canViewOrganization />)
 
     expect(addListener.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(0)
     expect(container).toBeEmptyDOMElement()
@@ -248,7 +218,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
     expect(screen.queryByText('Keyboard shortcuts')).toBeNull()
     expect(push).not.toHaveBeenCalled()
 
@@ -259,35 +229,35 @@ describe('KeyboardShortcuts', () => {
     render(
       <>
         <ShellSearchButton />
-        <KeyboardShortcuts authRequired canViewOrganization />
+        <KeyboardShortcuts canViewOrganization />
       </>,
     )
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
 
     fireEvent.click(screen.getByTestId('shell-search'))
 
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull())
+    await waitFor(() => expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull())
     expect(useShellOverlays.getState().paletteOpen).toBe(false)
   })
 
   test('with shortcuts off the keys are inert, but the search button still opens the palette', async () => {
     window.localStorage.setItem(SHORTCUTS_PREFERENCE_KEY, 'false')
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
+    render(<KeyboardShortcuts canViewOrganization />)
 
     pressCmdK()
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
 
     act(() => useShellOverlays.getState().setPaletteOpen(true))
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
   })
 
   test('keydown listener is removed on unmount', () => {
     const addListener = vi.spyOn(window, 'addEventListener')
     const removeListener = vi.spyOn(window, 'removeEventListener')
 
-    const { unmount } = render(<KeyboardShortcuts authRequired canViewOrganization />)
+    const { unmount } = render(<KeyboardShortcuts canViewOrganization />)
     const added = addListener.mock.calls.filter(([type]) => type === 'keydown')
     expect(added).toHaveLength(1)
 

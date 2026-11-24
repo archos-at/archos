@@ -74,7 +74,7 @@ covers the page and leaves the panel usable:
 
 Both variables are unset while nothing is docked, so the `0px` fallback keeps
 the whole window and nothing changes for a reader without a docked panel. An
-app-level question (a confirm, the command palette) keeps the plain `Dialog`
+app-level question (a confirm, the search window) keeps the plain `Dialog`
 and covers everything, as it should.
 
 ## What not to do

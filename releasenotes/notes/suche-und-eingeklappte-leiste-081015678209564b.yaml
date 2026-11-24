@@ -1,0 +1,13 @@
+---
+# area: search
+improvements:
+  - >
+    The search has a magnifier at the top of the sidebar, and the window behind
+    it and behind Ctrl+K is now only the search: it finds files, chats and
+    projects across the whole office, shows what you opened from it last, and
+    leads to the search with filters. Profile, design and sign-out are in the
+    menu at your name.
+  - >
+    The folded sidebar opens over the page when the pointer rests on it and
+    folds again when the pointer leaves, so every place in it is one click away
+    without keeping it open. Its signs stand at the height of their rows.

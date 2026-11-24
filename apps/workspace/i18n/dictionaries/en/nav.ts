@@ -11,6 +11,7 @@ export const nav = {
   temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
+  pinSidebar: 'Keep the sidebar open',
   expandSidebar: 'Expand sidebar',
   resizeSidebar: 'Resize sidebar',
   resizeDock: 'Resize the panel beside the page',
@@ -100,7 +101,7 @@ export const nav = {
     },
   },
   search: {
-    open: 'Search and jump',
+    open: 'Search',
   },
   projectSheet: {
     description: 'The projects you opened last come first, then every running project.',

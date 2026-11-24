@@ -96,12 +96,12 @@ export const onboarding = {
       shortcuts: {
         title: 'Move faster',
         body: 'Two keys get you almost anywhere.',
-        palette: 'Jump to anything',
+        palette: 'Find anything',
         cheatsheet: 'All shortcuts',
       },
       searchPhone: {
-        title: 'Search and jump',
-        body: 'The magnifier at the top takes you to any project, any section and the office filing. A few letters are enough.',
+        title: 'Search',
+        body: 'The magnifier at the top finds any file, chat and project in the office. A few letters are enough.',
       },
       projectWelcome: {
         title: 'Your project is set up',

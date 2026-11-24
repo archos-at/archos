@@ -123,7 +123,6 @@ describe('OrgHeader — on a phone', () => {
     expect(screen.getByLabelText('Office filing').className).toMatch(/(^|\s)hidden(\s|$)/)
     expect(screen.getByLabelText('Office filing').className).toContain('md:flex')
     const search = screen.getByTestId('shell-search')
-    expect(search.className).toContain('md:hidden')
     expect(search.className).toContain('pointer-coarse:size-11')
     search.click()
     expect(useShellOverlays.getState().paletteOpen).toBe(true)

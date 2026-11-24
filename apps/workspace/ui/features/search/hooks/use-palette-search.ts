@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import { listSavedSearches, type SavedSearchView } from '@/lib/search/saved-search-client'
 import type { SearchBody, SearchKind, SearchResponse, SearchScopeQuery } from '@/lib/search/search-wire'
-import { readRecentSearches, rememberSearch } from '../lib/recent-searches'
+import { readRecentOpened, rememberOpened, type OpenedEntry } from '../lib/recent-opened'
 import { postSearch } from '../lib/search-client'
 import { hitHref } from '../lib/search-hrefs'
 import { findHitByHref, parseServerTiming } from '../lib/search-telemetry'
@@ -96,35 +95,21 @@ export function usePaletteSearch(
   return { ...state, opening, retry }
 }
 
-export interface PaletteShortcuts {
-  recent: string[]
-  saved: SavedSearchView[] | null
-  remember: (text: string) => void
+export interface RecentOpened {
+  entries: OpenedEntry[]
+  remember: (response: SearchResponse | null, href: string) => void
 }
 
-export function usePaletteShortcuts(open: boolean): PaletteShortcuts {
-  const [recent, setRecent] = useState<string[]>([])
-  const [saved, setSaved] = useState<SavedSearchView[] | null>(null)
+export function useRecentOpened(open: boolean): RecentOpened {
+  const [entries, setEntries] = useState<OpenedEntry[]>([])
 
   useEffect(() => {
-    if (open) setRecent(readRecentSearches())
+    if (open) setEntries(readRecentOpened())
   }, [open])
 
-  useEffect(() => {
-    if (!open || saved !== null) return
-    let cancelled = false
-    listSavedSearches()
-      .then((list) => {
-        if (!cancelled) setSaved(Array.isArray(list) ? list : [])
-      })
-      .catch(() => {
-        if (!cancelled) setSaved([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, saved])
-
-  const remember = useCallback((text: string) => setRecent(rememberSearch(text)), [])
-  return { recent, saved, remember }
+  const remember = useCallback((response: SearchResponse | null, href: string) => {
+    const found = response ? findHitByHref(response.sections, href, hitHref) : null
+    if (found) setEntries(rememberOpened(found.hit))
+  }, [])
+  return { entries, remember }
 }

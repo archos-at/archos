@@ -105,10 +105,10 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Reports the Agent Writes](user-guides/agent-authored-reports.md) | Where a deep-research report is filed, how it is marked as machine-written, why it stays out of the knowledge base, and who is responsible for it |
 | [Connect your agent](user-guides/connect-your-agent.md) | Connecting your own AI assistant (Claude, ChatGPT, Cursor) to ARCHOS: setup per client, sign-in, what it can and cannot do, confirmations, revoking access, troubleshooting |
 | [Knowledge Search](user-guides/knowledge-search.md) | How the AI searches OIB knowledge base and uploaded documents |
-| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The command palette, `g …` section jumps, composer keys, and the two gates that enable them |
+| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The search window, `g …` section jumps, composer keys, and the two gates that enable them |
 | [Documents](user-guides/documents.md) | Uploading, tracking, and downloading documents |
 | [Knowledge Search](user-guides/knowledge-search.md) | How the assistant searches OIB knowledge and uploaded documents |
-| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | Command palette, `g …` section jumps, composer keys |
+| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The search window, `g …` section jumps, composer keys |
 
 ## Technical reference
 

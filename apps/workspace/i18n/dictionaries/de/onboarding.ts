@@ -98,12 +98,12 @@ export const onboarding: typeof en.onboarding = {
       shortcuts: {
         title: 'Schneller ans Ziel',
         body: 'Zwei Tasten bringen Sie fast überallhin.',
-        palette: 'Zu allem springen',
+        palette: 'Alles finden',
         cheatsheet: 'Alle Tastenkürzel',
       },
       searchPhone: {
-        title: 'Suchen und springen',
-        body: 'Die Lupe oben bringt Sie zu jedem Projekt, jedem Bereich und zur Büroablage. Ein paar Buchstaben genügen.',
+        title: 'Suchen',
+        body: 'Die Lupe oben findet jede Datei, jeden Chat und jedes Projekt im Büro. Ein paar Buchstaben genügen.',
       },
       projectWelcome: {
         title: 'Ihr Projekt ist eingerichtet',
