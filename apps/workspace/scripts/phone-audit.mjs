@@ -22,12 +22,19 @@ function measure({ width, min, productName }) {
     'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=link], [role=tab], [role=checkbox], [role=radio], [role=switch], [role=menuitem], [role=option], [tabindex]:not([tabindex="-1"])'
   const root = document.documentElement
   const overflow = Math.max(root.scrollWidth, document.body?.scrollWidth ?? 0) - width
+  let widest = null
+  if (overflow > 0) {
+    for (const el of document.body.querySelectorAll('*')) {
+      const right = el.getBoundingClientRect().right
+      if (right > width + 1 && (!widest || right > widest.right)) widest = { el, right }
+    }
+  }
 
   const tappable = (el) => {
     if (el.closest('[aria-hidden="true"], [inert]')) return false
     if (el.matches(':disabled, [aria-disabled="true"]')) return false
     const style = getComputedStyle(el)
-    if (style.visibility === 'hidden' || style.pointerEvents === 'none') return false
+    if (style.visibility === 'hidden' || style.pointerEvents === 'none' || Number(style.opacity) === 0) return false
     const box = el.getBoundingClientRect()
     return box.width > 1 && box.height > 1
   }
@@ -40,10 +47,16 @@ function measure({ width, min, productName }) {
     const box = el.getBoundingClientRect()
     let w = box.width
     let h = box.height
-    const after = getComputedStyle(el, '::after')
-    if (after.content !== 'none' && after.position === 'absolute') {
-      w = Math.max(w, parseFloat(after.width) || 0)
-      h = Math.max(h, parseFloat(after.height) || 0)
+    for (const pseudo of ['::after', '::before']) {
+      const part = getComputedStyle(el, pseudo)
+      if (part.content === 'none' || part.position !== 'absolute') continue
+      w = Math.max(w, parseFloat(part.width) || 0)
+      h = Math.max(h, parseFloat(part.height) || 0)
+    }
+    for (const label of el.labels ?? []) {
+      const around = label.getBoundingClientRect()
+      w = Math.max(w, around.width)
+      h = Math.max(h, around.height)
     }
     const frame = el.matches('[data-citation-marker]') ? el.closest('[data-tap-reach]') : null
     const reach = frame ? Number(frame.getAttribute('data-tap-reach')) || 0 : 0
@@ -71,7 +84,8 @@ function measure({ width, min, productName }) {
     const seen = small.get(key)
     small.set(key, { count: (seen?.count ?? 0) + 1, sample: seen?.sample ?? `${Math.round(w)}x${Math.round(h)}` })
   }
-  return { overflow, small: [...small.entries()] }
+  const culprit = widest && `${widest.el.tagName.toLowerCase()} "${nameOf(widest.el)}" to ${Math.round(widest.right)}px`
+  return { overflow, culprit, small: [...small.entries()] }
 }
 
 async function auditRoute(browser, base, route, found, unrendered) {
@@ -84,9 +98,9 @@ async function auditRoute(browser, base, route, found, unrendered) {
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
       await page.waitForTimeout(1000)
       await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
-      const { overflow, small } = await page.evaluate(measure, { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME })
+      const { overflow, culprit, small } = await page.evaluate(measure, { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME })
       if (overflow > 0) {
-        found.set(`${route} ${phone.name} overflow`, { count: 1, sample: `${overflow}px wider than the phone`, help: 'the page scrolls sideways' })
+        found.set(`${route} ${phone.name} overflow`, { count: 1, sample: `${overflow}px wider than the phone; widest: ${culprit}`, help: 'the page scrolls sideways' })
       }
       for (const [target, { count, sample }] of small) {
         found.set(`${route} ${phone.name} target ${target}`, { count, sample, help: `under ${MIN_TARGET_PX}x${MIN_TARGET_PX}` })
