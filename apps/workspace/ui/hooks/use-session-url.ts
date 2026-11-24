@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store'
 import { resumableSessionId } from '@/features/chat/lib/resume-session'
+import { chatSideOf } from '@/components/shell/rail-mode'
 
 interface UseSessionUrlOptions {
   isAuthenticated: boolean
@@ -29,6 +30,9 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
         serverConversationsLoaded: s.serverConversationsLoaded,
       })),
     )
+  const scope = useChatStore((s) => s.projectId)
+  const pageSide = chatSideOf(pathname)
+  const scopeIsThePage = pageSide === undefined || (scope ?? null) === pageSide
   const selectConversation = useChatStore((s) => s.selectConversation)
   const getUserConversations = useChatStore((s) => s.getUserConversations)
 
@@ -37,6 +41,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
   useEffect(() => {
     if (!isAuthenticated || !currentUserId || !searchParams || !pathname || initialSyncDone.current)
       return
+    if (!scopeIsThePage) return
 
     const sessionId = searchParams.get('session')
     if (!sessionId) {
@@ -76,11 +81,13 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
     getUserConversations,
     conversationIds,
     serverConversationsLoaded,
+    scopeIsThePage,
   ])
 
   useEffect(() => {
     if (!isAuthenticated || !currentUserId || !searchParams || !pathname || !initialSyncDone.current)
       return
+    if (!scopeIsThePage) return
 
     const urlSessionId = searchParams.get('session')
     const currentSessionId = currentConversationId
@@ -95,7 +102,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
       router.replace(newUrl)
     }
-  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, router])
+  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, router, scopeIsThePage])
 
   const updateSessionUrl = useCallback(
     (sessionId: string | null) => {
