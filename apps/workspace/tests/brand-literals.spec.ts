@@ -541,7 +541,7 @@ describe('five neutrals, three elevations', () => {
   it('a sheet is white on every surface that draws a document or a floating bar', () => {
     const tile = moduleOf('FileTileBody')
     expect(literalHasRun(tile, ['bg-sheet', 'shadow-sm'])).toBe(true)
-    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-[4px] bg-sheet shadow-sm')
+    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
     expect(summaryOf(moduleOf('InspectorGroup')).literals).toContain('bg-sheet shadow-sm overflow-hidden rounded-surface')
     expect(literalHasRun(moduleOf('SelectionBar', 'ui/features/documents/'), ['bg-sheet', 'shadow-md', 'rounded-overlay'])).toBe(true)
   })
@@ -663,7 +663,7 @@ describe('press, thumb and sheet', () => {
   })
 
   it('a folder is a sheet that opens: 56px, radius 4 inside its frame, elevation 1, a chevron at its end', () => {
-    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-[4px] bg-sheet shadow-sm')
+    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
     const tile = parseSource(moduleOf('FolderCard'))
     expect(elementsNamed(tile, ['FileTileBody']).some((element) => stringAttribute(element, 'className')?.startsWith('flex h-14 '))).toBe(true)
     expect(elementsNamed(tile, ['FolderName']).some((element) => shapeOfAttribute(element, 'text') === 'folder . name')).toBe(true)
