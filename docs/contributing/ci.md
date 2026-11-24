@@ -380,9 +380,10 @@ hardened-container suite), the staging preview of the cluster program
 (`infra-preview`) and the source-map upload.
 `tests/test_ci_workflows.py` holds both directions: a job runs on GitHub
 exactly when it needs one of those, following `task` calls and scripts, and
-with the variable unset every job runs as before. Switch it on only once the
-repository is private: on a public one a fork's pull request can name the
-scale set in its own copy of a workflow. Deploys have their own variable,
+with the variable unset every job runs as before. While the repository is
+public, a fork's pull request can name the scale set in its own copy of a
+workflow, so every outside contributor's run waits for a maintainer's approval
+(Settings → Actions → General). Deploys have their own variable,
 `DEPLOY_RUNNER`, because a runner inside the cluster it deploys to dies with a
 rollout that takes the cluster down, halfway through `pulumi up`.
 
