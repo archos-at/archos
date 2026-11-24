@@ -17,6 +17,9 @@ const OTHER_PROJECTS = [
   { id: 'p-3', name: 'Volksschule Mühlgasse', status: 'paused' as const },
   { id: 'p-4', name: 'Bürohaus Lände 3' },
   { id: 'p-5', name: 'Kindergarten Stammersdorf' },
+  { id: 'p-6', name: 'Hotel Semmering Gästetrakt' },
+  { id: 'p-7', name: 'Wohnhausanlage Linz-Urfahr' },
+  { id: 'p-8', name: 'Betriebsgebäude Graz-Süd' },
 ]
 
 const USER = { name: 'Anna Berger', email: 'a.berger@huber-architektur.at' }

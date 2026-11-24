@@ -1,0 +1,19 @@
+---
+# area: projects
+improvements:
+  - >
+    The project picker lists the five projects you worked in last, with "Show
+    all projects" for the rest and a search over every project. This keeps the
+    projects you are busy with one click away, however many the office has.
+  - >
+    The project overview shows your six latest projects as cards and every
+    other one as a row with its place, phase and when you last worked in it.
+    The long wall of cards is gone, and the older projects are easier to scan.
+  - >
+    Every project in the picker and in the overview's list now has a gear to
+    its project settings. You no longer have to open a project first to reach
+    them.
+fixes:
+  - >
+    The "Restore" button under "Recently deleted" and the "Save" button when
+    renaming a project are centred again.

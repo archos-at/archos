@@ -22,16 +22,21 @@ export async function ProjectOverviewSheet({
     const tCommon = await getTranslations(commonCopy)
     const { projects, viewerActivity } = await getProjectsListData(session, 'newest')
     return (
-      <RoutePageSheet title={t('portfolio.title')} closeLabel={tCommon('actions.close')} headerless standalone={standalone} size="window">
-        <div className="flex flex-col gap-8 p-6">
-          <ProjectOverview
-            projects={projects}
-            viewerActivity={viewerActivity}
-            autoOpenCreate={autoOpenCreate}
-            closeAction={<PageSheetClose label={tCommon('actions.close')} />}
-          />
-          <RecentlyDeleted canManageCompliance={canManageCompliance(session)} />
-        </div>
+      <RoutePageSheet
+        title={t('portfolio.title')}
+        closeLabel={tCommon('actions.close')}
+        headerless
+        standalone={standalone}
+        size="window"
+        bodyClassName="flex flex-col overflow-hidden"
+      >
+        <ProjectOverview
+          projects={projects}
+          viewerActivity={viewerActivity}
+          autoOpenCreate={autoOpenCreate}
+          closeAction={<PageSheetClose label={tCommon('actions.close')} />}
+          after={<RecentlyDeleted canManageCompliance={canManageCompliance(session)} />}
+        />
       </RoutePageSheet>
     )
   })
