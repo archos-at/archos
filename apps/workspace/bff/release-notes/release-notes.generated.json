@@ -665,6 +665,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+            "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "search",
           "text": {
             "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",

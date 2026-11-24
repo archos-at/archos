@@ -4648,6 +4648,10 @@
     "de": "Der Kopf der Dateivorschau zeigt nur noch Namen, Dokumentart und die Schaltflächen für die Datei. Wer sie erstellt hat, wer zuständig ist und „Piloti dazu fragen“ stehen jetzt im Bereich daneben."
   },
   {
+    "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+    "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
+  },
+  {
     "en": "The imprint, privacy, terms and AI transparency pages in the app now state the company's details as they stand, with no open placeholders, and describe the product as the workspace for architecture and planning firms.",
     "de": "Die Seiten zu Impressum, Datenschutz, Nutzungsbedingungen und KI-Transparenz in der App enthalten jetzt die aktuellen Unternehmensangaben ohne offene Platzhalter und beschreiben das Produkt als Arbeitsumgebung für Architektur- und Planungsbüros."
   },
