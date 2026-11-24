@@ -118,14 +118,14 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     buildProposalDecisionsBlock.mockResolvedValue('decisions')
   })
 
-  it('decides a chat turn, the only kind whose scope may carry restricted folders (ADR-0087, ADR-0194)', async () => {
+  it('authorizes a chat turn and decides no shelves: the turn takes them from its signed decision (ADR-0194)', async () => {
     await upgrade('?projectId=proj_q&conversationId=s_mine')
 
-    expect(resolveConversationScope).toHaveBeenCalledWith(SESSION, {
-      projectId: 'proj_q',
-      conversationId: 's_mine',
-      kind: 'chat',
-    })
+    expect(resolveConversationScope).toHaveBeenCalledWith(
+      SESSION,
+      { projectId: 'proj_q', conversationId: 's_mine', kind: 'chat' },
+      { withoutShelves: true },
+    )
   })
 
   it('returns 403 without firing the project lookups when the budget is blocked', async () => {

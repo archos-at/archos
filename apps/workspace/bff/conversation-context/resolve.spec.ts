@@ -213,4 +213,13 @@ describe('resolveConversationContext', () => {
       expect(state.reads).toBe(1)
     }
   })
+
+  it('decides no shelves and draws no restricted folder for the socket upgrade, which only authorizes', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+
+    const scope = await resolveConversationScope(session, { conversationId: 's_c', kind: 'chat' }, { withoutShelves: true })
+
+    expect(scope).toMatchObject({ projectId: 'p1', shelves: [], restrictedCollections: [] })
+    expect(vi.mocked(buildCollectionScopeFromRequest).mock.calls[0]?.[1]).toMatchObject({ interactiveChat: false })
+  })
 })

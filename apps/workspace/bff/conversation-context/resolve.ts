@@ -30,6 +30,7 @@ export interface AudienceRead {
 
 export interface ContextOptions {
   audience?: AudienceRead
+  withoutShelves?: boolean
 }
 
 const NO_ROW: ConversationAudienceRow = {
@@ -86,12 +87,13 @@ export async function resolveConversationScope(
   const scope = await buildCollectionScopeFromRequest(session, {
     projectId: request.projectId,
     conversationId: conversationId ?? undefined,
-    interactiveChat: drawsOnRestricted(kind, conversationId),
+    interactiveChat: !options.withoutShelves && drawsOnRestricted(kind, conversationId),
     audience: row,
   })
-  const restrictedCollections = kind === 'headless' ? [] : scope.restrictedCollections
-  const shelves =
-    kind === 'headless'
+  const restrictedCollections = kind === 'headless' || options.withoutShelves ? [] : scope.restrictedCollections
+  const shelves = options.withoutShelves
+    ? []
+    : kind === 'headless'
       ? scope.scopedCollections.filter((entry) => entry.shelf === 'project' && !scope.restrictedCollections.includes(entry.collection))
       : scope.scopedCollections
   return {

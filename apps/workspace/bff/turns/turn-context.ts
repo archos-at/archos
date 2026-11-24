@@ -50,11 +50,15 @@ export class TurnBudgetExhaustedError extends Error {
 
 export async function resolveTurnContext(
   session: UserSession | null,
-  request: { projectId?: string; conversationId?: string; kind?: 'chat' | SignedContextKind }
+  request: { projectId?: string; conversationId?: string; kind?: 'chat' | SignedContextKind; shelves?: false }
 ): Promise<TurnContext> {
   const { projectId, conversationId } = request
   const kind = request.kind ?? 'chat'
-  const decided = await resolveConversationScope(session, { projectId, conversationId, kind })
+  const decided = await resolveConversationScope(
+    session,
+    { projectId, conversationId, kind },
+    { withoutShelves: request.shelves === false }
+  )
   const scopedCollections = decided.shelves
   const scope = scopedCollections.map((entry) => entry.collection)
   const headerValue = encodeCollectionScopeHeader(scopedCollections)

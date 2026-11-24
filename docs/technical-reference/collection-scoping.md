@@ -208,20 +208,9 @@ different thread over the same socket.
 During WebSocket upgrade (`/websocket` path):
 
 1. `server.js` parses `projectId` and `conversationId` from the WebSocket URL query string
-2. Calls `fetchCollectionScopeHeader()` which makes an internal HTTP GET to `http://127.0.0.1:{port}/api/auth/websocket-scope?projectId=...&conversationId=...`
-3. The `websocket-scope` route resolves the session from cookies, calls `buildCollectionScopeFromRequest`, and returns the header value
-4. `server.js` injects `x-grid-collection-scope` into the proxied WebSocket upgrade request headers
-5. Also forwards `x-grid-organization-id`, `x-grid-user-id`, and `authorization` (Bearer token) for user context
-
-**File**: `apps/workspace/app/api/auth/websocket-scope/route.ts`
-
-Internal endpoint that:
-- Reads `projectId` and `conversationId` from query params
-- Asks for an interactive chat scope (`interactiveChat: true`), the only scope that may carry
-  restricted-folder collections
-- Resolves the session from the encrypted WorkOS cookie
-- Enforces project access if auth is required
-- Returns JSON with `{ scope, header, organizationId, userId, accessToken }`
+2. Calls `fetchTurnContext()`, an internal HTTP GET to `http://127.0.0.1:{port}/api/auth/websocket-scope?projectId=...&conversationId=...`, memoised per cookie, project and conversation (`turnContextCache`)
+3. The `websocket-scope` route resolves the session from cookies and authorizes the person, the project and the conversation through `resolveTurnContext(..., { shelves: false })`: it decides no shelves, because a chat turn takes them from its signed decision (ADR-0194)
+4. `server.js` signs the turn context into the request-context envelope (`socketTurnHeaders`, no `collectionScope`) and forwards `authorization` (Bearer token) for user context; no plain scope header is sent
 
 On 401/403, the WebSocket connection is rejected with the appropriate status code.
 

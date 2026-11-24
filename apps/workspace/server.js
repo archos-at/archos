@@ -130,7 +130,7 @@ const getClientKey = (req) => {
 /**
  * Bucket key for frames on one socket.
  *
- * The session cookie, hashed — the same idiom `scopeCacheKey` uses below, and
+ * The session cookie, hashed — the same idiom `turnContextCacheKey` uses below, and
  * for the same reason: it identifies the session stably without putting a
  * credential in a key. Deliberately NOT the client IP: several tabs of one user
  * share a budget (they share an account), while two users behind one NAT do
@@ -254,7 +254,7 @@ const normalizeQueryParam = (value) => {
   return value || undefined
 }
 
-const fetchCollectionScopeHeader = (req, projectId, conversationId) => {
+const fetchTurnContext = (req, projectId, conversationId) => {
   return new Promise((resolve, reject) => {
     const query = new URLSearchParams()
     if (projectId) query.set('projectId', projectId)
@@ -282,7 +282,7 @@ const fetchCollectionScopeHeader = (req, projectId, conversationId) => {
               const json = JSON.parse(data)
               resolve({ ok: true, status: res.statusCode, header: json.header, data: json })
             } catch (err) {
-              console.warn('[WS Proxy] Failed to parse collection scope response:', err.message)
+              console.warn('[WS Proxy] Failed to parse the turn context response:', err.message)
               resolve({ ok: false, status: res.statusCode, header: null, data: null })
             }
           } else {
@@ -294,11 +294,11 @@ const fetchCollectionScopeHeader = (req, projectId, conversationId) => {
 
     request.setTimeout(5000, () => {
       request.destroy()
-      reject(new Error('Collection scope request timed out'))
+      reject(new Error('Turn context request timed out'))
     })
 
     request.on('error', (err) => {
-      console.warn('[WS Proxy] Collection scope request failed:', err.message)
+      console.warn('[WS Proxy] Turn context request failed:', err.message)
       resolve({ ok: false, status: null, header: null, data: null })
     })
 
@@ -310,11 +310,11 @@ const WS_UPGRADE_MAX_INFLIGHT = parseInt(process.env.WS_UPGRADE_MAX_INFLIGHT || 
 const WS_SCOPE_CACHE_TTL_MS = parseInt(process.env.WS_SCOPE_CACHE_TTL_MS || '10000', 10)
 const WS_SCOPE_CACHE_MAX_ENTRIES = 5000
 
-let inflightScopeResolutions = 0
-const scopeCache = new Map()
-const scopeInflight = new Map()
+let inflightTurnContexts = 0
+const turnContextCache = new Map()
+const turnContextInflight = new Map()
 
-const scopeCacheKey = (req, projectId, conversationId) =>
+const turnContextCacheKey = (req, projectId, conversationId) =>
   crypto
     .createHash('sha256')
     .update(
@@ -323,44 +323,44 @@ const scopeCacheKey = (req, projectId, conversationId) =>
     .digest('hex')
 
 /**
- * Resolve the collection scope for an upgrade, memoised and admission-gated.
+ * Resolve the turn context for an upgrade, memoised and admission-gated.
  *
- * Returns the same shape as `fetchCollectionScopeHeader`, plus `rejected: true`
+ * Returns the same shape as `fetchTurnContext`, plus `rejected: true`
  * when the global in-flight ceiling shed this upgrade.
  */
-const resolveCollectionScope = (req, projectId, conversationId) => {
+const resolveUpgradeTurnContext = (req, projectId, conversationId) => {
   const cacheEnabled = WS_SCOPE_CACHE_TTL_MS > 0
-  const key = cacheEnabled ? scopeCacheKey(req, projectId, conversationId) : null
+  const key = cacheEnabled ? turnContextCacheKey(req, projectId, conversationId) : null
 
   if (cacheEnabled) {
-    const cached = scopeCache.get(key)
+    const cached = turnContextCache.get(key)
     if (cached && cached.expiresAt > Date.now()) {
       return Promise.resolve(cached.result)
     }
 
-    const pending = scopeInflight.get(key)
+    const pending = turnContextInflight.get(key)
     if (pending) return pending
   }
 
-  if (WS_UPGRADE_MAX_INFLIGHT > 0 && inflightScopeResolutions >= WS_UPGRADE_MAX_INFLIGHT) {
+  if (WS_UPGRADE_MAX_INFLIGHT > 0 && inflightTurnContexts >= WS_UPGRADE_MAX_INFLIGHT) {
     return Promise.resolve({ ok: false, status: 503, header: null, data: null, rejected: true })
   }
 
-  inflightScopeResolutions += 1
-  const request = fetchCollectionScopeHeader(req, projectId, conversationId)
+  inflightTurnContexts += 1
+  const request = fetchTurnContext(req, projectId, conversationId)
     .then((result) => {
       if (cacheEnabled && result.ok) {
-        if (scopeCache.size > WS_SCOPE_CACHE_MAX_ENTRIES) scopeCache.clear()
-        scopeCache.set(key, { expiresAt: Date.now() + WS_SCOPE_CACHE_TTL_MS, result })
+        if (turnContextCache.size > WS_SCOPE_CACHE_MAX_ENTRIES) turnContextCache.clear()
+        turnContextCache.set(key, { expiresAt: Date.now() + WS_SCOPE_CACHE_TTL_MS, result })
       }
       return result
     })
     .finally(() => {
-      inflightScopeResolutions -= 1
-      if (cacheEnabled) scopeInflight.delete(key)
+      inflightTurnContexts -= 1
+      if (cacheEnabled) turnContextInflight.delete(key)
     })
 
-  if (cacheEnabled) scopeInflight.set(key, request)
+  if (cacheEnabled) turnContextInflight.set(key, request)
   return request
 }
 
@@ -436,7 +436,7 @@ const startServer = async () => {
       stripClientContextHeaders(req.headers)
 
       try {
-        const result = await resolveCollectionScope(req, projectId, conversationId)
+        const result = await resolveUpgradeTurnContext(req, projectId, conversationId)
         if (result.rejected) {
           try {
             socket.write(
@@ -446,7 +446,7 @@ const startServer = async () => {
           socket.destroy()
           return
         }
-        if (result.ok && result.header) {
+        if (result.ok && result.data) {
           if (result.data?.organizationId && result.data?.userId && !process.env.INTERNAL_API_TOKEN) {
             console.warn('[WS Proxy] Signed turn context unavailable: internal service token is not configured')
             socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n')
@@ -470,7 +470,7 @@ const startServer = async () => {
           return
         } else {
           console.warn(
-            '[WS Proxy] Collection scope unavailable (status: %s), rejecting upgrade',
+            '[WS Proxy] Turn context unavailable (status: %s), rejecting upgrade',
             result.status
           )
           try {
@@ -480,7 +480,7 @@ const startServer = async () => {
           return
         }
       } catch (err) {
-        console.warn('[WS Proxy] Collection scope lookup failed:', err.message)
+        console.warn('[WS Proxy] Turn context lookup failed:', err.message)
         try {
           socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
         } catch {}
