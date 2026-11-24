@@ -5,7 +5,7 @@ import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingF
 import { CrossProjectAudienceChangedError } from '@/lib/api/errors'
 import { drewOnOtherProjects, recordCrossProjectHandOut, type CrossProjectHandOut } from '@/lib/conversations/cross-project-use'
 import { readContextAudience } from '@/lib/conversation-context/audience'
-import type { ContextAudience } from '@/lib/conversation-context/types'
+import { kindOf, workspaceReadOf, type ContextAudience, type WorkspaceRead } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { AgentOperation } from './operation'
@@ -22,7 +22,11 @@ import type { AgentPrincipal } from './principal'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { isAgentKind } from '@/lib/agent-kind'
 
-export type ConversationAudience = ContextAudience
+export interface ConversationAudience extends ContextAudience {
+  workspaceRead: WorkspaceRead
+}
+
+const readsAll = (audience: ConversationAudience): boolean => audience.workspaceRead === 'all'
 
 export type ReadCarries = 'document' | 'projectFacts'
 
@@ -39,9 +43,11 @@ const tenantOf = (principal: AgentPrincipal) => ({
 export async function conversationAudienceOf(principal: AgentPrincipal): Promise<ConversationAudience | null> {
   const conversationId = principal.conversationId
   if (!isAgentKind(principal.actor) || !conversationId) return null
-  return withTenant(tenantOf(principal), () =>
+  const now = await withTenant(tenantOf(principal), () =>
     readContextAudience(principal.session.organizationId, conversationId, principal.session.userId)
   )
+  const kind = kindOf(null, 'ui')
+  return { ...now, workspaceRead: workspaceReadOf(kind, conversationId, now.solo) }
 }
 
 export const READ_REFUSALS = {
@@ -118,10 +124,10 @@ export async function judgeWorkspaceRead(
   carries: ReadCarries | undefined,
   ownFolders: () => Promise<string[]>,
 ): Promise<ReadJudgement> {
-  if (!audience.solo && (!op || !carries)) return refuse(READ_REFUSALS.shared)
+  if (!readsAll(audience) && (!op || !carries)) return refuse(READ_REFUSALS.shared)
   const targets = op ? namedTargets(principal, op, input) : []
   if (typeof targets === 'string') return refuse(targets)
-  if (!audience.solo && targets.some((target) => target.type !== CARRIED_TARGET[carries as ReadCarries])) {
+  if (!readsAll(audience) && targets.some((target) => target.type !== CARRIED_TARGET[carries as ReadCarries])) {
     return refuse(READ_REFUSALS.shared)
   }
   const { organizationId, userId } = principal.session
@@ -143,7 +149,7 @@ export async function judgeWorkspaceRead(
       const own = place.conversationId === principal.conversationId || place.projectId === (principal.projectId ?? null)
       if (own || !place.projectId) {
         touchesOwn = true
-        if (!audience.solo) {
+        if (!readsAll(audience)) {
           const shut = await sharedOwnRefusal(organizationId, place, carries)
           if (shut) return refuse(shut)
         }
@@ -153,7 +159,7 @@ export async function judgeWorkspaceRead(
     }
     const handOut = await foreignHandOut(principal, audience, foreign, carries)
     if ('refusal' in handOut) return handOut
-    const own = audience.solo && touchesOwn && principal.projectId ? await ownFolders() : []
+    const own = readsAll(audience) && touchesOwn && principal.projectId ? await ownFolders() : []
     return {
       handOut: { projectIds: handOut.handOut.projectIds, folderIds: [...own, ...handOut.handOut.folderIds] },
     }
@@ -168,7 +174,7 @@ async function placeRefusal(
 ): Promise<string | null> {
   const other = place.conversationId !== null && place.conversationId !== principal.conversationId
   if (!other) return null
-  if (!audience.solo) return READ_REFUSALS.notEveryReader
+  if (!readsAll(audience)) return READ_REFUSALS.notEveryReader
   return (await drewOnOtherProjects(place.conversationId as string, organizationId)) ? READ_REFUSALS.otherConversation : null
 }
 

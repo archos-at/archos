@@ -1,6 +1,8 @@
 import type { UserSession } from '@/lib/auth/types'
 
-export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
+export const COLLECTION_SHELVES = ['office_shelf', 'project', 'session', 'base'] as const
+
+export type CollectionShelf = (typeof COLLECTION_SHELVES)[number]
 
 export interface ScopedCollection {
   collection: string

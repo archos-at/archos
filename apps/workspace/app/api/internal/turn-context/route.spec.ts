@@ -64,7 +64,8 @@ import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import { buildProposalDecisionsBlock } from '@/lib/projects/proposal-decisions'
 import { buildReviewDecisionsBlock } from '@/lib/documents/review-decisions'
 import { drewOnOtherProjects } from '@/lib/conversations/cross-project-use'
-import { closedContext, isSoloAudience } from '@/lib/conversation-context/types'
+import { isSoloAudience } from '@/lib/conversation-context/types'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { decisionOf, signDecision, TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER } from '@/lib/conversation-context/wire'
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { countPendingInboxItems } from '@/lib/inbox/repository'
@@ -284,7 +285,7 @@ describe('POST /api/internal/turn-context', () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
-      decisionOf({ ...closed, audience: { ...closed.audience, solo: false, version: 4 }, may: { ...closed.may, workspaceRead: 'document+projectFacts' } }, null, Date.now()),
+      decisionOf({ ...closed, audience: { ...closed.audience, solo: false, version: 4 }, may: { ...closed.may, workspaceRead: 'document+projectFacts' } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()),
       SECRET,
     )
 
@@ -303,6 +304,7 @@ describe('POST /api/internal/turn-context', () => {
     const decision = signDecision(
       decisionOf(
         { ...closed, audience: { ...closed.audience, solo: true, version: 1 }, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } },
+        { organizationId: 'org_1', userId: 'user_1' },
         null,
         Date.now(),
       ),
@@ -320,7 +322,7 @@ describe('POST /api/internal/turn-context', () => {
 
   it('refuses a turn decision that is not signed by the BFF', async () => {
     const closed = closedContext('chat', 's_text-conversation')
-    const decision = signDecision(decisionOf({ ...closed, may: { ...closed.may, personalMemory: true } }, null, Date.now()), 'forged')
+    const decision = signDecision(decisionOf({ ...closed, may: { ...closed.may, personalMemory: true } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), 'forged')
 
     const response = await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
 
@@ -328,10 +330,26 @@ describe('POST /api/internal/turn-context', () => {
     expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
   })
 
+  it('closes a turn whose decision was made for another asker', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(
+      decisionOf({ ...closed, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } }, { organizationId: 'org_1', userId: 'user_2' }, null, Date.now()),
+      SECRET,
+    )
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(data.workspace).toContain('no workspace read runs here')
+  })
+
   it('closes a turn whose decision names another conversation', async () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
     const other = closedContext('chat', 's_other')
-    const decision = signDecision(decisionOf({ ...other, may: { ...other.may, personalMemory: true, workspaceRead: 'all' } }, null, Date.now()), SECRET)
+    const decision = signDecision(decisionOf({ ...other, may: { ...other.may, personalMemory: true, workspaceRead: 'all' } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), SECRET)
 
     const { data } = await (
       await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })

@@ -7,23 +7,31 @@ import { callsTo, parseSource, productionSources, parseSourceText } from '@/test
 
 const ENTRY = 'readConversationAudience'
 
+const READS = [ENTRY, 'readConversationRow', 'readContextAudience'] as const
+
 const RATCHET: Readonly<Record<string, number>> = {
-  'bff/conversation-context/audience.ts': 1,
+  'bff/conversation-context/audience.ts': 2,
+  'bff/conversation-context/index.ts': 1,
+  'bff/conversation-context/resolve.ts': 1,
   'bff/conversations/cross-project-use.ts': 1,
-  'bff/conversations/restricted-use.ts': 1,
+  'bff/conversations/restricted-use.ts': 8,
+  'bff/agent-api/conversation-audience.ts': 2,
+  'bff/cross-project/audience-reach.ts': 1,
+  'bff/retrieval-scope/collection-scope-request.ts': 1,
 }
 
 function callSites(): Record<string, number> {
   const found: Record<string, number> = {}
   for (const file of productionSources()) {
-    const count = callsTo(parseSource(file), ENTRY).length
+    const source = parseSource(file)
+    const count = READS.reduce((sum, name) => sum + callsTo(source, name).length, 0)
     if (count > 0) found[file] = count
   }
   return found
 }
 
 describe('who reads a conversation’s audience (ADR-0192)', () => {
-  it('is the context module and the writers that hold the audience lock, and no new caller', () => {
+  it('is the context module, the writers that hold the audience lock, and the readers it names, and no new caller', () => {
     const found = callSites()
     for (const [file, count] of Object.entries(found)) {
       expect(RATCHET[file], `${file} reads the audience ${count} time(s); go through @/lib/conversation-context`).toBeDefined()
@@ -40,8 +48,10 @@ describe('who reads a conversation’s audience (ADR-0192)', () => {
     }
   })
 
-  it('catches a new caller', () => {
-    const source = parseSourceText(`async function x() { await ${ENTRY}(db, org, id) }`)
-    expect(callsTo(source, ENTRY)).toHaveLength(1)
+  it('catches a new caller of the read or of its module wrappers', () => {
+    for (const name of READS) {
+      const source = parseSourceText(`async function x() { await ${name}(db, org, id) }`)
+      expect(callsTo(source, name)).toHaveLength(1)
+    }
   })
 })

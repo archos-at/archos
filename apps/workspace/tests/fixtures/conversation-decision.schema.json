@@ -6,6 +6,16 @@
     "conversationDecision": {
       "type": "object",
       "properties": {
+        "organizationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
         "conversationId": {
           "anyOf": [
             {
@@ -172,6 +182,8 @@
         }
       },
       "required": [
+        "organizationId",
+        "userId",
         "conversationId",
         "answerMessageId",
         "kind",
@@ -214,6 +226,16 @@
         "body": {
           "type": "object",
           "properties": {
+            "organizationId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
             "conversationId": {
               "anyOf": [
                 {
@@ -380,6 +402,8 @@
             }
           },
           "required": [
+            "organizationId",
+            "userId",
             "conversationId",
             "answerMessageId",
             "kind",

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import { jsonSchemaDocument, type JsonSchemaNode } from '@/lib/api/zod-json-schema'
+import { COLLECTION_SHELVES } from '@/lib/retrieval-scope/collection-scope'
 import { CONTEXT_KINDS, OTHER_PROJECT_REACHES, WORKSPACE_READS, type ConversationContext } from './types'
 
 export const TURN_DECISION_HEADER = 'x-turn-decision'
@@ -11,7 +12,7 @@ export const TURN_DECISION_MAX_AGE_MS = 30 * 60 * 1000
 const scopedCollectionSchema = z
   .object({
     collection: z.string().min(1).max(200),
-    shelf: z.enum(['office_shelf', 'project', 'session', 'base']).optional(),
+    shelf: z.enum(COLLECTION_SHELVES).optional(),
     countries: z.array(z.string().min(1).max(8)).max(50).optional(),
   })
   .strict()
@@ -30,6 +31,8 @@ export const decisionMaySchema = z
 
 export const conversationDecisionSchema = z
   .object({
+    organizationId: z.string().min(1).max(128),
+    userId: z.string().min(1).max(128),
     conversationId: z.string().min(1).max(128).nullable(),
     answerMessageId: z.guid().nullable(),
     kind: z.enum(CONTEXT_KINDS),
@@ -66,14 +69,22 @@ export function conversationDecisionJsonSchema(): JsonSchemaNode {
   })
 }
 
+export interface DecisionAsker {
+  organizationId: string
+  userId: string
+}
+
 export function decisionOf(
   context: ConversationContext,
+  asker: DecisionAsker,
   answerMessageId: string | null,
   issuedAt: number,
 ): ConversationDecision {
   const { shelves, restrictedCollections, otherProjects, personalMemory, personalShelf, workspaceRead, features } =
     context.may
   return {
+    organizationId: asker.organizationId,
+    userId: asker.userId,
     conversationId: context.conversationId,
     answerMessageId,
     kind: context.kind,
