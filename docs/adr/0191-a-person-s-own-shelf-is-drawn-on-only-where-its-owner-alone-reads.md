@@ -33,8 +33,9 @@ without being recorded.
    `{ kind: 'personal'; userId }`, `documents.scope` gains `personal` with the
    owner on the row, and the upload pipeline, folders, listing, filing,
    ingestion and deletion run unchanged against it. Only its owner reads or
-   writes it, held by a per-user row-level policy as `personal_memory` is, not
-   by the app layer alone. Leaving the office treats it as personal memory is
+   writes it, held at the database by a per-user predicate in the one permissive policy on
+   `documents`, as `personal_memory`'s policy names the person, not by the app
+   layer alone. Leaving the office treats it as personal memory is
    treated.
 2. **The server decides what a turn may read, from the conversation row.** A
    chat with a project reads that project; a chat without one reads none, and
@@ -54,7 +55,7 @@ without being recorded.
    `conversation_source_projects` records a project. Sharing a chat that carries
    the record asks its owner first and says what the others will see: the
    answers, never the files. Once shared, the chat draws on the shelf no more.
-   Personal memory is not recorded: it reaches every solo turn, so recording it
+   Personal memory is not recorded: it reaches every solo turn in a conversation, so recording it
    would make every share ask. Once a chat is shared, the next turn no longer
    receives it (ADR-0180, rule 4); earlier answers may still reflect the owner's
    preferences, and that risk is accepted.
