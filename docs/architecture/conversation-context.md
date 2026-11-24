@@ -258,7 +258,7 @@ What slice 1 fixes, so no builder has to guess:
 - **Backfill.** `audience_version` needs none; rows start at 0. Answers written
   before slice 1 have no per-answer record, and „Gelesen“ shows nothing for them
   rather than guessing.
-- **The trace.** Each turn's Langfuse trace carries `context.kind`,
+- **The trace (delivered in slice 2, where Python binds the decision).** Each turn's Langfuse trace carries `context.kind`,
   `context.solo`, `context.audienceVersion`, `context.shelves`,
   `context.personalMemory`, `context.personalShelf` and `context.features`.
 
