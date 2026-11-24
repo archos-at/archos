@@ -7,7 +7,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -108,10 +107,6 @@ def current_turn_decision() -> TurnDecision | None:
 
 def decision_missing() -> bool:
     return isinstance(_bound.get(), _Missing)
-
-
-def decision_required() -> bool:
-    return (os.environ.get("REQUIRE_AUTH") or "").lower() == "true"
 
 
 def _decode(header: str) -> bytes | None:
