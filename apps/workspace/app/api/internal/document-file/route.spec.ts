@@ -267,6 +267,19 @@ describe('GET /api/internal/document-file', () => {
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
       expect(drawableRestrictedCollections).not.toHaveBeenCalled()
     })
+
+    it('never answers for a person’s own shelf, which only its owner’s signed envelope reaches (ADR-0193)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      expect((await GET(request('?collection=personal_org_1__user_asker&filename=plan.png&organizationId=org_1'))).status).toBe(404)
+      expect((await GET(request('?collection=PERSONAL_org_1__user_asker&filename=plan.png'))).status).toBe(404)
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('serves the owner’s own shelf under their signed envelope', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const own = 'personal_org_1__user_asker'
+      expect((await GET(request(`?collection=${own}&filename=plan.png`, 'test-token', envelope({ collectionScope: [own] })))).status).toBe(200)
+    })
   })
 
   describe('with a turn decision', () => {
