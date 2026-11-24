@@ -159,7 +159,7 @@ describe('tenancy', () => {
     expect(delegateTask).not.toHaveBeenCalled()
 
     await call(CREATE, envelopeHeaders({ organizationId: 'org_1' }))
-    expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1' })
+    expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1', userId: 'user_requester' })
   })
 })
 

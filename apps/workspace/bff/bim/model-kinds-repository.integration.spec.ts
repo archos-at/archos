@@ -119,8 +119,11 @@ describe.skipIf(!url)('projectModelKinds', () => {
     expect(await projectModelKinds(ORG, WITH_NOTHING, CONVERSATION)).toEqual({ ifc: false, dxf: false, pdf: true })
   })
 
-  it("counts this conversation's own upload", async () => {
-    expect(await projectModelKinds(ORG, WITH_NOTHING, OTHER_CONVERSATION)).toEqual({ ifc: false, dxf: true, pdf: true })
+  it("counts this conversation's own upload, for the person whose turn it is: a chat without a project is theirs (0269)", async () => {
+    const { withTenant } = await import('@/lib/db/tenant-context')
+    const asAsker = () => withTenant({ organizationId: ORG, userId: 'seed' }, () => projectModelKinds(ORG, WITH_NOTHING, OTHER_CONVERSATION))
+    expect(await asAsker()).toEqual({ ifc: false, dxf: true, pdf: true })
+    expect(await projectModelKinds(ORG, WITH_NOTHING, OTHER_CONVERSATION)).toEqual({ ifc: false, dxf: false, pdf: true })
   })
 
   it('counts the office shelf, and only its own organization', async () => {

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { ADMISSION_MAX_COLLECTIONS, admitRestrictedUse } from '@/lib/conversations/restricted-use'
 import { admitPersonalShelf, splitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 import { decisionFromRequest } from '@/lib/conversation-context'
@@ -33,7 +33,7 @@ export const POST = internalApiRoute<Params>(
     }
     const decision = decisionFromRequest(request)
     const { personal, others } = splitPersonalShelf(body.admit)
-    return withTenant({ organizationId: body.organizationId }, async () => {
+    return withSystemReader(body.organizationId, 'agent-host', async () => {
       const [folders, ownShelf] = await Promise.all([
         others.length > 0 ? admitRestrictedUse(useRequest, others) : Promise.resolve({ admitted: [], refused: [], recorded: [] }),
         personal.length > 0 ? admitPersonalShelf(useRequest, personal, decision) : Promise.resolve([]),

@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone the composer's row fits the screen again. The temporary-chat
+    switch shows only its glasses there, filled in when the chat is temporary,
+    so the row no longer scrolls sideways at 360 pixels.

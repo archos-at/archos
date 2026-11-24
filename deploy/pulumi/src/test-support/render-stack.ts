@@ -22,6 +22,7 @@ export function stackFileConfig(stack: "dev" | "prod"): Record<string, string> {
 const ESC_SECRETS: Record<string, string> = {
   "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
   "grid-oib:err2issueGithubToken": "ghp-test", // pragma: allowlist secret
+  "grid-oib:ciRunnersGithubAppPrivateKey": "-----BEGIN PRIVATE KEY-----", // pragma: allowlist secret
   "grid-oib:otelPrimaryApiKey": "otel-key", // pragma: allowlist secret
   "grid-oib:inboundMailSigningKeys": SIGNING_KEYS,
   "grid-oib:jobPayloadKek": "a2VrLWtlay1rZWsta2VrLWtlay1rZWsta2VrLWtlay0=", // pragma: allowlist secret
