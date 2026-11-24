@@ -9,6 +9,8 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
+import { PROJECT_OVERVIEW_PATH } from './landing'
+import { overviewLinkClick } from './project-overview-entry'
 import { ShellSearchButton } from './shell-search-button'
 
 export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
@@ -17,7 +19,8 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
 
   const home = (
     <Link
-      href="/app"
+      href={PROJECT_OVERVIEW_PATH}
+      onClick={(event) => overviewLinkClick(PROJECT_OVERVIEW_PATH, event)}
       aria-label={t('allProjects')}
       data-focus-inset=""
       className="text-foreground rounded-control"

@@ -171,57 +171,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/components/shell/org-header.tsx",
-    "to": "ui/features/collaboration/components/index.ts",
-    "unresolvedTo": "@/features/collaboration/components",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/components/shell/org-header.tsx",
-    "to": "ui/features/collaboration/hooks/use-inbox.ts",
-    "unresolvedTo": "@/features/collaboration/hooks/use-inbox",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/components/shell/org-header.tsx",
-    "to": "ui/features/product-feedback/components/index.ts",
-    "unresolvedTo": "@/features/product-feedback/components",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/components/shell/phone-more-sheet.tsx",
     "to": "ui/features/layout/store.ts",
     "unresolvedTo": "@/features/layout/store",

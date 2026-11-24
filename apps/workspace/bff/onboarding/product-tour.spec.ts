@@ -154,16 +154,38 @@ describe('cardShift', () => {
 })
 
 describe('the welcome tour on a phone', () => {
-  it('trades the keyboard stop for the search button, and finds the doorways in the tab bar', () => {
-    const anchors: Record<string, AnchorBox> = {
-      [tourAnchorSelector(TOUR_ANCHORS.officeShelf)]: { left: 131, right: 262, top: 760, bottom: 812, placement: 'above' },
-      [tourAnchorSelector(TOUR_ANCHORS.search)]: { left: 293, right: 337, top: 6, bottom: 50 },
-    }
+  const more: AnchorBox = { left: 312, right: 389, top: 760, bottom: 812, placement: 'above' }
+  const anchors: Record<string, AnchorBox> = {
+    [tourAnchorSelector(TOUR_ANCHORS.more)]: more,
+    [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 234, right: 311, top: 760, bottom: 812, placement: 'above' },
+  }
+
+  it('finds the Bürobibliothek, the account and the search under „Mehr“, and the Postfach in the tab bar (ADR-0196)', () => {
     const placed = placeStops(TOURS.welcome, { ...ALL_ON, phone: true }, (selector) => anchors[selector] ?? null, PHONE)
-    expect(ids(placed)).toContain('searchPhone')
+    expect(ids(placed)).toEqual(expect.arrayContaining(['officeShelfPhone', 'inbox', 'accountPhone', 'searchPhone']))
     expect(ids(placed)).not.toContain('shortcuts')
-    expect(placed.find((stop) => stop.id === 'officeShelf')).toMatchObject({ side: 'top' })
-    expect(placed.find((stop) => stop.id === 'searchPhone')).toMatchObject({ side: 'bottom-right' })
+    for (const id of ['officeShelfPhone', 'inbox', 'accountPhone', 'searchPhone']) {
+      expect(placed.find((stop) => stop.id === id)).toMatchObject({ side: 'top' })
+    }
+  })
+
+  it('tells a member about their account, not about managing the office', () => {
+    const placed = placeStops(TOURS.welcome, { ...ALL_ON, canManageOrganization: false, phone: true }, (selector) => anchors[selector] ?? null, PHONE)
+    expect(ids(placed)).toContain('accountMemberPhone')
+  })
+})
+
+describe('the welcome tour on a desktop', () => {
+  it('points at the rail’s doorways beside it, not at a bar above the page (ADR-0196)', () => {
+    const anchors: Record<string, AnchorBox> = {
+      [tourAnchorSelector(TOUR_ANCHORS.sectionOfficeShelf)]: { left: 12, right: 260, top: 680, bottom: 716 },
+      [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 200, right: 232, top: 780, bottom: 812 },
+      [tourAnchorSelector(TOUR_ANCHORS.account)]: { left: 12, right: 190, top: 780, bottom: 812 },
+    }
+    const placed = placeStops(TOURS.welcome, ALL_ON, (selector) => anchors[selector] ?? null, DESKTOP)
+    for (const id of ['officeShelf', 'inbox', 'account']) {
+      expect(placed.find((stop) => stop.id === id)).toMatchObject({ side: 'right' })
+    }
   })
 })
 

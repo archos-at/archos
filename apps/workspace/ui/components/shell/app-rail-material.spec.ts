@@ -112,7 +112,6 @@ const RAIL_STEMS = [
   'ui/components/shell/connection-band',
   'ui/components/shell/connection-presence-indicator',
   'ui/components/shell/phone-tab-bar',
-  'ui/components/shell/org-header',
   'ui/components/shell/shell-count',
   'ui/components/ui/sidebar',
 ] as const
@@ -126,17 +125,12 @@ const fileOf = (stem: string): string => {
 const railFiles = (): string[] => RAIL_STEMS.map(fileOf)
 
 const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
-  'ui/components/shell/phone-tab-bar': [{ pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' }],
-  'ui/components/shell/org-header': [{ pattern: /border-border bg-background flex w-full shrink-0 flex-col border-b /, reason: 'a header that stays put' }],
   'ui/components/ui/sidebar': [{ pattern: /'group-data-\[side=left\]:border-r group-data-\[side=right\]:border-l border-sidebar-border'/, reason: 'the rail’s edge to the page' }],
 }
 
 const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
   'ui/components/shell/rail-active-pill': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'where the reader is: a sheet with the thumb’s shadow' }],
-  'ui/components/shell/phone-tab-bar': [
-    { fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' },
-    { fill: /in-data-\[scope=personal\]:bg-sheet in-data-\[scope=personal\]:shadow-xs/, what: 'the current tab under Persönlich: the same sheet' },
-  ],
+  'ui/components/shell/phone-tab-bar': [{ fill: /bg-sheet shadow-xs absolute inset-0 rounded-control/, what: 'the current tab: the same sheet, on either side' }],
   'ui/components/shell/phone-more-sheet': [{ fill: /bg-sheet shadow-press/, what: 'the phone’s project selector, the first row of „Mehr“: a press' }],
   'ui/components/ui/sidebar': [{ fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' }],
 }

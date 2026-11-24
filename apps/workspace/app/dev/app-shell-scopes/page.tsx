@@ -2,7 +2,6 @@
 
 import type { JSX } from 'react'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { OrgHeader } from '@/components/shell/org-header'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
@@ -73,11 +72,11 @@ export default function AppShellScopesPreview(): JSX.Element {
         <AppSidebar projectId="p-1" projects={PROJECTS} showModels showSkills {...CHROME_FLAGS} />
       </ScopeColumn>
       <ScopeColumn
-        row={false}
-        caption="org scope — /app/projects"
-        tabBar={<PhoneTabBar projectId={null} canAccessOfficeShelf canAccessInbox pathname="/app/projects" />}
+        row
+        caption="a page with no side, on the side the person came from — /app/inbox"
+        tabBar={<PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname="/app/inbox" />}
       >
-        <OrgHeader {...CHROME_FLAGS} />
+        <AppSidebar projectId="p-1" onSide={false} pathname="/app/inbox" projects={PROJECTS} showModels showSkills {...CHROME_FLAGS} />
       </ScopeColumn>
     </div>
   )

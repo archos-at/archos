@@ -16,7 +16,6 @@ export function projectTourUrl(projectId: string): string {
 
 export const TOUR_ANCHORS = {
   createProject: 'create-project',
-  officeShelf: 'office-shelf',
   inbox: 'inbox',
   account: 'account-menu',
   sectionChat: 'section-chat',
@@ -57,7 +56,7 @@ export interface TourStop {
   gate?: 'canAccessOfficeShelf' | 'canAccessInbox'
   arrivalId?: string
   memberId?: string
-  phone?: { id: string; anchor?: TourAnchor; placement?: TourPlacement }
+  phone?: { id: string; anchor?: TourAnchor; placement?: TourPlacement; memberId?: string }
 }
 
 export interface PlacedTourStop extends TourStop {
@@ -68,10 +67,22 @@ export interface PlacedTourStop extends TourStop {
 const WELCOME_STOPS: readonly TourStop[] = [
   { id: 'welcome', arrivalId: 'welcomeJoined' },
   { id: 'createProject', anchor: TOUR_ANCHORS.createProject, placement: 'below', arrivalId: 'createProjectJoined' },
-  { id: 'officeShelf', anchor: TOUR_ANCHORS.officeShelf, placement: 'below', gate: 'canAccessOfficeShelf' },
-  { id: 'inbox', anchor: TOUR_ANCHORS.inbox, placement: 'below', gate: 'canAccessInbox' },
-  { id: 'account', anchor: TOUR_ANCHORS.account, placement: 'below', memberId: 'accountMember' },
-  { id: 'shortcuts', phone: { id: 'searchPhone', anchor: TOUR_ANCHORS.search, placement: 'below' } },
+  {
+    id: 'officeShelf',
+    anchor: TOUR_ANCHORS.sectionOfficeShelf,
+    placement: 'beside',
+    gate: 'canAccessOfficeShelf',
+    phone: { id: 'officeShelfPhone', anchor: TOUR_ANCHORS.more },
+  },
+  { id: 'inbox', anchor: TOUR_ANCHORS.inbox, placement: 'beside', gate: 'canAccessInbox' },
+  {
+    id: 'account',
+    anchor: TOUR_ANCHORS.account,
+    placement: 'beside',
+    memberId: 'accountMember',
+    phone: { id: 'accountPhone', memberId: 'accountMemberPhone', anchor: TOUR_ANCHORS.more },
+  },
+  { id: 'shortcuts', phone: { id: 'searchPhone', anchor: TOUR_ANCHORS.more } },
 ]
 
 const PROJECT_STOPS: readonly TourStop[] = [
@@ -173,7 +184,7 @@ export function placeStops(
     if (given.gate && !reader[given.gate]) return []
     const stop: TourStop =
       reader.phone && given.phone
-        ? { ...given, ...given.phone, arrivalId: undefined, memberId: undefined, phone: undefined }
+        ? { ...given, ...given.phone, arrivalId: undefined, memberId: given.phone.memberId, phone: undefined }
         : given
     const id = copyFor(stop, reader)
     if (!stop.anchor) return [{ id }]

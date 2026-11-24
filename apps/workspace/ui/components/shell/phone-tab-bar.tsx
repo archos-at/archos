@@ -21,8 +21,7 @@ import { feedbackCopy } from '@/i18n/namespaces/feedback'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { useShellOverlays } from './shell-overlays'
-import { orgPhoneTabs, personalPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
-import { railModeOf } from './rail-mode'
+import { personalPhoneTabs, projectPhoneTabs, type PhoneTab, type PhoneTabLabel } from './phone-tabs'
 import { overviewLinkClick } from './project-overview-entry'
 
 export interface PhoneTabBarProps {
@@ -56,13 +55,8 @@ export function PhoneTabBar({
   const pillId = `phone-tab-pill-${React.useId()}`
 
   const flags = { canAccessOfficeShelf, canAccessInbox }
-  const scope = projectId ? 'project' : railModeOf(pathname) === 'personal' ? 'personal' : 'org'
-  const tabs =
-    scope === 'project' && projectId
-      ? projectPhoneTabs(projectId, pathname, flags)
-      : scope === 'personal'
-        ? personalPhoneTabs(pathname, flags)
-        : orgPhoneTabs(pathname, flags)
+  const scope = projectId ? 'project' : 'personal'
+  const tabs = projectId ? projectPhoneTabs(projectId, pathname, flags) : personalPhoneTabs(pathname, flags)
   const label = (value: PhoneTabLabel): string =>
     value.namespace === 'collaboration' ? tCollaboration(value.key) : t(value.key)
 
@@ -73,7 +67,7 @@ export function PhoneTabBar({
       data-scope={scope}
       className={cn(
         'w-full shrink-0 md:hidden',
-        scope === 'org' ? 'border-border bg-background border-t' : 'bg-desk',
+        'bg-desk',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
       )}
@@ -138,7 +132,7 @@ function PhoneTabItem({
             layoutId={pillId}
             data-slot="phone-tab-pill"
             aria-hidden
-            className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs in-data-[scope=personal]:bg-sheet in-data-[scope=personal]:shadow-xs absolute inset-0 rounded-control"
+            className="bg-sheet shadow-xs absolute inset-0 rounded-control"
             transition={springGlide}
           />
         )}

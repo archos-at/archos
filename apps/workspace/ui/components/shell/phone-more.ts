@@ -13,7 +13,6 @@ import {
   type PhoneTabFlags,
   type PhoneTabLabel,
 } from './phone-tabs'
-import { railModeOf } from './rail-mode'
 
 export interface MoreDestination {
   key: string
@@ -84,8 +83,7 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
 
 export function moreDestinations(projectId: string | null, pathname: string, flags: MoreFlags): MoreDestination[] {
   const account = accountDestinations(flags)
-  const personal = projectId === null && railModeOf(pathname) === 'personal'
-  if (projectId === null && !personal) return account
+  const personal = projectId === null
   const base = projectId === null ? '' : `/app/projects/${projectId}`
   const onBar = carried(projectId === null ? personalPhoneTabs(pathname, flags) : projectPhoneTabs(projectId, pathname, flags))
   const sectionFlags: ProjectSectionFlags = {

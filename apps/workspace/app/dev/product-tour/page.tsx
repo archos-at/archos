@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { OrgHeader } from '@/components/shell/org-header'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { ShellContent } from '@/components/shell'
 import { ProjectOverview } from '@/components/projects/project-overview'
@@ -66,8 +65,8 @@ function Preview(): JSX.Element {
           <PhoneTabBar projectId="p-1" pathname="/app/projects/p-1/chat" canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
         </div>
       ) : (
-        <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden">
-          <OrgHeader {...chrome} />
+        <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row">
+          <AppSidebar projectId={null} onSide={false} pathname="/app/projects" projects={PROJECTS} showModels={false} showSkills={false} {...chrome} />
           <main className="bg-background relative flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ShellContent width="wide">
               <ProjectOverview projects={[]} viewerActivity={{}} />

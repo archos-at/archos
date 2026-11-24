@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Archive, Bell, Folder, FolderKanban, MoreHorizontal } from 'lucide-react'
+import { Bell, Folder, MoreHorizontal } from 'lucide-react'
 
 import { TOUR_ANCHORS, sectionAnchor } from '@/lib/onboarding/product-tour'
 import {
@@ -10,7 +10,7 @@ import {
 } from './project-sections'
 import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from './rail-mode'
 
-export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'projects' | 'officeShelf' | 'personalShelf' | 'more'
+export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'personalShelf' | 'more'
 
 export interface PhoneTabLabel {
   namespace: 'nav' | 'collaboration'
@@ -32,8 +32,6 @@ export interface PhoneTabFlags {
 }
 
 const INBOX_HREF = '/app/inbox'
-const OFFICE_SHELF_HREF = '/app/office-shelf'
-const PROJECTS_HREF = '/app/projects'
 
 function isUnder(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
@@ -90,7 +88,7 @@ export function projectPhoneTabs(
     projectTab('files', base, pathname),
     projectTab('settings', base, pathname),
   ]
-  if (flags.canAccessInbox) tabs.push(inboxTab(pathname, sectionAnchor('inbox')))
+  if (flags.canAccessInbox) tabs.push(inboxTab(pathname, TOUR_ANCHORS.inbox))
   return withMore(tabs)
 }
 
@@ -132,31 +130,6 @@ export function personalPhoneTabs(pathname: string, flags: PhoneTabFlags): Phone
   ]
   if (flags.canAccessInbox) tabs.push(inboxTab(pathname, TOUR_ANCHORS.inbox))
   return withMore(tabs)
-}
-
-export function orgPhoneTabs(pathname: string, flags: PhoneTabFlags): PhoneTab[] {
-  const tabs: PhoneTab[] = [
-    {
-      key: 'projects',
-      href: PROJECTS_HREF,
-      icon: FolderKanban,
-      label: { namespace: 'nav', key: 'projectSwitcher.projects' },
-      active: pathname === PROJECTS_HREF,
-      tourAnchor: 'tab-projects',
-    },
-  ]
-  if (flags.canAccessOfficeShelf) {
-    tabs.push({
-      key: 'officeShelf',
-      href: OFFICE_SHELF_HREF,
-      icon: Archive,
-      label: { namespace: 'nav', key: 'sections.officeShelf' },
-      active: isUnder(pathname, OFFICE_SHELF_HREF),
-      tourAnchor: TOUR_ANCHORS.officeShelf,
-    })
-  }
-  if (flags.canAccessInbox) tabs.push(inboxTab(pathname, TOUR_ANCHORS.inbox))
-  return tabs
 }
 
 export function phoneTabBarHiddenOnRoute(pathname: string): boolean {
