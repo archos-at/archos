@@ -173,9 +173,9 @@ person knows who sees a thing.
 
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
-| Connect Claude, Claude Code, Cursor or ChatGPT | Profil › Agent verbinden | Serves the workspace as one MCP server with the person's rights | Every write the agent proposes ([agent-surface.md](../architecture/agent-surface.md)) |
+| Connect Claude, Claude Code, Cursor or ChatGPT | Profil › Agent verbinden, where the organization has the `agent-mcp` flag | Serves the workspace as one MCP server with the person's rights | Writes run for the person. The server asks the person only for an operation marked `requiresPersonConfirmation`, for deciding a proposal, and, on a client that can ask, before a destructive write; any other prompt is the client's own ([agent-surface.md](../architecture/agent-surface.md)) |
 
-Not reachable by an agent: deciding a proposal, the office's settings, budgets,
+Not reachable by an agent: deciding a proposal without the person's yes, the office's settings, budgets,
 models and screening, and the platform console
 (`apps/workspace/bff/agent-api/exposure.config.ts`).
 

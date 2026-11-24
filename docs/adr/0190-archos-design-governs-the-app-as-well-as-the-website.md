@@ -56,5 +56,5 @@ Nothing enforces it yet. Today's specs hold the old material
 (`brand-literals.spec.ts`, `app-rail-material.spec.ts`); each migration pull
 request rewrites the spec of the surface it moves so that it holds ARCHOS
 Design instead, and the last one removes the app-scoped tokens, after which
-`scripts/check_brand_rules.mjs` can refuse a shadow or a radius past 4px in the
-app as it does on the website.
+`scripts/check_brand_rules.mjs` can refuse a shadow in the app as it does on the
+website. Neither the website check nor any app check limits a radius yet.
