@@ -12,6 +12,7 @@ import {
 import type { AgentOperation } from './operation'
 import type { TargetInput } from './operation-targets'
 import type { AgentPrincipal } from './principal'
+import { admitPersonalShelfRead } from './personal-shelf-read'
 
 export const AUDIENCE_READS: Readonly<Record<string, { carries: ReadCarries; reason: string }>> = {
   'document-get': { carries: 'document', reason: 'the document as its listing row, which every reader of it sees' },
@@ -59,6 +60,7 @@ function buildGate(principal: AgentPrincipal): ReadGate {
         (ownFolders ??= ownRestrictingFolders(principal)),
       )
       if ('refusal' in judged) return judged.refusal
+      if (judged.personalShelf && !(await admitPersonalShelfRead(principal))) return READ_REFUSALS.personalShelf
       return (await recordWorkspaceHandOut(principal, now, judged.handOut)) ? null : READ_REFUSALS.audienceChanged
     },
     async mayHandOnLink() {
