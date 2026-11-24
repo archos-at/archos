@@ -499,6 +499,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+            "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }

@@ -3096,6 +3096,10 @@
     "de": "Auf dem Smartphone ist der obere Bereich jeder Projektseite ruhiger: mit einem kompakten Titel ohne Beschreibung, sodass in Dateien die ersten Dokumente im oberen Drittel des Bildschirms angezeigt werden."
   },
   {
+    "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+    "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+  },
+  {
     "en": "On a phone you switch projects from „Mehr“: its first entry shows the project you are in, and „Projekt wechseln“ opens the list of projects.",
     "de": "Am Smartphone wechseln Sie Projekte über „Mehr“: Der erste Eintrag zeigt das Projekt, in dem Sie sich befinden, und „Projekt wechseln“ öffnet die Projektliste."
   },
