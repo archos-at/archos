@@ -9,7 +9,7 @@ import { researchCopy } from '@/i18n/namespaces/research'
 export interface DeleteSessionConfirmationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
   sessionTitle?: string
 }
 

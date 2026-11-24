@@ -16519,6 +16519,73 @@
           "openWorldHint": false
         }
       },
+      "delete": {
+        "operationId": "conversation-delete-all",
+        "summary": "Delete all of the person’s own chats on one side",
+        "description": "Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats without a project, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "place",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "personal",
+                "project"
+              ],
+              "description": "`personal`: the caller's own chats without a project; `project`: the caller's own chats in `projectId`."
+            },
+            "description": "`personal`: the caller's own chats without a project; `project`: the caller's own chats in `projectId`."
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The project whose chats `place=project` deletes.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The project whose chats `place=project` deletes."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete all of the person’s own chats on one side",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
       "get": {
         "operationId": "conversation-list",
         "summary": "List the conversations the person can see",

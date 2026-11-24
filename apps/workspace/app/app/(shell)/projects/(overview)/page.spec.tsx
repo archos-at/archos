@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./project-overview-sheet', () => ({ ProjectOverviewSheet: vi.fn(() => null) }))
+vi.mock('../project-overview-sheet', () => ({ ProjectOverviewSheet: vi.fn(() => null) }))
 vi.mock('@/i18n/server', () => ({ getTranslations: async () => (key: string) => key }))
 
 import ProjectsPage from './page'
-import OverlayPage from '../@overlay/(.)projects/page'
+import OverlayPage from '../../@overlay/(.)projects/page'
 
 describe('/app/projects, kept for bookmarks and links, opens the project overview', () => {
   it('as its own page, the create dialog closed', async () => {

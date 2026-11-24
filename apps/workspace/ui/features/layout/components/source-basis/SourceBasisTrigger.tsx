@@ -127,29 +127,30 @@ export const SourceBasisTrigger = forwardRef<HTMLButtonElement, SourceBasisTrigg
           transition={receiptTransition}
           className="inline-flex items-center gap-2"
         >
-          {summary.kind === 'all' ? (
-            <span className="inline-flex items-center gap-1.5">
-              <Layers className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{t('sourceBasis.allSources')}</span>
-            </span>
-          ) : summary.kind === 'preset' && summary.preset ? (
-            <StratumUnit
-              signal={PRESET_SIGNAL[summary.preset]}
-              label={t(`sourceBasis.presets.${summary.preset}`)}
-            />
-          ) : summary.kind === 'internalOnly' ? (
-            <StratumUnit signal="project" label={t('sourceBasis.internalOnly')} />
-          ) : (
-            <AnimatePresence mode="popLayout" initial={false}>
-              {summary.strata.map((signal) => (
+          <AnimatePresence mode="popLayout" initial={false}>
+            {summary.kind === 'all' ? (
+              <span key="all" className="inline-flex items-center gap-1.5">
+                <Layers className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{t('sourceBasis.allSources')}</span>
+              </span>
+            ) : summary.kind === 'preset' && summary.preset ? (
+              <StratumUnit
+                key={`preset-${summary.preset}`}
+                signal={PRESET_SIGNAL[summary.preset]}
+                label={t(`sourceBasis.presets.${summary.preset}`)}
+              />
+            ) : summary.kind === 'internalOnly' ? (
+              <StratumUnit key="internal-only" signal="project" label={t('sourceBasis.internalOnly')} />
+            ) : (
+              summary.strata.map((signal) => (
                 <StratumUnit
                   key={signal}
                   signal={signal}
                   label={t(`sourceBasis.strata.${signal}`)}
                 />
-              ))}
-            </AnimatePresence>
-          )}
+              ))
+            )}
+          </AnimatePresence>
           {summary.overflow > 0 && (
             <CountPill aria-label={t('sourceBasis.overflowAria', { count: summary.overflow })}>
               +{summary.overflow}

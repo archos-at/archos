@@ -87,7 +87,7 @@ describe('useChatStore', () => {
       updatedAt: new Date(),
     })
 
-    test('startNewSessionDraft removes upload-only session and discards documents', () => {
+    test('startNewSessionDraft removes upload-only session and discards documents', async () => {
       const conv = uploadOnlyConv('upload-only-1')
       useChatStore.setState({
         currentUserId: 'user-1',
@@ -98,8 +98,8 @@ describe('useChatStore', () => {
       useChatStore.getState().startNewSessionDraft()
 
       expect(mockDiscardSessionResources).toHaveBeenCalledWith('upload-only-1')
-      expect(useChatStore.getState().conversations.some((c) => c.id === 'upload-only-1')).toBe(
-        false
+      await vi.waitFor(() =>
+        expect(useChatStore.getState().conversations.some((c) => c.id === 'upload-only-1')).toBe(false)
       )
       expect(useChatStore.getState().currentConversation).toBeNull()
     })
@@ -173,7 +173,7 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().composerSubject).toBeNull()
     })
 
-    test('selectConversation removes prior upload-only session when switching away', () => {
+    test('selectConversation removes prior upload-only session when switching away', async () => {
       const uploadOnly = uploadOnlyConv('u-only')
       const other: Conversation = {
         id: 'other',
@@ -200,7 +200,9 @@ describe('useChatStore', () => {
       useChatStore.getState().selectConversation('other')
 
       expect(mockDiscardSessionResources).toHaveBeenCalledWith('u-only')
-      expect(useChatStore.getState().conversations.some((c) => c.id === 'u-only')).toBe(false)
+      await vi.waitFor(() =>
+        expect(useChatStore.getState().conversations.some((c) => c.id === 'u-only')).toBe(false)
+      )
       expect(useChatStore.getState().currentConversation?.id).toBe('other')
     })
 

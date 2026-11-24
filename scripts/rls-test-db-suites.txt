@@ -32,6 +32,7 @@ batch              bff/documents/retry-policy.integration.spec.ts
 batch              bff/project-profile/profile-bindings.integration.spec.ts
 batch              bff/compliance/legal-hold.integration.spec.ts
 batch              bff/conversations/erasure-queue.integration.spec.ts
+batch              bff/conversations/delete-own.integration.spec.ts
 batch              bff/scheduling/conversation-trace-erasure.integration.spec.ts
 batch              bff/conversations/restricted-use.integration.spec.ts
 batch              bff/conversations/personal-shelf-use.integration.spec.ts
