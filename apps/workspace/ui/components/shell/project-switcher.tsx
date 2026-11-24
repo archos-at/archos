@@ -76,13 +76,16 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         )}
         {isCurrent && <Check className="size-4 shrink-0" aria-hidden />}
         {isCurrent && (
-          <Button asChild variant="secondary" size="icon" className="text-muted-foreground hover:text-foreground size-7 shrink-0 pointer-coarse:size-9">
+          <Button asChild variant="secondary" size="icon" className="text-muted-foreground hover:text-foreground size-7 shrink-0 pointer-coarse:size-11">
             <Link
               href={projectSettingsHref(project.id)}
               aria-label={t('projectSwitcher.projectSettings', { name: project.name })}
               title={t('projectSwitcher.projectSettingsTitle')}
               data-testid="project-switcher-settings"
               onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.stopPropagation()
+              }}
               onClick={(event) => {
                 event.stopPropagation()
                 setOpen(false)

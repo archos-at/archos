@@ -88,4 +88,18 @@ describe('the project selector is one press', () => {
     await user.click(await screen.findByRole('option', { name: 'Sanierung Amtshaus Favoriten' }))
     expect(push).toHaveBeenLastCalledWith('/app/projects/p-2/chat')
   })
+
+  test('Enter on the gear opens the project settings, never the project under cmdk’s cursor; the gear is a full touch target', async () => {
+    const user = userEvent.setup()
+    show()
+    push.mockClear()
+    await user.click(selector())
+    const gear = await screen.findByRole('link', { name: 'Project settings of Wohnbau Seestadt Baufeld D12' })
+    expect(gear).toHaveClass('pointer-coarse:size-11')
+    gear.focus()
+    await user.keyboard('{ArrowDown}')
+    gear.focus()
+    await user.keyboard('{Enter}')
+    expect(push).not.toHaveBeenCalledWith('/app/projects/p-2/chat')
+  })
 })
