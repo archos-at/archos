@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { DOCUMENT_SCOPE_COPY, type DocumentScope } from './document-scope'
+import { DOCUMENT_SCOPE_COPY, scopeHasBin, type DocumentScope } from './document-scope'
 import { formatCalendarDate } from '@/lib/format'
 import { startDocumentDownload } from '@/lib/documents/download'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
@@ -99,7 +99,7 @@ export function useDocumentActions({
 
   const name = documentDisplayName(document)
   const isRenamed = name !== document.filename
-  const erases = document.status === HELD_STATUS
+  const erases = document.status === HELD_STATUS || !scopeHasBin(scope)
 
   const rename = useCallback(
     async (displayName: string | null): Promise<boolean> => {

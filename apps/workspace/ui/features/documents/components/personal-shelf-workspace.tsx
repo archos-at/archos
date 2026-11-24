@@ -25,7 +25,7 @@ export function PersonalShelfWorkspace({ userId, showModels = false, trailingAct
 
   const shelf: FileShelf = {
     source: 'personal',
-    documentScope: 'files',
+    documentScope: 'personal',
     endpoints: PERSONAL_SHELF_ENDPOINTS,
     projectId: null,
     canManage: true,
