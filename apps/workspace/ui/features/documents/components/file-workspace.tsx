@@ -247,7 +247,7 @@ export function FileWorkspace({
     />
   )
 
-  const inSheet = shelf.source === 'office'
+  const inSheet = shelf.source !== 'project'
   const uploadFab =
     phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef, glyphOnly: true }) : undefined
 

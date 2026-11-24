@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import {
@@ -47,6 +47,8 @@ import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
 import { RailChatList, useRailChats } from './rail-chats'
+import { RailModeSwitch } from './rail-mode-switch'
+import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, type RailMode } from './rail-mode'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
@@ -57,7 +59,7 @@ export function railActivePillId(iconRail: boolean): string {
 }
 
 export interface AppSidebarProps {
-  projectId: string
+  projectId: string | null
   projects: ProjectSwitcherProject[]
   user?: SidebarUser
   organizationName?: string | null
@@ -74,7 +76,7 @@ export interface AppSidebarProps {
   pathname?: string
 }
 
-interface RailItemModel {
+export interface RailItemModel {
   key: string
   href: string
   icon: ProjectSection['icon']
@@ -88,7 +90,7 @@ interface RailItemModel {
   shortcutKey?: string
 }
 
-interface RailGroupModel {
+export interface RailGroupModel {
   key: ProjectNavGroup
   label: string
   items: RailItemModel[]
@@ -136,17 +138,15 @@ function AppSidebarFrame({
   const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
+  const mode: RailMode = projectId === null ? 'personal' : 'project'
 
-  const base = `/app/projects/${projectId}`
+  const base = projectId === null ? '' : `/app/projects/${projectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile
   const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
-  const back = phoneBackTarget(pathname, projectId)
-  const pageHasHeader = framesProjectPage(pathname, projectId)
-
-  useRecordProjectSection(projectId)
-  useRecordRecentProject(projectId)
+  const back = projectId === null ? null : phoneBackTarget(pathname, projectId)
+  const pageHasHeader = projectId === null || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -159,8 +159,8 @@ function AppSidebarFrame({
       items: group.items.map((item) => ({
         key: item.key,
         href: sectionLinkHref(item, base),
-        icon: item.icon,
-        label: sectionLabel(item, t, tCollaboration),
+        icon: item.key === 'chat' ? SquarePen : item.icon,
+        label: item.key === 'chat' ? t('newChat') : sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
         within: item.key === 'chat' && chatOpen,
         badgeCount: item.key === 'inbox' ? inboxPending : 0,
@@ -184,10 +184,13 @@ function AppSidebarFrame({
     waitingCount: null,
     shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
   }
-  const projectItems: RailItemModel[] = groups
-    .filter((g) => g.key !== 'org')
-    .flatMap((g) => g.items)
-    .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
+  const projectItems: RailItemModel[] =
+    mode === 'personal'
+      ? personalRailItems(pathname, t, chatOpen)
+      : groups
+          .filter((g) => g.key !== 'org')
+          .flatMap((g) => g.items)
+          .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
 
   const activePillId = railActivePillId(iconRail)
   const railItem = (item: RailItemModel): React.JSX.Element => (
@@ -245,7 +248,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" data-scope="project" aria-label={t('projectNavigation')}>
+      <Sidebar collapsible="icon" data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -263,13 +266,19 @@ function AppSidebarFrame({
           )}
         >
           <SidebarBrand iconRail={iconRail} />
+          <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+            <RailModeSwitch mode={mode} collapsed={iconRail} />
+          </div>
+          {projectId !== null && <ProjectRecorder projectId={projectId} />}
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
               keeps it as a tile of its initials, or a collapsed rail could
               not say which project its sections belong to. */}
+          {projectId !== null && (
           <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
             <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
           </div>
+          )}
         </SidebarHeader>
 
         <SidebarContent
@@ -278,63 +287,28 @@ function AppSidebarFrame({
             column
           )}
         >
-          <nav aria-label={t('projectSections')} className="shrink-0 py-px">
+          <nav aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectSections')} className="shrink-0 py-px">
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
           {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
               as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
               and the office's doorways, which both stay put. The icon rail has no room for a title: there
               „Chat“ is its glyph, and the chat's toolbar names its door. */}
-          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
+          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} projects={projects} />}
         </SidebarContent>
 
-        <SidebarFooter
-          className={cn(
-            'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
-            column,
-            iconRail && 'items-center overflow-hidden'
-          )}
-        >
-          {/* The office at the foot, the project at the top: two owners at
-              the band's two ends, so neither reads as the other's and the
-              band is held at both. Stacked under the project's sections the
-              two heads fought and the lower 60% of the band stood empty. */}
-          {orgGroup && (
-            <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
-              <SidebarGroup className="p-0">
-                {/* The organisation's name as the group's label (12/16/500
-                    muted, the app's `SectionLabel` step), on the icons' edge. */}
-                {!iconRail && (
-                  <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
-                    <span className="truncate">{orgGroup.label}</span>
-                  </div>
-                )}
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </nav>
-          )}
-          {/* The connection says something only when it is not fine: a row
-              above the person while it reconnects or is gone, nothing (to the
-              eye) while all is well. Nothing above it moves when it appears:
-              the space it takes is the band's empty middle. */}
-          <ConnectionBand appearance="rail" compact={iconRail} />
-          <SidebarUserMenu
-            user={user}
-            organizationName={organizationName}
-            authRequired={authRequired}
-            compact={iconRail}
-            avatarSizeClass="size-6"
-            menuSide={iconRail ? 'right' : 'top'}
-            menuAlign="end"
-            menuSideOffset={iconRail ? 24 : 6}
-            menuMatchTrigger={!iconRail}
-            canManageOrganization={canManageOrganization}
-            canViewOrganization={canViewOrganization}
-            canManagePlatform={canManagePlatform}
-          />
-        </SidebarFooter>
+        <RailFooter
+          orgGroup={orgGroup}
+          railItem={railItem}
+          iconRail={iconRail}
+          column={column}
+          user={user}
+          organizationName={organizationName}
+          authRequired={authRequired}
+          canManageOrganization={canManageOrganization}
+          canViewOrganization={canViewOrganization}
+          canManagePlatform={canManagePlatform}
+        />
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
             language like every other. `iconRail` is already the collapse
@@ -348,7 +322,106 @@ function AppSidebarFrame({
   )
 }
 
-function RailNavItem({
+
+function ProjectRecorder({ projectId }: { projectId: string }): null {
+  useRecordProjectSection(projectId)
+  useRecordRecentProject(projectId)
+  return null
+}
+
+function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean): RailItemModel[] {
+  const onChat = pathname === PERSONAL_CHAT_PATH || pathname.startsWith(`${PERSONAL_CHAT_PATH}/`)
+  const onShelf = pathname === PERSONAL_SHELF_PATH || pathname.startsWith(`${PERSONAL_SHELF_PATH}/`)
+  const row = (key: string, href: string, icon: ProjectSection['icon'], label: string, active: boolean): RailItemModel => ({
+    key,
+    href,
+    icon,
+    label,
+    active,
+    badgeCount: 0,
+    waitingCount: null,
+  })
+  return [
+    { ...row('chat', NEW_PERSONAL_CHAT_HREF, SquarePen, t('newChat'), onChat && !chatOpen), within: onChat && chatOpen },
+    row('personalShelf', PERSONAL_SHELF_PATH, Folder, t('personalShelf'), onShelf),
+  ]
+}
+
+export function RailFooter({
+  orgGroup,
+  railItem,
+  iconRail,
+  column,
+  user,
+  organizationName,
+  authRequired,
+  canManageOrganization,
+  canViewOrganization,
+  canManagePlatform,
+}: {
+  orgGroup: RailGroupModel | undefined
+  railItem: (item: RailItemModel) => React.JSX.Element
+  iconRail: boolean
+  column: string
+  user?: SidebarUser
+  organizationName: string | null
+  authRequired: boolean
+  canManageOrganization: boolean
+  canViewOrganization: boolean
+  canManagePlatform: boolean
+}): React.JSX.Element {
+  return (
+    <SidebarFooter
+      className={cn(
+        'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
+        column,
+        iconRail && 'items-center overflow-hidden'
+      )}
+    >
+      {/* The office at the foot, the project at the top: two owners at
+          the band's two ends, so neither reads as the other's and the
+          band is held at both. Stacked under the project's sections the
+          two heads fought and the lower 60% of the band stood empty. */}
+      {orgGroup && (
+        <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
+          <SidebarGroup className="p-0">
+            {/* The organisation's name as the group's label (12/16/500
+                muted, the app's `SectionLabel` step), on the icons' edge. */}
+            {!iconRail && (
+              <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
+                <span className="truncate">{orgGroup.label}</span>
+              </div>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </nav>
+      )}
+      {/* The connection says something only when it is not fine: a row
+          above the person while it reconnects or is gone, nothing (to the
+          eye) while all is well. Nothing above it moves when it appears:
+          the space it takes is the band's empty middle. */}
+      <ConnectionBand appearance="rail" compact={iconRail} />
+      <SidebarUserMenu
+        user={user}
+        organizationName={organizationName}
+        authRequired={authRequired}
+        compact={iconRail}
+        avatarSizeClass="size-6"
+        menuSide={iconRail ? 'right' : 'top'}
+        menuAlign="end"
+        menuSideOffset={iconRail ? 24 : 6}
+        menuMatchTrigger={!iconRail}
+        canManageOrganization={canManageOrganization}
+        canViewOrganization={canViewOrganization}
+        canManagePlatform={canManagePlatform}
+      />
+    </SidebarFooter>
+  )
+}
+
+export function RailNavItem({
   icon: Icon,
   href,
   active,

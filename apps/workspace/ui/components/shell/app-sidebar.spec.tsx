@@ -90,7 +90,7 @@ describe('AppSidebar - the wordmark stands where the org header puts it', () => 
 describe('AppSidebar - click-dummy IA (FB-9/FB-10)', () => {
   test('renders the core nav set: Chat, Files', () => {
     render(<AppSidebar {...baseProps} />)
-    expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('New chat').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
@@ -114,7 +114,7 @@ describe('AppSidebar - click-dummy IA (FB-9/FB-10)', () => {
   test('Chat links to a FRESH chat (?new=1), not the last thread', () => {
     render(<AppSidebar {...baseProps} />)
     const links = screen
-      .getAllByText('Chat')
+      .getAllByText('New chat')
       .map((el) => el.closest('a'))
       .filter((link): link is HTMLAnchorElement => link !== null)
     expect(links.length).toBeGreaterThan(0)
@@ -129,7 +129,7 @@ describe('AppSidebar - Automation nav item', () => {
   test('hides the Automation nav item by default (feature-flagged, default off)', () => {
     render(<AppSidebar {...baseProps} />)
     expect(screen.queryByText('Automation')).not.toBeInTheDocument()
-    expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('New chat').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
@@ -168,7 +168,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Documents', 'Overview', 'Office library', 'Search', 'Inbox'])
+    expect(labels).toEqual(['New chat', 'Documents', 'Overview', 'Office library', 'Search', 'Inbox'])
   })
 
   test('keeps Office library lit on its standards tab, which has no doorway of its own', () => {
@@ -201,13 +201,13 @@ describe('AppSidebar - collapsed icon rail', () => {
 
     const sections = screen.getByLabelText('Project sections')
     const org = screen.getByRole('navigation', { name: 'Organization' })
-    expect(within(sections).getByText('Chat')).toBeVisible()
+    expect(within(sections).getByText('New chat')).toBeVisible()
     expect(sections.querySelector('[data-sidebar="group-label"]')).toBeNull()
     expect(within(org).getByText('Organization')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
 
-    expect(within(sections).getByText('Chat')).toHaveClass('sr-only')
+    expect(within(sections).getByText('New chat')).toHaveClass('sr-only')
     expect(within(sections).getByText('Documents')).toHaveClass('sr-only')
     expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
   })
@@ -302,7 +302,7 @@ describe('AppSidebar - the phone top band', () => {
 describe('AppSidebar - active state', () => {
   test('marks the Chat item as the current page on the chat route', () => {
     render(<AppSidebar {...baseProps} />)
-    const chatLinks = screen.getAllByText('Chat').map((el) => el.closest('a'))
+    const chatLinks = screen.getAllByText('New chat').map((el) => el.closest('a'))
     expect(chatLinks.some((link) => link?.getAttribute('aria-current') === 'page')).toBe(true)
     const settingsLinks = screen.getAllByText('Overview').map((el) => el.closest('a'))
     for (const link of settingsLinks) {
@@ -315,7 +315,7 @@ describe('AppSidebar - active state', () => {
     const pills = Array.from(container.querySelectorAll('[data-slot="rail-active-pill"]'))
     expect(pills).toHaveLength(1)
     expect(pills[0]!.closest('a')).toHaveAttribute('aria-current', 'page')
-    expect(pills[0]!.closest('a')).toHaveTextContent('Chat')
+    expect(pills[0]!.closest('a')).toHaveTextContent('New chat')
   })
 
   test('the active entry is a sheet on the desk: white, with the thumb’s edge and shadow', () => {
@@ -434,7 +434,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     const pills = Array.from(container.querySelectorAll('[data-slot="rail-active-pill"]'))
     expect(pills).toHaveLength(1)
     expect(pills[0]!.closest('a')).toBe(open)
-    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    const chat = within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')
     expect(chat).not.toHaveAttribute('aria-current')
     expect(chat).toHaveClass('text-foreground', 'font-medium')
   })
@@ -461,7 +461,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
 
   test('with no chat open, „Chat“ stays the current place', () => {
     renderWith(chats({ items: chats().items.map((item) => ({ ...item, current: false })) }))
-    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    const chat = within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')
     expect(chat).toHaveAttribute('aria-current', 'page')
   })
 
@@ -491,7 +491,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     renderWith(chats())
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
     expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
-    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')).toHaveAttribute('aria-current', 'page')
-    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')?.getAttribute('href')).toMatch(/^\/app\/projects\/p1\/chat/)
+    expect(within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')?.getAttribute('href')).toMatch(/^\/app\/projects\/p1\/chat/)
   })
 })

@@ -41,7 +41,7 @@ export interface ShelfFolderAccess {
 export type FolderAccessLevel = 'read' | 'write'
 
 export interface FileShelf {
-  source: 'project' | 'office'
+  source: 'project' | 'office' | 'personal'
   documentScope: DocumentScope
   endpoints: ShelfEndpoints
   projectId: string | null
@@ -94,4 +94,12 @@ export const OFFICE_SHELF_ENDPOINTS: ShelfEndpoints = {
   listParams: { scope: 'office_shelf' },
   folders: '/api/office-shelf/folders',
   ...OFFICE_SHELF_SEARCH_SCOPE,
+}
+
+export const PERSONAL_SHELF_ENDPOINTS: ShelfEndpoints = {
+  list: '/api/documents',
+  listParams: { scope: 'personal' },
+  folders: '/api/personal-shelf/folders',
+  search: '/api/search?scope=personal',
+  searchBody: SHELF_SEARCH_BODY,
 }

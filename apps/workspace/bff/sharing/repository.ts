@@ -71,6 +71,25 @@ export async function listGrantsForResources(
     .limit(SHARE_ROSTER_LIMIT * 5)
 }
 
+export async function resourceIdsWithGrants(
+  organizationId: string,
+  resourceType: ShareableResourceType,
+  resourceIds: string[],
+): Promise<Set<string>> {
+  if (resourceIds.length === 0) return new Set()
+  const rows = await getDb()
+    .selectDistinct({ resourceId: resourceShares.resourceId })
+    .from(resourceShares)
+    .where(
+      and(
+        eq(resourceShares.organizationId, organizationId),
+        eq(resourceShares.resourceType, resourceType),
+        inArray(resourceShares.resourceId, resourceIds),
+      ),
+    )
+  return new Set(rows.map((row) => row.resourceId))
+}
+
 export async function listResourceIdsSharedWith(
   organizationId: string,
   subjectUserId: string,

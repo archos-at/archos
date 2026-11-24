@@ -1,6 +1,12 @@
 import type { en } from '../en'
 
 export const files: typeof en.files = {
+  personalShelf: {
+    title: 'Meine Ablage',
+    crumb: 'Persönlich · Nur Sie',
+    dropToUpload: 'Dateien hier ablegen, um sie in Meine Ablage aufzunehmen',
+    ingestionComplete: '„{name}“ ist jetzt in Meine Ablage',
+  },
   baseKnowledge: { label: 'Norm', open: 'Als Norm öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
@@ -987,6 +993,7 @@ export const files: typeof en.files = {
     scopeFolder: 'in diesem Ordner',
     scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
+    scopePersonal: 'in Meine Ablage',
     scopeOffice: 'in der Bürobibliothek',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
     headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',

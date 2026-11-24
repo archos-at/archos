@@ -25,6 +25,7 @@ import {
 import { AppSidebar } from './app-sidebar'
 import { OrgHeader } from './org-header'
 import { projectIdFromPathname } from './org-sections'
+import { railModeOf } from './rail-mode'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
@@ -74,7 +75,7 @@ export function AppShellChrome({
   if (!isOverlayPath(pathname)) solidPathRef.current = pathname
 
   const projectId = projectIdFromPathname(solidPathRef.current)
-  const inProject = projectId !== null
+  const inProject = railModeOf(solidPathRef.current) !== null
 
   useVisualViewport()
 

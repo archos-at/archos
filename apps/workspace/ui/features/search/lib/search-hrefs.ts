@@ -1,6 +1,7 @@
 import { withDocumentLocus } from '@/features/documents/lib/document-locus'
 import { BACK_PARAM, reviewFilesHref, withBack, withReviewBack } from '@/features/documents/lib/open-review'
-import { documentHref, PERSONAL_SHELF_PATH } from '@/features/uploads/lib/upload-summary'
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
+import { documentHref } from '@/features/uploads/lib/upload-summary'
 import type { SavedSearchView } from '@/lib/search/saved-search-client'
 import type {
   AnnotationHit,

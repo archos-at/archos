@@ -125,4 +125,17 @@ describe('useSessionRows', () => {
     act(() => useChatStore.getState().selectConversation('older'))
     expect(activityOf('older')).toBeNull()
   })
+
+  test('lists every chat of the person with its project and whether it is shared, for the one rail list (ADR-0191)', () => {
+    const { conversations } = useChatStore.getState()
+    useChatStore.setState({
+      conversations: [...conversations, { ...conversation('in-project', new Date(2026, 8, 28)), projectId: 'p2', shared: true }],
+    })
+    const { result } = renderHook(() => useSessionRows(null))
+    expect(result.current.map((row) => [row.id, row.projectId, row.shared])).toEqual([
+      ['in-project', 'p2', true],
+      ['open', null, false],
+      ['older', null, false],
+    ])
+  })
 })

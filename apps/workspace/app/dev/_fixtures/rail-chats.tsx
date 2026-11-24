@@ -32,10 +32,13 @@ const TITLES = [
   'Einreichplan — fehlende Unterlagen',
 ]
 
-const conversation = (projectId: string) => (title: string, index: number): Conversation => ({
+const PROJECT_OF_CHAT = [null, 'p-1', 'p-1', null, 'p-2'] as const
+
+const conversation = (title: string, index: number): Conversation => ({
   id: `chat-${index + 1}`,
   userId: USER_ID,
-  projectId,
+  projectId: PROJECT_OF_CHAT[index % PROJECT_OF_CHAT.length],
+  shared: index === 2,
   title,
   messages: [],
   createdAt: hoursAgo(index * 20 + 2),
@@ -43,9 +46,9 @@ const conversation = (projectId: string) => (title: string, index: number): Conv
 })
 
 export function DevRailChats({ pathname, empty = false, children }: { pathname: string; empty?: boolean; children: ReactNode }): JSX.Element {
-  const projectId = projectIdFromPathname(pathname) ?? 'p-1'
+  const projectId = projectIdFromPathname(pathname)
   useEffect(() => {
-    const conversations = empty ? [] : TITLES.map(conversation(projectId))
+    const conversations = empty ? [] : TITLES.map(conversation)
     useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null })
   }, [empty, projectId])
   return <RailChatsProvider pathname={pathname}>{children}</RailChatsProvider>

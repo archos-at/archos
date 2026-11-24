@@ -11,18 +11,20 @@ export interface UploadOrchestratorBinding extends OrchestratorCallbacks {
   collectionName: string | undefined
   projectId?: string
   officeShelf?: boolean
+  personalShelf?: string
 }
 
 export function useUploadOrchestrator({
   collectionName,
   projectId,
   officeShelf = false,
+  personalShelf,
   onComplete,
   onError,
 }: UploadOrchestratorBinding): void {
   useEffect(() => UploadOrchestrator.subscribe({ onComplete, onError }), [onComplete, onError])
 
-  const session = !officeShelf && !projectId
+  const session = !officeShelf && !personalShelf && !projectId
   const previousCollection = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (collectionName === previousCollection.current) return
@@ -36,8 +38,15 @@ export function useUploadOrchestrator({
   }, [knowledgeLayerAvailable, collectionName])
 
   const shelf = useMemo<LiveShelf | null>(
-    () => (officeShelf ? { kind: 'office_shelf' } : projectId ? { kind: 'project', projectId } : null),
-    [officeShelf, projectId]
+    () =>
+      officeShelf
+        ? { kind: 'office_shelf' }
+        : personalShelf
+          ? { kind: 'personal', userId: personalShelf }
+          : projectId
+            ? { kind: 'project', projectId }
+            : null,
+    [officeShelf, personalShelf, projectId]
   )
   const reading = useDocumentsStore(
     (state) => state.isPolling || state.trackedFiles.some((file) => file.status === 'ingesting')

@@ -1,9 +1,7 @@
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import type { UploadHistoryEntry, UploadSummary, UploadSummaryDocument } from '@/adapters/api/upload-batches-client'
 import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
-
-
-export const PERSONAL_SHELF_PATH = '/app/personal-shelf'
 
 export const TALLY_KEYS = ['ready', 'reading', 'quarantined', 'failed', 'stored', 'unchanged', 'excluded'] as const
 export type TallyKey = (typeof TALLY_KEYS)[number]

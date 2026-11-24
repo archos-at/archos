@@ -1,9 +1,9 @@
 'use client'
 
 import type { JSX } from 'react'
-import { createContext, useCallback, useContext, useEffect, useId, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion } from 'lucide-react'
+import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, Users } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import { useTranslations } from '@/i18n'
@@ -18,6 +18,8 @@ export interface RailChat {
   href: string
   current: boolean
   temporary?: boolean
+  projectId?: string | null
+  shared?: boolean
   activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
 }
 
@@ -81,8 +83,17 @@ function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX
   )
 }
 
-export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: string }): JSX.Element | null {
+export function RailChatList({
+  chats,
+  pillId,
+  projects = [],
+}: {
+  chats: RailChats
+  pillId: string
+  projects?: readonly { id: string; name: string }[]
+}): JSX.Element | null {
   const t = useTranslations(navCopy)
+  const names = useMemo(() => new Map(projects.map(({ id, name }) => [id, name])), [projects])
   const listId = useId()
   const [collapsed, toggle] = useRecentChatsCollapsed()
   if (chats.items.length === 0) return null
@@ -123,8 +134,19 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
               {chat.current && (
                 <motion.span layoutId={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
               )}
-              <span className={cn('relative truncate', (chat.activity === 'answered' || chat.activity === 'failed') && 'text-foreground font-medium')}>{chat.title}</span>
+              <span className={cn('relative min-w-0 flex-1 truncate', (chat.activity === 'answered' || chat.activity === 'failed') && 'text-foreground font-medium')}>{chat.title}</span>
               <RailChatActivity activity={chat.activity} />
+              {chat.shared && (
+                <>
+                  <Users className="relative size-3.5 shrink-0" aria-hidden data-testid="rail-chat-shared" />
+                  <span className="sr-only">{t('sharedChat')}</span>
+                </>
+              )}
+              {chat.projectId && names.has(chat.projectId) && (
+                <span className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal" data-testid="rail-chat-project">
+                  {names.get(chat.projectId)}
+                </span>
+              )}
               {chat.temporary && (
                 <>
                   <MessageCircleDashed className="text-muted-foreground relative size-3.5 shrink-0" aria-hidden data-testid="rail-chat-temporary" />
