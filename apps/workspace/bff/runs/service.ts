@@ -14,7 +14,7 @@ import {
 } from '@/lib/conversations/repository'
 import type { Message } from '@/lib/db/schema/messages'
 import type { TaskRun } from '@/lib/db/schema/task-model'
-import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withSystemReader } from '@/lib/db/tenant-context'
 import { resolveConversationScope } from '@/lib/conversation-context'
 import {
   addDocumentToBackendJob,
@@ -129,7 +129,7 @@ async function foldRunLedgerOp(
   const conversationId = run.conversationId
   const messageId = run.runMessageId
 
-  return withTenant({ organizationId: run.organizationId }, async () => {
+  return withSystemReader(run.organizationId, 'run-ledger', async () => {
     let current = emptyRunLedger(runId, run.createdAt)
     let ledger = current
     let applied = false
@@ -249,7 +249,7 @@ export async function writeRunReport(
   const run = await loadRunForLedger(target.runId)
   if (!run) throw new NotFoundError('Unknown run')
 
-  return withTenant({ organizationId: run.organizationId }, async () => {
+  return withSystemReader(run.organizationId, 'run-ledger', async () => {
     const written = await writeMessageContent(
       target.conversationId,
       target.messageId,
@@ -262,10 +262,13 @@ export async function writeRunReport(
 }
 
 export async function readRunMessage(
-  run: Pick<TaskRun, 'conversationId' | 'runMessageId'>
+  run: Pick<TaskRun, 'organizationId' | 'conversationId' | 'runMessageId'>
 ): Promise<{ content: string; ledger: RunLedger | null } | null> {
-  if (!run.conversationId || !run.runMessageId) return null
-  const message = await findMessageInConversation(run.conversationId, run.runMessageId)
+  const { conversationId, runMessageId } = run
+  if (!conversationId || !runMessageId) return null
+  const message = await withSystemReader(run.organizationId, 'run-ledger', () =>
+    findMessageInConversation(conversationId, runMessageId)
+  )
   if (!message) return null
   return { content: message.content ?? '', ledger: storedLedger(message) }
 }

@@ -298,7 +298,7 @@ export function RunBlock({
                   the title — and the state is on the section's own label. */}
               <button
                 type="button"
-                className="duration-snap focus-visible:ring-ring/60 group flex min-w-0 flex-1 basis-40 cursor-pointer items-center gap-2 rounded-md text-left outline-none transition-colors ease-out focus-visible:ring-2 motion-reduce:transition-none"
+                className="duration-snap focus-visible:ring-ring/60 group flex min-w-0 flex-1 basis-40 cursor-pointer items-center gap-2 rounded-md pointer-coarse:min-h-11 text-left outline-none transition-colors ease-out focus-visible:ring-2 motion-reduce:transition-none"
               >
                 <RunStatusGlyph status={status} size="sm" delay={landing?.glyph ?? 0} />
                 <span

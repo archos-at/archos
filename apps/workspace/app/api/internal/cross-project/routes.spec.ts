@@ -77,7 +77,7 @@ describe('the lookups act as the envelope’s person, in the envelope’s conver
       { session, conversationId: CONV, currentProjectId: PROJECT, answerMessageId: null },
       expect.objectContaining({ query: 'Dachdetail', scope: 'similar' })
     )
-    expect(vi.mocked(withTenant)).toHaveBeenCalledWith({ organizationId: 'org_1' }, expect.any(Function))
+    expect(vi.mocked(withTenant)).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_requester' }, expect.any(Function))
   })
 
   it('lists and reads a brief the same way, a chat outside every project included', async () => {

@@ -3108,6 +3108,10 @@
     "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
   },
   {
+    "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
+    "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+  },
+  {
     "en": "On a phone the open-comments chip on a tile shows its first part whole instead of cutting the last one, and the inbox address and its info button fit the screen.",
     "de": "Auf dem Smartphone zeigt der Chip für offene Kommentare auf einer Kachel den ersten Teil vollständig an, statt den letzten abzuschneiden; außerdem passen die Inbox-Adresse und ihr Info-Button auf den Bildschirm."
   },
@@ -3172,12 +3176,20 @@
     "de": "Auf dem Smartphone ragte der letzte Filter in der Tasks-Liste über den Kartenrand hinaus und war nicht erreichbar. Filterzeilen und Ansichtsumschalter bleiben jetzt innerhalb ihrer Karte und lassen sich horizontal scrollen, wenn die Beschriftungen nicht hineinpassen."
   },
   {
+    "en": "On a phone, the line that folds a background check in a chat open and shut is as tall as a fingertip, so it no longer takes a second try.",
+    "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
+  },
+  {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",
     "de": "Auf dem Smartphone bietet die Büroklammer im Chat jetzt „Foto aufnehmen“, wodurch sich direkt die Kamera öffnet, und „Aus Mediathek“. Außerdem weist sie darauf hin, dass Hinzugefügtes in diesem Chat bleibt. Das Upload-Menü unter Dateien bietet dieselben zwei Einträge."
   },
   {
     "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
     "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
+  },
+  {
+    "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
+    "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
   },
   {
     "en": "On a phone, the schedule wizard's last step, the run history, the task filters, the Büroablage header and several project and administration pages no longer run off the edge of the screen.",
@@ -3188,12 +3200,24 @@
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
   },
   {
+    "en": "On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the way to its edge.",
+    "de": "Auf dem Smartphone reicht der Bereich „Antwortdetails“ unter einer Antwort bis zum Rand und ist so hoch wie eine Fingerspitze."
+  },
+  {
+    "en": "On a phone, „Details“ under a file that could not be read is as tall as a fingertip.",
+    "de": "Auf dem Smartphone ist „Details“ unter einer nicht lesbaren Datei etwa so hoch wie eine Fingerspitze."
+  },
+  {
     "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
     "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
   },
   {
     "en": "On a phone, „Mehr“ shows who is signed in and groups its entries by the project, the office and your account.",
     "de": "Auf dem Smartphone zeigt „Mehr“, wer angemeldet ist, und gruppiert die Einträge nach Projekt, Büro und Ihrem Konto."
+  },
+  {
+    "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
+    "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
   },
   {
     "en": "On a tile, open comments now sit on the preview image beside the reading state, and the files at the top level are headed \"Files\".",
@@ -3948,6 +3972,10 @@
     "de": "Wenn Sie eine Fassung zur Überarbeitung zurücksenden, gibt es dafür jetzt eine zweite Möglichkeit: „Piloti überarbeiten lassen“ steht in Freigabe und Fassungen neben „Änderungen anfordern“, fragt nach derselben schriftlichen Begründung und lässt Piloti anschließend die nächste Fassung erstellen und zur Freigabe einreichen, statt die Arbeit der Person zu überlassen, die sie verfasst hat."
   },
   {
+    "en": "Sending the first message in a new chat no longer briefly shows a loading placeholder that pushed the conversation down.",
+    "de": "Beim Senden der ersten Nachricht in einem neuen Chat wird kein Ladeplatzhalter mehr kurz angezeigt, der die Unterhaltung nach unten verschoben hat."
+  },
+  {
     "en": "Settings, platform and project panels that fail to load now say what failed and offer the same Try again button, which keeps its place and focus while it works instead of greying out.",
     "de": "Einstellungs-, Plattform- und Projektbereiche, die nicht geladen werden, zeigen jetzt an, was fehlgeschlagen ist, und bieten dieselbe Schaltfläche „Erneut versuchen“, die während des Vorgangs an ihrer Stelle und im Fokus bleibt, statt ausgegraut zu werden."
   },
@@ -4034,6 +4062,10 @@
   {
     "en": "Suggested follow-up questions now appear under every answer when your office has chosen a model that always thinks before it answers. Before, those suggestions quietly went missing on such models.",
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
+  },
+  {
+    "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
+    "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
   },
   {
     "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
@@ -4426,6 +4458,10 @@
   {
     "en": "The buttons in the derivation, for folding levels and opening a source, respond to clicks and taps again. On the first question of a new chat the page no longer scrolls along with the growing derivation.",
     "de": "Die Schaltflächen in der Herleitung, zum Ein- und Ausklappen der Ebenen und zum Öffnen einer Quelle, reagieren wieder auf Klicks und Antippen. Bei der ersten Frage in einem neuen Chat scrollt die Seite nicht mehr mit der wachsenden Herleitung mit."
+  },
+  {
+    "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
+    "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
   },
   {
     "en": "The changelog on piloti.at is quicker to read: the latest week shows its new features and improvements, older busy weeks open with their headings, and fixes stay folded until you open them.",
@@ -5630,6 +5666,10 @@
   {
     "en": "When the content check holds a file back for more reasons than it lists, the audit log now records how many it left out. A shortened list of reasons no longer reads as the complete one.",
     "de": "Wenn die Inhaltsprüfung eine Datei aus mehr Gründen zurückhält, als sie auflistet, hält das Audit-Log nun fest, wie viele Gründe ausgelassen wurden. Eine gekürzte Liste der Gründe erscheint dadurch nicht mehr vollständig."
+  },
+  {
+    "en": "When the floor area of an element cannot be measured from its geometry, the answer now says why instead of reporting 0 m² as a measurement. A floor area declared in the model is no longer overruled by that zero.",
+    "de": "Wenn sich die Grundfläche eines Bauteils nicht aus seiner Geometrie messen lässt, nennt die Antwort jetzt den Grund, statt 0 m² als Messergebnis auszugeben. Eine im Modell deklarierte Grundfläche wird von dieser Null nicht mehr überstimmt."
   },
   {
     "en": "When the office's past projects hold nothing comparable, Piloti now says so. It used to answer that the search was unavailable and ask you to try again.",

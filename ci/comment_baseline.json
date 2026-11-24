@@ -63,7 +63,7 @@
   "apps/workspace/purger/purge-project.spec.mjs": 49,
   "apps/workspace/purger/storage.js": 27,
   "apps/workspace/purger/storage.spec.mjs": 13,
-  "apps/workspace/scripts/a11y-audit.mjs": 44,
+  "apps/workspace/scripts/a11y-audit.mjs": 39,
   "apps/workspace/scripts/blast-radius.mjs": 44,
   "apps/workspace/scripts/blast-radius.spec.mjs": 7,
   "apps/workspace/scripts/capture-forced-states.mjs": 24,

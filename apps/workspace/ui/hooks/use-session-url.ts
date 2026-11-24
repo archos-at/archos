@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store'
 import { resumableSessionId } from '@/features/chat/lib/resume-session'
 import { chatSideOf } from '@/components/shell/rail-mode'
@@ -11,13 +11,16 @@ interface UseSessionUrlOptions {
   isAuthenticated: boolean
 }
 
+const replaceUrlWithoutServerRender = (url: string): void => {
+  window.history.replaceState(null, '', url)
+}
+
 interface UseSessionUrlReturn {
   updateSessionUrl: (sessionId: string | null) => void
   clearSessionUrl: () => void
 }
 
 export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSessionUrlReturn {
-  const router = useRouter()
   const pathname = usePathname() ?? '/'
   const searchParams = useSearchParams()
 
@@ -50,7 +53,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
         selectConversation(resumeId)
         const params = new URLSearchParams(searchParams.toString())
         params.set('session', resumeId)
-        router.replace(`${pathname}?${params.toString()}`)
+        replaceUrlWithoutServerRender(`${pathname}?${params.toString()}`)
       }
       setInitialSyncDone(true)
       return
@@ -67,7 +70,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
       const newParams = new URLSearchParams(searchParams.toString())
       newParams.delete('session')
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
-      router.replace(newUrl)
+      replaceUrlWithoutServerRender(newUrl)
     }
 
     setInitialSyncDone(true)
@@ -77,7 +80,6 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
     currentUserId,
     searchParams,
     pathname,
-    router,
     selectConversation,
     getUserConversations,
     conversationIds,
@@ -96,14 +98,14 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
     if (currentSessionId && currentSessionId !== urlSessionId) {
       const newParams = new URLSearchParams(searchParams.toString())
       newParams.set('session', currentSessionId)
-      router.replace(`${pathname}?${newParams.toString()}`)
+      replaceUrlWithoutServerRender(`${pathname}?${newParams.toString()}`)
     } else if (!currentSessionId && urlSessionId) {
       const newParams = new URLSearchParams(searchParams.toString())
       newParams.delete('session')
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
-      router.replace(newUrl)
+      replaceUrlWithoutServerRender(newUrl)
     }
-  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, router, scopeIsThePage, initialSyncDone])
+  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, scopeIsThePage, initialSyncDone])
 
   const updateSessionUrl = useCallback(
     (sessionId: string | null) => {
@@ -118,9 +120,9 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
       }
 
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
-      router.replace(newUrl)
+      replaceUrlWithoutServerRender(newUrl)
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname]
   )
 
   const clearSessionUrl = useCallback(() => {

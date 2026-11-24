@@ -1,7 +1,7 @@
 import { act, render } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ReasoningFlow } from './ReasoningFlow'
-import { FALLBACK_W, measuredFanWidth } from './flow/flow-layout'
+import { FALLBACK_W, measuredFanWidth, sheetRoom } from './flow/flow-layout'
 import { storedSteps } from '@/test-utils/wire-v2-steps'
 
 const steps = storedSteps([
@@ -63,6 +63,12 @@ beforeEach(() => {
 
 afterEach(() => restore())
 
+describe('sheetRoom', () => {
+  test('leaves 1px on each side for a card’s ring edge, which the pane would clip', () => {
+    expect(sheetRoom(648)).toBe(646)
+  })
+})
+
 describe('measuredFanWidth', () => {
   test('takes a real measurement', () => {
     expect(measuredFanWidth(648, 342)).toBe(342)
@@ -77,21 +83,21 @@ describe('the planned width', () => {
   test('follows the panel and is not widened to the fallback by a zero reading', () => {
     reportedWidth = 648
     render(<ReasoningFlow steps={steps} userQuestion="Frage?" answerConfidence="high" />)
-    expect(plannedWidth()).toBe('648px')
+    expect(plannedWidth()).toBe(`${sheetRoom(648)}px`)
 
     reflowTo(0)
-    expect(plannedWidth()).toBe('648px')
-    expect(plannedWidth()).not.toBe(`${FALLBACK_W}px`)
+    expect(plannedWidth()).toBe(`${sheetRoom(648)}px`)
+    expect(plannedWidth()).not.toBe(`${sheetRoom(FALLBACK_W)}px`)
 
     reflowTo(342)
-    expect(plannedWidth()).toBe('342px')
+    expect(plannedWidth()).toBe(`${sheetRoom(342)}px`)
   })
 
   test('falls back to a desktop column only until the first real measurement', () => {
     render(<ReasoningFlow steps={steps} userQuestion="Frage?" answerConfidence="high" />)
-    expect(plannedWidth()).toBe(`${FALLBACK_W}px`)
+    expect(plannedWidth()).toBe(`${sheetRoom(FALLBACK_W)}px`)
 
     reflowTo(262)
-    expect(plannedWidth()).toBe('262px')
+    expect(plannedWidth()).toBe(`${sheetRoom(262)}px`)
   })
 })

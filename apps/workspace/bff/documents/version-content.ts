@@ -12,6 +12,7 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { placementCollectionFor } from '@/lib/authz/folder-access'
 import { findConversationInOrg } from '@/lib/conversations/repository'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { admitRestrictedUse } from '@/lib/conversations/restricted-use'
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
@@ -395,7 +396,9 @@ export async function readVersionForService(
 }> {
   const version = await findDocumentVersionInOrg(versionId, organizationId)
   if (!version) throw new NotFoundError('Version not found')
-  const conversation = await findConversationInOrg(conversationId, organizationId)
+  const conversation = reader.askerUserId
+    ? await findConversationInOrg(conversationId, organizationId)
+    : await withSystemReader(organizationId, 'agent-host', () => findConversationInOrg(conversationId, organizationId))
   if (
     !conversation ||
     conversation.subjectResourceType !== 'document' ||

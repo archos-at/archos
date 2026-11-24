@@ -121,10 +121,13 @@ export function IfcRevisionTimeline({
                       type="button"
                       size="sm"
                       variant="ghost"
+                      className="max-w-full"
+                      title={t('timeline.compare', { previous: previous.filename })}
                       onClick={() => onCompareWithPrevious(revision, previous)}
+                      data-testid="bim-revision-compare"
                     >
                       <GitCompare className="size-3.5" aria-hidden="true" />
-                      {t('timeline.compare', { previous: previous.filename })}
+                      <span className="min-w-0 truncate">{t('timeline.compare', { previous: previous.filename })}</span>
                     </Button>
                   )}
                 </div>

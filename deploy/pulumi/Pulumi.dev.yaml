@@ -90,3 +90,7 @@ config:
   grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
   grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
   grid-oib:inboundMailPaused: "false"
+  grid-oib:ciRunnersEnabled: "true"
+  grid-oib:ciRunnersGithubAppId: "5902031"
+  grid-oib:ciRunnersGithubAppInstallationId: "185330621"
+  grid-oib:ciRunnersImage: ghcr.io/archos-at/ci-runner@sha256:eb50e7b5d58e0e78278c3ab873c8287ae7dd3703244f468cfbd1dc8bdff9c144

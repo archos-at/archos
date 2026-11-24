@@ -9,7 +9,7 @@
  *   clipped-edge        a sheet's 12% edge (a ring OUTSIDE its box, `0 0 0 1px`) cut by an ancestor that clips at the box;
  *   edge-painted-over   a band with a fill of its own (a sticky row) painted over a sheet's edge.
  *
- *   node scripts/clip-check.mjs                         Dateien's real-project states (`/dev/files-page?project=real`)
+ *   node scripts/clip-check.mjs                         Dateien's real-project states and the reasoning graph (`/dev/look`)
  *   node scripts/clip-check.mjs '/dev/x?a=1' '/dev/y'   the routes named
  *   node scripts/clip-check.mjs --base=http://localhost:3420   a dev server on another port (default 3000)
  *   node scripts/clip-check.mjs --chrome=/path/to/chrome       a Chrome or Chromium binary (default: Playwright's own)
@@ -25,7 +25,8 @@ const BASE = args.find((arg) => arg.startsWith('--base='))?.slice('--base='.leng
 const FILES = '/dev/files-page?project=real&rail=1'
 const STATES = ['', '&brief=open', '&view=list', '&folders=many', '&upload=1', '&q=Bericht', '&folder=r-abgabe', '&folder=r-abgabe-long',
   '&folder=r-deep-5', '&folder=r-test', '&folder=r-grund', '&folder=r-berichte', '&folder=r-berichte&view=list',
-  '&folder=r-berichte&picking=1', '&folder=r-archiv&view=list'].flatMap((state) => [`${FILES}${state}`, `${FILES}${state}&lang=en`])
+  '&folder=r-berichte&picking=1', '&folder=r-archiv&view=list'].map((state) => `${FILES}${state}`).concat(['/dev/look'])
+  .flatMap((route) => [route, `${route}${route.includes('?') ? '&' : '?'}lang=en`])
 const WIDTHS = [[1700, 800], [1440, 900], [1024, 768], [768, 1024], [390, 844]]
 
 /** Runs in the page; returns the findings. */

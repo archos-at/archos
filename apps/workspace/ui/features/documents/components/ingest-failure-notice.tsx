@@ -42,7 +42,7 @@ export const IngestFailureNotice: FC<IngestFailureNoticeProps> = ({
         <>
           <CollapsibleTrigger
             className={cn(
-              'text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 mt-0.5 flex items-center gap-1',
+              'text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 mt-0.5 flex items-center gap-1 pointer-coarse:min-h-11',
               'rounded-control text-xs transition-colors duration-quick ease-out',
               'focus-visible:outline-none focus-visible:ring-2'
             )}

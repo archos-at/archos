@@ -250,19 +250,20 @@ export async function runAgentWake(
   if (!text) return end('suppressed', 'the reply is gone')
 
   const authorName = session.name
+  const asActor = <T>(run: () => Promise<T>): Promise<T> => withTenant({ organizationId, userId: session.userId }, run)
   let conversationId: string
   try {
-    conversationId = await ensureDocumentThread(session, doc)
+    conversationId = await asActor(() => ensureDocumentThread(session, doc))
   } catch (error) {
     if (isAuthzRefusal(error)) return end('suppressed', 'the person may no longer chat here')
     if (error instanceof ApiError && error.status === 409) return wait('the thread is being deleted')
     throw error
   }
-  await recordTrigger(conversationId, payload, mark, authorName || session.email || 'Jemand', text)
+  await asActor(() => recordTrigger(conversationId, payload, mark, authorName || session.email || 'Jemand', text))
 
   let context: Awaited<ReturnType<typeof resolveTurnContext>>
   try {
-    context = await resolveTurnContext(session, { projectId: doc.projectId ?? undefined, conversationId })
+    context = await asActor(() => resolveTurnContext(session, { projectId: doc.projectId ?? undefined, conversationId }))
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) return fail('refused', `budget: ${error.message}`)
     if (isAuthzRefusal(error)) return end('suppressed', 'the person may no longer chat here')

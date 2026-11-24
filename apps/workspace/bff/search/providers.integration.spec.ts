@@ -177,7 +177,7 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
             sql`, `
           )}]::text[]`
         : sql`'{}'::text[]`
-    await inOrg(() =>
+    await withTenant({ organizationId: ORG, userId: createdBy }, () =>
       db.execute(sql`
         insert into conversations (id, organization_id, created_by, title, project_id, visibility, tags, deleted_at, started_in_personal)
         values (${id}, ${ORG}, ${createdBy}, ${title}, ${projectId}::uuid, ${visibility}, ${tagArray},
@@ -258,6 +258,17 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
       title: 'Fluchtweg allgemein',
       projectId: null,
       createdBy: OTHER,
+      startedInPersonal: true,
+    })
+    await withTenant({ organizationId: ORG, userId: OTHER }, () =>
+      db.execute(sql`
+        insert into resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by)
+        values (${ORG}, 'conversation', ${`s_sp_unstamped_${STAMP}`}, ${READER}, 'viewer', ${OTHER})`)
+    )
+    await conversation(`s_sp_office_wide_${STAMP}`, {
+      title: 'Fluchtweg fürs ganze Büro',
+      projectId: null,
+      createdBy: OTHER,
       visibility: 'organization',
       startedInPersonal: true,
     })
@@ -295,6 +306,7 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
       await db.execute(
         sql`delete from conversation_restricted_folders where organization_id = ${ORG}`
       )
+      await db.execute(sql`delete from resource_shares where organization_id = ${ORG}`)
       await db.execute(sql`delete from conversations where organization_id = ${ORG}`)
       await db.execute(sql`delete from projects where organization_id = ${ORG}`)
     })
@@ -397,6 +409,11 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
 
     it('does not find another person’s private conversation', async () => {
       const found = await providers.searchConversations(session, reach, 'privat', page)
+      expect(found).toEqual({ hits: [], total: 0 })
+    })
+
+    it('does not find another person’s chat without a project that is not shared with the reader, whatever its visibility says (0269)', async () => {
+      const found = await providers.searchConversations(session, reach, 'ganze Büro', page)
       expect(found).toEqual({ hits: [], total: 0 })
     })
 
