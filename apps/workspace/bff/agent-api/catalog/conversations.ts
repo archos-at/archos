@@ -117,7 +117,7 @@ export const conversationsOperations = [
     description:
       'The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, ' +
       'content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. ' +
-      'Message ids feed conversation-message-changes. `withheldFrom`, when present, is the answer from which the chat rests on a source the reader may not open: it and everything after are left out.',
+      'Message ids feed conversation-message-changes. `withheldFrom`, when present, is the first message left out: from that turn on the chat rests on a source the person may not open, so it and everything after are withheld.',
     method: 'GET',
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
