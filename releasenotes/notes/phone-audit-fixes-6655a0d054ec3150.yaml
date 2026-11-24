@@ -1,0 +1,14 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, the project's tab bar reads „Projekt“ in full, „Alle
+    archivieren“ in the Postfach no longer runs off the screen, and folder names,
+    a file's age and a shared chat's title are no longer cut short.
+  - >
+    On a phone, the Offene Punkte tab, the reply button in the Postfach and the
+    source numbers in answers are easier to hit, and the button that jumps to the
+    newest message covers less of the text.
+  - >
+    On Profil and Organisation the way back says „Zurück zum Chat“, since it now
+    leads to the chat you last worked in rather than to the projects.

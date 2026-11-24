@@ -1,4 +1,5 @@
-export const NEAREST_MARKER_REACH_PX = 12
+/** An 18x26 marker plus this on each side is a 44px target (WCAG 2.5.5); the phone gate reads it off `data-tap-reach`. */
+export const NEAREST_MARKER_REACH_PX = 13
 
 export interface MarkerBox {
   left: number

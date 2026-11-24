@@ -3,7 +3,7 @@ export const organization = {
   subtitle: 'Manage your organization, its members, and access.',
   loading: 'Loading organization…',
   memberSubtitle: 'Your usage and your organization at a glance.',
-  backToApp: 'Back to projects',
+  backToApp: 'Back to chat',
   nav: {
     label: 'Organization sections',
     overview: 'Overview',

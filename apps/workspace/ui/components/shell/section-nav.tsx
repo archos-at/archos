@@ -224,7 +224,7 @@ function SectionNavWord({ item, active, compactOnPhone }: { item: SectionNavItem
       aria-current={active ? 'page' : undefined}
       title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
-        'duration-quick focus-visible:ring-ring/60 inline-flex h-10 items-center gap-2 border-b-2 text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset pointer-coarse:min-h-11',
+        'duration-quick focus-visible:ring-ring/60 inline-flex h-10 items-center gap-2 border-b-2 text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11',
         active ? 'border-foreground text-foreground font-medium' : 'text-muted-foreground hover:text-foreground border-transparent'
       )}
     >

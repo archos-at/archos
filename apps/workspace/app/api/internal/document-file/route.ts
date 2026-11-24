@@ -57,7 +57,12 @@ async function requireReadable(
   if (!restricted) return
   if (!context.conversationId) throw new NotFoundError('Document not found')
   if (personal) {
-    const request = { organizationId: context.organizationId, conversationId: context.conversationId, userId: context.userId }
+    const request = {
+      organizationId: context.organizationId,
+      conversationId: context.conversationId,
+      userId: context.userId,
+      answerMessageId: decision?.answerMessageId ?? null,
+    }
     if ((await admitPersonalShelf(request, [collection], decision)).length === 0) throw new NotFoundError('Document not found')
     return
   }

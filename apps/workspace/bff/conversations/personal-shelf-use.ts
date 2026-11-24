@@ -41,15 +41,18 @@ export async function admitPersonalShelf(
 ): Promise<string[]> {
   const own = personalShelfCollectionName(request.organizationId, request.userId)
   if (!collections.includes(own) || !decisionAllowsPersonalShelf(decision, request)) return []
+  if (request.answerMessageId && decision?.answerMessageId !== request.answerMessageId) return []
+  const answerMessageId = decision?.answerMessageId ?? null
   const { organizationId, conversationId } = request
   const admitted = await getDb().transaction(async (tx) => {
     await lockConversationAudience(tx, organizationId, conversationId)
     const audience = await readConversationAudience(tx, organizationId, conversationId)
     if (!audience.exists || audience.subject || audience.projectId !== null || !isSoloAudience(audience, request.userId)) return false
-    await markPersonalShelfUse(tx, organizationId, conversationId)
-    if (request.answerMessageId) {
-      await recordAnswerReads(tx, organizationId, conversationId, request.answerMessageId, { personalShelf: true })
+    if (answerMessageId) {
+      const recorded = await recordAnswerReads(tx, organizationId, conversationId, answerMessageId, { personalShelf: true })
+      if (!recorded) return false
     }
+    await markPersonalShelfUse(tx, organizationId, conversationId)
     return true
   })
   return admitted ? [own] : []

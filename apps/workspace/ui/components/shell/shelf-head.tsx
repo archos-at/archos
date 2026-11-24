@@ -44,6 +44,8 @@ export function ShelfHead({
   'data-testid': testId = 'shelf-head',
 }: ShelfHeadProps): JSX.Element {
   const place = phone ? reached : null
+  // On a phone the search row stands under the places: they keep their own height, or the tab's rule lands on the field.
+  const toolRowUnderPlaces = phone && tools != null && !toolsAtEnd
   const pathPlace = phone ? null : reached
   const row = toolsAtEnd ? (
     <div className="ml-auto flex shrink-0 items-center">{tools}</div>
@@ -85,8 +87,15 @@ export function ShelfHead({
           actionInline
         />
         {!phone && <SectionToolRow className="mt-6 h-9 phone:hidden">{row}</SectionToolRow>}
-        {places && <div className={cn('-mb-4 mt-4 min-w-0 phone:mt-4', !placesOnPhone && 'phone:hidden')}>{places}</div>}
-        {phone && tools != null && !toolsAtEnd && <SectionToolRow className="mt-4">{row}</SectionToolRow>}
+        {places && (
+          <div
+            className={cn('-mb-4 mt-4 min-w-0 phone:mt-4', !placesOnPhone && 'phone:hidden', toolRowUnderPlaces && 'phone:mb-0')}
+            data-testid="shelf-head-places"
+          >
+            {places}
+          </div>
+        )}
+        {toolRowUnderPlaces && <SectionToolRow className={places && placesOnPhone ? 'mt-3' : 'mt-4'}>{row}</SectionToolRow>}
       </div>
       {pathPlace && (
         <div className={cn('shrink-0 px-4 md:px-8', SECTION_CONTENT_WIDTH)}>

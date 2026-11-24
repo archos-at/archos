@@ -268,4 +268,12 @@ describe('resolveConversationContext', () => {
     expect(scope).toMatchObject({ projectId: 'p1', shelves: [], restrictedCollections: [] })
     expect(vi.mocked(buildCollectionScopeFromRequest).mock.calls[0]?.[1]).toMatchObject({ interactiveChat: false })
   })
+
+  it('adds no personal shelf to a context resolved without shelves, though the chat is the owner’s alone', async () => {
+    const context = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' }, { withoutShelves: true })
+
+    expect(context.may.personalShelf).toBe(false)
+    expect(context.may.shelves).toEqual([])
+    expect(context.may.restrictedCollections).toEqual([])
+  })
 })

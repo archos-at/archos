@@ -133,6 +133,21 @@ describe('InboxWorkspace', () => {
     expect(useInboxList).toHaveBeenCalledWith(true, 'requests')
   })
 
+  test('lets the tabs and the archive action wrap, so the action stays on a 360px phone', () => {
+    serve('requests', [older])
+    render(<InboxWorkspace />)
+    const controls = screen.getByTestId('inbox-head-controls')
+    expect(controls).toContainElement(screen.getByTestId('inbox-archive-all'))
+    expect(controls.className).toMatch(/(^|\s)flex-wrap(\s|$)/)
+  })
+
+  test('on the archive tab the action keeps its width beside the tabs, and leaves no empty row where it wraps on a phone', () => {
+    page.search = 'tab=archived'
+    serve('archived', [older])
+    render(<InboxWorkspace />)
+    expect(screen.getByTestId('inbox-archive-all')).toHaveClass('invisible', 'max-sm:hidden')
+  })
+
   test('shows the newest entry beside the list before anything is picked, and leaves it unread', async () => {
     const list = serve('requests', [older, newer])
     render(<InboxWorkspace />)

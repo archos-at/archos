@@ -42,7 +42,8 @@ export const nav = {
     baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Project settings',
-    settingsShort: 'Settings',
+    settingsShort: 'Project',
+    filesShort: 'Files',
     intake: 'Setup',
     setup: 'Setup',
   },
@@ -100,6 +101,7 @@ export const nav = {
     allProjects: 'All projects',
     overview: 'Overview',
     newProject: 'New project',
+    showAll: 'Show all projects',
   },
   inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
   tabBar: {

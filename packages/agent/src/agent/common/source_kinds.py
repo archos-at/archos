@@ -93,6 +93,14 @@ class Shelf(StrEnum):
     PERSONAL = "personal"
 
 
+USERS_SHELF_LANES: dict[Shelf, tuple[str, str]] = {
+    Shelf.OFFICE_SHELF: ("office", "Bürobibliothek"),
+    Shelf.PROJECT: ("project", "Projektwissen"),
+    Shelf.SESSION: ("project", "Private Sitzung"),
+    Shelf.PERSONAL: ("project", "Meine Ablage"),
+}
+
+
 LEGACY_SHELF_VALUES: dict[str, str] = {"archiv": Shelf.OFFICE_SHELF.value}
 
 

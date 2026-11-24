@@ -4,6 +4,8 @@ export const projects: typeof en.projects = {
   portfolio: {
     title: 'Projektübersicht',
     searchPlaceholder: 'Projekt suchen …',
+    more: 'Weitere Projekte',
+    matches: 'Passende Projekte',
   },
   list: {
     heading: 'Projekte',

@@ -34,6 +34,10 @@ export default function PhoneMoreDevPage(): JSX.Element {
           { id: 'p-2', name: 'Sanierung Amtshaus Favoriten' },
           { id: 'p-4', name: 'Bürohaus Lände 3' },
           { id: 'p-3', name: 'Volksschule Mühlgasse', status: 'paused' },
+          { id: 'p-6', name: 'Hotel Semmering Gästetrakt' },
+          { id: 'p-7', name: 'Wohnhausanlage Linz-Urfahr' },
+          { id: 'p-8', name: 'Betriebsgebäude Graz-Süd' },
+          { id: 'p-9', name: 'Pfarrzentrum Klosterneuburg' },
         ]}
         user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
         authRequired

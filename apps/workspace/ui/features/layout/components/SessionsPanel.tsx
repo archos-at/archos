@@ -264,7 +264,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           stagger, deliberately: the user opened this to reach a specific row,
           and a cascade delays precisely the row they are reaching for — the
           sheet's own rise is the arrival. */}
-      <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 md:px-8">
+      <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain scroll-pt-8 px-4 pb-6 md:px-8">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
           {groupedSessions.map(([dateLabel, dateSessions]) => (
               <div key={dateLabel} className="mb-4 flex flex-col gap-1.5 last:mb-0">
@@ -272,9 +272,11 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                     scroller is the offset parent, hence `top-0`; `-mx-2 px-2`
                     widens the opaque backing past the card's shadow so rows pass
                     UNDER it rather than beside it. */}
-                <SectionLabel className="bg-background sticky top-0 z-10 -mx-2 px-2 pb-1.5 pt-1">
-                  {dateLabel}
-                </SectionLabel>
+                <div className="sticky-head sticky top-0 z-10 -mx-2">
+                  <SectionLabel className="fade-under-when-stuck bg-background block px-2 pb-1.5 pt-1">
+                    {dateLabel}
+                  </SectionLabel>
+                </div>
                 <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {/*Deleting a row removes it, so the list needs an exit —
                       which CSS cannot give it — and `layout` so the rows below
