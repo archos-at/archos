@@ -1,8 +1,11 @@
+'use client'
+
 import type { JSX } from 'react'
 import * as React from 'react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { readerCausedThisInPlace } from '@/components/motion/reader-input'
 
 export type EmptyStateDiscTone = 'muted' | 'destructive' | 'warning'
 export type EmptyStateDiscSize = 'md' | 'sm'
@@ -62,12 +65,13 @@ export function EmptyState({
   className,
   ...props
 }: EmptyStateProps) {
+  const [emptiedInPlace] = React.useState(() => readerCausedThisInPlace())
   return (
     <div
       className={cn(
         'flex w-full min-w-0 flex-col items-center justify-center text-center',
         variant === 'panel' ? 'rounded-surface border border-dashed bg-muted px-6 py-12' : 'py-10',
-        'animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none',
+        emptiedInPlace && 'animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none',
         className,
       )}
       {...props}
@@ -79,7 +83,7 @@ export function EmptyState({
           icon={Icon}
           tone={tone}
           size={size}
-          className="mb-4 animate-in zoom-in-95 duration-base ease-entrance motion-reduce:animate-none"
+          className="mb-4"
         />
       )}
       {/* The headline is the section step, 16/24/600 (paper on a desk, type): at 14/500 it was the size of the body under it. */}

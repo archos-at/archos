@@ -79,6 +79,7 @@ const conversation = {
   temporary: false,
   audienceVersion: 0,
   personalShelfUsedAt: null,
+  startedInPersonal: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

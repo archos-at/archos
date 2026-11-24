@@ -13,6 +13,10 @@ export const createConversationSchema = z.object({
     .boolean()
     .optional()
     .describe('True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.'),
+  personal: z
+    .boolean()
+    .optional()
+    .describe('True starts the chat on the person\'s personal side, which lists only chats started there. Ignored with a `projectId`.'),
 })
 
 export const CONVERSATION_PAGE_MAX = 200
@@ -22,7 +26,7 @@ export const listConversationsQuerySchema = z.object({
   place: z
     .enum(['personal', 'project'])
     .optional()
-    .describe('`personal`: projectless only; `project`: `projectId`’s only.'),
+    .describe('`personal`: the chats started on the personal side; `project`: `projectId`’s only.'),
   limit: z.coerce
     .number()
     .int()
@@ -40,7 +44,7 @@ export const deleteOwnConversationsQuerySchema = z
   .object({
     place: z
       .enum(['personal', 'project'])
-      .describe('`personal`: the caller\'s own chats without a project; `project`: the caller\'s own chats in `projectId`.'),
+      .describe('`personal`: the caller\'s own chats started on the personal side; `project`: the caller\'s own chats in `projectId`.'),
     projectId: z.guid().optional().describe('The project whose chats `place=project` deletes.'),
   })
   .refine((query) => (query.place === 'project') === (query.projectId !== undefined), {

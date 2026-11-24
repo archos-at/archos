@@ -50,6 +50,7 @@ export function stubConversation(
     temporary: false,
     audienceVersion: 0,
     personalShelfUsedAt: null,
+    startedInPersonal: false,
     ...tenancy,
   })
 }
