@@ -11,8 +11,14 @@ import { findOperation } from '@/lib/agent-api/catalog'
 vi.mock('@/lib/documents/document-dispatch', () => ({
   uploadDocument: vi.fn(),
 }))
+vi.mock('@/lib/conversations/restricted-egress', () => ({ requireMayFileFrom: vi.fn(async () => undefined) }))
+vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn(async () => undefined) }))
+vi.mock('@/lib/documents/shelf-collection', () => ({ shelfCollectionName: vi.fn(async () => 'proj_proj-1') }))
 
 import { uploadDocument } from '@/lib/documents/document-dispatch'
+import { ConversationConfinedError } from '@/lib/api/errors'
+import { requireMayFileFrom } from '@/lib/conversations/restricted-egress'
+import { requireResourceAccess } from '@/lib/sharing/access'
 
 const session = {
   userId: 'user-1',
@@ -60,6 +66,28 @@ describe('document-upload', () => {
     })
     expect(input?.file.name).toBe('Plan.pdf')
     expect(await input?.file.text()).toBe('%PDF fake')
+  })
+
+  it('files from a conversation only where the filing guard lets it, before anything is stored (ADR-0193)', async () => {
+    const op = findOperation('document-upload')
+    if (!op) throw new Error('document-upload is not in the catalog')
+    const body = (fields: Record<string, string>) => ({
+      body: { files: [{ name: 'Plan.pdf', mimeType: 'application/pdf', contentBase64: Buffer.from('%PDF').toString('base64') }], fields },
+    })
+
+    await callOperation(op, body({ projectId: 'proj-1', folderId: 'fold-1', originConversationId: 's_conv_1' }), session)
+    expect(requireResourceAccess).toHaveBeenCalledWith(session, 'conversation', 's_conv_1', 'viewer')
+    expect(requireMayFileFrom).toHaveBeenCalledWith(
+      { conversationId: 's_conv_1', locale: expect.any(String) },
+      { organizationId: 'org-1', projectId: 'proj-1', projectCollection: 'proj_proj-1', folderId: 'fold-1' },
+    )
+    expect(uploadDocument).toHaveBeenCalledTimes(1)
+
+    vi.clearAllMocks()
+    vi.mocked(requireMayFileFrom).mockRejectedValueOnce(new ConversationConfinedError('personalShelf', 'nein'))
+    const refused = await callOperation(op, body({ projectId: 'proj-1', originConversationId: 's_conv_1' }), session)
+    expect(refused.status).toBe(403)
+    expect(uploadDocument).not.toHaveBeenCalled()
   })
 
   it('is refused when the project shelf is asked for without projectId', async () => {

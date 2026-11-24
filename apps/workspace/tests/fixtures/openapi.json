@@ -6536,6 +6536,11 @@
                     "description": "The id of the older document this file is the new revision of; the service checks the pair.",
                     "type": "string"
                   },
+                  "originConversationId": {
+                    "description": "Set by the server to your conversation; a value you send is replaced.",
+                    "type": "string",
+                    "maxLength": 128
+                  },
                   "originPath": {
                     "description": "Where the file sat before upload, e.g. \"Drawings/GF/floor-plan.pdf\". Only for a folder upload; it is screened by name.",
                     "type": "string",
