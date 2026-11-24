@@ -24,8 +24,10 @@ export const PAGE_SHEET_PANEL_CLASS =
 
 const PANEL_WIDTH = 'md:max-w-[1400px]'
 
+export const PAGE_SHEET_WINDOW_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50'
+
 export const PAGE_SHEET_WINDOW_CLASS =
-  'bg-background fixed inset-x-4 top-[max(4rem,10dvh)] z-50 mx-auto flex max-h-[min(84dvh,calc(100dvh-5rem))] max-w-[820px] flex-col overflow-hidden rounded-[16px] shadow-xl outline-none'
+  'bg-background fixed inset-4 z-50 m-auto flex h-fit max-h-[min(84dvh,calc(100dvh-2rem))] max-w-[820px] flex-col overflow-hidden rounded-[16px] shadow-xl outline-none'
 
 export type PageSheetSize = 'page' | 'window'
 
@@ -95,7 +97,7 @@ export function PageSheet({
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
-                className={PAGE_SHEET_OVERLAY_CLASS}
+                className={asWindow ? PAGE_SHEET_WINDOW_OVERLAY_CLASS : PAGE_SHEET_OVERLAY_CLASS}
                 initial={{ opacity: enterFrom?.scrim ?? 0 }}
                 animate={{ opacity: 1, transition: motionEntrance }}
                 exit={{ opacity: 0, transition: motionSheetExit }}

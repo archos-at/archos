@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS, PAGE_SHEET_WINDOW_CLASS, type PageSheetSize } from '@/components/ui/page-sheet'
+import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS, PAGE_SHEET_WINDOW_CLASS, PAGE_SHEET_WINDOW_OVERLAY_CLASS, type PageSheetSize } from '@/components/ui/page-sheet'
 
 export const PAGE_SHEET_SKELETON_SLOT = 'page-sheet-skeleton'
 
@@ -16,7 +16,7 @@ export function PageSheetSkeleton({
   if (size === 'window') {
     return (
       <div aria-busy="true" data-slot={PAGE_SHEET_SKELETON_SLOT}>
-        <div className={`${PAGE_SHEET_OVERLAY_CLASS} animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none`} aria-hidden />
+        <div className={`${PAGE_SHEET_WINDOW_OVERLAY_CLASS} animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none`} aria-hidden />
         <div className={`${PAGE_SHEET_WINDOW_CLASS} animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none`}>
           <span className="sr-only" role="status">
             {loadingLabel}

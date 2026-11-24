@@ -6,7 +6,7 @@ A project groups one building's files, folders, chats, research runs and buildin
 
 Opening the app (`/app`, also the wordmark in the rail) opens **Neuer Chat** in the area you last worked in: the project's new chat if that was a project, a new personal chat if it was under Persönlich or anything else. It does not reopen the exact page. Your browser keeps the last place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, it opens a new personal chat.
 
-The **project overview** (`/app/projects`, „Projektübersicht“) is no longer a home page: it opens as a window over the page you are on, from **Übersicht** at the foot of the project picker, and closes back to it. Opened directly (a link, a reload), it stands as a page of its own.
+The **project overview** (`/app/projects`, „Projektübersicht“) is no longer a home page: it opens as a window in the middle of the screen over the page you are on, which it dims, from **Übersicht** at the foot of the project picker, and closes back to it. Opened directly (a link, a reload), it stands as a page of its own.
 
 - **Order.** Active projects first, the ones *you* last worked in at the top ("worked in" means a message you wrote in one of its conversations, so a colleague's busy week never reorders your overview); then paused projects, then closed ones.
 - **Cards.** Each card shows the project's name, a gear to its **Projekteinstellungen**, and one line: its city and its phase („Wien · Einreichplanung“), or **Paused** / **Closed** for a project that is not active. The project you are in is outlined. Clicking a card opens the project in the section you last used.
