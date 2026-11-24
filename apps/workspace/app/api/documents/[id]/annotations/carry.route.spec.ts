@@ -128,6 +128,8 @@ const MARK: AnnotationRecord = {
   y: 0.3,
   w: 0.1,
   h: 0.05,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Brüstung unter 1,00 m',
   mentions: [],

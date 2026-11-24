@@ -1814,6 +1814,13 @@
       "when": 1795601700000,
       "tag": "0258_drawing_calibrations",
       "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1795601800000,
+      "tag": "0259_annotation_measure_shapes",
+      "breakpoints": true
     }
   ]
 }

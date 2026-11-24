@@ -68,6 +68,7 @@ const foldKey = (row: WorkRow): string | null =>
   row.action.status !== 'ok' ||
   row.action.incomplete ||
   row.looks.length > 0 ||
+  Boolean(row.action.measure) ||
   opensFolder(row.action)
     ? null
     : `${row.action.verb}:${row.action.mode ?? ''}:${row.action.mount && row.action.query ? 'pattern' : ''}`
@@ -272,16 +273,28 @@ export function callIdsByDocument(
   return out
 }
 
-export type WorkKind = 'search' | 'read' | 'list' | 'look' | 'model' | 'workspace'
+export type WorkKind =
+  | 'search'
+  | 'read'
+  | 'readMeasure'
+  | 'list'
+  | 'look'
+  | 'model'
+  | 'workspace'
+  | 'measure'
 
 const SEARCH_VERBS: ReadonlySet<StoredAction['verb']> = new Set(['search', 'lookup', 'law', 'web'])
 
 export function workKind(round: WorkRound): WorkKind {
   const verbs = allRows(round).map((row) => row.action.verb)
   if (verbs.some((verb) => SEARCH_VERBS.has(verb))) return 'search'
-  if (verbs.includes('read')) return 'read'
+  if (verbs.includes('read')) return verbs.includes('measure') ? 'readMeasure' : 'read'
   const first = verbs[0]
-  return first === 'list' || first === 'look' || first === 'model' || first === 'workspace'
+  return first === 'list' ||
+    first === 'look' ||
+    first === 'model' ||
+    first === 'workspace' ||
+    first === 'measure'
     ? first
     : 'read'
 }

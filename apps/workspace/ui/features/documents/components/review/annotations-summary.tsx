@@ -9,7 +9,7 @@ import { InspectorGroup, InspectorSection } from '@/components/ui/inspector-grou
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { isLive } from '@/lib/annotations/types'
+import { isLive, isMeasurement } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import type { DocumentReview } from '../../hooks/use-document-review'
 import { useRoomSelector } from '../../hooks/use-document-room'
@@ -30,7 +30,7 @@ export function AnnotationsSummary({
   className?: string
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const live = review.annotations.filter(isLive)
+  const live = review.annotations.filter((annotation) => isLive(annotation) && !isMeasurement(annotation))
   const others = useRoomSelector(
     review.room,
     (peers) => new Set(peers.filter((state) => !isAgentKind(state.peer.kind)).map((state) => state.peer.userId)).size

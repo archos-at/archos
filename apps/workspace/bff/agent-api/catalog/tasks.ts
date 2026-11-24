@@ -108,7 +108,8 @@ export const tasksOperations = [
     summary: 'List the task runs of a project',
     description:
       'A project’s task runs, newest first, with status, `taskId`, review and filed document. Filter by ' +
-      '`taskId`, `status`, `review` (`none`: awaiting task-run-review). Answers `{ runs, nextCursor }`, at most ' +
+      '`taskId`, `kind` (`deep-research` needs the deep-research feature), `status`, `review` (`none`: awaiting ' +
+      'task-run-review). Answers `{ runs, nextCursor }`, at most ' +
       `${TASK_PAGE_MAX_LIMIT} a page; pass \`nextCursor\` as \`cursor\` for the next.`,
     method: 'GET',
     path: '/api/projects/[id]/runs',
