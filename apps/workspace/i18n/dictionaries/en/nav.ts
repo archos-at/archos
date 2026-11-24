@@ -42,6 +42,7 @@ export const nav = {
     baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Project settings',
+    settingsShort: 'Settings',
     intake: 'Setup',
     setup: 'Setup',
   },

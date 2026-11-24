@@ -2,6 +2,7 @@ import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
+import { makeProject } from '@/test-utils/db-fixtures'
 import { overviewOrder, ProjectOverview } from './project-overview'
 
 let pathname = '/app/projects/p1/files'
@@ -11,21 +12,16 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('./create-project-form', () => ({ CreateProjectForm: () => <div data-testid="create-project-form" /> }))
 
-const fact = (value: string) => ({ value, confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-11-01T00:00:00Z' })
+const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-11-01T00:00:00Z' })
 const project = (id: string, name: string, over: Partial<Project> = {}, facts: Record<string, string> = {}): Project =>
-  ({
+  makeProject({
     id,
-    organizationId: 'org-1',
     name,
-    collectionName: `proj_${id}`,
-    createdBy: 'user-1',
-    workosResourceId: null,
-    status: 'active',
     profile: { facts: Object.fromEntries(Object.entries(facts).map(([k, v]) => [k, fact(v)])), goals: {}, unknowns: [], assumptions: {} },
     profileUpdatedAt: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     ...over,
-  }) as Project
+  })
 
 const PROJECTS = [
   project('p3', 'Volksschule Mühlgasse', { status: 'paused' }),
