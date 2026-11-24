@@ -299,6 +299,22 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",
+            "de": "„Letzte Chats“ in der Seitenleiste zeigt jetzt nur noch die Chats des Bereichs, in dem Sie sich befinden: Unter „Persönlich“ Ihre Chats ohne Projekt, unter „Projekt“ die Chats des jeweiligen Projekts. „Alle Chats“ öffnet den Verlauf desselben Bereichs."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A chat without a project no longer offers to mention a colleague with @, and no longer speaks of a project in its input field. To bring someone in, share the chat through Teilen.",
+            "de": "Ein Chat ohne Projekt bietet keine Möglichkeit mehr, Kolleg:innen mit @ zu erwähnen, und zeigt im Eingabefeld kein Projekt mehr an. Um jemanden dazuzuholen, teilen Sie den Chat über Teilen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }

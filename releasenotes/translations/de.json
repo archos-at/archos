@@ -156,6 +156,10 @@
     "de": "Ein Chat, dessen Löschung fehlschlug, weil Piloti kurz nicht erreichbar war, wird jetzt automatisch gelöscht, sobald Piloti wieder erreichbar ist, statt ausgeblendet zu bleiben, bis jemand ihn erneut löscht."
   },
   {
+    "en": "A chat without a project no longer offers to mention a colleague with @, and no longer speaks of a project in its input field. To bring someone in, share the chat through Teilen.",
+    "de": "Ein Chat ohne Projekt bietet keine Möglichkeit mehr, Kolleg:innen mit @ zu erwähnen, und zeigt im Eingabefeld kein Projekt mehr an. Um jemanden dazuzuholen, teilen Sie den Chat über Teilen."
+  },
+  {
     "en": "A citation Piloti could not verify is now marked „Beleg nicht verifiziert\" where it stood, instead of disappearing unnoticed. Piloti no longer attaches a source the answer did not cite.",
     "de": "Eine Quellenangabe, die Piloti nicht verifizieren konnte, wird nun an ihrer Stelle als „Beleg nicht verifiziert“ markiert, statt unbemerkt zu verschwinden. Piloti fügt einer Antwort keine Quelle mehr hinzu, die in der Antwort nicht zitiert wurde."
   },
@@ -5954,6 +5958,10 @@
   {
     "en": "„Erstelle ein Dokument über …“ now starts a deep research whose finished report is filed in the project under Berichte. If you only want a thorough answer, you still get it in the chat.",
     "de": "„Erstelle ein Dokument über …“ startet jetzt eine Tiefenrecherche, deren fertiger Bericht im Projekt unter „Berichte“ abgelegt wird. Wer nur eine gründliche Antwort will, bekommt sie weiterhin im Chat."
+  },
+  {
+    "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",
+    "de": "„Letzte Chats“ in der Seitenleiste zeigt jetzt nur noch die Chats des Bereichs, in dem Sie sich befinden: Unter „Persönlich“ Ihre Chats ohne Projekt, unter „Projekt“ die Chats des jeweiligen Projekts. „Alle Chats“ öffnet den Verlauf desselben Bereichs."
   },
   {
     "en": "„Mein Feedback“ now opens as a window with your reports on the left and the chat with the Piloti team on the right, and on a phone it fills the screen. You write new feedback in the same window, so your menu has one feedback entry, and once a report is sent its chat opens right there.",
