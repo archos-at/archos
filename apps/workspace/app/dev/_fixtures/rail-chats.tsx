@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
 import { useChatStore } from '@/features/chat/store'
@@ -45,10 +45,19 @@ const conversation = (title: string, index: number): Conversation => ({
   updatedAt: hoursAgo(index * 20 + 1),
 })
 
-useChatStore.setState({ loadServerConversations: async () => {} })
-
 export function DevRailChats({ pathname, empty = false, children }: { pathname: string; empty?: boolean; children: ReactNode }): JSX.Element {
   const projectId = projectIdFromPathname(pathname)
+  const [real] = useState(() => {
+    const loader = useChatStore.getState().loadServerConversations
+    useChatStore.setState({ loadServerConversations: async () => {} })
+    return loader
+  })
+  useEffect(
+    () => () => {
+      useChatStore.setState({ loadServerConversations: real })
+    },
+    [real]
+  )
   useEffect(() => {
     const conversations = empty ? [] : TITLES.map(conversation)
     useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null })

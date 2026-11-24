@@ -2,6 +2,13 @@ import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { MainLayout } from './MainLayout'
+
+const route = vi.hoisted(() => ({ pathname: '/' }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => route.pathname,
+  useSearchParams: () => new URLSearchParams(),
+}))
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { LayoutStore } from '../types'
 import type { ChatStoreWithHydration } from '@/features/chat/store'
@@ -264,6 +271,47 @@ describe('MainLayout', () => {
     expect(screen.queryByTestId('session-item-personal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-project')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-user')).not.toBeInTheDocument()
+  })
+
+  test.each([
+    ['/app/projects/proj-a/chat', null, 'in-project', 'personal'],
+    ['/app/personal/chat', 'proj-a', 'personal', 'in-project'],
+  ])('on %s the panel lists that side even while the store still holds %s („Alle Chats“, ADR-0193)', (pathname, storeProject, shown, hidden) => {
+    route.pathname = pathname
+    const makeConv = (id: string, projectId: string | null) => ({
+      id,
+      userId: 'user-1',
+      projectId,
+      title: id,
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(useChatStore).mockImplementation((selector?: StoreSelector<ChatStoreWithHydration>) => {
+      const state: DeepPartial<ChatStoreWithHydration> = {
+        currentConversation: null,
+        currentUserId: 'user-1',
+        projectId: storeProject,
+        conversations: [makeConv('in-project', 'proj-a'), makeConv('personal', null)],
+        turns: {},
+        unseenAnswers: {},
+        getUserConversations: vi.fn(() => []),
+        selectConversation: vi.fn(),
+        startNewSessionDraft: vi.fn(),
+        deleteConversation: vi.fn(),
+        deleteAllConversations: vi.fn(),
+        updateConversationTitle: vi.fn(),
+        isStreaming: false,
+        pendingInteraction: null,
+      }
+      return selector ? selector(asStoreState<ChatStoreWithHydration>(state)) : state
+    })
+
+    render(<MainLayout isAuthenticated={true} />)
+
+    expect(screen.getByTestId(`session-item-${shown}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`session-item-${hidden}`)).not.toBeInTheDocument()
+    route.pathname = '/'
   })
 
   test('keeps full width while a file is peeked — the split already made the room', () => {

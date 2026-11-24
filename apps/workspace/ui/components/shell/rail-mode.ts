@@ -13,6 +13,12 @@ export function railModeOf(pathname: string): RailMode | null {
   return projectIdFromPathname(path) ? 'project' : null
 }
 
+export function chatSideOf(pathname: string): string | null | undefined {
+  const mode = railModeOf(pathname)
+  if (mode === 'personal') return null
+  return mode === 'project' ? projectIdFromPathname(pathname.split('?')[0]) : undefined
+}
+
 export function personalChatHref(conversationId?: string): string {
   return conversationId ? `${PERSONAL_CHAT_PATH}?session=${encodeURIComponent(conversationId)}` : PERSONAL_CHAT_PATH
 }

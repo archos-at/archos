@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
-import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
+import { PERSONAL_CHAT_PATH, chatSideOf, railModeOf } from '@/components/shell/rail-mode'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -26,7 +26,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const projectId = projectIdFromPathname(pathname)
   const mode = railModeOf(pathname)
-  const side = mode === 'project' ? projectId : null
+  const side = chatSideOf(pathname) ?? null
   const rows = useSessionRows(side)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
