@@ -290,9 +290,7 @@ def test_a_geos_error_is_missing_and_keeps_a_declared_area(
     assert "Flächenvereinigung ist fehlgeschlagen" in answer.caveat
 
 
-def test_one_failed_union_is_not_taken_as_the_footprint(
-    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_one_failed_union_is_not_taken_as_the_footprint(model: SpatialModel, monkeypatch: pytest.MonkeyPatch) -> None:
     import shapely.ops
     from ifc_spatial.operators_measures import _footprint
 
