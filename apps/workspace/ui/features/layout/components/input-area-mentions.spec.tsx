@@ -7,6 +7,7 @@ import { publishThreadSharing, resetThreadSharing } from '@/shared/collaboration
 import { useWebSocketChat, useIsCurrentSessionBusy } from '@/features/chat'
 import { useFileUpload, useFileDragDrop } from '@/features/documents'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { useMentionCandidates } from '@/features/collaboration/hooks/use-sharing'
 import { AGENT_CANDIDATE, ANNA_CANDIDATE, MARKUS_CANDIDATE } from './input-area.fixtures'
 
 const mockSendMessage = vi.fn()
@@ -15,6 +16,7 @@ const mockNoteSendIntent = vi.fn()
 
 let mockConversationMessages: unknown[] | undefined = []
 let mockCurrentSessionId: string | null = 'session-1'
+let mockChatProjectId: string | null = 'project-1'
 let mockComposerPrefill: ComposerPrefill | null = null
 let mockComposerSubject: ComposerSubject | null = null
 const mockSetComposerSubject = vi.fn((next: ComposerSubject | null) => {
@@ -32,7 +34,7 @@ const mockEnsureConversationExists = vi.fn(async () => {})
 function mockChatState() {
   return {
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: mockChatProjectId, messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]
@@ -208,6 +210,7 @@ describe('InputArea', () => {
     vi.clearAllMocks()
     mockConversationMessages = []
     mockCurrentSessionId = 'session-1'
+    mockChatProjectId = 'project-1'
     mockComposerPrefill = null
     mockComposerSubject = null
     mockDrafts = {}
@@ -403,6 +406,33 @@ describe('InputArea', () => {
       expect(composer()).not.toHaveAttribute('aria-expanded')
     })
 
+  })
+
+  describe('in a chat without a project (ADR-0193)', () => {
+    const composer = () => screen.getByPlaceholderText(`Ask ${PRODUCT_NAME} about this project …`)
+
+    beforeEach(() => {
+      mockChatProjectId = null
+    })
+
+    test('typing @ opens no picker and asks no one for candidates', async () => {
+      const user = userEvent.setup()
+      render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+
+      await user.click(composer())
+      await user.keyboard('Frage an @an')
+
+      expect(screen.queryByTestId('mention-picker')).not.toBeInTheDocument()
+      expect(screen.queryByText('Anna Weber')).not.toBeInTheDocument()
+      expect(vi.mocked(useMentionCandidates).mock.calls.some(([, enabled]) => enabled)).toBe(false)
+    })
+
+    test('offers no one to mention', () => {
+      render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
+
+      expect(screen.queryByTestId('composer-mention-offer')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('composer-addressee')).not.toBeInTheDocument()
+    })
   })
 
   describe('addressee indicator', () => {
