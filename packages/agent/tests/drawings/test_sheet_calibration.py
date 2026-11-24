@@ -77,3 +77,50 @@ def test_legacy_records_whose_regions_partly_overlap_read_and_the_smallest_then_
     assert scale_at(sheet, shared, kept).box == kept[1].box
     with_detail, _ = from_records(sheet, [detail, wide, same_size])
     assert scale_at(sheet, shared, with_detail).box == with_detail[0].box
+
+
+def _whole_file(**changes: object) -> dict:
+    whole = {
+        "scope": "document",
+        "region": {"x": 0, "y": 0, "w": 1, "h": 1},
+        "referenceSize": {"widthPt": 1000.0, "heightPt": 500.0},
+    }
+    return _record(**{**whole, **changes})
+
+
+def test_a_scale_for_the_whole_file_is_measured_on_the_page_it_was_set_on_and_holds_on_this_one() -> None:
+    _, sheet = floor()
+
+    calibration = from_record(sheet, _whole_file())
+
+    distance = 0.3 * 1000.0
+    assert calibration.base
+    assert calibration.reference_length_pt == pytest.approx(distance)
+    assert calibration.metres_per_point == pytest.approx(6.0 / distance)
+    assert calibration.box == pytest.approx((0.0, 0.0, sheet.width_pt, sheet.height_pt))
+
+
+def test_a_scale_for_the_whole_file_without_the_size_of_its_page_is_refused() -> None:
+    _, sheet = floor()
+
+    with pytest.raises((KeyError, TypeError, ValueError)):
+        from_record(sheet, _whole_file(referenceSize={"widthPt": 0, "heightPt": 500.0}))
+    with pytest.raises((KeyError, TypeError, ValueError)):
+        from_record(sheet, {k: v for k, v in _whole_file().items() if k != "referenceSize"})
+
+
+def test_a_pages_own_scale_wins_over_the_whole_file_even_over_the_same_whole_page() -> None:
+    _, sheet = floor()
+    whole_file = _whole_file(lengthM=6.0)
+    own = _record(region={"x": 0, "y": 0, "w": 1, "h": 1}, lengthM=3.0)
+    detail = _record(region={"x": 0.15, "y": 0.15, "w": 0.4, "h": 0.4}, lengthM=1.0)
+    point = sheet.point((0.3, 0.3))
+
+    kept, _ = from_records(sheet, [own, whole_file])
+    assert scale_at(sheet, point, kept).metres_per_point == pytest.approx(kept[1].metres_per_point)
+    assert not kept[1].base and kept[0].base
+    assert "another calibration" not in scale_at(sheet, point, kept).contradiction
+
+    kept, _ = from_records(sheet, [whole_file, detail])
+    assert scale_at(sheet, point, kept).box == kept[1].box
+    assert scale_at(sheet, sheet.point((0.9, 0.9)), kept).box == kept[0].box

@@ -358,7 +358,7 @@ describe('proposedCalibrationOf', () => {
   it('reads the document and the calibration of a call that fits the route', () => {
     expect(proposedCalibrationOf('drawing-calibration-set', INPUT)).toEqual({
       documentId: DOCUMENT_ID,
-      calibration: BODY,
+      calibration: { ...BODY, scope: 'page' },
     })
   })
 

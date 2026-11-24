@@ -2,13 +2,15 @@
 
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { DOCUMENT_SCOPE_COPY, type DocumentScope } from './document-scope'
+import { formatCalendarDate } from '@/lib/format'
 import { startDocumentDownload } from '@/lib/documents/download'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import { documentDisplayName, type NamedDocument } from '@/lib/documents/display-name'
 import { LEGAL_HOLD_REASON } from '@/lib/compliance/legal-hold-codes'
+import { documentBinResultSchema } from '@/lib/projects/document-bin-wire'
 import { INGEST_RUNNING } from '@/lib/documents/reingest-codes'
 import { requestReingest } from '../../lib/reingest-request'
 import { requestCancelIngest } from '../../lib/cancel-request'
@@ -37,6 +39,7 @@ export interface DocumentActions {
   isRenamed: boolean
   isRenaming: boolean
   isDeleting: boolean
+  erases: boolean
   isDownloading: boolean
   isReingesting: boolean
   isCancelling: boolean
@@ -62,6 +65,18 @@ async function isLegalHoldRefusal(res: Response): Promise<boolean> {
   )
 }
 
+const HELD_STATUS = 'quarantined'
+
+function removal(erases: boolean, documentId: string): [string, RequestInit] {
+  const document = `/api/documents/${encodeURIComponent(documentId)}`
+  return erases ? [document, { method: 'DELETE' }] : [`${document}/bin`, { method: 'POST' }]
+}
+
+async function binnedUntil(res: Response): Promise<string | null> {
+  const parsed = documentBinResultSchema.safeParse(await res.json().catch(() => null))
+  return parsed.success ? parsed.data.purgeAfter : null
+}
+
 export function useDocumentActions({
   document,
   scope,
@@ -73,6 +88,7 @@ export function useDocumentActions({
 }: UseDocumentActionsOptions): DocumentActions {
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
   const tFiles = useTranslations(filesCopy)
+  const { locale } = useLocale()
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -83,6 +99,7 @@ export function useDocumentActions({
 
   const name = documentDisplayName(document)
   const isRenamed = name !== document.filename
+  const erases = scope !== 'files' || document.status === HELD_STATUS
 
   const rename = useCallback(
     async (displayName: string | null): Promise<boolean> => {
@@ -120,23 +137,28 @@ export function useDocumentActions({
   const remove = useCallback(async (): Promise<boolean> => {
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/documents/${document.id}`, { method: 'DELETE' })
+      const res = await fetch(...removal(erases, document.id))
       if (res.status === 409 && (await isLegalHoldRefusal(res))) {
         toast.error(t('delete.legalHold'))
         return false
       }
       if (!res.ok && res.status !== 204) throw new Error(`Delete failed (${res.status})`)
+      const restorableUntil = erases ? null : await binnedUntil(res)
       notifyDocumentsChanged()
-      toast.success(t('delete.success', { name }))
+      toast.success(
+        restorableUntil
+          ? tFiles('workspace.binFolderDone', { name, date: formatCalendarDate(restorableUntil, locale) })
+          : t('delete.success', { name })
+      )
       onDeleted?.(document.id)
       return true
     } catch {
-      toast.error(t('delete.error'))
+      toast.error(scope === 'files' && erases ? tFiles('erase.error') : t('delete.error'))
       return false
     } finally {
       setIsDeleting(false)
     }
-  }, [document.id, name, onDeleted, t])
+  }, [document.id, name, onDeleted, scope, erases, t, tFiles, locale])
 
   const download = useCallback(async (): Promise<void> => {
     setDownloadFailed(false)
@@ -238,6 +260,7 @@ export function useDocumentActions({
     isRenamed,
     isRenaming,
     isDeleting,
+    erases,
     isDownloading,
     isReingesting,
     isCancelling,

@@ -11,6 +11,7 @@ import {
   stepOf,
   withPoint,
   withRegion,
+  withWholeDocument,
   type CalibrationDraft,
 } from './calibration-draft'
 
@@ -66,7 +67,7 @@ describe('what a draft amounts to', () => {
   it('sends shares of the page once the frame holds both points and the length is there', () => {
     const proposal = proposalOf(withRegion(twoPoints(), 1, BOX), 21, PAGE, [])
     expect(proposal).toMatchObject({ blocked: null, ratio: '1:100', replaces: null })
-    expect(proposal.request).toEqual({ page: 1, region: BOX, from: FROM, to: TO, lengthM: 21 })
+    expect(proposal.request).toEqual({ page: 1, region: BOX, from: FROM, to: TO, lengthM: 21, scope: 'page' })
   })
 
   it('refuses a frame that misses a point, and a cleared length', () => {
@@ -154,5 +155,37 @@ describe('where a frame lies, in words', () => {
     expect(regionPlace({ x: 0.05, y: 0.05, w: 0.2, h: 0.2 })).toBe('topLeft')
     expect(regionPlace({ x: 0.7, y: 0.75, w: 0.25, h: 0.2 })).toBe('bottomRight')
     expect(regionPlace({ x: 0.2, y: 0.2, w: 0.6, h: 0.6 })).toBe('centre')
+  })
+})
+
+describe('a scale for every page', () => {
+  const everyPage = () => withWholeDocument(twoPoints())
+  const document = calibrationView({ id: 'doc', scope: 'document', region: { x: 0, y: 0, w: 1, h: 1 } })
+
+  it('sends the whole page with the size of the page, and replaces the scale for every page', () => {
+    const proposal = proposalOf(everyPage(), 21, PAGE, [document])
+    expect(proposal).toMatchObject({ blocked: null, ratio: '1:100', replaces: { id: 'doc' } })
+    expect(proposal.request).toMatchObject({
+      scope: 'document',
+      region: { x: 0, y: 0, w: 1, h: 1 },
+      pageSize: { widthPt: PAGE.width, heightPt: PAGE.height },
+    })
+  })
+
+  it('waits for the page size, and is not blocked by a frame that cuts a page scale', () => {
+    expect(proposalOf(everyPage(), 21, null, []).request).toBeNull()
+    const cutting = calibrationView({ id: 'cut', region: { x: 0.5, y: 0.5, w: 0.4, h: 0.4 } })
+    expect(proposalOf(everyPage(), 21, PAGE, [cutting]).blocked).toBeNull()
+  })
+
+  it('does not replace it by setting the whole of a page, and steps back to a page scale', () => {
+    const whole = withRegion(twoPoints(), 1, { x: 0, y: 0, w: 1, h: 1 })
+    expect(proposalOf(whole, 21, PAGE, [document]).replaces).toBeNull()
+    const back = stepBack({ draft: everyPage(), lengthM: 21 })
+    expect(back?.draft).toMatchObject({ region: null, scope: 'page' })
+  })
+
+  it('names it for every page', () => {
+    expect(regionName(document, [document])).toEqual({ kind: 'document' })
   })
 })

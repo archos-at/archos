@@ -15,18 +15,3 @@ export function InboxQueueSkeleton(): JSX.Element {
     </div>
   )
 }
-
-export function InboxSheetSkeleton(): JSX.Element {
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto" aria-hidden>
-      <div className="w-full px-4 pt-6 md:px-8">
-        <div className="mx-auto w-full max-w-3xl space-y-4">
-          <div className="flex min-h-8 items-center">
-            <Skeleton className="h-8 w-56 rounded-control" />
-          </div>
-          <InboxQueueSkeleton />
-        </div>
-      </div>
-    </div>
-  )
-}

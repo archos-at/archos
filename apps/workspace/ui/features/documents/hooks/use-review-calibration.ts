@@ -27,9 +27,11 @@ import {
   WHOLE_PAGE,
   withPoint,
   withRegion,
+  withWholeDocument,
   type CalibrationDraft,
   type DraftEnd,
 } from '../lib/calibration-draft'
+import { useSnapSheet } from './use-snap-sheet'
 import { DECISION_UNDO_MS, type DocumentReview, type ReviewTool } from './use-document-review'
 
 export type CalibrationHost = Pick<DocumentReview, 'documentId' | 'load' | 'me'> & {
@@ -57,6 +59,7 @@ export function useReviewCalibration(
   const client = options.client ?? calibrationClient
   const t = useTranslations(filesCopy)
   const measuring = tool === 'measure'
+  const snapSheet = useSnapSheet(documentId, measuring)
 
   const [wanted, setWanted] = useState<string | null>(null)
   const [listed, setListed] = useState<Listed | null>(null)
@@ -117,12 +120,20 @@ export function useReviewCalibration(
   }, [])
 
   const onPage = useCallback(
-    (page: number) => calibrations.filter((entry) => entry.page === page).sort(byAreaDescending),
+    (page: number) =>
+      calibrations
+        .filter((entry) => entry.scope === 'document' || entry.page === page)
+        .sort(byAreaDescending),
     [calibrations]
   )
   const ratioOf = useCallback(
-    (entry: Pick<CalibrationView, 'page' | 'from' | 'to' | 'lengthM'>) => {
-      const size = pageSizes[entry.page]
+    (
+      entry: Pick<CalibrationView, 'page' | 'from' | 'to' | 'lengthM'> &
+        Partial<Pick<CalibrationView, 'referenceSize'>>
+    ) => {
+      const size = entry.referenceSize
+        ? { width: entry.referenceSize.widthPt, height: entry.referenceSize.heightPt }
+        : pageSizes[entry.page]
       return size ? calibrationRatio(entry, size) : null
     },
     [pageSizes]
@@ -178,6 +189,10 @@ export function useReviewCalibration(
   const wholePage = useCallback(() => {
     setSaveFailure(null)
     setDraft((held) => (held ? withRegion(held, held.page, WHOLE_PAGE) : held))
+  }, [])
+  const wholeDocument = useCallback(() => {
+    setSaveFailure(null)
+    setDraft((held) => (held ? withWholeDocument(held) : held))
   }, [])
   const pick = useCallback((page: number, point: CalibrationPoint) => {
     setSaveFailure(null)
@@ -309,6 +324,7 @@ export function useReviewCalibration(
       back,
       movePoint,
       wholePage,
+      wholeDocument,
       draft: setting ? draft : null,
       lengthM,
       setLength: changeLength,
@@ -331,6 +347,8 @@ export function useReviewCalibration(
       me,
       nameOf,
       said,
+      snap: snapSheet.snap,
+      loadSnap: snapSheet.load,
     }),
     [
       shown,
@@ -348,6 +366,7 @@ export function useReviewCalibration(
       back,
       movePoint,
       wholePage,
+      wholeDocument,
       draft,
       lengthM,
       changeLength,
@@ -368,6 +387,7 @@ export function useReviewCalibration(
       me,
       nameOf,
       said,
+      snapSheet,
     ]
   )
 }

@@ -1,8 +1,10 @@
 import type { JSX } from 'react'
-import { Building2, UserRound } from 'lucide-react'
+import Link from 'next/link'
+import { Brain, Building2, UserRound } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { BackLink, ShellContent } from '@/components/shell'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -139,6 +141,23 @@ export default async function ProfilePage(): Promise<JSX.Element> {
                 )}
               </dl>
             </CardContent>
+          </Card>
+
+          <Card data-testid="profile-memory">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div className="flex flex-col gap-1.5">
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="text-muted-foreground size-4" aria-hidden />
+                  {t('memory.title')}
+                </CardTitle>
+                <CardDescription>{t('memory.description')}</CardDescription>
+              </div>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/app/memory" data-testid="profile-memory-link">
+                  {t('memory.open')}
+                </Link>
+              </Button>
+            </CardHeader>
           </Card>
 
           {/* Only a person with an organization can connect an agent to it. */}

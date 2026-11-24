@@ -67,8 +67,56 @@
           "section": "improvements",
           "area": "answers",
           "text": {
+            "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+            "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+            "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+            "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
             "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
             "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+            "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+            "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+            "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
           }
         },
         {
@@ -85,6 +133,14 @@
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
             "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+            "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
           }
         },
         {

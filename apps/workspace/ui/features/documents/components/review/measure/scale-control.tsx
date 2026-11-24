@@ -14,6 +14,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { CalibrationView } from '@/lib/drawing-calibrations/wire'
 import { CLAUSE_JOIN, formatMetres } from '@/lib/format'
+import { formatScaleRatio } from '../../../lib/tape-format'
 import { cn } from '@/lib/utils'
 import { useCoarsePointer } from '../../../hooks/use-coarse-pointer'
 import type { ReviewCalibration } from '../../../hooks/use-review-calibration'
@@ -225,6 +226,17 @@ function StepBar({
               {t('review.measure.scale.steps.wholePage')}
             </Button>
           )}
+          {step === 'region' && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              data-testid="calibration-whole-document"
+              onClick={calibration.wholeDocument}
+            >
+              {t('review.measure.scale.steps.wholeDocument')}
+            </Button>
+          )}
           <Button
             type="button"
             variant="secondary"
@@ -261,11 +273,14 @@ function useEscapeStepsBack(calibration: ReviewCalibration): void {
 export function ScaleControl({
   calibration,
   page,
+  estimatedRatio = null,
 }: {
   calibration: ReviewCalibration
   page: number
+  estimatedRatio?: number | null
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const { locale } = useLocale()
   const touch = useCoarsePointer()
   useEscapeStepsBack(calibration)
   const anchor = useReviewAnchor(calibration.draftLayer, calibration.step === 'review' && !touch)
@@ -292,7 +307,11 @@ export function ScaleControl({
       >
         <PopoverTrigger asChild>
           <ToolbarTextButton data-testid="scale-button">
-            {calibration.labelFor(page)}
+            {estimatedRatio !== null && calibration.onPage(page).length === 0
+              ? t('review.measure.scale.button.estimated', {
+                  ratio: `1:${formatScaleRatio(estimatedRatio, locale)}`,
+                })
+              : calibration.labelFor(page)}
           </ToolbarTextButton>
         </PopoverTrigger>
         {anchor.shown && <PopoverAnchor virtualRef={anchor.virtualRef} />}

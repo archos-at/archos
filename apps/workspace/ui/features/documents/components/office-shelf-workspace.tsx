@@ -1,12 +1,11 @@
 'use client'
 
 import { useMemo, type JSX, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
 import { CountPill } from '@/components/ui/count-pill'
 import { PageHeader } from '@/components/ui/page-header'
 import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
 import { SECTION_CONTENT_WIDTH } from '@/components/shell/section-layout'
-import { SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
+import { SectionPlaceLine, SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
 import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -93,7 +92,6 @@ export function OfficeShelfWorkspace({
       <SectionToolRowScope enabled={!phone}>
         <FileWorkspace
           shelf={shelf}
-          onOpenSearch={search.open}
           renderLevelNotice={
             normsInFolders && canManage
               ? ({ folderId, reload }) =>
@@ -127,47 +125,52 @@ export function OfficeShelfHeader({
   places?: ReactNode
 }): JSX.Element {
   const t = useTranslations(officeShelfCopy)
-  const place = useSectionPlace()
-  return (
-    <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
-      <PageHeader
-        title={
-          place ? (
-            place.title
-          ) : (
-            <span className="inline-flex min-w-0 items-center gap-2">
-              {t('title')}
-              {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
-            </span>
-          )
-        }
-        titleClassName="line-clamp-2"
-        titleTooltip={place?.title}
-        titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
-        crumb={
-          phone ? (
-            place?.phoneTrail
-          ) : organizationName ? (
-            <>
-              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
-              {place && <ChevronRight className="size-3 shrink-0" aria-hidden />}
-              {place?.trail}
-            </>
-          ) : (
-            place?.trail
-          )
-        }
-        crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
-        titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
-        action={trailingActions}
-        actionInline
-      />
-      {places && <div className="-mb-2 mt-6 min-w-0 phone:mt-4">{places}</div>}
-      <SectionToolRow className="mt-4">
-        <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
-          {controls}
-        </div>
-      </SectionToolRow>
+  const reached = useSectionPlace()
+  const place = phone ? reached : null
+  const pathPlace = phone ? null : reached
+  const row = (
+    <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
+      {controls}
     </div>
+  )
+  return (
+    <>
+      <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
+        <PageHeader
+          title={
+            place ? (
+              place.title
+            ) : (
+              <span className="inline-flex min-w-0 items-center gap-2">
+                {t('title')}
+                {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
+              </span>
+            )
+          }
+          titleClassName="line-clamp-2"
+          titleTooltip={place?.title}
+          titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
+          crumb={
+            phone ? (
+              place?.phoneTrail
+            ) : organizationName ? (
+              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
+            ) : undefined
+          }
+          crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
+          titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
+          action={trailingActions}
+          actionInline
+        />
+        {!phone && <SectionToolRow className="mt-6">{row}</SectionToolRow>}
+        {places && <div className="-mb-4 mt-4 min-w-0 phone:mt-4">{places}</div>}
+        {phone && <SectionToolRow className="mt-4">{row}</SectionToolRow>}
+      </div>
+      {pathPlace && (
+        <div className={cn('shrink-0 px-4 md:px-8', SECTION_CONTENT_WIDTH)}>
+          <SectionPlaceLine place={pathPlace} />
+        </div>
+      )}
+    </>
   )
 }

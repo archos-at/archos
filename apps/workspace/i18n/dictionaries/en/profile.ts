@@ -5,6 +5,11 @@ export const profile = {
   backToApp: 'Back to projects',
   savedToast: 'Preferences saved',
   saveError: 'Could not save your preferences. Please try again.',
+  memory: {
+    title: 'My memory',
+    description: 'What {productName} keeps about you and how you want to work. Only you see these notes.',
+    open: 'Open',
+  },
   account: {
     title: 'Account',
     description: 'Your identity within {productName}.',

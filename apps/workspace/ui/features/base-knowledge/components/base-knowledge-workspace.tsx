@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Library, Sparkles } from 'lucide-react'
+import { Library } from 'lucide-react'
 import {
   bulkBaseKnowledge,
   createBaseKnowledgeFolder,
@@ -13,21 +13,16 @@ import {
   renameBaseKnowledgeFolder,
   type BaseKnowledgeEntry,
 } from '@/adapters/api/base-knowledge-client'
-import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadError } from '@/components/ui/load-error'
 import { BackControl } from '@/components/shell/back-link'
-import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { SuggestionPanel } from '@/components/ui/suggestion-panel'
 import { SectionPlaceScope } from '@/components/shell/section-place'
 import { SectionToolRowScope } from '@/components/shell/section-tool-row'
 import {
   FileDropOverlay,
-  FileGrid,
   FolderBreadcrumbRow,
-  FolderCard,
   NewFolderDialog,
   OfficeShelfHeader,
   ShelfUploadControl,
@@ -178,9 +173,6 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
       })),
     [folders],
   )
-  const level = tree.filter((folder) => folder.parentId === (filters.folderId ?? null))
-  const holds = (folderId: string) =>
-    (list?.folderCounts[folderId] ?? 0) + tree.filter((folder) => folder.parentId === folderId).length
 
   const select = useCallback(
     (ids: string[], on: boolean) => {
@@ -264,6 +256,9 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
   const [guideChoice, setGuideChoice] = useState<boolean | null>(null)
   const guideOpen = guideChoice ?? empty
   const [topicOpen, setTopicOpen] = useState(false)
+  const [topicEdit, setTopicEdit] = useState<'rename' | 'delete' | null>(null)
+  const topics = (folders?.folders ?? []).map((folder) => ({ id: folder.id, name: folder.name }))
+  const chosenTopic = topics.find((topic) => topic.id === filters.folderId) ?? null
   const createTopic = (name: string) =>
     folderAction(() => createBaseKnowledgeFolder({ name, ...(filters.folderId ? { parentId: filters.folderId } : {}) }))
   const upload = canManage ? <ShelfUploadControl onUpload={uploadFiles} isUploading={shelfUpload.isUploading} glyphOnly={phone} /> : undefined
@@ -272,11 +267,15 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
       phone={phone}
       search={filters.search}
       onSearch={(search) => changeFilters({ search })}
-      kind={filters.kind}
-      onKind={(kind) => changeFilters({ kind })}
       upload={phone ? undefined : upload}
       onFromShelf={canManage ? () => setPicking(true) : undefined}
       onNewTopic={phone && canManage ? () => setTopicOpen(true) : undefined}
+      onReviewPending={canManage && list && list.counts.proposed > 0 ? () => void reviewPending() : undefined}
+      topic={
+        canManage && chosenTopic
+          ? { name: chosenTopic.name, onRename: () => setTopicEdit('rename'), onDelete: () => setTopicEdit('delete') }
+          : undefined
+      }
       onGuide={() => setGuideChoice(!guideOpen)}
     />
   )
@@ -325,26 +324,6 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
     }
     return (
       <div className="flex flex-col gap-8">
-        {level.length > 0 && (
-          <section aria-label={t('folders.topics')} data-testid="base-knowledge-topics">
-            <SectionLabel as="h2" className="mb-1.5 px-0">
-              {t('folders.topics')}
-            </SectionLabel>
-            <FileGrid className="md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
-              {level.map((folder) => (
-                <FolderCard
-                  key={folder.id}
-                  folder={folder}
-                  itemCount={holds(folder.id)}
-                  onOpen={(id) => navigate(id)}
-                  readOnly={!canManage}
-                  onRenameFolder={(id, name) => folderAction(() => renameBaseKnowledgeFolder(id, name))}
-                  onDeleteFolder={(id) => folderAction(() => deleteBaseKnowledgeFolder(id))}
-                />
-              ))}
-            </FileGrid>
-          </section>
-        )}
         <EntryList
           list={list}
           folders={folders}
@@ -358,7 +337,8 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
           onOpen={(entry) => openFile(entry.id)}
           loadingMore={state.loadingMore}
           onLoadMore={state.loadMore}
-          labelled={level.length > 0}
+          topics={topics}
+          onTopic={navigate}
         />
       </div>
     )
@@ -381,7 +361,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
       {list && folders && (
         <FolderBreadcrumbRow
           folders={tree}
-          currentFolderId={filters.folderId}
+          currentFolderId={null}
           onNavigate={navigate}
           rootLabel={t('folders.all')}
           newFolderLabel={t('folders.newTopic')}
@@ -394,11 +374,6 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
         className={cn('scroll-fade-bottom min-h-0 min-w-0 flex-1 overflow-y-auto', fab ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[env(safe-area-inset-bottom)]')}
         data-testid="base-knowledge-scroll"
       >
-        {canManage && list && !location.entryId && list.counts.proposed > 0 && (
-          <div className={NOTICE_STRIP}>
-            <PendingLine count={list.counts.proposed} onReview={() => void reviewPending()} />
-          </div>
-        )}
         <div className="listing-container flex flex-col gap-8 px-4 pb-8 pt-6 md:px-8">
           {list && !location.entryId && guideOpen && <Guide onClose={() => setGuideChoice(false)} />}
           {body()}
@@ -449,30 +424,30 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
         onConfirm={() => bulk({ type: 'remove' })}
       />
       {phone && canManage && <NewFolderDialog open={topicOpen} onOpenChange={setTopicOpen} onCreate={createTopic} label={t('folders.newTopic')} />}
+      {chosenTopic && (
+        <NewFolderDialog
+          key={chosenTopic.id}
+          open={topicEdit === 'rename'}
+          onOpenChange={(open) => setTopicEdit(open ? 'rename' : null)}
+          onCreate={(name) => folderAction(() => renameBaseKnowledgeFolder(chosenTopic.id, name))}
+          label={t('folders.renameTopic', { name: chosenTopic.name })}
+          initialName={chosenTopic.name}
+        />
+      )}
+      <ConfirmDialog
+        open={topicEdit === 'delete' && chosenTopic !== null}
+        onOpenChange={(open) => setTopicEdit(open ? 'delete' : null)}
+        title={t('norms.deleteTopicTitle', { name: chosenTopic?.name ?? '' })}
+        description={t('norms.deleteTopicBody')}
+        confirmLabel={t('folders.deleteTopic', { name: chosenTopic?.name ?? '' })}
+        cancelLabel={t('detail.cancel')}
+        onConfirm={async () => {
+          if (!chosenTopic) return
+          if (await folderAction(() => deleteBaseKnowledgeFolder(chosenTopic.id))) navigate(null)
+        }}
+      />
     </div>
       </SectionToolRowScope>
     </SectionPlaceScope>
-  )
-}
-
-const NOTICE_STRIP = 'listing-container px-4 pt-3 md:px-8'
-
-function PendingLine({ count, onReview }: { count: number; onReview: () => void }): JSX.Element {
-  const t = useTranslations(baseKnowledgeCopy)
-  return (
-    <SuggestionPanel role="status" data-testid="base-knowledge-pending">
-      <p className="flex min-w-0 items-start gap-2 px-2 py-1 text-xs">
-        <Sparkles className="text-muted-foreground mt-0.5 size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0">
-          <span className="text-foreground font-medium">{count === 1 ? t('norms.pendingOne') : t('norms.pending', { count })}</span>{' '}
-          <span aria-hidden className="text-muted-foreground">
-            ·
-          </span>{' '}
-          <Button variant="inline" className="touch-target whitespace-nowrap" onClick={onReview} data-testid="base-knowledge-review-pending">
-            {t('norms.review')}
-          </Button>
-        </span>
-      </p>
-    </SuggestionPanel>
   )
 }

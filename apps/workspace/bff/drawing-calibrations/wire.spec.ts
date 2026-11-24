@@ -20,9 +20,24 @@ const issuesOf = (input: unknown) => {
   return parsed.success ? [] : parsed.error.issues.map((issue) => issue.message)
 }
 
+describe('a scale for every page', () => {
+  const WHOLE = { x: 0, y: 0, w: 1, h: 1 }
+  const EVERY = { ...VALID, region: WHOLE, scope: 'document', pageSize: { widthPt: 1190.55, heightPt: 841.89 } }
+
+  it('accepts the whole page with the size of the page it was measured on', () => {
+    expect(issuesOf(EVERY)).toEqual([])
+  })
+
+  it('refuses it without that size, over part of the page, or a size on a page scale', () => {
+    expect(issuesOf({ ...EVERY, pageSize: undefined })).toEqual(['A scale for every page needs the size of the page measured.'])
+    expect(issuesOf({ ...EVERY, region: { x: 0, y: 0, w: 0.5, h: 1 } })).toEqual(['A scale for every page holds for the whole page.'])
+    expect(issuesOf({ ...VALID, pageSize: EVERY.pageSize })).toEqual(['Only a scale for every page names a page size.'])
+  })
+})
+
 describe('the set-calibration request', () => {
   it('accepts two different points inside a region on the page', () => {
-    expect(setCalibrationRequestSchema.parse(VALID)).toEqual(VALID)
+    expect(setCalibrationRequestSchema.parse(VALID)).toEqual({ ...VALID, scope: 'page' })
   })
 
   it('accepts a region that reaches the page edge, and points on the region edge', () => {

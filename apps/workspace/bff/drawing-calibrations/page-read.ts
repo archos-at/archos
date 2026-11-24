@@ -8,6 +8,12 @@ import { MAX_PAGE_CALIBRATIONS, type PageCalibration } from './wire'
 
 export const toPageCalibration = (row: DrawingCalibrationRow): PageCalibration => ({
   id: row.id,
+  scope: row.scope,
+  page: row.page,
+  referenceSize:
+    row.referenceWidthPt !== null && row.referenceHeightPt !== null
+      ? { widthPt: row.referenceWidthPt, heightPt: row.referenceHeightPt }
+      : null,
   region: { x: row.regionX, y: row.regionY, w: row.regionW, h: row.regionH },
   from: { x: row.pointAX, y: row.pointAY },
   to: { x: row.pointBX, y: row.pointBY },
@@ -22,7 +28,9 @@ export async function activeCalibrationsOfPage(
   const rows = await listDrawingCalibrations(
     { organizationId, ...target, status: 'active' },
     internalRead('reloaded'),
-    { limit: MAX_PAGE_CALIBRATIONS, offset: 0 }
+    { limit: MAX_PAGE_CALIBRATIONS + 1, offset: 0 }
   )
-  return rows.slice(0, MAX_PAGE_CALIBRATIONS).map(toPageCalibration)
+  const wholeFile = rows.filter((row) => row.scope === 'document')
+  const ofPage = rows.filter((row) => row.scope === 'page').slice(0, MAX_PAGE_CALIBRATIONS)
+  return [...wholeFile, ...ofPage].map(toPageCalibration)
 }

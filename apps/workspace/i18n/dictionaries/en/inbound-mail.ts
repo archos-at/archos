@@ -563,7 +563,6 @@ export const inboundMail = {
 
   state: {
     filing: 'Being filed …',
-    filingSlow: 'This takes longer than usual. Filing goes on; you can leave the mail.',
     decidedByOther: 'Someone else has handled this mail in the meantime.',
     partialFailure: '{failed} of {total} files could not be filed.',
     partialFailureAll: '{failed, plural, one {The file could not be filed.} other {None of the # files could be filed.}}',

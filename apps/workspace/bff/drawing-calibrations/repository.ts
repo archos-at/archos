@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { OffsetPage } from '@/lib/api/offset-page'
 import { getDb } from '@/lib/db'
 import { isUniqueViolation } from '@/lib/db/errors'
@@ -11,11 +11,13 @@ import {
   CALIBRATION_LIFECYCLE,
   type CalibrationPoint,
   type CalibrationRegion,
+  type CalibrationScope,
   type CalibrationStatus,
+  type PageSize,
   regionRelation,
 } from './wire'
 
-const ACTIVE_REGION_INDEX = 'uniq_drawing_calibrations_active_region'
+const ACTIVE_INDEXES = ['uniq_drawing_calibrations_active_region', 'uniq_drawing_calibrations_active_document']
 
 export class CalibrationSetConflictError extends Error {}
 
@@ -58,7 +60,9 @@ export async function listDrawingCalibrations(
           eq(drawingCalibrations.documentId, filter.documentId),
           eq(drawingCalibrations.versionId, filter.versionId),
           eq(drawingCalibrations.status, filter.status),
-          ...(filter.page === undefined ? [] : [eq(drawingCalibrations.page, filter.page)]),
+          ...(filter.page === undefined
+            ? []
+            : [or(eq(drawingCalibrations.page, filter.page), eq(drawingCalibrations.scope, 'document'))!]),
           documentVisibleTo(reader)
         )
       )
@@ -104,6 +108,8 @@ export interface NewCalibrationInput {
   from: CalibrationPoint
   to: CalibrationPoint
   lengthM: number
+  scope?: CalibrationScope
+  pageSize?: PageSize | null
   createdBy: string
 }
 
@@ -114,8 +120,10 @@ export async function setDrawingCalibration(input: NewCalibrationInput): Promise
     db
       .transaction(async (tx) => {
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`drawing_calibrations:${organizationId}:${input.versionId}:${input.page}`}, 0))`
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`drawing_calibrations:${organizationId}:${input.versionId}:${input.scope === 'document' ? 'document' : input.page}`}, 0))`
         )
+        const scope = input.scope ?? 'page'
+        const document = scope === 'document'
         const active = await tx
           .select()
           .from(drawingCalibrations)
@@ -124,12 +132,16 @@ export async function setDrawingCalibration(input: NewCalibrationInput): Promise
               eq(drawingCalibrations.organizationId, organizationId),
               eq(drawingCalibrations.documentId, input.documentId),
               eq(drawingCalibrations.versionId, input.versionId),
-              eq(drawingCalibrations.page, input.page),
+              eq(drawingCalibrations.scope, scope),
+              ...(document ? [] : [eq(drawingCalibrations.page, input.page)]),
               inArray(drawingCalibrations.status, [...CALIBRATION_LIFECYCLE.sourcesOf('supersede')])
             )
           )
           .orderBy(asc(drawingCalibrations.createdAt), asc(drawingCalibrations.id))
-        const relations = active.map((row) => ({ row, relation: regionRelation(region, regionOf(row)) }))
+        const relations = active.map((row) => ({
+          row,
+          relation: document ? ('same' as const) : regionRelation(region, regionOf(row)),
+        }))
         const overlapping = relations.find(({ relation }) => relation === 'overlaps')
         if (overlapping) throw new CalibrationRegionOverlapError(overlapping.row)
         const same = relations.filter(({ relation }) => relation === 'same').map(({ row }) => row.id)
@@ -155,6 +167,9 @@ export async function setDrawingCalibration(input: NewCalibrationInput): Promise
             pointBX: input.to.x,
             pointBY: input.to.y,
             referenceLengthM: input.lengthM,
+            scope,
+            referenceWidthPt: input.pageSize?.widthPt ?? null,
+            referenceHeightPt: input.pageSize?.heightPt ?? null,
             status: CALIBRATION_LIFECYCLE.initial,
             createdBy: input.createdBy,
           })
@@ -162,7 +177,7 @@ export async function setDrawingCalibration(input: NewCalibrationInput): Promise
         return row
       })
       .catch((error: unknown) => {
-        if (isUniqueViolation(error, ACTIVE_REGION_INDEX)) throw new CalibrationSetConflictError()
+        if (ACTIVE_INDEXES.some((index) => isUniqueViolation(error, index))) throw new CalibrationSetConflictError()
         throw error
       })
   )

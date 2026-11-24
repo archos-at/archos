@@ -14,6 +14,9 @@ export const CALIBRATION_LIFECYCLE = defineLifecycle<CalibrationStatus, 'superse
   },
 })
 
+export const CALIBRATION_SCOPES = ['page', 'document'] as const
+export type CalibrationScope = (typeof CALIBRATION_SCOPES)[number]
+
 export const MAX_PAGE_CALIBRATIONS = 50
 
 const share = z.number().finite().min(0).max(1)
@@ -57,6 +60,16 @@ export function regionRelation(region: CalibrationRegion, other: CalibrationRegi
 
 export const REGION_OVERLAPS = 'region-overlaps'
 
+export const WHOLE_PAGE_REGION: CalibrationRegion = { x: 0, y: 0, w: 1, h: 1 }
+
+export const pageSizeSchema = z
+  .object({ widthPt: z.number().finite().gt(0).max(200_000), heightPt: z.number().finite().gt(0).max(200_000) })
+  .strict()
+export type PageSize = z.infer<typeof pageSizeSchema>
+
+const coversWholePage = (region: CalibrationRegion): boolean =>
+  region.x === 0 && region.y === 0 && region.w >= 1 - REGION_TOLERANCE && region.h >= 1 - REGION_TOLERANCE
+
 export const setCalibrationRequestSchema = z
   .object({
     page: z.number().int().min(1).max(100_000).describe('The page, starting at 1.'),
@@ -66,6 +79,15 @@ export const setCalibrationRequestSchema = z
     from: calibrationPointSchema.describe('The first reference point, as shares of the page.'),
     to: calibrationPointSchema.describe('The second reference point.'),
     lengthM: z.number().finite().gt(0).max(100_000).describe('The true length between the two points, in metres.'),
+    scope: z
+      .enum(CALIBRATION_SCOPES)
+      .default('page')
+      .describe(
+        "'page' (default): the scale holds for the region of this page. 'document': the scale holds for every page of the file that has no calibration of its own; the region is then the whole page."
+      ),
+    pageSize: pageSizeSchema
+      .optional()
+      .describe("The size in points of the page the two points were placed on. Required for scope 'document', else omitted."),
   })
   .strict()
   .superRefine((input, context) => {
@@ -75,14 +97,26 @@ export const setCalibrationRequestSchema = z
     if (input.from.x === input.to.x && input.from.y === input.to.y) {
       context.addIssue({ code: 'custom', message: 'The two reference points must differ.', path: ['to'] })
     }
+    if (input.scope === 'document' && !input.pageSize) {
+      context.addIssue({ code: 'custom', message: 'A scale for every page needs the size of the page measured.', path: ['pageSize'] })
+    }
+    if (input.scope === 'document' && !coversWholePage(input.region)) {
+      context.addIssue({ code: 'custom', message: 'A scale for every page holds for the whole page.', path: ['region'] })
+    }
+    if (input.scope === 'page' && input.pageSize) {
+      context.addIssue({ code: 'custom', message: 'Only a scale for every page names a page size.', path: ['pageSize'] })
+    }
   })
-export type SetCalibrationRequest = z.infer<typeof setCalibrationRequestSchema>
+export type SetCalibrationRequest = z.input<typeof setCalibrationRequestSchema>
 
 export const calibrationDocumentParamsSchema = z.object({ id: z.string().uuid() })
 export const calibrationParamsSchema = calibrationDocumentParamsSchema.extend({ calibrationId: z.string().uuid() })
 
 export interface PageCalibration {
   id: string
+  scope: CalibrationScope
+  page: number
+  referenceSize: PageSize | null
   region: CalibrationRegion
   from: CalibrationPoint
   to: CalibrationPoint
@@ -94,6 +128,8 @@ export const calibrationViewSchema = z.object({
   documentId: z.string().uuid(),
   versionId: z.string().uuid(),
   page: z.number().int(),
+  scope: z.enum(CALIBRATION_SCOPES),
+  referenceSize: pageSizeSchema.nullable(),
   region: calibrationRegionSchema,
   from: calibrationPointSchema,
   to: calibrationPointSchema,
