@@ -12,6 +12,7 @@ import { readUploadBatchId } from '@/lib/upload-batches/service'
 import { getLocale } from '@/i18n/server'
 import { requireMayFileFrom } from '@/lib/conversations/restricted-egress'
 import { shelfCollectionName } from '@/lib/documents/shelf-collection'
+import { requireShelfWrite } from '@/lib/documents/shelf-authz'
 import { requireResourceAccess } from '@/lib/sharing/access'
 
 const text = (value: FormDataEntryValue | null): string | undefined =>
@@ -37,6 +38,7 @@ export const POST = apiRoute(
     }
     const { originConversationId } = input
     if (originConversationId) {
+      await requireShelfWrite(session, shelf)
       await requireResourceAccess(session, 'conversation', originConversationId, 'viewer')
       await requireMayFileFrom(
         { conversationId: originConversationId, locale: await getLocale() },
