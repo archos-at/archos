@@ -74,11 +74,11 @@ export function InboxOpened({
   const normNotice = item.href ? normNoticeOf(item) : null
   const href = item.href ? (markEntry ? withReviewBack(item.href, here) : item.href) : null
   const headline = mark?.body ?? item.excerpt ?? title
-  const said = inboxReason(item, t) ?? (item.excerpt && !mark ? title : item.actorName)
+  const said = inboxReason(item, t) ?? (headline !== title ? title : item.actorName)
   const place = [item.projectName ?? t('inbox.page.personal'), item.subject !== item.projectName ? item.subject : null]
     .filter(Boolean)
     .join(' · ')
-  const showBody = body !== null && !markEntry && !normNotice && !canDecideReview && body !== headline
+  const showBody = body !== null && !answerHere && !answerInReview && !normNotice && !canDecideReview && body !== headline && body !== said
   const asksSomething = answerHere || canResolve || answerInReview || canDecideReview || normNotice !== null
 
   const send = async (text: string, how: ComposerSend) => {
@@ -114,6 +114,7 @@ export function InboxOpened({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-4" data-testid="inbox-opened-body">
+        {showBody && <p className="text-foreground text-sm leading-relaxed">{body}</p>}
         {loading && <Skeleton className="h-48 w-full rounded-surface" />}
         {failed && <p className="text-muted-foreground text-sm">{t('inbox.page.markFailed')}</p>}
         {mark && href && <InboxMarkPlace mark={mark} documentName={item.subject ?? ''} href={href} />}
@@ -130,7 +131,6 @@ export function InboxOpened({
             onSubmit={send}
           />
         )}
-        {showBody && <p className="text-foreground text-sm leading-relaxed">{body}</p>}
         {normNotice && <InboxNormLines notice={normNotice} body={body} />}
         {normNotice && <InboxNormActions item={item} notice={normNotice} />}
         {canDecideReview && <InboxReviewDecision item={item} reviewClient={documentLifecycleClient} />}
