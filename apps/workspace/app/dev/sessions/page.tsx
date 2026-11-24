@@ -8,6 +8,7 @@ import { RightsLostPanel } from '@/features/layout/components/RightsLostPanel'
 import { SessionsPanel } from '@/features/layout/components/SessionsPanel'
 import { useLayoutStore } from '@/features/layout/store'
 import type { Session } from '@/features/layout/types'
+import type { TaskRunPage, TaskRunView } from '@/lib/tasks/task-wire'
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000)
 const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000)
@@ -51,30 +52,38 @@ const PROJECTS = [
   { id: 'p-2', name: 'Sanierung Amtshaus Favoriten' },
 ]
 
-const RESEARCH_RUNS = {
-  total: 3,
-  jobs: [
-    {
-      job_id: 'job-a',
-      status: 'running',
-      created_at: minutesAgo(12).toISOString(),
-      conversation_id: 's-6',
-      project_collection: 'preview',
-    },
-    {
-      job_id: 'job-b',
-      status: 'completed',
-      created_at: minutesAgo(240).toISOString(),
-      conversation_id: 's-3',
-      project_collection: 'preview',
-    },
-    {
-      job_id: 'job-c',
-      status: 'failed',
-      created_at: daysAgo(11).toISOString(),
-      conversation_id: null,
-      project_collection: 'preview',
-    },
+const previewRun = (
+  id: string,
+  title: string,
+  status: TaskRunView['status'],
+  createdAt: Date,
+  conversationId: string | null
+): TaskRunView => ({
+  id,
+  taskId: null,
+  kind: 'deep-research',
+  title,
+  goal: null,
+  status,
+  review: null,
+  reviewReason: null,
+  filedDocumentId: null,
+  conversationId,
+  runMessageId: conversationId ? `msg-${id}` : null,
+  trigger: 'delegated',
+  requesterUserId: 'user_preview',
+  requesterName: null,
+  createdAt: createdAt.toISOString(),
+  finishedAt: status === 'running' ? null : createdAt.toISOString(),
+  error: null,
+})
+
+const RESEARCH_RUNS: TaskRunPage = {
+  nextCursor: null,
+  runs: [
+    previewRun('run-a', 'OIB-RL 6 Energieausweis Bestand', 'running', minutesAgo(12), 's-6'),
+    previewRun('run-b', 'Brandabschnitte Tiefgarage', 'succeeded', minutesAgo(240), 's-3'),
+    previewRun('run-c', 'Stellplatzschlüssel Wien', 'failed', daysAgo(11), null),
   ],
 }
 
@@ -85,7 +94,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url.includes('/jobs/async/jobs')) {
+      if (url.includes('/runs?') && url.includes('kind=deep-research')) {
         return new Response(JSON.stringify(RESEARCH_RUNS), {
           status: 200,
           headers: { 'content-type': 'application/json' },

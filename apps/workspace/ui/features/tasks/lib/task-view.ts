@@ -7,6 +7,20 @@ const ACTIVE_STATUSES: ReadonlySet<TaskRunStatus> = new Set(['queued', 'running'
 
 const BROKEN_STATUSES: ReadonlySet<TaskRunStatus> = new Set(['failed', 'error'])
 
+export const RUN_STATUS_VARIANT: Record<TaskRunStatus, 'info' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
+  queued: 'info',
+  running: 'info',
+  succeeded: 'success',
+  failed: 'destructive',
+  interrupted: 'secondary',
+  skipped: 'warning',
+  error: 'destructive',
+}
+
+export function isBrokenRunStatus(status: TaskRunStatus): boolean {
+  return BROKEN_STATUSES.has(status)
+}
+
 export function isActiveTask(task: TaskRunView): boolean {
   return ACTIVE_STATUSES.has(task.status)
 }

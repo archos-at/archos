@@ -1,4 +1,5 @@
 import type { TaskPage, TaskRunPage, TaskRunView, TaskView } from '@/lib/tasks/task-wire'
+import type { TaskKind } from '@/lib/tasks/task-vocabulary'
 import { ApiRequestError } from './api-error'
 
 export type Job = TaskView
@@ -26,6 +27,7 @@ export interface ListJobRunsParams {
 
 export interface ListProjectRunsParams {
   limit: number
+  kind?: TaskKind
 }
 
 export class JobApiError extends ApiRequestError {
@@ -148,7 +150,9 @@ export const listProjectRuns = async (
   projectId: string,
   params: ListProjectRunsParams,
 ): Promise<JobRun[]> => {
-  const response = await fetch(`${runsBase(projectId)}?limit=${params.limit}`)
+  const search = new URLSearchParams({ limit: String(params.limit) })
+  if (params.kind) search.set('kind', params.kind)
+  const response = await fetch(`${runsBase(projectId)}?${search.toString()}`)
   if (!response.ok) await throwJobApiError(response, 'Failed to list project runs')
   const data = (await response.json()) as Partial<TaskRunPage>
   return data.runs ?? []

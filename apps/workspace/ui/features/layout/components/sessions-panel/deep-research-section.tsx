@@ -13,21 +13,23 @@ import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { researchCopy } from '@/i18n/namespaces/research'
-import type { ResearchRun } from '@/adapters/api/research-runs-client'
-import { isRunActive, runBadgeVariant, runStatusKey } from '../../lib/research-run-status'
+import type { JobRun } from '@/adapters/api/jobs-client'
+import { isActiveTask, isBrokenRunStatus, RUN_STATUS_VARIANT } from '@/features/tasks/lib/task-view'
+import type { TaskRunStatus } from '@/lib/tasks/task-vocabulary'
+import { tasksCopy } from '@/i18n/namespaces/tasks'
 
 interface DeepResearchSectionProps {
-  filteredRuns: ResearchRun[]
+  filteredRuns: JobRun[]
   isResearchLoading: boolean
   deepResearchError: boolean
   isSearching: boolean
   trimmedQuery: string
-  runLabel: (run: ResearchRun) => string
-  runHref: (run: ResearchRun) => string | null
+  runLabel: (run: JobRun) => string
+  runHref: (run: JobRun) => string | null
   handleClearSearch: () => void
   fetchDeepResearchRuns: () => void
   handleClose: () => void
-  handleStopRun: (run: ResearchRun) => void
+  handleStopRun: (run: JobRun) => void
 }
 
 export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
@@ -45,6 +47,7 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
 }) => {
   const t = useTranslations(researchCopy)
   const tCommon = useTranslations(commonCopy)
+  const tStatus = useTranslations(tasksCopy)
   const { locale } = useLocale()
 
   return (
@@ -117,7 +120,7 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
             const status = run.status
             const href = runHref(run)
             return (
-            <Item key={run.job_id} as="li" className="relative items-start py-3.5">
+            <Item key={run.id} as="li" className="relative items-start py-3.5">
               {/* The media disc mirrors the inbox anatomy; a failed run
                   is the one tinted case, and its Badge below says the
                   same in words — colour never travels alone. */}
@@ -125,7 +128,7 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
                 aria-hidden
                 className={cn(
                   'mt-0.5 rounded-full border',
-                  status === 'failed'
+                  isBrokenRunStatus(status)
                     ? 'border-transparent bg-destructive/10 text-destructive'
                     : 'border-border bg-card text-muted-foreground'
                 )}
@@ -148,7 +151,7 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
                       onClick={handleClose}
                       aria-label={t('sessionsPanel.deepResearchRunLabel', {
                         label: runLabel(run),
-                        status: t(runStatusKey(status)),
+                        status: tStatus(`status.${status}`),
                       })}
                       className="min-w-0 flex-1 rounded-control text-sm font-medium leading-snug outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
                     >
@@ -166,23 +169,23 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
                   )}
                   <time
                     className="text-muted-foreground shrink-0 text-xs"
-                    dateTime={run.created_at}
-                    title={formatAbsoluteTime(run.created_at, locale)}
+                    dateTime={run.createdAt}
+                    title={formatAbsoluteTime(run.createdAt, locale)}
                   >
-                    {formatRelativeTime(run.created_at, locale)}
+                    {formatRelativeTime(run.createdAt, locale)}
                   </time>
                 </div>
                 {/* The state in WORDS, on its own line — a failed run
                     and a finished one used to differ only by icon. */}
                 <div className="mt-1.5 flex items-center gap-1">
-                  <Badge variant={runBadgeVariant(status)}>
-                    {t(runStatusKey(status))}
+                  <Badge variant={RUN_STATUS_VARIANT[status]}>
+                    {tStatus(`status.${status}`)}
                   </Badge>
                   {/* A run that will never finish cannot be waited out:
                       stop it here. The stretched link covers the whole
                       row, so the button sits above it (`relative z-10`)
                       the way the chat rows' overlay actions do. */}
-                  {isRunActive(status) && (
+                  {isActiveTask(run) && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -205,12 +208,12 @@ export const DeepResearchSection: FC<DeepResearchSectionProps> = ({
   )
 }
 
-const RunStatusIcon: FC<{ status: string }> = ({ status }) => {
-  if (status === 'completed') {
+const RunStatusIcon: FC<{ status: TaskRunStatus }> = ({ status }) => {
+  if (status === 'queued' || status === 'running') {
+    return <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+  }
+  if (status === 'succeeded') {
     return <FileCheck2 className="size-4 shrink-0" aria-hidden="true" />
   }
-  if (status === 'failed' || status === 'cancelled') {
-    return <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-  }
-  return <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+  return <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
 }
