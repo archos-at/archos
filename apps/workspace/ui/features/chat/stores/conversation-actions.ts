@@ -19,6 +19,7 @@ const sideKeyOf = (projectId: string | null): string => projectId ?? ''
 const withoutOpenConversation = (projectId: string | null) => ({
   projectId,
   currentConversation: null,
+  composerTemporary: false,
   isStreaming: false,
   isLoading: false,
   currentUserMessageId: null,

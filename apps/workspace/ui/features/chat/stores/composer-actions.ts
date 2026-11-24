@@ -9,6 +9,7 @@ export const createComposerActions = (
   MessagesSlice,
   | 'setComposerPrefill'
   | 'setComposerSubject'
+  | 'setComposerTemporary'
   | 'setComposerExcerpt'
   | 'consumeComposerPrefill'
   | 'setChatSendFn'
@@ -32,6 +33,11 @@ export const createComposerActions = (
 
     setComposerSubject: (subject: ComposerSubject | null) => {
       set({ composerSubject: subject }, false, 'setComposerSubject')
+    },
+
+    setComposerTemporary: (temporary: boolean) => {
+      if (get().composerTemporary === temporary) return
+      set({ composerTemporary: temporary }, false, 'setComposerTemporary')
     },
 
     setComposerExcerpt: (excerpt: ComposerExcerpt | null) => {
