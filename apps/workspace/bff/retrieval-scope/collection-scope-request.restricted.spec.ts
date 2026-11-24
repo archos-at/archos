@@ -110,6 +110,7 @@ beforeEach(() => {
     createdBy: null,
     visibility: 'private',
     grantees: [],
+    version: null,
   })
   vi.mocked(resolveMembershipRoles).mockImplementation(async (_org, userId) =>
     userId === 'user_admin' ? ['admin'] : ['member']
@@ -169,6 +170,7 @@ describe('interactive chat scope (ADR-0087)', () => {
       createdBy: 'user_me',
       visibility,
       grantees,
+      version: 1,
     })
 
     it("carries it on the member's own private, ungranted conversation", async () => {

@@ -25,7 +25,7 @@ function render(): string {
     organizationRole: 'admin',
     projectRole: 'project-admin',
     project,
-    conversation: { id: '{conversation}', audience: 'solo' },
+    conversation: { id: '{conversation}', workspaceRead: 'all' },
     inboxWaiting: office.reads['inbox-list'].items.filter((item) => !item.read).length,
     activeRuns: 0,
     proposals: [],
