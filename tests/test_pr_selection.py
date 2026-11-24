@@ -359,3 +359,25 @@ def test_with_equal_cost_the_smaller_reference_wins(mod):
     )  # a push that answered a review
 
     assert mod.cheaper([whole, since_green], lambda _paths: 0) == since_green
+
+
+TREE_READING = {
+    **TESTS,
+    "tests/test_generated_files.py": 'subprocess.run(["git", "grep", "-l", "-F", "SWITCH"])',
+    "tests/test_repo_layout.py": "files = _run('git ls-files')",
+}
+
+
+def test_a_spec_change_runs_every_test_that_reads_the_whole_tree(mod):
+    mode, extra, reason = mod.decide_python(
+        ["apps/workspace/bff/conversation-context/wire.spec.ts"], TREE_READING, recorded=True
+    )
+
+    assert (mode, extra) == ("select", ["tests/test_generated_files.py", "tests/test_repo_layout.py"])
+    assert "2 that read the whole tracked tree" in reason
+
+
+def test_the_real_tree_readers_are_found(mod):
+    extra = mod.decide_python(["apps/workspace/bff/x.spec.ts"], mod._python_test_files(), recorded=True)[1]
+
+    assert "tests/test_generated_files.py" in extra
