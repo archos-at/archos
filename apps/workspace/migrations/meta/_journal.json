@@ -1879,6 +1879,13 @@
       "breakpoints": true
     },
     {
+      "idx": 268,
+      "version": "7",
+      "when": 1795602660000,
+      "tag": "0268_conversation_side_is_fixed",
+      "breakpoints": true
+    },
+    {
       "idx": 269,
       "version": "7",
       "when": 1795602800000,

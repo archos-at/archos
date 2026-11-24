@@ -4036,6 +4036,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
+    "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
+  },
+  {
     "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
     "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
   },
@@ -4646,6 +4650,10 @@
   {
     "en": "The header of the file preview now holds only the name, the kind of document and the controls for the file. Who created it, who is responsible and „Piloti dazu fragen“ moved into the panel beside it.",
     "de": "Der Kopf der Dateivorschau zeigt nur noch Namen, Dokumentart und die Schaltflächen für die Datei. Wer sie erstellt hat, wer zuständig ist und „Piloti dazu fragen“ stehen jetzt im Bereich daneben."
+  },
+  {
+    "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+    "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
   },
   {
     "en": "The imprint, privacy, terms and AI transparency pages in the app now state the company's details as they stand, with no open placeholders, and describe the product as the workspace for architecture and planning firms.",

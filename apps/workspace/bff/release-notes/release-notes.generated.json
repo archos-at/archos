@@ -665,6 +665,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+            "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "search",
           "text": {
             "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
@@ -677,6 +685,14 @@
           "text": {
             "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
             "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
+            "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
           }
         },
         {

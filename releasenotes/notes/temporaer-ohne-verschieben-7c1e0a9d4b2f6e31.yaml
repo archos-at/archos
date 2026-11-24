@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    Switching a chat to temporary changes the button, the composer and the line
+    under it in place, and nothing else on the page moves. On a new chat the
+    choice waits for the first message, so no empty chat appears under „Letzte Chats“.

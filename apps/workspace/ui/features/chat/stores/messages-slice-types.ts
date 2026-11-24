@@ -31,6 +31,7 @@ export type MessagesSlice = {
   lastChatBySide: Record<string, string>
   composerPrefill: ComposerPrefill | null
   composerSubject: ComposerSubject | null
+  composerTemporary: boolean
   composerExcerpt: ComposerExcerpt | null
   composerDrafts: Record<string, string>
   chatSendFn: ChatSendFn | null
@@ -64,6 +65,7 @@ export type MessagesSlice = {
   enterSide: (projectId: string | null) => void
   setComposerPrefill: (text: string, mentions?: DraftMention[], subject?: ComposerSubject) => void
   setComposerSubject: (subject: ComposerSubject | null) => void
+  setComposerTemporary: (temporary: boolean) => void
   setComposerExcerpt: (excerpt: ComposerExcerpt | null) => void
   consumeComposerPrefill: () => ComposerPrefill | null
   setChatSendFn: (fn: ChatSendFn | null) => void

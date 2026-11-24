@@ -16,6 +16,7 @@ const ruleTester = new RuleTester({
 
 ruleTester.run('motion-vocabulary', rule, {
   valid: [
+    `const a = 'transition-[grid-template-rows,opacity] duration-base ease-entrance'`,
     `const a = 'transition-colors duration-snap ease-out'`,
     `const a = 'transition-opacity duration-quick motion-reduce:transition-none'`,
     `const a = 'animate-in fade-in-0 duration-base ease-entrance'`,
@@ -79,6 +80,10 @@ ruleTester.run('motion-vocabulary', rule, {
     },
     {
       code: `const a = 'transition-[width]'`,
+      errors: [{ messageId: 'layoutTransition' }],
+    },
+    {
+      code: `const a = 'transition-[grid-template-columns,opacity]'`,
       errors: [{ messageId: 'layoutTransition' }],
     },
     {

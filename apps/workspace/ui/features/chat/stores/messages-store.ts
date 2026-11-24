@@ -22,6 +22,7 @@ export const initialMessagesState = {
   lastChatBySide: {} as Record<string, string>,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,
+  composerTemporary: false,
   composerExcerpt: null as ComposerExcerpt | null,
   composerDrafts: {} as Record<string, string>,
   chatSendFn: null as ChatSendFn | null,
