@@ -1,0 +1,6 @@
+---
+# area: general
+improvements:
+  - >
+    Menus, tabs and switches now round their inner corners to match the
+    corners around them, so a highlighted row no longer bulges at the edge.
