@@ -632,6 +632,10 @@
     "de": "Eine fehlende Chat-Berechtigung nennt jetzt Piloti statt eines internen Rechercheschritts. Der letzte Schritt der Herleitung zeigt, wie weit das Lesen gekommen ist, nicht eine Bewertung der Antwort."
   },
   {
+    "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
+    "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
+  },
+  {
     "en": "A new chat now opens with the greeting and the input box together in the middle of the screen, instead of the greeting floating high and the input pinned to the bottom edge. As soon as you ask something, the input returns to the bottom and the answer gets the full height.",
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
@@ -1162,6 +1166,10 @@
   {
     "en": "After a short disruption on our side, documents that are being read now carry on by themselves, and answers no longer stall while Piloti looks something up in your files.",
     "de": "Nach einer kurzen Störung auf unserer Seite werden gerade eingelesene Dokumente nun selbstständig weiterverarbeitet, und Antworten stocken nicht mehr, während Piloti Ihre Dateien durchsucht."
+  },
+  {
+    "en": "After a switch, the typing dots of a reply that is still running simply stand there instead of fading in again.",
+    "de": "Nach einem Wechsel bleiben die Tipp-Punkte einer noch laufenden Antwort einfach stehen, statt wieder einzublenden."
   },
   {
     "en": "After a thumbs-down, the note field now opens straight away, so you can say what went wrong without first picking a reason.",
@@ -3288,6 +3296,10 @@
     "de": "Wenn Sie den Posteingang über die Glocke öffnen, erhält er sofort den Tastaturfokus, sodass j und k gleich funktionieren; mit Escape schließen Sie ihn und der Fokus kehrt zur Glocke zurück."
   },
   {
+    "en": "Opening the project overview at an address ending in a slash (/app/projects/) shows the overview instead of an empty page.",
+    "de": "Wenn Sie die Projektübersicht über eine Adresse öffnen, die mit einem Schrägstrich endet (/app/projects/), wird die Übersicht statt einer leeren Seite angezeigt."
+  },
+  {
     "en": "Organisation admins can now see who downloaded which document, and who opened one in a folder with its own access list, under Organisation → Download-Protokoll. Entries are kept for up to 12 months, or 30 days if your organization shortens it, and opening the log is itself recorded.",
     "de": "Organisations-Admins sehen jetzt unter Organisation → Download-Protokoll, wer welches Dokument heruntergeladen hat und wer eines in einem Ordner mit eigener Zugriffsliste geöffnet hat. Einträge bleiben höchstens 12 Monate erhalten, oder 30 Tage, wenn Ihre Organisation die Frist verkürzt, und auch das Ansehen des Protokolls wird festgehalten."
   },
@@ -3780,6 +3792,10 @@
     "de": "Wenn Sie jemanden aus einem Projekt entfernen oder dessen Rolle ändern, wird die Änderung bereits mit dem nächsten Klick der betreffenden Person wirksam. Unterhaltungen, die auf eine entfernte Person gewartet haben, bleiben nicht mehr endlos hängen."
   },
   {
+    "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+    "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
+  },
+  {
     "en": "Renaming a folder in the Dateiablage grid view works again: clicking into the name field places the cursor there instead of opening the folder.",
     "de": "Das Umbenennen eines Ordners in der Rasteransicht der Dateiablage funktioniert wieder: Wenn Sie in das Namensfeld klicken, wird der Cursor dort platziert, statt den Ordner zu öffnen."
   },
@@ -4012,8 +4028,20 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
+    "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+  },
+  {
     "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
     "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
+  },
+  {
+    "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+    "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+  },
+  {
+    "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
+    "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
   },
   {
     "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
@@ -4822,6 +4850,10 @@
   {
     "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
     "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+  },
+  {
+    "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+    "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
   },
   {
     "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
@@ -5846,6 +5878,10 @@
   {
     "en": "While research runs, its block shows the evidence gathered so far in each round. Jetzt schreiben ends the research after the current round and writes the report from what has been found.",
     "de": "Während die Recherche läuft, zeigt ihr Block je Runde die bisher gesammelten Belege. „Jetzt schreiben“ beendet die Recherche nach der laufenden Runde und schreibt den Bericht aus dem, was bisher gefunden wurde."
+  },
+  {
+    "en": "While the sidebar loads your recent chats, grey placeholder rows stand in for them, and the rows are a little taller and easier to read. The list no longer appears late or out of nowhere.",
+    "de": "Während die Seitenleiste Ihre letzten Chats lädt, erscheinen graue Platzhalterzeilen, die etwas höher und besser lesbar sind. Die Liste erscheint nicht mehr verspätet oder plötzlich."
   },
   {
     "en": "Whoever commissioned a report can now release it. Piloti files a report under the name of the person who asked for it, and that person was treated as its author and so could not release it.",

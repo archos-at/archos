@@ -297,6 +297,30 @@
         },
         {
           "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+            "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
+            "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "While the sidebar loads your recent chats, grey placeholder rows stand in for them, and the rows are a little taller and easier to read. The list no longer appears late or out of nowhere.",
+            "de": "Während die Seitenleiste Ihre letzten Chats lädt, erscheinen graue Platzhalterzeilen, die etwas höher und besser lesbar sind. Die Liste erscheint nicht mehr verspätet oder plötzlich."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
@@ -325,6 +349,22 @@
           "text": {
             "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
             "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
+            "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "After a switch, the typing dots of a reply that is still running simply stand there instead of fading in again.",
+            "de": "Nach einem Wechsel bleiben die Tipp-Punkte einer noch laufenden Antwort einfach stehen, statt wieder einzublenden."
           }
         },
         {
@@ -368,6 +408,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
+            "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "general",
           "text": {
@@ -397,6 +445,14 @@
           "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
             "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+            "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
           }
         },
         {
@@ -571,6 +627,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Opening the project overview at an address ending in a slash (/app/projects/) shows the overview instead of an empty page.",
+            "de": "Wenn Sie die Projektübersicht über eine Adresse öffnen, die mit einem Schrägstrich endet (/app/projects/), wird die Übersicht statt einer leeren Seite angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }
@@ -589,6 +653,14 @@
           "text": {
             "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
             "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+            "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
           }
         },
         {

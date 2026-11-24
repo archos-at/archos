@@ -14,6 +14,7 @@ import { getConversationsClient, isRightsLost } from '../lib/conversations-clien
 import { wasOnServerBefore } from '../lib/conversation-on-server'
 import { isConversationErased } from '../lib/erased-conversations'
 import { CONVERSATION_LIST_PAGE } from '../lib/conversation-list-page'
+import { keepsProvisionalTitle } from '../lib/conversation-title'
 
 const listScopeMatcher = (
   projectId: string | undefined,
@@ -98,6 +99,7 @@ export const createSessionServerSyncSlice: StateCreator<
           userId: currentUserId ?? serverConv.createdBy ?? 'unknown',
           projectId: serverConv.projectId ?? (idx >= 0 ? merged[idx].projectId : null) ?? null,
           title: locked ? '' : (serverConv.title ?? (idx >= 0 ? merged[idx].title : '') ?? ''),
+          ...(!locked && keepsProvisionalTitle(merged[idx], serverConv.title) ? { title: merged[idx].title, titleProvisional: true as const } : {}),
           messages: idx >= 0 && (!locked || withheldFrom) ? merged[idx].messages : [],
           ...(locked ? { contentLocked: true } : {}),
           ...(withheldFrom ? { withheldFrom } : {}),

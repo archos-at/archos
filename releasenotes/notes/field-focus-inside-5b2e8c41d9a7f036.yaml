@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its
+    edge stays whole while you type. The chat's title in the toolbar and the
+    fields for a file's tags and topics behave the same way.

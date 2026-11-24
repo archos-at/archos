@@ -153,6 +153,7 @@ export interface Conversation {
   projectId?: string | null
   jobId?: string | null
   title: string
+  titleProvisional?: true
   subjectResourceType?: 'document' | null
   subjectResourceId?: string | null
   messages: ChatMessage[]

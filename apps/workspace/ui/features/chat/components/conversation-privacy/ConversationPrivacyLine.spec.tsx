@@ -91,6 +91,12 @@ describe('ConversationPrivacyLine', () => {
     expect(screen.getByTestId('conversation-temporary-line')).toBeInTheDocument()
   })
 
+  test('on a new chat the welcome says it, so the line under the composer stays out and the composer never moves', () => {
+    open(conversation({ temporary: true }))
+    render(<ConversationPrivacyLine conversationId="c-1" canCollaborate={false} statesTemporary={false} />)
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
+  })
+
   test('the temporary line goes when the conversation is switched back', () => {
     open(conversation({ temporary: true }))
     render(<ConversationPrivacyLine conversationId="c-1" canCollaborate={false} />)

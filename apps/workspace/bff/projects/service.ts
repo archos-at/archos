@@ -7,12 +7,7 @@ import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { effectiveResourcePermissions } from '@/lib/authz/resource-check'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { neutralizeCollaborationForProject } from '@/lib/collaboration/cleanup'
-import {
-  lastProjectActivityByUser,
-  listConversationIdsForProject,
-} from '@/lib/conversations/repository'
-import { countDocumentsByProject } from '@/lib/documents/repository'
-import { waitingMailCounts } from '@/lib/inbound-mail/waiting-counts'
+import { listConversationIdsForProject } from '@/lib/conversations/repository'
 import { endFollowsOfClosedProject, rearmParkedOneShots } from './status-effects'
 import { computePurgeAfter, projectGraceDays } from '@/lib/deletion/policy'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
@@ -130,32 +125,6 @@ export async function projectsHolding<T extends Pick<Project, 'id' | 'status'>>(
   }
   const held = await Promise.all(projects.map(holds))
   return projects.filter((_, index) => held[index])
-}
-
-export async function getProjectsListData(
-  session: AuthorizedSession,
-  order: 'newest' | 'oldest' = 'newest'
-): Promise<{
-  projects: Project[]
-  documentCounts: Record<string, number>
-  viewerActivity: Record<string, string>
-  mailWaiting: Record<string, number>
-}> {
-  const visible = await listProjects(session, order)
-  const visibleIds = visible.map((project) => project.id)
-  const hiddenFolderIds = (await Promise.all(visibleIds.map((id) => getHiddenFolderIds(session, id)))).flat()
-  const readers = await Promise.all(visibleIds.map((projectId) => shelfReaderFor(session, { scope: 'project', projectId })))
-  const reviewedProjectIds = visibleIds.filter((_, index) => readers[index].kind === 'reviewer')
-  const [documentCounts, viewerActivity, mailWaiting] = await Promise.all([
-    countDocumentsByProject(session.organizationId, visibleIds, hiddenFolderIds, {
-      kind: 'projects',
-      userId: session.userId,
-      reviewedProjectIds,
-    }),
-    lastProjectActivityByUser(session.organizationId, session.userId, visibleIds),
-    waitingMailCounts(session, visibleIds),
-  ])
-  return { projects: visible, documentCounts, viewerActivity, mailWaiting }
 }
 
 export interface ProjectClosing {

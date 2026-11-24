@@ -23,6 +23,8 @@ import { ConnectionBand } from './connection-band'
 import { ShellSearchButton } from './shell-search-button'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
+import { PROJECT_OVERVIEW_PATH, isOverviewPath } from './landing'
+import { overviewLinkClick } from './project-overview-entry'
 
 
 export interface OrgHeaderProps {
@@ -66,7 +68,8 @@ export function OrgHeader({
       <div className={cn(BRAND_ROW, BRAND_INSET_ORG, 'justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pr-6')}>
         <div className="flex min-w-0 items-center gap-2">
           <Link
-            href="/app/projects"
+            href={PROJECT_OVERVIEW_PATH}
+            onClick={(event) => overviewLinkClick(PROJECT_OVERVIEW_PATH, event)}
             aria-label={t('allProjects')}
             className="text-foreground rounded-control flex items-center"
           >
@@ -78,10 +81,10 @@ export function OrgHeader({
           {/* Where the reader is, as the phone's tab bar lights „Projekte":
               the wordmark goes there too, but says nothing about being there. */}
           <OrgHeaderIconLink
-            href="/app/projects"
+            href={PROJECT_OVERVIEW_PATH}
             label={t('projectSwitcher.projects')}
             icon={FolderKanban}
-            active={pathname === '/app/projects'}
+            active={isOverviewPath(pathname)}
           />
           {/* On a phone the two doorways live in the tab bar, under the thumb
               (`PhoneTabBar`), and feedback in the avatar menu; the band keeps
@@ -157,6 +160,7 @@ function OrgHeaderIconLink({
       <TooltipTrigger asChild>
         <Link
           href={href}
+          onClick={(event) => overviewLinkClick(href, event)}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           data-tour={tourAnchor}

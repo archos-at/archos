@@ -1257,3 +1257,58 @@ describe('the agent’s viewer actions', () => {
     expect(run).not.toHaveBeenCalled()
   })
 })
+
+describe('a message to people (the ruled send) stands at once, and goes again when the server refuses it', () => {
+  const fresh = (): Conversation => ({ ...conversationOf('ruled'), title: '' })
+  const answer = (): { resolve: (response: Response) => Promise<void> } => {
+    let reply: ((response: Response) => void) | null = null
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => (reply = resolve))))
+    return {
+      resolve: async (response) => {
+        await vi.waitFor(() => expect(reply).not.toBeNull())
+        reply!(response)
+      },
+    }
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('the message and its provisional title are in the store before the server answers', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen\nzweite Zeile', { awaitingHuman: true }) as Promise<unknown>
+    })
+
+    expect(messages().map((m) => m.content)).toEqual(['Bitte prüfen\nzweite Zeile'])
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Bitte prüfen', titleProvisional: true })
+
+    const id = messages()[0]!.id
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ id, addressees: { agent: false, users: ['u2'] } }), { status: 201 }))
+      await sent
+    })
+    expect(messages()[0]!.addressees).toEqual({ agent: false, users: ['u2'] })
+  })
+
+  it('a refused send takes the message and the title back, so the chat is unsent again', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    expect(messages()).toHaveLength(1)
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ error: 'nope' }), { status: 403 }))
+      expect(await sent).toMatchObject({ ok: false })
+    })
+
+    const conversation = useChatStore.getState().currentConversation!
+    expect(conversation.messages).toEqual([])
+    expect(conversation.title).toBe('')
+    expect(conversation.titleProvisional).toBeUndefined()
+    expect(useChatStore.getState().conversations[0]).toMatchObject({ messages: [], title: '' })
+  })
+})

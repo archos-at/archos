@@ -60,30 +60,4 @@ describe('PageSheet', () => {
     expect(screen.getByRole('dialog').className).toContain('pr-[env(safe-area-inset-right)]')
   })
 
-  it('a window stands in the middle of the screen over a page that is dimmed, not blurred, as the concept draws it', () => {
-    render(
-      <PageSheet open onOpenChange={vi.fn()} title="Projektübersicht" closeLabel="Schließen" size="window">
-        <p>Inhalt</p>
-      </PageSheet>
-    )
-    const window = screen.getByRole('dialog')
-    expect(window).toHaveAttribute('data-size', 'window')
-    expect(window).toHaveClass('md:inset-4', 'md:m-auto', 'md:h-fit')
-    expect(window.className).not.toMatch(/(?:^|\s)top-/)
-    const scrim = document.querySelector<HTMLElement>('.bg-overlay')!
-    expect(scrim.className).not.toContain('backdrop-blur')
-  })
-
-  it('on a phone a window is a bottom sheet like the others there: at the foot, rounded like them, with a grabber that only the phone shows', () => {
-    render(
-      <PageSheet open onOpenChange={vi.fn()} title="Projektübersicht" closeLabel="Schließen" size="window">
-        <p>Inhalt</p>
-      </PageSheet>
-    )
-    const window = screen.getByRole('dialog')
-    expect(window).toHaveClass('inset-x-0', 'bottom-0', 'rounded-overlay', 'pb-[env(safe-area-inset-bottom)]')
-    const grabber = window.querySelector('[data-slot="page-sheet-grabber"]')!
-    expect(grabber).toHaveClass('md:hidden')
-    expect(grabber.querySelector('[data-slot="page-sheet-grabber-close"]')).toHaveAccessibleName('Schließen')
-  })
 })

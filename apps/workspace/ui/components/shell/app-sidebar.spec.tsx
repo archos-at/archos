@@ -503,7 +503,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(screen.getByRole('heading', { name: 'Recent chats' })).toBeInTheDocument()
   })
 
-  test('a quiet section label over quieter, tighter rows; „All chats“ only while more chats exist', () => {
+  test('a quiet section label over rows in the secondary ink; „All chats“ only while more chats exist', () => {
     const { unmount } = renderWith({ ...chats(), more: false })
     const list = screen.getByRole('list', { name: 'Recent chats' })
     expect(within(list).queryByRole('link', { name: 'All chats' })).toBeNull()
@@ -511,7 +511,7 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(heading).toHaveClass('text-meta', 'text-subtle', 'h-6', 'pointer-coarse:h-11')
     expect(heading.querySelector('svg')).toHaveClass('opacity-0', 'group-hover/heading:opacity-100', 'group-focus-visible/heading:opacity-100')
     const row = within(list).getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' })
-    expect(row).toHaveClass('h-7', 'text-subtle', 'pointer-coarse:h-11')
+    expect(row).toHaveClass('h-8', 'text-muted-foreground', 'pointer-coarse:h-11')
     expect(within(list).getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toHaveClass('text-foreground', 'font-medium')
     unmount()
   })

@@ -9,6 +9,7 @@ import { isHiddenJobConversation } from '@/features/chat/lib/project-scope'
 export interface SessionRow {
   id: string
   title: string
+  titleProvisional: boolean
   date: Date
   createdAt: Date
   untouched: boolean
@@ -28,6 +29,7 @@ interface RowCache {
 
 const sameRow = (a: SessionRow, b: SessionRow): boolean =>
   a.title === b.title &&
+  a.titleProvisional === b.titleProvisional &&
   +new Date(a.date) === +new Date(b.date) &&
   +new Date(a.createdAt) === +new Date(b.createdAt) &&
   a.untouched === b.untouched &&
@@ -45,6 +47,7 @@ const rowFor = (conversation: Conversation, activity: ConversationActivity | nul
   const built: SessionRow = {
     id: conversation.id,
     title: conversation.title,
+    titleProvisional: conversation.titleProvisional === true,
     date: conversation.updatedAt,
     createdAt: conversation.createdAt,
     untouched: conversation.contentLocked !== true && conversation.messages.length === 0 && conversation.title.trim() === '',

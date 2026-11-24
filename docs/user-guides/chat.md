@@ -22,15 +22,21 @@ project, and it does not read any project's files (ADR-0193).
 **„Letzte Chats“** lists the side you are on: under Persönlich your chats
 without a project, under Projekt that project's chats: at most eight, newest
 first and always with the chat you have open, with a people mark when you share
-one. When the side has more, **„Alle Chats“** ends the list and opens that
+one. A new chat appears at the top the moment you send its first message,
+titled by that message's first line in a lighter grey until ARCHOS names it;
+the name then takes its place in the same row. While the list loads, grey
+placeholder rows stand in. When the side has more, **„Alle Chats“** ends the list and opens that
 side's history. Switching between Persönlich and Projekt moves the rail at once;
 the page follows when it has loaded. The chat you had open stays on its side:
-the other side opens its own chat, never the one you left. A chat without a project has no `@`: to bring someone in, share it
+the other side reopens the chat you last had open there (a new one if there
+is none), never the one you left. A chat without a project has no `@`: to bring someone in, share it
 through **Teilen**.
 
 ## Starting a conversation
 
 Click **New chat** in the sidebar or in the chat-history panel (on a phone it is the first entry of the header's **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available) and, under it, „Nur Sie sehen diesen Chat.“; mail waiting to be filed in the project is named under the composer. Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
+
+The glasses in the composer's row switch the chat to **temporary**: ARCHOS keeps nothing from it. Switched on, the button fills with ink and says „Temporär“, the composer's edge becomes a dashed line, and on an empty chat the greeting gives way to „Temporärer Chat“ and what it means. Press it again to switch back. Only whoever owns the chat can switch it.
 
 You do not have to wait for an answer before asking something else. While ARCHOS answers in one chat, open another chat or start a new one: the first keeps working and its answer is complete when you come back. The chat-history panel and the sidebar's **Recent chats** show what each chat is doing: a spinner while ARCHOS works on it, a question mark while it waits for your answer, and a mark with the title in bold once the answer is ready, or a warning mark if the answer failed, until you open the chat. A chat that is still answering cannot be renamed or deleted. The marks belong to the open browser tab: after a reload the answer is still there, the mark is not.
 

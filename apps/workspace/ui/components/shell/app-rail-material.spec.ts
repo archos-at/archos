@@ -277,7 +277,7 @@ describe('the app rail’s material', () => {
     const title = render(createElement(ProjectSwitcher, { projects: PROJECTS, activeProjectId: 'p1' })).container.querySelector('[title="Project One"]') as HTMLElement
     expect(classesOf(title)).toEqual(expect.arrayContaining(['text-[13px]', 'font-medium']))
 
-    const { container: list } = render(createElement(RailChatList, { chats: CHATS, pillId: 'rail-pill' }))
+    const { container: list } = render(createElement(RailChatList, { chats: CHATS }))
     expect(allClasses(list).filter((cls) => /^text-(sm|name)$/.test(cls))).toEqual([])
   })
 

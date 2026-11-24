@@ -1,0 +1,9 @@
+---
+# area: general
+improvements:
+  - >
+    Switching between Persönlich and Projekt, or to another project, reopens
+    the chat you last had open on that side, so you pick up where you left off.
+  - >
+    After a switch, the typing dots of a reply that is still running simply
+    stand there instead of fading in again.

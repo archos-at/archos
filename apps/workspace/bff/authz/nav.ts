@@ -1,6 +1,6 @@
 import 'server-only'
 import type { UserSession } from '@/lib/auth/types'
-import { isOrgAdmin } from './organizations'
+import { canManageCompliance, isOrgAdmin } from './organizations'
 import { isPlatformStaff } from './platform'
 import { inboxIsReachable } from '@/lib/inbox/registry'
 import { isCollaborationEnabled, isOfficeStandardsEnabled } from './feature-flags'
@@ -13,6 +13,7 @@ export interface NavFlags {
   canAccessOfficeStandards: boolean
   canCollaborate: boolean
   canAccessInbox: boolean
+  canManageCompliance: boolean
 }
 
 export async function getNavFlags(session: UserSession | null): Promise<NavFlags> {
@@ -25,6 +26,7 @@ export async function getNavFlags(session: UserSession | null): Promise<NavFlags
       canAccessOfficeStandards: false,
       canCollaborate: false,
       canAccessInbox: false,
+      canManageCompliance: false,
     }
   }
   const collaboration = isCollaborationEnabled(session)
@@ -36,5 +38,6 @@ export async function getNavFlags(session: UserSession | null): Promise<NavFlags
     canAccessOfficeStandards: Boolean(session.organizationId) && isOfficeStandardsEnabled(session),
     canCollaborate: collaboration,
     canAccessInbox: Boolean(session.organizationId) && inboxIsReachable(collaboration),
+    canManageCompliance: canManageCompliance(session),
   }
 }

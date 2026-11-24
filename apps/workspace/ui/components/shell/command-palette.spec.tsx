@@ -9,6 +9,7 @@ import { I18nProvider } from '@/i18n'
 import type { SearchBody } from '@/lib/search/search-wire'
 import { SEARCH_FIXTURE_RESPONSE } from '@/app/dev/_fixtures/search'
 import { CommandPalette } from './command-palette'
+import { useProjectOverview } from './project-overview-entry'
 
 const push = vi.fn()
 let pathname = '/app/projects'
@@ -256,6 +257,22 @@ describe('CommandPalette: the workspace search', () => {
       'Abmelden',
     ])
     expect(asked).toHaveLength(0)
+  })
+
+  it('opens the project overview over the page, navigating nowhere', async () => {
+    render(palette())
+    await userEvent.click(screen.getByRole('option', { name: /Alle Projekte/ }))
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: false })
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
+  })
+
+  it('opens „Neues Projekt“ in the overview with its create dialog', async () => {
+    render(palette())
+    await userEvent.click(screen.getByRole('option', { name: /Neues Projekt/ }))
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: true })
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
   })
 
   it('lists what was opened from here last, newest first, and opens it again', async () => {
