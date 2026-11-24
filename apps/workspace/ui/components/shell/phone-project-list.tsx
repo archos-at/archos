@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { switcherSections, type ProjectSwitcherProject } from './project-list'
 import { readRecentProjectIds } from './recent-projects'
 import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
+import { overviewLinkClick } from './project-overview-entry'
 
 const FOOT_ROW_CLASS = cn(
   'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
@@ -125,11 +126,25 @@ export function PhoneProjectList({
         {/* The way to every project, closed ones included: the list's last
               row, with the list it continues. Pinned to the sheet's foot as a
               grey bar it stood a screen away from the projects it belongs to. */}
-        <Link href={PROJECT_OVERVIEW_PATH} onClick={onDone} className={FOOT_ROW_CLASS}>
+        <Link
+          href={PROJECT_OVERVIEW_PATH}
+          onClick={(event) => {
+            overviewLinkClick(PROJECT_OVERVIEW_PATH, event)
+            onDone()
+          }}
+          className={FOOT_ROW_CLASS}
+        >
           <span className="min-w-0 flex-1">{t('projectSwitcher.overview')}</span>
           <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
         </Link>
-        <Link href={NEW_PROJECT_PATH} onClick={onDone} className={FOOT_ROW_CLASS}>
+        <Link
+          href={NEW_PROJECT_PATH}
+          onClick={(event) => {
+            overviewLinkClick(NEW_PROJECT_PATH, event)
+            onDone()
+          }}
+          className={FOOT_ROW_CLASS}
+        >
           <span className="min-w-0 flex-1">{t('projectSwitcher.newProject')}</span>
           <Plus className="text-muted-foreground size-4 shrink-0" aria-hidden />
         </Link>

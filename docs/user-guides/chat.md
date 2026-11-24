@@ -28,7 +28,8 @@ the name then takes its place in the same row. While the list loads, grey
 placeholder rows stand in. When the side has more, **„Alle Chats“** ends the list and opens that
 side's history. Switching between Persönlich and Projekt moves the rail at once;
 the page follows when it has loaded. The chat you had open stays on its side:
-the other side opens its own chat, never the one you left. A chat without a project has no `@`: to bring someone in, share it
+the other side reopens the chat you last had open there (a new one if there
+is none), never the one you left. A chat without a project has no `@`: to bring someone in, share it
 through **Teilen**.
 
 ## Starting a conversation

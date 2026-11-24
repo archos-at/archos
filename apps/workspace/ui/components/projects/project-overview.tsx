@@ -12,9 +12,7 @@ import { SectionLabel } from '@/components/ui/section-label'
 import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { SearchField } from '@/components/ui/search-field'
 import { projectIdFromPathname } from '@/components/shell/org-sections'
-import { projectMatchesQuery } from './project-search'
-import type { Project } from '@/lib/db/schema/projects'
-import { projectCity, projectFactText } from '@/lib/projects/site-address'
+import { overviewMatchesQuery, type OverviewProject } from '@/lib/projects/overview-project'
 import { overviewOrder } from '@/lib/projects/overview-order'
 import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
@@ -25,7 +23,7 @@ import { ProjectActivity, ProjectOpenLink, ProjectSettingsLink } from './project
 import { getProjectStatus } from './project-status'
 
 export interface ProjectOverviewProps {
-  projects: Project[]
+  projects: OverviewProject[]
   viewerActivity?: Record<string, string>
   autoOpenCreate?: boolean
   closeAction?: ReactNode
@@ -49,7 +47,7 @@ export function ProjectOverview({
   const shown = useMemo(
     () =>
       overviewOrder(
-        needle ? projects.filter((project) => projectMatchesQuery(project, needle)) : projects,
+        needle ? projects.filter((project) => overviewMatchesQuery(project, needle)) : projects,
         viewerActivity
       ),
     [projects, needle, viewerActivity]
@@ -153,22 +151,19 @@ export function ProjectOverview({
 }
 
 export function projectOverviewLine(
-  project: Project,
+  project: Pick<OverviewProject, 'status' | 'place' | 'phase'>,
   statusLabel: (status: 'paused' | 'closed') => string
 ): string | null {
   const status = getProjectStatus(project)
   if (status !== 'active') return statusLabel(status)
-  return (
-    [projectCity(project), projectFactText(project, 'project_phase')].filter(Boolean).join(' · ') ||
-    null
-  )
+  return [project.place, project.phase].filter(Boolean).join(' · ') || null
 }
 
 function ProjectOverviewCard({
   project,
   current,
 }: {
-  project: Project
+  project: OverviewProject
   current: boolean
 }): JSX.Element {
   const t = useTranslations(projectsCopy)
@@ -212,7 +207,7 @@ function ProjectOverviewList({
   viewerActivity,
   label,
 }: {
-  projects: readonly Project[]
+  projects: readonly OverviewProject[]
   currentId: string | null | undefined
   viewerActivity: Readonly<Record<string, string>>
   label?: string

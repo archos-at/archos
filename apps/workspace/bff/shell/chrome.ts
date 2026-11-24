@@ -10,6 +10,7 @@ import {
 } from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
 import { overviewOrder } from '@/lib/projects/overview-order'
+import { toOverviewProject, type OverviewProject } from '@/lib/projects/overview-project'
 import { lastProjectActivityByUser } from '@/lib/conversations/repository'
 import { bestEffort } from '@/lib/best-effort'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
@@ -20,11 +21,12 @@ import { resolveTourEligibility } from '@/lib/onboarding/tour-eligibility'
 import { NO_TOURS, type TourEligibility } from '@/lib/onboarding/product-tour'
 import { resolveWhatsNewNotice } from '@/lib/release-notes/summary-notice'
 import type { WhatsNewNoticeState } from '@/lib/release-notes/release-notes-wire'
-import type { ProjectSwitcherProject } from '@/components/shell/project-switcher'
 import type { SidebarUser } from '@/components/shell/sidebar-user-menu'
 
 export interface ShellChrome {
-  projects: ProjectSwitcherProject[]
+  projects: OverviewProject[]
+  /** When the viewer last worked in each project, ISO; the overview orders and dates its rows by it. */
+  projectActivity: Record<string, string>
   user?: SidebarUser
   organizationName: string | null
   organizations: SwitchableOrganization[]
@@ -45,11 +47,13 @@ const EMPTY_NAV_FLAGS: NavFlags = {
   canAccessOfficeStandards: false,
   canCollaborate: false,
   canAccessInbox: false,
+  canManageCompliance: false,
 }
 
 function emptyChrome(): ShellChrome {
   return {
     projects: [],
+    projectActivity: {},
     user: undefined,
     organizationName: null,
     organizations: [],
@@ -63,7 +67,12 @@ function emptyChrome(): ShellChrome {
   }
 }
 
-async function loadSwitcherProjects(session: AuthorizedSession): Promise<ProjectSwitcherProject[]> {
+interface ShellProjects {
+  projects: OverviewProject[]
+  activity: Record<string, string>
+}
+
+async function loadShellProjects(session: AuthorizedSession): Promise<ShellProjects> {
   try {
     const visible = await listProjects(session)
     const activity =
@@ -74,13 +83,9 @@ async function loadSwitcherProjects(session: AuthorizedSession): Promise<Project
           visible.map((project) => project.id)
         )
       )) ?? {}
-    return overviewOrder(visible, activity).map((project) => ({
-      id: project.id,
-      name: project.name,
-      status: project.status,
-    }))
+    return { projects: overviewOrder(visible, activity).map(toOverviewProject), activity }
   } catch {
-    return []
+    return { projects: [], activity: {} }
   }
 }
 
@@ -98,9 +103,9 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     ? switchableOrganizations(session.organizationId, session.userId)
     : Promise.resolve([])
 
-  const switcherProjects = session.organizationId
-    ? loadSwitcherProjects(session as AuthorizedSession)
-    : Promise.resolve([])
+  const shellProjects = session.organizationId
+    ? loadShellProjects(session as AuthorizedSession)
+    : Promise.resolve<ShellProjects>({ projects: [], activity: {} })
 
   let navFlags = EMPTY_NAV_FLAGS
   try {
@@ -109,7 +114,7 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     // page that 500s because a capability lookup was slow or down.
   }
 
-  const projects = await switcherProjects
+  const { projects, activity: projectActivity } = await shellProjects
 
   let organizationName: string | null = null
   try {
@@ -128,6 +133,7 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
 
   return {
     projects,
+    projectActivity,
     user: { name: session.name, email: session.email },
     organizationName,
     organizations: await switchable,
