@@ -442,7 +442,7 @@ export function RunBlock({
                             <button
                               type="button"
                               onClick={() => onOpenDocument(row.doc)}
-                              className="focus-visible:ring-ring/60 max-w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2"
+                              className="focus-visible:ring-ring/60 max-w-full rounded-overlay text-left focus-visible:outline-none focus-visible:ring-2"
                               aria-label={t('documents.open', { name: label })}
                             >
                               <SourceSignalChip

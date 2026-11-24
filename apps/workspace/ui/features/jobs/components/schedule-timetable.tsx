@@ -220,7 +220,7 @@ export function ScheduleTimetable({
               >
                 <span
                   aria-hidden
-                  className="size-2.5 shrink-0 rounded-[3px]"
+                  className="size-2.5 shrink-0 rounded-control"
                   style={{ backgroundColor: colorOf(job.id) }}
                 />
                 <span className="max-w-48 truncate">{job.name}</span>

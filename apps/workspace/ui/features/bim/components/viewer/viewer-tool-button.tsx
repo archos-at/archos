@@ -46,7 +46,7 @@ export const ViewerToolButton = forwardRef<HTMLButtonElement, ViewerToolButtonPr
         variant={active ? 'default' : 'ghost'}
         data-slot="viewer-tool-button"
         className={cn(
-          'pointer-coarse:h-14 pointer-coarse:min-w-0 h-14 min-w-0 flex-1 flex-col gap-0.5 rounded-xl px-0 py-1.5 text-[11px] leading-none',
+          'pointer-coarse:h-14 pointer-coarse:min-w-0 h-14 min-w-0 flex-1 flex-col gap-0.5 rounded-[12px] px-0 py-1.5 text-[11px] leading-none',
           className
         )}
         {...rest}

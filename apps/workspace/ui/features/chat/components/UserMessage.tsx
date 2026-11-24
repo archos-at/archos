@@ -13,7 +13,7 @@ import { MentionText } from '@/features/collaboration/components/MentionText'
 import { MessageAuthor } from './MessageAuthor'
 
 const COPY_BUTTON_CLASS = cn(
-  'absolute right-2 top-2 rounded-control bg-muted p-1.5 text-muted-foreground',
+  'absolute right-2 top-2 rounded-[8px] bg-muted p-1.5 text-muted-foreground',
   'opacity-0 transition-[opacity,color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out group-hover:opacity-100 active:scale-[0.98] motion-reduce:active:scale-100',
   'focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none',
   'inline-flex items-center justify-center pointer-coarse:size-11 pointer-coarse:bg-transparent pointer-coarse:p-0',

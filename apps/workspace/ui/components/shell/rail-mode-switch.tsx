@@ -56,7 +56,7 @@ export function RailModeSwitch({ mode, collapsed }: { mode: RailMode; collapsed:
       }}
       aria-label={t('railMode')}
       data-testid="rail-mode-switch"
-      className={cn('bg-selected gap-0 rounded-control p-0.5', collapsed ? 'flex-col flex-nowrap' : 'grid w-full grid-cols-2')}
+      className={cn('bg-selected gap-0 rounded-[8px] p-0.5', collapsed ? 'flex-col flex-nowrap' : 'grid w-full grid-cols-2')}
     >
       {item('personal', t('railModePersonal'))}
       {item('project', t('railModeProject'))}

@@ -27,7 +27,7 @@ export function KindPicker({ value, onChange }: { value: AnnotationKind; onChang
             data-testid={`thread-kind-${kind}`}
             onClick={() => onChange(kind)}
             className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] font-medium transition-colors duration-quick ease-out',
+              'inline-flex h-6 items-center gap-1 rounded-[4px] px-2 text-[11px] font-medium transition-colors duration-quick ease-out',
               on ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
             )}
           >

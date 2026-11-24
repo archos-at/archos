@@ -125,7 +125,7 @@ export function FolderBrief({
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs',
+                'hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-surface py-2 text-left text-xs',
                 (open || foundCount === 0) && 'w-full',
                 'transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
                 open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */

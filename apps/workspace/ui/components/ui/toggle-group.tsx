@@ -68,7 +68,7 @@ const ToggleGroup = React.forwardRef<
           'flex items-center',
           segmented
             ? // A segment cluster HUGS its segments. `flex` alone is
-              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-desk p-0.5'
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-[8px] bg-desk p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}
