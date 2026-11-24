@@ -232,7 +232,14 @@ def _warn_unscoped(request: JobRequest) -> None:
 
 
 async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | None:
+    from agent.project_context import bind_worker_identity
+
     identity = request.identity
+    bind_worker_identity(
+        organization_id=identity.get("organization_id"),
+        user_id=identity.get("user_id"),
+        project_id=identity.get("project_id"),
+    )
     identity_headers = {
         name: value
         for name, value in zip(_IDENTITY_HEADERS, _identity_values(identity), strict=True)

@@ -381,3 +381,22 @@ def test_the_workflow_span_says_the_conversation_is_temporary_and_only_then():
 
     workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run, object)
     assert "temporary_conversation" not in workflow.provided_metadata
+
+
+@pytest.mark.asyncio
+async def test_a_run_without_an_envelope_binds_its_identity_so_residency_and_byok_know_its_organization(monkeypatch):
+    from agent.project_context import RequestContext
+
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, _headers: None)
+
+    async def no_envelope(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        return {}
+
+    monkeypatch.setattr(agent_job_setup, "envelope_headers_for_run", no_envelope)
+    identity = {"project_id": "proj-1", "organization_id": "org-1", "user_id": "user-1"}
+
+    await agent_job_setup._inject_identity_headers(object(), _request(usage_context={"identity": identity}))
+
+    bound = RequestContext.from_context()
+    assert (bound.organization_id, bound.user_id, bound.project_id) == ("org-1", "user-1", "proj-1")
+    assert bound.collection_scope is None

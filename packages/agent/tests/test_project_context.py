@@ -494,3 +494,21 @@ class TestOrgInstructions:
     def test_the_accessor_returns_what_the_parse_bounded(self, signed_context):
         signed_context({"orgInstructions": "Kurz antworten."})
         assert pc.get_org_instructions_from_context() == "Kurz antworten."
+
+
+def test_an_envelope_less_job_still_names_its_organization_from_the_identity_its_worker_binds():
+    import contextvars
+
+    from agent.common import residency
+    from agent.project_context import bind_worker_identity
+
+    def run():
+        assert pc.RequestContext.from_context().organization_id is None
+        bind_worker_identity(organization_id="org_1", user_id=" user_1 ", project_id="")
+        bound = pc.RequestContext.from_context()
+        assert (bound.organization_id, bound.user_id, bound.project_id) == ("org_1", "user_1", None)
+        assert bound.collection_scope is None
+        assert residency._current_organization() == "org_1"
+
+    contextvars.copy_context().run(run)
+    assert pc.RequestContext.from_context().organization_id is None

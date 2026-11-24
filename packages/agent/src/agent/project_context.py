@@ -1,4 +1,5 @@
 import base64
+import contextvars
 import hashlib
 import hmac
 import json
@@ -212,7 +213,9 @@ class RequestContext:
             _read_header(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
             os.environ.get("INTERNAL_API_TOKEN"),
         )
-        return envelope if envelope is not None else cls()
+        if envelope is not None:
+            return envelope
+        return _worker_identity.get() or cls()
 
     @classmethod
     def from_envelope(
@@ -286,6 +289,27 @@ class RequestContext:
             secret,
         )
         return envelope if envelope is not None else cls()
+
+
+_worker_identity: contextvars.ContextVar[RequestContext | None] = contextvars.ContextVar(
+    "worker_identity", default=None
+)
+
+
+def _identity_part(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def bind_worker_identity(
+    *, organization_id: object, user_id: object, project_id: object
+) -> contextvars.Token[RequestContext | None]:
+    return _worker_identity.set(
+        RequestContext(
+            organization_id=_identity_part(organization_id),
+            user_id=_identity_part(user_id),
+            project_id=_identity_part(project_id),
+        )
+    )
 
 
 def get_profile_context_from_context() -> str | None:
