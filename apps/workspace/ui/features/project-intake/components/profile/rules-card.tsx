@@ -49,7 +49,7 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   return (
     <section
       aria-labelledby="profile-rules-heading"
-      className="bg-card border-border min-w-0 rounded-[14px] border px-4 py-4 md:px-[22px] md:py-[18px]"
+      className="bg-card border-border min-w-0 rounded-[12px] border px-4 py-4 md:px-[22px] md:py-[18px]"
       data-testid="profile-rules"
       data-gate={law.gate}
     >

@@ -1,4 +1,5 @@
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
+import { matchesEveryWord } from '@/shared/utils/every-word'
 
 export function nextOpenAfter(decidedId: string, before: readonly Pick<InboundMailSummaryView, 'id'>[], after: readonly Pick<InboundMailSummaryView, 'id'>[]): string | null {
   const still = new Set(after.map((mail) => mail.id))
@@ -46,11 +47,6 @@ export function dismissKeyAllowed(target: EventTarget | null, root: Element | nu
   return row !== null && row.getAttribute('data-mail-id') === openId && link.matches('[data-testid="inbound-mail-row-link"]')
 }
 
-const fold = (text: string): string => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('de')
-
-export function matchesQuery(mail: Pick<InboundMailSummaryView, 'subject' | 'senderName' | 'senderDomain'>, query: string): boolean {
-  const words = fold(query).split(/\s+/).filter(Boolean)
-  if (words.length === 0) return true
-  const haystack = fold([mail.subject, mail.senderName, mail.senderDomain].filter(Boolean).join(' '))
-  return words.every((word) => haystack.includes(word))
+export function matchesQuery(mail: Pick<InboundMailSummaryView, 'subject' | 'senderName' | 'senderDomain' | 'attachmentNames'>, query: string): boolean {
+  return matchesEveryWord([mail.subject, mail.senderName, mail.senderDomain, ...mail.attachmentNames], query)
 }

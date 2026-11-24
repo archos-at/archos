@@ -318,6 +318,9 @@ The Postfach keeps the tab it shows and the entry it has open in its page's addr
 (`/app/inbox?tab=news|archived&item=<id>`; „Wartet auf Sie“, the default, is not written;
 `InboxWorkspace`), replaced with `router.replace` on a change. „Wartet auf Sie“ reads `requests`,
 „Neuigkeiten“ reads `all` and leaves out the open requests, „Archiviert“ reads `archived`.
+An opened entry about a mark reads that mark with `GET /api/documents/{documentId}/annotations/{anchorId}`
+(`useInboxMark`) for its place, its whole text and its replies, answers it with the replies route and marks it done
+with `PATCH` on the same path; the list reads nothing more per row.
 
 `counts` are the numbers beside the first two
 filters. `hasMore` says a further page exists; pass `nextCursor` back as

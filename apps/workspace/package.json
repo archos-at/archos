@@ -12,8 +12,8 @@
     "rederive:building-classes": "node workers/rederive-building-classes.js",
     "start": "NODE_ENV=production node server.js",
     "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/copy-excalidraw-assets.mjs",
-    "lint": "node scripts/check-static-utility-modifiers.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts",
-    "lint:fix": "node scripts/check-static-utility-modifiers.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts --fix",
+    "lint": "node scripts/check-static-utility-modifiers.mjs && node scripts/check-concentric-radius.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts",
+    "lint:fix": "node scripts/check-static-utility-modifiers.mjs && node scripts/check-concentric-radius.mjs --fix && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts --fix",
     "a11y": "node scripts/a11y-audit.mjs",
     "clip-check": "node scripts/clip-check.mjs",
     "lint:seams": "node scripts/depcruise.mjs app bff ui i18n shared types utils --ignore-known --output-type plugin:./scripts/module-seams-reporter.mjs",
@@ -160,6 +160,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.8",
     "@faker-js/faker": "^10.2.0",
     "@mswjs/data": "^0.16.2",
     "@posthog/cli": "0.18.11",

@@ -126,7 +126,7 @@ export function SectionStrip({
     <div ref={stripRef} className={className}>
       {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
       <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className={cn('flex', words ? 'gap-6' : track ? 'mb-2 w-fit rounded-control bg-desk p-0.5' : 'gap-1 pb-2')}>
+        <ul className={cn('flex', words ? 'gap-6' : track ? 'mb-2 w-fit rounded-[6px] bg-desk p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink

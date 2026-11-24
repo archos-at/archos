@@ -73,7 +73,7 @@ export function RoundList({
                     <span className="sr-only">{tStatus(row, current)}</span>
                   </>
                 )
-                const rowClass = 'flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-[9px] text-left text-sm'
+                const rowClass = 'flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-[9px] text-left text-sm'
                 return (
                   <li key={row.id} title={row.label}>
                     {row.done ? (

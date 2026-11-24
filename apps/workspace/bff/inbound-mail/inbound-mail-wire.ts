@@ -157,6 +157,7 @@ export interface InboundMailSummaryView extends InboundMailSenderRiskView {
   receivedAt: string
   expiresAt: string
   attachments: number
+  attachmentNames: string[]
   waitingParts: number
   outcomes: Record<InboundMailOutcome, number>
   restorableUntil: string | null

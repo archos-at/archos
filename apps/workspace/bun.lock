@@ -126,6 +126,7 @@
         "zustand": "^5.0.16",
       },
       "devDependencies": {
+        "@babel/parser": "7.29.8",
         "@faker-js/faker": "^10.2.0",
         "@mswjs/data": "^0.16.2",
         "@posthog/cli": "0.18.11",

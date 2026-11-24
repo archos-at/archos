@@ -88,7 +88,7 @@ export function ViewerPanel({
           type="button"
           variant="ghost"
           size="icon"
-          className="-mt-1 -mr-1 size-7 shrink-0 rounded-md"
+          className="-mt-1 -mr-1 size-7 shrink-0 rounded-[10px]"
           onClick={onClose}
           aria-label={closeLabel}
         >

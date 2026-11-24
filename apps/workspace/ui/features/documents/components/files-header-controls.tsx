@@ -13,7 +13,7 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import type { FileView } from '../hooks/use-view-preference'
-import { FileSearchField } from './file-search-bar'
+import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from './file-search-bar'
 import type { FileFilterMenuProps } from './file-filter-menu'
 
 export interface FilesHeaderControlsProps {
@@ -208,8 +208,8 @@ export function FilesHeaderControls({
     )
     return (
       <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
-        {searchField('min-w-40 flex-1')}
-        <div className={cn('flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
+        {searchField(TOOL_ROW_SEARCH_CLASS)}
+        <div className={cn('ml-auto flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
           <SectionLevelTools />
           {binHref && (
             <Button asChild variant="secondary" size="icon" aria-label={t('workspace.openBin')} title={t('workspace.openBin')}>

@@ -186,6 +186,18 @@ saying which and where a filed mail went („Abgelegt → „Stellplatznachweis�
 a mail filed without a click says „Ohne Klick abgelegt →“ and the
 E-Mail-Verlauf it went into. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
 
+**Im E-Mail-Eingang suchen …**, the search at the start of the Ablage's tool
+row, where Dateien has its own, narrows the list as you type: to the mails
+whose sender, subject or attachment names hold every word you typed
+(„novak plan“ finds Novak's mail with „Gerüstplan_Süd.pdf“). It searches the
+list on show, „Wartet auf Ablage“ or „Bearbeitet“, and only the mails loaded
+so far: after „Weitere laden“ it searches those too. The search stays in the
+page's address (`?q=`), so opening a mail, the next one after filing, or a
+reload keeps it; switching between „Wartet auf Ablage“ and „Bearbeitet“
+clears it. When nothing matches the list says so („Keine E-Mail passt zu
+„statik““) with **Suche leeren**; Escape in the field clears it too. On a
+phone the search stands at the top of the list, under the two lists' switch.
+
 ## Filing a mail
 
 Open a mail: it shows the mail and nothing to fill in. Under the subject one

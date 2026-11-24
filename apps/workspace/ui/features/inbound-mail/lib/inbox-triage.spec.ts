@@ -61,13 +61,20 @@ describe('dismissKeyAllowed', () => {
 })
 
 describe('matchesQuery', () => {
-  const mail = { subject: 'AW: Rückfrage Gerüststellung', senderName: 'Gerüstbau Novak', senderDomain: 'geruestbau-novak.example' }
+  const mail = { subject: 'AW: Rückfrage Gerüststellung', senderName: 'Gerüstbau Novak', senderDomain: 'geruestbau-novak.example', attachmentNames: ['Gerüstplan_Süd_Index-B.pdf', 'Lieferschein 0815.pdf'] }
 
   it('finds by sender or subject, every word, ignoring case and accents', () => {
     expect(matchesQuery(mail, 'novak')).toBe(true)
     expect(matchesQuery(mail, 'ruckfrage geruestbau')).toBe(true)
     expect(matchesQuery(mail, 'GERÜST')).toBe(true)
     expect(matchesQuery(mail, 'statik')).toBe(false)
-    expect(matchesQuery({ subject: null, senderName: null, senderDomain: null }, '  ')).toBe(true)
+    expect(matchesQuery({ subject: null, senderName: null, senderDomain: null, attachmentNames: [] }, '  ')).toBe(true)
+  })
+
+  it('finds by an attachment’s file name, and a word may come from the name while another comes from the sender', () => {
+    expect(matchesQuery(mail, 'lieferschein')).toBe(true)
+    expect(matchesQuery(mail, 'gerustplan sud')).toBe(true)
+    expect(matchesQuery(mail, '0815 novak')).toBe(true)
+    expect(matchesQuery({ ...mail, attachmentNames: [] }, 'lieferschein')).toBe(false)
   })
 })

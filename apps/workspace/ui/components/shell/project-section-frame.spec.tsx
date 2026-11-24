@@ -79,8 +79,8 @@ describe('ProjectSectionFrame', () => {
     const names = Array.from(tabs.querySelectorAll('a')).map((link) => link.textContent)
     expect(names).toEqual(['Files', 'Project mail', 'Open points'])
     expect(screen.getByRole('link', { name: 'Project mail' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { level: 1, name: 'Project mail' })).toBeInTheDocument()
-    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent('Stadthaus WienDocuments')
+    expect(screen.getByRole('heading', { level: 1, name: 'Documents' })).toBeInTheDocument()
+    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien·Project team$/)
     expect(screen.getByRole('banner').querySelector('h1 + p')).toBeNull()
     unmount()
 
@@ -132,6 +132,37 @@ describe('ProjectSectionFrame', () => {
     const row = screen.getByTestId('files-tool-row')
     expect(row).toContainElement(screen.getByRole('button', { name: 'Upload' }))
     expect(screen.getByRole('heading', { level: 1 }).closest('header')).not.toContainElement(screen.getByRole('button', { name: 'Upload' }))
+  })
+
+  test('the Ablage’s head stands still: every place has its crumb, its title and its tool row, a place’s own tools at the row’s end (KAN-86)', () => {
+    for (const path of ['/app/projects/p1/files', '/app/projects/p1/files/mail', '/app/projects/p1/files/mail/m1', '/app/projects/p1/files/open-points']) {
+      pathname = path
+      const { unmount } = render(
+        <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
+          <p>body</p>
+        </ProjectSectionFrame>,
+      )
+      expect(screen.getByRole('heading', { level: 1 }), path).toHaveTextContent(/^Documents$/)
+      expect(screen.getByTestId('page-header-crumb'), path).toHaveTextContent(/^Stadthaus Wien·Project team$/)
+      const row = screen.getByTestId('files-tool-row')
+      expect(row, path).toHaveClass('h-9')
+      expect(row.nextElementSibling, path).toContainElement(screen.getByTestId('files-tabs'))
+      unmount()
+    }
+
+    pathname = '/app/projects/p1/files/mail'
+    render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
+        <ProjectSectionActions onTitleLine>
+          <button type="button">Copy address</button>
+        </ProjectSectionActions>
+        <p>mail body</p>
+      </ProjectSectionFrame>,
+    )
+    const tool = screen.getByRole('button', { name: 'Copy address' })
+    expect(screen.getByTestId('files-tool-row')).toContainElement(tool)
+    expect(tool.parentElement).toHaveClass('ml-auto')
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')).not.toContainElement(tool)
   })
 
   describe('the header below the rail’s width', () => {
