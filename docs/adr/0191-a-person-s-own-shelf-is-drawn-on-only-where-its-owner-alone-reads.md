@@ -55,7 +55,7 @@ without being recorded.
    `conversation_source_projects` records a project. Sharing a chat that carries
    the record asks its owner first and says what the others will see: the
    answers, never the files. Once shared, the chat draws on the shelf no more.
-   Personal memory is not recorded: it reaches every solo turn, so recording it
+   Personal memory is not recorded: it reaches every solo turn in a conversation, so recording it
    would make every share ask. Once a chat is shared, the next turn no longer
    receives it (ADR-0180, rule 4); earlier answers may still reflect the owner's
    preferences, and that risk is accepted.

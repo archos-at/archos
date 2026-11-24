@@ -91,8 +91,8 @@ one.
    re-deciding.
 
 After slice 2, Python reads scope in exactly one place,
-`scoping.get_scoped_collections_from_context`. The seven other modules that read
-`.collection_scope` today move onto it in slice 2.
+`scoping.get_scoped_collections_from_context`. The eight other modules that read
+`.collection_scope` or `.collection_scope_entries` today move onto it in slice 2.
 
 The socket's envelope keeps everything it carries except `collectionScope`:
 identity, the project for a chat whose row is not there yet, budget, model
@@ -145,7 +145,7 @@ restricted folders today also takes personal collections. The BFF writes
 `recorded.personalShelf`, and `widenConversationAudience` asks the owner first
 when it is set.
 
-The personal-memory digest is injected into every solo turn, so recording it
+The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
 turn no longer injects it (ADR-0180, rule 4, fresh each turn). Earlier answers
 may still reflect the owner's preferences, a risk this design accepts.

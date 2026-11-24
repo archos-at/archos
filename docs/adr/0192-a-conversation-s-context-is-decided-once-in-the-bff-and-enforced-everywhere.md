@@ -77,7 +77,7 @@ keep the personal shelf in a chat after it was shared.
    The built-in agent's door is `chat`, `run` or `headless`, by what started it.
 
    Nothing without a conversation gets personal memory or the personal shelf,
-   and neither does an external caller. A missing row reads as solo, so solo
+   and neither does an external caller. A run never gets the personal shelf. A missing row reads as solo, so solo
    alone never grants anything personal. The table is in the design.
 
 ## Consequences
