@@ -12,6 +12,7 @@ import {
 import { Lock, MessageSquareText, MoreHorizontal, PencilLine, Share2, SquarePen, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { Button } from '@/components/ui/button'
+import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -227,7 +228,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck={false}
-                    className="h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:text-base sm:h-7 sm:pointer-fine:text-xs"
+                    className={cn('h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground pointer-coarse:text-base sm:h-7 sm:pointer-fine:text-xs', FIELD_FOCUS_RING)}
                   />
                 ) : (
                   <button data-attr="chat-start-editing-title"
