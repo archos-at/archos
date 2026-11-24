@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you

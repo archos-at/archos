@@ -1,4 +1,5 @@
 ---
+# area: answers
 operators:
   - >
     Every vote on an answer is now also a user-feedback score on that answer's

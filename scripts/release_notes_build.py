@@ -55,14 +55,13 @@ def note_from_body(filename: str, version: str, day: str | None, body: dict[str,
     sections = {
         key: [value] if isinstance(value, str) else list(value) for key, value in body.items() if key != PRELUDE_SECTION
     }
-    customer_text = " ".join(" ".join(entries) for key, entries in sections.items() if key not in INTERNAL_SECTIONS)
     return Note(
         filename=filename,
         version=version,
         date=day,
         sections=sections,
         prelude=body.get(PRELUDE_SECTION),
-        area=note_area(filename, raw, customer_text),
+        area=note_area(filename, raw),
     )
 
 

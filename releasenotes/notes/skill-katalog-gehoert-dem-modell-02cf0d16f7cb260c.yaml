@@ -1,4 +1,5 @@
 ---
+# area: tasks
 upgrade:
   - >
     The skill editor no longer has the switch that let Piloti pick skills on

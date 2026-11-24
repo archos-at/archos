@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Langfuse now shows each chat turn as the reader got it, with the answer as its output, its route,

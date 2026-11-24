@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Findings from a report now carry on in the project. An open finding can

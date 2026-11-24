@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Organisation admins can now see who downloaded which document, and who

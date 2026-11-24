@@ -12,8 +12,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[5]
 CONFIG = ROOT / "configs" / "config_oib_openrouter.yml"
 SNAPSHOT = ROOT / "packages" / "agent" / "tests" / "fixtures" / "model_facing_text.json"
-REGENERATE_ENV = "UPDATE_MODEL_FACING_TEXT"
-REGENERATE = f"{REGENERATE_ENV}=1 .venv/bin/python -m pytest -q packages/agent/tests/test_model_facing_text.py"
 
 AGENT_TYPES = frozenset(
     {"data_source_registry", "research_agent", "deep_research_agent", "deep_research_skills", "project_intake_agent"}

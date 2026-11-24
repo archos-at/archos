@@ -1,4 +1,5 @@
 ---
+# area: office-knowledge
 fixes:
   - >
     Piloti now searches project memory by meaning, not only by shared words, and
