@@ -137,13 +137,13 @@ describe('a new edition of a norm the office holds, in the Postfach', () => {
   })
 })
 
-describe('a norm suggested for the Büroablage, the one norm item that asks for a decision', () => {
-  test('a norm suggested for the Büroablage is accepted or declined right in the queue', () => {
+describe('a norm suggested for the Bürobibliothek, the one norm item that asks for a decision', () => {
+  test('a norm suggested for the Bürobibliothek is accepted or declined right in the queue', () => {
     queue([suggested])
     const entry = entryOf('i-suggest')
-    expect(entry.firstElementChild).toHaveTextContent('Anna Berger schlägt eine Norm für die Büroablage vor')
+    expect(entry.firstElementChild).toHaveTextContent('Anna Berger schlägt eine Norm für die Bürobibliothek vor')
     expect(within(entry).getByTestId('inbox-norm-names')).toHaveTextContent('ÖNORM B 3691')
-    expect(screen.getByRole('button', { name: 'In die Büroablage übernehmen' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Ablehnen' })).toBeEnabled()
   })
 

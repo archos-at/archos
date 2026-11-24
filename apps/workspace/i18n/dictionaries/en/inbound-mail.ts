@@ -1,7 +1,7 @@
 export const inboundMail = {
   title: 'Project mail',
   subtitle: 'Mail sent to the project mail address waits here until someone files it.',
-  back: 'Files',
+  back: 'Documents',
   addressButton: 'Address',
   noSelection: 'Choose a mail to see what it contains.',
 
@@ -317,7 +317,7 @@ export const inboundMail = {
       scan_infected: 'Malware found\u00A0· cannot be filed',
       not_offered: 'This office does not file this file type\u00A0· in the original',
       filing: 'Being filed …',
-      filed: 'Filed in Files',
+      filed: 'Filed in Documents',
       filedTo: 'Filed in {folder}',
       version: 'revision {version}',
       dismissed: 'Dismissed',
@@ -622,7 +622,7 @@ export const inboundMail = {
     confirmSummary: '{files, plural, one {# file} other {# files}} and {texts, plural, one {# mail text} other {# mail texts}}',
     destination: {
       folder: 'In “{label}”: {count}',
-      root: 'In Files (top level): {count}',
+      root: 'In Documents (top level): {count}',
       new_folder: 'In the new folder “{label}”: {count}',
       thread: 'In mail thread “{label}”: {count}',
       new_thread: 'As the new mail thread “{label}”',
@@ -680,7 +680,7 @@ export const inboundMail = {
 
   address: {
     dialogTitle: 'Project mail address',
-    lead: 'Put this address in Cc when you write about the project. The replies then land in Project mail under Files.',
+    lead: 'Put this address in Cc when you write about the project. The replies then land in Project mail under Documents.',
     label: 'Project mail address',
     copy: 'Copy',
     copied: 'Copied',

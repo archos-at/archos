@@ -47,6 +47,27 @@ export const intakeProfileStep = {
       grossFloorArea: 'Gross floor area {value}',
     },
   },
+  buildings: {
+    heading: 'Buildings',
+    description:
+      'If the site holds several buildings, add each one. Escape level, Gebäudeklasse and questions then apply per building.',
+    add: 'Add a building',
+    addBusy: 'Adding …',
+    rename: 'Rename',
+    renameAria: 'Rename {name}',
+    nameLabel: 'Name of the building',
+    save: 'Save',
+    saveBusy: 'Saving …',
+    cancel: 'Cancel',
+    remove: 'Remove',
+    removeAria: 'Remove {name}',
+    removeTitle: 'Remove “{name}”?',
+    removeDescription:
+      'This deletes every value and suggestion for this building, its Gebäudeklasse included. It cannot be undone.',
+    removeConfirm: 'Remove the building',
+    class: 'GK {value}',
+    classOpen: 'Gebäudeklasse still open',
+  },
   rules: {
     heading: 'What applies to this project',
     role: {

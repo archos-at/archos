@@ -4,12 +4,12 @@ export const uploadBatches = {
     loading: 'Loading the summary…',
     place: {
       project: 'Project',
-      office_shelf: 'Office filing',
+      office_shelf: 'Office library',
       session: 'Chat',
     },
     open: {
       project: 'Open files',
-      office_shelf: 'Open Office filing',
+      office_shelf: 'Open Office library',
       session: 'Open chat',
     },
     state: {
@@ -40,13 +40,13 @@ export const uploadBatches = {
       title: 'Files',
       root: {
         project: 'Project folder',
-        office_shelf: 'Office filing',
+        office_shelf: 'Office library',
         session: 'Chat',
       },
       empty: 'No file from this upload reached {productName}.',
       pages: '{count, plural, one {# page} other {# pages}}',
-      openInFiles: 'Open in Files',
-      openInOfficeShelf: 'Open in Office filing',
+      openInFiles: 'Open in Documents',
+      openInOfficeShelf: 'Open in Office library',
       changedHint: 'A new revision of a document that was already here. The previous one stays readable under “Revisions and approval”.',
       protectedHint: 'Filed in a folder with its own access list. The lock on the folder shows who may open and change it.',
       requestRelease: 'Ask for a review',

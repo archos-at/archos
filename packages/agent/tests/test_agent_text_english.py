@@ -57,7 +57,7 @@ def texts() -> list[tuple[str, str]]:
 
 def test_the_detector_tells_german_from_english() -> None:
     assert is_german("Die Datei wurde nicht gefunden und der Fehler ist offen.")
-    assert not is_german("Moves a file. Example: „wo ist der Plan“ or 'was ist in der Büroablage' (Fassung).")
+    assert not is_german("Moves a file. Example: „wo ist der Plan“ or 'was ist in der Bürobibliothek' (Fassung).")
     assert not is_german("The Dokumentart is set by a person; Bescheid, Plankopf and Einreichung stay German.")
 
 

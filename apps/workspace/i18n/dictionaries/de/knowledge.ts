@@ -31,7 +31,7 @@ export const knowledge: typeof en.knowledge = {
     title: 'Projektdokumente',
     description:
       'In diesem Projekt hochgeladene Dateien. Nach der Verarbeitung sind sie in den Chats dieses Projekts zusätzlich zu den gemeinsamen Richtlinien durchsuchbar.',
-    empty: 'Noch keine Projektdokumente. Unter „Dateien“ hochgeladene Dateien werden Teil des Wissens des Assistenten.',
+    empty: 'Noch keine Projektdokumente. In der Ablage hochgeladene Dateien werden Teil des Wissens des Assistenten.',
     goToFiles: 'Dateien verwalten',
   },
   states: {
@@ -111,19 +111,19 @@ export const knowledge: typeof en.knowledge = {
     backToSource: 'Zurück zur Fundstelle',
     found: '{count, plural, one {In # Projekt gefunden} other {In # Projekten gefunden}}',
     foundWithOfficeShelf:
-      '{count, plural, one {In # Projekt und der Büroablage gefunden} other {In # Projekten und der Büroablage gefunden}}',
-    foundOnlyOfficeShelf: 'In der Büroablage gefunden',
+      '{count, plural, one {In # Projekt und der Bürobibliothek gefunden} other {In # Projekten und der Bürobibliothek gefunden}}',
+    foundOnlyOfficeShelf: 'In der Bürobibliothek gefunden',
     loading: '{productName} sieht in Ihren Projekten nach…',
     emptyTitle: 'Im Büro noch nicht behandelt',
     emptyBody:
-      'Durchgesehen: dieses Projekt, {count, plural, one {# weiteres Projekt} other {# weitere Projekte}} und die Büroablage.',
+      'Durchgesehen: dieses Projekt, {count, plural, one {# weiteres Projekt} other {# weitere Projekte}} und die Bürobibliothek.',
     failedTitle: 'Das hat gerade nicht geklappt',
     failedBody: 'Bitte gleich noch einmal versuchen.',
     heldTitle: 'Dieses Dokument wird noch geprüft',
     heldBody: 'Sobald die Prüfung abgeschlossen ist, sieht {productName} im Büro nach.',
     retry: 'Erneut versuchen',
     groupCurrent: 'Dieses Projekt',
-    groupOfficeShelf: 'Büroablage',
+    groupOfficeShelf: 'Bürobibliothek',
     groupClosed: 'abgeschlossen',
     datedOn: 'Stand {date}',
     page: 'S. {page}',

@@ -60,7 +60,7 @@ beforeEach(() => {
   })
 })
 
-describe('an upload to the Büroablage', () => {
+describe('an upload to the Bürobibliothek', () => {
   it('takes a norm out of the Ordner before its text is read: it lands under the standards root and its proposal names the folder it was meant for', async () => {
     await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_8110-3_2020-03-15_de.pdf'), request, { folderId: 'folder-plans', uploadBatchId: 'batch-1' })
 

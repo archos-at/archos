@@ -89,18 +89,18 @@ const german = (row: InboxItemView, decisions: InboxNormDecisionClient = client(
     </I18nProvider>
   )
 
-describe('a norm suggested for the Büroablage, in the Postfach', () => {
+describe('a norm suggested for the Bürobibliothek, in the Postfach', () => {
   test('says who suggests which norm, and that the whole office will see it', () => {
     german(suggestion)
-    expect(screen.getByText('Anna Berger schlägt eine Norm für die Büroablage vor')).toBeInTheDocument()
+    expect(screen.getByText('Anna Berger schlägt eine Norm für die Bürobibliothek vor')).toBeInTheDocument()
     expect(screen.getByText('ÖNORM B 1600')).toBeInTheDocument()
     expect(screen.getByText('Danach ist sie für alle im Büro sichtbar.')).toBeInTheDocument()
   })
 
-  test('shows the suggested values in the norm dialog, and takes it into the Büroablage confirmed with the values confirmed there', async () => {
+  test('shows the suggested values in the norm dialog, and takes it into the Bürobibliothek confirmed with the values confirmed there', async () => {
     const decisions = client()
     german(suggestion, decisions)
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
 
     const dialog = await screen.findByTestId('norm-dialog')
     expect(decisions.read).toHaveBeenCalledWith(PROPOSAL)
@@ -116,7 +116,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
         norms: [{ documentId: DOC, values: { kind: 'technical_standard', designation: 'ÖNORM B 1600:2023', editionLabel: '2023-02-01' } }],
       })
     )
-    expect(await screen.findByRole('status')).toHaveTextContent('Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Bestätigt und in der Bürobibliothek. Das Projekt behält einen Verweis.')
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: 1, source: 'postfach_suggestion' })
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', {
       confirmed: 1,
@@ -132,7 +132,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
     vi.mocked(capturePosthog).mockClear()
     const decisions = client()
     german(suggestion, decisions)
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
     await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: 1, confirmed: 0, source: 'postfach_suggestion' }))
     expect(decisions.apply).not.toHaveBeenCalled()
@@ -141,7 +141,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
   test('takes nothing over while an edition is missing', async () => {
     const decisions = client({ read: vi.fn(async () => suggested(null)) })
     german(suggestion, decisions)
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
     await confirm(await screen.findByTestId('norm-dialog'))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.'))
     expect(decisions.apply).not.toHaveBeenCalled()
@@ -150,9 +150,9 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
 
   test('says so when the copy moved but could not be confirmed', async () => {
     german(suggestion, client({ apply: vi.fn(async () => decided('applied', [{ label: 'ÖNORM B 1600', ok: true, reason: 'licence' }])) }))
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
     await confirm(await screen.findByTestId('norm-dialog'))
-    expect(await screen.findByRole('status')).toHaveTextContent('Liegt in der Büroablage, wartet aber unter Normen & Richtlinien auf Bestätigung: licence')
+    expect(await screen.findByRole('status')).toHaveTextContent('Liegt in der Bürobibliothek, wartet aber unter Normen & Richtlinien auf Bestätigung: licence')
   })
 
   test('declines it, and the norm stays in the project', async () => {
@@ -165,7 +165,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
 
   test('says why a move failed, and keeps the choice open', async () => {
     german(suggestion, client({ apply: vi.fn(async () => decided('failed' as 'applied', [{ label: 'ÖNORM B 1600', ok: false, reason: 'Folder not found' }])) }))
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
     await confirm(await screen.findByTestId('norm-dialog'))
     expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt: Folder not found')
     expect(screen.getByRole('button', { name: 'Ablehnen' })).toBeEnabled()
@@ -173,7 +173,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
 
   test('says so when someone decided first', async () => {
     german(suggestion, client({ apply: vi.fn(async () => Promise.reject(new ProposalRequestError(409, 'CONFLICT', 'decided'))) }))
-    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' }))
     await confirm(await screen.findByTestId('norm-dialog'))
     expect(await screen.findByRole('status')).toHaveTextContent('Jemand hat schon entschieden.')
   })

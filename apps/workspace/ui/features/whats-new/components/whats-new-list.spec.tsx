@@ -45,11 +45,11 @@ describe('WhatsNewList', () => {
     }
     const { unmount } = render(<WhatsNewList list={twoInOneArea} />)
     const added = screen.getByRole('region', { name: 'New' })
-    expect(within(added).getAllByText('Files and office shelf')).toHaveLength(1)
+    expect(within(added).getAllByText('Documents and office library')).toHaveLength(1)
     expect(within(added).getAllByRole('listitem')).toHaveLength(2)
     unmount()
     render(<WhatsNewList list={{ ...twoInOneArea, area: 'documents' }} />)
-    expect(screen.queryByText('Files and office shelf')).toBeNull()
+    expect(screen.queryByText('Documents and office library')).toBeNull()
   })
 
   it('groups changes by area in the vocabulary’s order, whatever order they arrive in', () => {

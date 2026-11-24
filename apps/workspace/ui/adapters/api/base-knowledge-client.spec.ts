@@ -5,7 +5,7 @@ import { shelfGet } from '@/test-utils/shelf-handlers'
 import { listShelfCandidates } from './base-knowledge-client'
 
 describe('listShelfCandidates', () => {
-  it('offers a file already filed under the standards folder, which the Büroablage lists only when asked', async () => {
+  it('offers a file already filed under the standards folder, which the Bürobibliothek lists only when asked', async () => {
     server.use(
       shelfGet('office_shelf', '/api/documents', ({ request }) =>
         HttpResponse.json({

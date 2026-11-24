@@ -9,9 +9,9 @@ vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
 }))
 
-describe('the two places of the Büroablage', () => {
+describe('the two places of the Bürobibliothek', () => {
   test.each([
-    [OFFICE_SHELF_FILES_HREF, 'Folders'],
+    [OFFICE_SHELF_FILES_HREF, 'Files'],
     [OFFICE_SHELF_NORMS_HREF, 'Standards & guidelines'],
   ])('on %s the open place is %s', (at, open) => {
     pathname = at
@@ -22,7 +22,7 @@ describe('the two places of the Büroablage', () => {
   test('a phone names both places, so the closed one is not a bare glyph', () => {
     pathname = OFFICE_SHELF_FILES_HREF
     render(<OfficeShelfPlaces />)
-    for (const name of ['Folders', 'Standards & guidelines']) {
+    for (const name of ['Files', 'Standards & guidelines']) {
       expect(screen.getByText(name)).not.toHaveClass('phone:sr-only')
     }
   })

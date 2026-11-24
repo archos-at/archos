@@ -30,7 +30,7 @@ describe('titleSpan', () => {
 })
 
 describe('registerCellEmpty', () => {
-  it('counts the Büroablage as a place, though it has no project', () => {
+  it('counts the Bürobibliothek as a place, though it has no project', () => {
     expect(registerCellEmpty('project', { ...concept, shelf: 'office_shelf', projectName: null })).toBe(false)
   })
 

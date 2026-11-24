@@ -564,6 +564,10 @@
     "de": "Ein Link in einer Mail zeigt die Website, zu der er führt, und kann kopiert werden; beim Folgen eines Mail-Threads wird erklärt, was das jetzt bedeutet und wie Sie es beenden können."
   },
   {
+    "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
+    "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+  },
+  {
     "en": "A long answer no longer freezes the page while it arrives, and its cards land when they are ready instead of long after the text.",
     "de": "Eine lange Antwort friert die Seite beim Eintreffen nicht mehr ein, und ihre Karten erscheinen, sobald sie fertig sind, statt lange nach dem Text."
   },
@@ -726,6 +730,10 @@
   {
     "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
     "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+  },
+  {
+    "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
+    "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
   },
   {
     "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
@@ -2780,6 +2788,10 @@
     "de": "Gesetze im RIS-Leser werden jetzt vollständig angezeigt. Früher wurde die Bauordnung für Wien abgeschnitten, sodass § 108 nicht zu lesen war."
   },
   {
+    "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
+    "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+  },
+  {
     "en": "Legal research is now one step in the Herleitung, and it returns the paragraph in question instead of a hit list, the whole law or text without a reference.",
     "de": "Die Rechtsrecherche ist jetzt ein Schritt in der Herleitung und liefert den betreffenden Paragraphen statt einer Trefferliste, des ganzen Gesetzes oder eines Textes ohne Fundstelle."
   },
@@ -3962,6 +3974,10 @@
   {
     "en": "The Büroablage has one upload, and ARCHOS asks about the norms among your files in one dialog: kind, designation, edition and topic, with \"Keine Norm\" for anything it got wrong, and a newer edition or a second copy of a norm you hold already recognised as such. Ordinary files go to your folders as before.",
     "de": "In der Büroablage gibt es nur einen Upload, und ARCHOS fragt in einem Dialog nach den Normen in Ihren Dateien: Art, Bezeichnung, Ausgabe und Thema. Für alles, was nicht stimmt, wählen Sie „Keine Norm“; eine neuere Ausgabe oder ein weiteres Exemplar einer Norm, die Sie bereits haben, wird als solches erkannt. Normale Dateien landen wie bisher in Ihren Ordnern."
+  },
+  {
+    "en": "The Büroablage is now called the Bürobibliothek, and a project's Dateien are now its Ablage, with „Dateien“ as its first place where „Ordner“ stood. The office's shelf and the project's no longer read as one place, and answers name the Bürobibliothek as their source.",
+    "de": "Die Büroablage heißt jetzt Bürobibliothek, und die Dateien eines Projekts heißen jetzt Ablage; ihr erster Bereich heißt „Dateien“ statt „Ordner“. So sind die Unterlagen des Büros und die des Projekts nicht mehr zu verwechseln, und Antworten nennen die Bürobibliothek als Quelle."
   },
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",

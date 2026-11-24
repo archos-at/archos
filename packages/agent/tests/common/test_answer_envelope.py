@@ -268,7 +268,7 @@ class TestAVerdictNeverRestsOnADocumentAgentWrote:
 
     def test_the_match_survives_the_spellings_a_model_writes(self):
         assert self._gate({"document": "**Brandschutzkonzept Haus-B.md**"}) is None
-        assert self._gate({"document": "Brandschutzkonzept Haus B (Büroablage)"}) is None
+        assert self._gate({"document": "Brandschutzkonzept Haus B (Bürobibliothek)"}) is None
 
     def test_a_verdict_referencing_the_OIB_survives_untouched(self):
         payload = self._gate({"document": "OIB-Richtlinie 2", "section": "Tabelle 1b"})

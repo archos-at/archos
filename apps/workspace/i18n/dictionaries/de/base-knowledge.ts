@@ -35,7 +35,7 @@ export const baseKnowledge = {
   empty: {
     title: 'Noch keine Normen hinterlegt',
     body: 'Hier liegen die Normen, Kommentare und Weisungen, auf die sich Ihr Büro stützt, getrennt von Projektunterlagen und Vorlagen. Laden Sie die ersten hoch, auch mehrere auf einmal.',
-    readOnly: 'Noch keine Normen hinterlegt. Wer die Büroablage verwalten darf, kann sie hier hochladen.',
+    readOnly: 'Noch keine Normen hinterlegt. Wer die Bürobibliothek verwalten darf, kann sie hier hochladen.',
     folder: 'In diesem Ordner liegt noch nichts.',
     filtered: 'Keine Norm passt zu dieser Auswahl.',
     clearFilters: 'Filter zurücksetzen',
@@ -44,7 +44,7 @@ export const baseKnowledge = {
     newTopic: 'Thema anlegen',
     topics: 'Themen',
     all: 'Normen & Richtlinien',
-    elsewhere: 'Liegt in der Büroablage außerhalb dieses Bereichs',
+    elsewhere: 'Liegt in der Bürobibliothek außerhalb dieses Bereichs',
   },
   list: {
     label: 'Normen',
@@ -103,7 +103,7 @@ export const baseKnowledge = {
     done: '{done} von {count} erledigt',
     partial: '{failed} von {count} nicht möglich: {reason}',
     removeTitle: '{count} Normen entfernen?',
-    removeBody: 'Die Normen und ihre Dateien werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Das lässt sich nicht rückgängig machen.',
+    removeBody: 'Die Normen und ihre Dateien werden aus der Bürobibliothek entfernt. {productName} zitiert sie danach nicht mehr. Das lässt sich nicht rückgängig machen.',
   },
   facts: {
     title: 'Norm',
@@ -165,7 +165,7 @@ export const baseKnowledge = {
     relisted: '„{name}“ ist wieder als Norm geführt.',
     notNormDone: '„{name}“ ist keine Norm: Die Datei liegt wieder in ihrem Ordner, und {productName} schlägt sie nicht noch einmal als Norm vor.',
     removeTitle: 'Norm entfernen?',
-    removeBody: 'Die Norm und ihre Datei werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Wollen Sie nur eine neuere Ausgabe hinterlegen, laden Sie diese stattdessen dazu.',
+    removeBody: 'Die Norm und ihre Datei werden aus der Bürobibliothek entfernt. {productName} zitiert sie danach nicht mehr. Wollen Sie nur eine neuere Ausgabe hinterlegen, laden Sie diese stattdessen dazu.',
     removed: 'Norm entfernt.',
     removeIncomplete: 'Die Norm ist entfernt und wird nicht mehr zitiert. Nicht sofort gelöscht: {stores}.',
     store: { search: 'Suchindex', objects: 'Datei', caches: 'Zwischenspeicher' },
@@ -215,10 +215,10 @@ export const baseKnowledge = {
   },
   shelfPicker: {
     title: 'Aus Ordnern übernehmen',
-    description: 'Wählen Sie ein Dokument, das schon in der Büroablage liegt. Es kommt unter Normen & Richtlinien und wartet dort auf Ihre Bestätigung; mit „Keine Norm“ geht es zurück in seinen Ordner.',
+    description: 'Wählen Sie ein Dokument, das schon in der Bürobibliothek liegt. Es kommt unter Normen & Richtlinien und wartet dort auf Ihre Bestätigung; mit „Keine Norm“ geht es zurück in seinen Ordner.',
     search: 'Dokument suchen',
     none: 'Kein passendes Dokument, oder alle sind schon erfasst.',
-    loadError: 'Die Dokumente der Büroablage konnten nicht geladen werden.',
+    loadError: 'Die Dokumente der Bürobibliothek konnten nicht geladen werden.',
     take: 'Übernehmen',
   },
   norms: {

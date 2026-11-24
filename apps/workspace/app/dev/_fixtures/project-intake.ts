@@ -282,6 +282,7 @@ const BASE: IntakeView = {
   openQuestions: [OPEN_PHASE, OPEN_PROJECT_KIND, OPEN_ZONING],
   groups: [],
   derivations: [],
+  buildings: [{ id: 'bldg1', name: 'Bauwerk 1' }],
   canDecide: true,
   canComplete: true,
   readingProgress: {
@@ -324,6 +325,10 @@ export const INTAKE_READY: IntakeView = {
   openQuestions: [OPEN_PROJECT_KIND, OPEN_ZONING],
   groups: [GROUP_BASE, GROUP_BUILDINGS],
   derivations: [DERIVATION_READY, DERIVATION_OPEN],
+  buildings: [
+    { id: 'bldg1', name: 'Bauwerk 1' },
+    { id: 'bldg2', name: 'Bauwerk 2' },
+  ],
 }
 
 export const INTAKE_CLOSING: IntakeView = {
@@ -336,6 +341,7 @@ export const INTAKE_CLOSING: IntakeView = {
   questions: [],
   groups: [GROUP_BASE, { ...GROUP_BUILDINGS, items: GROUP_BUILDINGS.items.map((item) => ({ ...item, decisive: false })) }],
   derivations: [DERIVATION_READY],
+  buildings: BASE.buildings,
 }
 
 export const INTAKE_COMPLETED: IntakeView = {
@@ -351,6 +357,7 @@ export const INTAKE_COMPLETED: IntakeView = {
     items: group.items.map((item) => ({ ...item, state: 'confirmed' as const, alternatives: [] })),
   })),
   derivations: [{ ...DERIVATION_READY, suggestion: { ...SUGGESTION_CLASS, state: 'confirmed', alternatives: [] } }],
+  buildings: BASE.buildings,
   canDecide: false,
   canComplete: false,
 }

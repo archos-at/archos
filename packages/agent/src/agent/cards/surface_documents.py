@@ -30,7 +30,7 @@ class SurfaceDocumentsConfig(FunctionBaseConfig, name="surface_documents"): ...
 
 
 _TOOL_DESCRIPTION = (
-    "Show the user a REAL project or Büroablage FILE in the UI (preview card). "
+    "Show the user a REAL project or Bürobibliothek FILE in the UI (preview card). "
     "This is not a citation tool — it does not return quotable passages.\n"
     "WHEN TO CALL — the user asked to SEE or BROWSE their own files, with no "
     "legal question to answer. Examples: 'zeig mir den Brandschutzplan', "
@@ -44,11 +44,11 @@ _TOOL_DESCRIPTION = (
     "NEARLY EQUALLY relevant files of the same kind. Never a catalogue, never "
     "the inventory.\n"
     "- `shelf=office_shelf` / `shelf=project` when they asked to see files on ONE "
-    "shelf (Büroablage vs this project). Do not mix the two.\n"
+    "shelf (Bürobibliothek vs this project). Do not mix the two.\n"
     "Asking for files of a KIND ('hab ich sonst noch Grundrisse', 'welche Fotos "
     "vom Bestand') is a browse: `mode=many` on that shelf, so they can open them.\n"
     "WHEN NOT TO CALL — to say what is on a shelf ('welche Dateien hast du im "
-    "Büroablage'), answer from the knowledge-base inventory, or from a listing "
+    "Bürobibliothek'), answer from the knowledge-base inventory, or from a listing "
     "where the inventory is incomplete or the question filters by folder, name or "
     "date; file names written in the answer already open on click. To read, "
     "quote, or cite a passage, use `knowledge_search`. "
@@ -76,7 +76,7 @@ async def surface_documents(tool_config: SurfaceDocumentsConfig, builder: Builde
         if shelf == "archiv":  # the argument's old value; remove after one release
             shelf = "office_shelf"
         if shelf is not None and shelf not in ("office_shelf", "project"):
-            return "Error: `shelf` must be `office_shelf` (Büroablage) or `project` (this project)."
+            return "Error: `shelf` must be `office_shelf` (Bürobibliothek) or `project` (this project)."
         if not query and not filename:
             return "Provide `filename=` (open this named file) or `query=` (search). Use `mode=many` only to browse."
         return await _surface_for(query, filename, title, mode, shelf)
@@ -116,7 +116,7 @@ async def _surface_for(query: str, filename: str | None, title: str | None, mode
     if not documents:
         subject = filename or query
         return (
-            f"No project or Büroablage file matched {subject!r}. "
+            f"No project or Bürobibliothek file matched {subject!r}. "
             "Try a narrower `query` (a filename fragment, a Dokumentart, a project name) "
             "or check the knowledge-base inventory for the exact `filename` spelling."
         )
@@ -144,12 +144,12 @@ def _scope_from_context() -> tuple[list | None, list[str] | None]:
 def _nothing_in_scope(resolved_shelf: str | None) -> str:
     if resolved_shelf == "office_shelf":
         return (
-            "No Büroablage documents are in scope to search. The OIB corpus is "
-            "Basiswissen, not the Büroablage — answer from the inventory's "
-            "Büroablage group (empty means empty)."
+            "No Bürobibliothek documents are in scope to search. The OIB corpus is "
+            "Basiswissen, not the Bürobibliothek — answer from the inventory's "
+            "Bürobibliothek group (empty means empty)."
         )
     return (
-        "No project or Büroablage documents are in scope to search, so there is "
+        "No project or Bürobibliothek documents are in scope to search, so there is "
         "nothing to surface. Answer from the other available sources instead."
     )
 

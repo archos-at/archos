@@ -25,7 +25,7 @@ works in it.
 ## Who it is for
 
 - **The organization:** an architecture or planning office, its projects, its
-  people and roles, its Büroablage, its conventions. Nothing crosses from one
+  people and roles, its Bürobibliothek, its conventions. Nothing crosses from one
   organization to another.
 - **The people in it:** architects, project leads, drafters, site supervision
   (ÖBA), office management, and the specialist consultants (Fachplaner) they
@@ -43,9 +43,9 @@ places, not the frame around them.
 | The architect's work | What ARCHOS does there today |
 |---|---|
 | Starting a project | The Einrichtung asks for the facts that decide the rest: Bundesland, Gebäudeklasse, Bauwerke, uses, plot. ARCHOS derives which OIB-Richtlinien apply, keeps a Steckbrief of the people involved, and keeps the profile current as the project establishes new facts. |
-| Files and the Büroablage | Folders, uploads of whole folders and ZIPs, Office files shown and cited page by page. ARCHOS reads every upload and says what it is, what it found, which of its Fassungen is current, and what is missing or could not be read. Sensitive uploads are screened before any model sees them. The Büroablage holds the office's own documents, on every project. An Outlook archive can be filed mail by mail. |
+| Files and the Bürobibliothek | Folders, uploads of whole folders and ZIPs, Office files shown and cited page by page. ARCHOS reads every upload and says what it is, what it found, which of its Fassungen is current, and what is missing or could not be read. Sensitive uploads are screened before any model sees them. The Bürobibliothek holds the office's own documents, on every project. An Outlook archive can be filed mail by mail. |
 | The building model | IFC models in the browser: structure, quantities (Raumbuch), revisions, 3D with sections and measuring. ARCHOS reads and measures their elements and checks the model against the OIB requirements that apply: each rule passes, fails, or names the property the model would have to publish to decide it, with the threshold and the clause. A person's confirmations are recorded in the Prüfbuch, and the open points go back to ArchiCAD or Revit as BCF. |
-| Questions about the work | About a document, a folder, a decision, the model, the law. Answers come from the project's files, the workspace's own records, the Büroablage, the legal corpus and the web, whichever the question needs. Every claim shows where it comes from (a cited passage, a record, a measurement, or an Einschätzung marked as one), and the derivation is visible. |
+| Questions about the work | About a document, a folder, a decision, the model, the law. Answers come from the project's files, the workspace's own records, the Bürobibliothek, the legal corpus and the web, whichever the question needs. Every claim shows where it comes from (a cited passage, a record, a measurement, or an Einschätzung marked as one), and the derivation is visible. |
 | Handing over work | Aufgaben run on their own under the requester's permissions. Zeitpläne repeat them. A Tiefenrecherche plans, researches, checks and files a report. Skills hold the office's own procedures. |
 | Writing | ARCHOS drafts Aktenvermerke, Protokolle, Checklisten, Flächenaufstellungen and reports into the project. A person releases them (Freigabe), ARCHOS revises them from a reviewer's comment, and a released document counts as office knowledge. ARCHOS proposes moves, renames and folders, and nothing changes until someone accepts. |
 | Working as a team | Shared chats, mentions, an inbox, assignments ("Verantwortlich"), live presence, custom roles and folder access per role, a download log. |
@@ -105,7 +105,7 @@ These are directions with a document behind them, not promises:
    changes the office's record: a Dokumentart, a Fassung, a fact in the project
    profile, a document's Freigabe.
 5. **The office's own knowledge first.** The project's documents, the
-   Büroablage, past projects and the office's conventions come before general
+   Bürobibliothek, past projects and the office's conventions come before general
    knowledge. The base corpus serves the office, never the reverse.
 6. **The whole organization.** Projects, people, roles and knowledge belong to
    the organization, and what one project learns, the next one can use.

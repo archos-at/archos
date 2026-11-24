@@ -21,7 +21,7 @@ export const bim: typeof en.bim = {
   empty: {
     title: 'Noch kein IFC-Modell',
     description:
-      'Laden Sie unter „Dateien“ eine .ifc-Datei hoch. {productName} liest die Struktur ein, macht das Gebäude im Chat abfragbar und zeigt es hier in 3D.',
+      'Laden Sie in der Ablage eine .ifc-Datei hoch. {productName} liest die Struktur ein, macht das Gebäude im Chat abfragbar und zeigt es hier in 3D.',
     action: 'Zu den Dateien',
   },
   status: {

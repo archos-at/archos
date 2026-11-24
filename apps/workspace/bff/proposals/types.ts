@@ -255,7 +255,7 @@ export const proposalListQueryShape = z.object({
 
 export const proposalListQuerySchema = proposalListQueryShape.refine(
   (query) => Boolean(query.shelf) !== Boolean(query.projectId),
-  { message: 'Name a project, or a shelf without one: shelf=office_shelf (the Büroablage) or shelf=organization' }
+  { message: 'Name a project, or a shelf without one: shelf=office_shelf (the Bürobibliothek) or shelf=organization' }
 )
 export type ProposalListQuery = z.input<typeof proposalListQuerySchema>
 export type ParsedProposalListQuery = z.infer<typeof proposalListQuerySchema>

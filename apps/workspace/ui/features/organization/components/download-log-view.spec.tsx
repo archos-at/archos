@@ -81,7 +81,7 @@ describe('DownloadLogView', () => {
     expect(within(second).getByText('Own access list')).toBeInTheDocument()
     expect(within(rows[3]).getByText('user_gone')).toBeInTheDocument()
     expect(within(rows[3]).getByText('No longer in the organization')).toBeInTheDocument()
-    expect(within(rows[3]).getByText('Office filing')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('Office library')).toBeInTheDocument()
     expect(within(rows[4]).getByText('Version 8f3a1c52')).toBeInTheDocument()
   })
 

@@ -58,6 +58,7 @@ export const EXPOSURE = {
   'project-delete': OFFERED,
   'project-experience-extract': OFFERED,
   'project-get': OFFERED,
+  'project-intake-building': OFFERED,
   'project-intake-complete': OFFERED,
   'project-intake-decide': OFFERED,
   'project-intake-definition-get': OFFERED,

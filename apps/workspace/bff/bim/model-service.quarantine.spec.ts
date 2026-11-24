@@ -108,7 +108,7 @@ describe('the model of a quarantined IFC', () => {
     await expect(getModelForDocument(member, 'doc-q')).rejects.toBeInstanceOf(NotFoundError)
   })
 
-  it('is served to its uploader and to a curator of the Büroablage', async () => {
+  it('is served to its uploader and to a curator of the Bürobibliothek', async () => {
     await expect(getAccessibleModel(uploader, 'model-1')).resolves.toMatchObject({ id: 'model-1' })
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
     await expect(getAccessibleModel(member, 'model-1')).resolves.toMatchObject({ id: 'model-1' })

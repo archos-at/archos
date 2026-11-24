@@ -324,7 +324,7 @@ async def _stored_raster(
         return f"[{tool}] Invalid image_index {image_index}: indices are 0-based."
     if not collection:
         return (
-            f"[{tool}] image_index addresses a raster stored beside a project or Büroablage "
+            f"[{tool}] image_index addresses a raster stored beside a project or Bürobibliothek "
             f"document, and '{file_name}' was found in none of this turn's collections."
         )
     location = await _resolve_storage_location(collection, file_name, image_index=image_index)

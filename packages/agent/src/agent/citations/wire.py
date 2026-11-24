@@ -42,7 +42,7 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
     lane_key, lane_label = source_lane(entry)
     if place:
         office = entry_shelf(entry) == Shelf.OFFICE_SHELF
-        lane_key, lane_label = ("office", "Büroablage") if office else ("project", "Projektwissen")
+        lane_key, lane_label = ("office", "Bürobibliothek") if office else ("project", "Projektwissen")
     kind = kind_for_lane(lane_key)
 
     use = None if place else use_for_entry(entry)

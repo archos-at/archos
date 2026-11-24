@@ -11,7 +11,7 @@ export const MAX_TURN_BLOCK_CHARS = 17_000
 const MORE_LINE_RESERVE = 48
 
 export const BASE_KNOWLEDGE_HEADER =
-  "The office's own base knowledge: copies it holds in its Archiv (the Büroablage), for this office only; find a passage " +
+  "The office's own base knowledge: copies it holds in its Archiv (the Bürobibliothek), for this office only; find a passage " +
   'by searching the Archiv for the file. When an answer rests on one, name its designation or title and its edition. ' +
   'The role decides what a passage can carry: ' +
   '"requirement source" may ground a requirement; "interpretation only" may explain a provision but never be cited ' +

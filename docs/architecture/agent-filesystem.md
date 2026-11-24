@@ -194,7 +194,7 @@ The UI's words are `chat.thinking.work.place*`; the `/dev/derivation` variants `
 | Mount | What | Backed by | Writable |
 |---|---|---|---|
 | `/project/` | the turn's project; absent on a turn without one | the project's collection and its restricted-folder collections | no |
-| `/office/` | the Büroablage, with its folders ([ADR-0078](../adr/0078-folders-are-a-property-of-a-shelf-not-of-a-project.md)) | the office-shelf collection | no |
+| `/office/` | the Bürobibliothek, with its folders ([ADR-0078](../adr/0078-folders-are-a-property-of-a-shelf-not-of-a-project.md)) | the office-shelf collection | no |
 | `/chat/` | files dropped into this conversation | the session collection | no |
 | `/law/oib/` | the platform's OIB corpus, flat, file names as oib.or.at publishes them | the base collection | no |
 | `/drafts/` | this conversation's drafts | today's `StoreBackend` (`tools/documents/draft_store.py`) | `write_file`, `edit_file` |
@@ -228,7 +228,7 @@ the turn's one.
   resolves, with "moved to …". A restricted folder is its own collection, so the
   same leaf can exist there and beside it; the folder part decides, and without it
   the listable one wins. The same name on two shelves is two paths, which is what
-  the qualified citation key already says (`x.pdf (Büroablage), p.9`).
+  the qualified citation key already says (`x.pdf (Bürobibliothek), p.9`).
 - **Agent-filed documents** (`filename = 'piloti/<name>'`) appear as `<name>` in
   their folder; the prefix is never shown as a directory.
 - **Matching** for `glob` and resolution is case-insensitive, NFC, and folds ä→ae,

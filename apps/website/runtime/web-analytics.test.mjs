@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   ANALYTICS_READY_EVENT,
   analyticsOrigins,
+  dropOpaqueScriptError,
   sdkUrl,
   webAnalyticsConfig,
   webAnalyticsInitOptions,
@@ -127,4 +128,21 @@ test('a token with script-breaking characters cannot escape the string', () => {
   script.onload()
   assert.deepEqual(calls.map((c) => c[0]), [`x');alert(1);//`])
   assert.deepEqual(alerts, [])
+})
+
+test('a cross-origin "Script error." without a stack is dropped before it is sent (KAN-101)', () => {
+  const { calls, script } = runLoader(webAnalyticsScript({ host: 'https://eu.i.posthog.com', token: 'phc_test' }))
+  script.onload()
+  const beforeSend = calls[0][1].before_send
+  const exception = (entry) => ({ event: '$exception', properties: { $exception_list: [entry] } })
+  // The event prod received on 2026-11-21 from https://archos.tech/en/
+  const prod = exception({ type: 'Error', value: 'Script error.', mechanism: { handled: false, synthetic: true, type: 'generic' } })
+  assert.equal(beforeSend(prod), null)
+  const ours = exception({ type: 'TypeError', value: 'x', stacktrace: { frames: [{ filename: 'https://archos.tech/_astro/a.js' }] } })
+  assert.equal(beforeSend(ours), ours)
+  const stacked = exception({ type: 'Error', value: 'Script error.', stacktrace: { frames: [{ filename: 'https://archos.tech/a.js' }] } })
+  assert.equal(beforeSend(stacked), stacked)
+  const pageview = { event: '$pageview', properties: {} }
+  assert.equal(beforeSend(pageview), pageview)
+  assert.equal(dropOpaqueScriptError(null), null)
 })

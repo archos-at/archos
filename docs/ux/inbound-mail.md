@@ -796,7 +796,7 @@ what it is, from the server, never guessed from the name: the documents
 listing carries `mailThread: { entryCount, lastEntryAt }` for a document that
 is a Verlauf (`mailThreadsOfDocuments`, `bff/mail-thread/document-threads.ts`,
 in `toDocumentWireRows`; one read of `mail_threads` per page, not on the
-Büroablage). A tile shows a short stack of envelopes instead of a page, the name
+Bürobibliothek). A tile shows a short stack of envelopes instead of a page, the name
 without „.md“ (`listedFileName`), „3 E-Mails · zuletzt 14.10.2026“ where a file's
 Fassungen and Freigabe stand, and „E-Mail-Verlauf · vor 1 Monat“ as its meta
 line; a list row has the envelope in the format column, the same facts after

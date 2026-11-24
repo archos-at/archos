@@ -367,18 +367,18 @@ class TestLaneForHit:
         assert nr.lane_for_hit(source_url="https://ris.bka.gv.at.evil.example/") == ("web", "Web")
 
     def test_office_shelf_collection(self):
-        assert nr.lane_for_hit(collection="archiv_buero") == ("office", "Büroablage")
+        assert nr.lane_for_hit(collection="archiv_buero") == ("office", "Bürobibliothek")
 
     def test_project_collections(self):
         assert nr.lane_for_hit(collection="proj_123") == ("project", "Projektwissen")
         assert nr.lane_for_hit(collection="s_session42") == ("project", "Private Sitzung")
 
     def test_a_shelf_the_caller_knows_beats_the_collection_guess(self):
-        assert nr.lane_for_hit(collection="whatever", shelf="office_shelf") == ("office", "Büroablage")
+        assert nr.lane_for_hit(collection="whatever", shelf="office_shelf") == ("office", "Bürobibliothek")
 
     def test_the_default_class_never_relabels_a_users_document(self):
         assert nr.lane_for_hit(collection="proj_123", doc_class="other") == ("project", "Projektwissen")
-        assert nr.lane_for_hit(collection="archiv_org", doc_class="other") == ("office", "Büroablage")
+        assert nr.lane_for_hit(collection="archiv_org", doc_class="other") == ("office", "Bürobibliothek")
         assert nr.lane_for_hit(collection="s_chat", doc_class="other") == ("project", "Private Sitzung")
         assert nr.lane_for_hit(collection="oib_knowledge", doc_class="other") == ("building_law_base", "Basisdokument")
 
@@ -401,7 +401,7 @@ class TestLaneForHit:
     def test_a_norm_on_a_users_shelf_says_which_shelf_it_came_from(self):
         assert nr.lane_for_hit(collection="proj_123", doc_class="external_standard") == ("project", "Projektwissen")
         assert nr.lane_for_hit(shelf="project", doc_class="law") == ("project", "Projektwissen")
-        assert nr.lane_for_hit(shelf="office_shelf", doc_class="external_standard") == ("office", "Büroablage")
+        assert nr.lane_for_hit(shelf="office_shelf", doc_class="external_standard") == ("office", "Bürobibliothek")
         assert nr.lane_for_hit(collection="s_chat", doc_class="oib_guideline") == ("project", "Private Sitzung")
 
     def test_explicit_doc_class_base_lane(self):
@@ -452,7 +452,7 @@ class TestLaneForAgentAuthoredHit:
 
     def test_an_unmarked_hit_is_untouched(self):
         for authored_by in (None, "", "human", "Marianne"):
-            assert nr.lane_for_hit(shelf="office_shelf", authored_by=authored_by) == ("office", "Büroablage")
+            assert nr.lane_for_hit(shelf="office_shelf", authored_by=authored_by) == ("office", "Bürobibliothek")
 
 
 class TestLaneForMailHit:
@@ -494,7 +494,7 @@ class TestLaneForKnowledgeHit:
             "building_law_oib",
             "OIB-Richtlinie",
         )
-        assert nr.lane_for_knowledge_hit(collection="archiv_org1") == ("office", "Büroablage")
+        assert nr.lane_for_knowledge_hit(collection="archiv_org1") == ("office", "Bürobibliothek")
 
 
 class TestGuessDocClass:

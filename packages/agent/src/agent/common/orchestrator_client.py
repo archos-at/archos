@@ -63,7 +63,10 @@ def task_error(failure: TaskFailure, *, retry: bool) -> Exception:
     return NonRetryableException(failure.text)
 
 
-def sanitized(what: str, error: BaseException, *, retry: bool = True) -> Exception:
+def sanitized(what: str, error: BaseException, *, retry: bool = True, final: bool = True) -> Exception:
     failure = classify(error)
-    logger.error("%s failed on Hatchet: %s", what, failure.text, exc_info=error)
+    if retry and not final:
+        logger.warning("%s failed on Hatchet and is tried again: %s", what, failure.text)
+    else:
+        logger.error("%s failed on Hatchet: %s", what, failure.text, exc_info=error)
     return task_error(failure, retry=retry)

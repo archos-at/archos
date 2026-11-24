@@ -34,7 +34,7 @@ refused by name rather than one of them being picked for you.
 
 ## Opening a model from Files
 
-An `.ifc` opens like every other file — click it in **Dateien** and the preview
+An `.ifc` opens like every other file — click it in **Ablage** and the preview
 shows the **building**, turnable, in the pane where a PDF shows its pages.
 
 The column beside it leads with **Aus dem Modell**: storeys, Bauteile, Räume,
@@ -51,14 +51,14 @@ the page would default to) in the model page below.
 While the model is still being read the preview says so, and a file whose
 extraction failed says that instead — the two are never the same message.
 
-## Models in the Büroablage
+## Models in the Bürobibliothek
 
-The same preview opens in the org-wide **Büroablage**: an `.ifc` uploaded there
+The same preview opens in the org-wide **Bürobibliothek**: an `.ifc` uploaded there
 shows the building and its **Aus dem Modell** figures exactly as it does in a
-project's Dateien. Only **Im Modellbereich öffnen** is missing, because the
-model page belongs to a project and the Büroablage sits above all of them — a
-Büroablage model is reachable from any project's Dateien through `?model=`, since
-the Büroablage is shared by every project.
+project's Ablage. Only **Im Modellbereich öffnen** is missing, because the
+model page belongs to a project and the Bürobibliothek sits above all of them — a
+Bürobibliothek model is reachable from any project's Ablage through `?model=`, since
+the Bürobibliothek is shared by every project.
 
 ## The model page
 
@@ -67,7 +67,7 @@ below lives behind one button in the dock — **Details & Prüfung** — which o
 a drawer on the right holding five tabs. The building stays on screen behind
 it; the drawer is a panel over the model, not a page beside it.
 
-The top-right chrome is the same file chrome as Dateien: **Ask ARCHOS** (the
+The top-right chrome is the same file chrome as the Ablage: **Ask ARCHOS** (the
 building is the chat subject), and — when collaboration is on — who is
 responsible, with the same assign popover as a PDF. Rename and delete stay in
 the ⋯ menu next to those.

@@ -78,7 +78,7 @@ def shelf_notice(result: dict[str, Any]) -> str | None:
         else "The project's own model was not the one named."
     )
     return (
-        "NOTICE: this is an office-shelf model (Büroablage), not this project's building. "
+        "NOTICE: this is an office-shelf model (Bürobibliothek), not this project's building. "
         f"{own} State this in the answer; do not describe these figures as the project's."
     )
 

@@ -390,7 +390,7 @@ describe('an organization-scoped operation proposal (a turn in no project)', () 
     expect(dispatch.callOperation).not.toHaveBeenCalled()
   })
 
-  it('is only for an operation: another kind with no project stays a Büroablage move or nothing', async () => {
+  it('is only for an operation: another kind with no project stays a Bürobibliothek move or nothing', async () => {
     const memory = { scope: 'project', kind: 'decision', content: 'x', confidence: 'high' }
     await expect(
       createProposal(ASKER, { projectId: null, kind: 'memory', payload: memory, conversationId: 'conv_1', answerMessageId: null })
