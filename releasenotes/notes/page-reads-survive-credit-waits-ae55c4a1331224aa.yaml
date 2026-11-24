@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Drawings, photos and scanned pages are read even when many uploads arrive

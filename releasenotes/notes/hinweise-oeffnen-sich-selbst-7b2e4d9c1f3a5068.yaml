@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     The answer details now open by themselves when an answer carries something

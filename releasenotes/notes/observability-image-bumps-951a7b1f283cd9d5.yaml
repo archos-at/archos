@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     Langfuse moves to 4.54.0 and the telemetry dashboard to 13.5.2, picking up

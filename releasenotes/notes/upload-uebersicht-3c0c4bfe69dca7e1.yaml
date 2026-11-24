@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     The upload summary now shows which files were a new version of a document

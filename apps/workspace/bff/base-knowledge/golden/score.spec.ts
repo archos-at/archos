@@ -6,13 +6,14 @@
  * cases as a proposal that parses, passes the kit beside the Austria pack and
  * names, for each case, the edition the pack's relations make binding at its
  * site on its day; and the recorded before-baseline, where the old scorecard
- * wrote "high" and this finds the fault. `UPDATE_FIXTURES=1` rewrites the
+ * wrote "high" and this finds the fault. `task generate` rewrites the
  * verdicts the Python mirror is held to (`tests/test_golden_eval.py`).
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { graphFromProposals } from '../chain/from-proposals'
 import { resolveChain } from '../chain/resolve'
 import { recordIdOf } from '../platform/records'
@@ -186,8 +187,7 @@ describe('the recorded before-baseline', () => {
 
   it('scores as the committed verdicts say, the ones the Python mirror is held to', () => {
     const generated = `${JSON.stringify({ ...parity, answers: verdicts }, null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(PARITY, generated, 'utf8')
-    expect(readFileSync(PARITY, 'utf8'), 'The scorer or a case changed. Re-run with UPDATE_FIXTURES=1, read the diff, and commit it.').toBe(generated)
+    expectGenerated(PARITY, generated)
   })
 
   it.each(['B1', 'B9', 'B10', 'B11'])('%s was recorded as high confidence and fails here: its reason names an open point', (baseline) => {

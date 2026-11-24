@@ -169,6 +169,14 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/components/file-preview-pane.tsx' },
     chat: { component: 'features/chat/components/ViewerActionRow.tsx' },
   },
+  calibrateScale: {
+    summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
+    operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
+    canvas: { gap: { slice: 'drawing-measure slice 5', reason: 'the scale popover of the review view’s measure mode is built next' } },
+    chat: {
+      gap: { slice: 'drawing-measure slice 6', reason: 'the confirm card drawing the page clip with the reference span is built next' },
+    },
+  },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 
 export type SurfaceCapabilityName = keyof typeof SURFACE_CAPABILITIES

@@ -1,4 +1,4 @@
--- Undo 0258. ORDER: roll the frontend back first; the newer build reads the column.
+-- Undo 0260. ORDER: roll the frontend back first; the newer build reads the column.
 DROP TRIGGER IF EXISTS resource_shares_conversation_audience ON "resource_shares";
 --> statement-breakpoint
 DROP FUNCTION IF EXISTS resource_shares_conversation_audience();

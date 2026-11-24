@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     A question about building regulations no longer comes back empty just

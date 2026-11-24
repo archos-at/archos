@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Right-click in a project's Files works the way it does in Finder and

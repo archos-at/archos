@@ -8,7 +8,6 @@ from contextvars import ContextVar
 from qdrant_client import models
 
 from agent import project_context
-from agent.common.source_kinds import office_shelf_organization_id
 
 from .scope import ScopeRead
 
@@ -26,13 +25,7 @@ def reading_as(office_id: str | None) -> Iterator[None]:
 
 
 def office_for(scopes: Sequence[str]) -> str | None:
-    named = _OFFICE.get() or project_context.get_organization_id_from_context()
-    if named:
-        return named
-    shelves = {office_shelf_organization_id(scope) for scope in scopes}
-    if None in shelves or len(shelves) != 1:
-        return None
-    return shelves.pop()
+    return _OFFICE.get() or project_context.get_organization_id_from_context()
 
 
 @contextmanager

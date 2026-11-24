@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Documents can now also be dragged into a folder in the list view, not only

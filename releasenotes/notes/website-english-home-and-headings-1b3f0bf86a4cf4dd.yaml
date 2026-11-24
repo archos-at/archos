@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     The English home page no longer plays the knowledge animation, whose
