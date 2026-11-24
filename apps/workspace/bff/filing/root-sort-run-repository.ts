@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { rootSortRuns, type RootSortRun } from '@/lib/db/schema/root-sort-runs'
 import { withTenant } from '@/lib/db/tenant-context'
-import type { DocumentShelf } from '@/lib/documents/shelf'
+import type { SharedShelf } from '@/lib/documents/shelf'
 import { ROOT_SORT_WORKING_STATUSES, type RootSortRunStatus } from './root-sort-types'
 
 export type NewRootSortRun = Pick<
@@ -52,7 +52,7 @@ export async function findRootSortRun(organizationId: string, runId: string): Pr
 
 export async function findLatestRootSortRun(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   requestedBy: string
 ): Promise<RootSortRun | null> {
   const [row] = await withTenant({ organizationId }, () =>
@@ -132,7 +132,7 @@ export async function isRootSortJobWaiting(organizationId: string, jobId: string
 
 export const STALL_GRACE_MS = 2 * 60 * 1000
 
-export async function failStalledRootSortRuns(organizationId: string, shelf: DocumentShelf): Promise<RootSortRun[]> {
+export async function failStalledRootSortRuns(organizationId: string, shelf: SharedShelf): Promise<RootSortRun[]> {
   return withTenant({ organizationId }, () =>
     getDb()
       .update(rootSortRuns)
@@ -158,7 +158,7 @@ export async function failStalledRootSortRuns(organizationId: string, shelf: Doc
 
 export async function cancelReadyRootSortRuns(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   requestedBy: string
 ): Promise<RootSortRun[]> {
   return withTenant({ organizationId }, () =>

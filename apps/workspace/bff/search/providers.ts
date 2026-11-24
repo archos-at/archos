@@ -25,6 +25,7 @@ import {
   type ConversationHit,
   type FolderHit,
   type ProjectHit,
+  searchShelfOf,
 } from './search-wire'
 
 export const EXCERPT_MAX = 200
@@ -68,7 +69,7 @@ export async function searchAnnotations(
       id: row.id,
       documentId: row.documentId,
       documentName: documentDisplayName(row),
-      shelf: row.projectId === null ? 'office_shelf' : 'project',
+      shelf: searchShelfOf(row.scope),
       projectId: row.projectId,
       projectName: row.projectName,
       annotationKind: row.kind,

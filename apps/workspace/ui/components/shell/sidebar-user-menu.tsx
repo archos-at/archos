@@ -71,6 +71,7 @@ export interface SidebarUserMenuProps {
   avatarSizeClass?: string
   organizationName?: string | null
   tourAnchor?: string
+  beforeChevron?: string
 }
 
 const THEME_ICONS: Record<ThemeMode, React.ComponentType<{ className?: string }>> = {
@@ -95,6 +96,7 @@ export function SidebarUserMenu({
   avatarSizeClass = 'size-[30px]',
   organizationName = null,
   tourAnchor,
+  beforeChevron,
 }: SidebarUserMenuProps) {
   const { user: authUser, signOut } = useAuth()
   const theme = useLayoutStore((s) => s.theme)
@@ -161,6 +163,7 @@ export function SidebarUserMenu({
             {/* 13px at 500, muted as the rail's rows at rest: one step under the 14px ink it had (owner decision 2026-11-11). */}
             <span className="text-muted-foreground group-hover/user:text-foreground min-w-0 flex-1 truncate text-[13px] font-medium">{displayName}</span>
             {/* Says the row opens something, as the switcher's chevrons do. */}
+            {beforeChevron && <span aria-hidden data-slot="user-menu-reserved" className={cn('shrink-0', beforeChevron)} />}
             <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </>
         )}

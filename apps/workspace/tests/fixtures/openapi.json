@@ -4870,11 +4870,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -5445,14 +5446,15 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `project` (with `projectId`).",
+              "description": "Default `project` + `projectId`.",
               "type": "string",
               "enum": [
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `project` (with `projectId`)."
+            "description": "Default `project` + `projectId`."
           },
           {
             "name": "projectId",
@@ -5658,11 +5660,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -6191,14 +6194,15 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `project` (with `projectId`).",
+              "description": "Default `project` + `projectId`.",
               "type": "string",
               "enum": [
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `project` (with `projectId`)."
+            "description": "Default `project` + `projectId`."
           },
           {
             "name": "projectId",
@@ -6517,7 +6521,8 @@
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -7010,12 +7015,13 @@
                     "type": "object",
                     "properties": {
                       "scope": {
-                        "description": "Default `office`: every shelf the person may read.",
+                        "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
                         "type": "string",
                         "enum": [
                           "office",
                           "project",
-                          "office_shelf"
+                          "office_shelf",
+                          "personal"
                         ]
                       },
                       "projectId": {
@@ -7440,7 +7446,8 @@
                     "enum": [
                       "project",
                       "office_shelf",
-                      "session"
+                      "session",
+                      "personal"
                     ]
                   },
                   "projectId": {
@@ -7653,7 +7660,7 @@
       "post": {
         "operationId": "workspace-search",
         "summary": "Search everything the person may read, with filters",
-        "description": "Searches every shelf the person may read, or one project (`projectId`), a folder of it (`folderId`) or the office shelf (`scope: office_shelf`). Finds documents by name, by what ingestion read (type, parties, facts, references, drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. A passage points at a page: read the document before quoting it.",
+        "description": "Searches every shared shelf, a project (`projectId`), its folder (`folderId`), the office shelf (`office_shelf`) or yours (`personal`). Finds documents by name, by what ingestion read (type, parties, facts, references, drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. A passage points at a page: read the document before quoting it.",
         "tags": [
           "documents"
         ],
@@ -7663,15 +7670,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shelf the person may read.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `office`: every shelf the person may read."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",
@@ -8170,15 +8178,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shelf the person may read.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `office`: every shelf the person may read."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",
@@ -8290,15 +8299,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shelf the person may read.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
                 "project",
-                "office_shelf"
+                "office_shelf",
+                "personal"
               ]
             },
-            "description": "Default `office`: every shelf the person may read."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",
@@ -13706,11 +13716,12 @@
                 "type": "object",
                 "properties": {
                   "scope": {
-                    "description": "Default `project` (with `projectId`).",
+                    "description": "Default `project` + `projectId`.",
                     "type": "string",
                     "enum": [
                       "project",
-                      "office_shelf"
+                      "office_shelf",
+                      "personal"
                     ]
                   },
                   "projectId": {

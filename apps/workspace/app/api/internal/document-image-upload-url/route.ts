@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withOptionalTenant } from '@/lib/db/tenant-context'
+import { withOptionalSystemReader } from '@/lib/db/tenant-context'
 import { NotFoundError } from '@/lib/api/errors'
 import { presignDocumentImageUpload } from '@/lib/documents/document-storage-keys'
 
@@ -15,8 +15,9 @@ export const POST = internalApiRoute(
   'document-image-upload-url',
   async ({ request }) => {
     const { documentId, collection, imageIndex, organizationId } = await parseJsonBody(request, bodySchema)
-    return withOptionalTenant(
+    return withOptionalSystemReader(
       organizationId,
+      'ingestion',
       'document addressed by unguessable id and collection name, with no organization supplied',
       async () => {
         const slot = await presignDocumentImageUpload(documentId, collection, imageIndex, organizationId)

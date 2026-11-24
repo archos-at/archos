@@ -55,7 +55,7 @@ function hasUnindexedAside(tally: KnowledgeTally): boolean {
 export interface FolderBriefProps {
   brief: FolderBriefData
   folderName: string | null
-  shelfKind: 'project' | 'office'
+  shelfKind: 'project' | 'office' | 'personal'
   onSelect: (selection: BriefSelection) => void
   onOpenFolder: (folderId: string) => void
   onReadAgain?: () => void
@@ -96,7 +96,7 @@ export function FolderBrief({
 
   const scope = folderName
     ? t(hasSubfolders ? 'brief.scopeFolderTree' : 'brief.scopeFolder')
-    : t(shelfKind === 'office' ? 'brief.scopeOffice' : 'brief.scopeProject')
+    : t(shelfKind === 'office' ? 'brief.scopeOffice' : shelfKind === 'personal' ? 'brief.scopePersonal' : 'brief.scopeProject')
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 

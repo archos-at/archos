@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
+import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -14,11 +15,18 @@ import { useSessionRows } from '../hooks/use-session-rows'
 import { useLayoutStore } from '../store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 
+export function chatPathOf(projectId: string | null): string {
+  return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : PERSONAL_CHAT_PATH
+}
+
+const under = (pathname: string, base: string): boolean => pathname === base || pathname.startsWith(`${base}/`)
+
 export function RailChatsProvider({ children, pathname: pathnameOverride }: { children: ReactNode; pathname?: string }): JSX.Element {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const projectId = projectIdFromPathname(pathname)
-  const rows = useSessionRows(projectId)
+  const mode = railModeOf(pathname)
+  const rows = useSessionRows(null)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
   const selectConversation = useChatStore((s) => s.selectConversation)
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
@@ -29,42 +37,46 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const t = useTranslations(researchCopy)
   const tCollab = useTranslations(collaborationCopy)
 
-  const chatHref = projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : ''
-  const onChatRoute = chatHref !== '' && (pathname === chatHref || pathname.startsWith(`${chatHref}/`))
+  const allHref = chatPathOf(mode === 'personal' ? null : projectId)
+  const onChatPath = useCallback((rowProjectId: string | null) => under(pathname, chatPathOf(rowProjectId)), [pathname])
+  const projectOf = useMemo(() => new Map(rows.map((row) => [row.id, row.projectId])), [rows])
 
   const onOpen = useCallback(
     (id: string) => {
-      if (onChatRoute) selectConversation(id)
+      if (onChatPath(projectOf.get(id) ?? null)) selectConversation(id)
     },
-    [onChatRoute, selectConversation]
+    [onChatPath, projectOf, selectConversation]
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
 
   const value = useMemo<RailChats | null>(() => {
-    if (!projectId) return null
+    if (mode === null) return null
     return {
       items: rows.slice(0, RAIL_CHAT_LIMIT).map((row) => ({
         id: row.id,
         title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || t('sessionsPanel.untitledSession'),
-        href: `${chatHref}?session=${encodeURIComponent(row.id)}`,
-        current: onChatRoute && row.id === openId,
+        href: `${chatPathOf(row.projectId)}?session=${encodeURIComponent(row.id)}`,
+        current: onChatPath(row.projectId) && row.id === openId,
         temporary: row.temporary,
+        projectId: row.projectId,
+        shared: row.shared,
         locked: row.contentLocked,
         activity: row.activity,
       })),
-      chatOpen: onChatRoute && rows.some((row) => row.id === openId),
-      allHref: chatHref,
+      chatOpen: rows.some((row) => onChatPath(row.projectId) && row.id === openId),
+      allHref,
       onOpen,
       onOpenAll,
       onRename: updateConversationTitle,
       onDelete: setDeleting,
     }
-  }, [projectId, rows, chatHref, onChatRoute, openId, onOpen, onOpenAll, updateConversationTitle, t, tCollab])
+  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, t, tCollab])
 
   const confirmDelete = (): void => {
     if (!deleting) return
+    const deletedChatPath = chatPathOf(projectOf.get(deleting) ?? null)
     deleteConversation(deleting)
-    if (onChatRoute && deleting === openId) router.replace(chatHref)
+    if (under(pathname, deletedChatPath) && deleting === openId) router.replace(deletedChatPath)
     setDeleting(null)
   }
 

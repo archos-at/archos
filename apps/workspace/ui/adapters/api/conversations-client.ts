@@ -23,7 +23,7 @@ export interface ConversationTitleResult {
   error?: string
 }
 
-export type ListedConversation = Conversation & { contentLocked?: boolean }
+export type ListedConversation = Conversation & { contentLocked?: boolean; shared?: boolean }
 
 export interface RestrictingOtherProject {
   id: string

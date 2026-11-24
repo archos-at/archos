@@ -105,6 +105,19 @@ export async function renameDocument(
     }
   }
 
+  if (doc.scope === 'personal') {
+    await recordAuditEvent({
+      organizationId: session.organizationId,
+      actor: { userId: session.userId, email: session.email },
+      action: 'personal_shelf.document.renamed',
+      targetType: 'document',
+      targetId: documentId,
+      metadata: {},
+      request,
+    })
+    return { id: documentId, filename: doc.filename, displayName }
+  }
+
   await recordAuditEvent({
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email },
@@ -162,6 +175,11 @@ export async function deleteDocument(
   if (doc?.scope === 'office_shelf') {
     const { deleteOfficeShelfDocument } = await import('@/lib/office-shelf/service')
     await deleteOfficeShelfDocument(session, documentId, request)
+    return
+  }
+  if (doc?.scope === 'personal') {
+    const { deletePersonalShelfDocument } = await import('@/lib/personal-shelf/service')
+    await deletePersonalShelfDocument(session, documentId, request)
     return
   }
   if (!doc || doc.scope !== 'project' || doc.projectId === null) throw new NotFoundError()

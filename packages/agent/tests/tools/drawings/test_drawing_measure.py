@@ -585,3 +585,13 @@ async def test_a_file_the_turn_may_not_name_leaves_the_row_without_a_place(store
 
     finished = [step for step in emitted.steps if step.kind == "action"][-1]
     assert (finished.target, finished.document_id, finished.measure) == (None, None, None)
+
+
+async def test_points_off_any_linework_are_refused_unless_the_agent_asks_for_none_snapped(store: _Store) -> None:
+    points = [FLOOR.share(1.3, 1.1), FLOOR.share(2.7, 1.1)]
+
+    snapped = await _run(operation="distance", **{"from": points[0], "to": points[1]})
+    free = await _run(operation="distance", snap=False, **{"from": points[0], "to": points[1]})
+
+    assert "No number" in snapped
+    assert "distance: " in free and "No number" not in free

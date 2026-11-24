@@ -8,6 +8,7 @@ import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import type { Document } from '@/lib/db/schema/documents'
 import { mayReviewQuarantine } from '@/lib/upload-screening/quarantine-reviewers'
 import { internalRead, memberReader } from './document-reader'
+import { requirePersonalShelfDoor } from './personal-shelf-door'
 import { findDocumentInOrg } from './repository'
 
 export async function findDocumentForSession(
@@ -43,6 +44,11 @@ export async function getAccessibleDocument(
         doc.conversationId,
         intent === 'write' ? 'collaborator' : 'viewer',
       )
+      return doc
+    }
+    case 'personal': {
+      if (doc.ownerUserId !== session.userId) throw new NotFoundError()
+      requirePersonalShelfDoor(session)
       return doc
     }
     case 'project': {

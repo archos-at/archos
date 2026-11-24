@@ -26,7 +26,7 @@ const UploadSummaryDocumentSchema = z.object({
 
 const UploadSummarySchema = z.object({
   id: z.string(),
-  scope: z.preprocess((value) => (value === 'archiv' ? 'office_shelf' : value), z.enum(['project', 'office_shelf', 'session'])),
+  scope: z.preprocess((value) => (value === 'archiv' ? 'office_shelf' : value), z.enum(['project', 'office_shelf', 'session', 'personal'])),
   projectId: z.string().nullable(),
   conversationId: z.string().nullable(),
   createdAt: z.string(),

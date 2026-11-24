@@ -256,7 +256,7 @@ describe('identity comes from the signed envelope, never from the body', () => {
 
   it('opens the tenant scope from the envelope’s organization', async () => {
     await call({ op: 'submit', documentId: DOC, versionId: VERSION })
-    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1' }, expect.any(Function))
+    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_requester' }, expect.any(Function))
   })
 
   it('refuses a requester who is no longer a member', async () => {
