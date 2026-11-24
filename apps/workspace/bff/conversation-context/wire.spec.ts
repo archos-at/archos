@@ -45,8 +45,7 @@ function decided() {
 
 describe('the conversation decision on the wire', () => {
   it('matches the committed fixture the Python tier parses', () => {
-    const generated = `${JSON.stringify(conversationDecisionJsonSchema(), null, 2)}\n`
-    expectGenerated(FIXTURE, generated)
+    expectGenerated(FIXTURE, `${JSON.stringify(conversationDecisionJsonSchema(), null, 2)}\n`)
   })
 
   it('exports every schema the contract map names', () => {
