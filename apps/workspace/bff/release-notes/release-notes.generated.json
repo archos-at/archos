@@ -417,6 +417,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
+            "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",

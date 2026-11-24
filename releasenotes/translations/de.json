@@ -3216,6 +3216,10 @@
     "de": "Auf dem Smartphone zeigt „Mehr“, wer angemeldet ist, und gruppiert die Einträge nach Projekt, Büro und Ihrem Konto."
   },
   {
+    "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
+    "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
+  },
+  {
     "en": "On a tile, open comments now sit on the preview image beside the reading state, and the files at the top level are headed \"Files\".",
     "de": "Auf einer Kachel werden offene Kommentare jetzt neben dem Lesestatus auf dem Vorschaubild angezeigt, und Dateien auf oberster Ebene tragen die Überschrift „Dateien“."
   },
