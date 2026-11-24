@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store'
@@ -36,10 +36,10 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
   const selectConversation = useChatStore((s) => s.selectConversation)
   const getUserConversations = useChatStore((s) => s.getUserConversations)
 
-  const initialSyncDone = useRef(false)
+  const [initialSyncDone, setInitialSyncDone] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUserId || !searchParams || !pathname || initialSyncDone.current)
+    if (!isAuthenticated || !currentUserId || !searchParams || !pathname || initialSyncDone)
       return
     if (!scopeIsThePage) return
 
@@ -52,7 +52,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
         params.set('session', resumeId)
         router.replace(`${pathname}?${params.toString()}`)
       }
-      initialSyncDone.current = true
+      setInitialSyncDone(true)
       return
     }
 
@@ -70,8 +70,9 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
       router.replace(newUrl)
     }
 
-    initialSyncDone.current = true
+    setInitialSyncDone(true)
   }, [
+    initialSyncDone,
     isAuthenticated,
     currentUserId,
     searchParams,
@@ -85,7 +86,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
   ])
 
   useEffect(() => {
-    if (!isAuthenticated || !currentUserId || !searchParams || !pathname || !initialSyncDone.current)
+    if (!isAuthenticated || !currentUserId || !searchParams || !pathname || !initialSyncDone)
       return
     if (!scopeIsThePage) return
 
@@ -102,7 +103,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
       router.replace(newUrl)
     }
-  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, router, scopeIsThePage])
+  }, [isAuthenticated, currentUserId, currentConversationId, searchParams, pathname, router, scopeIsThePage, initialSyncDone])
 
   const updateSessionUrl = useCallback(
     (sessionId: string | null) => {
