@@ -25,7 +25,7 @@ export async function recordDecidedAnswer(
     personalShelf: decision.may.personalShelf,
     updatedAt: new Date(),
   }
-  await executor
+  const written = await executor
     .insert(answerContexts)
     .values({ organizationId: decision.organizationId, messageId: decision.answerMessageId, ...decided })
     .onConflictDoUpdate({
@@ -33,7 +33,8 @@ export async function recordDecidedAnswer(
       set: decided,
       setWhere: eq(answerContexts.conversationId, decision.conversationId),
     })
-  return true
+    .returning({ messageId: answerContexts.messageId })
+  return written.length > 0
 }
 
 export interface AnswerReads {
@@ -51,6 +52,7 @@ const merged = (column: SQLWrapper, added: readonly string[]) =>
 export async function recordAnswerReads(
   executor: DbExecutor,
   organizationId: string,
+  conversationId: string,
   answerMessageId: string,
   reads: AnswerReads,
 ): Promise<void> {
@@ -65,5 +67,11 @@ export async function recordAnswerReads(
       ...(reads.personalShelf ? { readPersonalShelf: true } : {}),
       updatedAt: new Date(),
     })
-    .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.messageId, answerMessageId)))
+    .where(
+      and(
+        eq(answerContexts.organizationId, organizationId),
+        eq(answerContexts.conversationId, conversationId),
+        eq(answerContexts.messageId, answerMessageId),
+      ),
+    )
 }

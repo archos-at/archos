@@ -52,7 +52,7 @@ vi.mock('./restricted-use-repository', () => ({
 }))
 
 vi.mock('@/lib/conversation-context/record', () => ({
-  recordAnswerReads: vi.fn(async (_tx: unknown, _org: string, messageId: string, reads: { projects?: string[]; folders?: string[] }) => {
+  recordAnswerReads: vi.fn(async (_tx: unknown, _org: string, _conversation: string, messageId: string, reads: { projects?: string[]; folders?: string[] }) => {
     state.steps.push(`reads:${messageId}:${[...(reads.projects ?? []), ...(reads.folders ?? [])].join(',')}`)
   }),
 }))

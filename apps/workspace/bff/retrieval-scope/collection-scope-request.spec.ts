@@ -20,6 +20,8 @@ vi.mock('@/lib/sharing/repository', () => ({ findGrantForSubject: vi.fn() }))
 import { isAuthzRefusal, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
+import { ForbiddenError } from '@/lib/api/errors'
+import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { getDb } from '@/lib/db'
 import { findGrantForSubject } from '@/lib/sharing/repository'
@@ -181,6 +183,23 @@ describe('the conversation row decides which project a turn reads (ADR-0193 rule
 
     expect(result.projectId).toBe(PROJECT_ID)
     expect(requireProjectAccess).toHaveBeenCalledWith(session, PROJECT_ID, expect.anything())
+  })
+
+  it('keeps a viewer of the chat in it without the project, when the request named none and the chat rights are missing', async () => {
+    ownRow(PROJECT_ID)
+    const allowed = { role: 'project-viewer' as const, closed: false, readsBecauseClosed: false }
+    vi.mocked(requireProjectAccess).mockImplementation(async (_session, _project, permissions) => {
+      if (permissions === CHAT_PERMISSIONS) throw new ForbiddenError('no chat rights')
+      return allowed as never
+    })
+
+    const result = await buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID })
+
+    expect(result.projectId).toBeUndefined()
+    expect(result.scope.some((collection) => collection.startsWith('proj_'))).toBe(false)
+    await expect(
+      buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID, projectId: PROJECT_ID }),
+    ).rejects.toBeInstanceOf(ForbiddenError)
   })
 
   it('refuses a request that names another project than the row', async () => {

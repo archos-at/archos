@@ -7,7 +7,7 @@ import { readableRestrictedCollections } from '@/lib/conversations/restricted-us
 import { readConversationRow } from '@/lib/conversation-context/audience'
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import { getProjectFolderAccess } from '@/lib/authz/folder-access'
-import { ForbiddenError } from '@/lib/api/errors'
+import { ForbiddenError, isAuthzRefusal } from '@/lib/api/errors'
 import {
   computeCollectionScope,
   encodeCollectionScopeHeader,
@@ -122,12 +122,17 @@ export async function buildCollectionScopeFromRequest(
     throw new ConversationProjectMismatchError()
   }
   const namedProject = conversationVerified ? (rowProject ?? undefined) : context.projectId
-  const projectId = includeProject ? namedProject : undefined
+  let projectId = includeProject ? namedProject : undefined
 
   let projectReadOnly = false
   if (projectId && session && !anonymous) {
-    const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
-    projectReadOnly = access.readsBecauseClosed
+    try {
+      const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
+      projectReadOnly = access.readsBecauseClosed
+    } catch (error) {
+      if (context.projectId || !isAuthzRefusal(error)) throw error
+      projectId = undefined
+    }
   }
 
   const projectCollectionName = includeProject

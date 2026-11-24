@@ -18,9 +18,10 @@ export interface PromptFacts {
   solo: boolean
   personalMemory: boolean
   workspaceRead: WorkspaceRead
+  closed: boolean
 }
 
-const CLOSED: PromptFacts = { solo: false, personalMemory: false, workspaceRead: 'none' }
+const CLOSED: PromptFacts = { solo: false, personalMemory: false, workspaceRead: 'none', closed: true }
 
 export async function promptFacts(
   context: Pick<VerifiedRequestContext, 'organizationId' | 'userId' | 'conversationId'> &
@@ -31,7 +32,7 @@ export async function promptFacts(
   const kind = context.contextKind ?? 'chat'
   const foreign = decision && (decision.userId !== userId || decision.organizationId !== organizationId)
   if (decision && (foreign || decision.conversationId !== conversationId || decision.kind !== kind)) return CLOSED
-  if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf(kind, null, false) }
+  if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf(kind, null, false), closed: false }
   try {
     const { solo: now } = await readContextAudience(organizationId, conversationId, userId)
     const solo = now && (decision?.solo ?? true)
@@ -39,6 +40,7 @@ export async function promptFacts(
       solo,
       personalMemory: mayPersonalMemory(kind, conversationId, solo) && (decision?.may.personalMemory ?? true),
       workspaceRead: narrower(workspaceReadOf(kind, conversationId, solo), decision?.may.workspaceRead),
+      closed: false,
     }
   } catch (error) {
     console.warn('[Conversation Context] The audience could not be read; the turn is closed:', error)
