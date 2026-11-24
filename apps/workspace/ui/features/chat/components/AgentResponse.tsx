@@ -6,7 +6,7 @@ import { HeightExpand } from '@/components/motion/height-arrival'
 import { cn } from '@/lib/utils'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
 import { MarkdownSlotProvider } from '@/shared/components/MarkdownRenderer/slot-context'
-import { handleNearestCitationTap } from '../hooks/use-nearest-citation-tap'
+import { nearestCitationTapFrame } from '../hooks/use-nearest-citation-tap'
 import { AnswerCitations } from './AnswerCitations'
 import { DiagramFilingProvider } from '@/features/diagrams/diagram-filing-context'
 import { NestedMarkdownPluginsProvider } from '@/shared/components/MarkdownRenderer/nested-plugins-context'
@@ -42,7 +42,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             >
               <div
                 ref={controller.frameRef}
-                onClick={handleNearestCitationTap}
+                {...nearestCitationTapFrame}
                 className={cn(
                   'flex w-full flex-col gap-2 overflow-hidden break-words',
                   controller.dimmed
@@ -210,7 +210,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             one considered object with sections — not a card floating in a tray. */}
                 <div
                   ref={controller.frameRef}
-                  onClick={handleNearestCitationTap}
+                  {...nearestCitationTapFrame}
                   className={cn(
                     'bg-card flex flex-col gap-2 px-4 pt-[18px] pb-[17px] break-words sm:px-[22px]',
                     controller.dimmed
