@@ -10,3 +10,6 @@ fixes:
   - >
     On a phone, „Details“ under a file that could not be read is as tall as a
     fingertip.
+  - >
+    On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the
+    way to its edge.
