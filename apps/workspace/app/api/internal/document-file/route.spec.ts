@@ -198,7 +198,7 @@ describe('GET /api/internal/document-file', () => {
     it('answers for a collection the envelope signs, in the organization it names', async () => {
       const res = await GET(request('?collection=proj_1&filename=plan.png', 'test-token', envelope()))
       expect(res.status).toBe(200)
-      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1' })
+      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1', userId: 'user_asker' })
       expect(vi.mocked(findDocumentStorageKey).mock.calls[0]).toEqual(['proj_1', 'plan.png', 'org_1'])
     })
 

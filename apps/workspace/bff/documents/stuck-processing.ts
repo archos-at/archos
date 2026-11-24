@@ -1,5 +1,5 @@
 import 'server-only'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { INGEST_DISPATCH_FAILED_MESSAGE } from './ingest-dispatch'
 import { redispatchStuckDocument } from './ingest-recovery'
 import { listStuckProcessingDocuments, markDocumentIngestFailed, type StuckProcessingDocument } from './repository'
@@ -32,7 +32,7 @@ async function recoverRows(rows: StuckProcessingDocument[]): Promise<StuckProces
   const result: StuckProcessingSweepResult = { checked: rows.length, requeued: 0, failed: 0, gone: 0, errors: 0 }
   for (const row of rows) {
     try {
-      const outcome = await withTenant({ organizationId: row.organizationId }, () => recoverOne(row))
+      const outcome = await withSystemReader(row.organizationId, 'ingestion-recovery', () => recoverOne(row))
       result[outcome] += 1
     } catch (error) {
       console.error('[documents] could not recover document', row.id, 'left at processing', error)

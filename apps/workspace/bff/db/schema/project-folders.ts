@@ -4,7 +4,7 @@ import { projects } from './projects'
 import { documents } from './documents'
 import { FOLDER_DESCRIPTION_MAX_LENGTH } from '@/lib/projects/folders'
 
-export const FOLDER_SCOPES = ['project', 'office_shelf'] as const
+export const FOLDER_SCOPES = ['project', 'office_shelf', 'personal'] as const
 export type FolderScope = (typeof FOLDER_SCOPES)[number]
 
 export const projectFolders = pgTable('project_folders', {
@@ -12,6 +12,7 @@ export const projectFolders = pgTable('project_folders', {
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   organizationId: text('organization_id').notNull(),
   scope: text('scope').$type<FolderScope>().notNull().default('project'),
+  ownerUserId: text('owner_user_id'),
   parentId: uuid('parent_id'),
   name: varchar('name', { length: 255 }).notNull(),
   path: varchar('path', { length: 1024 }).notNull(),
@@ -35,10 +36,14 @@ export const projectFolders = pgTable('project_folders', {
     table.organizationId,
     table.scope,
   ),
-  scopeCheck: check('project_folders_scope_check', sql`${table.scope} IN ('project', 'office_shelf')`),
+  scopeCheck: check('project_folders_scope_check', sql`${table.scope} IN ('project', 'office_shelf', 'personal')`),
   descriptionLength: check(
     'project_folders_description_length',
     sql`${table.description} IS NULL OR (char_length(${table.description}) <= ${sql.raw(String(FOLDER_DESCRIPTION_MAX_LENGTH))} AND btrim(${table.description}) <> '')`,
+  ),
+  personalHasOwner: check(
+    'project_folders_personal_has_owner',
+    sql`(${table.scope} = 'personal') = (${table.ownerUserId} IS NOT NULL)`,
   ),
   scopeOwnerCheck: check(
     'project_folders_scope_owner_check',

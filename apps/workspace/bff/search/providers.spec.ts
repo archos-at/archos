@@ -204,6 +204,7 @@ describe('searchAnnotations', () => {
     documentId: 'd1',
     filename: 'EG.pdf',
     displayName: null,
+    scope: 'project' as const,
     projectId: P1,
     projectName: 'Wohnbau Hubergasse',
     kind: 'defect',

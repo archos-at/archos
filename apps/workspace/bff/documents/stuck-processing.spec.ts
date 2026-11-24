@@ -67,7 +67,7 @@ describe('recoverStuckProcessing', () => {
     const result = await recoverStuckProcessing(NOW)
 
     expect(redispatchStuckDocument).toHaveBeenCalledWith('org_1', 'doc-1')
-    expect(scope!).toMatchObject({ kind: 'tenant', organizationId: 'org_1' })
+    expect(scope!).toMatchObject({ kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'ingestion-recovery' })
     expect(result).toEqual({ checked: 1, requeued: 1, failed: 0, gone: 0, errors: 0 })
   })
 
@@ -147,7 +147,7 @@ describe('failDocumentsOfDeadJob', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith('a', 'org_1', 'Ingestion could not be started', {
       backgroundJobId: 'job-dead',
     })
-    expect(scope).toMatchObject({ organizationId: 'org_1' })
+    expect(scope).toMatchObject({ organizationId: 'org_1', systemReader: 'ingestion-recovery' })
     expect(redispatchStuckDocument).not.toHaveBeenCalled()
     expect(result).toMatchObject({ checked: 1, failed: 1, gone: 0, errors: 0 })
   })

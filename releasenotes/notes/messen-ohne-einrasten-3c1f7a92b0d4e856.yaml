@@ -1,0 +1,8 @@
+---
+# area: documents
+fixes:
+  - >
+    Measuring on a PDF drawing now works anywhere on the sheet, so you can
+    measure several areas in a row; points still snap to corners and lines when
+    close, and holding Ctrl (Cmd on a Mac) places a point exactly where the
+    pointer is.

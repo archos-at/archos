@@ -27,6 +27,7 @@ const BACKEND_MIRROR_TIMEOUT_MS = 10_000
 const FOLDER_NOT_FOUND: Record<DocumentShelf['kind'], string> = {
   project: 'Folder not found in this project.',
   office_shelf: 'Folder not found in the office shelf.',
+  personal: 'Folder not found in your own shelf.',
 }
 
 export interface MoveDocumentInput {

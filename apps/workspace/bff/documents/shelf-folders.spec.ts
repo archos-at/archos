@@ -172,7 +172,7 @@ describe('a folder row on the Archiv shelf', () => {
 
     expect(result.ok).toBe(true)
     expect(fake.writes.inserted).toEqual([
-      { organizationId: 'org-1', scope: 'office_shelf', projectId: null, parentId: null, name: 'Normen', path: 'Normen' },
+      { organizationId: 'org-1', scope: 'office_shelf', projectId: null, ownerUserId: null, parentId: null, name: 'Normen', path: 'Normen' },
     ])
   })
 

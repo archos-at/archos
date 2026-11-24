@@ -371,6 +371,7 @@ export function useInputAreaController({
   )
   const pickReference = useCallback(
     (hit: DocumentHit) =>
+      hit.shelf !== 'personal' &&
       setComposerSubject({
         resourceType: 'document',
         resourceId: hit.id,

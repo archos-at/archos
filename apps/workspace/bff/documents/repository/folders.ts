@@ -30,7 +30,7 @@ export async function findFolderPathsInProject(
   return new Map(rows.map((row) => [row.id, row.path]))
 }
 
-async function findFolderPathOnShelf(
+export async function findFolderPathOnShelf(
   shelf: DocumentShelf,
   folderId: string,
   organizationId: string,

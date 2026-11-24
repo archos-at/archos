@@ -53,7 +53,8 @@ export function reachWhere(reach: SearchReach, includeArchived: boolean): SQL | 
   const hidden = reachHiddenFolderIds(reach)
   const shelves = or(
     projectIds.length > 0 ? and(eq(documents.scope, 'project'), inArray(documents.projectId, projectIds)) : undefined,
-    reach.officeShelf ? eq(documents.scope, 'office_shelf') : undefined
+    reach.officeShelf ? eq(documents.scope, 'office_shelf') : undefined,
+    reach.personal ? and(eq(documents.scope, 'personal'), eq(documents.ownerUserId, reach.personal.userId)) : undefined
   )
   return and(
     eq(documents.organizationId, reach.organizationId),

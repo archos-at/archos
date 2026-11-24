@@ -17,7 +17,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireShelfRead, requireShelfWrite } from './shelf-authz'
 import { shelfCollectionName } from './shelf-collection'
 import { publishShelfChanged } from './shelf-live'
-import { shelfDocumentWhere, shelfOwner, shelfFolderWhere, type OfficeShelf, type DocumentShelf } from './shelf'
+import { shelfDocumentWhere, shelfOwner, shelfFolderWhere, type OfficeShelf, type PersonalShelf, type DocumentShelf } from './shelf'
 import { escapeLikePattern } from '@/lib/text/like-pattern'
 
 const BACKEND_MIRROR_TIMEOUT_MS = 5_000
@@ -458,7 +458,7 @@ export async function updateShelfFolder(
 
 export async function deleteShelfFolder(
   session: AuthorizedSession,
-  shelf: OfficeShelf,
+  shelf: OfficeShelf | PersonalShelf,
   folderId: string,
 ): Promise<Outcome<{ result: DeleteFolderResult }>> {
   await requireShelfWrite(session, shelf)

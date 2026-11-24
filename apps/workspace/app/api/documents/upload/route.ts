@@ -5,6 +5,7 @@ import { readRevisionOf } from '@/lib/documents/revision-upload'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { SHELF_SCOPES, shelfOf } from '@/lib/documents/shelf-scope'
 import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
+import { uploadToPersonalShelf } from '@/lib/personal-shelf/service'
 import { announceNormReadingAtUpload } from '@/lib/base-knowledge/office/upload-reading-event'
 import { readScreeningRelease } from '@/lib/upload-screening/service'
 import { readUploadBatchId } from '@/lib/upload-batches/service'
@@ -21,7 +22,7 @@ export const POST = apiRoute(
     if (scope !== undefined && !(SHELF_SCOPES as readonly string[]).includes(scope)) {
       throw new BadRequestError(`scope must be one of ${SHELF_SCOPES.join(', ')}`)
     }
-    const shelf = shelfOf({ scope: scope as (typeof SHELF_SCOPES)[number] | undefined, projectId: text(formData.get('projectId')) }, request)
+    const shelf = shelfOf({ scope: scope as (typeof SHELF_SCOPES)[number] | undefined, projectId: text(formData.get('projectId')) }, request, session)
     const input = {
       folderId: text(formData.get('folderId')) ?? null,
       originPath: text(formData.get('originPath')) ?? null,
@@ -29,6 +30,7 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
     }
+    if (shelf.kind === 'personal') return uploadToPersonalShelf(session, file, request, input)
     const uploaded =
       shelf.kind === 'project'
         ? await uploadDocument(session, { projectId: shelf.projectId, file, ...input }, request)
@@ -44,7 +46,7 @@ export const POST = apiRoute(
   {
     authz: {
       enforcedBy:
-        'uploadDocument (requireProjectAccess project:documents:write) | uploadToOfficeShelf → uploadOfficeShelfDocument (canManageOfficeShelf)',
+        'uploadDocument (requireProjectAccess project:documents:write) | uploadToOfficeShelf → uploadOfficeShelfDocument (canManageOfficeShelf) | uploadToPersonalShelf (the caller’s own shelf only: shelfOf names session.userId)',
     },
     limits: { rule: DOCUMENT_UPLOAD_LIMIT },
   }

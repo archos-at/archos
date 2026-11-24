@@ -65,7 +65,7 @@ describe('getProjectOverviewData', () => {
 
     const stats = compile(predicates[1])
     expect(stats.sql).toContain('"scope"')
-    expect(stats.params).toEqual([PROJECT_ID, ORG_ID, 'project'])
+    expect(stats.params).toEqual([PROJECT_ID, ORG_ID, 'project', 'personal'])
   })
 
   it('lists only documents on the project shelf', async () => {
@@ -73,7 +73,7 @@ describe('getProjectOverviewData', () => {
 
     const recent = compile(predicates[2])
     expect(recent.sql).toContain('"scope"')
-    expect(recent.params).toEqual([PROJECT_ID, ORG_ID, 'project'])
+    expect(recent.params).toEqual([PROJECT_ID, ORG_ID, 'project', 'personal'])
   })
 
   it('asks the count and the list the same question', async () => {

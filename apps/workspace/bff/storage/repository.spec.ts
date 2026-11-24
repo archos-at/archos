@@ -11,9 +11,15 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
   const whereArgs: string[] = []
 
   const tx = {
-    execute: vi.fn(async (query: { queryChunks?: unknown[] }) => {
-      statements.push(JSON.stringify(query.queryChunks ?? query))
-      return []
+    execute: vi.fn(async (query: SQL) => {
+      const text = new PgDialect().sqlToQuery(query).sql
+      if (!text.includes('organization_storage_by_scope')) {
+        statements.push(JSON.stringify((query as { queryChunks?: unknown[] }).queryChunks ?? query))
+        return []
+      }
+      whereArgs.push(text)
+      statements.push('SELECT sum')
+      return [{ scope: 'project', bytes: usedBytes, documents: 1, version_bytes: versionBytes }]
     }),
     select: vi.fn(() => ({
       from: vi.fn(() => ({
@@ -59,6 +65,9 @@ const getDb = vi.fn()
 vi.mock('@/lib/db', () => ({ getDb: () => getDb() }))
 vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: (_reason: string, fn: () => unknown) => fn(),
+  withTenant: (_scope: unknown, fn: () => unknown) => fn(),
+  getTenantContext: () => ({ kind: 'tenant', organizationId: 'org-1', userId: 'user-1' }),
+  MissingTenantContextError: class extends Error {},
 }))
 
 import { insertDocumentWithinQuota, replaceDocumentWithinQuota } from './repository'
@@ -215,13 +224,13 @@ describe('replaceDocumentWithinQuota', () => {
     expect(fake.updated).toHaveLength(0)
   })
 
-  it('measures the whole organization, the row being replaced included', async () => {
+  it('measures the whole organization through its totals, every shelf and the row being replaced included', async () => {
     const fake = fakeDb(0)
     getDb.mockReturnValue(fake.db)
     await replaceDocumentWithinQuota('org-1', 'doc-1', next(1), 10)
     expect(fake.whereArgs).toHaveLength(1)
     expect(fake.whereArgs[0]).not.toMatch(/"id" <>/)
-    expect(fake.whereArgs[0]).toMatch(/"organization_id" = \$1/)
+    expect(fake.whereArgs[0]).toMatch(/FROM organization_storage_by_scope\(\)/)
   })
 
   it('still refuses a replacement that genuinely does not fit', async () => {

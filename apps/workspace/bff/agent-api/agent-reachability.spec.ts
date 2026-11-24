@@ -29,6 +29,26 @@ interface Exemption {
 }
 
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
+  'GET /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'POST /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'PATCH /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'DELETE /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'POST /api/personal-shelf/folders/ensure': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
   'GET /api/ris/document': {
     category: 'external-service',
     reason: 'the RIS text dialog proxies the public legal text service; an agent reads a RIS document by number or URL through law-lookup (`instrument`)',
