@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A research run or task that finished during a brief outage now shows its

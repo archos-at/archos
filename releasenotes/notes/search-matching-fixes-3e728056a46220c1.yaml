@@ -1,4 +1,5 @@
 ---
+# area: search
 fixes:
   - >
     The search now finds the same documents whether you type Flächenwidmung or

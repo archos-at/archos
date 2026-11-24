@@ -1,4 +1,5 @@
 ---
+# area: administration
 features:
   - >
     When you share a chat that drew on a restricted folder, Piloti offers only

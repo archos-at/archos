@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     For people who work in more than one office, the top bar above the

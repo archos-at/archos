@@ -1,11 +1,12 @@
-// @disk-inputs: ui/features/chat/components/AnswerExcerptAsk.tsx, ui/features/chat/components/ViewerActionRow.tsx, ui/features/chat/components/reasoning/LookStepRow.tsx, ui/features/chat/lib/canvas-bridge.ts, ui/features/documents/components/document-revisions.tsx, ui/features/documents/components/file-preview-pane.tsx, ui/features/documents/components/review/composer.tsx, ui/features/documents/components/review/cursor-chat.tsx, ui/features/documents/components/review/document-review.tsx, ui/features/documents/components/review/mark-row.tsx, ui/features/documents/components/review/review-export-menu.tsx, ui/features/documents/components/review/review-page-layer.tsx, ui/features/documents/components/review/review-panel.tsx, ui/features/documents/components/review/thread-card.tsx, ui/features/documents/hooks/use-canvas-ask.ts, ui/features/documents/lib/review-focus.ts, ui/features/cards/components/CanvasActivityCard.tsx, ui/features/cards/components/RevisionCompareCard.tsx, ui/features/knowledge/components/page-place-button.tsx, ui/features/search/components/composer-search-picker.tsx, tests/fixtures/surface-parity.json
+// @disk-inputs: ui/features/chat/components/AnswerExcerptAsk.tsx, ui/features/chat/components/ViewerActionRow.tsx, ui/features/chat/components/reasoning/LookStepRow.tsx, ui/features/chat/lib/canvas-bridge.ts, ui/features/documents/components/document-revisions.tsx, ui/features/documents/components/file-preview-pane.tsx, ui/features/documents/components/review/composer.tsx, ui/features/documents/components/review/cursor-chat.tsx, ui/features/documents/components/review/document-review.tsx, ui/features/documents/components/review/mark-row.tsx, ui/features/documents/components/review/measure/scale-control.tsx, ui/features/documents/components/review/review-export-menu.tsx, ui/features/documents/components/review/review-page-layer.tsx, ui/features/documents/components/review/review-panel.tsx, ui/features/documents/components/review/thread-card.tsx, ui/features/documents/hooks/use-canvas-ask.ts, ui/features/documents/lib/review-focus.ts, ui/features/cards/components/CalibrationProposalPreview.tsx, ui/features/cards/components/CanvasActivityCard.tsx, ui/features/cards/components/RevisionCompareCard.tsx, ui/features/knowledge/components/page-place-button.tsx, ui/features/search/components/composer-search-picker.tsx, tests/fixtures/surface-parity.json
 /**
  * @vitest-environment node
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 
 vi.mock('server-only', () => ({}))
 
@@ -77,7 +78,7 @@ describe('the surface parity registry', () => {
       const label = `${name}.${side}`
       if ('exempt' in form) expect(form.exempt.length, label).toBeGreaterThan(30)
       else if ('gap' in form) {
-        expect(form.gap.slice, label).toMatch(/^V\d+/)
+        expect(form.gap.slice, label).toMatch(/^(V\d+|[a-z][a-z-]* slice \d+$)/)
         expect(form.gap.reason.length, label).toBeGreaterThan(30)
       } else expect(Object.values(form).filter(Boolean).length, `${label} names no component, card or step`).toBeGreaterThan(0)
     }
@@ -105,10 +106,9 @@ describe('the surface parity registry', () => {
     }
   })
 
-  it('is what tests/fixtures/surface-parity.json says (UPDATE_FIXTURES=1 rewrites it)', () => {
+  it('is what tests/fixtures/surface-parity.json says (`task generate` rewrites it)', () => {
     const rendered = render()
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, rendered)
-    expect(readFileSync(FIXTURE, 'utf8')).toBe(rendered)
+    expectGenerated(FIXTURE, rendered)
   })
 })
 
@@ -134,7 +134,7 @@ function render(): string {
   const fixture = {
     comment:
       'Where each canvas capability is shown: apps/workspace/bff/surface-parity/parity.config.ts, written by ' +
-      'parity.config.spec.ts (UPDATE_FIXTURES=1). `tool` is the name the model binds (`canvas__mark`, `look`).',
+      'parity.config.spec.ts (`task generate`). `tool` is the name the model binds (`canvas__mark`, `look`).',
     capabilities,
   }
   return `${JSON.stringify(fixture, null, 1)}\n`

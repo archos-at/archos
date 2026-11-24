@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     Mentioning a colleague with @ now works from the very first moment of a new

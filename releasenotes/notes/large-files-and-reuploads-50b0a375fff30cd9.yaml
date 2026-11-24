@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     A large file (40 MB or more) is now read with more memory and on its own,

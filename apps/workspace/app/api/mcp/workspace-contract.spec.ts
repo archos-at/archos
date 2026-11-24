@@ -1,10 +1,11 @@
 // @vitest-environment node
 // @disk-inputs: tests/fixtures/workspace_mcp_requests.json, tests/fixtures/workspace_mcp_responses.json
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { webcrypto } from 'node:crypto'
 import { resolve } from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 
 vi.mock('@/lib/agent-api/catalog', async () => {
   const { FAKE_OPERATIONS } = await import('@/lib/agent-api/test-operations')
@@ -340,11 +341,10 @@ describe('the responses fixture', () => {
   it('is what the route answered', () => {
     const generated = {
       comment:
-        'Written by workspace-contract.spec.ts from the real route; read by test_workspace_mcp_contract.py. Regenerate with UPDATE_FIXTURES=1.',
+        'Written by workspace-contract.spec.ts from the real route; read by test_workspace_mcp_contract.py. Regenerate with `task generate`.',
       responses: Object.fromEntries(Object.entries(answers).sort(([a], [b]) => a.localeCompare(b))),
     }
     const text = JSON.stringify(generated, null, 2) + '\n'
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(RESPONSES, text, 'utf8')
-    expect(JSON.parse(readFileSync(RESPONSES, 'utf8'))).toEqual(generated)
+    expectGenerated(RESPONSES, text)
   })
 })

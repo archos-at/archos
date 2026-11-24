@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     A task can now run once on a date you choose, recur, or run only when you

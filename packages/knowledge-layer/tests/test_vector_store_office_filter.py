@@ -214,13 +214,14 @@ class TestTheRetrieversOffice:
             assert office_for([PROJECT]) == OFFICE_A
         assert office_for([PROJECT]) == OFFICE_B
 
-    def test_an_office_shelf_names_its_own_office(self):
-        assert office_for(["office_shelf_org_a", "archiv_org_a"]) == OFFICE_A
-
-    def test_nothing_names_the_office_of_a_project(self):
+    def test_naming_an_office_shelf_grants_no_office(self):
+        assert office_for(["office_shelf_org_a", "archiv_org_a"]) is None
         assert office_for([PROJECT]) is None
         assert office_for(["office_shelf_org_a", PROJECT]) is None
-        assert office_for(["office_shelf_org_a", "office_shelf_org_b"]) is None
+
+    def test_a_shelf_read_without_the_requests_office_is_refused(self):
+        with pytest.raises(ValueError, match="needs the office it reads as"):
+            ScopeRead(("office_shelf_org_b",), office_for(["office_shelf_org_b"]))
 
 
 class TestTheLicenceMark:

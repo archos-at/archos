@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { crossProjectJsonSchema } from './cross-project-schema'
 import {
   CROSS_PROJECT_FACT_CONSTRUCTION_METHODS,
@@ -21,11 +21,7 @@ const FIXTURE = join(process.cwd(), 'tests/fixtures/cross-project.schema.json')
 describe('cross-project JSON Schema', () => {
   it('matches the committed fixture the Python tier loads', () => {
     const generated = `${JSON.stringify(crossProjectJsonSchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, generated, 'utf8')
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The wire schemas changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture in the same change.'
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('exports every schema the contract map names, and only those', () => {

@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Sources under an answer no longer appear twice when the answer names a

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 from typing import TYPE_CHECKING
 from typing import Annotated
@@ -46,12 +45,8 @@ from .job_models import JobReportResponse
 from .job_models import JobStateResponse
 from .job_models import JobStatusResponse
 from .job_models import JobSubmitRequest
-from .job_models import ResearchRunItem
-from .job_models import ResearchRunsResponse
 from .job_models import report_cards
 from .job_models import report_sources
-from .research_runs import find_research_runs
-from .research_runs import format_created_at
 
 logger = logging.getLogger(__name__)
 
@@ -362,44 +357,3 @@ class JobRouteHandlers:
     ) -> InternalJobOutcomeResponse:
         _require_internal_token(request)
         return await internal_job_outcome(self.job_store, self.db_url, job_id, organization_id)
-
-    async def list_research_runs(
-        self,
-        request: Request,
-        project_collection: str | None = None,
-        conversation_id: str | None = None,
-        status: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> ResearchRunsResponse:
-        caller = _job_caller(request)
-
-        clamped_limit = max(1, min(limit, 200))
-        clamped_offset = max(0, offset)
-
-        visible_to = caller if os.environ.get("REQUIRE_AUTH", "false").lower() == "true" else None
-
-        loop = asyncio.get_running_loop()
-        rows, total = await loop.run_in_executor(
-            None,
-            find_research_runs,
-            self.db_url,
-            visible_to,
-            project_collection,
-            conversation_id,
-            status,
-            clamped_limit,
-            clamped_offset,
-        )
-
-        jobs = [
-            ResearchRunItem(
-                job_id=row["job_id"],
-                status=row["status"],
-                created_at=format_created_at(row["created_at"]),
-                conversation_id=row["conversation_id"],
-                project_collection=row["project_collection"],
-            )
-            for row in rows
-        ]
-        return ResearchRunsResponse(jobs=jobs, total=total)

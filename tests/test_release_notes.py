@@ -40,8 +40,12 @@ SECTION_KEYS = {key for key, _ in SECTIONS}
 GOOD = "Projects can now be renamed from the settings page, without contacting support."
 
 
+def as_note(body: dict) -> str:
+    return "---\n# area: general\n" + yaml.safe_dump(body)
+
+
 def lint_entry(text: str) -> list[str]:
-    return rules.lint_note("note.yaml", yaml.safe_dump({"features": [text]}), SECTION_KEYS)
+    return rules.lint_note("note.yaml", as_note({"features": [text]}), SECTION_KEYS)
 
 
 def test_a_plain_sentence_passes():
@@ -94,22 +98,22 @@ def test_the_shipped_template_fails_its_own_lint():
 
 
 def test_an_unknown_section_is_rejected():
-    problems = rules.lint_note("note.yaml", yaml.safe_dump({"awesome": [GOOD]}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", as_note({"awesome": [GOOD]}), SECTION_KEYS)
     assert any("unknown section" in problem for problem in problems)
 
 
 def test_an_empty_section_is_rejected():
-    problems = rules.lint_note("note.yaml", yaml.safe_dump({"features": []}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", as_note({"features": []}), SECTION_KEYS)
     assert any("empty" in problem for problem in problems)
 
 
 def test_a_section_that_is_not_a_list_is_rejected():
-    problems = rules.lint_note("note.yaml", yaml.safe_dump({"features": GOOD}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", as_note({"features": GOOD}), SECTION_KEYS)
     assert any("must be a list" in problem for problem in problems)
 
 
 def test_a_prelude_is_allowed_as_prose():
-    assert rules.lint_note("note.yaml", yaml.safe_dump({"prelude": GOOD}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", as_note({"prelude": GOOD}), SECTION_KEYS) == []
 
 
 def test_an_empty_file_is_rejected():
@@ -144,7 +148,7 @@ def test_a_reference_with_a_point_number_is_one_sentence():
 )
 def test_operator_notes_are_sent_to_the_operators_section(text):
     assert any("operators" in problem for problem in lint_entry(text))
-    note_yaml = yaml.safe_dump({"operators": [text]})
+    note_yaml = as_note({"operators": [text]})
     assert rules.lint_note("note.yaml", note_yaml, SECTION_KEYS) == []
 
 
@@ -161,7 +165,7 @@ def test_operator_notes_are_sent_to_the_operators_section(text):
 def test_security_and_severe_fixes_are_sent_to_an_internal_section(section, text):
     problems = lint_entry(text)
     assert any("security or severe fix" in problem for problem in problems), problems
-    assert rules.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", as_note({section: [text]}), SECTION_KEYS) == []
 
 
 @pytest.mark.parametrize(
@@ -225,7 +229,7 @@ def test_ui_product_terms_pass(text):
 @pytest.mark.parametrize("section", ["security", "operators", "incident"])
 def test_internal_sections_may_keep_the_technical_word(section):
     text = "The API key check now runs on every endpoint of the deployment pipeline."
-    assert rules.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", as_note({section: [text]}), SECTION_KEYS) == []
 
 
 @pytest.mark.parametrize("term", rules.PUBLIC_JARGON)
@@ -406,22 +410,22 @@ def test_a_finished_week_without_a_summary_is_reported_due():
     assert build.summaries_due(groups, date(2026, 10, 5)) == ["2026-W40"]
 
 
-def test_a_notes_own_area_line_wins_over_the_guess():
+def test_a_notes_area_is_its_area_line():
     raw = "---\n# area: bim\nfeatures:\n  - >\n    Uploads of whole folders now keep their structure.\n"
-    assert areas.note_area("folder-upload-1234567890abcdef.yaml", raw, "Uploads of whole folders.") == "bim"
+    assert areas.note_area("folder-upload-1234567890abcdef.yaml", raw) == "bim"
 
 
-def test_without_a_line_the_area_is_guessed_from_name_and_text():
-    assert areas.note_area("ifc-viewer-sections-1234567890abcdef.yaml", None, "Cut the model.") == "bim"
-    assert areas.derive_area("x-1234567890abcdef.yaml", "Answers now cite the passage they rest on.") == "answers"
-    assert areas.derive_area("x-1234567890abcdef.yaml", "Something nobody can place.") == areas.FALLBACK_AREA
+@pytest.mark.parametrize("raw", [None, "---\nfeatures: []\n", "# area: dokumente\n"])
+def test_a_note_without_a_known_area_line_is_not_published_under_a_guess(raw):
+    with pytest.raises(ValueError, match="area"):
+        areas.note_area("x-1234567890abcdef.yaml", raw)
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
         ("# area: documents\nfeatures: []\n", None),
-        ("features: []\n", None),
+        ("features: []\n", "no `# area:` line"),
         ("# area: choose one of projects, documents\n", "template"),
         ("# area: dokumente\n", "unknown area"),
         ("# area: documents\n# area: search\n", "one area"),
@@ -434,7 +438,7 @@ def test_the_area_line_is_linted(raw, expected):
 
 def test_every_committed_note_gets_a_known_area():
     for path in sorted((REPO_ROOT / "releasenotes" / "notes").glob("*.yaml")):
-        assert areas.note_area(path.name, path.read_text(encoding="utf-8"), "") in areas.AREAS
+        assert areas.note_area(path.name, path.read_text(encoding="utf-8")) in areas.AREAS
 
 
 def test_the_template_offers_every_area():

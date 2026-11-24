@@ -1783,23 +1783,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/LookStrip.tsx",
-    "to": "ui/features/knowledge/components/page-place-button.tsx",
-    "unresolvedTo": "@/features/knowledge/components/page-place-button",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/chat/components/reasoning/SourceCard.tsx",
     "to": "ui/features/layout/components/SourceSignalChip.tsx",
     "unresolvedTo": "@/features/layout/components/SourceSignalChip",
@@ -1808,41 +1791,6 @@
       "aliased-tsconfig",
       "aliased-tsconfig-paths",
       "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/WorkList.tsx",
-    "to": "ui/features/knowledge/components/page-place-dialog.tsx",
-    "unresolvedTo": "@/features/knowledge/components/page-place-dialog",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/WorkList.tsx",
-    "to": "ui/features/knowledge/lib/page-place.ts",
-    "unresolvedTo": "@/features/knowledge/lib/page-place",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
       "import"
     ],
     "rule": {

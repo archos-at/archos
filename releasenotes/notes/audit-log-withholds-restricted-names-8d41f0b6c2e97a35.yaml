@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     New audit log entries no longer show the names of documents in folders that

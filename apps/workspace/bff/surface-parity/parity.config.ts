@@ -169,6 +169,12 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/components/file-preview-pane.tsx' },
     chat: { component: 'features/chat/components/ViewerActionRow.tsx' },
   },
+  calibrateScale: {
+    summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
+    operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
+    canvas: { component: 'features/documents/components/review/measure/scale-control.tsx' },
+    chat: { card: 'operation_proposal', component: 'features/cards/components/CalibrationProposalPreview.tsx' },
+  },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 
 export type SurfaceCapabilityName = keyof typeof SURFACE_CAPABILITIES
