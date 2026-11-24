@@ -353,7 +353,7 @@ describe('POST /api/internal/turn-context', () => {
   it.each([
     ['another asker', { organizationId: 'org_1', userId: 'user_2' }],
     ['another organisation', { organizationId: 'org_2', userId: 'user_1' }],
-  ])('closes a turn whose decision was made for %s', async (_, asker) => {
+  ])('closes a turn whose decision was made for %s, and gives it no project block', async (_, asker) => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
@@ -367,6 +367,9 @@ describe('POST /api/internal/turn-context', () => {
 
     expect(data.personalMemory).toBeNull()
     expect(data.workspace).toContain('no workspace read runs here')
+    expect(data.projectContext).toBeNull()
+    expect(loadProjectPromptView).not.toHaveBeenCalled()
+    expect(buildProjectMemoryDigest).toHaveBeenCalledWith(undefined, 'org_1', expect.anything())
   })
 
   it('closes a turn whose decision names another conversation', async () => {

@@ -50,7 +50,7 @@ export async function recordCrossProjectHandOut(
     await recordSourceFolders(tx, organizationId, conversationId, folderIds)
     if (party.answerMessageId) {
       await markAnswerRestrictedUse(tx, organizationId, conversationId, party.answerMessageId)
-      await recordAnswerReads(tx, organizationId, party.answerMessageId, { projects: projectIds, folders: folderIds })
+      await recordAnswerReads(tx, organizationId, conversationId, party.answerMessageId, { projects: projectIds, folders: folderIds })
     }
     return true
   })
