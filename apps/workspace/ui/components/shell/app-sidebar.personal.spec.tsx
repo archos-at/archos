@@ -41,6 +41,21 @@ afterEach(() => {
 })
 
 describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
+  test('the switch stays one element across a side change, its thumb sliding sideways only', () => {
+    const { container, rerender } = render(<AppSidebar {...props} projectId={null} />)
+    const thumb = container.querySelector('[data-slot="rail-mode-thumb"]')
+    const personal = screen.getByRole('radio', { name: 'Personal' })
+    expect(thumb).not.toHaveClass('translate-x-full')
+
+    pathname = '/app/projects/p1/files'
+    rerender(<AppSidebar {...props} projectId="p1" />)
+
+    expect(container.querySelector('[data-slot="rail-mode-thumb"]')).toBe(thumb)
+    expect(screen.getByRole('radio', { name: 'Personal' })).toBe(personal)
+    expect(thumb).toHaveClass('translate-x-full')
+    expect(thumb?.className).not.toMatch(/translate-y/)
+  })
+
   test('under Persönlich: a new chat, Meine Ablage and the person’s last chats, and no project selector', () => {
     const chats = { items: [{ id: 'c1', title: 'Anfrage Huber', href: `${PERSONAL_CHAT_PATH}?session=c1`, current: false }], allHref: PERSONAL_CHAT_PATH }
     render(

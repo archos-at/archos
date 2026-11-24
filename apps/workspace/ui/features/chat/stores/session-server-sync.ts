@@ -15,10 +15,22 @@ import { getConversationsClient, isRightsLost } from '../lib/conversations-clien
 export const hydratingConversationIds = new Set<string>()
 
 const SIDE_FRESH_MS = 20_000
-const sideLoads = new Map<string, { at: number; pending: Promise<void> }>()
+interface SideLoad { at: number; settled: boolean; pending: Promise<void> }
+const sideLoads = new Map<string, SideLoad>()
+
+let sideLoadsOwner: string | null = null
 
 export function forgetSideLoads(): void {
   sideLoads.clear()
+  sideLoadsOwner = null
+}
+
+export function sideLoadsChangeHands(userId: string | null): boolean {
+  if (userId === null) return false
+  const changed = sideLoadsOwner !== null && sideLoadsOwner !== userId
+  if (changed) sideLoads.clear()
+  sideLoadsOwner = userId
+  return changed
 }
 
 export const createSessionServerSyncSlice: StateCreator<
@@ -32,11 +44,16 @@ export const createSessionServerSyncSlice: StateCreator<
     | '_lockConversation'
   >
 > = (set, get) => {
-  const loadSide = async (projectId?: string, place?: 'personal' | 'project'): Promise<boolean> => {
+  const loadSide = async (
+    projectId?: string,
+    place?: 'personal' | 'project',
+    isLatest: () => boolean = () => true
+  ): Promise<boolean> => {
     const since = Date.now()
     try {
       const conversationsClient = await getConversationsClient()
       const serverConvs = await conversationsClient.list(projectId, place)
+      if (!isLatest()) return true
       if (place) {
         const key = serverSideKey(place, projectId)
         set({ serverSides: { ...get().serverSides, [key]: { ids: (serverConvs ?? []).map((c) => c.id), since } } }, false, 'serverSides')
@@ -117,14 +134,18 @@ export const createSessionServerSyncSlice: StateCreator<
     if (!place) return loadSide(projectId, place).then(() => undefined)
     const key = serverSideKey(place, projectId)
     const known = sideLoads.get(key)
+    if (known && !known.settled) return known.pending
     const hasWanted = !wantConversationId || get().conversations.some((c) => c.id === wantConversationId)
     if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
-    const pending: Promise<void> = loadSide(projectId, place).then((ok) => {
-      if (ok) sideLoads.set(key, { at: Date.now(), pending })
-      else sideLoads.delete(key)
+    const load: SideLoad = { at: Date.now(), settled: false, pending: Promise.resolve() }
+    const isLatest = () => sideLoads.get(key) === load
+    load.pending = loadSide(projectId, place, isLatest).then((ok) => {
+      if (!isLatest()) return
+      if (!ok) sideLoads.delete(key)
+      else Object.assign(load, { at: Date.now(), settled: true })
     })
-    sideLoads.set(key, { at: Date.now(), pending })
-    return pending
+    sideLoads.set(key, load)
+    return load.pending
   },
 
   hydrateConversationMessages: async (conversationId: string) => {

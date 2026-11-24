@@ -429,8 +429,12 @@ describe('AppSidebar - active state', () => {
   })
 
   test('keys the pill identity by rail width, so it never scales across a collapse', () => {
-    expect(railActivePillId(false)).not.toBe(railActivePillId(true))
-    expect(railActivePillId(false)).toBe(railActivePillId(false))
+    expect(railActivePillId(false, 'project')).not.toBe(railActivePillId(true, 'project'))
+    expect(railActivePillId(false, 'project')).toBe(railActivePillId(false, 'project'))
+  })
+
+  test('keys the pill identity by side, so it never glides up or down across a side switch', () => {
+    expect(railActivePillId(false, 'personal')).not.toBe(railActivePillId(false, 'project'))
   })
 })
 

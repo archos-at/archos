@@ -57,4 +57,55 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
 
     expect(list).toHaveBeenCalledTimes(2)
   })
+
+  it('a link’s ask joins the side’s fetch still in flight instead of racing it', async () => {
+    const { loadServerConversations } = useChatStore.getState()
+    const first = loadServerConversations('p1', 'project')
+    await loadServerConversations('p1', 'project', 's_new')
+    await first
+
+    expect(list).toHaveBeenCalledTimes(1)
+  })
+
+  it('a slower, older fetch never overwrites the side’s newer listing', async () => {
+    let finishOld: (rows: unknown[]) => void = () => {}
+    list
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+      .mockResolvedValueOnce([row('s_new')])
+    const { loadServerConversations } = useChatStore.getState()
+    const old = loadServerConversations('p1', 'project')
+    forgetSideLoads()
+    await loadServerConversations('p1', 'project')
+    finishOld([])
+    await old
+
+    expect(useChatStore.getState().serverSides['project:p1']?.ids).toEqual(['s_new'])
+  })
+
+  it('another person signing in on the same tab fetches their sides afresh', async () => {
+    const { loadServerConversations, setCurrentUser } = useChatStore.getState()
+    setCurrentUser('u1')
+    await loadServerConversations(undefined, 'personal')
+    setCurrentUser(null)
+    setCurrentUser('u2')
+    expect(useChatStore.getState().serverSides).toEqual({})
+    await loadServerConversations(undefined, 'personal')
+
+    expect(list).toHaveBeenCalledTimes(2)
+  })
+
+  it('signing in after a load without a person keeps the sides already asked for', async () => {
+    const { loadServerConversations, setCurrentUser } = useChatStore.getState()
+    setCurrentUser(null)
+    await loadServerConversations(undefined, 'personal')
+    setCurrentUser('u1')
+    await loadServerConversations(undefined, 'personal')
+
+    expect(list).toHaveBeenCalledTimes(1)
+  })
 })
+
+function row(id: string) {
+  const at = new Date().toISOString()
+  return { id, title: 'Plan', projectId: 'p1', createdAt: at, updatedAt: at }
+}

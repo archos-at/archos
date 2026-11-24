@@ -61,8 +61,8 @@ const SIDE_VARIANTS = {
   shown: { opacity: 1, x: 0 },
   leave: (direction: number) => ({ opacity: 0, x: -direction * SIDE_SLIDE_PX, transition: direction === 0 ? motionInstant : motionSnap }),
 }
-export function railActivePillId(iconRail: boolean): string {
-  return `rail-active-project-${iconRail ? 'icon' : 'full'}`
+export function railActivePillId(iconRail: boolean, side: RailMode): string {
+  return `rail-active-${side}-${iconRail ? 'icon' : 'full'}`
 }
 
 export interface AppSidebarProps {
@@ -188,7 +188,7 @@ function AppSidebarFrame({
           .filter((g) => g.key !== 'org')
           .flatMap((g) => g.items)
 
-  const activePillId = railActivePillId(iconRail)
+  const activePillId = railActivePillId(iconRail, mode)
   const railItem = (item: RailItemModel): React.JSX.Element => (
     <RailNavItem
       key={item.key}

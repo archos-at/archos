@@ -7,5 +7,5 @@ improvements:
     once, without a jump or an empty list.
   - >
     „Letzte Chats“ in the sidebar is shorter and quieter: at most eight chats,
-    always including the one you have open, under a lighter heading. „Alle
-    Chats“ appears when there are more.
+    under a lighter heading, and the one you have open stays among them once
+    it has a message or a title. „Alle Chats“ appears when there are more.
