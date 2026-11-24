@@ -928,7 +928,7 @@ and 200 characters; the push carries the title and body, never the excerpt.
 The rejected row's `reported` variant carries the same `related`.
 
 **A title carries the whole notice.** The Postfach page lists rows with
-`InboxQueueList`, „one quiet line each“: it draws a row's title and caption,
+`InboxEntry`, „one quiet entry each“: it draws a row's title and caption,
 never its body (`inboxItemCopy(...).title` only). The body reaches the push and
 `InboxItemRow`. So each title names the action itself, `held` with both answers
 („Haben Sie eine E-Mail an das Projekt „…“ gesendet? Sonst verwerfen“, since a

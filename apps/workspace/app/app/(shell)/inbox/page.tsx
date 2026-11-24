@@ -1,14 +1,35 @@
 import type { JSX } from 'react'
 import { type Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { BackLink, ShellContent } from '@/components/shell'
+import { PageHeader } from '@/components/ui/page-header'
+import { InboxWorkspace } from '@/features/collaboration/components'
+import { NotificationPrompt } from '@/features/notifications/components/notification-prompt'
 import { getTranslations } from '@/i18n/server'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
-import { InboxSheet } from './inbox-sheet'
+import { withPageSession } from '@/lib/auth/require-auth'
+import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
+import { inboxIsReachable } from '@/lib/inbox/registry'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations(collaborationCopy)
   return { title: t('inbox.title') }
 }
 
-export default function InboxPage(): JSX.Element {
-  return <InboxSheet standalone />
+export default async function InboxPage(): Promise<JSX.Element> {
+  return withPageSession(async (session) => {
+    if (!inboxIsReachable(isCollaborationEnabled(session))) notFound()
+    const t = await getTranslations(collaborationCopy)
+    return (
+      <ShellContent width="tool" fill>
+        <div className="listing-container flex h-full min-h-0 flex-col">
+          <BackLink fallbackHref="/app/projects" fallbackLabel={t('inbox.page.back')} className="touch-target mb-4 self-start" />
+          <PageHeader className="mb-4" title={t('inbox.title')} subtitle={t('inbox.subtitle')} />
+          <div className="min-h-0 flex-1">
+            <InboxWorkspace viewerId={session.userId} offer={<NotificationPrompt />} />
+          </div>
+        </div>
+      </ShellContent>
+    )
+  })
 }

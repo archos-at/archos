@@ -59,3 +59,10 @@ export function InboxItemFace({ item, size = 'md' }: { item: InboxItemView; size
     </span>
   )
 }
+
+export function InboxKindIcon({ item, className }: { item: InboxItemView; className?: string }): JSX.Element {
+  const presentation = inboxTypePresentation(item.type) ?? UNKNOWN_TYPE_PRESENTATION
+  if (presentation.icon === 'agent') return <AgentGlyph size="md" tone="outline" />
+  const Icon = ICONS[presentation.icon]
+  return <Icon className={className} aria-hidden />
+}

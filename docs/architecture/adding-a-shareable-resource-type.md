@@ -53,7 +53,7 @@ deep link all resolve through the registry.
 ladder plus one container check.
 
 **Presentation.** `AccessChip`, `AccessOverview`, `ShareDialog`, `InboxItemRow`,
-`InboxList`, `InboxBadge`, `MentionPicker`, `useSharing`, `useShareCandidates`
+`InboxWorkspace`, `InboxEntry`, `InboxBadge`, `MentionPicker`, `useSharing`, `useShareCandidates`
 and the event hub all take the type as data.
 
 ## 2. What you legitimately write

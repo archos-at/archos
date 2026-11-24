@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 import { Bell } from 'lucide-react'
 
 import { I18nProvider } from '@/i18n'
-import { InboxBadge, InboxList } from '@/features/collaboration/components'
+import { InboxBadge, InboxWorkspace } from '@/features/collaboration/components'
 import { installInboxShim, isEmptyVariant } from '../_fixtures/inbox-items'
 import { VIEWER_ID } from '../_fixtures/inbox-rows'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -32,16 +32,18 @@ export default function InboxDevPage(): JSX.Element {
       <NormDialogProvider dialog={NormDialog}>
       <main
         data-testid="inbox-preview"
-        className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-8 text-foreground md:px-8"
+        className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-8 text-foreground md:px-8"
       >
         <div>
           <h1 className="text-xl font-semibold">Postfach</h1>
           <p className="mt-1 text-sm text-muted-foreground">Anfragen und Neuigkeiten aus Ihrem Team.</p>
         </div>
 
-        {/* One list, so a single screenshot carries every row treatment. */}
-        {/* „Für mich“, the queue, opens it; ?filter=all shows every row treatment in one list. */}
-        {ready && <InboxList initialFilter="needsMe" viewerId={VIEWER_ID} />}
+        {ready && (
+          <div className="h-[36rem]">
+            <InboxWorkspace viewerId={VIEWER_ID} />
+          </div>
+        )}
 
         {!empty && (
           <section className="space-y-3">

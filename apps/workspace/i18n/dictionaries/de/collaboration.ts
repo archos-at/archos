@@ -214,11 +214,20 @@ export const collaboration: typeof en.collaboration = {
   },
 
   inbox: {
-    title: 'Postfach',
-    dock: {
-      close: 'Postfach schließen',
-      all: 'Alle Einträge, auch archivierte',
+    bell: {
+      waiting: '{count} warten auf Sie',
+      late: '{count} überfällig',
+      news: '{count} Neuigkeiten',
+      open: 'Postfach öffnen',
+      back: 'Postfach verlassen',
     },
+    page: {
+      back: 'Zurück',
+      opened: 'Geöffneter Eintrag',
+      pick: 'Wählen Sie links einen Eintrag.',
+      go: 'Öffnen',
+    },
+    title: 'Postfach',
     navLabel: 'Postfach',
     badgeAria:
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
