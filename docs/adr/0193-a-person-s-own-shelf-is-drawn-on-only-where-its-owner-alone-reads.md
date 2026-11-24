@@ -31,8 +31,12 @@ without being recorded.
 
 1. **„Meine Ablage“ is a third shelf.** `DocumentShelf` gains
    `{ kind: 'personal'; userId }`, `documents.scope` gains `personal` with the
-   owner on the row, and the upload pipeline, folders, listing, filing,
-   ingestion and deletion run unchanged against it. Only its owner reads or
+   owner on the row, and the upload pipeline, folders, listing, ingestion and
+   deletion run unchanged against it. Filing suggestions skip it: the agent does
+   not propose where a person's own files go. Background work that serves no
+   person (ingestion settle, rendition, search projection, recovery sweeps)
+   reaches its rows only as a named system reader, and the office's storage
+   quota counts its bytes like any other shelf's. Only its owner reads or
    writes it, held at the database by a per-user predicate in the one permissive policy on
    `documents`, as `personal_memory`'s policy names the person, not by the app
    layer alone. Leaving the office treats it as personal memory is
@@ -72,7 +76,7 @@ without being recorded.
   chat, filing a personal file into a project („In Projekt ablegen“), moving a
   chat into a project.
 
-How the context is decided and carried is ADR-0192; this decision is its
+How the context is decided and carried is ADR-0194; this decision is its
 fourth slice.
 
 ### Confirmation

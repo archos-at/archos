@@ -23,7 +23,7 @@ many times today:
 - the prompt states a rule the code does not hold;
 - the Python side allows more, not less, when its context is missing.
 
-Every new source would have to be taught to all of these, and ADR-0191's
+Every new source would have to be taught to all of these, and ADR-0193's
 personal shelf is the next one. A scope that lives as long as a socket would also
 keep the personal shelf in a chat after it was shared.
 
@@ -54,8 +54,8 @@ keep the personal shelf in a chat after it was shared.
    are today (`admit`).
 
    The routes that legitimately run without an envelope keep their own guard:
-   the eight exempt prefixes of the envelope middleware, ingestion, and the
-   worker identity headers.
+   the eight exempt prefixes of the envelope middleware, and ingestion. A job
+   worker binds its identity from the job it runs, never from plain headers.
 4. **A changed audience narrows; it does not stall.** `conversations` gains an
    `audience_version`. Triggers bump it on any change of visibility, creator,
    project or grants, and raise if the bump is lost. The context carries the
@@ -88,7 +88,7 @@ keep the personal shelf in a chat after it was shared.
 
 ## Consequences
 
-* ADR-0191's personal shelf is one predicate and one recorded source here. The
+* ADR-0193's personal shelf is one predicate and one recorded source here. The
   personal shelf is used only where the chat has no project and its owner alone
   reads it. Personal memory follows ADR-0180: wherever the asker alone reads the
   chat.
