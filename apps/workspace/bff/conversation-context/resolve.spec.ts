@@ -29,13 +29,15 @@ vi.mock('@/lib/turns/feature-entitlement', () => ({
 }))
 vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
   buildCollectionScopeFromRequest: vi.fn(
-    async (_session: unknown, request: { projectId?: string; audience?: ConversationAudienceRow; interactiveChat?: boolean }) => {
+    async (_session: unknown, request: { projectId?: string; conversationId?: string; audience?: ConversationAudienceRow; interactiveChat?: boolean }) => {
       const projectId = request.audience?.exists ? (request.audience.projectId ?? undefined) : request.projectId
       const restricted = request.interactiveChat && projectId ? [`proj_${projectId}_restricted`] : []
       const scopedCollections = [
         { collection: 'oib_knowledge', shelf: 'base' as const },
+        { collection: 'office_org_1', shelf: 'office_shelf' as const },
         ...(projectId ? [{ collection: `proj_${projectId}`, shelf: 'project' as const }] : []),
         ...restricted.map((collection) => ({ collection, shelf: 'project' as const })),
+        ...(request.conversationId ? [{ collection: `s_${request.conversationId}`, shelf: 'session' as const }] : []),
       ]
       return {
         scope: scopedCollections.map((entry) => entry.collection),
@@ -159,6 +161,30 @@ describe('resolveConversationContext', () => {
     expect(headless.may.workspaceRead).toBe('document+projectFacts')
     expect(headless.may.restrictedCollections).toEqual([])
     expect(external.conversationId).toBeNull()
+  })
+
+  it('narrows the document check, now headless, to its project and its conversation (#1909)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const asChat = await resolveConversationContext(session, { kind: 'chat', conversationId: 's_c' })
+    const headless = await resolveConversationContext(session, { kind: 'headless', conversationId: 's_c' })
+
+    expect(asChat.may.shelves.map((entry) => entry.shelf)).toEqual(['base', 'office_shelf', 'project', 'project', 'session'])
+    expect(headless.conversationId).toBe('s_c')
+    expect(headless.may.shelves).toEqual([{ collection: 'proj_p1', shelf: 'project' }])
+    expect(headless.may).toMatchObject({
+      restrictedCollections: [],
+      personalMemory: false,
+      otherProjects: { reach: 'none' },
+      workspaceRead: 'document+projectFacts',
+    })
+  })
+
+  it('gives a run the office shelf and its chat’s session collection, but never a restricted folder (#1909)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const run = await resolveConversationContext(session, { kind: 'run', conversationId: 's_c' })
+
+    expect(run.may.shelves.map((entry) => entry.collection)).toEqual(['oib_knowledge', 'office_org_1', 'proj_p1', 's_s_c'])
+    expect(run.may.restrictedCollections).toEqual([])
   })
 
   it('resolves only the scope for the socket upgrade: no record, entitlement or folder reads', async () => {

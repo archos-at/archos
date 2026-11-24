@@ -11,6 +11,7 @@ import type { PlanDocuments } from '@/lib/runs/plan-documents'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { submitBackgroundRun } from './background-run'
 import { resolveRunContext } from './run-context'
+import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { JobOutput } from '@/lib/db/schema/jobs'
 import type { DefinitionTrigger, TaskDefinition, TaskRun, TaskRunTrigger } from '@/lib/db/schema/task-model'
@@ -316,7 +317,9 @@ export async function submitAgentRun(spec: AgentRunSpec): Promise<SubmittedAgent
   const { organizationId, projectId, userId } = spec
   const subject = { organizationId, projectId, userId }
   const conversationId = spec.conversationId
-  const context = await resolveRunContext(subject, spec.prompt, { kind: 'run', conversationId })
+  const session = await resolvePinnedRequesterSession({ userId, email: spec.ownerEmail, organizationId })
+  if (!session) throw new JobSubmitSkippedError('The requester is no longer a member of the organization', null)
+  const context = await resolveRunContext(subject, spec.prompt, { kind: 'run', session, conversationId })
 
   const { jobId, queued } = await submitBackgroundRun({
     subject,

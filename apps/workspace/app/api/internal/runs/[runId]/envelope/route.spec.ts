@@ -53,6 +53,7 @@ const run = {
 
 const runContext: RunContext = {
   kind: 'run',
+  conversationId: CONVERSATION,
   budget: { remainingOrgUsd: 12.5, remainingUserUsd: null, remainingProjectUsd: null },
   modelOverrides: { deep_research: 'model-b' },
   collectionScope: ['oib_base', 'proj_x'],
@@ -103,7 +104,7 @@ beforeEach(() => {
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(requireProjectAccess).mockResolvedValue(member)
   vi.mocked(authorizeConversationScope).mockResolvedValue(true)
-  vi.mocked(resolveRunContext).mockResolvedValue(runContext)
+  vi.mocked(resolveRunContext).mockImplementation(async (_subject, _prompt, decision) => ({ ...runContext, conversationId: decision.conversationId ?? null }))
 })
 
 describe('POST /api/internal/runs/[runId]/envelope', () => {
@@ -153,7 +154,7 @@ describe('POST /api/internal/runs/[runId]/envelope', () => {
     expect(resolveRunContext).toHaveBeenCalledWith(
       { organizationId: 'org_1', projectId: PROJECT, userId: 'user_requester' },
       'Fluchtwege prüfen, OIB-RL 4',
-      { kind: 'run', conversationId: CONVERSATION },
+      { kind: 'run', session, conversationId: CONVERSATION },
     )
   })
 

@@ -324,7 +324,7 @@ describe('verifyRequestContextEnvelope', () => {
     })
   })
 
-  it('signs a caller’s kind last, so a chat envelope keeps its bytes, and reads an unknown kind as a chat', () => {
+  it('signs a caller’s kind last, so a chat envelope keeps its bytes, and refuses an unknown kind while a missing one stays a chat', () => {
     const base = { organizationId: 'org_1', userId: 'user_1', issuedAt: NOW }
     expect(Object.keys(buildRequestContextEnvelopePayload({ ...base, contextKind: 'headless' })).at(-1)).toBe('contextKind')
     expect(buildRequestContextEnvelopePayload(base)).not.toHaveProperty('contextKind')
@@ -332,7 +332,7 @@ describe('verifyRequestContextEnvelope', () => {
     expect(verifyRequestContextEnvelope(headless.header, headless.signature, SECRET, NOW)?.contextKind).toBe('headless')
     const json = JSON.stringify({ ...base, contextKind: 'root' })
     const forgedKind = Buffer.from(json).toString('base64url')
-    expect(verifyRequestContextEnvelope(forgedKind, signRequestContextEnvelope(json, SECRET), SECRET, NOW)?.contextKind).toBe('chat')
+    expect(verifyRequestContextEnvelope(forgedKind, signRequestContextEnvelope(json, SECRET), SECRET, NOW)).toBeNull()
   })
 
   it('reads the signed scope names in both entry shapes (ADR-0047), dropping anything else', () => {

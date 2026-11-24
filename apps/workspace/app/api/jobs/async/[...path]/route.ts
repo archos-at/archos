@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { tenantSlotRoute } from '@/lib/db/tenant-context'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import { FEATURE_FLAGS, requireFeature } from '@/lib/authz/feature-flags'
 import { isAuthzRefusal } from '@/lib/api/errors'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
 import {
+  jobScopeOf,
   signJobRequestContext,
   type AuthorizedJobScope,
   type JobSubmitContext,
@@ -20,12 +21,16 @@ import {
   proxyErrorEnvelope,
   sseStreamResponse,
 } from '@/lib/backend-proxy'
-import { parseQueryContext, resolveRequestContext } from '@/lib/proxy/collection-authz'
+import { parseQueryContext, resolveRequestContext, type ProxyRequestContext } from '@/lib/proxy/collection-authz'
 import { buildProxyUrl, resolveSessionAndBearer } from '@/lib/proxy/proxy-request'
 import type { UserSession } from '@/lib/auth/types'
 import { fileCommissionedReport } from '@/lib/documents/commissioned-report'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import { isProjectClosed, projectClosedError } from '@/lib/projects/project-status'
+
+async function jobScope(session: UserSession | null, { projectId, conversationId }: ProxyRequestContext) {
+  return jobScopeOf(await resolveConversationScope(session, { projectId, conversationId, kind: 'run' }))
+}
 
 async function resolveRequestContextHeaders(
   session: UserSession | null,
@@ -132,7 +137,7 @@ export const GET = tenantSlotRoute(async function GET(
     const authHeaders = buildAuthHeaders(authHeader)
     traceRequest('WorkOS access token present:', !!authHeaders.Authorization)
 
-    const scope = await buildCollectionScopeFromRequest(session, parseQueryContext(searchParams))
+    const scope = await jobScope(session, parseQueryContext(searchParams))
     const requestContextHeaders = await resolveRequestContextHeaders(session, scope, { submit: false })
 
     const upstreamParams =
@@ -238,10 +243,7 @@ export const POST = tenantSlotRoute(async function POST(
       if (gated) return gated
     }
 
-    const scope = await buildCollectionScopeFromRequest(
-      session,
-      resolveRequestContext(new URL(req.url).searchParams, parsedBody)
-    )
+    const scope = await jobScope(session, resolveRequestContext(new URL(req.url).searchParams, parsedBody))
     const requestContextHeaders = await resolveRequestContextHeaders(session, scope, {
       submit: path[0] === 'submit',
     })
@@ -300,7 +302,7 @@ export const DELETE = tenantSlotRoute(async function DELETE(
     const authHeaders = buildAuthHeaders(authHeader)
     traceRequest('DELETE WorkOS access token present:', !!authHeaders.Authorization)
 
-    const scope = await buildCollectionScopeFromRequest(session, parseQueryContext(searchParams))
+    const scope = await jobScope(session, parseQueryContext(searchParams))
     const requestContextHeaders = await resolveRequestContextHeaders(session, scope, { submit: false })
 
     const upstreamUrl = buildProxyUrl(JOBS_BASE_PATH, path, searchParams, ['token'])
