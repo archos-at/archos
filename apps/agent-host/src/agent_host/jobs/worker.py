@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 POISON_PAYLOAD_ERROR = "The job payload could not be decrypted or parsed and was quarantined."
 RETRIES_EXHAUSTED_ERROR = "research worker retries exhausted"
 
-RETIRED_PAYLOAD_KEYS = frozenset({"scheduler_address", "claim_owner"})
+RETIRED_PAYLOAD_KEYS = frozenset({"scheduler_address", "claim_owner", "collection_scope"})
 
 
 def _replay_kwargs(payload: dict) -> dict:
