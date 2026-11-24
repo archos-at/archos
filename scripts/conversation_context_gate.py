@@ -26,7 +26,12 @@ POSTGRES_SCHEMES = ("postgresql+asyncpg", "postgresql+psycopg2", "postgresql", "
 
 def sync_url(url: str) -> str:
     scheme, separator, rest = url.partition("://")
-    return f"{SYNC_DRIVER}://{rest}" if separator and scheme in POSTGRES_SCHEMES else url
+    if not separator or scheme not in POSTGRES_SCHEMES:
+        return url
+    location, mark, query = rest.partition("?")
+    if scheme == "postgresql+asyncpg" and mark:
+        query = "&".join("sslmode" + part[3:] if part.startswith("ssl=") else part for part in query.split("&"))
+    return f"{SYNC_DRIVER}://{location}{mark}{query}"
 
 
 def since_utc(value: str) -> datetime:
