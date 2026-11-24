@@ -462,7 +462,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
 | `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
 | `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
-| **CI runners** (ADR-0184): actions-runner-controller and one runner scale set for CI jobs, in `arc-systems` and `arc-runners`. Dev stack only, and only once the repository is private. Off by default | | |
+| **CI runners** (ADR-0184): actions-runner-controller and one runner scale set for CI jobs, in `arc-systems` and `arc-runners`. Dev stack only; while the repository is public, only with approval required for every outside contributor's workflow run. Off by default | | |
 | `ciRunnersEnabled` | `false` | Install the controller, the scale set, its NetworkPolicy and the `ci-runner` PriorityClass. On, it needs `networkPolicies`, the three GitHub App keys and a digest-pinned `ciRunnersImage`, or the plan fails naming the missing one |
 | `ciRunnersImage` | — | `ghcr.io/archos-at/ci-runner@sha256:…`, built from `deploy/ci-runner` by the `CI runner image` workflow; a tag is refused |
 | `ciRunnersGithubAppId` / `ciRunnersGithubAppInstallationId` / 🔒 `ciRunnersGithubAppPrivateKey` | — | The GitHub App the controller registers runners with: Actions and Administration read/write on this repository. The key goes into a Secret of its own, not the Helm release's values |
