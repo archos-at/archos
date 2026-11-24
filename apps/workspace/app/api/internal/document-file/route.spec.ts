@@ -272,6 +272,13 @@ describe('GET /api/internal/document-file', () => {
       expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(200)
     })
 
+    it('serves a socket turn whose envelope signs no scope, from its decision’s shelves (ADR-0194)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1']) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+    })
+
     it('404s under a decision made for another conversation or asker', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
       for (const other of [decided(['proj_1'], { conversationId: 's_other' }), decided(['proj_1'], { userId: 'user_other' })]) {

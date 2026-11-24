@@ -5,7 +5,7 @@ import { withOptionalTenant, withTenant } from '@/lib/db/tenant-context'
 import { NotFoundError } from '@/lib/api/errors'
 import { restrictedCollectionBase } from '@/lib/authz/folder-access-rule'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
-import { decisionFromRequest } from '@/lib/conversation-context'
+import { decisionFromRequest, withTurnShelves } from '@/lib/conversation-context'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
 import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
@@ -99,8 +99,9 @@ export const GET = internalApiRoute(
   'document-file',
   async ({ request }) => {
     const query = parseQuery(request, querySchema)
-    const context = presentedContext(request)
-    if (context) {
+    const presented = presentedContext(request)
+    if (presented) {
+      const context = withTurnShelves(request, presented)
       const decision = decisionFromRequest(request)
       if (query.organizationId && query.organizationId !== context.organizationId) {
         throw new NotFoundError('Document not found')

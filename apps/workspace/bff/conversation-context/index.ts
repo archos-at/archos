@@ -62,3 +62,13 @@ export function decisionFromRequest(request: Request): ConversationDecision | nu
   if (!decision) throw new UnauthorizedError('The turn decision is unsigned, stale or malformed')
   return decision
 }
+
+export function withTurnShelves(request: Request, context: VerifiedRequestContext): VerifiedRequestContext {
+  const decision = decisionFromRequest(request)
+  if (!decision) return context
+  const forThisTurn =
+    decision.organizationId === context.organizationId &&
+    decision.userId === context.userId &&
+    decision.conversationId === (context.conversationId ?? null)
+  return { ...context, collectionScope: forThisTurn ? decision.may.shelves.map((entry) => entry.collection) : [] }
+}
