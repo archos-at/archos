@@ -20664,6 +20664,9 @@
                       "project",
                       "organization"
                     ]
+                  },
+                  "confirmPersonalShelf": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -20775,6 +20778,9 @@
                           "collaborator",
                           "owner"
                         ]
+                      },
+                      "confirmPersonalShelf": {
+                        "type": "boolean"
                       }
                     },
                     "required": [

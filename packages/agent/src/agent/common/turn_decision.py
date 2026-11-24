@@ -25,7 +25,7 @@ _TIMEOUT_SECONDS = 2.5
 _KINDS = frozenset({"chat", "run", "headless", "external"})
 _WORKSPACE_READS = frozenset({"none", "document+projectFacts", "all"})
 _REACHES = frozenset({"none", "every-reader", "chat-projects"})
-_SHELVES = frozenset({"office_shelf", "project", "session", "base"})
+_SHELVES = frozenset({"office_shelf", "project", "session", "base", "personal"})
 
 
 @dataclass(frozen=True)

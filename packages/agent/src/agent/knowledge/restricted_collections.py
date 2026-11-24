@@ -5,9 +5,15 @@ from collections.abc import Iterable
 
 _RESTRICTED_NAME = re.compile(r"^(?P<base>.+)_r[0-9a-f]{12}$", re.IGNORECASE)
 
+PERSONAL_SHELF_COLLECTION_PREFIX = "personal_"
+
+
+def is_personal_shelf_collection(name: str | None) -> bool:
+    return bool(name) and name.strip().lower().startswith(PERSONAL_SHELF_COLLECTION_PREFIX)
+
 
 def is_restricted_collection(name: str | None) -> bool:
-    return bool(name) and _RESTRICTED_NAME.match(name.strip()) is not None
+    return bool(name) and (_RESTRICTED_NAME.match(name.strip()) is not None or is_personal_shelf_collection(name))
 
 
 def base_collection_of(name: str) -> str:

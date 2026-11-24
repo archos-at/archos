@@ -159,3 +159,41 @@ def test_an_empty_signed_scope_outside_a_turn_stays_empty_instead_of_the_config_
     with patch("agent.project_context.get_signed_request_context", return_value=signed):
         assert resolve_scoped_collections(config, "s_conv_1") == []
         assert resolve_scope(get_scoped_collections_from_context(), "s_conv_1") == []
+
+
+PERSONAL = "personal_org_1__user_1"
+
+
+def test_the_owners_shelf_is_searched_only_while_drawable_like_a_restricted_folder(bound):
+    from agent.knowledge.restricted_collections import is_restricted_collection
+
+    decision = bound(
+        signed_decision(
+            may={
+                "shelves": [
+                    {"collection": "oib_knowledge", "shelf": "base"},
+                    {"collection": PERSONAL, "shelf": "personal"},
+                ],
+                "restrictedCollections": [PERSONAL],
+                "personalShelf": True,
+            }
+        )
+    )
+    assert is_restricted_collection(PERSONAL)
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_1", project_id=None))
+    token = bind_restricted_use(use)
+    try:
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge", PERSONAL]
+        use.drop({PERSONAL})
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge"]
+    finally:
+        reset_restricted_use(token)
+
+
+def test_a_personal_shelf_named_in_a_tool_result_is_admitted_before_the_model_sees_it():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_use import _carried
+
+    message = SimpleNamespace(content=f"Treffer aus {PERSONAL}: Wettbewerb.pdf", response_metadata={})
+    assert _carried(message) == {PERSONAL}
