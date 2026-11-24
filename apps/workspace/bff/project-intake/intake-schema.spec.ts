@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { INTAKE_WIRE_SCHEMAS, projectIntakeJsonSchema } from './intake-schema'
 import {
   INTAKE_NEED_TYPES,
@@ -22,11 +22,7 @@ const defs = () => projectIntakeJsonSchema().$defs as Record<string, Node>
 describe('project intake JSON Schema', () => {
   it('matches the committed fixture the Python tier loads', () => {
     const generated = `${JSON.stringify(projectIntakeJsonSchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, generated, 'utf8')
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The wire schemas changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture in the same change.'
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('exports every schema the contract map names, and only those', () => {

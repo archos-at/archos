@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     When a document cannot be read, the file card, the preview, the upload

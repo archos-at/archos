@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     When a newer revision of a drawing is filed, Piloti can now compare it with

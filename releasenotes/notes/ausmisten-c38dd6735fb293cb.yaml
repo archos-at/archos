@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     When you close a project, Piloti now proposes which files it no longer

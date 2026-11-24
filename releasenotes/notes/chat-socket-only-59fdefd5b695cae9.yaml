@@ -1,4 +1,5 @@
 ---
+# area: answers
 security:
   - >
     A question is now answered only over the chat connection the app opens,

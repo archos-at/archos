@@ -3,9 +3,10 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, it, vi } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import type { Project } from '@/lib/db/schema/projects'
 
 vi.mock('server-only', () => ({}))
@@ -110,9 +111,6 @@ describe('the precedent eval fixture', () => {
   it('is what the production renderers make of the fixture office', () => {
     const office = JSON.parse(readFileSync(join(DIR, 'office.json'), 'utf8')) as FixtureOffice
     const generated = render(office)
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(join(DIR, 'rendered.json'), generated, 'utf8')
-    expect(generated, 'The renderers changed. Re-run with UPDATE_FIXTURES=1 and commit rendered.json.').toBe(
-      readFileSync(join(DIR, 'rendered.json'), 'utf8')
-    )
+    expectGenerated(join(DIR, 'rendered.json'), generated)
   })
 })

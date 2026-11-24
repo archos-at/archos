@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     A pull request that switches writers to a new stored shape now fails CI

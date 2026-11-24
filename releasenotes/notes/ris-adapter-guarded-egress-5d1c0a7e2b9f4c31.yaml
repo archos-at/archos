@@ -1,4 +1,5 @@
 ---
+# area: building-law
 security:
   - >
     The RIS adapter's own client, used while the source-routing flag is off,

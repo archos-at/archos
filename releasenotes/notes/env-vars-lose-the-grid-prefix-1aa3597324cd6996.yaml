@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Environment variables drop their GRID_ or AIQ_ prefix: GRID_SUMMARY_DB is now

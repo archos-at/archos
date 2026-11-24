@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Research workers report their queue and provider metrics for every job

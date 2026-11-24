@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     In the „@“ list, the people whose name starts with what you typed now come

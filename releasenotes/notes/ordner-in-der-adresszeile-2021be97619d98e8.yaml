@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Folders in project files now have their own address: Back goes up one level,

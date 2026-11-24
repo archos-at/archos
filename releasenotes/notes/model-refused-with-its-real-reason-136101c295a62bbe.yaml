@@ -1,4 +1,5 @@
 ---
+# area: bim
 fixes:
   - >
     When a building model is too large to measure or the file cannot be read,

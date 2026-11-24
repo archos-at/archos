@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     When a filter in Dateien matches nothing, the list now names the filter

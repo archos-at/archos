@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     An imported Outlook archive now files each mail's text into the project's

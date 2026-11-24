@@ -1,4 +1,5 @@
 ---
+# area: projects
 fixes:
   - >
     The notice under the message box now shows which other projects restrict

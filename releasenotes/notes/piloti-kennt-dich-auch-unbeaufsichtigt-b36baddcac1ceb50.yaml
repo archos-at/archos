@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Scheduled tasks and Piloti's replies in comment threads now know whose
