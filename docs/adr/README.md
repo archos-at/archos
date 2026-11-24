@@ -261,6 +261,7 @@ Consequences, where a reader looks for them.
 | [0189](0189-a-model-view-is-one-description-and-an-isolated-set-is-part-of-it.md) | A model view is one description, and an isolated set is part of it | Proposed |
 | [0190](0190-a-drawing-sheet-is-read-on-demand-in-one-frame.md) | A drawing sheet is read on demand, by one reader, into one frame | Proposed |
 | [0191](0191-runs-are-listed-from-the-ledger-and-the-job-store-lists-nothing.md) | Runs are listed from the run ledger, and the backend's job store lists nothing | Proposed |
+| [0192](0192-archos-design-governs-the-app-as-well-as-the-website.md) | ARCHOS Design governs the app as well as the website | Accepted |
 | [0193](0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md) | A person's own shelf is drawn on only where its owner alone reads the chat | Proposed |
 | [0194](0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) | A conversation's context is decided once, in the BFF, and enforced everywhere | Proposed |
 

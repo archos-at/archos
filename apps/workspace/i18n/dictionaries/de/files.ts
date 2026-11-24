@@ -553,6 +553,7 @@ export const files: typeof en.files = {
   },
   bin: {
     title: 'Papierkorb',
+    dialogDescription: 'Gelöschte Dateien und Ordner der Projektablage. Jede Zeile sagt, bis wann sie sich wiederherstellen lässt.',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
     deletedBy: 'gelöscht von {name} am {date}',
@@ -938,6 +939,9 @@ export const files: typeof en.files = {
     upload: 'Hochladen',
     uploadFolder: 'Ordner hochladen',
     uploadFiles: 'Dateien auswählen',
+    mails: 'E-Mails',
+    importMailArchive: 'Outlook-Archiv importieren …',
+    importMailArchiveHint: 'Anhänge in Ordner, den Text in die E-Mail-Verläufe',
   },
   errors: {
     projectClosed: 'Dieses Projekt ist abgeschlossen und schreibgeschützt. Wer es verwaltet, kann es oben im Hinweis oder in der Übersicht wieder öffnen.',
@@ -1133,6 +1137,8 @@ export const files: typeof en.files = {
   },
   filters: {
     label: 'Filter',
+    menuItem: 'Filtern und sortieren',
+    moreActive: 'Mehr, {count} Filter aktiv',
     labelActive: 'Filter ({count} aktiv)',
     reset: 'Filter zurücksetzen',
     alsoShowLabel: 'Auch zeigen',

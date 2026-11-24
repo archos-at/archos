@@ -12,6 +12,7 @@ import type { FileItem, FolderItem } from '../file-types'
 import type { DocumentWireRow } from '../lib/file-item'
 import type { FileShelf } from '../lib/file-shelf'
 import type { RootSortShelf } from '@/lib/filing/root-sort-types'
+import { activeFilterCount } from '../lib/file-filters'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { useFileWorkspaceListing } from '../hooks/use-file-workspace-listing'
 import { useFileWorkspaceChanges } from '../hooks/use-file-workspace-changes'
@@ -181,6 +182,7 @@ export function FileWorkspace({
         onUpload={handleUpload}
         isUploading={isUploading}
         onSendByMail={shelf.inboundMail?.openAddress}
+        onImportMailArchive={shelf.openMailImport}
         acceptsMailArchives={Boolean(shelf.takeMailArchives)}
         {...props}
       />
@@ -218,11 +220,13 @@ export function FileWorkspace({
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      binHref={shelf.bin?.href}
       openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
-      renderFilter={(compact) => (
+      filterCount={activeFilterCount(filters, canCollaborate)}
+      renderFilter={(compact, anchored) => (
         <FileFilterMenu
+          anchored={anchored}
           canCollaborate={canCollaborate}
           filters={filters}
           onFiltersChange={setFilters}

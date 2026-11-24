@@ -124,12 +124,14 @@ describe('OfficeShelfWorkspace — library listing', () => {
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('puts the level\u2019s tools in the tool row under the title', async () => {
+  it('puts the level\u2019s tools in the tool row under the title, „Ordner anlegen“ behind its ⋯', async () => {
     deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
     expect(row).toHaveAttribute('data-tier', 'wide')
-    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /create folder/i })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByTestId('files-more'))
+    expect(await screen.findByTestId('files-new-folder')).toBeInTheDocument()
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
@@ -170,7 +172,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByText('brandschutz-gutachten.pdf')
 
-    await user.click(screen.getByTestId('file-filter-menu-trigger'))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-filter-open'))
     await user.click(await screen.findByRole('checkbox', { name: 'Detail' }))
     expect(screen.getByText('fassadendetail.pdf')).toBeInTheDocument()
     expect(screen.queryByText('brandschutz-gutachten.pdf')).not.toBeInTheDocument()
@@ -845,7 +848,8 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /create folder/i }))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-new-folder'))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))

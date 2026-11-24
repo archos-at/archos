@@ -313,9 +313,10 @@ id, on the bare column the list index covers). `filter` picks the slice
 | `archived` | only archived rows | „Archiviert“ |
 | `pending` | the badge's own set: unread, or a request still open | — |
 
-The Postfach keeps the filter it shows in its page's address (`/app/inbox?filter=unread|all|archived`;
-„Für mich“, the default, is not written; `InboxList`), replaced with `history.replaceState` on a
-change, so a row's link into the review carries it as `back` and closing the review comes back to it.
+The Postfach keeps the tab it shows and the entry it has open in its page's address
+(`/app/inbox?tab=news|archived&item=<id>`; „Wartet auf Sie“, the default, is not written;
+`InboxWorkspace`), replaced with `router.replace` on a change. „Wartet auf Sie“ reads `requests`,
+„Neuigkeiten“ reads `all` and leaves out the open requests, „Archiviert“ reads `archived`.
 
 `counts` are the numbers beside the first two
 filters. `hasMore` says a further page exists; pass `nextCursor` back as

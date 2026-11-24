@@ -41,6 +41,7 @@ export default function InboundMailDetailDevPage({ searchParams }: { searchParam
             folders={FOLDERS}
             client={client}
             onChanged={() => {}}
+            onFiled={() => {}}
             now={FIXTURE_NOW}
             decidedByOther={fixture.decidedByOther}
             pollMs={600}
