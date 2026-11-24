@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
@@ -26,7 +26,7 @@ import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
 import { SECTION_CONTENT_WIDTH } from './section-layout'
 import { SectionToolRow, SectionToolRowScope } from './section-tool-row'
-import { PlaceContext, SectionPlaceUp, type SectionPlace } from './section-place'
+import { PlaceContext, SectionPlaceLine, SectionPlaceUp, type SectionPlace } from './section-place'
 import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -55,7 +55,7 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
-const SUBPAGES = ['files/mail', 'files/bin', 'files/open-points'] as const
+const SUBPAGES = ['files/mail', 'files/open-points'] as const
 type Subpage = (typeof SUBPAGES)[number]
 const SUBPAGE_SET: ReadonlySet<string> = new Set(SUBPAGES)
 
@@ -85,7 +85,6 @@ export {
   SectionLevelTools,
   useInSectionToolRow,
   useSectionNewFolder,
-  useSectionPrimaryYields,
   useSectionTabActionsSlot,
   useSectionToolTier,
   type SectionToolTier,
@@ -197,7 +196,6 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
         ]
       : []),
     { key: 'open-points', href: `${base}/open-points`, icon: ListTodo, label: t('subpages.files/open-points.title') },
-    { key: 'bin', href: `${base}/bin`, icon: Trash2, label: t('subpages.files/bin.title') },
   ]
   return (
     <SectionNav
@@ -207,7 +205,7 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
       pillId="files-places-pill"
       orientation="tabs"
       pathname={pathname}
-      track
+      words
       compactOnPhone
       data-testid="files-tabs"
     />
@@ -260,7 +258,9 @@ export function ProjectSectionFrame({
   const allFiles = files && (subpage ?? 'files/all') === 'files/all'
   const ownSearch = allFiles
   const opened = files && pathname.split('/').filter(Boolean).length > 5
-  const place = allFiles ? placeState : null
+  const reached = allFiles ? placeState : null
+  const place = phone ? reached : null
+  const pathPlace = phone ? null : reached
   const toolRow = files && actions !== null && (phone ? !actionsOnTitle : allFiles)
   const title = place ? <BreakableName text={place.title} /> : allFiles ? t('sections.files') : files ? t(`subpages.${subpage}.title`) : sectionLabel
   const projectStep = <span className="max-w-[16rem] shrink-0 truncate" title={projectName}>{projectName}</span>
@@ -286,6 +286,12 @@ export function ProjectSectionFrame({
               files && !phone ? (
                 <>
                   {projectStep}
+                  {allFiles && !place && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span className="shrink-0">{t('projectTeam')}</span>
+                    </>
+                  )}
                   {!(allFiles && !place) && <ChevronRight className="size-3 shrink-0" aria-hidden />}
                   {place ? place.trail : allFiles ? null : <span className="shrink-0">{sectionLabel}</span>}
                 </>
@@ -320,18 +326,24 @@ export function ProjectSectionFrame({
             }
             action={files && (phone || allFiles) ? undefined : actions}
           />
+          {toolRow && !phone && <SectionToolRow className="mt-6">{actions}</SectionToolRow>}
           {files && (
-            <div className={cn('-mb-2 mt-6 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
+            <div className={cn('-mb-4 mt-4 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}
           {/* Another section's own places (`ProjectSectionTabs`), where Dateien's stand; nothing where it has none. */}
           {!files && <div ref={setTabsSlot} className="-mb-2 mt-6 min-w-0 empty:hidden phone:mt-4" data-testid="section-tabs-slot" />}
           {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
-          {toolRow && (
+          {toolRow && phone && (
             <SectionToolRow className="mt-4">{actions}</SectionToolRow>
           )}
         </div>
+        {pathPlace && (
+          <div className={cn('shrink-0 px-4 md:px-8', SECTION_CONTENT_WIDTH)}>
+            <SectionPlaceLine place={pathPlace} />
+          </div>
+        )}
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
     </SectionToolRowScope>

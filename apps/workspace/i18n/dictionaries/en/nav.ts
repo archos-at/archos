@@ -2,6 +2,10 @@ export const nav = {
   projectNavigation: 'Project navigation',
   projectSections: 'Project sections',
   recentChats: 'Recent chats',
+  chatActions: 'Actions for “{title}”',
+  chatRename: 'Rename',
+  chatDelete: 'Delete',
+  chatRenameInput: 'New name of the chat',
   allChats: 'All chats',
   temporaryChat: '(temporary chat)',
   chatWorking: '(working)',
@@ -11,9 +15,9 @@ export const nav = {
   temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
+  pinSidebar: 'Keep the sidebar open',
   expandSidebar: 'Expand sidebar',
   resizeSidebar: 'Resize sidebar',
-  resizeDock: 'Resize the panel beside the page',
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
@@ -62,6 +66,7 @@ export const nav = {
     },
   },
   filesPlaces: 'Document places',
+  projectTeam: 'Project team',
   backTo: 'Back to {label}',
   returnTargets: {
     project: 'the project',
@@ -100,7 +105,7 @@ export const nav = {
     },
   },
   search: {
-    open: 'Search and jump',
+    open: 'Search',
   },
   projectSheet: {
     description: 'The projects you opened last come first, then every running project.',

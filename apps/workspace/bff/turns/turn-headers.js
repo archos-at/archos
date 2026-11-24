@@ -137,9 +137,21 @@ function buildRequestContextEnvelopeHeaders(input, secret) {
     'x-request-context': Buffer.from(json, 'utf8').toString('base64url'),
   }
   if (secret) {
-    headers['x-request-context-sig'] = crypto.createHmac('sha256', secret).update(json, 'utf8').digest('hex')
+    headers['x-request-context-sig'] = hmacHex(json, secret)
   }
   return headers
+}
+
+/**
+ * The HMAC every signed internal header carries: SHA-256 over the raw JSON
+ * with the internal token, hex. The request envelope and the turn decision
+ * (`bff/conversation-context/wire.ts`) sign the same way.
+ *
+ * @param {string} json
+ * @param {string} secret
+ */
+function hmacHex(json, secret) {
+  return crypto.createHmac('sha256', secret).update(json, 'utf8').digest('hex')
 }
 
 /** @param {unknown} value */
@@ -217,4 +229,4 @@ function turnContextHeaders(data, { issuedAt, secret }) {
   return headers
 }
 
-module.exports = { buildRequestContextEnvelopeHeaders, turnContextHeaders }
+module.exports = { buildRequestContextEnvelopeHeaders, hmacHex, turnContextHeaders }

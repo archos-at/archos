@@ -214,7 +214,7 @@ export function MeasureLayer({
           at={[keptLabels[index].x, keptLabels[index].y]}
           selected={annotation.id === selectedId}
           onSelect={() => select(annotation.id === selectedId ? null : annotation.id)}
-          passThrough={active && !blocked}
+          passThrough={active && !blocked && tape.points.length > 0}
         />
       ))}
       {(here || hover) && (

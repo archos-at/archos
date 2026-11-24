@@ -4,12 +4,11 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, MessageSquarePlus } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { useFeedbackAvailable, useOpenFeedback } from '@/features/product-feedback/components'
 import { InboxBadge } from '@/features/collaboration/components'
 import { useTranslations } from '@/i18n'
@@ -54,7 +53,6 @@ export function OrgHeader({
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  const inboxDoor = useStartDockDoor('inbox')
   const tFeedback = useTranslations(feedbackCopy)
   const openFeedback = useOpenFeedback()
   const feedbackAvailable = useFeedbackAvailable()
@@ -97,13 +95,7 @@ export function OrgHeader({
               active={pathname === '/app/office-shelf' || pathname.startsWith('/app/office-shelf/') || pathname.startsWith('/app/base-knowledge')}
             />
           )}
-          {/* The workspace search (ADR-0136); ⌘K reaches it from anywhere too. */}
-          <OrgHeaderIconLink
-            href="/app/search"
-            label={t('sections.search')}
-            icon={Search}
-            active={pathname === '/app/search' || pathname.startsWith('/app/search/')}
-          />
+          <ShellSearchButton />
           {canAccessInbox && (
             <OrgHeaderIconLink
               href="/app/inbox"
@@ -112,7 +104,6 @@ export function OrgHeader({
               tourAnchor={TOUR_ANCHORS.inbox}
               active={pathname === '/app/inbox' || pathname.startsWith('/app/inbox/')}
               badgeCount={inboxPending}
-              door={inboxDoor}
             />
           )}
           {feedbackAvailable && (
@@ -123,7 +114,6 @@ export function OrgHeader({
               onClick={() => openFeedback()}
             />
           )}
-          <ShellSearchButton className="md:hidden" />
           {/* Space, not a rule, between the doorways and the person. */}
           <div className="hidden w-2 md:block" aria-hidden />
           <SidebarUserMenu
@@ -154,7 +144,6 @@ function OrgHeaderIconLink({
   active,
   badgeCount = 0,
   tourAnchor,
-  door,
 }: {
   href: string
   label: string
@@ -162,7 +151,6 @@ function OrgHeaderIconLink({
   active: boolean
   badgeCount?: number
   tourAnchor?: TourAnchor
-  door?: StartDockDoor
 }): JSX.Element {
   return (
     <Tooltip>
@@ -171,15 +159,11 @@ function OrgHeaderIconLink({
           href={href}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
-          aria-expanded={door?.open}
-          data-dock-door={door?.panel}
-          onClick={door?.onClick}
           data-tour={tourAnchor}
           className={cn(
             'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
-            active || door?.open
-              ? // On paper, with no track: open is the picked grey, the pointer the desk.
-                'bg-selected text-foreground'
+            active
+              ? 'bg-selected text-foreground'
               : 'text-muted-foreground hover:bg-desk hover:text-foreground',
           )}
         >

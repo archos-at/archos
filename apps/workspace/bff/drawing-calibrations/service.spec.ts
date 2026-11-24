@@ -12,6 +12,9 @@ vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
 vi.mock('./page-read', () => ({
   toPageCalibration: (row: DrawingCalibrationRow) => ({
     id: row.id,
+    scope: row.scope,
+    page: row.page,
+    referenceSize: null,
     region: { x: row.regionX, y: row.regionY, w: row.regionW, h: row.regionH },
     from: { x: row.pointAX, y: row.pointAY },
     to: { x: row.pointBX, y: row.pointBY },
@@ -81,6 +84,9 @@ const row = (overrides: Partial<DrawingCalibrationRow> = {}): DrawingCalibration
   pointBX: 0.5,
   pointBY: 0.2,
   referenceLengthM: 5.4,
+  scope: 'page',
+  referenceWidthPt: null,
+  referenceHeightPt: null,
   status: 'active',
   createdBy: 'user_1',
   createdAt: new Date('2026-11-11T10:00:00Z'),
@@ -147,6 +153,8 @@ describe('listCalibrations', () => {
           documentId: DOC_ID,
           versionId: VERSION_ID,
           page: 1,
+          scope: 'page',
+          referenceSize: null,
           region: INPUT.region,
           from: INPUT.from,
           to: INPUT.to,
@@ -217,6 +225,8 @@ describe('setCalibration', () => {
       documentId: DOC_ID,
       versionId: VERSION_ID,
       ...INPUT,
+      scope: 'page',
+      pageSize: null,
       createdBy: 'user_1',
     })
     expect(answer.calibration).toMatchObject({ id: CALIBRATION_ID, status: 'active', lengthM: 5.4 })

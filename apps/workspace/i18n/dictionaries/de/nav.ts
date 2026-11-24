@@ -4,6 +4,10 @@ export const nav: typeof en.nav = {
   projectNavigation: 'Projektnavigation',
   projectSections: 'Projektbereiche',
   recentChats: 'Letzte Chats',
+  chatActions: 'Aktionen für „{title}“',
+  chatRename: 'Umbenennen',
+  chatDelete: 'Löschen',
+  chatRenameInput: 'Neuer Name des Chats',
   allChats: 'Alle Chats',
   temporaryChat: '(temporärer Chat)',
   chatWorking: '(arbeitet)',
@@ -13,9 +17,9 @@ export const nav: typeof en.nav = {
   temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
+  pinSidebar: 'Seitenleiste geöffnet lassen',
   expandSidebar: 'Seitenleiste ausklappen',
   resizeSidebar: 'Breite der Seitenleiste ändern',
-  resizeDock: 'Breite der Leiste neben der Seite ändern',
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
   expandSidebarHint: 'Ziehen oder klicken zum Ausklappen',
   openNavigation: 'Navigation öffnen',
@@ -64,6 +68,7 @@ export const nav: typeof en.nav = {
     },
   },
   filesPlaces: 'Orte der Ablage',
+  projectTeam: 'Projektteam',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',
@@ -102,7 +107,7 @@ export const nav: typeof en.nav = {
     },
   },
   search: {
-    open: 'Suchen und springen',
+    open: 'Suche',
   },
   projectSheet: {
     description: 'Zuletzt geöffnete Projekte zuerst, danach alle laufenden.',

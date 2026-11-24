@@ -23,6 +23,7 @@ import {
   CROSSING_REGION,
   DETAIL_SCALE,
   DOCUMENT_ID,
+  DOCUMENT_SCALE,
   fixtureClient,
   LAYOUT_REGION,
   LAYOUT_SCALE,
@@ -88,6 +89,7 @@ interface Draft {
   region: CalibrationRegion
   lengthM: number
   stopAt?: 'length' | 'region'
+  everyPage?: boolean
 }
 
 const SETTING: Draft = { from: SPAN_FROM, to: SPAN_TO, region: LAYOUT_REGION, lengthM: 21 }
@@ -116,7 +118,8 @@ const Scenario: FC<{
     },
     { client }
   )
-  const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, setLength } = calibration
+  const { shown, pageSizes, setOpen, beginSetting, pick, drawRegion, wholeDocument, setLength } =
+    calibration
   const docksOnTouch = useCoarsePointer() && draft !== undefined
   const seeded = useRef(false)
   useEffect(() => {
@@ -130,8 +133,21 @@ const Scenario: FC<{
     if (draft.stopAt === 'length') return
     setLength(draft.lengthM)
     if (draft.stopAt === 'region') return
-    drawRegion(1, draft.region)
-  }, [shown, pageSizes, open, draft, docksOnTouch, setOpen, beginSetting, pick, drawRegion, setLength])
+    if (draft.everyPage) wholeDocument()
+    else drawRegion(1, draft.region)
+  }, [
+    shown,
+    pageSizes,
+    open,
+    draft,
+    docksOnTouch,
+    setOpen,
+    beginSetting,
+    pick,
+    drawRegion,
+    wholeDocument,
+    setLength,
+  ])
 
   return (
     <div className="bg-desk rounded-surface relative p-4 pt-16" style={{ width }}>
@@ -201,7 +217,7 @@ const SCENARIOS: readonly {
   {
     id: 'step-region',
     title: 'Schritt 3: der Rahmen',
-    note: 'Rahmen ziehen, oder ausdrücklich „Ganze Seite“. Zurück und Esc gehen einen Schritt zurück.',
+    note: 'Rahmen ziehen, oder ausdrücklich „Ganze Seite“ oder „Alle Seiten“. Zurück und Esc gehen einen Schritt zurück.',
     saved: [],
     draft: { ...SETTING, stopAt: 'region' },
   },
@@ -211,6 +227,20 @@ const SCENARIOS: readonly {
     note: 'Punkte, Länge, Rahmen: 1:100 steht da, bevor gespeichert wird.',
     saved: [],
     draft: SETTING,
+  },
+  {
+    id: 'every-page',
+    title: 'Maßstab für alle Seiten prüfen',
+    note: 'Wie der Rahmen, nur „Gilt für: alle Seiten“. Er gilt für jede Seite, die keinen eigenen Maßstab hat.',
+    saved: [],
+    draft: { ...SETTING, everyPage: true },
+  },
+  {
+    id: 'every-page-saved',
+    title: 'Maßstab für alle Seiten, mit Detail',
+    note: 'Seite 1 hat 1:20 im Detail, sonst gilt der Maßstab für alle Seiten. Die Zeile „alle Seiten“ steht auf jeder Seite.',
+    saved: [DOCUMENT_SCALE, DETAIL_SCALE],
+    open: true,
   },
   {
     id: 'overlap',
@@ -229,7 +259,63 @@ const SCENARIOS: readonly {
   },
 ]
 
+const DRAWN_LINES: readonly (readonly [number, number, number, number])[] = [
+  [150, 190, 570, 190],
+  [570, 190, 570, 520],
+  [570, 520, 150, 520],
+  [150, 520, 150, 190],
+  [270, 190, 270, 520],
+  [400, 190, 400, 520],
+  [150, 340, 270, 340],
+  [400, 310, 570, 310],
+  [150, 141, 570, 141],
+  [150, 131, 150, 151],
+  [400, 131, 400, 151],
+  [570, 131, 570, 151],
+  [720, 150, 910, 150],
+  [910, 150, 910, 280],
+  [910, 280, 720, 280],
+  [720, 280, 720, 150],
+]
+const snapTargetsStandIn =
+  (real: typeof fetch): typeof fetch =>
+  async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (!url.includes('/snap-targets')) return real(input, init)
+    const [w, h] = [1000, 706]
+    const segments = DRAWN_LINES.flatMap(([a, b, c, d]) => [a / w, b / h, c / w, d / h])
+    const vertices = DRAWN_LINES.flatMap(([a, b, c, d]) => [a / w, b / h, c / w, d / h])
+    return new Response(
+      JSON.stringify({
+        targets: {
+          documentId: DOCUMENT_ID,
+          versionId: null,
+          page: 1,
+          widthPt: SHEET.width,
+          heightPt: SHEET.height,
+          widthMm: 841,
+          heightMm: 594,
+          rotation: 0,
+          scan: false,
+          vertices,
+          segments,
+          totalSegments: DRAWN_LINES.length,
+          truncated: false,
+          scales: [],
+        },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
+  }
+
 const Preview: FC = () => {
+  useEffect(() => {
+    const real = window.fetch
+    window.fetch = snapTargetsStandIn(real.bind(window))
+    return () => {
+      window.fetch = real
+    }
+  }, [])
   const wide = useMediaQuery('(min-width: 48rem)')
   return (
     <main

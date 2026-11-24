@@ -10,10 +10,7 @@ import { getConversationsClient, isRightsLost } from '../lib/conversations-clien
 
 const ensuredServerConversations = new Map<string, Promise<void>>()
 
-const ensureServerConversation = (
-  conversation: Conversation,
-  fallbackProjectId: string | null
-): Promise<void> => {
+const ensureServerConversation = (conversation: Conversation): Promise<void> => {
   const inFlight = ensuredServerConversations.get(conversation.id)
   if (inFlight) return inFlight
 
@@ -23,7 +20,7 @@ const ensureServerConversation = (
     const created = await conversationsClient.create(
       conversation.id,
       conversation.title || undefined,
-      conversation.projectId ?? fallbackProjectId,
+      conversation.projectId ?? null,
       conversation.subjectResourceId
         ? { resourceType: 'document', resourceId: conversation.subjectResourceId }
         : null,
@@ -70,25 +67,24 @@ export const createConversationPersistenceSlice: StateCreator<
   >
 > = (_set, get) => ({
   _ensureConversationExists: async () => {
-    const { currentConversation, projectId } = get()
+    const { currentConversation } = get()
     if (!currentConversation) return
 
     try {
-      await ensureServerConversation(currentConversation, projectId ?? null)
+      await ensureServerConversation(currentConversation)
     } catch (err) {
       console.warn('[ensureConversationExists] Failed:', err)
     }
   },
 
   _appendMessage: async (message: ChatMessage, conversationId?: string) => {
-    const { projectId } = get()
     const currentConversation = conversationOf(get(), conversationId)
     if (!currentConversation) return
 
     try {
       const conversationsClient = await getConversationsClient()
 
-      await ensureServerConversation(currentConversation, projectId ?? null)
+      await ensureServerConversation(currentConversation)
 
       await conversationsClient.createMessage(currentConversation.id, {
         id: message.id,

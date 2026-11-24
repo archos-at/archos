@@ -1,7 +1,8 @@
 import 'server-only'
 import { bestEffort } from '@/lib/best-effort'
 import type { UserSession } from '@/lib/auth/types'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { isMemoryReflectionEnabled } from '@/lib/workos/feature-flags'
 import { isWebSearchEnabledForOrg } from '@/lib/organizations/service'
@@ -51,16 +52,11 @@ export async function resolveTurnContext(
   request: { projectId?: string; conversationId?: string }
 ): Promise<TurnContext> {
   const { projectId, conversationId } = request
-  const {
-    scope,
-    scopedCollections,
-    headerValue,
-    projectId: authorizedProjectId,
-  } = await buildCollectionScopeFromRequest(session, {
-    projectId,
-    conversationId,
-    interactiveChat: true,
-  })
+  const decided = await resolveConversationScope(session, { projectId, conversationId, kind: 'chat' })
+  const scopedCollections = decided.shelves
+  const scope = scopedCollections.map((entry) => entry.collection)
+  const headerValue = encodeCollectionScopeHeader(scopedCollections)
+  const authorizedProjectId = decided.projectId ?? undefined
 
   const context: Omit<TurnContext, 'memoryReflectionEnabled'> & { memoryReflectionEnabled?: boolean } = {
     scope,
@@ -77,7 +73,7 @@ export async function resolveTurnContext(
   }
 
   const organizationId = session?.organizationId
-  const effectiveProjectId = authorizedProjectId ?? projectId
+  const effectiveProjectId = authorizedProjectId
 
   const memoryReflectionEnabled = await isMemoryReflectionEnabled(organizationId)
   const budgetStatus =

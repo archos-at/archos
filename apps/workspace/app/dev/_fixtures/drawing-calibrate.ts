@@ -22,6 +22,8 @@ const view = (overrides: Partial<CalibrationView>): CalibrationView => ({
   from: SPAN_FROM,
   to: SPAN_TO,
   lengthM: 21,
+  scope: 'page',
+  referenceSize: null,
   status: 'active',
   createdBy: 'user_anna',
   createdAt: '2026-11-04T09:12:00.000Z',
@@ -49,15 +51,28 @@ export const PAGE_SCALE = view({
   createdAt: '2026-10-28T08:05:00.000Z',
 })
 
+export const DOCUMENT_SCALE = view({
+  id: 'd6f4a8b0-4e5f-4a7b-9c3d-8e9f0a1b2c36',
+  page: 3,
+  scope: 'document',
+  referenceSize: { widthPt: SHEET.width, heightPt: SHEET.height },
+  region: { x: 0, y: 0, w: 1, h: 1 },
+  lengthM: 42,
+  createdAt: '2026-11-22T08:05:00.000Z',
+})
+
 export function fixtureClient(initial: readonly CalibrationView[], canCalibrate = true): CalibrationClient {
   let held = [...initial]
   return {
     list: async () => ({ calibrations: held, nextCursor: null, versionId: VERSION_ID, canCalibrate }),
     set: async (_documentId, input) => {
-      const crossing = held.find((entry) => entry.page === input.page && regionRelation(input.region, entry.region) === 'overlaps')
+      const { pageSize, ...rest } = input
+      const everyPage = input.scope === 'document'
+      const among = held.filter((entry) => (everyPage ? entry.scope === 'document' : entry.scope === 'page' && entry.page === input.page))
+      const crossing = everyPage ? undefined : among.find((entry) => regionRelation(input.region, entry.region) === 'overlaps')
       if (crossing) throw new CalibrationRequestError(409, REGION_OVERLAPS, 'overlaps', crossing.id)
-      const replaced = held.filter((entry) => entry.page === input.page && regionRelation(input.region, entry.region) === 'same')
-      const made = view({ ...input, id: crypto.randomUUID(), createdBy: 'user_me', createdAt: new Date().toISOString() })
+      const replaced = among.filter((entry) => everyPage || regionRelation(input.region, entry.region) === 'same')
+      const made = view({ ...rest, referenceSize: pageSize ?? null, id: crypto.randomUUID(), createdBy: 'user_me', createdAt: new Date().toISOString() })
       held = [...held.filter((entry) => !replaced.includes(entry)), made]
       return made
     },

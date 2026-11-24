@@ -261,6 +261,9 @@ describe('GET /api/internal/document-file', () => {
       from: { x: 0.2, y: 0.2 },
       to: { x: 0.4, y: 0.2 },
       lengthM: 5,
+      scope: 'page' as const,
+      page: 2,
+      referenceSize: null,
     }
     const query = '?collection=proj_1&filename=plan.png&calibrationsPage=2'
 

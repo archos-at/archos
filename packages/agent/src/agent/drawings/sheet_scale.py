@@ -46,6 +46,7 @@ class Calibration:
     metres_per_point: float
     reference_length_pt: float
     label: str = ""
+    base: bool = False
 
     def __post_init__(self) -> None:
         if not (self.metres_per_point > 0 and self.reference_length_pt > 0):
@@ -425,7 +426,7 @@ def _contradiction(sheet: Sheet, calibration: Calibration, point: Point, others:
     said = f"the calibration says 1:{display_ratio(calibration.metres_per_point):.1f}"
     for other in others:
         around = _within(calibration.box, other.box) and other.box != calibration.box
-        if other is calibration or around:
+        if other is calibration or around or other.base:
             continue
         if _apart(calibration, other.metres_per_point, other.relative_error):
             return (

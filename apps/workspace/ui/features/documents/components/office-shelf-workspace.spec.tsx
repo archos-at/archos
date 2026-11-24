@@ -124,12 +124,14 @@ describe('OfficeShelfWorkspace — library listing', () => {
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('puts the level\u2019s tools in the tool row under the title', async () => {
+  it('puts the level\u2019s tools in the tool row under the title, „Ordner anlegen“ behind its ⋯', async () => {
     deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
     expect(row).toHaveAttribute('data-tier', 'wide')
-    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /create folder/i })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByTestId('files-more'))
+    expect(await screen.findByTestId('files-new-folder')).toBeInTheDocument()
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
@@ -170,7 +172,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByText('brandschutz-gutachten.pdf')
 
-    await user.click(screen.getByTestId('file-filter-menu-trigger'))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-filter-open'))
     await user.click(await screen.findByRole('checkbox', { name: 'Detail' }))
     expect(screen.getByText('fassadendetail.pdf')).toBeInTheDocument()
     expect(screen.queryByText('brandschutz-gutachten.pdf')).not.toBeInTheDocument()
@@ -816,16 +819,17 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument()
   })
 
-  it('names the open folder in the header, with the office over the way there and the way up', async () => {
+  it('keeps its head in a folder and names the way there in a line under it, the way up first (KAN-86)', async () => {
     currentSearch = 'folder=f-2'
     render(<OfficeShelfWorkspace canManage organizationName="Atelier Nord" />)
 
     const header = screen.getByTestId('office-shelf-header')
-    expect(await within(header).findByRole('heading', { level: 1, name: /^Statik/ })).toBeInTheDocument()
-    const crumb = within(header).getByTestId('page-header-crumb')
-    expect(crumb).toHaveTextContent('Atelier Nord')
-    expect(within(crumb).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
-    fireEvent.click(within(header).getByTestId('page-header-up'))
+    expect(within(header).getByRole('heading', { level: 1, name: /^Office library/ })).toBeInTheDocument()
+    expect(within(header).getByTestId('page-header-crumb')).toHaveTextContent('Atelier Nord')
+    const line = await screen.findByTestId('section-place-line')
+    expect(within(line).getByTestId('section-place-current')).toHaveTextContent('Statik')
+    expect(within(line).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
+    fireEvent.click(within(line).getByTestId('page-header-up'))
     expect(new URLSearchParams(String(routerPush.mock.calls.at(-1)?.[0]).split('?')[1]).get('folder')).toBe('f-1')
   })
 
@@ -845,7 +849,8 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /create folder/i }))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-new-folder'))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))
