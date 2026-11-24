@@ -215,3 +215,23 @@ async def test_a_project_chat_result_naming_personal_liste_reaches_the_model_unw
     message = SimpleNamespace(content="Gefunden: Personal_Liste_2026.xlsx, Blatt 2", response_metadata={})
     assert _carried(message) == set()
     assert await admit_tool_results([message]) == [message]
+
+
+def test_a_later_turn_of_a_chat_that_read_the_owners_shelf_writes_nothing_shared():
+    from agent.tools.canvas.policy import shared_write_refusal
+
+    decision = signed_decision(
+        may={
+            "shelves": [{"collection": PERSONAL, "shelf": "personal"}],
+            "restrictedCollections": [PERSONAL],
+            "personalShelf": True,
+        },
+        recordedRestricted=True,
+    )
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_1", project_id=None))
+    assert use is not None and use.admitted == set()
+    token = bind_restricted_use(use)
+    try:
+        assert shared_write_refusal() is not None
+    finally:
+        reset_restricted_use(token)
