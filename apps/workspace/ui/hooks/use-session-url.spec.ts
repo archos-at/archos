@@ -158,7 +158,7 @@ describe('useSessionUrl', () => {
       renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
-      expect(mockRouter.replace).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
     })
 
     test('clears invalid session from URL', async () => {
