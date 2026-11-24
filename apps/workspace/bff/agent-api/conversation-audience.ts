@@ -8,6 +8,7 @@ import { narrowedByDecision, readContextAudience, workspaceReadUnder } from '@/l
 import type { ContextAudience, WorkspaceRead } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
 import { withTenant } from '@/lib/db/tenant-context'
+import { decisionAllowsPersonalShelf, personalShelfUseOf } from '@/lib/conversations/personal-shelf-use'
 import type { AgentOperation } from './operation'
 import {
   type OperationTarget,
@@ -138,6 +139,7 @@ export async function judgeWorkspaceRead(
   return withTenant(tenantOf(principal), async () => {
     const places = await placesOf(organizationId, userId, targets)
     let touchesOwn = targets.length === 0
+    let readsShelf = false
     const foreign: ForeignPlace[] = []
     for (const [index, place] of places.entries()) {
       const target = targets[index] as OperationTarget
@@ -150,6 +152,9 @@ export async function judgeWorkspaceRead(
       }
       const refused = await placeRefusal(principal, audience, place, organizationId)
       if (refused) return refuse(refused)
+      const shelf = await otherChatShelfRefusal(principal, place, organizationId)
+      if (shelf === 'refused') return refuse(READ_REFUSALS.personalShelf)
+      readsShelf ||= shelf === 'owner'
       const own = place.conversationId === principal.conversationId || place.projectId === (principal.projectId ?? null)
       if (own || !place.projectId) {
         touchesOwn = true
@@ -166,7 +171,7 @@ export async function judgeWorkspaceRead(
     const own = readsAll(audience) && touchesOwn && principal.projectId ? await ownFolders() : []
     return {
       handOut: { projectIds: handOut.handOut.projectIds, folderIds: [...own, ...handOut.handOut.folderIds] },
-      personalShelf: namesPersonalScope(input) || places.some((place) => place?.document?.personal === true),
+      personalShelf: readsShelf || namesPersonalScope(input) || places.some((place) => place?.document?.personal === true),
     }
   })
 }
@@ -174,6 +179,19 @@ export async function judgeWorkspaceRead(
 function namesPersonalScope(input: TargetInput): boolean {
   const body = input.body !== null && typeof input.body === 'object' ? (input.body as Record<string, unknown>) : {}
   return input.query?.scope === 'personal' || body.scope === 'personal'
+}
+
+async function otherChatShelfRefusal(
+  principal: AgentPrincipal,
+  place: TargetPlace,
+  organizationId: string,
+): Promise<'none' | 'owner' | 'refused'> {
+  if (place.conversationId === null || place.conversationId === principal.conversationId) return 'none'
+  const used = await personalShelfUseOf(organizationId, place.conversationId)
+  if (!used) return 'none'
+  const request = { organizationId, conversationId: principal.conversationId ?? '', userId: principal.session.userId }
+  const mayDrawOnIt = used.ownerId === principal.session.userId && decisionAllowsPersonalShelf(principal.decision ?? null, request)
+  return mayDrawOnIt ? 'owner' : 'refused'
 }
 
 async function placeRefusal(

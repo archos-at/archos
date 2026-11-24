@@ -872,6 +872,10 @@
     "de": "Ein Verweis auf eine Word- oder PowerPoint-Datei öffnet die Vorschau auf der Seite, von der die Textstelle stammt."
   },
   {
+    "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+    "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
+  },
+  {
     "en": "A reply that arrived before its first e-mail was filed is now offered the E-Mail-Verlauf that e-mail started, and is appended if you follow it.",
     "de": "Eine Antwort, die eingegangen ist, bevor ihre ursprüngliche E-Mail abgelegt wurde, wird nun im E-Mail-Verlauf angezeigt, den diese E-Mail begonnen hat, und dort angehängt, wenn Sie dem Verlauf folgen."
   },
@@ -1014,6 +1018,10 @@
   {
     "en": "A source could be marked as cited before it had been checked, and stayed marked even when the check later removed it from the answer. The panel now lists only the sources that survived the check.",
     "de": "Eine Quelle konnte als zitiert markiert sein, bevor sie geprüft war, und blieb so markiert, auch wenn die Prüfung sie später aus der Antwort entfernte. Die Liste zeigt jetzt nur noch Quellen, die die Prüfung überstanden haben."
+  },
+  {
+    "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+    "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
   },
   {
     "en": "A source from another project is now labelled as a precedent, with the project's status and Bundesland, and an answer that uses one keeps apart what applies, how the office usually does it, and where it was done before, saying when the rules or the Land differ.",
@@ -2320,6 +2328,10 @@
     "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
   },
   {
+    "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
+    "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
+  },
+  {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
     "de": "Jeder Schritt hinter dieser Zahl wird mitveröffentlicht: welche Zahlen auf unseren Annahmen beruhen und welche auf Ihren, wie die Arbeitswoche eines Planers angenommen wird und was die Berechnung bewusst nicht berücksichtigt."
   },
@@ -2768,6 +2780,10 @@
     "de": "In der Karte Rechtsgrundlage steht eine lange Fundstelle jetzt in der Zeile neben der Richtlinie statt in der schmalen Randspalte, wo sie auf sieben Zeilen umbrach."
   },
   {
+    "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
+    "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
+  },
+  {
     "en": "In the chat you can now measure a DXF drawing: how far a house stands from each boundary, how long the boundary to a neighbour is, and what remains buildable after the setbacks and the coverage you name.",
     "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
   },
@@ -3044,6 +3060,10 @@
     "de": "Ältere und nicht veröffentlichte Fassungen einer Datei zählen jetzt zum Speicher Ihres Büros. Sie wurden bisher aufbewahrt, aber nicht mitgezählt, sodass die angezeigte Speichermenge kleiner war als das, was tatsächlich belegt war."
   },
   {
+    "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+    "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+  },
+  {
     "en": "On a phone a drawing now opens full screen, however you reach it, and zooms deep enough to read the 2.5 mm lettering of an A1 plan, with pinch, double tap and sharp lines at every zoom.",
     "de": "Auf dem Smartphone öffnet sich eine Zeichnung jetzt unabhängig davon, wie Sie sie aufrufen, im Vollbild und lässt sich so weit vergrößern, dass die 2,5-mm-Beschriftung eines A1-Plans lesbar ist – mit Pinch-Geste, Doppeltippen und scharfen Linien bei jeder Zoomstufe."
   },
@@ -3076,6 +3096,10 @@
     "de": "Auf dem Smartphone ist der obere Bereich jeder Projektseite ruhiger: mit einem kompakten Titel ohne Beschreibung, sodass in Dateien die ersten Dokumente im oberen Drittel des Bildschirms angezeigt werden."
   },
   {
+    "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+    "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+  },
+  {
     "en": "On a phone you switch projects from „Mehr“: its first entry shows the project you are in, and „Projekt wechseln“ opens the list of projects.",
     "de": "Am Smartphone wechseln Sie Projekte über „Mehr“: Der erste Eintrag zeigt das Projekt, in dem Sie sich befinden, und „Projekt wechseln“ öffnet die Projektliste."
   },
@@ -3104,6 +3128,10 @@
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
   {
+    "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+    "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+  },
+  {
     "en": "On a phone, the document type in the file preview header is shortened instead of running under the buttons.",
     "de": "Am Telefon wird die Dokumentart im Kopf der Dateivorschau gekürzt, statt unter die Schaltflächen zu laufen."
   },
@@ -3114,6 +3142,10 @@
   {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",
     "de": "Auf dem Smartphone bietet die Büroklammer im Chat jetzt „Foto aufnehmen“, wodurch sich direkt die Kamera öffnet, und „Aus Mediathek“. Außerdem weist sie darauf hin, dass Hinzugefügtes in diesem Chat bleibt. Das Upload-Menü unter Dateien bietet dieselben zwei Einträge."
+  },
+  {
+    "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+    "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
     "en": "On a phone, the schedule wizard's last step, the run history, the task filters, the Büroablage header and several project and administration pages no longer run off the edge of the screen.",
@@ -4028,6 +4060,10 @@
     "de": "Der Tab „E-Mails“ einer Unterhaltung listet die E-Mails ohne Button-Leiste darunter auf: „Original (.eml)“ steht neben dem Eingangszeitpunkt, und „Was diese E-Mail hinzufügte“ finden Sie im „...“-Menü der E-Mail. Die Liste zeigt die neuesten E-Mails zuerst an."
   },
   {
+    "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
+    "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
+  },
+  {
     "en": "The \"Unterhaltung öffnen\" link on a task card now opens the conversation the task is running in. Before, it led nowhere, so the one control on the card did nothing.",
     "de": "Der Link „Unterhaltung öffnen“ auf einer Aufgabenkarte öffnet jetzt die Unterhaltung, in der die Aufgabe läuft. Bisher führte er ins Leere, sodass das einzige Bedienelement auf der Karte nichts tat."
   },
@@ -4760,6 +4796,14 @@
     "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
   },
   {
+    "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
+    "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
+  },
+  {
+    "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
+    "de": "Die Projektauswahl zeigt die fünf Projekte, an denen Sie zuletzt gearbeitet haben, sowie „Alle Projekte anzeigen“ für die übrigen und eine Suche über alle Projekte. So erreichen Sie die Projekte, mit denen Sie gerade beschäftigt sind, mit einem Klick – unabhängig davon, wie viele Projekte Ihr Büro hat."
+  },
+  {
     "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
     "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
   },
@@ -5310,6 +5354,10 @@
   {
     "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
     "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+  },
+  {
+    "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+    "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
   },
   {
     "en": "When a chat was deleted, the stored record of how its answers were produced could stay behind if removing it kept failing. It is now removed automatically and the deletion is recorded as complete.",

@@ -160,6 +160,18 @@ describe('a citation marker under a finger', () => {
     expect(await screen.findByText('Source 1')).toBeInTheDocument()
   })
 
+  test('declares its reach on the frame, and with it the narrowest marker is a 44px target', async () => {
+    renderAnswer()
+    const first = screen.getByRole('button', { name: /Source 1: OIB/i })
+    const frame = first.closest('[data-tap-reach]')
+    const reach = Number(frame?.getAttribute('data-tap-reach'))
+    expect(18 + 2 * reach).toBeGreaterThanOrEqual(44)
+
+    first.getBoundingClientRect = () => ({ left: 100, right: 118, top: 50, bottom: 76 }) as DOMRect
+    fireEvent.click(screen.getByText(/Zwei Fluchtwege sind erforderlich/), { clientX: 118 + reach, clientY: 63 })
+    expect(await screen.findByText('Source 1')).toBeInTheDocument()
+  })
+
   test('a tap too far from any marker opens nothing', () => {
     renderAnswer()
     const first = screen.getByRole('button', { name: /Source 1: OIB/i })

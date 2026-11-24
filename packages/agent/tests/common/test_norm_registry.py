@@ -376,6 +376,12 @@ class TestLaneForHit:
     def test_a_shelf_the_caller_knows_beats_the_collection_guess(self):
         assert nr.lane_for_hit(collection="whatever", shelf="office_shelf") == ("office", "Bürobibliothek")
 
+    def test_personal_shelf_hit_without_a_file_name_stays_in_the_personal_lane(self):
+        collection = "personal_org_a1__user_b2"
+        assert nr.lane_for_hit(collection=collection, shelf="personal") == ("project", "Meine Ablage")
+        assert nr.lane_for_hit(collection=collection) == ("project", "Meine Ablage")
+        assert nr.lane_for_hit(collection=collection, doc_class="oib_guideline") == ("project", "Meine Ablage")
+
     def test_the_default_class_never_relabels_a_users_document(self):
         assert nr.lane_for_hit(collection="proj_123", doc_class="other") == ("project", "Projektwissen")
         assert nr.lane_for_hit(collection="archiv_org", doc_class="other") == ("office", "Bürobibliothek")

@@ -105,6 +105,13 @@ export function useSharing(
     void refresh()
   }, [refresh, retry, enabled, base])
 
+  const baseRef = useRef(base)
+  useEffect(() => {
+    baseRef.current = base
+    widening.current = null
+    setFailure(null)
+  }, [base])
+
   useEffect(() => {
     retry.reset()
     setLoadError(false)
@@ -125,8 +132,10 @@ export function useSharing(
     async (request: () => Promise<ResourceSharingState>): Promise<boolean> => {
       setFailure(null)
       setSaving(true)
+      const target = baseRef.current
       try {
         const data = await request()
+        if (baseRef.current !== target) return false
         seq.current += 1
         retry.reset()
         setState(data)
@@ -134,6 +143,7 @@ export function useSharing(
         setLoading(false)
         return true
       } catch (error) {
+        if (baseRef.current !== target) return false
         setFailure(error instanceof SharingRequestError ? error.failure : NO_FAILURE_DETAIL)
         return false
       } finally {

@@ -291,6 +291,63 @@ body {
   }
 }
 
+/* A list that scrolls under parts that stand still on both sides (the Projektübersicht under its title and search):
+   its first 24px fade in once anything has scrolled up beneath the top, its last 24px fade while more lies below
+   and stand whole at the end. Two scroll-driven lengths, one per edge; a list too short to scroll has an inactive
+   timeline, so neither edge fades and only the bottom padding sits under the resting 24px. Guarded like
+   `scroll-fade-bottom`: without scroll timelines the bottom keeps its fade and the top has none. */
+@property --scroll-fade-y-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --scroll-fade-y-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 24px;
+}
+
+@keyframes scroll-fade-y-top-in {
+  to {
+    --scroll-fade-y-top: 24px;
+  }
+}
+
+@keyframes scroll-fade-y-end-out {
+  to {
+    --scroll-fade-y-end: 0px;
+  }
+}
+
+@utility scroll-fade-y {
+  --scroll-fade-y-top: 0px;
+  --scroll-fade-y-end: 24px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--scroll-fade-y-top),
+    black calc(100% - var(--scroll-fade-y-end)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black var(--scroll-fade-y-top),
+    black calc(100% - var(--scroll-fade-y-end)),
+    transparent 100%
+  );
+  @supports (animation-timeline: scroll(self block)) {
+    animation:
+      scroll-fade-y-top-in linear both,
+      scroll-fade-y-end-out linear both;
+    animation-timeline: scroll(self block), scroll(self block);
+    animation-range:
+      0 24px,
+      calc(100% - 40px) 100%;
+  }
+}
+
 /* The edge where a sticky bar meets content scrolling under it.
    ─────────────────────────────────────────────────────────────
    A pinned footer or a sticky header on paper the same colour as the body has
@@ -376,6 +433,33 @@ body {
   @supports (animation-timeline: scroll(self block)) {
     animation: scroll-fade-bottom-end linear both;
     animation-timeline: scroll(self block);
+  }
+}
+
+/* A sticky day label over a scrolling list (the Chatverlauf): rows slide under it through a 16px fade instead of a cut,
+   only while it is stuck. Scroll-state queries are Chromium-only; elsewhere the label sticks with the plain edge. */
+@utility sticky-head {
+  container-type: scroll-state;
+  container-name: sticky-head;
+}
+
+@utility fade-under-when-stuck {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: 16px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--background), transparent);
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+  @container sticky-head scroll-state(stuck: top) {
+    &::after {
+      opacity: 1;
+    }
   }
 }
 

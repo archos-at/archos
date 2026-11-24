@@ -392,6 +392,25 @@ describe('ChatToolbar', () => {
       expect(phone?.querySelector('[data-testid="participant-strip"]')).not.toBeNull()
     })
 
+    test('on a phone one face and the count stand for the readers, so a long title keeps its room', () => {
+      const third = { ...SHARED_STATE.entries[1], person: { ...SHARED_STATE.entries[1].person, userId: 'u-bernd', name: 'Bernd Huber' } }
+      mockSharingState = { ...SHARED_STATE, entries: [...SHARED_STATE.entries, third] }
+
+      render(
+        <ChatToolbar
+          sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung"
+          isCollaborationEnabled
+          conversationId="session-1"
+          currentUserId="u-me"
+        />,
+      )
+
+      const phone = document.querySelector('[data-status-surface="phone"]')
+      expect(phone?.querySelectorAll('[data-testid="person-avatar"]')).toHaveLength(1)
+      expect(phone?.querySelector('[data-testid="avatar-stack-overflow"]')).toHaveTextContent('+2')
+      expect(document.querySelectorAll('[data-status-surface="desktop"] [data-testid="person-avatar"]')).toHaveLength(3)
+    })
+
     test('the menu is a 44px square on a phone', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 

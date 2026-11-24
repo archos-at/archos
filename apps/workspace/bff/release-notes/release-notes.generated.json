@@ -249,6 +249,30 @@
         },
         {
           "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
+            "de": "Die Projektauswahl zeigt die fünf Projekte, an denen Sie zuletzt gearbeitet haben, sowie „Alle Projekte anzeigen“ für die übrigen und eine Suche über alle Projekte. So erreichen Sie die Projekte, mit denen Sie gerade beschäftigt sind, mit einem Klick – unabhängig davon, wie viele Projekte Ihr Büro hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
+            "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
+            "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
@@ -297,6 +321,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
+            "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
@@ -325,6 +357,30 @@
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
             "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+            "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+            "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+            "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
           }
         },
         {
@@ -403,6 +459,30 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+            "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+            "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+            "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
             "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
           }
@@ -419,8 +499,24 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+            "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
+            "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
           }
         },
         {
