@@ -224,7 +224,7 @@ function turnContextHeaders(data, { issuedAt, secret }) {
 
 /**
  * The headers of a chat-socket turn: the turn context without its collection
- * scope, which the turn takes from its signed decision (ADR-0192).
+ * scope, which the turn takes from its signed decision (ADR-0194).
  *
  * @param {TurnContextData} data
  * @param {{ issuedAt: number, secret: string | null | undefined }} options

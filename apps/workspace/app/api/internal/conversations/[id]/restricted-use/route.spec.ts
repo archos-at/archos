@@ -3,7 +3,7 @@
  *
  * The agent's admission of a tool round's restricted collections (ADR-0087,
  * ADR-0088). Which ones a turn may draw on is its signed decision now
- * (ADR-0192), so the route only admits. The rule itself is
+ * (ADR-0194), so the route only admits. The rule itself is
  * `restricted-use.spec.ts` and, against Postgres,
  * `restricted-use.integration.spec.ts`; here, that the route asks it in the
  * stated organization, answers in the agent's shape, and holds its bounds.

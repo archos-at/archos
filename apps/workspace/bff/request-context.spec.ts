@@ -513,7 +513,7 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
     }
   })
 
-  it('signs no collection scope and sends no plain scope header for a socket turn, which takes its scope from the decision (ADR-0192)', () => {
+  it('signs no collection scope and sends no plain scope header for a socket turn, which takes its scope from the decision (ADR-0194)', () => {
     const data = {
       header: 'scope',
       scopedCollections: [{ collection: 'proj_1', shelf: 'project' }],
