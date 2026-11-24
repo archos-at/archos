@@ -132,7 +132,7 @@ const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
 }
 
 const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
-  'ui/components/shell/app-sidebar': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'the current section: a sheet with the thumb’s shadow' }],
+  'ui/components/shell/rail-active-pill': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'where the reader is: a sheet with the thumb’s shadow' }],
   'ui/components/shell/phone-tab-bar': [
     { fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' },
     { fill: /in-data-\[scope=personal\]:bg-sheet in-data-\[scope=personal\]:shadow-xs/, what: 'the current tab under Persönlich: the same sheet' },
