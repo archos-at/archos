@@ -98,6 +98,26 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0265)', ()
     expect(row?.read).toBe(true)
   })
 
+  it('marks the answer the decision names even when the caller names none', async () => {
+    const conversationId = await chat()
+    const answer = randomUUID()
+    const decision = allowing(conversationId, answer)
+    expect(await asOwner(() => record.recordDecidedAnswer(decision, null))).toBe(true)
+
+    const admitted = await asOwner(() =>
+      use.admitPersonalShelf({ organizationId: ORG, conversationId, userId: OWNER }, [own], decision),
+    )
+
+    expect(admitted).toEqual([own])
+    const [row] = await asOwner(() =>
+      db
+        .select({ read: answerContexts.readPersonalShelf })
+        .from(answerContexts)
+        .where(and(eq(answerContexts.organizationId, ORG), eq(answerContexts.messageId, answer))),
+    )
+    expect(row?.read).toBe(true)
+  })
+
   it('refuses a chat others read, a decision that does not allow it, another person’s shelf, and marks nothing', async () => {
     const shared = await chat('organization')
     const solo = await chat()
@@ -112,6 +132,18 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0265)', ()
     expect(await asOwner(() => use.admitPersonalShelf(request(solo), [colleagues], allowing(solo, null)))).toEqual([])
     expect(await usedAt(shared)).toBeNull()
     expect(await usedAt(solo)).toBeNull()
+  })
+
+  it('refuses an answer the decision does not name, and one with no record to write, marking nothing', async () => {
+    const conversationId = await chat()
+    const answer = randomUUID()
+    const decision = allowing(conversationId, answer)
+    const asked = (answerMessageId: string) =>
+      asOwner(() => use.admitPersonalShelf({ organizationId: ORG, conversationId, userId: OWNER, answerMessageId }, [own], decision))
+
+    expect(await asked(randomUUID())).toEqual([])
+    expect(await asked(answer)).toEqual([])
+    expect(await usedAt(conversationId)).toBeNull()
   })
 
   it('refuses a document thread, whose answers reach the document’s readers as annotation replies', async () => {

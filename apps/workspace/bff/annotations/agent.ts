@@ -39,6 +39,9 @@ export class NoDocumentSubjectError extends UnprocessableError {
 const ACTING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['create', 'update', 'delete'])
 const WRITING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['propose', 'create', 'update', 'reply'])
 
+const carriesLabel = (request: InternalAnnotationRequest): boolean =>
+  (request.op === 'point' || request.op === 'highlight') && Boolean(request.label?.trim())
+
 export class AgentActsOffError extends ApiError {
   constructor(op: InternalAnnotationRequest['op']) {
     super(
@@ -253,7 +256,7 @@ export async function runAgentAnnotationRequest(
   agent: AgentInRoom
 ) {
   if (ACTING_OPS.has(request.op) && !isAgentActsEnabled(session)) throw new AgentActsOffError(request.op)
-  if (WRITING_OPS.has(request.op) && !document.personal) {
+  if ((WRITING_OPS.has(request.op) || carriesLabel(request)) && !document.personal) {
     await requireNoPersonalShelfEgress({ conversationId: agent.conversationId || null, locale: AGENT_REFUSAL_LOCALE }, agent.organizationId)
   }
   const documentId = document.id

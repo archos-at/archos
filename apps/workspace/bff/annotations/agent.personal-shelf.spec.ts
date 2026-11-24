@@ -35,6 +35,17 @@ describe('an annotation write from a chat that read Meine Ablage', () => {
     expect(requireNoPersonalShelfEgress).toHaveBeenCalledWith({ conversationId: 's_conv_1', locale: 'de' }, 'org_1')
   })
 
+  it('refuses a labelled point or highlight, whose label every reader of the document sees', async () => {
+    const refused = new ConversationConfinedError('personalShelf', 'nein')
+    vi.mocked(requireNoPersonalShelfEgress).mockRejectedValue(refused)
+
+    for (const op of ['point', 'highlight'] as const) {
+      const request = { op, page: 1, x: 0.1, y: 0.1, w: 0.2, h: 0.2, label: 'aus meiner Notiz' } as never
+      await expect(runAgentAnnotationRequest(session, office, request, agent)).rejects.toBe(refused)
+    }
+    vi.mocked(requireNoPersonalShelfEgress).mockReset()
+  })
+
   it('is not asked on the owner’s own document, nor for a read', async () => {
     vi.mocked(requireNoPersonalShelfEgress).mockRejectedValue(new ConversationConfinedError('personalShelf', 'nein'))
 

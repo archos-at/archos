@@ -55,11 +55,11 @@ export async function recordAnswerReads(
   conversationId: string,
   answerMessageId: string,
   reads: AnswerReads,
-): Promise<void> {
+): Promise<boolean> {
   const folders = reads.folders ?? []
   const projects = reads.projects ?? []
-  if (folders.length === 0 && projects.length === 0 && !reads.personalShelf) return
-  await executor
+  if (folders.length === 0 && projects.length === 0 && !reads.personalShelf) return true
+  const written = await executor
     .update(answerContexts)
     .set({
       readFolders: merged(answerContexts.readFolders, folders),
@@ -74,4 +74,6 @@ export async function recordAnswerReads(
         eq(answerContexts.messageId, answerMessageId),
       ),
     )
+    .returning({ messageId: answerContexts.messageId })
+  return written.length > 0
 }
