@@ -86,6 +86,16 @@ async def test_the_data_and_the_text_of_one_call_carry_the_same_value_interval_a
     assert data["verdict"] is None and data["reasons"] == []
 
 
+async def test_an_area_states_its_outline_and_a_distance_does_not(looked_up: list[dict[str, Any]]) -> None:
+    loaded = await _loaded()
+
+    area = tape.measured(loaded, _request("area", CORNERS))["measurement"]
+    line = tape.measured(loaded, _request("distance", CORNERS[:2]))["measurement"]
+
+    assert area["perimeter"] is not None and area["perimeter"] > 0
+    assert line["perimeter"] is None
+
+
 async def test_a_refusal_is_the_engines_reason_and_remedy_as_the_text_states_them(looked_up) -> None:
     loaded = await _loaded()
     request = _request("distance", [[0.9, 0.9], [0.95, 0.95]])

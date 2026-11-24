@@ -45,6 +45,12 @@ def _pairs(points: Iterable[Sequence[float]]) -> list[list[float]]:
     return [[float(point[0]), float(point[1])] for point in points]
 
 
+def _printed_check(answer: Measurement) -> dict[str, Any] | None:
+    if answer.provenance == "printed_figure" or answer.printed is None:
+        return None
+    return {"text": inert(answer.printed.text), "agrees": answer.printed.agrees}
+
+
 def _measurement(answer: Measurement) -> dict[str, Any]:
     low, high = answer.interval
     outcome = answer.outcome
@@ -58,6 +64,8 @@ def _measurement(answer: Measurement) -> dict[str, Any]:
         "scaleState": answer.scale.state,
         "scaleRatio": answer.scale.ratio,
         "printed": inert(answer.printed.text) if answer.provenance == "printed_figure" and answer.printed else None,
+        "printedCheck": _printed_check(answer),
+        "perimeter": answer.perimeter,
         "verdict": outcome.verdict if outcome is not None else None,
         "reasons": list(outcome.reasons) if outcome is not None else [],
         "points": _pairs(answer.points),
