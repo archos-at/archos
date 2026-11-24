@@ -58,6 +58,7 @@ describe('useChatStore', () => {
       composerPrefill: null,
       composerSubject: null,
       composerDrafts: {},
+      lastChatBySide: {},
     })
   })
 
@@ -314,6 +315,52 @@ describe('useChatStore', () => {
         useChatStore.setState({ currentConversation: own, conversations: [personal, own] })
         useChatStore.getState().enterSide('proj-a')
         expect(useChatStore.getState().currentConversation?.id).toBe('a-1')
+      })
+
+      test('switching back to a side reopens the chat left open there', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: project, conversations: [project, personal] })
+
+        useChatStore.getState().enterSide(null)
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        useChatStore.getState().selectConversation('me-1')
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation?.id).toBe('a-1')
+
+        useChatStore.getState().enterSide(null)
+        expect(useChatStore.getState().currentConversation?.id).toBe('me-1')
+      })
+
+      test('each project remembers its own chat, and a chat no longer there opens a new one', () => {
+        const a = makeConv('a-1', 'user-1', 'proj-a')
+        const b = makeConv('b-1', 'user-1', 'proj-b')
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: a, conversations: [a, b] })
+
+        useChatStore.getState().enterSide('proj-b')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        useChatStore.getState().selectConversation('b-1')
+
+        useChatStore.setState({ conversations: [b] })
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        expect(useChatStore.getState().lastChatBySide).toEqual({ 'proj-a': 'a-1', 'proj-b': 'b-1' })
+      })
+
+      test('another person’s remembered chat is never reopened', () => {
+        const theirs = makeConv('a-1', 'user-2', 'proj-a')
+        const mine = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({
+          currentUserId: 'user-1',
+          projectId: null,
+          currentConversation: mine,
+          conversations: [theirs, mine],
+          lastChatBySide: { 'proj-a': 'a-1' },
+        })
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
       })
 
       test('leaving the project context (null) never clears the current conversation', () => {

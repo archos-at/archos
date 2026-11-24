@@ -14,6 +14,8 @@ import {
 } from '../lib/conversation-records'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
 
+const sideKeyOf = (projectId: string | null): string => projectId ?? ''
+
 const withoutOpenConversation = (projectId: string | null) => ({
   projectId,
   currentConversation: null,
@@ -348,9 +350,16 @@ export const createConversationActions = (
     },
 
     enterSide: (projectId: string | null) => {
-      const open = get().currentConversation
-      const belongs = !open || (projectId === null ? !open.projectId : open.projectId === projectId)
-      set(belongs ? { projectId } : withoutOpenConversation(projectId), false, belongs ? 'enterSide' : 'enterSide:clearOtherSideConversation')
+      const { currentConversation: open, conversations, currentUserId, lastChatBySide } = get()
+      const onSide = (c: Conversation): boolean => (projectId === null ? !c.projectId : c.projectId === projectId)
+      if (!open || onSide(open)) {
+        set({ projectId }, false, 'enterSide')
+        return
+      }
+      const left = { ...lastChatBySide, [sideKeyOf(open.projectId ?? null)]: open.id }
+      set({ ...withoutOpenConversation(projectId), lastChatBySide: left }, false, 'enterSide:leaveOtherSide')
+      const last = conversations.find((c) => c.id === left[sideKeyOf(projectId)] && onSide(c) && c.userId === currentUserId)
+      if (last) get().selectConversation(last.id)
     },
 
     retryLastUserMessage: () => {
