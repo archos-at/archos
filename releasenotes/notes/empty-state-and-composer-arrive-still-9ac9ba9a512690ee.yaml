@@ -1,0 +1,8 @@
+---
+# area: general
+improvements:
+  - >
+    An empty list, such as an empty Dateien or Meine Ablage, now simply stands
+    there when you open it instead of fading and zooming in, and the chat input
+    no longer fades up from dimmed while a page loads. Motion is left for what
+    you change yourself, like emptying a list with a filter.
