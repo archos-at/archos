@@ -229,7 +229,7 @@ export function useInputAreaController({
   const typeAheadHintId = useId()
 
   const {
-    mentions,
+    mentions, sendableMentions,
     setMentions,
     mentionQuery,
     setMentionQuery,
@@ -456,7 +456,7 @@ export function useInputAreaController({
     wsChat,
     message,
     setMessage,
-    mentions,
+    mentions: sendableMentions,
     setMentions,
     setMentionQuery,
     canCollaborate,
