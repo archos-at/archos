@@ -1,4 +1,4 @@
--- Undo 0260. ORDER: roll the frontend back first; the newer build writes personal rows.
+-- Undo 0262. ORDER: roll the frontend back first; the newer build writes personal rows.
 --
 -- Lossy: every personal document and folder is deleted, as the older schema has
 -- no shelf to keep them on. The stored files stay where they lie.
