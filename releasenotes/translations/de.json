@@ -1932,6 +1932,10 @@
     "de": "Das Kopieren Ihrer eigenen Nachricht und das Entfernen einer angehängten Quelle sind auf Touch-Geräten nicht möglich. Beide Steuerelemente werden nur angezeigt, wenn Sie mit der Maus darüberfahren, was auf einem Smartphone nicht möglich ist – daher sind sie auf allen Tablets und Smartphones unsichtbar."
   },
   {
+    "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
+    "de": "Die Ecken in der gesamten App sind etwas enger gerundet; Menüs, Tabs und Schalter stimmen ihre inneren Rundungen auf die umgebenden Ecken ab."
+  },
+  {
     "en": "Creating a folder with a name that is already taken in that place now tells you the name is taken, instead of showing an error.",
     "de": "Wenn Sie einen Ordner mit einem Namen anlegen, der dort schon vergeben ist, sagt Piloti jetzt, dass der Name vergeben ist, statt einen Fehler anzuzeigen."
   },
