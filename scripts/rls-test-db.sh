@@ -4857,3 +4857,19 @@ apply_in dc_0258 0258_drawing_calibrations.sql
 apply_in dc_0258 0258_drawing_calibrations.sql   # up twice: idempotent
 check_in dc_0258 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM drawing_calibrations) FROM pg_class WHERE relname = 'drawing_calibrations'" "true:0" "0258 applies again after its down, twice, secured and empty"
 echo "==> 0258 drawing calibrations table and its down migration verified"
+
+echo "==> verifying the 0269 personal chat policies and their down migration on pc_0269"
+migrate_until pc_0269 0269_personal_chat_owner_only
+PC0269_POLICIES="SELECT string_agg(tablename || '=' || (qual LIKE '%personal_conversation_hidden%' OR qual LIKE '%current_system_reader%')::text, ',' ORDER BY tablename) FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('conversations', 'messages', 'answer_contexts', 'upload_batches')"
+PC0269_GUARDS="SELECT has_table_privilege(rls_role('rw'), 'message_restricted_use', 'UPDATE')::text || ':' || has_table_privilege(rls_role('rw'), 'message_restricted_use', 'DELETE')::text || ':' || (SELECT count(*) FROM pg_trigger WHERE tgname = 'resource_shares_conversation_reachable')"
+check_in pc_0269 "$PC0269_POLICIES" "answer_contexts=true,conversations=true,messages=true,upload_batches=true" "0269 holds a personal chat to its creator, its grantees and a system reader"
+check_in pc_0269 "$PC0269_GUARDS" "false:false:1" "0269 keeps message_restricted_use append-only and guards a grant on a personal chat"
+apply_in pc_0269 0269_personal_chat_owner_only.down.sql
+check_in pc_0269 "$PC0269_POLICIES" "answer_contexts=false,conversations=false,messages=false,upload_batches=false" "0269 down gives the organization its policies back"
+check_in pc_0269 "$PC0269_GUARDS" "false:false:0" "0269 down keeps message_restricted_use append-only and drops the grant guard"
+check_in pc_0269 "SELECT count(*) FROM pg_proc WHERE proname IN ('personal_conversation_hidden', 'conversation_audience_bump_past_policy')" "0" "0269 down drops its functions"
+apply_in pc_0269 0269_personal_chat_owner_only.sql
+apply_in pc_0269 0269_personal_chat_owner_only.sql   # up twice: idempotent
+check_in pc_0269 "$PC0269_POLICIES" "answer_contexts=true,conversations=true,messages=true,upload_batches=true" "0269 applies again after its down, twice"
+check_in pc_0269 "$PC0269_GUARDS" "false:false:1" "0269 applied twice keeps one grant guard and the append-only marks"
+echo "==> 0269 personal chat policies and their down migration verified"
