@@ -91,6 +91,7 @@ export const chat = {
     noProjectChatPermission:
       '{productName} is unavailable in this project for you right now. If you have read-only access, a project admin can grant you the Contributor role.',
     placeholder: 'Ask {productName} about this project …',
+    placeholderPersonal: 'Ask {productName} anything …',
     sources: 'Data basis',
     sourcesAria: 'Data basis — {enabled} of {total} sources enabled. Opens the data sources panel.',
     sourcesActiveMobile: '{count, plural, one {# source} other {# sources}} active',

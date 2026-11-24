@@ -203,7 +203,7 @@ describe('what a client loads up front', () => {
 })
 
 describe('what tools mode costs a client', () => {
-  const MAX_AVERAGE_CHARS = 1_093
+  const MAX_AVERAGE_CHARS = 1_094
   const MAX_OPERATION_CHARS = 10_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {

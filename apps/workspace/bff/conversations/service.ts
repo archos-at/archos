@@ -1,4 +1,5 @@
 import 'server-only'
+import type { ConversationPlace } from './repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
@@ -75,6 +76,7 @@ export interface ConversationWithAccess extends Conversation {
 
 export interface ListConversationsFilter {
   projectId?: string
+  place?: ConversationPlace
   limit?: number
   cursor?: string
 }
@@ -94,6 +96,7 @@ export async function listConversations(
   const pageSize = Math.min(Math.max(1, Math.trunc(filter.limit ?? CONVERSATION_PAGE_MAX)), CONVERSATION_PAGE_MAX)
   const fetched = await listVisibleConversations(session.organizationId, session.userId, {
     projectId: filter.projectId,
+    place: filter.place,
     limit: pageSize + 1,
     after: filter.cursor,
   })

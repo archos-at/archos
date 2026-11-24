@@ -133,6 +133,26 @@ describe('listVisibleConversations — scoped to a project', () => {
   })
 })
 
+describe('listVisibleConversations — one side of the rail (ADR-0193)', () => {
+  it('`personal`: only the chats without a project, judged as unstamped rows', async () => {
+    await listVisibleConversations('org_1', 'user_me', { place: 'personal' })
+
+    const { sql } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" is null and (')
+    expect(sql).not.toContain('"conversations"."project_id" = ')
+    expect(sql).toContain('order by "conversations"."updated_at" desc')
+  })
+
+  it('`project`: only that project’s chats, none without a project', async () => {
+    await listVisibleConversations('org_1', 'user_me', { projectId: PROJECT_ID, place: 'project' })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" = $2 and (')
+    expect(sql).not.toContain('"conversations"."project_id" is null')
+    expect(params[1]).toBe(PROJECT_ID)
+  })
+})
+
 describe('listVisibleConversations — no project scope', () => {
   it('returns only rows the caller owns, was granted, or that are org-visible', async () => {
     await listVisibleConversations('org_1', 'user_me')

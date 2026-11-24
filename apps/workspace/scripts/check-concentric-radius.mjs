@@ -421,10 +421,11 @@ async function checkRendered(args) {
   const browser = await chromium.launch({ executablePath: option('chrome') })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   let total = 0
+  let unloaded = 0
   for (const route of routes) {
     const loaded = await page.goto(`${option('base', 'http://localhost:3311')}${route}`, { waitUntil: 'networkidle', timeout: 180_000 }).catch((error) => error)
     if (loaded instanceof Error) {
-      total += 1
+      unloaded += 1
       console.log(`${route}  did not load: ${loaded.message.split('\n')[0]}`)
       continue
     }
@@ -434,15 +435,16 @@ async function checkRendered(args) {
     for (const finding of findings) console.log(`${route}  ${finding}`)
   }
   await browser.close()
-  return total
+  return { total, unloaded }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2)
   if (args.includes('--live')) {
-    const total = await checkRendered(args.filter((arg) => arg !== '--live'))
+    const { total, unloaded } = await checkRendered(args.filter((arg) => arg !== '--live'))
     console.log(total === 0 ? 'Every rendered radius is concentric.' : `${total} rendered nesting(s) not concentric: fix the class where it is written.`)
-    process.exit(total === 0 ? 0 : 1)
+    if (unloaded > 0) console.log(`${unloaded} preview(s) did not load and were not measured.`)
+    process.exit(total === 0 && unloaded === 0 ? 0 : 1)
   }
   let tree = readTree(UI_ROOT)
   if (args.includes('--fix')) {

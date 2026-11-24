@@ -25,7 +25,7 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
 
   useEffect(() => {
     setProjectId(null)
-    void loadServerConversations()
+    void loadServerConversations(undefined, 'personal')
   }, [setProjectId, loadServerConversations])
 
   const newParam = searchParams?.get('new') ?? null

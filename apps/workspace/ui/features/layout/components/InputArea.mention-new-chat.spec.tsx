@@ -112,7 +112,7 @@ describe('InputArea — the first @ of a new chat', () => {
 
   test('creates the conversation and lists the colleagues', async () => {
     vi.stubGlobal('fetch', fakeServer())
-    useChatStore.setState({ currentUserId: 'u1', currentConversation: null, conversations: [] })
+    useChatStore.setState({ currentUserId: 'u1', projectId: 'p1', currentConversation: null, conversations: [] })
     render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
 
     await typeAtAndWaitForAnna()
@@ -127,9 +127,9 @@ describe('InputArea — the first @ of a new chat', () => {
       messages: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      projectId: null,
+      projectId: 'p1',
     } as unknown as Conversation
-    useChatStore.setState({ currentUserId: 'u1', currentConversation: earlier, conversations: [earlier] })
+    useChatStore.setState({ currentUserId: 'u1', projectId: 'p1', currentConversation: earlier, conversations: [earlier] })
     render(<InputArea isAuthenticated canCollaborate connectionMode="sse" />)
     await typeAtAndWaitForAnna()
 

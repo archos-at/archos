@@ -93,6 +93,7 @@ export const chat: typeof en.chat = {
     noProjectChatPermission:
       '{productName} steht Ihnen in diesem Projekt derzeit nicht zur Verfügung. Wenn Sie nur Lesezugriff haben, kann Ihnen eine Projektadministratorin oder ein Projektadministrator die Rolle „Mitwirkender“ erteilen.',
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
+    placeholderPersonal: 'Fragen Sie {productName} etwas …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',

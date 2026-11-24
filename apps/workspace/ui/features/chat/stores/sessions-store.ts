@@ -35,7 +35,7 @@ export type SessionsSlice = {
 
   setPendingMessagesFor: (conversationId: string | null) => void
 
-  loadServerConversations: (projectId?: string) => Promise<void>
+  loadServerConversations: (projectId?: string, place?: 'personal' | 'project') => Promise<void>
   hydrateConversationMessages: (conversationId: string) => Promise<void>
   _lockConversation: (conversationId: string) => void
   setCurrentUser: (userId: string | null) => void

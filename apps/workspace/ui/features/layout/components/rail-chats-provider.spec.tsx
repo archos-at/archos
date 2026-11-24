@@ -38,10 +38,12 @@ const show = (pathname: string) =>
 
 describe('RailChatsProvider', () => {
   const selectConversation = vi.fn()
+  const loadServerConversations = vi.fn(async () => {})
 
   beforeEach(() => {
     captured = null
     selectConversation.mockReset()
+    loadServerConversations.mockClear()
     const mine = [1, 2, 3, 4, 5, 6, 7].map((n) => conversation(`c${n}`, day(n)))
     useChatStore.setState({
       currentUserId: 'u1',
@@ -54,28 +56,44 @@ describe('RailChatsProvider', () => {
       ],
       currentConversation: mine[5]!,
       selectConversation,
+      loadServerConversations,
     })
     useLayoutStore.setState({ isSessionsPanelOpen: false })
   })
 
-  test('every chat of the reader, in every project and none, newest first, each opening where it belongs (ADR-0193)', () => {
+  test('Projekt lists only this project’s chats of the reader, newest first, each opening in it (ADR-0193)', () => {
     useChatStore.setState({
-      conversations: [...useChatStore.getState().conversations, conversation('alone', day(10), { projectId: null, shared: false })],
+      conversations: [...useChatStore.getState().conversations, conversation('alone', day(10), { projectId: null })],
     })
     show('/app/projects/p1/files')
-    expect(captured?.items.map((item) => item.id)).toEqual(['alone', 'other-project', 'untitled', 'c7', 'c6', 'c5', 'c4', 'c3', 'c2', 'c1'])
+    expect(captured?.items.map((item) => item.id)).toEqual(['untitled', 'c7', 'c6', 'c5', 'c4', 'c3', 'c2', 'c1'])
     expect(captured?.items.find((item) => item.id === 'untitled')?.title).toBe('Untitled chat')
     expect(captured?.items.find((item) => item.id === 'c7')?.href).toBe('/app/projects/p1/chat?session=c7')
-    expect(captured?.items.find((item) => item.id === 'other-project')?.href).toBe('/app/projects/p2/chat?session=other-project')
-    expect(captured?.items.find((item) => item.id === 'alone')?.href).toBe('/app/personal/chat?session=alone')
-    expect(captured?.items.find((item) => item.id === 'other-project')?.projectId).toBe('p2')
     expect(captured?.allHref).toBe('/app/projects/p1/chat')
   })
 
-  test('the same list on the personal side, and its „Alle Chats“ is the personal chat', () => {
+  test('Persönlich lists only the chats without a project, and its „Alle Chats“ is the personal chat', () => {
+    useChatStore.setState({
+      conversations: [
+        ...useChatStore.getState().conversations,
+        conversation('alone', day(10), { projectId: null }),
+        conversation('shared-alone', day(11), { projectId: null, shared: true }),
+      ],
+    })
     show('/app/personal-shelf')
-    expect(captured?.items.map((item) => item.id)).toContain('c7')
+    expect(captured?.items.map((item) => [item.id, item.shared])).toEqual([
+      ['shared-alone', true],
+      ['alone', false],
+    ])
+    expect(captured?.items.find((item) => item.id === 'alone')?.href).toBe('/app/personal/chat?session=alone')
     expect(captured?.allHref).toBe('/app/personal/chat')
+  })
+
+  test('each side asks the server for its own newest chats', () => {
+    show('/app/personal-shelf')
+    expect(loadServerConversations).toHaveBeenLastCalledWith(undefined, 'personal')
+    show('/app/projects/p1/files')
+    expect(loadServerConversations).toHaveBeenLastCalledWith('p1', 'project')
   })
 
   test('a shared chat says so', () => {
