@@ -307,6 +307,22 @@
           "section": "improvements",
           "area": "general",
           "text": {
+            "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
+            "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "While the sidebar loads your recent chats, grey placeholder rows stand in for them, and the rows are a little taller and easier to read. The list no longer appears late or out of nowhere.",
+            "de": "Während die Seitenleiste Ihre letzten Chats lädt, erscheinen graue Platzhalterzeilen, die etwas höher und besser lesbar sind. Die Liste erscheint nicht mehr verspätet oder plötzlich."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
             "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
             "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
           }
