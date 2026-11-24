@@ -4832,6 +4832,10 @@
     "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
   },
   {
+    "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+    "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
+  },
+  {
     "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
     "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
   },

@@ -297,6 +297,14 @@
         },
         {
           "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+            "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
