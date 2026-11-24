@@ -414,22 +414,40 @@ export async function listMessagesForConversation(
   return newestFirst.reverse()
 }
 
+const earlierThan = (conversationId: string, messageId: string | undefined) =>
+  messageId
+    ? sql`(${messages.createdAt}, ${messages.id}) < (select m.created_at, m.id from messages m where m.id = ${messageId}::uuid and m.conversation_id = ${conversationId})`
+    : undefined
+
 export async function listMessagePage(
   conversationId: string,
-  options: { limit: number; before?: string }
+  options: { limit: number; before?: string; until?: string }
 ): Promise<{ rows: Message[]; hasMore: boolean }> {
   const db = getDb()
-  const before = options.before
-    ? sql`(${messages.createdAt}, ${messages.id}) < (select m.created_at, m.id from messages m where m.id = ${options.before}::uuid and m.conversation_id = ${conversationId})`
-    : undefined
   const newestFirst = await db
     .select()
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), before))
+    .where(
+      and(
+        eq(messages.conversationId, conversationId),
+        earlierThan(conversationId, options.before),
+        earlierThan(conversationId, options.until),
+      ),
+    )
     .orderBy(desc(messages.createdAt), desc(messages.id))
     .limit(options.limit + 1)
   const hasMore = newestFirst.length > options.limit
   return { rows: newestFirst.slice(0, options.limit).reverse(), hasMore }
+}
+
+export async function listAnswerIdsInOrder(conversationId: string, limit: number): Promise<string[]> {
+  const rows = await getDb()
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'assistant')))
+    .orderBy(messages.createdAt, messages.id)
+    .limit(limit)
+  return rows.map((row) => row.id)
 }
 
 export async function findMessageInConversation(

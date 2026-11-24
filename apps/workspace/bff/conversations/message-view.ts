@@ -22,6 +22,7 @@ export interface MessageView {
 export interface MessageListResponse {
   messages: MessageView[]
   nextCursor: string | null
+  withheldFrom?: string
 }
 
 export function parseMessageIncludes(value: string | undefined): ReadonlySet<MessageInclude> {

@@ -7,6 +7,7 @@ import {
   fileDraftBodySchema,
   generateTitleSchema,
   listConversationsQuerySchema,
+  listAnswerTrailsQuerySchema,
   listMessagesQuerySchema,
   markReadSchema,
   updateConversationSchema,
@@ -116,13 +117,27 @@ export const conversationsOperations = [
     description:
       'The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, ' +
       'content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. ' +
-      'Message ids feed conversation-message-changes.',
+      'Message ids feed conversation-message-changes. `withheldFrom`, when present, is the answer from which the chat rests on a source the reader may not open: it and everything after are left out.',
     method: 'GET',
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
     query: listMessagesQuerySchema,
     generatedContent: generatedRows('messages', (message) => message.role === 'assistant'),
     load: () => import('@/app/api/conversations/[id]/messages/route'),
+  },
+  {
+    name: 'conversation-answer-trail-list',
+    domain: 'conversations',
+    summary: 'Read what each answer of a conversation read',
+    description:
+      'Per answer, oldest first within the page, earlier ones through `nextCursor`: the projects and folders it read, each named ' +
+      'only where the person may open it and otherwise withheld, and whether personal memory or the person’s own shelf was in play. ' +
+      'Answers from before these records exist have no entry.',
+    method: 'GET',
+    path: '/api/conversations/[id]/answers/trail',
+    params: conversationParams,
+    query: listAnswerTrailsQuerySchema,
+    load: () => import('@/app/api/conversations/[id]/answers/trail/route'),
   },
   {
     name: 'conversation-message-add',

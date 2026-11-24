@@ -14,6 +14,7 @@ vi.mock('@/lib/conversations/repository', () => ({
   findMessageInConversation: vi.fn(),
   insertConversation: vi.fn(),
   insertMessages: vi.fn(),
+  listAnswerIdsInOrder: vi.fn(async () => []),
   listMessagePage: vi.fn(),
   listVisibleConversations: vi.fn(),
   markConversationDeleting: vi.fn(),
@@ -38,6 +39,11 @@ vi.mock('./restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_organizationId: string, _conversationId: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
+}))
+
+vi.mock('./reader-cut', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./reader-cut')>()),
+  readerCut: vi.fn(async () => ({ kind: 'none' })),
 }))
 
 vi.mock('./cross-project-use', () => ({ restrictingOtherProjects: vi.fn(async () => []) }))
@@ -82,6 +88,7 @@ import { resolveParticipants } from '@/lib/sharing/service'
 import { deleteSessionCollection, purgeSessionDocuments } from '@/lib/session-documents/cleanup'
 import { resolveEngagement, resolveEngagementFor } from './engagement'
 import { restrictingOtherProjects } from './cross-project-use'
+import { readerCut } from './reader-cut'
 import { lockedConversationIds, peopleWhoMayRead } from './restricted-use'
 import { deleteConversationInOrg, findConversationInOrg, findConversationRead, findMessageInConversation, insertMessages, listMessagePage, listVisibleConversations, markConversationDeleting, updateConversationTitleInOrg } from './repository'
 import { createConversationMessages, deleteConversation, getConversation, listConversationMessages, listConversations, markConversationRead, updateConversationTitle } from './service'
@@ -246,6 +253,16 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
     it('answers the typed 403 for the messages, and reads none of them', async () => {
       await expect(listConversationMessages(session, CONVERSATION_ID)).rejects.toBeInstanceOf(ResourceRightsLostError)
       expect(listMessagePage).not.toHaveBeenCalled()
+    })
+
+    it('gives a reader who joined later the messages before the first answer resting on what they may not open', async () => {
+      vi.mocked(readerCut).mockResolvedValueOnce({ kind: 'until', answerId: 'a_2', readable: [] })
+      vi.mocked(listMessagePage).mockResolvedValueOnce({ rows: [], hasMore: false })
+
+      const page = await listConversationMessages(session, CONVERSATION_ID)
+
+      expect(listMessagePage).toHaveBeenCalledWith(CONVERSATION_ID, expect.objectContaining({ until: 'a_2' }))
+      expect(page.withheldFrom).toBe('a_2')
     })
 
     it('refuses a message into it, and stores nothing', async () => {

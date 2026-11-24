@@ -7,7 +7,6 @@ import { getDb } from '@/lib/db'
 import { answerContexts } from '@/lib/db/schema/answer-contexts'
 import { withTenant } from '@/lib/db/tenant-context'
 import { findProjectInOrg } from '@/lib/projects/repository'
-import { requireResourceAccess } from '@/lib/sharing/access'
 import { projectsOfFolders } from './restricted-use-repository'
 
 export type TrailPlace =
@@ -24,14 +23,14 @@ export interface AnswerTrail {
 
 const MAX_ANSWERS = 500
 
-export async function answerTrails(session: AuthorizedSession, conversationId: string): Promise<AnswerTrail[]> {
-  await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
+export async function trailsAsSeenBy(session: AuthorizedSession, conversationId: string): Promise<AnswerTrail[]> {
   const { organizationId, userId } = session
   return withTenant({ organizationId, userId }, async () => {
     const rows = await getDb()
       .select()
       .from(answerContexts)
       .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.conversationId, conversationId)))
+      .orderBy(answerContexts.decidedAt, answerContexts.messageId)
       .limit(MAX_ANSWERS)
     const projectIds = [...new Set(rows.flatMap((row) => row.readProjects))]
     const folderIds = [...new Set(rows.flatMap((row) => row.readFolders))]
@@ -85,3 +84,5 @@ async function folderPlaces(session: AuthorizedSession, folderIds: readonly stri
   }
   return places
 }
+
+export const restsOnWithheld = (trail: AnswerTrail): boolean => trail.places.some((place) => 'withheld' in place)

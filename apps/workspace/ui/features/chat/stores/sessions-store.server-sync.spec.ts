@@ -25,6 +25,9 @@ const mockConversationsClient = vi.hoisted(() => ({
   updateTitle: vi.fn(),
   delete: vi.fn(),
   listMessages: vi.fn(),
+  listReadableMessages: vi.fn(async function (this: { listMessages: (id: string) => Promise<unknown[]> }, id: string) {
+    return { messages: await this.listMessages(id) }
+  }),
   createMessage: vi.fn(),
   createMessages: vi.fn(),
   newestFrameAge: vi.fn().mockResolvedValue(null),
