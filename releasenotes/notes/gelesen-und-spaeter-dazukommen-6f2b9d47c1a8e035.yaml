@@ -1,0 +1,14 @@
+---
+# area: collaboration
+features:
+  - >
+    An answer's details now show where it read: the projects and folders, and
+    whether Meine Ablage or your personal memory was in play.
+  - >
+    If you join a chat later and may not open every source it used, you now see
+    it up to the first answer that rests on such a source, instead of nothing.
+operators:
+  - >
+    The messages list carries withheldFrom for a reader who joined later. The
+    new GET /api/conversations/{id}/answers/trail and conversation-answer-trail-list
+    read each answer's recorded reads; answers before slice 1 have none.
