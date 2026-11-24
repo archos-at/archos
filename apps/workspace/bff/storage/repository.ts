@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { MissingTenantContextError, getTenantContext, withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { documents, DOCUMENT_SCOPES, type DocumentScope, type NewDocument } from '@/lib/db/schema/documents'
