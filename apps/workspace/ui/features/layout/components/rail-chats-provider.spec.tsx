@@ -107,6 +107,13 @@ describe('RailChatsProvider', () => {
     expect(loadServerConversations).toHaveBeenNthCalledWith(1, 'p1', 'project')
   })
 
+  test('another person signing in while the rail stays mounted asks for their side again', () => {
+    show('/app/personal-shelf')
+    loadServerConversations.mockClear()
+    act(() => useChatStore.setState({ currentUserId: 'u2' }))
+    expect(loadServerConversations).toHaveBeenCalledWith(undefined, 'personal')
+  })
+
   test('a shared chat says so', () => {
     useChatStore.setState({ conversations: [conversation('shared', day(9), { shared: true }), conversation('mine', day(8))] })
     show('/app/projects/p1/files')

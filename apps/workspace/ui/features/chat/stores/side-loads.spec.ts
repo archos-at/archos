@@ -82,6 +82,21 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
     expect(useChatStore.getState().serverSides['project:p1']?.ids).toEqual(['s_new'])
   })
 
+  it('a fetch dropped by another person’s sign-in does not mark their list as loaded', async () => {
+    let finishOld: (rows: unknown[]) => void = () => {}
+    list.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+    const { loadServerConversations, setCurrentUser } = useChatStore.getState()
+    setCurrentUser('u1')
+    const old = loadServerConversations(undefined, 'personal')
+    await vi.waitFor(() => expect(list).toHaveBeenCalled())
+    setCurrentUser('u2')
+    useChatStore.setState({ serverConversationsLoaded: false })
+    finishOld([])
+    await old
+
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(false)
+  })
+
   it('another person signing in on the same tab fetches their sides afresh', async () => {
     const { loadServerConversations, setCurrentUser } = useChatStore.getState()
     setCurrentUser('u1')

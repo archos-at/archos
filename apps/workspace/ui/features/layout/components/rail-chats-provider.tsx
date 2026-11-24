@@ -91,10 +91,11 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
     if (recent) loadSide(recent)
   }, [mode, loadSide])
 
+  const userId = useChatStore((s) => s.currentUserId)
   useEffect(() => {
     if (mode === 'personal') loadSide(null)
     else if (mode === 'project' && projectId) loadSide(projectId)
-  }, [mode, projectId, loadSide])
+  }, [mode, projectId, loadSide, userId])
   const warmedOnMount = useRef(false)
   useEffect(() => {
     if (mode === null || warmedOnMount.current) return

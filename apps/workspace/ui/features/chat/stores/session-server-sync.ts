@@ -125,7 +125,7 @@ export const createSessionServerSyncSlice: StateCreator<
       console.warn('[loadServerConversations] Failed to load server conversations:', err)
       return false
     } finally {
-      set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+      if (isLatest()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
   }
 
