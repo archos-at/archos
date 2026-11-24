@@ -34,7 +34,9 @@ export async function markOwnConversationsDeleting(
           eq(conversations.createdBy, userId),
           isNull(conversations.deletedAt),
           isNull(conversations.jobId),
-          side.projectId === null ? isNull(conversations.projectId) : eq(conversations.projectId, side.projectId),
+          side.projectId === null
+            ? and(isNull(conversations.projectId), eq(conversations.startedInPersonal, true))
+            : eq(conversations.projectId, side.projectId),
         ),
       )
     const held = candidates.filter((row) => row.held === true).map(({ id, title }) => ({ id, title }))

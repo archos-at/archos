@@ -15,9 +15,9 @@ import { mergeMetadataEntries } from './metadata-merge'
 import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 
-export const CONVERSATION_LIST_LIMIT = 200
-
 export const MESSAGE_LIST_LIMIT = 1000
+
+export const CONVERSATION_LIST_LIMIT = 200
 
 function grantNamesCaller(organizationId: string, userId: string) {
   const db = getDb()
@@ -42,11 +42,12 @@ export function visibleConversationsWhere(
   projects: { projectIds: readonly string[]; withoutContainer: boolean } | null,
 ): SQL {
   const orgScope = and(eq(conversations.organizationId, organizationId), isNull(conversations.deletedAt))
+  const placed = sql`${conversations.startedInPersonal}`
   const mine = eq(conversations.createdBy, userId)
   const granted = grantNamesCaller(organizationId, userId)
 
   const withoutContainer = or(mine, granted, eq(conversations.visibility, 'organization'))
-  if (!projects) return and(orgScope, withoutContainer) as SQL
+  if (!projects) return and(orgScope, or(isNotNull(conversations.projectId), placed), withoutContainer) as SQL
 
   const { projectIds } = projects
   const inProjects =
@@ -58,7 +59,7 @@ export function visibleConversationsWhere(
             : inArray(conversations.projectId, [...projectIds]),
           or(ne(conversations.visibility, 'private'), mine, granted),
         )
-  const unstamped = projects.withoutContainer ? and(isNull(conversations.projectId), withoutContainer) : undefined
+  const unstamped = projects.withoutContainer ? and(isNull(conversations.projectId), placed, withoutContainer) : undefined
   return and(orgScope, or(inProjects, unstamped) ?? sql`false`) as SQL
 }
 
@@ -117,28 +118,11 @@ export async function listConversationIdsForProject(
   return rows.map((row) => row.id)
 }
 
-function writtenBy(userId: string) {
+export function writtenBy(userId: string) {
   return or(
     eq(messages.authorUserId, userId),
     and(isNull(messages.authorUserId), eq(messages.role, 'user'), eq(conversations.createdBy, userId)),
   )
-}
-
-export async function hasWrittenInOrganization(organizationId: string, userId: string): Promise<boolean> {
-  const db = getDb()
-  const rows = await db
-    .select({ one: sql<number>`1` })
-    .from(messages)
-    .innerJoin(
-      conversations,
-      and(
-        eq(conversations.id, messages.conversationId),
-        eq(conversations.organizationId, messages.organizationId),
-      ),
-    )
-    .where(and(eq(messages.organizationId, organizationId), writtenBy(userId)))
-    .limit(1)
-  return rows.length > 0
 }
 
 export async function lastProjectActivityByUser(
@@ -234,6 +218,7 @@ export async function insertConversation(values: {
   subjectResourceType?: ShareableResourceType | null
   subjectResourceId?: string | null
   temporary?: boolean
+  startedInPersonal?: boolean
 }): Promise<Conversation | null> {
   const [row] = await getDb().insert(conversations).values(values).onConflictDoNothing().returning()
   return row ?? null

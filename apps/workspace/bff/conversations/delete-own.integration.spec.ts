@@ -24,6 +24,7 @@ const MINE_ALREADY_DELETING = `s_delown_mine_deleting_${STAMP}`
 const COLLEAGUE_PERSONAL_SHARED = `s_delown_colleague_shared_${STAMP}`
 const COLLEAGUE_IN_A = `s_delown_colleague_a_${STAMP}`
 const OTHER_ORG_MINE = `s_delown_other_org_${STAMP}`
+const MINE_LEGACY = `s_delown_mine_legacy_${STAMP}`
 
 type Row = { id: string; deleted_at: Date | null }
 
@@ -94,15 +95,16 @@ describe.skipIf(!url)('deleting all of one side of my chats against live Postgre
     })
     await asMe(() =>
       db.execute(sql`
-        insert into conversations (id, organization_id, created_by, title, project_id, visibility, deleted_at) values
-          (${MINE_PERSONAL}, ${ORG}, ${ME}, 'Was sagt § 50 Wiener Garagengesetz?', null, 'private', null),
-          (${MINE_PERSONAL_2}, ${ORG}, ${ME}, 'OIB-Richtlinie 2 und 2.3', null, 'private', null),
-          (${MINE_HELD}, ${ORG}, ${ME}, 'Gehalten', null, 'private', null),
-          (${MINE_IN_A}, ${ORG}, ${ME}, 'Projekt A', ${projectA}, 'private', null),
-          (${MINE_IN_B}, ${ORG}, ${ME}, 'Projekt B', ${projectB}, 'project', null),
-          (${MINE_ALREADY_DELETING}, ${ORG}, ${ME}, 'Schon gelöscht', null, 'private', now() - interval '1 hour'),
-          (${COLLEAGUE_PERSONAL_SHARED}, ${ORG}, ${COLLEAGUE}, 'Geteilt', null, 'organization', null),
-          (${COLLEAGUE_IN_A}, ${ORG}, ${COLLEAGUE}, 'Kollege in A', ${projectA}, 'project', null)
+        insert into conversations (id, organization_id, created_by, title, project_id, visibility, deleted_at, started_in_personal) values
+          (${MINE_PERSONAL}, ${ORG}, ${ME}, 'Was sagt § 50 Wiener Garagengesetz?', null, 'private', null, true),
+          (${MINE_PERSONAL_2}, ${ORG}, ${ME}, 'OIB-Richtlinie 2 und 2.3', null, 'private', null, true),
+          (${MINE_HELD}, ${ORG}, ${ME}, 'Gehalten', null, 'private', null, true),
+          (${MINE_LEGACY}, ${ORG}, ${ME}, 'Alte Startseite', null, 'private', null, false),
+          (${MINE_IN_A}, ${ORG}, ${ME}, 'Projekt A', ${projectA}, 'private', null, false),
+          (${MINE_IN_B}, ${ORG}, ${ME}, 'Projekt B', ${projectB}, 'project', null, false),
+          (${MINE_ALREADY_DELETING}, ${ORG}, ${ME}, 'Schon gelöscht', null, 'private', now() - interval '1 hour', true),
+          (${COLLEAGUE_PERSONAL_SHARED}, ${ORG}, ${COLLEAGUE}, 'Geteilt', null, 'organization', null, true),
+          (${COLLEAGUE_IN_A}, ${ORG}, ${COLLEAGUE}, 'Kollege in A', ${projectA}, 'project', null, false)
       `)
     )
     await withTenant({ organizationId: OTHER_ORG, userId: ME }, () =>
@@ -123,6 +125,32 @@ describe.skipIf(!url)('deleting all of one side of my chats against live Postgre
     })
     const { closeDb } = await import('@/lib/db')
     await closeDb()
+  })
+
+  it('Persönlich lists neither an old chat without a project nor offers it to delete-all; the row stays', async () => {
+    const listed = await asMe(() => repo.listVisibleConversations(ORG, ME, { place: 'personal' }))
+    const everywhere = await asMe(() => repo.listVisibleConversations(ORG, ME))
+    const result = await asMe(() => repo.markOwnConversationsDeleting(ORG, ME, { projectId: null }))
+
+    expect(listed.map((row) => row.id)).not.toContain(MINE_LEGACY)
+    expect(everywhere.map((row) => row.id)).not.toContain(MINE_LEGACY)
+    expect(result.marked.map((row) => row.id)).not.toContain(MINE_LEGACY)
+    expect(await deletedIds()).not.toContain(MINE_LEGACY)
+    const kept = await withPlatformAccess('test: read legacy', () =>
+      db.execute<{ id: string }>(sql`select id from conversations where id = ${MINE_LEGACY}`)
+    )
+    expect(Array.from(kept)).toHaveLength(1)
+  })
+
+  it('a chat created with the Persönlich mark is listed there at once', async () => {
+    const fresh = `s_delown_fresh_${STAMP}`
+    await asMe(() =>
+      repo.insertConversation({ id: fresh, organizationId: ORG, createdBy: ME, title: null, projectId: null, startedInPersonal: true })
+    )
+
+    const listed = await asMe(() => repo.listVisibleConversations(ORG, ME, { place: 'personal' }))
+
+    expect(listed.map((row) => row.id)).toContain(fresh)
   })
 
   it('Persönlich marks only my chats without a project, and queues each erasure', async () => {

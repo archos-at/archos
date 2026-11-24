@@ -197,7 +197,7 @@ step after the hold check is safe to repeat:
 
 **„Alle Chats löschen“ is one request, not one per chat:** `DELETE /api/conversations?place=personal`
 or `?place=project&projectId=…` (`deleteOwnConversations`). It touches only chats the caller
-started (`created_by`), on that side only: Persönlich takes the chats without a project, a
+started (`created_by`), on that side only: Persönlich takes the chats started there (`started_in_personal`), a
 project only its own; a job's chats and chats others started, shared ones included, stay. In one
 transaction it asks `legal_hold_blocks` of each, marks the rest `deleted_at` with one timestamp and
 inserts their `deletion_queue` rows (step 3 for many), and answers `{ deleted, held }`: a held chat

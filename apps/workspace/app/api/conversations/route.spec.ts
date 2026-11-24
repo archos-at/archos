@@ -67,7 +67,7 @@ describe('GET /api/conversations', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('("conversations"."project_id" = $2 and (')
-    expect(sql).toContain('or ("conversations"."project_id" is null and (')
+    expect(sql).toContain('or ("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(sql).toContain('"conversations"."visibility" <> $3')
     expect(sql).toContain('exists (select 1 from "resource_shares"')
     expect(params).toContain('private')
@@ -94,7 +94,7 @@ describe('GET /api/conversations', () => {
 
     expect(res.status).toBe(200)
     const { sql } = onlyQuery()
-    expect(sql).toContain('("conversations"."project_id" is null and (')
+    expect(sql).toContain('("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(sql).not.toContain('"conversations"."project_id" = ')
   })
 

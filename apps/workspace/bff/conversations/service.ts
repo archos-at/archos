@@ -197,6 +197,7 @@ export async function createConversation(
     subjectResourceType: input.subjectResourceType ?? null,
     subjectResourceId: input.subjectResourceId ?? null,
     temporary: input.temporary ?? false,
+    startedInPersonal: !input.projectId && input.personal === true,
   })
   if (inserted) return inserted
 
