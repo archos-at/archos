@@ -321,6 +321,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a file in Meine Ablage works again. It failed because it tried to move the file to a Papierkorb that Meine Ablage does not have; the file is now deleted for good, and the dialog says so before you confirm.",
+            "de": "Das Löschen einer Datei in Meine Ablage funktioniert wieder. Es schlug fehl, weil die Datei in einen Papierkorb verschoben werden sollte, den Meine Ablage nicht hat; die Datei wird jetzt endgültig gelöscht, und der Dialog sagt das, bevor Sie bestätigen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "The rows in the @-mention and /-command lists now round their corners to match the list around them.",
