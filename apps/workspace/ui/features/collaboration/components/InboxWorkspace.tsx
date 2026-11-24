@@ -7,6 +7,7 @@ import { CheckCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -120,7 +121,7 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
       <div className="border-base flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b pb-4">
         <div className="flex min-w-0 flex-col gap-1">
           {back}
-          {title && <h1 className="text-foreground text-xl font-medium">{title}</h1>}
+          {title && <h1 className={PAGE_TITLE_CLASS}>{title}</h1>}
         </div>
         <div className="flex min-h-8 items-center gap-2">
           <ToggleGroup type="single" segmented size="sm" value={tab} onValueChange={(value) => value && go({ tab: inboxTabOf(value) })} aria-label={t('inbox.filters.ariaLabel')}>
