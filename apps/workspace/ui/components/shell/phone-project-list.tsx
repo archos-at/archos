@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight, Settings } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Plus, Settings } from 'lucide-react'
 
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
@@ -16,6 +16,14 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 import { switcherSections, type ProjectSwitcherProject } from './project-list'
 import { readRecentProjectIds } from './recent-projects'
+import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
+
+const FOOT_ROW_CLASS = cn(
+  'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
+  PRESSABLE,
+  FOCUS_RING_INSET,
+  'active:bg-desk'
+)
 
 export interface PhoneProjectListProps {
   projects: ProjectSwitcherProject[]
@@ -117,18 +125,13 @@ export function PhoneProjectList({
         {/* The way to every project, closed ones included: the list's last
               row, with the list it continues. Pinned to the sheet's foot as a
               grey bar it stood a screen away from the projects it belongs to. */}
-        <Link
-          href="/app/projects"
-          onClick={onDone}
-          className={cn(
-            'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
-            PRESSABLE,
-            FOCUS_RING_INSET,
-            'active:bg-desk'
-          )}
-        >
+        <Link href={PROJECT_OVERVIEW_PATH} onClick={onDone} className={FOOT_ROW_CLASS}>
           <span className="min-w-0 flex-1">{t('projectSwitcher.overview')}</span>
           <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        </Link>
+        <Link href={NEW_PROJECT_PATH} onClick={onDone} className={FOOT_ROW_CLASS}>
+          <span className="min-w-0 flex-1">{t('projectSwitcher.newProject')}</span>
+          <Plus className="text-muted-foreground size-4 shrink-0" aria-hidden />
         </Link>
       </div>
     </div>

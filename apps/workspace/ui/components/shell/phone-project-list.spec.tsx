@@ -209,4 +209,15 @@ describe('PhoneProjectList', () => {
     const list = container.querySelector<HTMLElement>('[data-slot="phone-project-list"]')!
     expect(within(list).getByRole('region', { name: 'Recently opened' })).toBeInTheDocument()
   })
+
+  test('ends in the two ways out the desktop menu has: the overview, and a new project', async () => {
+    const user = userEvent.setup()
+    const list = open()
+    expect(within(list).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/app/projects')
+    const create = within(list).getByRole('link', { name: 'New project' })
+    expect(create).toHaveAttribute('href', '/app/projects?new=1')
+    expect(create.className).toContain('min-h-14')
+    await user.click(create)
+    expect(onDone).toHaveBeenCalledTimes(1)
+  })
 })

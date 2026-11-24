@@ -29,6 +29,8 @@ export interface ProjectOverviewProps {
   viewerActivity?: Record<string, string>
   autoOpenCreate?: boolean
   closeAction?: ReactNode
+  /** What scrolls with the projects under the standing title and search (the office's „Kürzlich gelöscht“). */
+  after?: ReactNode
 }
 
 export const OVERVIEW_CARD_SLOTS = 6
@@ -38,6 +40,7 @@ export function ProjectOverview({
   viewerActivity = {},
   autoOpenCreate = false,
   closeAction,
+  after,
 }: ProjectOverviewProps): JSX.Element {
   const t = useTranslations(projectsCopy)
   const currentId = projectIdFromPathname(usePathname() ?? '')
@@ -53,30 +56,25 @@ export function ProjectOverview({
   )
 
   return (
-    <div className="flex flex-col gap-5" data-testid="project-overview">
-      <header
-        className="flex flex-wrap items-center gap-x-4 gap-y-3"
-        data-testid="project-overview-header"
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="project-overview">
+      <div
+        className="flex shrink-0 flex-col gap-5 px-6 pt-6 pb-4"
+        data-testid="project-overview-top"
       >
-        <h1 className={cn('grow text-balance', PAGE_TITLE_CLASS)}>{t('portfolio.title')}</h1>
-        <div className="order-last shrink-0 sm:order-none">
-          <CreateProjectDialog
-            defaultOpen={autoOpenCreate}
-            tourAnchor={TOUR_ANCHORS.createProject}
-          />
-        </div>
-        {closeAction}
-      </header>
-
-      {projects.length === 0 ? (
-        <EmptyState
-          art={<RisoPrint id="vignetten/abstecken/empty" />}
-          title={t('list.empty.title')}
-          description={t('list.empty.description')}
-          className="min-h-72 justify-center"
-        />
-      ) : (
-        <>
+        <header
+          className="flex flex-wrap items-center gap-x-4 gap-y-3"
+          data-testid="project-overview-header"
+        >
+          <h1 className={cn('grow text-balance', PAGE_TITLE_CLASS)}>{t('portfolio.title')}</h1>
+          <div className="order-last shrink-0 sm:order-none">
+            <CreateProjectDialog
+              defaultOpen={autoOpenCreate}
+              tourAnchor={TOUR_ANCHORS.createProject}
+            />
+          </div>
+          {closeAction}
+        </header>
+        {projects.length > 0 && (
           <SearchField
             value={query}
             onChange={setQuery}
@@ -85,53 +83,71 @@ export function ProjectOverview({
             clearLabel={t('list.searchReset')}
             className="w-full"
           />
-          {shown.length === 0 ? (
-            <EmptyState
-              variant="bare"
-              icon={Search}
-              title={t('list.noMatch.title')}
-              description={t('list.noMatch.description')}
-              action={
-                <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
-                  {t('list.noMatch.clear')}
-                </Button>
-              }
-            />
-          ) : needle ? (
-            <ProjectOverviewList
-              label={t('portfolio.matches')}
-              projects={shown}
-              currentId={currentId}
-              viewerActivity={viewerActivity}
-            />
-          ) : (
-            <>
-              <ul
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                data-testid="project-overview-grid"
-              >
-                {shown.slice(0, OVERVIEW_CARD_SLOTS).map((project) => (
-                  <li key={project.id}>
-                    <ProjectOverviewCard project={project} current={project.id === currentId} />
-                  </li>
-                ))}
-              </ul>
-              {shown.length > OVERVIEW_CARD_SLOTS && (
-                <section className="flex flex-col gap-2" aria-labelledby="project-overview-more">
-                  <SectionLabel as="h2" id="project-overview-more" className="px-1">
-                    {t('portfolio.more')}
-                  </SectionLabel>
-                  <ProjectOverviewList
-                    projects={shown.slice(OVERVIEW_CARD_SLOTS)}
-                    currentId={currentId}
-                    viewerActivity={viewerActivity}
-                  />
-                </section>
-              )}
-            </>
-          )}
-        </>
-      )}
+        )}
+      </div>
+
+      <div
+        className="scroll-fade-y flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pt-1 pb-6"
+        data-testid="project-overview-scroll"
+      >
+        {projects.length === 0 ? (
+          <EmptyState
+            art={<RisoPrint id="vignetten/abstecken/empty" />}
+            title={t('list.empty.title')}
+            description={t('list.empty.description')}
+            className="min-h-72 justify-center"
+          />
+        ) : (
+          <>
+            {shown.length === 0 ? (
+              <EmptyState
+                variant="bare"
+                icon={Search}
+                title={t('list.noMatch.title')}
+                description={t('list.noMatch.description')}
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
+                    {t('list.noMatch.clear')}
+                  </Button>
+                }
+              />
+            ) : needle ? (
+              <ProjectOverviewList
+                label={t('portfolio.matches')}
+                projects={shown}
+                currentId={currentId}
+                viewerActivity={viewerActivity}
+              />
+            ) : (
+              <>
+                <ul
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                  data-testid="project-overview-grid"
+                >
+                  {shown.slice(0, OVERVIEW_CARD_SLOTS).map((project) => (
+                    <li key={project.id}>
+                      <ProjectOverviewCard project={project} current={project.id === currentId} />
+                    </li>
+                  ))}
+                </ul>
+                {shown.length > OVERVIEW_CARD_SLOTS && (
+                  <section className="flex flex-col gap-2" aria-labelledby="project-overview-more">
+                    <SectionLabel as="h2" id="project-overview-more" className="px-1">
+                      {t('portfolio.more')}
+                    </SectionLabel>
+                    <ProjectOverviewList
+                      projects={shown.slice(OVERVIEW_CARD_SLOTS)}
+                      currentId={currentId}
+                      viewerActivity={viewerActivity}
+                    />
+                  </section>
+                )}
+              </>
+            )}
+          </>
+        )}
+        {after}
+      </div>
     </div>
   )
 }
@@ -238,7 +254,7 @@ function ProjectOverviewList({
             <ProjectActivity
               project={project}
               activityAt={viewerActivity[project.id]}
-              className="relative z-10 w-24 shrink-0 sm:w-28"
+              className="relative z-10 w-24 shrink-0 sm:w-28 max-sm:[&>svg]:hidden"
             />
             <ProjectSettingsLink project={project} className="shrink-0" />
           </Item>

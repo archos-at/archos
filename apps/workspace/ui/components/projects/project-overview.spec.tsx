@@ -157,4 +157,16 @@ describe('the project overview that replaces the start page', () => {
     for (const card of cards()) expect(card.className).not.toMatch(/\bh-\[/)
     expect(cards()[0]).toHaveClass('rounded-surface')
   })
+
+  test('the title and the search stand still; the cards, the list and what follows scroll under them, faded at both edges', () => {
+    show({ after: <section data-testid="after-slot" /> })
+    const top = screen.getByTestId('project-overview-top')
+    const scroll = screen.getByTestId('project-overview-scroll')
+    expect(within(top).getByRole('heading', { level: 1 })).toBeInTheDocument()
+    expect(within(top).getByRole('textbox', { name: /search projects/i })).toBeInTheDocument()
+    expect(scroll).toHaveClass('overflow-y-auto', 'scroll-fade-y', 'min-h-0', 'flex-1')
+    expect(within(scroll).getByTestId('project-overview-grid')).toBeInTheDocument()
+    expect(within(scroll).getByTestId('after-slot')).toBeInTheDocument()
+    expect(top).not.toContainElement(scroll)
+  })
 })

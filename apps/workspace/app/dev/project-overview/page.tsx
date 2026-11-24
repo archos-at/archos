@@ -98,14 +98,12 @@ function ProjectOverviewPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant')
   return (
     <div data-testid="project-overview-preview" className="bg-background text-foreground min-h-dvh">
-      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window">
-        <div className="p-6">
-          <ProjectOverview
-            projects={variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE}
-            viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
-            closeAction={<PageSheetClose label="Schließen" />}
-          />
-        </div>
+      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window" bodyClassName="flex flex-col overflow-hidden">
+        <ProjectOverview
+          projects={variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE}
+          viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
+          closeAction={<PageSheetClose label="Schließen" />}
+        />
       </RoutePageSheet>
     </div>
   )

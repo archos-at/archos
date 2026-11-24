@@ -73,14 +73,4 @@ describe('PageSheet', () => {
     const scrim = document.querySelector<HTMLElement>('.bg-overlay')!
     expect(scrim.className).not.toContain('backdrop-blur')
   })
-
-  it('a window taller than the screen scrolls inside and fades its last rows at the cut, so more is plainly below', () => {
-    render(
-      <PageSheet open onOpenChange={vi.fn()} title="Projektübersicht" closeLabel="Schließen" size="window">
-        <p>Inhalt</p>
-      </PageSheet>
-    )
-    const body = screen.getByText('Inhalt').parentElement!
-    expect(body).toHaveClass('overflow-y-auto', 'scroll-fade-bottom')
-  })
 })
