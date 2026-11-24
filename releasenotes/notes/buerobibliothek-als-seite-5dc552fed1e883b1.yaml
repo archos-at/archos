@@ -1,0 +1,11 @@
+---
+# area: office-knowledge
+improvements:
+  - >
+    The Bürobibliothek is a page beside the sidebar now, with the Ablage's header
+    and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over
+    the page.
+  - >
+    Normen & Richtlinien is one list: the categories with their counts, ochre where
+    something waits for you, filters by topic and kind, and the topic as a column
+    instead of tiles.
