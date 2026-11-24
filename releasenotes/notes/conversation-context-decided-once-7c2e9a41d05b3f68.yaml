@@ -2,8 +2,8 @@
 # area: agents
 operators:
   - >
-    What a chat turn may draw on is now decided once per turn in the app, at
-    the new internal route /api/internal/turn-decision, and each answer keeps a
-    server-written record of what it was allowed to read and what it read. The
-    deploy adds the column conversations.audience_version and the table
-    answer_contexts; both migrations run on their own and need no backfill.
+    The app can now decide what a chat turn may draw on, at the internal route
+    /api/internal/turn-decision, and records per answer what it was allowed to
+    read once a caller passes the answer's id; the agent starts doing so in a
+    later release. The deploy adds conversations.audience_version and the table
+    answer_contexts, with no backfill.

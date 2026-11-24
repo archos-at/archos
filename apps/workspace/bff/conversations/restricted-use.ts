@@ -422,7 +422,7 @@ export async function admitSourceFolders(request: RestrictedUseRequest, folderId
     await recordSourceFolders(tx, organizationId, conversationId, admitted)
     if (request.answerMessageId) {
       await markAnswerRestrictedUse(tx, organizationId, conversationId, request.answerMessageId)
-      await recordAnswerReads(tx, organizationId, request.answerMessageId, { folders: admitted })
+      await recordAnswerReads(tx, organizationId, conversationId, request.answerMessageId, { folders: admitted })
     }
     const recorded = await listRecordedSourceFolders(tx, organizationId, conversationId)
     const kept = new Set([...open, ...admitted])

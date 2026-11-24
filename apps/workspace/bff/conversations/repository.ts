@@ -331,6 +331,9 @@ export async function deleteConversationInOrg(conversationId: string, organizati
     await tx
       .delete(conversations)
       .where(and(eq(conversations.id, conversationId), eq(conversations.organizationId, organizationId)))
+    await tx
+      .delete(answerContexts)
+      .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.conversationId, conversationId)))
   })
   await db
     .delete(conversationRestrictedFolders)
@@ -348,9 +351,6 @@ export async function deleteConversationInOrg(conversationId: string, organizati
         eq(conversationSourceProjects.conversationId, conversationId),
       ),
     )
-  await db
-    .delete(answerContexts)
-    .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.conversationId, conversationId)))
 }
 
 export const conversationOpenToProjectReaders = (): SQL => sql`(
