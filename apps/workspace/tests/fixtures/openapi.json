@@ -7015,7 +7015,7 @@
                     "type": "object",
                     "properties": {
                       "scope": {
-                        "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
+                        "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
                         "type": "string",
                         "enum": [
                           "office",
@@ -7660,7 +7660,7 @@
       "post": {
         "operationId": "workspace-search",
         "summary": "Search everything the person may read, with filters",
-        "description": "Searches every shared shelf, one project (`projectId`), a folder of it (`folderId`), the office shelf (`scope: office_shelf`) or the caller’s own (`personal`). Finds documents by name, by what ingestion read (type, parties, facts, references, drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. A passage points at a page: read the document before quoting it.",
+        "description": "Searches every shared shelf, a project (`projectId`), its folder (`folderId`), the office shelf (`office_shelf`) or yours (`personal`). Finds documents by name, by what ingestion read (type, parties, facts, references, drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. A passage points at a page: read the document before quoting it.",
         "tags": [
           "documents"
         ],
@@ -7670,7 +7670,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
@@ -7679,7 +7679,7 @@
                 "personal"
               ]
             },
-            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",
@@ -8178,7 +8178,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
@@ -8187,7 +8187,7 @@
                 "personal"
               ]
             },
-            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",
@@ -8299,7 +8299,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.",
+              "description": "Default `office`: every shared shelf. `personal`: the caller’s own.",
               "type": "string",
               "enum": [
                 "office",
@@ -8308,7 +8308,7 @@
                 "personal"
               ]
             },
-            "description": "Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf."
+            "description": "Default `office`: every shared shelf. `personal`: the caller’s own."
           },
           {
             "name": "projectId",

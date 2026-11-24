@@ -143,7 +143,7 @@ export const searchScopeQuerySchema = z.object({
   scope: z
     .enum(SEARCH_SCOPES)
     .optional()
-    .describe('Default `office`: every shared shelf the person may read. `personal` is the person’s own shelf.'),
+    .describe('Default `office`: every shared shelf. `personal`: the caller’s own.'),
   projectId: z.guid().optional(),
   folderId: z.guid().optional().describe('A folder of the project or the office shelf, its subfolders included.'),
 })
