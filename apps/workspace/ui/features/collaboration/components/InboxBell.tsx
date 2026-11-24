@@ -19,11 +19,11 @@ import { InboxEntry } from './InboxEntry'
 export const INBOX_HREF = '/app/inbox'
 export const INBOX_GLANCE_LIMIT = 4
 
-function Glance({ today, onLeave }: { today: string; onLeave: (href: string) => void }): JSX.Element {
+function Glance({ onLeave }: { onLeave: (href: string) => void }): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const list = useInboxList(true, 'requests')
-  const waiting = newestFirstOverdueOnTop(list.items, today)
-  const late = waiting.filter((item) => isOverdue(item, today)).length
+  const waiting = newestFirstOverdueOnTop(list.items)
+  const late = waiting.filter((item) => isOverdue(item)).length
   const open = (item: InboxItemView): void => onLeave(`${INBOX_HREF}?item=${encodeURIComponent(item.id)}`)
   return (
     <div className="flex flex-col gap-2" data-testid="inbox-glance">
@@ -56,12 +56,11 @@ function Glance({ today, onLeave }: { today: string; onLeave: (href: string) => 
 
 export interface InboxBellProps {
   compact?: boolean
-  today?: string
   tourAnchor?: string
   className?: string
 }
 
-export function InboxBell({ compact = false, today = new Date().toISOString().slice(0, 10), tourAnchor, className }: InboxBellProps): JSX.Element {
+export function InboxBell({ compact = false, tourAnchor, className }: InboxBellProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const router = useRouter()
   const pathname = usePathname() ?? ''
@@ -100,13 +99,12 @@ export function InboxBell({ compact = false, today = new Date().toISOString().sl
           )}
         >
           <Bell className="size-4" aria-hidden />
-          <InboxBadge pending={pending} className={cn('absolute', compact ? '-right-1 -top-1' : '-right-0.5 -top-0.5')} />
+          <InboxBadge pending={pending} className={cn('absolute', '-right-2 -top-2')} />
         </Link>
       </PopoverAnchor>
       <PopoverContent side={compact ? 'right' : 'top'} align="end" sideOffset={8} className="w-[22rem] p-2">
         {open && !here && (
           <Glance
-            today={today}
             onLeave={(href) => {
               setOpen(false)
               router.push(href)

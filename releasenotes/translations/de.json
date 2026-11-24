@@ -5858,5 +5858,9 @@
   {
     "en": "„offen“ now counts the same everywhere: Piloti's proposals that nobody has taken over are no longer counted as open in Dateien, in the Prüfansicht or before a Freigabe. They are named on their own, „2 offen · 12 Vorschläge“, so the number matches Offene Punkte and the Protokoll.",
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
+  },
+  {
+    "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+    "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
   }
 ]

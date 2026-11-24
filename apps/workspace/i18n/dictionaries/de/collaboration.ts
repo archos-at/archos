@@ -215,9 +215,9 @@ export const collaboration: typeof en.collaboration = {
 
   inbox: {
     bell: {
-      waiting: '{count} warten auf Sie',
+      waiting: 'Wartet auf Sie: {count}',
       late: '{count} überfällig',
-      news: '{count} Neuigkeiten',
+      news: 'Neuigkeiten: {count}',
       open: 'Postfach öffnen',
       back: 'Postfach verlassen',
     },

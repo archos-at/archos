@@ -75,12 +75,12 @@ describe('AppShellChrome — overlay routes keep the chrome of the covered page'
     expect(screen.queryByTestId('org-header')).not.toBeInTheDocument()
   })
 
-  test('the inbox is a page of its own, above the project: leaving a project for it swaps the rail for the org header', () => {
+  test('the Postfach is a page of its own, and the rail of the project it was opened from stays', () => {
     const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     pathname = '/app/inbox'
     rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    expect(screen.getByTestId('org-header')).toBeInTheDocument()
-    expect(screen.queryByTestId('rail')).not.toBeInTheDocument()
+    expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p1')
+    expect(screen.queryByTestId('org-header')).not.toBeInTheDocument()
   })
 
   test('a hard load of an overlay URL has no covered page — org header stands', () => {

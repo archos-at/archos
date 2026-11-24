@@ -22,8 +22,10 @@ import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 const OVERLAY_ROUTES = ['/app/office-shelf', '/app/base-knowledge', '/app/uploads'] as const
 
+const RAIL_KEEPING_ROUTES = [...OVERLAY_ROUTES, '/app/inbox'] as const
+
 function isOverlayPath(pathname: string): boolean {
-  return OVERLAY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  return RAIL_KEEPING_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 }
 
 export interface AppShellChromeProps {

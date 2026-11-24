@@ -77,7 +77,6 @@ function hook(items: InboxItemView[], overrides: Partial<UseInboxListResult> = {
   }
 }
 
-const TODAY = '2026-10-29'
 const older = row('older', { updatedAt: '2026-10-27T08:00:00Z' })
 const newer = row('newer', { updatedAt: '2026-10-28T08:00:00Z' })
 const late = row('late', { variant: 'overdue', dueOn: '2026-10-15', updatedAt: '2026-10-20T08:00:00Z' })
@@ -99,7 +98,7 @@ afterEach(() => vi.clearAllMocks())
 describe('InboxWorkspace', () => {
   test('has three tabs, and opens on what waits on the reader', () => {
     serve('requests', [older])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(screen.getByTestId('inbox-tab-waiting')).toHaveTextContent('Waiting on you')
     expect(screen.getByTestId('inbox-tab-news')).toHaveTextContent('News')
     expect(screen.getByTestId('inbox-tab-archived')).toHaveTextContent('Archived')
@@ -109,13 +108,13 @@ describe('InboxWorkspace', () => {
 
   test('keeps overdue entries on top, and the newest first below them', () => {
     serve('requests', [older, late, newer])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(ids()).toEqual(['late', 'newer', 'older'])
   })
 
   test('picking an entry puts it in the URL and marks an unread one read', async () => {
     const list = serve('requests', [newer])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     await userEvent.click(screen.getByTestId('inbox-entry'))
     expect(router.replace).toHaveBeenCalledWith('/app/inbox?item=newer', { scroll: false })
     expect(list.markRead).toHaveBeenCalledWith(['newer'])
@@ -124,7 +123,7 @@ describe('InboxWorkspace', () => {
   test('leaves an entry the reader has read as it is, and opens the one the URL names beside the list', async () => {
     page.search = 'tab=news&item=seen'
     const list = serve('all', [seen])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(screen.getByTestId('inbox-entry')).toHaveAttribute('aria-current', 'true')
     expect(within(screen.getByTestId('inbox-opened')).getByTestId('inbox-opened-go')).toHaveAttribute('href', seen.href)
     await userEvent.click(screen.getByTestId('inbox-entry'))
@@ -134,14 +133,14 @@ describe('InboxWorkspace', () => {
   test('the news tab leaves out the open requests, which have a tab of their own', () => {
     page.search = 'tab=news'
     serve('all', [newer, news, seen])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(ids()).toEqual(['seen', 'news'])
   })
 
   test('changing the tab goes to that tab and lets go of the opened entry', async () => {
     page.search = 'item=newer'
     serve('requests', [newer])
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     await userEvent.click(screen.getByTestId('inbox-tab-archived'))
     expect(router.replace).toHaveBeenCalledWith('/app/inbox?tab=archived', { scroll: false })
   })
@@ -152,25 +151,40 @@ describe('InboxWorkspace', () => {
     ['tab=archived', 'Nothing archived'],
   ])('says what an empty tab means (%s)', (search, title) => {
     page.search = search
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(screen.getByTestId('inbox-entries')).toHaveTextContent(title)
   })
 
   test('offers to mark everything read only while something is unread, and never in the archive', async () => {
     page.search = 'tab=news'
     serve('all', [seen])
-    const { unmount } = render(<InboxWorkspace today={TODAY} />)
+    const { unmount } = render(<InboxWorkspace />)
     expect(screen.getByTestId('inbox-mark-all-read')).toBeDisabled()
     unmount()
 
     const list = serve('all', [news])
-    const view = render(<InboxWorkspace today={TODAY} />)
+    const view = render(<InboxWorkspace />)
     await userEvent.click(screen.getByTestId('inbox-mark-all-read'))
     expect(list.markAllRead).toHaveBeenCalledTimes(1)
     view.unmount()
 
     page.search = 'tab=archived'
-    render(<InboxWorkspace today={TODAY} />)
+    render(<InboxWorkspace />)
     expect(screen.queryByTestId('inbox-mark-all-read')).not.toBeInTheDocument()
+  })
+
+  test('J steps to the next entry, U marks the opened one unread again, E archives it', async () => {
+    page.search = 'item=newer'
+    const list = serve('requests', [{ ...newer, read: true }, older])
+    render(<InboxWorkspace />)
+
+    await userEvent.keyboard('u')
+    expect(list.markUnread).toHaveBeenCalledWith(['newer'])
+
+    await userEvent.keyboard('j')
+    expect(router.replace).toHaveBeenCalledWith('/app/inbox?item=older', { scroll: false })
+
+    await userEvent.keyboard('e')
+    expect(ids()).toEqual(['older'])
   })
 })

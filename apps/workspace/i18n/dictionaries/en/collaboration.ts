@@ -208,9 +208,9 @@ export const collaboration = {
 
   inbox: {
     bell: {
-      waiting: '{count} waiting for you',
+      waiting: 'Waiting for you: {count}',
       late: '{count} overdue',
-      news: '{count} news',
+      news: 'News: {count}',
       open: 'Open inbox',
       back: 'Leave the inbox',
     },

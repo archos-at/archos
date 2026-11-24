@@ -75,7 +75,6 @@ function hook(items: InboxItemView[], overrides: Partial<UseInboxListResult> = {
   }
 }
 
-const TODAY = '2026-10-29'
 const waiting = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, index) => row(id, { updatedAt: `2026-10-2${index}T08:00:00Z` }))
 
 beforeEach(() => {
@@ -87,7 +86,7 @@ afterEach(() => vi.clearAllMocks())
 
 describe('InboxBell', () => {
   test('carries how much waits on the reader', () => {
-    render(<InboxBell today={TODAY} />)
+    render(<InboxBell />)
     const bell = screen.getByTestId('inbox-bell')
     expect(bell).toHaveAttribute('href', '/app/inbox')
     expect(bell).toHaveTextContent('6')
@@ -95,19 +94,19 @@ describe('InboxBell', () => {
   })
 
   test('a plain click opens a glance: the four newest waiting entries, the news count and the way to the page', async () => {
-    render(<InboxBell today={TODAY} />)
+    render(<InboxBell />)
     await userEvent.click(screen.getByTestId('inbox-bell'))
     const glance = await screen.findByTestId('inbox-glance')
     expect(useInboxList).toHaveBeenCalledWith(true, 'requests')
-    expect(glance).toHaveTextContent('6 waiting for you')
+    expect(glance).toHaveTextContent('Waiting for you: 6')
     expect(within(glance).getAllByTestId('inbox-entry').map((entry) => entry.getAttribute('data-item-id'))).toEqual(['f', 'e', 'd', 'c'])
-    expect(screen.getByTestId('inbox-glance-news')).toHaveTextContent('9 news')
+    expect(screen.getByTestId('inbox-glance-news')).toHaveTextContent('News: 9')
     expect(within(glance).getByRole('link', { name: 'Open inbox' })).toHaveAttribute('href', '/app/inbox')
     expect(router.push).not.toHaveBeenCalled()
   })
 
   test('picking an entry in the glance opens the page on that entry', async () => {
-    render(<InboxBell today={TODAY} />)
+    render(<InboxBell />)
     await userEvent.click(screen.getByTestId('inbox-bell'))
     await userEvent.click((await screen.findAllByTestId('inbox-entry'))[0]!)
     expect(router.push).toHaveBeenCalledWith('/app/inbox?item=f')
@@ -116,7 +115,7 @@ describe('InboxBell', () => {
   test('on the inbox page it is where the reader is, and a click leads back', async () => {
     page.pathname = '/app/inbox'
     window.history.pushState({}, '', '/app/inbox')
-    render(<InboxBell today={TODAY} />)
+    render(<InboxBell />)
     const bell = screen.getByTestId('inbox-bell')
     expect(bell).toHaveAttribute('aria-current', 'page')
     expect(bell).toHaveAccessibleName('Leave the inbox')
@@ -126,7 +125,7 @@ describe('InboxBell', () => {
   })
 
   test('leaves a modifier click to the browser, which opens the page in a new tab', () => {
-    render(<InboxBell today={TODAY} />)
+    render(<InboxBell />)
     const notPrevented = fireEvent.click(screen.getByTestId('inbox-bell'), { metaKey: true })
     expect(notPrevented).toBe(true)
     expect(screen.queryByTestId('inbox-glance')).not.toBeInTheDocument()

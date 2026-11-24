@@ -3,10 +3,9 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
-import { Bell } from 'lucide-react'
 
 import { I18nProvider } from '@/i18n'
-import { InboxBadge, InboxWorkspace } from '@/features/collaboration/components'
+import { InboxBadge, InboxBell, InboxWorkspace } from '@/features/collaboration/components'
 import { installInboxShim, isEmptyVariant } from '../_fixtures/inbox-items'
 import { VIEWER_ID } from '../_fixtures/inbox-rows'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -57,11 +56,7 @@ export default function InboxDevPage(): JSX.Element {
                   <InboxBadge pending={count} />
                 </div>
               ))}
-              {/* Collapsed-rail case: icon tile with the pill in the corner. */}
-              <div className="relative flex size-9 items-center justify-center rounded-[10px] border border-border bg-card shadow-xs">
-                <Bell className="size-4 text-muted-foreground" aria-hidden />
-                <InboxBadge pending={7} className="absolute -top-1 -right-1 shadow-xs" />
-              </div>
+              <InboxBell />
             </div>
           </section>
         )}

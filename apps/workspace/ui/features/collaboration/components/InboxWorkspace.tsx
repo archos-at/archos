@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowUpRight, CheckCheck } from 'lucide-react'
@@ -39,11 +39,10 @@ export function inboxTabOf(value: string | null | undefined): InboxTab {
 
 export interface InboxWorkspaceProps {
   viewerId?: string | null
-  today?: string
   offer?: ReactNode
 }
 
-export function InboxWorkspace({ viewerId = null, offer = null, today = new Date().toISOString().slice(0, 10) }: InboxWorkspaceProps): JSX.Element {
+export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspaceProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const router = useRouter()
   const pathname = usePathname() ?? '/app/inbox'
@@ -55,8 +54,8 @@ export function InboxWorkspace({ viewerId = null, offer = null, today = new Date
 
   const entries = useMemo(() => {
     const shown = list.items.filter((item) => !archiveLater.pendingIds.has(item.id) && (tab !== 'news' || !isOpenRequest(item)))
-    return newestFirstOverdueOnTop(shown, today)
-  }, [list.items, archiveLater.pendingIds, tab, today])
+    return newestFirstOverdueOnTop(shown)
+  }, [list.items, archiveLater.pendingIds, tab])
   const picked = entries.find((item) => item.id === pickedId) ?? null
 
   const go = useCallback(
@@ -92,6 +91,26 @@ export function InboxWorkspace({ viewerId = null, offer = null, today = new Date
     },
     [archiveLater, t]
   )
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null
+      if (event.metaKey || event.ctrlKey || event.altKey || target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return
+      const key = event.key.toLowerCase()
+      const at = entries.findIndex((item) => item.id === pickedId)
+      if (key === 'j' || key === 'k') {
+        const next = entries[at < 0 ? 0 : Math.min(entries.length - 1, Math.max(0, at + (key === 'j' ? 1 : -1)))]
+        if (next) pick(next)
+      } else if (!picked) return
+      else if (key === 'enter' && picked.href && !target?.closest('button, a')) router.push(picked.href)
+      else if (key === 'e' && !picked.archived) archive(picked.id)
+      else if (key === 'u') void (picked.read ? list.markUnread([picked.id]) : list.markRead([picked.id]))
+      else return
+      event.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [entries, pickedId, picked, pick, archive, list, router])
 
   const count = (key: InboxTab): number => (key === 'waiting' ? list.counts.requests : key === 'news' ? list.counts.unread : 0)
   const hasUnread = entries.some((item) => !item.read)
