@@ -1,12 +1,13 @@
 import { deleteSessionDocument } from '@/adapters/api/session-documents-client'
 
-const DELETE_ROUTE: Record<'project' | 'office_shelf', (id: string) => string> = {
+const DELETE_ROUTE: Record<'project' | 'office_shelf' | 'personal', (id: string) => string> = {
   project: (id) => `/api/documents/${encodeURIComponent(id)}`,
   office_shelf: (id) => `/api/documents/${encodeURIComponent(id)}`,
+  personal: (id) => `/api/documents/${encodeURIComponent(id)}`,
 }
 
 export async function deleteShelfDocument(
-  shelf: 'project' | 'office_shelf' | 'session',
+  shelf: 'project' | 'office_shelf' | 'personal' | 'session',
   documentId: string
 ): Promise<void> {
   if (shelf === 'session') return deleteSessionDocument(documentId)

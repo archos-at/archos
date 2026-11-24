@@ -11,6 +11,18 @@ Every chat you had in a project is kept, and there are two ways back to one:
 - **In the sidebar, under Chat**, your five most recent chats in this project are listed by title, newest activity first; the one you have open is highlighted. **Alle Chats** below them opens the chat-history panel with every chat, the search and the research runs. A project with no chats yet shows nothing there. In the collapsed (icon) sidebar the list is hidden; **Chat** still opens the chat.
 - **In the thread header**, the **Chats** button at its left opens the same panel. It is labelled on every screen size; on a phone the word sits under its icon, beside the chat's title.
 
+## Persönlich and Projekt: chats without a project
+
+The switch at the top of the rail, **„Persönlich | Projekt“**, chooses which side
+it shows. Under **Projekt** the project picker sits below it, then **„Neuer
+Chat“**, **„Ablage“** and the project's other sections. Under **Persönlich** it
+lists **„Neuer Chat“** and **„Meine Ablage“**; a new chat started there has no
+project, and it does not read any project's files (ADR-0193).
+
+**„Letzte Chats“** is the same list on both sides: your own chats, newest
+first, each with its project's name on the right and a people mark when you
+share it. A chat opens where it belongs, in its project or under Persönlich.
+
 ## Starting a conversation
 
 Click **New chat** in the sidebar or in the chat-history panel (on a phone it is the first entry of the header's **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available) and, under it, „Nur Sie sehen diesen Chat.“; mail waiting to be filed in the project is named under the composer. Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
