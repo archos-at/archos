@@ -465,6 +465,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "When the floor area of an element cannot be measured from its geometry, the answer now says why instead of reporting 0 m² as a measurement. A floor area declared in the model is no longer overruled by that zero.",
+            "de": "Wenn sich die Grundfläche eines Bauteils nicht aus seiner Geometrie messen lässt, nennt die Antwort jetzt den Grund, statt 0 m² als Messergebnis auszugeben. Eine im Modell deklarierte Grundfläche wird von dieser Null nicht mehr überstimmt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
