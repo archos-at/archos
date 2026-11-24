@@ -7,22 +7,22 @@ export {
   PALETTE_LATE_HOLD_MS,
   PALETTE_RETRY_VALUE,
   PaletteSearchResults,
-  PaletteSearchStart,
+  PaletteRecentOpened,
   paletteFilter,
   isPaletteHitValue,
   paletteHitValue,
   paletteHitHref,
   paletteHits,
 } from './components/palette-search'
-export { usePaletteSearch, usePaletteShortcuts } from './hooks/use-palette-search'
+export { usePaletteSearch, useRecentOpened } from './hooks/use-palette-search'
+export { PaletteKinds, paletteKindQuery, type PaletteKind } from './components/palette-kinds'
 export {
   ComposerSearchPicker,
   type ComposerSearchPickerAria,
   type ComposerSearchPickerHandle,
 } from './components/composer-search-picker'
 export { useDocumentReference } from './hooks/use-document-reference'
-export { savedSearchHref, searchHref, searchPageHref } from './lib/search-hrefs'
-export { captureSavedSearchRun } from './lib/search-telemetry'
+export { searchHref, searchPageHref } from './lib/search-hrefs'
 export { useShelfSearchMode } from './hooks/use-shelf-search-mode'
 export type { SearchSurface } from './lib/search-surface'
 export { EMPTY_SEARCH_STATE, parseSearchParams, writeSearchParams, type SearchUrlState } from './lib/search-url'

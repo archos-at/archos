@@ -45,7 +45,7 @@ export interface ProjectSection {
   label?: { namespace: 'collaboration'; key: string }
   gate?: keyof ProjectSectionFlags
   inRail: boolean
-  inPalette: boolean
+  phoneOnly?: boolean
   shortcutKey?: string
   group?: ProjectNavGroup
   alsoActiveOn?: readonly string[]
@@ -58,7 +58,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: MessageSquare,
     i18nKey: 'chat',
     inRail: true,
-    inPalette: true,
     shortcutKey: 'c',
     group: 'work',
   },
@@ -68,7 +67,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: Folder,
     i18nKey: 'files',
     inRail: true,
-    inPalette: true,
     shortcutKey: 'f',
     group: 'work',
   },
@@ -79,7 +77,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     i18nKey: 'knowledge',
     gate: 'showKnowledge',
     inRail: false,
-    inPalette: true,
     shortcutKey: 'k',
   },
   {
@@ -89,7 +86,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     i18nKey: 'automation',
     gate: 'showSkills',
     inRail: true,
-    inPalette: true,
     shortcutKey: 'j',
     group: 'work',
   },
@@ -102,7 +98,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     gate: 'canAccessOfficeShelf',
     alsoActiveOn: ['/app/base-knowledge'],
     inRail: true,
-    inPalette: true,
     shortcutKey: 'a',
     group: 'org',
   },
@@ -114,7 +109,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     i18nKey: 'baseKnowledge',
     gate: 'canAccessOfficeStandards',
     inRail: false,
-    inPalette: true,
     shortcutKey: 'n',
     group: 'org',
   },
@@ -125,7 +119,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: Search,
     i18nKey: 'search',
     inRail: true,
-    inPalette: true,
+    phoneOnly: true,
     shortcutKey: 'u',
     group: 'org',
   },
@@ -137,8 +131,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     i18nKey: 'inbox',
     label: { namespace: 'collaboration', key: 'inbox.navLabel' },
     gate: 'canAccessInbox',
-    inRail: true,
-    inPalette: false,
+    inRail: false,
     shortcutKey: 'i',
     group: 'org',
   },
@@ -148,7 +141,6 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: ClipboardList,
     i18nKey: 'intake',
     inRail: false,
-    inPalette: true,
   },
 ]
 
@@ -158,7 +150,6 @@ export const PROJECT_SETTINGS_SECTION: ProjectSection = {
   icon: LayoutDashboard,
   i18nKey: 'settings',
   inRail: true,
-  inPalette: true,
   shortcutKey: 's',
 }
 
@@ -191,7 +182,7 @@ export function railGroups(flags: ProjectSectionFlags): { group: ProjectNavGroup
   const groups: { group: ProjectNavGroup; items: ProjectSection[] }[] = []
   for (const item of railSections(flags)) {
     const { group } = item
-    if (!group) continue
+    if (!group || item.phoneOnly) continue
     const last = groups.at(-1)
     if (last?.group === group) {
       last.items.push(item)
@@ -200,12 +191,6 @@ export function railGroups(flags: ProjectSectionFlags): { group: ProjectNavGroup
     }
   }
   return groups
-}
-
-export function paletteSections(flags: ProjectSectionFlags): ProjectSection[] {
-  return [...PROJECT_SECTIONS, PROJECT_SETTINGS_SECTION].filter(
-    (section) => section.inPalette && isVisible(section, flags),
-  )
 }
 
 export function jumpSections(flags: ProjectSectionFlags): ProjectSection[] {

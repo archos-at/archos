@@ -41,7 +41,7 @@ A word you do not know: the domain language is in
 | [`user-guides/`](user-guides/) | What the product does, from the user's side | You need to know how a feature is meant to behave |
 | [`design/`](design/) | Design language, card charter, UI specs | You are building a surface |
 | [`ux/`](ux/) | UX playbooks: visual evidence, file explorer, motion on the public site ([`ux/motion.md`](ux/motion.md)) | You are adding a user-visible component, or animating anything on the site |
-| [`product/`](product/) | Vision, positioning, long-form writing, the public site's audiences and keyword map ([`website-conversion-and-seo.md`](product/website-conversion-and-seo.md), the SEO/GEO audit [`seo-geo-audit-2026-09.md`](product/seo-geo-audit-2026-09.md)) | You want the why behind the roadmap, or you are writing for the public website |
+| [`product/`](product/) | Every capability on one page ([`capabilities.md`](product/capabilities.md)); vision, positioning, long-form writing, the public site's audiences and keyword map ([`website-conversion-and-seo.md`](product/website-conversion-and-seo.md), the SEO/GEO audit [`seo-geo-audit-2026-09.md`](product/seo-geo-audit-2026-09.md)) | You want the why behind the roadmap, or you are writing for the public website |
 | [`roadmap/`](roadmap/) | Where this is going: the agentic workspace review, the artifact design of record, its product-perspective review, IFC, spatial reasoning, cross-project RAG; the continuous-improvement ledger ([`continuous-improvement-ledger.md`](roadmap/continuous-improvement-ledger.md)) is the loop's running state | You are scoping something that is not built yet |
 | [`roadmap/README.md`](roadmap/README.md) | Status of every roadmap doc: live, dated review, revised or superseded, with one line each | You want to know whether a roadmap doc still describes what ARCHOS is building |
 | [`observability/`](observability/) | **Langfuse is our observability platform and everything is observable in it** ([ADR-0089](adr/0089-langfuse-is-the-observability-platform-and-everything-is-observable.md)): the trace and score contract, the guide for analysts and the Fachbereich, the audit | You add a model call, a quality check or a surface, or you want to read how the product behaves |
@@ -105,10 +105,10 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Reports the Agent Writes](user-guides/agent-authored-reports.md) | Where a deep-research report is filed, how it is marked as machine-written, why it stays out of the knowledge base, and who is responsible for it |
 | [Connect your agent](user-guides/connect-your-agent.md) | Connecting your own AI assistant (Claude, ChatGPT, Cursor) to ARCHOS: setup per client, sign-in, what it can and cannot do, confirmations, revoking access, troubleshooting |
 | [Knowledge Search](user-guides/knowledge-search.md) | How the AI searches OIB knowledge base and uploaded documents |
-| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The command palette, `g …` section jumps, composer keys, and the two gates that enable them |
+| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The search window, `g …` section jumps, composer keys, and the two gates that enable them |
 | [Documents](user-guides/documents.md) | Uploading, tracking, and downloading documents |
 | [Knowledge Search](user-guides/knowledge-search.md) | How the assistant searches OIB knowledge and uploaded documents |
-| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | Command palette, `g …` section jumps, composer keys |
+| [Keyboard Shortcuts](user-guides/keyboard-shortcuts.md) | The search window, `g …` section jumps, composer keys |
 
 ## Technical reference
 

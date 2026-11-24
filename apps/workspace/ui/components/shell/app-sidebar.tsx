@@ -26,9 +26,7 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
 import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
 import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
-import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
-import { InboxBadge } from '@/features/collaboration/components'
+import { InboxBell } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
@@ -81,8 +79,6 @@ interface RailItemModel {
   label: string
   active: boolean
   within?: boolean
-  badgeCount: number
-  door?: StartDockDoor
   waitingCount: number | null
   waitingMore?: boolean
   shortcutKey?: string
@@ -131,17 +127,15 @@ function AppSidebarFrame({
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
-  const { state, isMobile } = useSidebar()
-  const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  const inboxDoor = useStartDockDoor('inbox')
+  const { state, isMobile, peek } = useSidebar()
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
 
   const base = `/app/projects/${projectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
-  const iconRail = state === 'collapsed' && !isMobile
-  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
+  const iconRail = state === 'collapsed' && !isMobile && !peek
+  const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = phoneBackTarget(pathname, projectId)
   const pageHasHeader = framesProjectPage(pathname, projectId)
 
@@ -162,9 +156,7 @@ function AppSidebarFrame({
         icon: item.icon,
         label: sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
-        within: item.key === 'chat' && chatOpen,
-        badgeCount: item.key === 'inbox' ? inboxPending : 0,
-        door: item.key === 'inbox' ? inboxDoor : undefined,
+        within: item.key === 'chat' && chatOpen && !iconRail,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
         waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
@@ -180,7 +172,6 @@ function AppSidebarFrame({
     icon: PROJECT_SETTINGS_SECTION.icon,
     label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
     active: pathname.startsWith(settingsHref),
-    badgeCount: 0,
     waitingCount: null,
     shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
   }
@@ -199,13 +190,11 @@ function AppSidebarFrame({
       active={item.active}
       within={item.within}
       label={item.label}
-      badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
       waitingMore={item.waitingMore}
       tooltip={iconRail}
       shortcutKey={item.shortcutKey}
       pillId={activePillId}
-      door={item.door}
     />
   )
   const column = iconRail ? 'px-3.5' : 'px-3'
@@ -245,7 +234,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" data-scope="project" aria-label={t('projectNavigation')}>
+      <Sidebar collapsible="icon" peekOnHover data-scope="project" aria-label={t('projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -259,15 +248,15 @@ function AppSidebarFrame({
           className={cn(
             'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             column,
-            iconRail && 'overflow-hidden pb-px'
+            iconRail && 'overflow-hidden'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
-              keeps it as a tile of its initials, or a collapsed rail could
-              not say which project its sections belong to. */}
-          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+              keeps it as a tile of its initials, on the selector's own line,
+              so nothing below it moves when the rail opens under the pointer. */}
+          <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
             <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
           </div>
         </SidebarHeader>
@@ -320,6 +309,8 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
+          <div className={cn('flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+          <div className={cn('min-w-0', !iconRail && 'flex-1')}>
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}
@@ -334,6 +325,9 @@ function AppSidebarFrame({
             canViewOrganization={canViewOrganization}
             canManagePlatform={canManagePlatform}
           />
+          </div>
+          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
+          </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
@@ -354,28 +348,24 @@ function RailNavItem({
   active,
   within = false,
   label,
-  badgeCount,
   waitingCount = null,
   waitingMore = false,
   tooltip,
   shortcutKey,
   pillId,
   tourAnchor,
-  door,
 }: {
   icon: ProjectSection['icon']
   href: string
   active: boolean
   within?: boolean
   label: string
-  badgeCount: number
   waitingCount?: number | null
   waitingMore?: boolean
   tooltip: boolean
   shortcutKey?: string
   pillId: string
   tourAnchor: string
-  door?: StartDockDoor
 }) {
   return (
     <SidebarMenuItem>
@@ -389,14 +379,11 @@ function RailNavItem({
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           active
             ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
-            : door?.open
-              ? // The Postfach docked open beside the page: open is the picked
-                'text-foreground bg-selected hover:bg-selected'
-              : // The pointer's fill is one step down from the plane it lies
-                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
+            : // The pointer's fill is one step down from the plane it lies
+              cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
-        <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
+        <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
           {active && (
             <motion.span
               layoutId={pillId}
@@ -420,18 +407,11 @@ function RailNavItem({
           >
             {label}
           </span>
-          <InboxBadge
-            pending={badgeCount}
-            tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
+          <InboundMailWaitingBadge
+            count={waitingCount}
+            more={waitingMore}
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
-          {badgeCount <= 0 && (
-            <InboundMailWaitingBadge
-              count={waitingCount}
-              more={waitingMore}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
-            />
-          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

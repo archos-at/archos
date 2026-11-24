@@ -3,7 +3,7 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
-import { BackLink } from '@/components/shell/back-link'
+import { DevRailShell } from '../_fixtures/rail-shell'
 import { writeTrail } from '@/lib/navigation/return-trail'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
 import { OfficeShelfPlaces, OFFICE_SHELF_FILES_HREF } from '@/features/documents/components/office-shelf-places'
@@ -178,15 +178,15 @@ export default function OfficeShelfLibraryDevPage(): JSX.Element {
   const places = <OfficeShelfPlaces pathname={OFFICE_SHELF_FILES_HREF} />
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col p-6">
-      <BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />
-      <div className="shadow-xs mt-3 flex h-[820px] flex-col overflow-hidden rounded-xl border">
+    <DevRailShell projectId="dev" projectName="Stadthaus Wien" pathname={OFFICE_SHELF_FILES_HREF}>
+      {/* A page beside the rail, as /app/office-shelf renders since KAN-86: no sheet, no Schließen. */}
+      <div className="@container/section h-full min-h-0">
         {withNorms ? (
           <OfficeShelfWithNorms canManage={!readOnly} organizationName="Atelier Nord" places={places} normsInFolders />
         ) : (
           <OfficeShelfWorkspace canManage={!readOnly} organizationName="Atelier Nord" places={places} />
         )}
       </div>
-    </main>
+    </DevRailShell>
   )
 }

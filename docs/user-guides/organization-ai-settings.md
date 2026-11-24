@@ -61,10 +61,20 @@ operator switches this on (the `office-conventions` flag)
 
 The standards, guidelines, authority directives and commentaries your office
 owns (an ÖNORM you bought, an MA 37 Weisung, a commentary on the Bauordnung)
-live in the Bürobibliothek, on the tab **Normen & Richtlinien** beside **Ordner**.
-Each is called a *Norm* for short; its *Art* says what it is. The tab's tool row is
-the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯ with
-„Aus Ordnern übernehmen“ (a document already in the Bürobibliothek) and „So funktioniert es“.
+live in the Bürobibliothek, in the place **Normen & Richtlinien** beside **Dateien**;
+the number beside the place's name counts the norms waiting to be confirmed.
+Each is called a *Norm* for short; its *Art* says what it is. The place has the
+head of the Dateien place: the search („In Normen & Richtlinien suchen …“), **Hochladen**,
+and ⋯ with „Zu bestätigende prüfen …“ (while norms wait), „Thema anlegen“, for a chosen
+topic „Thema … umbenennen …“ and „Thema … löschen …“ (its norms and subtopics move up one
+level, no norm is deleted), „Aus Ordnern übernehmen“ (a document already in the
+Bürobibliothek) and „So funktioniert es“. The norms are one list: over it the
+categories **Alle**, **Zu bestätigen**, **Neuere Ausgabe** and **Prüfung fällig**, each
+with its count (in ochre where something waits for you), and on the right the
+filters „Alle Themen“ and „Alle Arten“; each row says its Norm, Thema, Art, Ausgabe,
+Stand and „In Antworten“. There are no topic tiles and no separate notice about
+norms waiting: „Zu bestätigen“ counts them, and their „In Antworten“ says „Erst nach
+Bestätigung“.
 
 **Adding norms.** The Bürobibliothek has one **Hochladen**, on either tab. A file
 uploaded on **Normen & Richtlinien** is taken as a norm whatever it is called. On
@@ -102,7 +112,7 @@ in the Ordner, where its folder does not offer it as a norm again; **Rückgängi
 in the message that follows brings it back as it was, confirmed, with its
 Ausgaben, checks and Thema. **Als Norm führen** on that file later starts a fresh
 proposal. **Thema anlegen** adds a topic to sort norms
-into. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
+into; „Alle Themen“ narrows the list to one. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
 whether you bought it or it is freely available.
 
 **Norms in a project or in a folder.** A norm uploaded to a project is offered

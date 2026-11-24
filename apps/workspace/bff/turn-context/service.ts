@@ -161,11 +161,13 @@ export async function loadTurnContext(
     projectId
       ? timed('decisions', () => advisory('load proposal decisions', () => buildProposalDecisionsBlock(projectId, organizationId)))
       : Promise.resolve(null),
-    conversationId
+    conversationId && !decided.closed
       ? timed('reviews', () => advisory('load review decisions', () => buildReviewDecisionsBlock(conversationId, organizationId)))
       : Promise.resolve(null),
     conversationId ? timed('cross-project', () => drewOnOtherProjects(conversationId, organizationId)) : Promise.resolve(false),
-    timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
+    decided.closed
+      ? Promise.resolve(null)
+      : timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, { ...context, projectId }, projectAccess, query, decided))),
     timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null, knowledge))),

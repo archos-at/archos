@@ -27,6 +27,7 @@ function renderDetail(name: string, client: InboundMailClient = fixtureClient({ 
       folders={FOLDERS}
       client={client}
       onChanged={onChanged}
+      onFiled={vi.fn()}
       now={FIXTURE_NOW}
       pollMs={1}
     />

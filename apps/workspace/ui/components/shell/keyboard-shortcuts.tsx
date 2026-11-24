@@ -138,17 +138,7 @@ export function KeyboardShortcuts({
     <>
       {/* Mounted whether or not shortcuts are on: turning the keys off must
           not take the search button's palette with them. */}
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        authRequired={authRequired}
-        canViewOrganization={canViewOrganization}
-        showKnowledge={showKnowledge}
-        showModels={showModels}
-        showSkills={showSkills}
-        canAccessOfficeShelf={canAccessOfficeShelf}
-        canAccessOfficeStandards={canAccessOfficeStandards}
-      />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} authRequired={authRequired} canViewOrganization={canViewOrganization} />
       {/* Only `?` opens the cheatsheet, so it only ever opens for someone at a
           keyboard; with shortcuts off it is not mounted at all. */}
       {enabled && (

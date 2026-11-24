@@ -188,23 +188,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/components/shell/app-sidebar.tsx",
-    "to": "ui/features/collaboration/hooks/use-inbox.ts",
-    "unresolvedTo": "@/features/collaboration/hooks/use-inbox",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/components/shell/command-palette.tsx",
     "to": "ui/features/layout/store.ts",
     "unresolvedTo": "@/features/layout/store",
@@ -2436,40 +2419,6 @@
     "from": "ui/features/collaboration/components/InboxItemRow.tsx",
     "to": "ui/features/uploads/components/upload-report.tsx",
     "unresolvedTo": "@/features/uploads/components/upload-report",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/InboxList.tsx",
-    "to": "ui/features/documents/components/review/focus-return.ts",
-    "unresolvedTo": "@/features/documents/components/review/focus-return",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/InboxList.tsx",
-    "to": "ui/features/notifications/components/notification-prompt.tsx",
-    "unresolvedTo": "@/features/notifications/components/notification-prompt",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",

@@ -355,6 +355,7 @@ describe('POST /api/internal/turn-context', () => {
     ['another organisation', { organizationId: 'org_2', userId: 'user_1' }],
   ])('closes a turn whose decision was made for %s, and gives it no project block', async (_, asker) => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    vi.mocked(loadReferenceBrief).mockResolvedValue('- Wohnbau Graz (id p1): 2019, GK 4')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
       decisionOf({ ...closed, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } }, asker, null, Date.now()),
@@ -370,6 +371,10 @@ describe('POST /api/internal/turn-context', () => {
     expect(data.projectContext).toBeNull()
     expect(loadProjectPromptView).not.toHaveBeenCalled()
     expect(buildProjectMemoryDigest).toHaveBeenCalledWith(undefined, 'org_1', expect.anything())
+    expect(buildReviewDecisionsBlock).not.toHaveBeenCalled()
+    expect(loadReferenceBrief).not.toHaveBeenCalled()
+    expect(data.projectMemory ?? '').not.toContain('Review decisions')
+    expect(data.referenceProjects).toBeNull()
   })
 
   it('closes a turn whose decision names another conversation', async () => {

@@ -35,6 +35,14 @@
           "section": "features",
           "area": "documents",
           "text": {
+            "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
+            "de": "Sie können den Maßstab einer PDF-Zeichnung jetzt für alle Seiten festlegen, indem Sie „Alle Seiten“ auswählen. Ein für eine einzelne Seite oder einen Rahmen festgelegter Maßstab hat dort weiterhin Vorrang. In der Messleiste wird außerdem der geschätzte Maßstab statt „Kein Maßstab“ angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
             "en": "Distances, paths and areas can now be measured on a PDF drawing in the review: „Messen“ (M) snaps to the drawing's lines, shows the length as you place points and keeps the measurement on the sheet with its tolerance and the drawing's scale, where the whole team and {productName} can see it. {productName} can keep a measurement on a drawing too, and it is always measured again from the drawing.",
             "de": "Abstände, Wege und Flächen lassen sich jetzt im Review auf einer PDF-Zeichnung messen: „Messen“ (M) rastet an den Linien der Zeichnung ein, zeigt beim Setzen der Punkte die Länge an und hält die Messung samt Toleranz und Maßstab der Zeichnung auf dem Blatt fest, wo das gesamte Team und {productName} sie sehen. Auch {productName} kann eine Messung in einer Zeichnung festhalten; sie wird immer erneut anhand der Zeichnung gemessen."
           }
@@ -45,6 +53,22 @@
           "text": {
             "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
             "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
+            "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Normen & Richtlinien is one list: the categories with their counts, ochre where something waits for you, filters by topic and kind, and the topic as a column instead of tiles.",
+            "de": "„Normen & Richtlinien“ ist eine einzige Liste: die Kategorien mit ihren Zahlen, in Ocker, wo etwas auf Sie wartet, Filter nach Thema und Art und das Thema als Spalte statt als Kacheln."
           }
         },
         {
@@ -67,8 +91,88 @@
           "section": "improvements",
           "area": "answers",
           "text": {
+            "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+            "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+            "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+            "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
             "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
             "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+            "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+            "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
+            "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
+            "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
+            "de": "In einem Ordner bleibt der Kopf der Ablage stehen, und eine Zeile darunter zeigt den Weg dorthin. Die Suche sagt, wo sie sucht, und zeigt ihre Treffer an Ort und Stelle, auch nach Enter, ohne ein Fenster zu öffnen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
+            "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+            "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
           }
         },
         {
@@ -85,6 +189,14 @@
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
             "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+            "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
           }
         },
         {

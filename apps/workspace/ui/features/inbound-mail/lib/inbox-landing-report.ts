@@ -53,7 +53,7 @@ export function useLandingReport({
           ...(firstDocument ? { action: { label: t('toast.view'), onClick: () => router.push(documentFilesHref(projectId, firstDocument)) } } : {}),
         })
       } else {
-        toast.info(t('toast.filedAsSuggested', { count: 1 }), { id: toastId })
+        toast.info(t('toast.filing'), { id: toastId })
       }
       onSettled()
     },

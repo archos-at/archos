@@ -20,6 +20,7 @@ export function useRegionWords(calibration: ReviewCalibration) {
   const t = useTranslations(filesCopy)
   return (entry: Framed): string => {
     const name = regionName(entry, calibration.calibrations)
+    if (name.kind === 'document') return t('review.measure.scale.where.document')
     if (name.kind === 'place') return t(`review.measure.scale.where.${name.place}`)
     const place = t(`review.measure.scale.side.${name.place}`)
     const ratio = calibration.ratioOf(name.within)
@@ -69,7 +70,12 @@ export function ReviewForm({
   const region =
     proposal.blocked === 'regionMisses' || !draft?.region
       ? t('review.measure.scale.form.regionMisses')
-      : words({ id: proposal.replaces?.id ?? 'draft', page: draft.page, region: draft.region })
+      : words({
+          id: proposal.replaces?.id ?? 'draft',
+          page: draft.page,
+          region: draft.region,
+          scope: draft.scope,
+        })
   const replacing = proposal.replaces ? calibration.ratioOf(proposal.replaces) : null
   const reason =
     proposal.blocked === 'length' ||
