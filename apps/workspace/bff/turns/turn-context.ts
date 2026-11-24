@@ -10,7 +10,7 @@ import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { getBudgetStatus } from '@/lib/budgets/service'
 import { announceBudgetBlocked } from '@/lib/budgets/budget-events'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
-import { requesterOf, type RequestPerson } from '@/lib/request-context'
+import { requesterOf, type RequestPerson, type SignedContextKind } from '@/lib/request-context'
 
 export interface TurnBudget {
   remainingOrgUsd: number | null
@@ -36,6 +36,7 @@ export interface TurnContext {
   modelOverrides?: Record<string, string>
   budget?: TurnBudget
   requester?: RequestPerson
+  contextKind?: SignedContextKind
 }
 
 export class TurnBudgetExhaustedError extends Error {
@@ -49,10 +50,11 @@ export class TurnBudgetExhaustedError extends Error {
 
 export async function resolveTurnContext(
   session: UserSession | null,
-  request: { projectId?: string; conversationId?: string }
+  request: { projectId?: string; conversationId?: string; kind?: 'chat' | SignedContextKind }
 ): Promise<TurnContext> {
   const { projectId, conversationId } = request
-  const decided = await resolveConversationScope(session, { projectId, conversationId, kind: 'chat' })
+  const kind = request.kind ?? 'chat'
+  const decided = await resolveConversationScope(session, { projectId, conversationId, kind })
   const scopedCollections = decided.shelves
   const scope = scopedCollections.map((entry) => entry.collection)
   const headerValue = encodeCollectionScopeHeader(scopedCollections)
@@ -64,6 +66,7 @@ export async function resolveTurnContext(
     header: headerValue,
   }
   if (conversationId) context.conversationId = conversationId
+  if (kind !== 'chat') context.contextKind = kind
   if (session) {
     context.organizationId = session.organizationId
     context.userId = session.userId

@@ -3,8 +3,11 @@ import json
 from unittest.mock import patch
 
 import pytest
+from agent_testing.turn_decision import signed_decision
 
 from agent.common import bff_http
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
 from agent.stages import flags
 
 
@@ -135,22 +138,28 @@ class TestFetchTurnFlags:
 
 class TestResolveTurnFlags:
     @pytest.mark.asyncio
-    async def test_a_bff_failure_never_withdraws_deep_research(self):
+    async def test_a_bff_failure_without_a_decision_keeps_deep_research_and_tasks_off(self):
         with patch.object(bff_http._opener, "open", side_effect=OSError("connection refused")):
             resolved = await flags.resolve_turn_flags(organization_id="org_1", memory_reflection_enabled=False)
+        assert resolved.deep_research_allowed is False
+        assert resolved.tasks_allowed is False
+
+    @pytest.mark.asyncio
+    async def test_a_bff_failure_follows_the_turn_decision(self):
+        token = bind_turn_decision(signed_decision(may={"features": {"deepResearch": True, "tasks": False}}))
+        try:
+            with patch.object(bff_http._opener, "open", side_effect=OSError("connection refused")):
+                resolved = await flags.resolve_turn_flags(organization_id="org_1", memory_reflection_enabled=False)
+        finally:
+            reset_turn_decision(token)
         assert resolved.deep_research_allowed is True
+        assert resolved.tasks_allowed is False
 
     @pytest.mark.asyncio
-    async def test_a_bff_failure_never_withdraws_tasks(self):
-        with patch.object(bff_http._opener, "open", side_effect=OSError("connection refused")):
-            resolved = await flags.resolve_turn_flags(organization_id="org_1", memory_reflection_enabled=False)
-        assert resolved.tasks_allowed is True
-
-    @pytest.mark.asyncio
-    async def test_a_malformed_body_never_withdraws_deep_research(self):
+    async def test_a_malformed_body_keeps_the_legacy_stages_and_closes_the_features(self):
         with patch.object(bff_http._opener, "open", return_value=_body({"stages": []})):
             resolved = await flags.resolve_turn_flags(organization_id="org_1", memory_reflection_enabled=True)
-        assert resolved.deep_research_allowed is True
+        assert resolved.deep_research_allowed is False
         assert "memory_reflection" in resolved.enabled_stages
 
     @pytest.mark.asyncio

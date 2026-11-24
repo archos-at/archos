@@ -8,8 +8,8 @@ vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: vi.fn(),
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationScope: vi.fn(),
 }))
 
 vi.mock('@/lib/projects/repository', async (importActual) => ({
@@ -20,10 +20,40 @@ vi.mock('@/lib/projects/repository', async (importActual) => ({
 import { GET, POST, DELETE } from '@/app/api/jobs/async/[...path]/route'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationScope } from '@/lib/conversation-context'
+import type { ConversationScope } from '@/lib/conversation-context/resolve'
+import { encodeCollectionScopeHeader, type ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
 const mockRequireAuthorizedSession = vi.mocked(requireAuthorizedSession)
-const mockBuildCollectionScopeFromRequest = vi.mocked(buildCollectionScopeFromRequest)
+const mockResolveConversationScope = vi.mocked(resolveConversationScope)
+
+interface BuiltScope {
+  scopedCollections: ScopedCollection[]
+  projectId?: string
+  verifiedConversationId?: string
+  projectReadOnly?: boolean
+  [key: string]: unknown
+}
+
+let decidedShelves: ScopedCollection[] = []
+
+function asScope(built: BuiltScope): ConversationScope {
+  decidedShelves = built.scopedCollections
+  return {
+    kind: 'run',
+    conversationId: null,
+    audience: { row: { exists: false, projectId: null, createdBy: null, visibility: 'private', grantees: [], version: null }, solo: false, version: null },
+    projectId: built.projectId ?? null,
+    projectCollectionName: null,
+    shelves: built.scopedCollections,
+    restrictedCollections: [],
+    verifiedConversationId: built.verifiedConversationId ?? null,
+    projectReadOnly: built.projectReadOnly ?? false,
+  }
+}
+
+const decidedHeader = (): string => encodeCollectionScopeHeader(decidedShelves)
+
 
 const baseSession = {
   userId: 'user_1',
@@ -65,7 +95,7 @@ describe('/api/jobs/async/[...path]', () => {
     it('forwards scope header for stream requests', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockResolvedValue({
+      mockResolveConversationScope.mockResolvedValue(asScope({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
         scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }, { collection: 's_conv-1', shelf: 'session' }],
         headerValue: 'encoded-scope',
@@ -74,7 +104,7 @@ describe('/api/jobs/async/[...path]', () => {
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
         restrictedCollections: [],
-      })
+      }))
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(createStream(), {
           status: 200,
@@ -91,17 +121,18 @@ describe('/api/jobs/async/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe('encoded-scope')
+      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
       expect(getHeader(init, 'Accept')).toBe('text/event-stream')
-      expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(baseSession, {
+      expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
         conversationId: 'conv-1',
+        kind: 'run',
       })
     })
 
     it('uses anonymous session when auth is disabled', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'false')
-      mockBuildCollectionScopeFromRequest.mockResolvedValue({
+      mockResolveConversationScope.mockResolvedValue(asScope({
         scope: ['oib_knowledge', 's_conv-1'],
         scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 's_conv-1', shelf: 'session' }],
         headerValue: 'anon-scope',
@@ -110,7 +141,7 @@ describe('/api/jobs/async/[...path]', () => {
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
         restrictedCollections: [],
-      })
+      }))
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ agents: [] }), {
           status: 200,
@@ -126,13 +157,13 @@ describe('/api/jobs/async/[...path]', () => {
 
       expect(res.status).toBe(200)
       expect(mockRequireAuthorizedSession).not.toHaveBeenCalled()
-      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBe('anon-scope')
+      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBe(decidedHeader())
     })
 
     it('refuses to submit research in a closed project, and forwards nothing (ADR-0090)', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockResolvedValue({
+      mockResolveConversationScope.mockResolvedValue(asScope({
         scope: ['proj_proj-1'],
         scopedCollections: [{ collection: 'proj_proj-1', shelf: 'project' }],
         headerValue: 'encoded-scope',
@@ -141,7 +172,7 @@ describe('/api/jobs/async/[...path]', () => {
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
         restrictedCollections: [],
-      })
+      }))
       vi.mocked(findProjectTenancy).mockResolvedValueOnce({ organizationId: 'org_1', deletedAt: null, status: 'closed' })
       const fetchMock = vi.fn()
       global.fetch = fetchMock
@@ -160,7 +191,7 @@ describe('/api/jobs/async/[...path]', () => {
     it('returns 404 when project access is missing', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
+      mockResolveConversationScope.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()
       global.fetch = fetchMock
 
@@ -212,7 +243,7 @@ describe('/api/jobs/async/[...path]', () => {
     it('forwards scope header from body', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockResolvedValue({
+      mockResolveConversationScope.mockResolvedValue(asScope({
         scope: ['oib_knowledge', 'proj_proj-1', 's_conv-1'],
         scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }, { collection: 's_conv-1', shelf: 'session' }],
         headerValue: 'encoded-scope',
@@ -221,7 +252,7 @@ describe('/api/jobs/async/[...path]', () => {
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
         restrictedCollections: [],
-      })
+      }))
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ job_id: 'job-1' }), {
           status: 200,
@@ -240,17 +271,18 @@ describe('/api/jobs/async/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe('encoded-scope')
-      expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(baseSession, {
+      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
         conversationId: 'conv-1',
+        kind: 'run',
       })
     })
 
     it('returns 404 when project access is missing', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
+      mockResolveConversationScope.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()
       global.fetch = fetchMock
 
@@ -269,7 +301,7 @@ describe('/api/jobs/async/[...path]', () => {
     it('forwards scope header from query params', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockResolvedValue({
+      mockResolveConversationScope.mockResolvedValue(asScope({
         scope: ['oib_knowledge', 'proj_proj-1'],
         scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }],
         headerValue: 'delete-scope',
@@ -278,7 +310,7 @@ describe('/api/jobs/async/[...path]', () => {
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
         restrictedCollections: [],
-      })
+      }))
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ status: 'cancelled' }), {
           status: 200,
@@ -296,17 +328,18 @@ describe('/api/jobs/async/[...path]', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
       expect(init.method).toBe('DELETE')
-      expect(getHeader(init, 'X-Collection-Scope')).toBe('delete-scope')
-      expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(baseSession, {
+      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
         conversationId: undefined,
+        kind: 'run',
       })
     })
 
     it('returns 404 when project access is missing', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
-      mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
+      mockResolveConversationScope.mockRejectedValue(new NotFoundError())
       const fetchMock = vi.fn()
       global.fetch = fetchMock
 

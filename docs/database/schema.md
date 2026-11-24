@@ -1423,8 +1423,8 @@ conversation's creator keeps reading it.
 
 What one answer was allowed to read and what it read, one row per answer,
 keyed by `(organization_id, message_id)`, the id the agent mints for the turn's
-answer before it reads anything. Written by the BFF only: `recordAnswerContext`
-when it decides the turn (`POST /api/internal/turn-decision`), and
+answer before it reads anything. Written by the BFF only: `recordDecidedAnswer`
+from the signed decision the agent sends to `POST /api/internal/turn-context`, and
 `recordAnswerReads` in the transaction that records an admitted restricted
 folder (`admitSourceFolders`) or a cross-project hand-out
 (`recordCrossProjectHandOut`). The client's `retrievalLedger` stays a display

@@ -46,6 +46,10 @@ vi.mock('@/lib/jobs/background-run', async (importOriginal) => {
   return { ...actual, submitBackgroundRun: vi.fn(actual.submitBackgroundRun) }
 })
 
+vi.mock('@/lib/auth/pinned-session', () => ({
+  resolvePinnedRequesterSession: vi.fn(async (who: { userId: string; organizationId: string }) => ({ ...who })),
+}))
+
 vi.mock('@/lib/jobs/run-context', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/jobs/run-context')>()
   return { ...actual, resolveRunContext: vi.fn(async () => runContext) }

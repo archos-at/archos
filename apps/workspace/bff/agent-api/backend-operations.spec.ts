@@ -148,9 +148,9 @@ describe('the operations', () => {
 describe('callBackendOperation', () => {
   it('searches the shared corpus without a project, and refuses any other search without one', async () => {
     backendAnswers(200, { tool: 'knowledge_search', result: 'x' })
-    const base = await callBackendOperation('knowledge-search', { query: 'OIB 2', shelf: 'base' }, session, {})
+    const base = await callBackendOperation('knowledge-search', { query: 'OIB 2', shelf: 'base' }, session, { kind: 'external' })
     expect(base.status).not.toBe(400)
-    const other = await callBackendOperation('knowledge-search', { query: 'OIB 2' }, session, {})
+    const other = await callBackendOperation('knowledge-search', { query: 'OIB 2' }, session, { kind: 'external' })
     expect(other).toMatchObject({ status: 400, ok: false })
   })
 
@@ -161,6 +161,7 @@ describe('callBackendOperation', () => {
       session,
       {
         projectId: PROJECT,
+        kind: 'external',
       }
     )
 
@@ -169,7 +170,7 @@ describe('callBackendOperation', () => {
       ok: true,
       body: { tool: 'knowledge_search', result: 'passage' },
     })
-    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: PROJECT })
+    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: PROJECT, kind: 'external' })
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://aiq-api:8000/v1/internal/tools/knowledge_search')
     const headers = init.headers as Record<string, string>
@@ -195,6 +196,7 @@ describe('callBackendOperation', () => {
 
   it('sends the tool its arguments without the project, which the envelope carries', async () => {
     await callBackendOperation('passage-read', { projectId: PROJECT, document: 'OIB 2' }, session, {
+      kind: 'external',
       projectId: PROJECT,
     })
 
@@ -209,6 +211,7 @@ describe('callBackendOperation', () => {
     })
 
     const ranked = await callBackendOperation('knowledge-search', { query: 'x' }, session, {
+      kind: 'external',
       projectId: PROJECT,
     })
     const text = (ranked.body as { result: string }).result
@@ -221,7 +224,7 @@ describe('callBackendOperation', () => {
       'knowledge-search',
       { query: 'x', match: 'exact' },
       session,
-      { projectId: PROJECT }
+      { projectId: PROJECT, kind: 'external' }
     )
     expect((literal.body as { result: string }).result).not.toContain('final order')
   })
@@ -230,6 +233,7 @@ describe('callBackendOperation', () => {
     requireProjectAccess.mockRejectedValue(new NotFoundError())
 
     const result = await callBackendOperation('knowledge-search', { query: 'x' }, session, {
+      kind: 'external',
       projectId: PROJECT,
     })
 
@@ -245,22 +249,22 @@ describe('callBackendOperation', () => {
   })
 
   it('asks for a project when the tool needs one, and runs the law lookup without', async () => {
-    const missing = await callBackendOperation('ifc-measure', {}, session, {})
+    const missing = await callBackendOperation('ifc-measure', {}, session, { kind: 'external' })
     expect(missing).toMatchObject({ status: 400, ok: false })
     expect(fetchMock).not.toHaveBeenCalled()
 
     backendAnswers(200, { tool: 'law_lookup', result: 'Par. 1' })
-    const lookup = await callBackendOperation('law-lookup', { question: 'Par. 1 BO' }, session, {})
+    const lookup = await callBackendOperation('law-lookup', { question: 'Par. 1 BO' }, session, { kind: 'external' })
     expect(lookup.status).toBe(200)
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: undefined })
+    expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: undefined, kind: 'external' })
     expect((fetchMock.mock.calls[0] as [string])[0]).toBe(
       'http://aiq-api:8000/v1/internal/tools/law_lookup'
     )
   })
 
   it('answers an unknown name without calling anything', async () => {
-    const result = await callBackendOperation('file_draft', {}, session, { projectId: PROJECT })
+    const result = await callBackendOperation('file_draft', {}, session, { projectId: PROJECT, kind: 'external' })
 
     expect(result).toMatchObject({ status: 404, ok: false })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -271,6 +275,7 @@ describe('callBackendOperation', () => {
     backendAnswers(422, { detail: { error: 'invalid_arguments', tool: 'knowledge_search', issues } })
 
     const result = await callBackendOperation('knowledge-search', { top_k: 'many' }, session, {
+      kind: 'external',
       projectId: PROJECT,
     })
 
@@ -298,20 +303,20 @@ describe('callBackendOperation', () => {
     fetchMock.mockResolvedValue(
       new Response('x', { status: 200, headers: { 'content-type': 'application/json', 'content-length': String(MAX_TEXT_BYTES + 1) } })
     )
-    const result = await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT })
+    const result = await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT, kind: 'external' })
     expect(result.body).toMatchObject({ oversized: true })
   })
 
   it('does not sign for a backend it cannot safely send the token to, or without the secret', async () => {
     vi.stubEnv('BACKEND_URL', 'http://backend.example.com')
     expect(
-      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT })).status
+      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT, kind: 'external' })).status
     ).toBe(503)
 
     vi.stubEnv('BACKEND_URL', 'http://aiq-api:8000')
     vi.stubEnv('INTERNAL_API_TOKEN', '')
     expect(
-      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT })).status
+      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT, kind: 'external' })).status
     ).toBe(503)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -319,12 +324,12 @@ describe('callBackendOperation', () => {
   it('reports a backend that does not answer as 503, and one that is too slow as 504', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'))
     expect(
-      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT })).status
+      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT, kind: 'external' })).status
     ).toBe(503)
 
     fetchMock.mockRejectedValue(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))
     expect(
-      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT })).status
+      (await callBackendOperation('knowledge-search', {}, session, { projectId: PROJECT, kind: 'external' })).status
     ).toBe(504)
   })
 })

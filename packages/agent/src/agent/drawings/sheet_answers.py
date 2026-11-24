@@ -76,6 +76,7 @@ class Measurement:
     printed: PrintedOnSpan | None = None
     outcome: Outcome | None = None
     notes: tuple[str, ...] = ()
+    perimeter: float | None = None
 
     def __post_init__(self) -> None:
         if self.provenance not in PROVENANCES:

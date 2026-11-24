@@ -45,9 +45,10 @@ def resolve_scoped_collections(
 
     try:
         from agent.knowledge.scoping import get_scoped_collections_from_context
+        from agent.knowledge.scoping import turn_scope_is_bound
 
         header_scope = get_scoped_collections_from_context()
-        if header_scope:
+        if header_scope or (header_scope is not None and turn_scope_is_bound()):
             return header_scope
     except ImportError:
         pass

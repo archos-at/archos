@@ -3,41 +3,35 @@ import { and, eq, sql, type SQLWrapper } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { answerContexts } from '@/lib/db/schema/answer-contexts'
-import type { ConversationContext } from './types'
+import type { ConversationDecision } from './wire'
 
-export interface AnswerParty {
-  organizationId: string
-  userId: string
-  conversationId: string
-  answerMessageId: string
-}
-
-export async function recordAnswerContext(
-  party: AnswerParty,
-  context: ConversationContext,
+export async function recordDecidedAnswer(
+  decision: ConversationDecision,
+  projectId: string | null,
   executor: DbExecutor = getDb(),
 ): Promise<boolean> {
+  if (!decision.answerMessageId || !decision.conversationId) return false
   const decided = {
-    conversationId: party.conversationId,
-    userId: party.userId,
-    kind: context.kind,
-    audienceVersion: context.audience.version,
-    solo: context.audience.solo,
-    projectId: context.projectId,
-    shelves: context.may.shelves.map((entry) => entry.collection),
-    otherProjects: context.may.otherProjects.reach,
-    workspaceRead: context.may.workspaceRead,
-    personalMemory: context.may.personalMemory,
-    personalShelf: context.may.personalShelf,
+    conversationId: decision.conversationId,
+    userId: decision.userId,
+    kind: decision.kind,
+    audienceVersion: decision.audienceVersion,
+    solo: decision.solo,
+    projectId,
+    shelves: decision.may.shelves.map((entry) => entry.collection),
+    otherProjects: decision.may.otherProjects.reach,
+    workspaceRead: decision.may.workspaceRead,
+    personalMemory: decision.may.personalMemory,
+    personalShelf: decision.may.personalShelf,
     updatedAt: new Date(),
   }
   const written = await executor
     .insert(answerContexts)
-    .values({ organizationId: party.organizationId, messageId: party.answerMessageId, ...decided })
+    .values({ organizationId: decision.organizationId, messageId: decision.answerMessageId, ...decided })
     .onConflictDoUpdate({
       target: [answerContexts.organizationId, answerContexts.messageId],
       set: decided,
-      setWhere: eq(answerContexts.conversationId, party.conversationId),
+      setWhere: eq(answerContexts.conversationId, decision.conversationId),
     })
     .returning({ messageId: answerContexts.messageId })
   return written.length > 0

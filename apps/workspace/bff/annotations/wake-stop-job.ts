@@ -22,7 +22,7 @@ export async function runAgentWakeStop(
     conversationId,
     turnId: payload.wakeId,
     headers: {
-      ...turnContextHeaders({ organizationId, userId: payload.actorUserId, conversationId }, { issuedAt: Date.now(), secret }),
+      ...turnContextHeaders({ organizationId, userId: payload.actorUserId, conversationId, contextKind: 'headless' }, { issuedAt: Date.now(), secret }),
       ...HEADLESS_MODE_HEADERS,
     },
   })
