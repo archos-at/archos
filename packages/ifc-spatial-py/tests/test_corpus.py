@@ -290,6 +290,29 @@ def test_a_geos_error_is_missing_and_keeps_a_declared_area(
     assert "Flächenvereinigung ist fehlgeschlagen" in answer.caveat
 
 
+def test_one_failed_union_is_not_taken_as_the_footprint(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shapely.ops
+    from ifc_spatial.operators_measures import _footprint
+
+    real_union = shapely.ops.unary_union
+    calls = []
+
+    def second_fails(polygons: object) -> object:
+        calls.append(polygons)
+        if len(calls) % 2 == 0:
+            raise RuntimeError("GEOSException")
+        return real_union(polygons)
+
+    monkeypatch.setattr(shapely.ops, "unary_union", second_fails)
+    box = _unit_box_triangles(flip=False)
+    assert _footprint(box) == (0.0, "geos_error")
+    answer = _floor_area_over(monkeypatch, model, box, declared=7.8)
+    assert answer.value == 7.8
+    assert answer.provenance == "declared"
+
+
 def test_a_converted_declared_area_is_not_said_to_be_compared_when_nothing_was_measured(
     model: SpatialModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:
