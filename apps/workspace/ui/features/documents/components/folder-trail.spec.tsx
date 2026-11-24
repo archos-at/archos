@@ -58,7 +58,7 @@ describe('a folder in the header', () => {
     expect(onNavigate).toHaveBeenCalledWith('a')
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-back')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('files-tool-row')).getByRole('button', { name: /Create folder/ })).toBeInTheDocument()
+    expect(within(screen.getByTestId('files-tool-row')).queryByRole('button', { name: /Create folder/ })).not.toBeInTheDocument()
     vi.restoreAllMocks()
   })
 

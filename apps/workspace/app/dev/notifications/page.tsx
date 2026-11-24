@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 
 import { I18nProvider } from '@/i18n'
-import { InboxList } from '@/features/collaboration/components'
+import { InboxWorkspace } from '@/features/collaboration/components'
+import { NotificationPrompt } from '@/features/notifications/components/notification-prompt'
 import { FIXTURE_DEVICES, pushFixture } from '@/features/notifications/components/fixtures'
 import { NotificationSettingsView } from '@/features/notifications/components/notification-settings'
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
@@ -138,7 +139,7 @@ export default function NotificationsDevPage(): JSX.Element {
         )}
         {view !== 'settings' && (
           <Section title="Postfach mit dem Angebot (der echte Hinweis, der Browser entscheidet)">
-            <InboxList initialFilter="all" />
+            <InboxWorkspace offer={<NotificationPrompt />} />
           </Section>
         )}
       </main>

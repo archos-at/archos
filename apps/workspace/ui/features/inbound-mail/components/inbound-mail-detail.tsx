@@ -2,23 +2,20 @@
 
 import type { JSX, MutableRefObject, ReactNode } from 'react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertTriangle, ChevronDown, Hourglass, Loader2, Lock, Users } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Loader2, Lock, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ItemList } from '@/components/ui/item'
 import { SectionLabel } from '@/components/ui/section-label'
 import { LoadError } from '@/components/ui/load-error'
-import { documentFilesHref } from '@/features/documents'
 import { useTranslations } from '@/i18n'
-import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
+import type { InboundMailDecision, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { cn } from '@/lib/utils'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
 import { decisionOf, draftSummary, initialDraft, rebaseDraft, updateAttachment, updateMessage, type FolderOption, type MailDraft } from '../lib/draft'
 import { useDraftCopy } from '../hooks/use-draft-copy'
 import { attachmentOpenReason, FILING_STEPS, filingSteps, fileable, folderlessIds, openAttachmentIds, planLines, textNeedsDecision, type FilingStep } from '../lib/filing-plan'
-import { filedLines } from '../lib/filed'
 import { refusalNeedsReload, refusalOf, refusalTerms } from '../lib/refusal'
 import { guardImpersonation, impersonationWarningOf } from '../lib/impersonation'
 import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
@@ -29,7 +26,6 @@ import { ClaimedMailBar } from './claimed-mail-bar'
 import { DecisionBar } from './decision-bar'
 import { DetailNotices, RestorablePanel, type Notice } from './detail-notices'
 import { DETAIL_PANEL, DetailSkeleton } from './detail-skeleton'
-import { FiledLines } from './filed-to'
 import { FiledFollow } from './filed-follow'
 import { ImpersonationWarning } from './impersonation-warning'
 import { FilingDialog } from './filing-dialog'
@@ -64,6 +60,8 @@ export interface InboundMailDetailProps {
   folders: readonly FolderOption[]
   client: InboundMailClient
   onChanged: () => void
+  /** The decision was accepted: the mail is the inbox's now, which moves on and reports where its parts land. */
+  onFiled: (sent: InboundMailView, decision: InboundMailDecision) => void
   back?: ReactNode
   actionsRef?: MutableRefObject<DetailActions | null>
   now?: number
@@ -71,10 +69,6 @@ export interface InboundMailDetailProps {
   decidedByOther?: boolean
   yieldPrimary?: boolean
 }
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
-
-export const FILING_QUICK_ROUNDS = 40
 
 export function InboundMailDetail({
   projectId,
@@ -84,6 +78,7 @@ export function InboundMailDetail({
   folders,
   client,
   onChanged,
+  onFiled,
   back,
   actionsRef,
   now,
@@ -92,12 +87,10 @@ export function InboundMailDetail({
   yieldPrimary = false,
 }: InboundMailDetailProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const router = useRouter()
   const [state, setState] = useState<ViewState>(initial ? { kind: 'ready', view: initial } : { kind: 'loading' })
   const [text, setText] = useState<MailTextState>(initialText ? { kind: 'ready', text: initialText } : { kind: 'loading' })
   const [draft, setDraft] = useState<MailDraft | null>(null)
   const [filing, setFiling] = useState(false)
-  const [slowFiling, setSlowFiling] = useState(false)
   const [dismissing, setDismissing] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [decidedByOther, setDecidedByOther] = useState(decidedByOtherInitially)
@@ -161,7 +154,6 @@ export function InboundMailDetail({
   useEffect(() => {
     setDecidedByOther(decidedByOtherInitially)
     setThreadNameStop(null)
-    setSlowFiling(false)
     if (!initial || initial.id !== mailId) {
       setState({ kind: 'loading' })
       void load()
@@ -208,40 +200,6 @@ export function InboundMailDetail({
   })
 
   const summary = view && draft ? draftSummary(view, draft) : null
-
-  const follow = async (sent: InboundMailView, filedIds: string[]): Promise<void> => {
-    let current = sent
-    let delay = pollMs
-    for (let round = 0; current.parts.some((part) => part.state === 'filing'); round += 1) {
-      await sleep(delay)
-      if (!alive.current || openMail.current !== sent.id) return
-      if (round + 1 === FILING_QUICK_ROUNDS) setSlowFiling(true)
-      delay = round + 1 >= FILING_QUICK_ROUNDS ? pollMs * 10 : Math.min(delay * 1.5, pollMs * 4)
-      const next = await client.get(projectId, mailId).catch(() => null)
-      if (!alive.current || openMail.current !== sent.id) return
-      if (next) {
-        current = next
-        setState({ kind: 'ready', view: next })
-      }
-    }
-    setSlowFiling(false)
-    const byId = new Map(current.parts.map((part) => [part.id, part]))
-    const landed = filedIds.map((id) => byId.get(id)).filter((part): part is InboundMailPartView => part?.state === 'filed')
-    const files = landed.filter((part) => part.kind === 'attachment').length
-    const text = landed.some((part) => part.kind === 'message')
-    const firstDocument = landed.map((part) => part.documentId).find((id): id is string => !!id)
-    if (landed.length > 0) {
-      const lines = filedLines(current.parts, filedIds, t('suggestion.root'))
-      toast.success(
-        files > 0 && text ? t('toast.filedBoth', { count: files }) : files > 0 ? t('toast.filed', { count: files }) : t('toast.textFiled'),
-        mailToast({
-          description: lines.length > 0 ? <FiledLines lines={lines} /> : undefined,
-          ...(firstDocument ? { action: { label: t('toast.view'), onClick: () => router.push(documentFilesHref(projectId, firstDocument)) } } : {}),
-        })
-      )
-    }
-    onChanged()
-  }
 
   const missing = view ? missingSuggestionReason(view, now) : 'none'
 
@@ -298,8 +256,7 @@ export function InboundMailDetail({
       const sent = result.mails.find((mail) => mail.id === view.id)
       if (!sent || !alive.current) return
       setDialogOpen(false)
-      setState({ kind: 'ready', view: sent })
-      await follow(sent, [...decision.parts.map((part) => part.partId), ...(decision.message ? [decision.message.partId] : [])])
+      onFiled(sent, decision)
     } catch (error) {
       const code = refusalOf(error)
       toast.error(t(`refusals.${code}`), mailToast())
@@ -449,8 +406,8 @@ export function InboundMailDetail({
         {back}
         <DetailNotices notices={notices} />
         {anyFiling && (
-          <FactLine icon={slowFiling ? Hourglass : Loader2} tone="default" className={cn(!slowFiling && '[&>svg]:motion-safe:animate-spin')} testId="detail-filing">
-            {slowFiling ? t('state.filingSlow') : t('state.filing')}
+          <FactLine icon={Loader2} tone="default" className="[&>svg]:motion-safe:animate-spin" testId="detail-filing">
+            {t('state.filing')}
           </FactLine>
         )}
         {waitingParts.length === 0 && <RestorablePanel parts={view.parts} restoring={restoring} onRestore={() => void restore()} />}

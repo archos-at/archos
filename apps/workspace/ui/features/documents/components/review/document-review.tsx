@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
-import { PageDialog, PageDialogContent } from '@/components/ui/page-dialog'
 import { identityInk } from '@/components/ui/avatar-identity'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FloatingNote, FloatingToolbar } from '@/components/ui/floating-toolbar'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
@@ -461,12 +461,12 @@ export function DocumentReviewMode({
   const checkFixed = useCheckFixed(review, { documentName, revisionLabel: revisionLabel ?? null })
 
   return (
-    <PageDialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <PageDialogContent
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={stepBack}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="bg-background inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] flex h-[calc(100dvh-var(--page-inset-top,0px))] max-h-none w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
+        className="bg-background inset-0 top-0 left-0 flex h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
         data-testid="document-review"
       >
         <ReviewHeader
@@ -611,7 +611,7 @@ export function DocumentReviewMode({
           />
         )}
         <ReviewAnnouncer review={review} />
-      </PageDialogContent>
-    </PageDialog>
+      </DialogContent>
+    </Dialog>
   )
 }
