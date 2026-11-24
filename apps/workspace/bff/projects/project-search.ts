@@ -32,10 +32,3 @@ export function projectSearchText(project: SearchableProject): string {
 export function searchTokens(query: string): string[] {
   return query.toLowerCase().split(/\s+/).filter(Boolean)
 }
-
-export function projectMatchesQuery(project: SearchableProject, query: string): boolean {
-  const tokens = searchTokens(query)
-  if (tokens.length === 0) return true
-  const haystack = projectSearchText(project)
-  return tokens.every((token) => haystack.includes(token))
-}

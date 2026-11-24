@@ -146,11 +146,33 @@ describe('the project overview is a window of the shell, as search is', () => {
     await waitFor(() => expect(overview()).toBeNull())
   })
 
-  test('the ask /app/projects redirects with opens it, create too, and leaves the address clean', async () => {
-    search = 'new=1&overview=new'
-    window.history.replaceState(null, '', '/app/projects/p1/chat?new=1&overview=new')
+  test('following the current project’s own link closes it, though the path does not change', async () => {
+    render(shell())
+    act(() => openProjectOverview())
+    const sheet = await screen.findByTestId('project-overview')
+    const current = within(sheet).getAllByTestId('project-overview-card')[0]!
+    fireEvent.click(within(current).getAllByRole('link')[0]!)
+    await waitFor(() => expect(overview()).toBeNull())
+  })
+
+  test('/app/projects loaded directly (a bookmark, the welcome tour, a feedback link) shows it at once over its own page', async () => {
+    pathname = '/app/projects'
+    render(shell())
+    expect(await screen.findByTestId('project-overview-window')).toHaveAttribute('data-instant', 'true')
+  })
+
+  test('/app/projects?new=1 opens it with create open', async () => {
+    pathname = '/app/projects'
+    search = 'new=1'
     render(shell())
     expect(await screen.findByTestId('create-project-form')).toBeInTheDocument()
-    expect(window.location.search).toBe('?new=1')
+  })
+
+  test('closing it on its own page goes to where the app opens', async () => {
+    pathname = '/app/projects'
+    render(shell())
+    await screen.findByTestId('project-overview')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/app'))
   })
 })

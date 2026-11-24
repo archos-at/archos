@@ -4,16 +4,6 @@ import { projectIdFromPathname } from './org-sections'
 export const PROJECT_OVERVIEW_PATH = '/app/projects'
 export const NEW_PROJECT_PATH = `${PROJECT_OVERVIEW_PATH}?new=1`
 export const LAST_PLACE_COOKIE = 'last_place'
-
-/** The one-shot ask `/app/projects` redirects with: `1` opens the project overview over the page, `new` with create open. */
-export const OVERVIEW_PARAM = 'overview'
-
-export function withOverview(path: string, create: boolean): string {
-  const [bare, query = ''] = path.split('?')
-  const params = new URLSearchParams(query)
-  params.set(OVERVIEW_PARAM, create ? 'new' : '1')
-  return `${bare}?${params.toString()}`
-}
 export const FIRST_PLACE = NEW_PERSONAL_CHAT_HREF
 
 const NOT_A_PLACE = ['/app/onboarding', '/app/chat', PROJECT_OVERVIEW_PATH]

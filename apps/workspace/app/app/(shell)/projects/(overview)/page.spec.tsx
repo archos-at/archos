@@ -1,22 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const redirect = vi.fn((to: string) => {
-  throw new Error(`redirect ${to}`)
-})
-vi.mock('next/navigation', () => ({ redirect: (to: string) => redirect(to) }))
+vi.mock('@/i18n/server', () => ({ getTranslations: async () => (key: string) => key }))
 
-import ProjectsPage from './page'
+import ProjectsPage, { generateMetadata } from './page'
 
-const land = (search: { new?: string } = {}) => ProjectsPage({ searchParams: Promise.resolve(search) }).catch(() => undefined)
-
-describe('/app/projects, kept for bookmarks and redirects, lands where /app does with the overview open', () => {
-  it('asks for the overview', async () => {
-    await land()
-    expect(redirect).toHaveBeenLastCalledWith('/app?overview=1')
-  })
-
-  it('asks for it with create open for ?new=1', async () => {
-    await land({ new: '1' })
-    expect(redirect).toHaveBeenLastCalledWith('/app?overview=new')
+describe('/app/projects, for a bookmark, a refresh, the welcome tour and the links that land there', () => {
+  it('leaves the overview to the shell, which opens it over this page (`ProjectOverviewWindow`)', async () => {
+    expect(ProjectsPage()).toBeNull()
+    expect(await generateMetadata()).toEqual({ title: 'portfolio.title' })
   })
 })

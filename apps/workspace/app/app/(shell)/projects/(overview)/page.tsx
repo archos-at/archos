@@ -1,9 +1,12 @@
-import { redirect } from 'next/navigation'
-import { OVERVIEW_PARAM } from '@/components/shell/landing'
+import { type Metadata } from 'next'
+import { getTranslations } from '@/i18n/server'
+import { projectsCopy } from '@/i18n/namespaces/projects'
 
-/** The overview is a window of the shell, not a page: a bookmark, a refresh or a redirect to `/app/projects` lands where
- *  `/app` would and opens it there. */
-export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }): Promise<never> {
-  const { new: newParam } = await searchParams
-  redirect(`/app?${OVERVIEW_PARAM}=${newParam === '1' ? 'new' : '1'}`)
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations(projectsCopy)
+  return { title: t('portfolio.title') }
+}
+
+export default function ProjectsPage(): null {
+  return null
 }
