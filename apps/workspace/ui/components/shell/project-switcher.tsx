@@ -42,6 +42,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   const offered = switchableProjects(projects, activeProjectId)
   const [open, setOpen] = React.useState(false)
   const [cursor, setCursor] = React.useState('')
+  const commandRef = React.useRef<HTMLDivElement>(null)
 
   const onOpenChange = (next: boolean): void => {
     setOpen(next)
@@ -67,7 +68,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         key={project.id}
         value={project.id}
         onSelect={() => choose(project.id)}
-        className={cn('h-9 gap-1.5 pr-1', isCurrent && 'bg-desk data-[selected=true]:bg-desk')}
+        className={cn('h-9 gap-1.5 pr-1 pointer-coarse:h-11', isCurrent && 'bg-desk data-[selected=true]:bg-desk')}
         data-current={isCurrent ? '' : undefined}
       >
         <span className="min-w-0 flex-1 truncate">{project.name}</span>
@@ -138,10 +139,14 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         sideOffset={collapsed ? 22 : 6}
         className="w-80 max-w-[calc(100vw-2rem)] rounded-[16px] p-1.5 motion-reduce:animate-none"
         data-testid="project-switcher-menu"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          commandRef.current?.focus()
+        }}
       >
         {/* As the concept draws it: one list of the projects, the current one marked with its settings at hand, and
             under a rule the two ways out. The search lives in the overview, which holds every project. */}
-        <Command loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="bg-transparent [&_[cmdk-item]]:text-[13px]">
+        <Command ref={commandRef} tabIndex={-1} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="bg-transparent [&_[cmdk-item]]:text-[13px]">
           <CommandList className="max-h-[min(24rem,60dvh)] p-0">
             <CommandGroup heading={t('projectSwitcher.projects')} className={GROUP_CLASS}>
               {offered.map(item)}

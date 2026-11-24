@@ -102,4 +102,27 @@ describe('the project selector is one press', () => {
     await user.keyboard('{Enter}')
     expect(push).not.toHaveBeenCalledWith('/app/projects/p-2/chat')
   })
+
+  test('opens with the keyboard in the list: ArrowDown and Enter switch the project', async () => {
+    push.mockClear()
+    const user = userEvent.setup()
+    show()
+    selector().focus()
+    await user.keyboard('{Enter}')
+    const menu = await screen.findByTestId('project-switcher-menu')
+    expect(within(menu).getByTestId('project-switcher-overview')).not.toHaveFocus()
+
+    await user.keyboard('{ArrowDown}')
+    await user.keyboard('{Enter}')
+
+    expect(push).toHaveBeenCalledWith('/app/projects/p-2/chat')
+  })
+
+  test('a row is a full touch target on a coarse pointer, as tall as its gear', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(selector())
+    const menu = await screen.findByTestId('project-switcher-menu')
+    for (const option of within(menu).getAllByRole('option')) expect(option).toHaveClass('pointer-coarse:h-11')
+  })
 })
