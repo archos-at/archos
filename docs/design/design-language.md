@@ -545,9 +545,9 @@ insets too.
 
 Held statically by `apps/workspace/ui/components/ui/touch-target.spec.ts`,
 `apps/workspace/ui/components/ui/mobile-affordances.spec.ts` and
-`apps/workspace/ui/components/ui/breakpoints.spec.ts`. The browser
-measurement that once backed these (`workspace:touch-audit`) went with the
-screenshot harness; capture a 390x844 viewport and look, until it is rewritten
+`apps/workspace/ui/components/ui/breakpoints.spec.ts`, and in the browser by
+`task workspace:phone-audit`, CI's phone gate: every `/dev` route at 390 and 360,
+no sideways scroll and no control under 44x44
 (`docs/contributing/testing-and-verification.md`).
 
 ## Breakpoints: four axes, four questions

@@ -640,23 +640,18 @@ and `apps/workspace/ui/components/ui/touch-target.spec.ts`. Capture a 390x844
 viewport alongside the desktop shot when you ship a surface — the playbook above
 has the command.
 
-**The browser measurement is gone.** `workspace:touch-audit` loaded the screenshot
-registry at a phone viewport and reported what neither a spec nor a screenshot
-can: regions whose `touch-action` refuses the vertical pan (a finger lands and
-the page does not move), boxes that stick out past the viewport, and interactive
-elements under the 44px floor, measured including any `touch-target` catchment.
-It imported `SCREENSHOT_TARGETS`, so it could not outlive the registry that was
-deleted with the harness.
-
-That is a real loss, recorded here rather than quietly dropped. Both of the
-worst defects it ever found were invisible to review, to the type checker and to
-a desktop screenshot: a reasoning graph that swallowed every swipe because a
-library stylesheet claimed a gesture the graph had turned off, and a file list
-whose `truncate` never fired because auto table layout sized the column to the
-filename. Neither looked wrong; both were measured. Bringing it back means
-writing it again against `src/app/dev/` rather than against a registry — and it
-should not be part of `verify` when it returns, because a browser pass over ~120
-surfaces is a deliberate run rather than a per-commit tax.
+**The browser measurement is back, as a CI gate, without the swipe check.**
+`task workspace:phone-audit` (`apps/workspace/scripts/phone-audit.mjs`) loads every
+`/dev` route at 390x844 and 360x780 with a touch screen and fails on a page wider
+than the phone and on a control under 44x44, counting a `touch-target` catchment
+and a frame's declared `data-tap-reach`. Known exceptions are in
+`ci/phone-audit-baseline.json`, which only shrinks. CI's
+**Workspace phone gate** runs it in four shards when `apps/workspace/ui`, `app`
+or `i18n` change; it is not part of `verify`, because a browser pass over every
+preview takes minutes. What the old `workspace:touch-audit` also caught and this
+does not: a region whose `touch-action` refuses the vertical pan (a reasoning
+graph that swallowed every swipe), and a `truncate` that never fires. Walk the
+chain by hand for the first ([gotchas](gotchas.md)).
 
 ## The answer suite
 
