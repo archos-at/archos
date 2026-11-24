@@ -1,4 +1,5 @@
 ---
+# area: answers
 features:
   - >
     Chat answers can now show requirement checks, procedure steps, option

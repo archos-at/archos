@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Documents that were being processed while Piloti was updated now resume

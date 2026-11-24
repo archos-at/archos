@@ -346,6 +346,9 @@ functions:
   dxf_measure:
     _type: dxf_measure
 
+  drawing_measure:
+    _type: drawing_measure
+
   # Stored turns persist this function name as functionName: renaming it splits history.
   shallow_research_agent:
     _type: research_agent
@@ -370,6 +373,7 @@ functions:
       - ifc_query
       - ifc_measure
       - dxf_measure
+      - drawing_measure
       - ask_user
     verbose: true
     max_tool_iterations: 7

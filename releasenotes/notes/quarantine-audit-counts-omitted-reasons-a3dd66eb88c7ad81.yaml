@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     When the content check holds a file back for more reasons than it lists,

@@ -1,4 +1,5 @@
 ---
+# area: documents
 security:
   - >
     Piloti no longer revises a file in a folder with restricted access as an

@@ -1,4 +1,5 @@
 ---
+# area: search
 features:
   - >
     Searching from the command palette (Ctrl+K) is calmer: results hold still

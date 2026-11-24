@@ -1,4 +1,5 @@
 ---
+# area: bim
 features:
   - >
     An IFC file now behaves the same everywhere: a click opens a preview with

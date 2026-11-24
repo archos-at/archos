@@ -1807,6 +1807,13 @@
       "when": 1795601600000,
       "tag": "0257_unlisted_norms",
       "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1795601700000,
+      "tag": "0258_drawing_calibrations",
+      "breakpoints": true
     }
   ]
 }

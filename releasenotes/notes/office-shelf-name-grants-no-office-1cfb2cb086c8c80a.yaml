@@ -1,0 +1,8 @@
+---
+# area: documents
+security:
+  - >
+    A search over an office's library now reads only as the office of the
+    request. Before, a search that carried no office took it from the name
+    of the library it asked for, so naming another office's library was
+    enough to read it.

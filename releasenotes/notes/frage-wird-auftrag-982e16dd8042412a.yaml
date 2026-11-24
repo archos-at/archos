@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     When Piloti researches a question in depth, it now shows as a task in the

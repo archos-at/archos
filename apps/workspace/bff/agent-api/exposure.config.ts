@@ -7,6 +7,7 @@ import {
   CANVAS,
   DECISION,
   externalOnly,
+  DRAWING_CALIBRATION,
   MEMORY,
   PERSONAL_MEMORY,
   NATIVE_READ,
@@ -185,6 +186,9 @@ export const EXPOSURE = {
   'annotation-reply-update': OFFERED,
   'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
+  'drawing-calibration-list': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-set': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-withdraw': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,
@@ -389,6 +393,12 @@ export const EXPOSURE = {
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
+  'drawing-measure': {
+    external: false,
+    agent: 'native:drawing_measure',
+    reason:
+      'reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet',
+  },
   'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
   'proposal-card-apply': APP_ONLY,

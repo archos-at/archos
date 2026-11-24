@@ -3,9 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 
 vi.mock('server-only', () => ({}))
 
@@ -139,10 +139,9 @@ describe('the exposure config', () => {
     }
   })
 
-  it('is what tests/fixtures/exposure.json says (UPDATE_FIXTURES=1 rewrites it)', () => {
+  it('is what tests/fixtures/exposure.json says (`task generate` rewrites it)', () => {
     const rendered = render()
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, rendered)
-    expect(readFileSync(FIXTURE, 'utf8')).toBe(rendered)
+    expectGenerated(FIXTURE, rendered)
   })
 })
 
@@ -173,7 +172,7 @@ function render(): string {
   const fixture = {
     comment:
       'Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts ' +
-      '(UPDATE_FIXTURES=1). `agent` is true, false or "native:<tool>" (the in-product agent uses that tool; the door hides the operation from it). ' +
+      '(`task generate`). `agent` is true, false or "native:<tool>" (the in-product agent uses that tool; the door hides the operation from it). ' +
       '`appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.',
     operations,
     appTools,

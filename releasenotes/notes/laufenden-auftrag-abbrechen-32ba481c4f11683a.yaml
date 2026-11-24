@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     You can cancel a running task from its block. The research so far stays;
