@@ -2056,6 +2056,10 @@
     "de": "Beim Diktieren am Smartphone wird während der Aufnahme eine Leiste über die gesamte Breite mit einer Zeitanzeige bis zum 45-Sekunden-Limit eingeblendet. Tippen Sie an beliebiger Stelle darauf, um den Text einzufügen. Wenn ein Mikrofon nicht verwendet werden kann, erfahren Sie beim Antippen den Grund."
   },
   {
+    "en": "Distances, paths and areas can now be measured on a PDF drawing in the review: „Messen“ (M) snaps to the drawing's lines, shows the length as you place points and keeps the measurement on the sheet with its tolerance and the drawing's scale, where the whole team and {productName} can see it. {productName} can keep a measurement on a drawing too, and it is always measured again from the drawing.",
+    "de": "Abstände, Wege und Flächen lassen sich jetzt im Review auf einer PDF-Zeichnung messen: „Messen“ (M) rastet an den Linien der Zeichnung ein, zeigt beim Setzen der Punkte die Länge an und hält die Messung samt Toleranz und Maßstab der Zeichnung auf dem Blatt fest, wo das gesamte Team und {productName} sie sehen. Auch {productName} kann eine Messung in einer Zeichnung festhalten; sie wird immer erneut anhand der Zeichnung gemessen."
+  },
+  {
     "en": "Document cards and lists lead with the title and the review state instead of version counters, and a version history only appears once a second version exists.",
     "de": "Dokumentkarten und -listen zeigen zuerst Titel und Prüfstatus statt der Versionszähler; ein Versionsverlauf wird erst angezeigt, sobald eine zweite Version vorhanden ist."
   },
