@@ -1,5 +1,6 @@
 import { withDocumentLocus } from '@/features/documents/lib/document-locus'
 import { BACK_PARAM, reviewFilesHref, withBack, withReviewBack } from '@/features/documents/lib/open-review'
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import { documentHref } from '@/features/uploads/lib/upload-summary'
 import type { SavedSearchView } from '@/lib/search/saved-search-client'
 import type {
@@ -12,12 +13,14 @@ import type {
   SearchHit,
   SearchKind,
   SearchScopeQuery,
+  SearchShelf,
 } from '@/lib/search/search-wire'
 import { SHELF_SEARCH_MODE, SHELF_SEARCH_MODE_PARAM } from '../hooks/use-shelf-search-mode'
 import { EMPTY_SEARCH_STATE, fromSearchBody, writeSearchParams } from './search-url'
 
-function shelfBase(shelf: 'project' | 'office_shelf', projectId: string | null): string {
+function shelfBase(shelf: SearchShelf, projectId: string | null): string {
   if (shelf === 'project' && projectId) return `/app/projects/${encodeURIComponent(projectId)}/files`
+  if (shelf === 'personal') return PERSONAL_SHELF_PATH
   return '/app/office-shelf'
 }
 
@@ -28,7 +31,7 @@ export interface HitReturn {
 export function documentReviewHitHref(hit: Pick<DocumentHit, 'id' | 'shelf' | 'projectId'>, { back }: HitReturn = {}): string {
   const target = { documentId: hit.id }
   if (hit.shelf === 'project' && hit.projectId) return reviewFilesHref(hit.projectId, target, { back })
-  return withReviewBack(`${shelfBase('office_shelf', null)}?doc=${encodeURIComponent(hit.id)}&review=1`, back)
+  return withReviewBack(`${shelfBase(hit.shelf, null)}?doc=${encodeURIComponent(hit.id)}&review=1`, back)
 }
 
 export function searchReturnPath(pathname: string, search: string): string {
@@ -56,10 +59,13 @@ export function documentFolderHref(hit: Pick<DocumentHit, 'shelf' | 'projectId' 
   return shelfBase(hit.shelf, hit.projectId)
 }
 
-export function annotationHitHref(hit: Pick<AnnotationHit, 'id' | 'documentId' | 'projectId'>, { back }: HitReturn = {}): string {
+export function annotationHitHref(
+  hit: Pick<AnnotationHit, 'id' | 'documentId' | 'projectId'> & Partial<Pick<AnnotationHit, 'shelf'>>,
+  { back }: HitReturn = {}
+): string {
   const target = { documentId: hit.documentId, annotationId: hit.id }
   if (hit.projectId) return reviewFilesHref(hit.projectId, target, { back })
-  const href = `${shelfBase('office_shelf', null)}?doc=${encodeURIComponent(hit.documentId)}&review=1&mark=${encodeURIComponent(hit.id)}`
+  const href = `${shelfBase(hit.shelf ?? 'office_shelf', null)}?doc=${encodeURIComponent(hit.documentId)}&review=1&mark=${encodeURIComponent(hit.id)}`
   return withReviewBack(href, back)
 }
 

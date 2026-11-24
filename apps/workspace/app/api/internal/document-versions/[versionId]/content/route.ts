@@ -16,7 +16,7 @@ export const GET = internalApiRoute<Params>(
   'document-version-content',
   async ({ request, params }) => {
     const { organizationId, conversationId, userId, answerMessageId } = parseQuery(request, querySchema)
-    return withTenant({ organizationId }, async () => {
+    return withTenant({ organizationId, userId: userId ?? null }, async () => {
       const version = await readVersionForService(params.versionId, organizationId, conversationId, {
         askerUserId: userId ?? null,
         answerMessageId: answerMessageId ?? null,

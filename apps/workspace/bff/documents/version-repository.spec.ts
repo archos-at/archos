@@ -21,6 +21,8 @@ const proxyDb = drizzle(async (sql, params) => {
 let currentDb: unknown = proxyDb
 vi.mock('@/lib/db', () => ({ getDb: () => currentDb }))
 
+import { withTenant } from '@/lib/db/tenant-context'
+
 import { TransactionRollbackError, type SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import {
@@ -342,12 +344,18 @@ describe('swapVersionContent — the quota is measured on the state it commits',
       }),
       execute: async (query: { queryChunks?: unknown[] }) => {
         const text = JSON.stringify(query.queryChunks ?? query)
+        if (text.includes('organization_storage_by_scope')) {
+          statements.push('USAGE')
+          return [{ scope: 'project', bytes: reads.shift() ?? 0, documents: 1, version_bytes: 0 }]
+        }
         statements.push(text.includes('pg_advisory_xact_lock') ? 'LOCK' : 'ORPHAN CHECK')
         return [{ named: true }]
       },
     }
     return { statements, db: { transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx) } }
   }
+
+  const inOrg = <T,>(fn: () => Promise<T>): Promise<T> => withTenant({ organizationId: 'org_1' }, fn)
 
   const base = {
     versionId: 'ver_1',
@@ -367,13 +375,13 @@ describe('swapVersionContent — the quota is measured on the state it commits',
   it('takes the storage lock, reads the usage, swaps, and reads it again — in that order', async () => {
     const fake = fakeQuotaDb([5_000, 9_000])
     currentDb = fake.db
-    await swapVersionContent({ ...base, quotaBytes: 10_000 })
+    await inOrg(() => swapVersionContent({ ...base, quotaBytes: 10_000 }))
     expect(fake.statements).toEqual(['LOCK', 'USAGE', 'UPDATE', 'USAGE', 'ORPHAN CHECK'])
   })
 
   it('refuses a forked draft’s rewrite at its FULL size, because the published bytes stay', async () => {
     currentDb = fakeQuotaDb([8_000, 12_000]).db
-    await expect(swapVersionContent({ ...base, quotaBytes: 10_000 })).resolves.toEqual({
+    await expect(inOrg(() => swapVersionContent({ ...base, quotaBytes: 10_000 }))).resolves.toEqual({
       ok: false,
       reason: 'quota',
       usedBytes: 8_000,
@@ -382,12 +390,12 @@ describe('swapVersionContent — the quota is measured on the state it commits',
 
   it('admits a rewrite that fits, and one that shrinks even over a lowered quota', async () => {
     currentDb = fakeQuotaDb([5_000, 9_000]).db
-    await expect(swapVersionContent({ ...base, quotaBytes: 10_000 })).resolves.toMatchObject({
+    await expect(inOrg(() => swapVersionContent({ ...base, quotaBytes: 10_000 }))).resolves.toMatchObject({
       ok: true,
     })
 
     currentDb = fakeQuotaDb([12_000, 11_000]).db
-    await expect(swapVersionContent({ ...base, quotaBytes: 10_000 })).resolves.toMatchObject({
+    await expect(inOrg(() => swapVersionContent({ ...base, quotaBytes: 10_000 }))).resolves.toMatchObject({
       ok: true,
     })
   })
@@ -395,7 +403,7 @@ describe('swapVersionContent — the quota is measured on the state it commits',
   it('still serializes on the lock, and reads nothing, when the organization is unlimited', async () => {
     const fake = fakeQuotaDb([0, 0])
     currentDb = fake.db
-    await swapVersionContent({ ...base, quotaBytes: null })
+    await inOrg(() => swapVersionContent({ ...base, quotaBytes: null }))
     expect(fake.statements).toEqual(['LOCK', 'UPDATE', 'ORPHAN CHECK'])
   })
 })

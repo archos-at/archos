@@ -1,6 +1,12 @@
 import type { en } from '../en'
 
 export const files: typeof en.files = {
+  personalShelf: {
+    title: 'Meine Ablage',
+    crumb: 'Persönlich · Nur Sie',
+    dropToUpload: 'Dateien hier ablegen, um sie in Meine Ablage aufzunehmen',
+    ingestionComplete: '„{name}“ ist jetzt in Meine Ablage',
+  },
   baseKnowledge: { label: 'Norm', open: 'Als Norm öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
@@ -411,6 +417,7 @@ export const files: typeof en.files = {
     searchPlaceholder: 'Suchen…',
     searchPlaceholderProject: 'In der Projektablage suchen …',
     searchPlaceholderOffice: 'In der Bürobibliothek suchen …',
+    searchPlaceholderPersonal: 'In meiner Ablage suchen …',
     searchLabel: 'Dateien durchsuchen',
     noMatch: 'Keine Dateien entsprechen „{query}“',
     noMatchDescription:
@@ -999,6 +1006,7 @@ export const files: typeof en.files = {
     scopeFolder: 'in diesem Ordner',
     scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
+    scopePersonal: 'in Meine Ablage',
     scopeOffice: 'in der Bürobibliothek',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
     headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
@@ -1644,7 +1652,7 @@ export const files: typeof en.files = {
         zoom: 'Zum genauen Messen mit zwei Fingern hineinzoomen',
       },
       closeArea: 'Fläche schließen',
-      snapped: { vertex: 'Ecke', edge: 'auf Linie' },
+      snapped: { vertex: 'Ecke · Strg/⌘ setzt frei', edge: 'auf Linie · Strg/⌘ setzt frei' },
       noScale:
         'Für diese Seite ist kein Maßstab bekannt. Legen Sie ihn mit einer bekannten Strecke fest, dann können Sie messen.',
       exit: 'Messen beenden',
@@ -1656,6 +1664,8 @@ export const files: typeof en.files = {
       provisionalLabel: 'Vorläufig {value}, wird beim Abschluss gemessen',
       readingLabel: 'Messung',
       withTolerance: '{value} ± {tolerance}',
+      printedCheck: { true: 'Maßzahl {figure} stimmt überein', false: 'Maßzahl {figure} weicht ab, bitte prüfen', null: 'Maßzahl {figure} gedruckt, nicht verglichen' },
+      perimeter: 'Umfang {value}',
       shape: { line: 'Strecke', path: 'Weglänge', polygon: 'Fläche' },
       basis: {
         verified: 'Maßstab bestätigt',
@@ -1904,6 +1914,7 @@ export const files: typeof en.files = {
     mine: 'Für Sie',
     measurementsGroup: 'Messungen',
     measurementsLegend: 'Maße auf dem Blatt, keine offenen Punkte.',
+    measurementsTotal: 'Summe aus {count, plural, one {# Messung} other {# Messungen}}',
     proposalsGroup: '{count, plural, one {# Vorschlag von {productName}} other {# Vorschläge von {productName}}}',
     walkProposals: 'Durchgehen',
     walkPosition: '{index}/{total}',

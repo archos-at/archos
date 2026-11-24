@@ -20,7 +20,7 @@ vi.mock('@/lib/agent-api/catalog', async () => {
   const all = [...FAKE_OPERATIONS, ...PLATFORM_FAKE_OPERATIONS]
   return { AGENT_OPERATIONS: all, findOperation: (name: string) => all.find((op) => op.name === name) }
 })
-vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
+vi.mock('@/lib/auth/pinned-session', () => ({ resolveMemberSession: vi.fn() }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn() }))
 vi.mock('@/lib/authz/platform', () => ({ getPlatformOrganizationId: vi.fn(), isPlatformStaff: vi.fn() }))
 vi.mock('@/lib/agent-api/telemetry', async (original) => ({
@@ -34,7 +34,7 @@ vi.mock('@/lib/limits', async (original) => ({
 }))
 
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { resolveMemberSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getPlatformOrganizationId, isPlatformStaff } from '@/lib/authz/platform'
 import { MCP_REQUEST_LIMIT, enforceLimit, memberSubject } from '@/lib/limits'
@@ -115,7 +115,7 @@ beforeEach(() => {
   vi.stubEnv('MCP_RESOURCE_URL', OFFICE)
   vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
-  vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(operator)
+  vi.mocked(resolveMemberSession).mockResolvedValue(operator)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)
   vi.mocked(isPlatformStaff).mockResolvedValue(true)
@@ -145,27 +145,27 @@ describe('who may knock', () => {
       expect(response.status, aud).toBe(401)
       expect(response.headers.get('www-authenticate'), aud).toMatch(/invalid_token/)
     }
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('is refused on the office door with a platform-door token, in the reverse direction too', async () => {
     const response = await officePOST(rpc(OFFICE, 'tools/list', {}, await bearer()))
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toContain('oauth-protected-resource/api/mcp"')
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('admits platform staff who picked an office at sign-in, as their platform membership, not the office’s', async () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
     expect(response.status).toBe(200)
-    expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_ops', email: null, organizationId: PLATFORM_ORG })
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_office' }))
+    expect(resolveMemberSession).toHaveBeenCalledWith({ userId: 'user_ops', email: null, organizationId: PLATFORM_ORG })
+    expect(resolveMemberSession).not.toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_office' }))
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-agent-mcp', PLATFORM_ORG)
     expect(isPlatformStaff).toHaveBeenCalledWith(operator)
   })
 
   it('still refuses an office token whose person is not in the platform organization', async () => {
-    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
+    vi.mocked(resolveMemberSession).mockResolvedValue(null)
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
     expect(response.status).toBe(403)
     expect(enforceLimit).not.toHaveBeenCalled()
@@ -187,7 +187,7 @@ describe('who may knock', () => {
   })
 
   it('refuses a person who is no longer a member', async () => {
-    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
+    vi.mocked(resolveMemberSession).mockResolvedValue(null)
     expect((await POST(rpc(PLATFORM, 'tools/list', {}, await bearer()))).status).toBe(403)
   })
 
@@ -204,11 +204,11 @@ describe('who may knock', () => {
       }),
     )
     expect(response.status).toBe(403)
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('answers a JSON 503 the agent can retry while WorkOS does not answer', async () => {
-    vi.mocked(resolvePinnedRequesterSession).mockRejectedValueOnce(new Error('fetch failed: api.workos.com'))
+    vi.mocked(resolveMemberSession).mockRejectedValueOnce(new Error('fetch failed: api.workos.com'))
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer()))
     expect(response.status).toBe(503)
     expect(await response.json()).toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
@@ -222,7 +222,7 @@ describe('who may knock', () => {
   it('rejects a browser origin that is not the app, before anything else', async () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, { origin: 'https://evil.example', ...(await bearer()) }))
     expect(response.status).toBe(403)
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('answers GET and DELETE with 405: stateless', async () => {

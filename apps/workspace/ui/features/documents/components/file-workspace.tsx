@@ -65,6 +65,12 @@ export interface FileWorkspaceProps {
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
 
+const SEARCH_PLACEHOLDER = {
+  project: 'browser.searchPlaceholderProject',
+  office: 'browser.searchPlaceholderOffice',
+  personal: 'browser.searchPlaceholderPersonal',
+} as const
+
 export function FileWorkspace({
   shelf,
   renderHeader,
@@ -240,7 +246,7 @@ export function FileWorkspace({
         onChange: search.setQuery,
         onSubmit: search.run,
         onClear: search.clear,
-        placeholder: t(shelf.source === 'project' ? 'browser.searchPlaceholderProject' : 'browser.searchPlaceholderOffice'),
+        placeholder: t(SEARCH_PLACEHOLDER[shelf.source]),
       }}
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}

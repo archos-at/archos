@@ -58,12 +58,33 @@ describe('RailChatsProvider', () => {
     useLayoutStore.setState({ isSessionsPanelOpen: false })
   })
 
-  test('the page’s project, the reader’s own chats, newest first', () => {
+  test('every chat of the reader, in every project and none, newest first, each opening where it belongs (ADR-0193)', () => {
+    useChatStore.setState({
+      conversations: [...useChatStore.getState().conversations, conversation('alone', day(10), { projectId: null, shared: false })],
+    })
     show('/app/projects/p1/files')
-    expect(captured?.items.map((item) => item.id)).toEqual(['untitled', 'c7', 'c6', 'c5', 'c4', 'c3', 'c2', 'c1'])
-    expect(captured?.items[0]?.title).toBe('Untitled chat')
-    expect(captured?.items[1]?.href).toBe('/app/projects/p1/chat?session=c7')
+    expect(captured?.items.map((item) => item.id)).toEqual(['alone', 'other-project', 'untitled', 'c7', 'c6', 'c5', 'c4', 'c3', 'c2', 'c1'])
+    expect(captured?.items.find((item) => item.id === 'untitled')?.title).toBe('Untitled chat')
+    expect(captured?.items.find((item) => item.id === 'c7')?.href).toBe('/app/projects/p1/chat?session=c7')
+    expect(captured?.items.find((item) => item.id === 'other-project')?.href).toBe('/app/projects/p2/chat?session=other-project')
+    expect(captured?.items.find((item) => item.id === 'alone')?.href).toBe('/app/personal/chat?session=alone')
+    expect(captured?.items.find((item) => item.id === 'other-project')?.projectId).toBe('p2')
     expect(captured?.allHref).toBe('/app/projects/p1/chat')
+  })
+
+  test('the same list on the personal side, and its „Alle Chats“ is the personal chat', () => {
+    show('/app/personal-shelf')
+    expect(captured?.items.map((item) => item.id)).toContain('c7')
+    expect(captured?.allHref).toBe('/app/personal/chat')
+  })
+
+  test('a shared chat says so', () => {
+    useChatStore.setState({ conversations: [conversation('shared', day(9), { shared: true }), conversation('mine', day(8))] })
+    show('/app/projects/p1/files')
+    expect(captured?.items.map((item) => [item.id, item.shared])).toEqual([
+      ['shared', true],
+      ['mine', false],
+    ])
   })
 
   test('lists at most RAIL_CHAT_LIMIT, the newest', () => {
@@ -87,16 +108,13 @@ describe('RailChatsProvider', () => {
     expect(captured?.items.map((item) => item.title)).toEqual(['Shared chat'])
   })
 
-  test('a project nobody has chatted in has no rows', () => {
-    show('/app/projects/p3/files')
-    expect(captured?.items).toEqual([])
-  })
-
   test('on the chat route a row switches the store’s thread, elsewhere the link alone carries it', () => {
     show('/app/projects/p1/files')
     captured?.onOpen?.('c4')
     expect(selectConversation).not.toHaveBeenCalled()
     show('/app/projects/p1/chat')
+    captured?.onOpen?.('other-project')
+    expect(selectConversation).not.toHaveBeenCalled()
     captured?.onOpen?.('c4')
     expect(selectConversation).toHaveBeenCalledWith('c4')
   })

@@ -89,7 +89,7 @@ export async function admitDocumentWithinQuota(values: NewDocument): Promise<voi
   const quotaBytes = await getStorageQuotaBytes(values.organizationId)
   const result = await insertDocumentWithinQuota(values, quotaBytes)
   if (result.ok) {
-    publishShelfChanged(values.organizationId, documentShelf({ scope: values.scope, projectId: values.projectId ?? null }))
+    publishShelfChanged(values.organizationId, documentShelf({ scope: values.scope, projectId: values.projectId ?? null, ownerUserId: values.ownerUserId ?? null }))
     return
   }
 

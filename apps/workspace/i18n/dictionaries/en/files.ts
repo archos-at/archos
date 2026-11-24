@@ -1,4 +1,10 @@
 export const files = {
+  personalShelf: {
+    title: 'Meine Ablage',
+    crumb: 'Personal · Only you',
+    dropToUpload: 'Drop files here to add them to Meine Ablage',
+    ingestionComplete: '“{name}” is now in Meine Ablage',
+  },
   baseKnowledge: { label: 'Standard', open: 'Open as a standard: edition, licence, last check' },
   uploadZone: {
     clickToUpload: 'Click to upload',
@@ -402,6 +408,7 @@ export const files = {
     searchPlaceholder: 'Search…',
     searchPlaceholderProject: 'Search the project’s documents …',
     searchPlaceholderOffice: 'Search the office library …',
+    searchPlaceholderPersonal: 'Search my files …',
     searchLabel: 'Search files',
     noMatch: 'No files match “{query}”',
     noMatchDescription:
@@ -982,6 +989,7 @@ export const files = {
     scopeFolder: 'in this folder',
     scopeFolderTree: 'in this folder and its subfolders',
     scopeProject: 'in this project',
+    scopePersonal: 'in Meine Ablage',
     scopeOffice: 'in Office library',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
     headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
@@ -1618,7 +1626,7 @@ export const files = {
         zoom: 'Pinch to zoom in for a precise measurement',
       },
       closeArea: 'Close the area',
-      snapped: { vertex: 'Corner', edge: 'on line' },
+      snapped: { vertex: 'Corner · Ctrl/⌘ places freely', edge: 'On line · Ctrl/⌘ places freely' },
       noScale:
         'No scale is known for this page. Set it from a length you know, then you can measure.',
       exit: 'Stop measuring',
@@ -1630,6 +1638,8 @@ export const files = {
       provisionalLabel: 'Provisionally {value}, measured when you finish',
       readingLabel: 'Measurement',
       withTolerance: '{value} ± {tolerance}',
+      printedCheck: { true: 'Printed figure {figure} agrees', false: 'Printed figure {figure} differs, please check', null: 'Printed figure {figure}, not compared' },
+      perimeter: 'Perimeter {value}',
       shape: { line: 'Distance', path: 'Path length', polygon: 'Area' },
       basis: {
         verified: 'Scale confirmed',
@@ -1878,6 +1888,7 @@ export const files = {
     mine: 'For you',
     measurementsGroup: 'Measurements',
     measurementsLegend: 'Dimensions on the sheet, not open items.',
+    measurementsTotal: 'Total of {count, plural, one {# measurement} other {# measurements}}',
     proposalsGroup: '{count, plural, one {# proposal from {productName}} other {# proposals from {productName}}}',
     walkProposals: 'Go through',
     walkPosition: '{index}/{total}',

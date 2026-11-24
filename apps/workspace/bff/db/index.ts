@@ -5,6 +5,7 @@ import {
   ORGANIZATION_SETTING,
   PLATFORM_ROLE,
   USER_SETTING,
+  SYSTEM_READER_SETTING,
   getTenantContext,
   type TenantContext,
 } from "./tenant-context";
@@ -59,6 +60,7 @@ export function contextStatement(context: TenantContext): string {
   return [
     settingLiteral(ORGANIZATION_SETTING, context.organizationId),
     settingLiteral(USER_SETTING, context.userId ?? ""),
+    settingLiteral(SYSTEM_READER_SETTING, context.systemReader ?? ""),
     timeout,
   ].join("; ");
 }

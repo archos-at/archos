@@ -1,5 +1,5 @@
 import 'server-only'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader, withTenant, type SystemReader } from '@/lib/db/tenant-context'
 import { JOB_HANDLERS } from './handlers'
 import { runAsJobSlice } from './slice-scope'
 import { isBffJobKind, type JobSliceResult } from './types'
@@ -18,6 +18,15 @@ export class SliceAbortedError extends Error {
   }
 }
 
+export const SYSTEM_READER_JOBS: Partial<Record<string, SystemReader>> = {
+  office_rendition: 'rendition',
+  bim_extract: 'rendition',
+  search_facets_sync: 'search-projection',
+  revision_notice: 'document-notices',
+  document_check: 'document-notices',
+  annotation_due_reminders: 'document-notices',
+}
+
 export async function runHandler(job: {
   jobId?: string
   kind: string
@@ -30,8 +39,13 @@ export async function runHandler(job: {
   if (!isBffJobKind(kind)) throw new UnknownJobKindError(kind)
   if (job.signal?.aborted) throw new SliceAbortedError()
   return runAsJobSlice(() =>
-    withTenant({ organizationId: job.organizationId }, () =>
+    inTenantOf(kind, job.organizationId, () =>
       JOB_HANDLERS[kind]({ jobId: job.jobId, organizationId: job.organizationId, payload: job.payload, attempts: job.attempts, signal: job.signal })
     )
   )
+}
+
+function inTenantOf<T>(kind: string, organizationId: string, fn: () => Promise<T>): Promise<T> {
+  const reader = SYSTEM_READER_JOBS[kind]
+  return reader ? withSystemReader(organizationId, reader, fn) : withTenant({ organizationId }, fn)
 }

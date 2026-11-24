@@ -5,7 +5,7 @@ export function isOpenKind(kind: DownloadLogKind): boolean {
   return kind !== 'download'
 }
 
-export const DOWNLOAD_LOG_SCOPES = ['project', 'office_shelf', 'session'] as const
+export const DOWNLOAD_LOG_SCOPES = ['project', 'office_shelf', 'session', 'personal'] as const
 export type DownloadLogScope = (typeof DOWNLOAD_LOG_SCOPES)[number]
 
 export const DOWNLOAD_LOG_STORED_SCOPES = [...DOWNLOAD_LOG_SCOPES, 'archiv'] as const

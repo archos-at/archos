@@ -1,7 +1,7 @@
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { projects } from './projects'
 
-export const UPLOAD_BATCH_SCOPES = ['project', 'office_shelf', 'session'] as const
+export const UPLOAD_BATCH_SCOPES = ['project', 'office_shelf', 'session', 'personal'] as const
 export type UploadBatchScope = (typeof UPLOAD_BATCH_SCOPES)[number]
 
 export interface UploadBatchExclusion {

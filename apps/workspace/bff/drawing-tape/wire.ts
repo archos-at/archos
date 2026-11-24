@@ -50,6 +50,8 @@ export const tapeMeasurementSchema = z.object({
   scaleState: z.enum(SCALE_STATES),
   scaleRatio: z.number().nullable(),
   printed: z.string().max(200).nullable(),
+  printedCheck: z.object({ text: z.string().max(200), agrees: z.boolean().nullable() }).nullable().optional(),
+  perimeter: z.number().nullable().optional(),
   verdict: z.enum(['met', 'not_met', 'undecidable']).nullable(),
   reasons: z.array(z.string()),
   points: z.array(place),

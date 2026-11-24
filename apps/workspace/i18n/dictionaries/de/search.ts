@@ -13,6 +13,7 @@ export const search: typeof en.search = {
       office: 'Im ganzen Büro suchen…',
       project: 'In diesem Projekt suchen…',
       office_shelf: 'In der Bürobibliothek suchen…',
+      personal: 'In Meine Ablage suchen…',
     },
     placeholderShort: 'Suchen…',
     label: 'Suchen',

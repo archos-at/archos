@@ -11,7 +11,7 @@ export const POST = internalApiRoute(
     const context = withTurnShelves(request, requireVerifiedContext(request))
     const body = await parseJsonBody(request, internalAnnotationRequestSchema)
     const session = await requirePinnedSession(context)
-    return withTenant({ organizationId: context.organizationId }, async () => {
+    return withTenant({ organizationId: context.organizationId, userId: context.userId }, async () => {
       const document = await resolveAgentDocument(context, body.documentId ?? null, body.answerMessageId ?? null)
       return runAgentAnnotationRequest(session, document, body, {
         organizationId: context.organizationId,

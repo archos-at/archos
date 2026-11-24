@@ -71,9 +71,11 @@ TOOL_DESCRIPTION = (
     "the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a "
     "person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. "
     "An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. "
+    "`snap` false takes points as given. To keep a measurement, set a canvas `mark` (`line`, `path`, `polygon`) "
+    "on the same points; the server re-measures it. "
     "'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a "
     "length out yourself from a printed scale. State every number with its interval and provenance; never "
-    "recompute, round or convert one. `document` is the PDF's file name; empty means the open document."
+    "recompute, round or convert one."
 )
 
 
@@ -101,6 +103,10 @@ class DrawingMeasureInput(BaseModel):
     points: list[list[float]] = Field(
         default_factory=list, max_length=60, description="[[x, y], ...] for 'path' and 'area', in order."
     )
+    snap: bool = Field(
+        default=True,
+        description="False: the points as given, off any linework.",
+    )
     threshold_min: float | None = Field(
         default=None, ge=0, allow_inf_nan=False, description="A minimum to compare with, in m or m²."
     )
@@ -115,8 +121,11 @@ def _need_two(arguments: DrawingMeasureInput, page: int) -> NoNumber | None:
     return None
 
 
-def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> Answer:
-    request = Request(loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations)
+def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput, as_placed: bool = False) -> Answer:
+    as_placed = as_placed or not arguments.snap
+    request = Request(
+        loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations, as_placed=as_placed
+    )
     sheet = loaded.sheet
     if arguments.operation in ("path", "area"):
         operation = sheet_measure.path if arguments.operation == "path" else sheet_measure.area

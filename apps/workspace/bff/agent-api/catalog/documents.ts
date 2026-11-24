@@ -12,7 +12,13 @@ import {
 import { nameProbeRequestSchema } from '@/lib/documents/name-probe-types'
 import { DOCUMENT_STATUSES } from '@/lib/documents/document-status'
 import { SHELF_SCOPES } from '@/lib/documents/shelf-scope'
-import { searchBodyInputSchema, searchBodySchema, searchExportQuerySchema, searchScopeQuerySchema, suggestBodySchema } from '@/lib/search/search-wire'
+import {
+  searchBodyInputSchema,
+  searchBodySchema,
+  searchExportQuerySchema,
+  searchScopeQuerySchema,
+  suggestBodySchema,
+} from '@/lib/search/search-wire'
 import type { AgentOperation } from '../operation'
 import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith } from '../upload-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -251,8 +257,8 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Search everything the person may read, with filters',
     description:
-      'Searches every shelf the person may read, or one project (`projectId`), a folder of it (`folderId`) or the office ' +
-      'shelf (`scope: office_shelf`). Finds documents by name, by what ingestion read (type, parties, facts, references, ' +
+      'Searches every shared shelf, a project (`projectId`), its folder (`folderId`), the office shelf ' +
+      '(`office_shelf`) or yours (`personal`). Finds documents by name, by what ingestion read (type, parties, facts, references, ' +
       'drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and ' +
       'conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. ' +
       'A passage points at a page: read the document before quoting it.',

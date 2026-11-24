@@ -19,6 +19,7 @@ import { QUARANTINED_REPLACE_REASON } from './quarantine'
 type ReviewedDocument = Pick<Document, 'scope' | 'projectId' | 'folderId'>
 
 export async function mayReviewQuarantine(session: AuthorizedSession, doc: ReviewedDocument): Promise<boolean> {
+  if (doc.scope === 'personal') return false
   if (hasPermission(session, ORG_PERMISSIONS.projectsAdminister)) return true
   if (doc.scope === 'office_shelf') return canManageOfficeShelf(session)
   if (doc.scope !== 'project' || !doc.projectId) return false

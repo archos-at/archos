@@ -1,5 +1,5 @@
 import 'server-only'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
 import { pruneSpentQuarantines, sweepOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
 import type { UploadBatch } from '@/lib/db/schema/upload-batches'
@@ -45,7 +45,7 @@ export async function sweepUploadBatches(
   }
   for (const batch of open) {
     try {
-      await withTenant({ organizationId: batch.organizationId }, async () => {
+      await withSystemReader(batch.organizationId, 'ingestion-recovery', async () => {
         if (!batch.sealedAt && (await isAbandoned(batch, now))) {
           await sealAbandonedBatch(batch.organizationId, batch.id, now)
           result.sealed += 1

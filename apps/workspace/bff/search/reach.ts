@@ -10,16 +10,18 @@ import { projectFolders } from '@/lib/db/schema/project-folders'
 import type { Project } from '@/lib/db/schema/projects'
 import { withTenant } from '@/lib/db/tenant-context'
 import { SCREENED_ONLY, type DocumentReader } from '@/lib/documents/document-reader'
-import { OFFICE_SHELF, projectShelf, shelfFolderWhere, type DocumentShelf } from '@/lib/documents/shelf'
+import { OFFICE_SHELF, personalShelf, projectShelf, shelfFolderWhere, type DocumentShelf } from '@/lib/documents/shelf'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import { requirePersonalShelfDoor } from '@/lib/documents/personal-shelf-door'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { listProjects } from '@/lib/projects/service'
 import { escapeLikePattern } from '@/lib/text/like-pattern'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { inPool } from '@/lib/utils/in-pool'
-import type { SearchScope } from './search-wire'
+import type { SearchScope, SearchScopeQuery } from './search-wire'
 
 export interface ReachedProject {
   project: Project
@@ -35,6 +37,7 @@ export interface SearchReach {
   scope: SearchScope
   projects: readonly ReachedProject[]
   officeShelf: { collection: string; reviewsQuarantine: boolean; hiddenFolderIds?: readonly string[] } | null
+  personal?: { collection: string; userId: string } | null
   folderIds: readonly string[] | null
   screenedOnly?: boolean
   narrowedToProjects?: boolean
@@ -42,11 +45,15 @@ export interface SearchReach {
 
 const PROJECTS_AT_ONCE = 8
 
-export function resolveScope(query: { scope?: 'office' | 'project' | 'office_shelf'; projectId?: string; folderId?: string }): SearchScope {
+export function resolveScope(query: { scope?: SearchScopeQuery['scope']; projectId?: string; folderId?: string }): SearchScope {
   if (query.projectId && (query.scope === undefined || query.scope === 'project')) {
     return { kind: 'project', projectId: query.projectId, ...(query.folderId ? { folderId: query.folderId } : {}) }
   }
   if (query.scope === 'office_shelf') return { kind: 'office_shelf', ...(query.folderId ? { folderId: query.folderId } : {}) }
+  if (query.scope === 'personal') {
+    if (query.projectId) throw new BadRequestError('projectId names a project; the personal shelf takes none')
+    return { kind: 'personal', ...(query.folderId ? { folderId: query.folderId } : {}) }
+  }
   if (query.scope === 'project') throw new BadRequestError('projectId is required for the project scope')
   if (query.folderId) throw new BadRequestError('A folder is searched inside its project or the office shelf: pass projectId or scope=office_shelf')
   if (query.projectId) throw new BadRequestError('projectId names a project; the office shelf takes none')
@@ -114,6 +121,13 @@ export async function reachFor(session: AuthorizedSession, scope: SearchScope): 
       : null
     return { ...base, projects: [reached], officeShelf: null, folderIds }
   }
+  if (scope.kind === 'personal') {
+    requirePersonalShelfDoor(session)
+    const shelf = personalShelf(session.userId)
+    const folderIds = scope.folderId ? await folderSubtree(session.organizationId, shelf, scope.folderId, []) : null
+    const personal = { collection: personalShelfCollectionName(session.organizationId, session.userId), userId: session.userId }
+    return { ...base, projects: [], officeShelf: null, personal, folderIds }
+  }
   if (scope.kind === 'office_shelf') {
     const [officeShelf, hiddenFolderIds] = await Promise.all([reachOfficeShelf(session), officeShelfHiddenFolderIds(session)])
     const folderIds = scope.folderId
@@ -137,6 +151,7 @@ export async function reachForAudience(
     listing?: boolean
   } = {}
 ): Promise<SearchReach> {
+  if (scope.kind === 'personal') throw new NotFoundError('Not found')
   const audience = await withOwnProject(session, await audienceReach(session, conversationId), options)
   const pruneRestricted = !audience.restrictedFolders || options.listing === true
   const base = {
@@ -206,11 +221,19 @@ export function reachHiddenFolderIds(reach: SearchReach): string[] {
 }
 
 export function reachShelves(reach: SearchReach): DocumentShelf[] {
-  return [...reach.projects.map((reached) => projectShelf(reached.project.id)), ...(reach.officeShelf ? [OFFICE_SHELF] : [])]
+  return [
+    ...reach.projects.map((reached) => projectShelf(reached.project.id)),
+    ...(reach.officeShelf ? [OFFICE_SHELF] : []),
+    ...(reach.personal ? [personalShelf(reach.personal.userId)] : []),
+  ]
 }
 
 export function reachCollections(reach: SearchReach): string[] {
-  return [...reach.projects.flatMap((reached) => reached.collections), ...(reach.officeShelf ? [reach.officeShelf.collection] : [])]
+  return [
+    ...reach.projects.flatMap((reached) => reached.collections),
+    ...(reach.officeShelf ? [reach.officeShelf.collection] : []),
+    ...(reach.personal ? [reach.personal.collection] : []),
+  ]
 }
 
 export function reachReader(reach: SearchReach): DocumentReader {

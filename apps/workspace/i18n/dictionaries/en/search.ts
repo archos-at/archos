@@ -11,6 +11,7 @@ export const search = {
       office: 'Search the whole office…',
       project: 'Search this project…',
       office_shelf: 'Search the office library…',
+      personal: 'Search Meine Ablage…',
     },
     placeholderShort: 'Search…',
     label: 'Search',

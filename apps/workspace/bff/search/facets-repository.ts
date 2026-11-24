@@ -4,20 +4,20 @@ import { getDb } from '@/lib/db'
 import { documentSearchFacets, documentSearchShelves, type DocumentSearchShelfRow, type NewDocumentSearchFacetsRow } from '@/lib/db/schema/document-search'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
-import { shelfDocumentWhere, type DocumentShelf } from '@/lib/documents/shelf'
+import { documentShelf, shelfDocumentWhere, shelfKey, type DocumentShelf } from '@/lib/documents/shelf'
+
+export { shelfKey }
 
 export const STALE_FINGERPRINT = 'stale'
 
 export const PROJECTION_PAGE_SIZE = 200
 
-export function shelfKey(shelf: DocumentShelf): string {
-  return shelf.kind === 'project' ? `project:${shelf.projectId}` : 'office_shelf'
-}
-
 export function shelfOfKey(key: string): DocumentShelf | null {
   if (key === 'office_shelf') return { kind: 'office_shelf' }
-  const match = /^project:([0-9a-f-]{36})$/.exec(key)
-  return match ? { kind: 'project', projectId: match[1] } : null
+  const project = /^project:([0-9a-f-]{36})$/.exec(key)
+  if (project) return { kind: 'project', projectId: project[1] }
+  const personal = /^personal:([A-Za-z0-9_-]{1,120})$/.exec(key)
+  return personal ? { kind: 'personal', userId: personal[1] } : null
 }
 
 export async function deleteSearchFacets(organizationId: string, documentId: string): Promise<void> {
@@ -92,12 +92,14 @@ export async function shelfSourceFingerprints(
 ): Promise<Map<string, string>> {
   const projectIds = shelves.flatMap((shelf) => (shelf.kind === 'project' ? [shelf.projectId] : []))
   const officeShelf = shelves.some((shelf) => shelf.kind === 'office_shelf')
-  if (projectIds.length === 0 && !officeShelf) return new Map()
+  const ownerIds = shelves.flatMap((shelf) => (shelf.kind === 'personal' ? [shelf.userId] : []))
+  if (projectIds.length === 0 && !officeShelf && ownerIds.length === 0) return new Map()
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .select({
         scope: documents.scope,
         projectId: documents.projectId,
+        ownerUserId: documents.ownerUserId,
         documents: count(),
         newest: max(documents.updatedAt),
       })
@@ -107,16 +109,19 @@ export async function shelfSourceFingerprints(
           eq(documents.organizationId, organizationId),
           or(
             projectIds.length > 0 ? and(eq(documents.scope, 'project'), inArray(documents.projectId, projectIds)) : undefined,
-            officeShelf ? eq(documents.scope, 'office_shelf') : undefined
+            officeShelf ? eq(documents.scope, 'office_shelf') : undefined,
+            ownerIds.length > 0 ? and(eq(documents.scope, 'personal'), inArray(documents.ownerUserId, ownerIds)) : undefined
           )
         )
       )
-      .groupBy(documents.scope, documents.projectId)
+      .groupBy(documents.scope, documents.projectId, documents.ownerUserId)
   )
   const fingerprints = new Map<string, string>()
   for (const shelf of shelves) fingerprints.set(shelfKey(shelf), '0')
   for (const row of rows) {
-    const key = row.scope === 'office_shelf' ? 'office_shelf' : `project:${row.projectId}`
+    const shelf = documentShelf(row)
+    if (!shelf) continue
+    const key = shelfKey(shelf)
     const newest = row.newest ? new Date(row.newest).toISOString() : '-'
     fingerprints.set(key, `${Number(row.documents)}@${newest}`)
   }

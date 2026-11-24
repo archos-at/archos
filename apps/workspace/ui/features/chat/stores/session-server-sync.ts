@@ -48,6 +48,7 @@ export const createSessionServerSyncSlice: StateCreator<
           updatedAt: new Date(serverConv.updatedAt as unknown as string),
           jobId: serverConv.jobId ?? null,
           temporary: serverConv.temporary === true,
+          shared: serverConv.shared === true,
           subjectResourceType: locked
             ? null
             : serverConv.subjectResourceType === 'document'

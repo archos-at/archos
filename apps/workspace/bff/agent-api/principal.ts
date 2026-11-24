@@ -12,7 +12,7 @@ import {
 import { type JWTVerifyGetKey, createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose'
 import { ApiError } from '@/lib/api/errors'
 import { requireVerifiedContext, requirePinnedSession } from '@/lib/api/internal-envelope'
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { resolveMemberSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { FEATURE_FLAGS, type KnownFeatureFlag } from '@/lib/authz/feature-flags'
 import { getPlatformOrganizationId, isPlatformStaff } from '@/lib/authz/platform'
@@ -192,7 +192,7 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
 }
 
 function freshSession(userId: string, organizationId: string): Promise<AuthorizedSession | null> {
-  return resolvePinnedRequesterSession({ userId, email: null, organizationId })
+  return resolveMemberSession({ userId, email: null, organizationId })
 }
 
 async function platformPrincipal(auth: AuthInfo, userId: string): Promise<AgentPrincipal | AuthChallenge> {
