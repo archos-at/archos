@@ -103,17 +103,29 @@ function measure({ width, min, productName }) {
   return { overflow, culprit, small: [...small.entries()] }
 }
 
+async function warmUp(browser, base, route) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await page.goto(base + route, { waitUntil: 'networkidle', timeout: 180000 }).catch(() => {})
+  await context.close().catch(() => {})
+}
+
 async function auditRoute(browser, base, route, found, unrendered) {
+  await warmUp(browser, base, route)
   for (const phone of PHONES) {
     const context = await browser.newContext({ viewport: { width: phone.width, height: phone.height }, isMobile: true, hasTouch: true })
+    await context.addInitScript(() => {
+      if ('Notification' in window) Object.defineProperty(Notification, 'permission', { get: () => 'denied' })
+    })
     const page = await context.newPage()
     try {
       const load = () => page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
       const first = await load().catch(() => null)
       const response = first?.ok() ? first : await load()
       if (!response?.ok()) throw new Error(`HTTP ${response?.status() ?? 'no response'}`)
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
       await page.waitForTimeout(1000)
+      await page.addStyleTag({ content: '* { content-visibility: visible !important; }' })
       await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
       const { overflow, culprit, small } = await page.evaluate(measure, { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME })
       if (overflow > 0) {

@@ -310,7 +310,7 @@ export function Composer({
             onBlur={() => setQuery(null)}
             onKeyDown={onKeyDown}
             enterKeyHint="send"
-            className="placeholder:text-muted-foreground min-h-6 flex-1 resize-none border-0 bg-transparent py-0.5 text-[13px] leading-5 shadow-none outline-none! ring-0 focus-visible:ring-0 pointer-coarse:text-base"
+            className="placeholder:text-muted-foreground min-h-6 flex-1 resize-none border-0 bg-transparent py-0.5 text-[13px] leading-5 shadow-none outline-none! ring-0 focus-visible:ring-0 pointer-coarse:min-h-11 pointer-coarse:py-2.5 pointer-coarse:text-base"
           />
           {agentButton}
           <Button
