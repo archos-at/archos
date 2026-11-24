@@ -2328,6 +2328,10 @@
     "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
   },
   {
+    "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
+    "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
+  },
+  {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
     "de": "Jeder Schritt hinter dieser Zahl wird mitveröffentlicht: welche Zahlen auf unseren Annahmen beruhen und welche auf Ihren, wie die Arbeitswoche eines Planers angenommen wird und was die Berechnung bewusst nicht berücksichtigt."
   },
@@ -4040,6 +4044,10 @@
     "de": "Der Tab „E-Mails“ einer Unterhaltung listet die E-Mails ohne Button-Leiste darunter auf: „Original (.eml)“ steht neben dem Eingangszeitpunkt, und „Was diese E-Mail hinzufügte“ finden Sie im „...“-Menü der E-Mail. Die Liste zeigt die neuesten E-Mails zuerst an."
   },
   {
+    "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
+    "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
+  },
+  {
     "en": "The \"Unterhaltung öffnen\" link on a task card now opens the conversation the task is running in. Before, it led nowhere, so the one control on the card did nothing.",
     "de": "Der Link „Unterhaltung öffnen“ auf einer Aufgabenkarte öffnet jetzt die Unterhaltung, in der die Aufgabe läuft. Bisher führte er ins Leere, sodass das einzige Bedienelement auf der Karte nichts tat."
   },
@@ -4770,6 +4778,14 @@
   {
     "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
     "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+  },
+  {
+    "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
+    "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
+  },
+  {
+    "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
+    "de": "Die Projektauswahl zeigt die fünf Projekte, an denen Sie zuletzt gearbeitet haben, sowie „Alle Projekte anzeigen“ für die übrigen und eine Suche über alle Projekte. So erreichen Sie die Projekte, mit denen Sie gerade beschäftigt sind, mit einem Klick – unabhängig davon, wie viele Projekte Ihr Büro hat."
   },
   {
     "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
