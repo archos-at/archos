@@ -44,6 +44,7 @@ vi.mock('@/lib/annotations/repository', () => ({
 
 import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { createAnnotation, listAnnotations, updateAnnotation } from '@/lib/annotations/client'
+import { AGENT_KIND } from '@/lib/agent-kind'
 import {
   carryAnnotationToDocument,
   findDocumentAnnotation,
@@ -270,7 +271,7 @@ describe('whether the review view offers the tape', () => {
 describe('a measurement the agent sets', () => {
   it('is measured again by the server, like a person’s', async () => {
     vi.mocked(measureOnReadDocument).mockResolvedValue({ measurement: ENGINE })
-    vi.mocked(insertDocumentAnnotations).mockResolvedValue([{ ...KEPT_LINE, authorKind: 'piloti', status: 'proposed' }])
+    vi.mocked(insertDocumentAnnotations).mockResolvedValue([{ ...KEPT_LINE, authorKind: AGENT_KIND, status: 'proposed' }])
 
     await proposeAnnotations(SESSION, 'doc_1', [LINE, { page: 3, shape: 'point', x: 0.2, y: 0.5, kind: 'hint', body: 'Tür' }])
 

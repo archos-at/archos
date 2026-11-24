@@ -66,18 +66,23 @@ def _cells_of(ends: tuple[float, float, float, float]) -> set[tuple[int, int]]:
     }
 
 
+def _crossings_in_cell(
+    segments: Sequence[tuple[float, float, float, float]], cell: tuple[int, int], members: list[int]
+) -> Iterable[Point]:
+    for first, second in combinations(members, 2):
+        met = _intersection(segments[first], segments[second])
+        if met is not None and (int(met[0] // _CELL_PT), int(met[1] // _CELL_PT)) == cell:
+            yield met
+
+
 def _crossings(segments: Sequence[tuple[float, float, float, float]]) -> Iterable[Point]:
     cells: dict[tuple[int, int], list[int]] = defaultdict(list)
     for index, ends in enumerate(segments):
         for cell in _cells_of(ends):
             cells[cell].append(index)
-    for (column, row), members in cells.items():
-        if len(members) > MAX_PAIRED_IN_CELL:
-            continue
-        for first, second in combinations(members, 2):
-            met = _intersection(segments[first], segments[second])
-            if met is not None and (int(met[0] // _CELL_PT), int(met[1] // _CELL_PT)) == (column, row):
-                yield met
+    for cell, members in cells.items():
+        if len(members) <= MAX_PAIRED_IN_CELL:
+            yield from _crossings_in_cell(segments, cell, members)
 
 
 def _shares(sheet: Sheet, points: Iterable[Point]) -> tuple[float, ...]:
