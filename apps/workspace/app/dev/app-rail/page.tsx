@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
+import { KeyboardShortcuts } from '@/components/shell/keyboard-shortcuts'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
@@ -130,6 +131,7 @@ export default function AppRailPreview(): JSX.Element {
         canManageOrganization={false}
         canManagePlatform={false}
       />
+      <KeyboardShortcuts authRequired canViewOrganization />
     </div>
     </DevRailChats>
   )
