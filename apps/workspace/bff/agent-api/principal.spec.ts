@@ -5,10 +5,10 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
+vi.mock('@/lib/auth/pinned-session', () => ({ resolveMemberSession: vi.fn(), resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn() }))
 
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { resolveMemberSession, resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { MEMBERSHIP_TTL_MS } from '@/lib/authz/project-membership'
 import { buildRequestContextEnvelope, REQUEST_CONTEXT_HEADER_NAMES } from '@/lib/request-context'
@@ -76,6 +76,7 @@ beforeEach(() => {
   vi.stubEnv('MCP_RESOURCE_URL', RESOURCE)
   vi.stubEnv('MCP_FORMER_ORIGINS', undefined)
   vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.mocked(resolveMemberSession).mockResolvedValue(session)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
 })
@@ -91,7 +92,7 @@ describe('external agent (bearer token)', () => {
       scopes: ['openid', 'profile'],
       sensitiveOptIns: ['access', 'secret', 'control'],
     })
-    expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_1', email: null, organizationId: 'org_1' })
+    expect(resolveMemberSession).toHaveBeenCalledWith({ userId: 'user_1', email: null, organizationId: 'org_1' })
     expect(MEMBERSHIP_TTL_MS).toBeLessThanOrEqual(60_000)
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('agent-mcp', 'org_1')
   })
@@ -124,7 +125,7 @@ describe('external agent (bearer token)', () => {
       await resolvePrincipal(bearer(await token({}, { aud: 'https://other.example/api/mcp' })), { jwks }),
     )
     expect(response.status).toBe(401)
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('takes a token for the A2A door on either door: both are this server’s resources (ADR-0124)', async () => {
@@ -168,7 +169,7 @@ describe('external agent (bearer token)', () => {
         'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/a2a"',
       )
     }
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   describe('after a domain move (MCP_FORMER_ORIGINS)', () => {
@@ -253,11 +254,11 @@ describe('external agent (bearer token)', () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
     const { response } = challengeOf(await resolvePrincipal(bearer(await token()), { jwks }))
     expect(response.status).toBe(403)
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+    expect(resolveMemberSession).not.toHaveBeenCalled()
   })
 
   it('answers 403 when the person is no longer a member', async () => {
-    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
+    vi.mocked(resolveMemberSession).mockResolvedValue(null)
     const { response } = challengeOf(await resolvePrincipal(bearer(await token()), { jwks }))
     expect(response.status).toBe(403)
   })
