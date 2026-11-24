@@ -5,7 +5,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { CURSOR_TIMESTAMP_FORMAT, type DocumentListCursor } from '@/lib/documents/list-cursor'
 import { SCHEDULE_SKIPPED_BECAUSE } from '@/lib/projects/project-status'
 import type { TaskRunReviewFilter } from './task-wire'
-import { TASK_RUN_LIFECYCLE } from './task-vocabulary'
+import { TASK_RUN_LIFECYCLE, type TaskKind } from './task-vocabulary'
 import { documents } from '@/lib/db/schema/documents'
 import { taskDefinitions, taskRuns, type NewTaskDefinition, type NewTaskRun, type TaskDefinition, type TaskRun, type TaskRunStatus } from '@/lib/db/schema/task-model'
 
@@ -87,6 +87,7 @@ export async function listDefinitionPage(
 
 export interface RunPageFilter {
   definitionId?: string
+  kind?: TaskKind
   status?: TaskRunStatus
   review?: TaskRunReviewFilter
 }
@@ -113,6 +114,7 @@ export async function listRunPage(
         eq(taskRuns.projectId, projectId),
         eq(taskRuns.organizationId, organizationId),
         options.definitionId ? eq(taskRuns.definitionId, options.definitionId) : undefined,
+        options.kind ? eq(taskRuns.kind, options.kind) : undefined,
         options.status ? eq(taskRuns.status, options.status) : undefined,
         reviewCondition(options.review),
         afterCursor(taskRuns.createdAt, taskRuns.id, options.cursor),

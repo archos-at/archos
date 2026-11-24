@@ -11,6 +11,7 @@ from .conversation_output import write_job_notice
 from .event_store import BatchingEventStore
 from .event_store import EventStore
 from .outcome_notify import notify_job_outcome
+from .terminal import terminal_job_statuses
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,9 @@ async def _update_status_if_not_terminal(job_store: Any, job_id: str, status: An
 
     if not isinstance(status, JobStatus):
         status = JobStatus(status)
-    terminal_statuses = {JobStatus.SUCCESS.value, JobStatus.FAILURE.value, JobStatus.INTERRUPTED.value}
     stmt = (
         update(JobInfo)
-        .where(JobInfo.job_id == job_id, JobInfo.status.not_in(terminal_statuses))
+        .where(JobInfo.job_id == job_id, JobInfo.status.not_in(terminal_job_statuses()))
         .values(_status_values(status, **kwargs))
     )
     async with job_store.session() as session:

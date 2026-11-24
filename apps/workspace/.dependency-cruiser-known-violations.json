@@ -188,23 +188,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/components/shell/app-sidebar.tsx",
-    "to": "ui/features/collaboration/hooks/use-inbox.ts",
-    "unresolvedTo": "@/features/collaboration/hooks/use-inbox",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/components/shell/command-palette.tsx",
     "to": "ui/features/layout/store.ts",
     "unresolvedTo": "@/features/layout/store",
@@ -1783,23 +1766,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/LookStrip.tsx",
-    "to": "ui/features/knowledge/components/page-place-button.tsx",
-    "unresolvedTo": "@/features/knowledge/components/page-place-button",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/chat/components/reasoning/SourceCard.tsx",
     "to": "ui/features/layout/components/SourceSignalChip.tsx",
     "unresolvedTo": "@/features/layout/components/SourceSignalChip",
@@ -1808,41 +1774,6 @@
       "aliased-tsconfig",
       "aliased-tsconfig-paths",
       "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/WorkList.tsx",
-    "to": "ui/features/knowledge/components/page-place-dialog.tsx",
-    "unresolvedTo": "@/features/knowledge/components/page-place-dialog",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/components/reasoning/WorkList.tsx",
-    "to": "ui/features/knowledge/lib/page-place.ts",
-    "unresolvedTo": "@/features/knowledge/lib/page-place",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
       "import"
     ],
     "rule": {
@@ -2488,40 +2419,6 @@
     "from": "ui/features/collaboration/components/InboxItemRow.tsx",
     "to": "ui/features/uploads/components/upload-report.tsx",
     "unresolvedTo": "@/features/uploads/components/upload-report",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/InboxList.tsx",
-    "to": "ui/features/documents/components/review/focus-return.ts",
-    "unresolvedTo": "@/features/documents/components/review/focus-return",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/InboxList.tsx",
-    "to": "ui/features/notifications/components/notification-prompt.tsx",
-    "unresolvedTo": "@/features/notifications/components/notification-prompt",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",

@@ -7,7 +7,14 @@ import { ReasoningFlow } from '@/features/chat/components/reasoning/ReasoningFlo
 import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { LookCard } from '@/features/cards/components/LookCard'
 import { a1SheetPdf } from '../_fixtures/a1-sheet'
-import { LOOK_CARD, LOOK_CARD_NO_ACCESS, LOOK_HIDDEN_ID, LOOK_SHEET_ID, LOOK_STEP_BODIES } from '../_fixtures/look'
+import {
+  LOOK_CARD,
+  LOOK_CARD_NO_ACCESS,
+  LOOK_HIDDEN_ID,
+  LOOK_SHEET_ID,
+  LOOK_STEP_BODIES,
+  MEASURE_STEP_BODIES,
+} from '../_fixtures/look'
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __lookPreviewShim?: boolean }
@@ -27,9 +34,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-const useSteps = () =>
+const useSteps = (bodies: readonly Record<string, unknown>[]) =>
   useMemo(() => {
-    const events = LOOK_STEP_BODIES.flatMap((body, index) => {
+    const events = bodies.flatMap((body, index) => {
       const event = parseWireEvent({
         v: 2,
         conversation_id: 'conv-look',
@@ -42,7 +49,7 @@ const useSteps = () =>
     })
     const view = foldTurnEvents(undefined, events)
     return view ? view.stepOrder.map((id) => view.steps[id]) : []
-  }, [])
+  }, [bodies])
 
 const Scenario: FC<{ id: string; title: string; note: string; children: React.ReactNode }> = ({
   id,
@@ -60,7 +67,8 @@ const Scenario: FC<{ id: string; title: string; note: string; children: React.Re
 )
 
 const Preview: FC = () => {
-  const steps = useSteps()
+  const steps = useSteps(LOOK_STEP_BODIES)
+  const measured = useSteps(MEASURE_STEP_BODIES)
   return (
     <main data-testid="look-preview" className="text-foreground mx-auto flex w-full max-w-[720px] flex-col gap-10 p-4 sm:p-6">
       <Scenario id="card" title="Angesehen-Karte" note="Zwei Ansichten mit dem Gelesenen und eine gezeigte Stelle, auf einem A1-Grundriss.">
@@ -76,6 +84,11 @@ const Preview: FC = () => {
             userQuestion="Welcher Index und welche Fläche hat Top 1 im Grundriss 1. OG?"
             answerConfidence="medium"
           />
+        </div>
+      </Scenario>
+      <Scenario id="measure" title="Gemessen" note="drawing_measure in der Herleitung: lichte Breite mit geschätztem, Abstand mit bestätigtem Maßstab, eine Fläche aus einer Maßzahl, und eine Messung ohne Zahl.">
+        <div className="border-base rounded-lg border px-2 pb-3 pt-3 sm:px-4">
+          <ReasoningFlow steps={measured} userQuestion="Wie breit ist der Gang im 1. OG?" answerConfidence="medium" />
         </div>
       </Scenario>
     </main>

@@ -178,7 +178,7 @@ describe('POST /api/internal/document-annotations', () => {
     await expect(response.json()).resolves.toEqual({
       documentId: DOC_ID,
       documentName: 'Grundriss EG.pdf',
-      proposed: [{ id: 'ann_1', number: 4, page: 1, shape: 'region', x: 0.1, y: 0.2, w: 0.3, h: 0.1, kind: 'defect', body: PROPOSAL.body }],
+      proposed: [{ id: 'ann_1', number: 4, page: 1, shape: 'region', x: 0.1, y: 0.2, w: 0.3, h: 0.1, points: null, reading: null, kind: 'defect', body: PROPOSAL.body }],
     })
   })
 
@@ -411,6 +411,8 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Laufbreite im Treppenhaus unter 1,20 m.',
   basis: null,

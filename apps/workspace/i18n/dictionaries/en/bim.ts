@@ -420,7 +420,7 @@ export const bim = {
       horizontal: 'horizontal',
       vertical: 'vertical',
       first: 'Click the first point',
-      second: 'Click the second point — Esc cancels',
+      second: 'Click the second point · Esc cancels',
       firstTouch: 'Tap the first point',
       secondTouch: 'Tap the second point — Measure ends the measurement',
       clear: 'Clear measurements',

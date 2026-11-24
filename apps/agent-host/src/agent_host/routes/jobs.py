@@ -25,7 +25,6 @@ from .job_models import InternalJobOutcomeResponse
 from .job_models import JobReportResponse
 from .job_models import JobStateResponse
 from .job_models import JobStatusResponse
-from .job_models import ResearchRunsResponse
 from .job_reaper import checkpoint_retention_seconds
 from .job_reaper import job_info_delete_grace_seconds
 from .job_reaper import reap_stale_jobs_once
@@ -220,22 +219,6 @@ _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
                 403: {"description": "Missing or invalid internal token"},
                 404: {"description": "Job not found"},
             },
-        ),
-    ),
-    (
-        "GET",
-        "/v1/jobs/async/jobs",
-        "list_research_runs",
-        dict(
-            response_model=ResearchRunsResponse,
-            tags=["async jobs"],
-            summary="List research runs",
-            description=(
-                "List async job runs (research runs), optionally filtered by project collection, "
-                "conversation, and/or status. Scoped to the runs a single-job read would open: the "
-                "caller's own, and those in the project or conversation its signed envelope names "
-                "(ADR-0084)."
-            ),
         ),
     ),
 )

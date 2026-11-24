@@ -26,6 +26,10 @@ import {
 import { projectProtocolQuerySchema } from '@/lib/annotations/project-types'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { listCalibrationsQuerySchema } from '@/lib/drawing-calibrations/list-wire'
+import { setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
+import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
+import { measureRequestSchema } from '@/lib/drawing-tape/wire'
 
 const documentParams = z.object({
   id: z.string().describe('The document id, from a project document listing or workspace-search.'),
@@ -35,6 +39,10 @@ const projectParams = z.object({ id: z.string().describe('The project id, from p
 
 const versionParams = documentParams.extend({
   versionId: z.string().describe('The version id, from document-version-list.'),
+})
+
+const calibrationParams = documentParams.extend({
+  calibrationId: z.string().describe('The calibration id, from drawing-calibration-list.'),
 })
 
 const annotationParams = documentParams.extend({
@@ -453,4 +461,84 @@ export const reviewOperations = [
     load: () => import('@/app/api/projects/[id]/annotations/export/route'),
   },
 
+  {
+    name: 'document-measure',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework',
+    description:
+      'Measures on a page of the document’s current version, from the file’s linework: `distance` (two points), `path` (two or ' +
+      'more), `area` (three or more corners in order); `snap` says where each point ties to a line end or corner. Points are ' +
+      'shares of the page, origin top left. Returns a measurement with its interval, provenance and scale state, or no number ' +
+      'with a `code`, reason and remedy. State a number with its interval; never recompute one. Keep it with annotation-create.',
+    method: 'POST',
+    path: '/api/documents/[id]/measure',
+    params: documentParams,
+    body: measureRequestSchema,
+    readOnly: true,
+    examples: [
+      {
+        params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
+        body: { page: 1, operation: 'distance', points: [[0.21, 0.4], [0.36, 0.4]] },
+      },
+    ],
+    load: () => import('@/app/api/documents/[id]/measure/route'),
+  },
+  {
+    name: 'drawing-calibration-list',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'List the calibrations of a PDF drawing',
+    description:
+      'The calibrations people set on the document’s current version, oldest first: each a region of a page, two reference points and the ' +
+      'true length between them in metres, places as shares of the page (origin top left). `status` defaults to `active`; ' +
+      '`canCalibrate` says whether the caller may set one. Paged by `cursor`. A new version starts with none.',
+    method: 'GET',
+    path: '/api/documents/[id]/calibrations',
+    params: documentParams,
+    query: listCalibrationsQuerySchema,
+    load: () => import('@/app/api/documents/[id]/calibrations/route'),
+  },
+  {
+    name: 'drawing-calibration-set',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'Set the scale of a region of a PDF drawing',
+    description:
+      'Calibrates a region of a page of the document’s current version from two reference points and the true length between them, ' +
+      'superseding the calibration of the same region. Both points lie inside `region`, which is never the whole page by default. ' +
+      'Regions on one page lie apart or one wholly inside another (a 1:20 detail inside a 1:100 sheet; the smaller one holds there); ' +
+      'a region that partly overlaps an active one is refused (409, code `region-overlaps`, `overlapping` names it). ' +
+      'A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.',
+    method: 'POST',
+    path: '/api/documents/[id]/calibrations',
+    params: documentParams,
+    body: setCalibrationRequestSchema,
+    examples: [
+      {
+        params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
+        body: {
+          page: 1,
+          region: { x: 0.05, y: 0.08, w: 0.45, h: 0.8 },
+          from: { x: 0.12, y: 0.62 },
+          to: { x: 0.31, y: 0.62 },
+          lengthM: 5.4,
+        },
+      },
+    ],
+    load: () => import('@/app/api/documents/[id]/calibrations/route'),
+  },
+  {
+    name: 'drawing-calibration-withdraw',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'Withdraw a calibration of a PDF drawing',
+    description:
+      'Withdraws one active calibration (id from drawing-calibration-list); its region is uncalibrated again, and the calibration it ' +
+      'had superseded is not brought back. One that is not active is refused (409).',
+    method: 'POST',
+    path: '/api/documents/[id]/calibrations/[calibrationId]/withdraw',
+    params: calibrationParams,
+    load: () => import('@/app/api/documents/[id]/calibrations/[calibrationId]/withdraw/route'),
+  },
 ] as const satisfies readonly AgentOperation[]

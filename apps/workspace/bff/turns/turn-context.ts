@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffort } from '@/lib/best-effort'
 import type { UserSession } from '@/lib/auth/types'
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
@@ -9,15 +10,6 @@ import { getBudgetStatus } from '@/lib/budgets/service'
 import { announceBudgetBlocked } from '@/lib/budgets/budget-events'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { requesterOf, type RequestPerson } from '@/lib/request-context'
-
-async function bestEffort<T>(what: string, load: () => Promise<T>): Promise<T | null> {
-  try {
-    return await load()
-  } catch (error) {
-    console.warn(`[Turn Context] Failed to ${what}:`, error)
-    return null
-  }
-}
 
 export interface TurnBudget {
   remainingOrgUsd: number | null
@@ -85,7 +77,7 @@ export async function resolveTurnContext(
   }
 
   const organizationId = session?.organizationId
-  const effectiveProjectId = authorizedProjectId ?? projectId
+  const effectiveProjectId = authorizedProjectId
 
   const memoryReflectionEnabled = await isMemoryReflectionEnabled(organizationId)
   const budgetStatus =

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -19,12 +20,13 @@ export interface ViewerIconButtonProps
   disabled?: boolean
   side?: 'top' | 'bottom' | 'left' | 'right'
   adornment?: ReactNode
+  shortcut?: string
   className?: string
 }
 
 export const ViewerIconButtonBase = forwardRef<HTMLButtonElement, ViewerIconButtonProps>(
   function ViewerIconButtonBase(
-    { label, icon: Icon, onClick, active, disabled, side: _side, adornment, className, ...rest },
+    { label, icon: Icon, onClick, active, disabled, side: _side, adornment, shortcut, className, ...rest },
     ref
   ) {
     return (
@@ -33,6 +35,7 @@ export const ViewerIconButtonBase = forwardRef<HTMLButtonElement, ViewerIconButt
         type="button"
         {...(active === undefined ? {} : { 'aria-pressed': active })}
         aria-label={label}
+        aria-keyshortcuts={shortcut}
         title={label}
         disabled={disabled}
         onClick={onClick}
@@ -61,6 +64,7 @@ export const ViewerIconButton = forwardRef<HTMLButtonElement, ViewerIconButtonPr
         </TooltipTrigger>
         <TooltipContent side={side} sideOffset={8}>
           {props.label}
+          {props.shortcut && <Kbd className="ml-1">{props.shortcut}</Kbd>}
         </TooltipContent>
       </Tooltip>
     )

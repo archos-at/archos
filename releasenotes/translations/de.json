@@ -128,6 +128,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+    "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
+  },
+  {
     "en": "A chat question no longer waits up to twenty seconds while a colleague's upload to the project or the office filing is still being read; only a file you attached to the conversation itself holds the answer.",
     "de": "Eine Chatfrage wartet nicht mehr bis zu 20 Sekunden, während der Upload eines Kollegen ins Projekt oder in die Büroablage noch eingelesen wird; für die Antwort wird nur eine Datei herangezogen, die Sie direkt an die Unterhaltung angehängt haben."
   },
@@ -1156,6 +1160,10 @@
     "de": "Nachdem Sie eine Rückfrage beantwortet haben, zeigt ein Hinweis unten im Chat jetzt, dass Piloti weiterarbeitet. Bisher wirkte der Chat fertig, obwohl die Antwort noch kam."
   },
   {
+    "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+    "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
+  },
+  {
     "en": "After you mark an answer as not helpful, \"Answer again, more thoroughly\" asks the same question again, and Piloti thinks longer about that one answer. Your chat's thinking setting stays as it was.",
     "de": "Wenn Sie eine Antwort als nicht hilfreich markieren, stellt „Antwort erneut, ausführlicher“ dieselbe Frage noch einmal, und Piloti denkt bei dieser einen Antwort länger nach. Die Einstellung für die Denkzeit Ihres Chats bleibt unverändert."
   },
@@ -1382,6 +1390,10 @@
   {
     "en": "An open annotation from an earlier revision can now be carried over to the current one from its card, or all of them at once from the list, keeping its number, its place and its thread.",
     "de": "Eine offene Anmerkung aus einer früheren Revision lässt sich jetzt über ihre Karte in die aktuelle Revision übernehmen – oder alle auf einmal über die Liste. Nummer, Position und Kommentarverlauf bleiben dabei erhalten."
+  },
+  {
+    "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+    "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
   },
   {
     "en": "An open document now shows what Piloti saw on each page, with the drawing type and scale, right under its summary, and a click on an entry turns the document to that page. Format, page count and size sit under the name, so the side panel keeps only what Piloti read, the Fassungen and the pages.",
@@ -2032,6 +2044,10 @@
     "de": "Beim Löschen einer Rolle fragt Piloti jetzt auch nach Ordnern im Papierkorb oder in einem gelöschten Projekt, deren Zugriffsliste sie nennt, und markiert sie in der Liste. Bisher brachte das Wiederherstellen eines solchen Ordners eine Liste mit einer Rolle zurück, die es nicht mehr gab."
   },
   {
+    "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+    "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+  },
+  {
     "en": "Deleting an Archiv document or a chat attachment now also removes its version history.",
     "de": "Beim Löschen eines Archiv-Dokuments oder eines Chat-Anhangs verschwindet jetzt auch sein Versionsverlauf."
   },
@@ -2054,6 +2070,10 @@
   {
     "en": "Dictating on a phone shows a full-width bar while it records, with the time against the 45-second limit; tap anywhere on it to insert the text. A microphone that cannot be used says why when you tap it.",
     "de": "Beim Diktieren am Smartphone wird während der Aufnahme eine Leiste über die gesamte Breite mit einer Zeitanzeige bis zum 45-Sekunden-Limit eingeblendet. Tippen Sie an beliebiger Stelle darauf, um den Text einzufügen. Wenn ein Mikrofon nicht verwendet werden kann, erfahren Sie beim Antippen den Grund."
+  },
+  {
+    "en": "Distances, paths and areas can now be measured on a PDF drawing in the review: „Messen“ (M) snaps to the drawing's lines, shows the length as you place points and keeps the measurement on the sheet with its tolerance and the drawing's scale, where the whole team and {productName} can see it. {productName} can keep a measurement on a drawing too, and it is always measured again from the drawing.",
+    "de": "Abstände, Wege und Flächen lassen sich jetzt im Review auf einer PDF-Zeichnung messen: „Messen“ (M) rastet an den Linien der Zeichnung ein, zeigt beim Setzen der Punkte die Länge an und hält die Messung samt Toleranz und Maßstab der Zeichnung auf dem Blatt fest, wo das gesamte Team und {productName} sie sehen. Auch {productName} kann eine Messung in einer Zeichnung festhalten; sie wird immer erneut anhand der Zeichnung gemessen."
   },
   {
     "en": "Document cards and lists lead with the title and the review state instead of version counters, and a version history only appears once a second version exists.",
@@ -3680,6 +3700,10 @@
     "de": "Rechercheberichte werden jetzt in Ihrem Projekt unter „Berichte“ abgelegt und als von Piloti verfasst gekennzeichnet. Projektordner lassen sich umbenennen, verschieben und löschen, ohne dass Dokumente verloren gehen, und Piloti weiß, in welchem Ordner jedes Dokument liegt. In dieser Woche ist dieses Changelog gestartet."
   },
   {
+    "en": "Research runs no longer sit in a list of their own above your chats: the chat that holds a run now carries a Deep Research mark with the run's state, including a failed one, and the Deep Research filter shows just those chats with their count.",
+    "de": "Rechercheläufe werden nicht mehr in einer eigenen Liste über Ihren Chats angezeigt: Der Chat, zu dem ein Lauf gehört, trägt jetzt eine Deep-Research-Markierung mit seinem Status, auch wenn der Lauf fehlgeschlagen ist, und der Deep-Research-Filter zeigt nur diese Chats samt Anzahl an."
+  },
+  {
     "en": "Research runs that had already finished, but still showed as running in the history, now show their real outcome when stopped, instead of staying stuck. Stopping a run now asks for confirmation first.",
     "de": "Recherchen, die bereits fertig waren, aber im Verlauf noch als laufend angezeigt wurden, zeigen beim Beenden jetzt ihr tatsächliches Ergebnis, statt hängen zu bleiben. Ein Beenden einer Recherche fragt jetzt zuerst nach einer Bestätigung."
   },
@@ -4004,6 +4028,10 @@
     "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
   },
   {
+    "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
+    "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
+  },
+  {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
     "de": "Der E-Mail-Verlauf kennzeichnet eine direkt abgelegte E-Mail. Beim Ursprung eines weitergeleiteten Dokuments wird angegeben, wer es verfasst und wer es weitergeleitet hat. Die Projekteinstellungen, der Adressdialog und die Anleitung auf der Website beschreiben das direkte Ablegen."
   },
@@ -4094,6 +4122,10 @@
   {
     "en": "The Postfach has four filters: „Für mich“ is what waits on you, „Ungelesen“ what you have not opened, „Alle“ everything, and „Archiviert“ what you put away, which you can restore. A row can be marked unread again, older entries load at the end of the list, and J, K, Enter, E and U work the list from the keyboard.",
     "de": "Das Postfach hat vier Filter: „Für mich“ zeigt, was bei Ihnen ansteht, „Ungelesen“ zeigt, was Sie noch nicht geöffnet haben, „Alle“ zeigt alles und „Archiviert“ zeigt, was Sie abgelegt haben und wiederherstellen können. Ein Eintrag kann wieder als ungelesen markiert werden, ältere Einträge werden am Ende der Liste geladen und mit J, K, Enter, E und U bedienen Sie die Liste per Tastatur."
+  },
+  {
+    "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+    "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
   },
   {
     "en": "The Postfach says who: a row shows the colleague's face and names them in the title, „Anna Weber hat in „Atrium“ geschrieben“. A row about an Anmerkung opens it with „Zur Anmerkung“, and an Anmerkung assigned to you, or Piloti's question, can be answered or resolved right in the row.",
@@ -5360,6 +5392,10 @@
     "de": "Wenn die App auf eine neue Webadresse umzieht, funktioniert ein KI-Client, den Sie zuvor verbunden haben, etwa Claude, Cursor oder Claude Code, weiterhin unter der Adresse, mit der Sie ihn eingerichtet haben – ohne dass Sie sich erneut anmelden müssen."
   },
   {
+    "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
+    "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
+  },
+  {
     "en": "When the building-regulation search finds nothing that answers your question, Piloti now tells you it found no supporting passage, instead of answering from loosely related text.",
     "de": "Wenn die Suche in den Bauvorschriften keine Antwort auf Ihre Frage findet, teilt Piloti Ihnen jetzt mit, dass keine passende Textstelle gefunden wurde, statt anhand lose verwandter Texte zu antworten."
   },
@@ -5494,6 +5530,10 @@
   {
     "en": "When you send a new question while Piloti is still answering the previous one, the earlier answer is now stopped completely before the new one starts, so the two can no longer mix in one conversation. In the rare case that the earlier answer does not stop within a few seconds, Piloti says it is still finishing and asks you to send the question again.",
     "de": "Wenn Sie eine neue Frage senden, während Piloti noch die vorherige beantwortet, wird die frühere Antwort vollständig beendet, bevor die neue beginnt. So können sich die beiden nicht mehr in einer Unterhaltung vermischen. Falls die frühere Antwort ausnahmsweise nicht innerhalb weniger Sekunden stoppt, teilt Piloti Ihnen mit, dass sie noch abgeschlossen wird, und bittet Sie, die Frage erneut zu senden."
+  },
+  {
+    "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+    "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
   },
   {
     "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",

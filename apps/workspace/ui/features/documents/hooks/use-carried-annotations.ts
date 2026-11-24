@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnnotationRequestError, listAnnotations } from '@/lib/annotations/client'
+import { isOpenItem } from '@/lib/annotations/types'
 import type { RevisionRef } from '@/lib/documents/revision-links'
 import type { CarriedGroup, ReviewRevision } from '../lib/review-types'
 import type { CanvasAskState } from './use-canvas-ask'
@@ -35,7 +36,7 @@ export function useCarriedAnnotations({
           error instanceof AnnotationRequestError && error.status === 404 ? { annotations: [] } : null
         )
         if (!listed) return { from, annotations: [], load: 'error' }
-        const open = listed.annotations.filter((annotation) => annotation.status === 'open')
+        const open = listed.annotations.filter(isOpenItem)
         return { from, annotations: open, load: 'ready' }
       })
     )

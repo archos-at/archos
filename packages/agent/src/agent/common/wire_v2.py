@@ -14,6 +14,9 @@ from pydantic import WithJsonSchema
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_action import ActionCounts
+from agent.common.wire_action import ActionVerb
+from agent.common.wire_action import MeasuredShape
 from agent.common.wire_model import OpenWireModel as _OpenModel
 from agent.common.wire_model import WireModel as _Model
 
@@ -147,17 +150,6 @@ class LookStep(_StepBase):
     reading: str | None = Field(default=None, max_length=300, description="The first reading, when one was made.")
 
 
-ActionVerb = Literal["search", "list", "read", "look", "lookup", "law", "web", "model", "workspace"]
-
-
-class ActionCounts(_Model):
-    hits: int | None = Field(default=None, ge=0, description="Passages or matches returned.")
-    documents: int | None = Field(default=None, ge=0, description="Distinct documents the hits are in.")
-    searched: int | None = Field(default=None, ge=0, description="Documents searched, the denominator.")
-    files: int | None = Field(default=None, ge=0, description="Files a listing showed.")
-    folders: int | None = Field(default=None, ge=0, description="Folders a listing showed.")
-
-
 class ActionStep(_StepBase):
     kind: Literal["action"] = "action"
     call_id: str = Field(min_length=1, max_length=64, description="Shared with the sources step this call returned.")
@@ -196,6 +188,7 @@ class ActionStep(_StepBase):
         ),
     )
     counts: ActionCounts | None = None
+    measure: MeasuredShape | None = Field(default=None, description="What a measuring call measured, to draw.")
     elapsed_ms: int | None = Field(default=None, ge=0)
 
 

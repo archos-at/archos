@@ -1,4 +1,8 @@
 import type { DocumentReview as ReviewState, ReviewTool } from '../hooks/use-document-review'
 
-export const toolOffered = (tool: ReviewTool, review: ReviewState): boolean =>
-  tool === 'select' || (tool === 'ask' ? review.piloti.available : review.canAnnotate)
+export function toolOffered(tool: ReviewTool, review: ReviewState): boolean {
+  if (tool === 'select') return true
+  if (tool === 'ask') return review.piloti.available
+  if (tool === 'measure') return review.tape.available
+  return review.canAnnotate
+}

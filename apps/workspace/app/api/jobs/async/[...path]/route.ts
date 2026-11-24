@@ -71,22 +71,6 @@ async function resolveSubmitContext(
   return input
 }
 
-function listingSearchParams(
-  searchParams: URLSearchParams,
-  scope: AuthorizedJobScope
-): URLSearchParams {
-  const params = new URLSearchParams(searchParams)
-  params.delete('project_collection')
-  const requestedProject = params.get('projectId')
-  params.delete('projectId')
-  params.delete('conversationId')
-  const signedProject = scope.scopedCollections.find((entry) => entry.shelf === 'project')
-  if (requestedProject && scope.projectId === requestedProject && signedProject) {
-    params.set('project_collection', signedProject.collection)
-  }
-  return params
-}
-
 const LOG_LABEL = 'Deep Research API'
 
 const traceRequest = (...args: unknown[]): void => {
@@ -113,6 +97,9 @@ export const GET = tenantSlotRoute(async function GET(
 ): Promise<Response> {
   try {
     const { path } = await params
+    if (path.length === 1 && path[0] === 'jobs') {
+      return errorEnvelope(404, 'NOT_FOUND', 'Runs are listed through GET /api/projects/{projectId}/runs')
+    }
     const isStreamRequest = path.includes('stream')
     const { searchParams } = new URL(req.url)
 
@@ -135,9 +122,7 @@ export const GET = tenantSlotRoute(async function GET(
     const scope = await buildCollectionScopeFromRequest(session, parseQueryContext(searchParams))
     const requestContextHeaders = await resolveRequestContextHeaders(session, scope, { submit: false })
 
-    const upstreamParams =
-      path.length === 1 && path[0] === 'jobs' ? listingSearchParams(searchParams, scope) : searchParams
-    const upstreamUrl = buildProxyUrl(JOBS_BASE_PATH, upstreamPath, upstreamParams, ['token'])
+    const upstreamUrl = buildProxyUrl(JOBS_BASE_PATH, upstreamPath, searchParams, ['token'])
 
     const response = await fetch(upstreamUrl, {
       method: 'GET',

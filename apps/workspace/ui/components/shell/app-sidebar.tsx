@@ -26,9 +26,7 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
 import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
 import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
-import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
-import { InboxBadge } from '@/features/collaboration/components'
+import { InboxBell } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
@@ -81,8 +79,6 @@ interface RailItemModel {
   label: string
   active: boolean
   within?: boolean
-  badgeCount: number
-  door?: StartDockDoor
   waitingCount: number | null
   waitingMore?: boolean
   shortcutKey?: string
@@ -132,8 +128,6 @@ function AppSidebarFrame({
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { state, isMobile } = useSidebar()
-  const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
 
@@ -163,8 +157,6 @@ function AppSidebarFrame({
         label: sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
         within: item.key === 'chat' && chatOpen,
-        badgeCount: item.key === 'inbox' ? inboxPending : 0,
-        door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
         waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
@@ -180,7 +172,6 @@ function AppSidebarFrame({
     icon: PROJECT_SETTINGS_SECTION.icon,
     label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
     active: pathname.startsWith(settingsHref),
-    badgeCount: 0,
     waitingCount: null,
     shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
   }
@@ -199,13 +190,11 @@ function AppSidebarFrame({
       active={item.active}
       within={item.within}
       label={item.label}
-      badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
       waitingMore={item.waitingMore}
       tooltip={iconRail}
       shortcutKey={item.shortcutKey}
       pillId={activePillId}
-      door={item.door}
     />
   )
   const column = iconRail ? 'px-3.5' : 'px-3'
@@ -320,6 +309,8 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
+          <div className={cn('flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+          <div className={cn('min-w-0', !iconRail && 'flex-1')}>
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}
@@ -334,6 +325,9 @@ function AppSidebarFrame({
             canViewOrganization={canViewOrganization}
             canManagePlatform={canManagePlatform}
           />
+          </div>
+          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
+          </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
@@ -354,28 +348,24 @@ function RailNavItem({
   active,
   within = false,
   label,
-  badgeCount,
   waitingCount = null,
   waitingMore = false,
   tooltip,
   shortcutKey,
   pillId,
   tourAnchor,
-  door,
 }: {
   icon: ProjectSection['icon']
   href: string
   active: boolean
   within?: boolean
   label: string
-  badgeCount: number
   waitingCount?: number | null
   waitingMore?: boolean
   tooltip: boolean
   shortcutKey?: string
   pillId: string
   tourAnchor: string
-  door?: StartDockDoor
 }) {
   return (
     <SidebarMenuItem>
@@ -389,14 +379,11 @@ function RailNavItem({
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           active
             ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
-            : door?.open
-              ? // The Postfach docked open beside the page: open is the picked
-                'text-foreground bg-selected hover:bg-selected'
-              : // The pointer's fill is one step down from the plane it lies
-                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
+            : // The pointer's fill is one step down from the plane it lies
+              cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
-        <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
+        <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
           {active && (
             <motion.span
               layoutId={pillId}
@@ -420,18 +407,11 @@ function RailNavItem({
           >
             {label}
           </span>
-          <InboxBadge
-            pending={badgeCount}
-            tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
+          <InboundMailWaitingBadge
+            count={waitingCount}
+            more={waitingMore}
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
-          {badgeCount <= 0 && (
-            <InboundMailWaitingBadge
-              count={waitingCount}
-              more={waitingMore}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
-            />
-          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
