@@ -159,3 +159,107 @@ def test_an_empty_signed_scope_outside_a_turn_stays_empty_instead_of_the_config_
     with patch("agent.project_context.get_signed_request_context", return_value=signed):
         assert resolve_scoped_collections(config, "s_conv_1") == []
         assert resolve_scope(get_scoped_collections_from_context(), "s_conv_1") == []
+
+
+PERSONAL = "personal_org_1__user_1"
+
+
+def test_the_owners_shelf_is_searched_only_while_drawable_like_a_restricted_folder(bound):
+    from agent.knowledge.restricted_collections import is_restricted_collection
+
+    decision = bound(
+        signed_decision(
+            may={
+                "shelves": [
+                    {"collection": "oib_knowledge", "shelf": "base"},
+                    {"collection": PERSONAL, "shelf": "personal"},
+                ],
+                "restrictedCollections": [PERSONAL],
+                "personalShelf": True,
+            }
+        )
+    )
+    assert is_restricted_collection(PERSONAL)
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_1", project_id=None))
+    token = bind_restricted_use(use)
+    try:
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge", PERSONAL]
+        use.drop({PERSONAL})
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge"]
+    finally:
+        reset_restricted_use(token)
+
+
+def test_a_personal_shelf_named_in_a_tool_result_is_admitted_before_the_model_sees_it():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_use import _carried
+
+    message = SimpleNamespace(content=f"Treffer aus {PERSONAL}: Wettbewerb.pdf", response_metadata={})
+    assert _carried(message) == {PERSONAL}
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Personal_Liste_2026.xlsx", "personal_liste_2026.xlsx", "Personal_org_1__user_1", "personal_notes__v2.docx"],
+)
+def test_a_file_named_personal_is_not_taken_for_the_owners_shelf(name):
+    from agent.knowledge.restricted_collections import is_restricted_collection
+
+    assert not is_restricted_collection(name)
+
+
+async def test_a_project_chat_result_naming_personal_liste_reaches_the_model_unwithheld():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_use import _carried
+    from agent.knowledge.restricted_use import admit_tool_results
+
+    message = SimpleNamespace(content="Gefunden: Personal_Liste_2026.xlsx, Blatt 2", response_metadata={})
+    assert _carried(message) == set()
+    assert await admit_tool_results([message]) == [message]
+
+
+def test_a_later_turn_of_a_chat_that_read_the_owners_shelf_writes_nothing_shared():
+    from agent.tools.canvas.policy import shared_write_refusal
+
+    decision = signed_decision(
+        may={
+            "shelves": [{"collection": PERSONAL, "shelf": "personal"}],
+            "restrictedCollections": [PERSONAL],
+            "personalShelf": True,
+        },
+        recordedRestricted=True,
+    )
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_1", project_id=None))
+    assert use is not None and use.admitted == set()
+    token = bind_restricted_use(use)
+    try:
+        assert shared_write_refusal() is not None
+    finally:
+        reset_restricted_use(token)
+
+
+def test_a_workos_shaped_personal_collection_is_the_owners_shelf():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_collections import is_restricted_collection
+    from agent.knowledge.restricted_use import _carried
+
+    name = "personal_org_01HZX3K9QW8YB2C4D5E6F7G8H9__user_01HZX3KA0B1C2D3E4F5G6H7J8K"
+    assert is_restricted_collection(name)
+    assert _carried(SimpleNamespace(content=f"aus {name}, notes__v2", response_metadata={})) == {name}
+    assert _carried(SimpleNamespace(content="personal_notes__v2.docx", response_metadata={})) == set()
+
+
+def test_a_shared_chat_that_recorded_restricted_use_still_refuses_a_shared_write():
+    from agent.tools.canvas.policy import shared_write_refusal
+
+    decision = signed_decision(may={"shelves": [], "restrictedCollections": []}, recordedRestricted=True)
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_2", project_id=None))
+    assert use is not None and use.confined is True and use.drawable == set()
+    token = bind_restricted_use(use)
+    try:
+        assert shared_write_refusal() is not None
+    finally:
+        reset_restricted_use(token)

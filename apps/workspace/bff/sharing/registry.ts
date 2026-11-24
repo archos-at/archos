@@ -10,12 +10,12 @@ import {
   listConversationIdsForProject,
   updateConversationVisibilityInOrg,
 } from '@/lib/conversations/repository'
+import { peopleWhoMayRead } from '@/lib/conversations/restricted-use'
 import {
   assertMayWidenConversation,
-  peopleWhoMayRead,
   widenConversationAudience,
   type AudienceWidening,
-} from '@/lib/conversations/restricted-use'
+} from '@/lib/conversations/audience-widening'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
 import {
   documentIdsExisting,

@@ -2064,6 +2064,10 @@
     "de": "Beim Löschen eines Dokuments mit mehr als 500 Fassungen werden alle Fassungen entfernt, nicht nur die ersten 500 Fassungen."
   },
   {
+    "en": "Deleting a file in Meine Ablage works again. It failed because it tried to move the file to a Papierkorb that Meine Ablage does not have; the file is now deleted for good, and the dialog says so before you confirm.",
+    "de": "Das Löschen einer Datei in Meine Ablage funktioniert wieder. Es schlug fehl, weil die Datei in einen Papierkorb verschoben werden sollte, den Meine Ablage nicht hat; die Datei wird jetzt endgültig gelöscht, und der Dialog sagt das, bevor Sie bestätigen."
+  },
+  {
     "en": "Deleting a folder in a project now moves it to the project's Papierkorb with its subfolders and documents. It disappears from lists, search and answers at once and can be restored with its access for 14 days.",
     "de": "Wer einen Ordner in einem Projekt löscht, verschiebt ihn jetzt samt Unterordnern und Dokumenten in den Papierkorb des Projekts. Er verschwindet sofort aus Listen, Suche und Antworten und lässt sich 14 Tage lang mit seinen Zugriffsrechten wiederherstellen."
   },
@@ -2938,6 +2942,10 @@
   {
     "en": "Mentioning a colleague with @ now works from the very first moment of a new chat. The list of people used to stay empty for the rest of that chat.",
     "de": "Das Erwähnen einer Kollegin mit @ funktioniert jetzt schon im ersten Moment eines neuen Chats. Bisher blieb die Personenliste dann für den ganzen Chat leer."
+  },
+  {
+    "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
+    "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
   },
   {
     "en": "Mind maps show their topics without quotation marks, and on a phone only the outline appears instead of an unreadably small tree.",

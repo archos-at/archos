@@ -26,7 +26,7 @@ _KINDS = frozenset({"chat", "run", "headless", "external"})
 _WORKSPACE_READS = frozenset({"none", "document+projectFacts", "all"})
 _REACHES = frozenset({"none", "every-reader", "chat-projects"})
 _SOCKET_TURN_KINDS = frozenset({"chat", "headless"})
-_SHELVES = frozenset({"office_shelf", "project", "session", "base"})
+_SHELVES = frozenset({"office_shelf", "project", "session", "base", "personal"})
 
 
 @dataclass(frozen=True)

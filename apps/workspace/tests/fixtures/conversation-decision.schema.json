@@ -89,7 +89,8 @@
                       "office_shelf",
                       "project",
                       "session",
-                      "base"
+                      "base",
+                      "personal"
                     ]
                   },
                   "countries": {
@@ -309,7 +310,8 @@
                           "office_shelf",
                           "project",
                           "session",
-                          "base"
+                          "base",
+                          "personal"
                         ]
                       },
                       "countries": {

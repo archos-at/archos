@@ -25,7 +25,7 @@ export function DeleteDocumentDialog({ open, onOpenChange, scope, actions }: Del
       open={open}
       onOpenChange={onOpenChange}
       title={heldFile ? tFiles('erase.title', { name: actions.name }) : t('delete.title', { name: actions.name })}
-      description={heldFile ? tFiles('erase.confirm') : t('delete.confirm')}
+      description={heldFile ? tFiles(scope === 'personal' ? 'personalShelf.eraseConfirm' : 'erase.confirm') : t('delete.confirm')}
       confirmLabel={actions.isDeleting ? busyLabel : confirmLabel}
       cancelLabel={t('delete.cancel')}
       pending={actions.isDeleting}

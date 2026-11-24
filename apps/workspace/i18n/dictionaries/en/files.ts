@@ -4,6 +4,7 @@ export const files = {
     crumb: 'Personal · Only you',
     dropToUpload: 'Drop files here to add them to Meine Ablage',
     ingestionComplete: '“{name}” is now in Meine Ablage',
+    eraseConfirm: 'Meine Ablage has no bin: the file is deleted for good and cannot be restored.',
   },
   baseKnowledge: { label: 'Standard', open: 'Open as a standard: edition, licence, last check' },
   uploadZone: {

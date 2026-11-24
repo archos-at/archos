@@ -19,13 +19,14 @@ export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
     const gated = requireCollaborationEnabled(session)
     if (gated) return gated
-    const { visibility } = await parseJsonBody(request, visibilitySchema)
+    const { visibility, confirmPersonalShelf } = await parseJsonBody(request, visibilitySchema)
     return setResourceVisibility(
       session,
       requireShareableType(params.resourceType),
       params.resourceId,
       visibility,
-      request
+      request,
+      { confirmPersonalShelf }
     )
   },
   { authz: { enforcedBy: 'setResourceVisibility (requireResourceAccess owner)' } }

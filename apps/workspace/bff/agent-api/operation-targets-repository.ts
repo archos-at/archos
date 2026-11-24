@@ -17,7 +17,7 @@ import type { OperationTarget } from './operation-targets'
 export interface TargetPlace {
   projectId: string | null
   conversationId: string | null
-  document?: { folderId: string | null; passedScreening: boolean }
+  document?: { folderId: string | null; passedScreening: boolean; personal?: boolean }
 }
 
 const place = (projectId: string | null, conversationId: string | null = null): TargetPlace => ({
@@ -50,7 +50,7 @@ export async function findTargetPlace(
       if (!doc) return null
       return {
         ...place(doc.projectId, doc.conversationId ?? null),
-        document: { folderId: doc.folderId ?? null, passedScreening: hasPassedScreening(doc) },
+        document: { folderId: doc.folderId ?? null, passedScreening: hasPassedScreening(doc), personal: doc.ownerUserId != null },
       }
     }
     case 'folder': {
