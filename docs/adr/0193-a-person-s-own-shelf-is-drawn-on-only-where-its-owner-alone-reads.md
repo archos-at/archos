@@ -105,10 +105,40 @@ start page and chats the agent API made without a project.
 * Such an unplaced chat does not draw on „Meine Ablage“: having no project does
   not make a chat personal (`may.personalShelf` is false for it).
 
+### Amendment, 2026-11-24: A personal chat is read by its owner
+
+The product owner's requirement: „Even if the backend does something wrong it
+shouldn't be able to do this“. A chat without a project, and everything that
+hangs on it, is read and written at the database only by its creator, by a
+person who holds a grant on it, and by a named system reader (migration 0269),
+as rule 1 holds „Meine Ablage“.
+
+* The policy on `conversations` adds, for a row without a project,
+  `created_by = current_user_id()`, a grant in `resource_shares`, or
+  `current_system_reader() IS NOT NULL`. Every table that holds such a chat's
+  content, name or record of what it drew on (its messages, read marks,
+  restricted-use and source-project records, answer contexts, asks, votes,
+  attachments and their upload batches) asks `personal_conversation_hidden`.
+  Telemetry (usage, citations, profiler spans) and rows with an audience of
+  their own (proposals, agent changes, project memory, grants, inbox items,
+  mention requests) stay the organization's.
+* A visibility of `organization` opens no chat without a project: chats offer
+  `private` and `project` only, and the listing no longer honours it either.
+* A grant on such a chat is written only by someone who may read it; removing
+  one bumps the audience version past the policy.
+* The background paths that act for the chat name their system reader: the
+  agent host's internal routes (`agent-host`), the erasure (`conversation-erasure`),
+  the memory checks (`conversation-memory`) and a run's ledger (`run-ledger`).
+  An internal route that carries a verified person runs as that person.
+* A request naming a chat it may not read is refused, never read as a new
+  chat or as one that drew on nothing.
+
 ### Confirmation
 
 Specs hold each rule: the personal shelf refuses every reader but its owner
-(also at the database, by a row-level spec); a turn's collections follow the
+(also at the database, by a row-level spec); a chat without a project refuses
+everyone but its creator, its grantees and its system readers
+(`personal-chat-rls.integration.spec.ts`); a turn's collections follow the
 conversation row whatever `projectId` the request carries; a project chat's
 scope never contains a personal collection; widening a chat that carries a
 personal record is refused until its owner confirms.

@@ -16,6 +16,7 @@ vi.mock('@/lib/conversations/repository', () => ({
 vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: vi.fn((_why: string, fn: () => unknown) => fn()),
   withTenant: vi.fn((_scope: unknown, fn: () => unknown) => fn()),
+  withSystemReader: vi.fn((_organizationId: string, _reader: string, fn: () => unknown) => fn()),
 }))
 vi.mock('./repository', () => ({
   deleteAskQuestion: vi.fn(),
@@ -53,6 +54,7 @@ import {
 } from '@/lib/conversations/repository'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import type { Message } from '@/lib/db/schema/messages'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import type { AgentAskRow } from '@/lib/db/schema/piloti-asks'
 import { findProjectProfile } from '@/lib/projects/repository'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
@@ -559,6 +561,10 @@ describe('endLostAsks (the agent-ask-expiry sweep)', () => {
       ['org_2', lost[1].id, lostAskEnd()],
     ])
     expect(lostAskEnd()).toEqual({ state: 'failed', reason: `${PRODUCT_NAME} did not report the end of its turn within 47 minutes. Ask again.` })
+    expect(vi.mocked(withSystemReader).mock.calls.map(([organizationId, reader]) => [organizationId, reader])).toEqual([
+      [ORG, 'agent-host'],
+      ['org_2', 'agent-host'],
+    ])
   })
 
   it('counts only the asks it ended: an outcome that landed meanwhile stands', async () => {
@@ -591,6 +597,7 @@ describe('recordAskOutcome', () => {
     vi.mocked(findAskById).mockResolvedValue(askRow({ state: 'working' }))
     expect(await recordAskOutcome(outcome)).toBe(true)
     expect(endAsk).toHaveBeenCalledWith(ORG, outcome.turnId, { state: 'completed' })
+    expect(withSystemReader).toHaveBeenCalledWith(ORG, 'agent-host', expect.any(Function))
   })
 
   it.each([

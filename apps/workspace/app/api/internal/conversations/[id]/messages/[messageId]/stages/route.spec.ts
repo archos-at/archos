@@ -10,12 +10,12 @@ vi.mock('@/lib/conversations/agent-stage-frame', async (original) => ({
 }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
-  withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
+  withSystemReader: vi.fn(async (_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
 }))
 
 import { NotFoundError } from '@/lib/api/errors'
 import { recordAgentStageFrame } from '@/lib/conversations/agent-stage-frame'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { buildRequestContextEnvelopeHeaders, type RequestContextInput } from '@/lib/request-context'
 import { PATCH } from './route'
 
@@ -64,7 +64,7 @@ describe('PATCH /api/internal/conversations/[id]/messages/[messageId]/stages', (
     const response = await call()
 
     expect(response.status).toBe(200)
-    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1' }, expect.any(Function))
+    expect(withSystemReader).toHaveBeenCalledWith('org_1', 'agent-host', expect.any(Function))
     expect(recordAgentStageFrame).toHaveBeenCalledWith('org_1', CONVERSATION_ID, MESSAGE_ID, BODY)
   })
 
