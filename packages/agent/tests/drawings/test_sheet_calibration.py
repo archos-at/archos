@@ -80,12 +80,12 @@ def test_legacy_records_whose_regions_partly_overlap_read_and_the_smallest_then_
 
 
 def _whole_file(**changes: object) -> dict:
-    return _record(
-        scope="document",
-        region={"x": 0, "y": 0, "w": 1, "h": 1},
-        referenceSize={"widthPt": 1000.0, "heightPt": 500.0},
-        **changes,
-    )
+    whole = {
+        "scope": "document",
+        "region": {"x": 0, "y": 0, "w": 1, "h": 1},
+        "referenceSize": {"widthPt": 1000.0, "heightPt": 500.0},
+    }
+    return _record(**{**whole, **changes})
 
 
 def test_a_scale_for_the_whole_file_is_measured_on_the_page_it_was_set_on_and_holds_on_this_one() -> None:

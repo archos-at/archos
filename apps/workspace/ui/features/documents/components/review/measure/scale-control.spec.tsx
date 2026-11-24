@@ -44,7 +44,7 @@ describe('the strip button where the sheet carries an estimated scale', () => {
     const everyPage = calibrationView({ page: 4, scope: 'document', region: { x: 0, y: 0, w: 1, h: 1 }, referenceSize: { widthPt: 1190.55, heightPt: 841.89 } })
     const { client } = recordingClient([everyPage])
     render(<CalibrationSheet client={client} estimatedRatio={50} />)
-    expect(await screen.findByRole('button', { name: /^Scale 1:/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Scale 1:100' })).toBeInTheDocument()
     await openPopover()
     expect(within(screen.getByTestId('calibration-list')).getByText(/all pages/)).toBeInTheDocument()
   })

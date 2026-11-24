@@ -15,6 +15,10 @@ import { listDrawingCalibrations } from './repository'
 const TARGET = { documentId: 'doc_1', versionId: 'ver_1', page: 2 }
 const ROW = {
   id: 'cal_1',
+  scope: 'page',
+  page: 1,
+  referenceWidthPt: null,
+  referenceHeightPt: null,
   regionX: 0.1,
   regionY: 0.2,
   regionW: 0.3,
@@ -39,7 +43,7 @@ describe('activeCalibrationsOfPage', () => {
     expect(vi.mocked(listDrawingCalibrations).mock.calls[0]).toEqual([
       { organizationId: 'org_1', ...TARGET, status: 'active' },
       { kind: 'internal', why: 'reloaded' },
-      { limit: 50, offset: 0 },
+      { limit: 51, offset: 0 },
     ])
   })
 
@@ -47,6 +51,15 @@ describe('activeCalibrationsOfPage', () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
     vi.mocked(listDrawingCalibrations).mockResolvedValue(Array.from({ length: 51 }, () => ROW))
     expect(await activeCalibrationsOfPage('org_1', TARGET)).toHaveLength(50)
+  })
+
+  it('keeps the scale for every page beside fifty calibrations of the page', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
+    const wholeFile = { ...ROW, id: 'cal_doc', scope: 'document' as const }
+    vi.mocked(listDrawingCalibrations).mockResolvedValue([wholeFile, ...Array.from({ length: 51 }, () => ROW)])
+    const handed = await activeCalibrationsOfPage('org_1', TARGET)
+    expect(handed).toHaveLength(51)
+    expect(handed[0].id).toBe('cal_doc')
   })
 
   it('hands over none, and reads none, where the organization does not hold the entitlement', async () => {

@@ -28,7 +28,9 @@ export async function activeCalibrationsOfPage(
   const rows = await listDrawingCalibrations(
     { organizationId, ...target, status: 'active' },
     internalRead('reloaded'),
-    { limit: MAX_PAGE_CALIBRATIONS, offset: 0 }
+    { limit: MAX_PAGE_CALIBRATIONS + 1, offset: 0 }
   )
-  return rows.slice(0, MAX_PAGE_CALIBRATIONS).map(toPageCalibration)
+  const wholeFile = rows.filter((row) => row.scope === 'document')
+  const ofPage = rows.filter((row) => row.scope === 'page').slice(0, MAX_PAGE_CALIBRATIONS)
+  return [...wholeFile, ...ofPage].map(toPageCalibration)
 }
