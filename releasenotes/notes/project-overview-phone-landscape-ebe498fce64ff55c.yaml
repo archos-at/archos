@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone turned on its side, the project overview now opens as the
+    bottom sheet it shows on the phone, instead of mixing the sheet with the
+    desktop window's pull-to-close.
