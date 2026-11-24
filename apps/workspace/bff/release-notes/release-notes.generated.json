@@ -449,6 +449,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+            "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",

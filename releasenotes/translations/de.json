@@ -3792,6 +3792,10 @@
     "de": "Wenn Sie jemanden aus einem Projekt entfernen oder dessen Rolle ändern, wird die Änderung bereits mit dem nächsten Klick der betreffenden Person wirksam. Unterhaltungen, die auf eine entfernte Person gewartet haben, bleiben nicht mehr endlos hängen."
   },
   {
+    "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+    "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
+  },
+  {
     "en": "Renaming a folder in the Dateiablage grid view works again: clicking into the name field places the cursor there instead of opening the folder.",
     "de": "Das Umbenennen eines Ordners in der Rasteransicht der Dateiablage funktioniert wieder: Wenn Sie in das Namensfeld klicken, wird der Cursor dort platziert, statt den Ordner zu öffnen."
   },
