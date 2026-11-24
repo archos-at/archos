@@ -4716,6 +4716,10 @@
     "de": "Die Mailadresse des Projekts steht in der Projektübersicht und zeigt, wofür sie gedacht ist: Setzen Sie sie in Cc, wenn Sie an die Behörde, die Statik oder die Bauherrschaft schreiben."
   },
   {
+    "en": "The rail now switches between „Persönlich“ and „Projekt“: under Persönlich you find your chats without a project and your own files in „Meine Ablage“, which only you see.",
+    "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter „Persönlich“ finden Sie Ihre Chats ohne Projekt und Ihre eigenen Dateien in „Meine Ablage“, die nur Sie sehen."
+  },
+  {
     "en": "The reminder for marks whose deadline is near is sent at 06:45 Vienna time all year, also across the change to and from summer time.",
     "de": "Die Erinnerung an Markierungen mit nahender Frist wird das ganze Jahr über um 06:45 Uhr Wiener Zeit versendet, auch bei der Umstellung auf die Sommerzeit und zurück."
   },
