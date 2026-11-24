@@ -117,6 +117,23 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
     expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
   })
 
+  it('two sides answering in the same tick still mark the list loaded', async () => {
+    useChatStore.setState({ serverConversationsLoaded: false })
+    const { loadServerConversations } = useChatStore.getState()
+    await Promise.all([loadServerConversations(undefined, 'personal'), loadServerConversations('p1', 'project')])
+
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
+  })
+
+  it('a chat kept in the browser but missing from the side’s listing fetches the side again', async () => {
+    const { loadServerConversations } = useChatStore.getState()
+    await loadServerConversations('p1', 'project')
+    useChatStore.setState({ conversations: [{ id: 's_kept', userId: 'u1', projectId: 'p1', title: 'Plan', messages: [], createdAt: new Date(), updatedAt: new Date() }] })
+    await loadServerConversations('p1', 'project', 's_kept')
+
+    expect(list).toHaveBeenCalledTimes(2)
+  })
+
   it('another person signing in on the same tab fetches their sides afresh', async () => {
     const { loadServerConversations, setCurrentUser } = useChatStore.getState()
     setCurrentUser('u1')

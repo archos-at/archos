@@ -162,7 +162,7 @@ export const createSessionServerSyncSlice: StateCreator<
     const key = serverSideKey(place, projectId)
     const known = sideLoads.get(key)
     if (known && !known.settled) return known.pending
-    const hasWanted = !wantConversationId || get().conversations.some((c) => c.id === wantConversationId)
+    const hasWanted = !wantConversationId || (get().serverSides[key]?.ids.includes(wantConversationId) ?? false)
     if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
     const load: SideLoad = { at: Date.now(), settled: false, pending: Promise.resolve() }
     const isLatest = () => sideLoads.get(key) === load
@@ -171,6 +171,7 @@ export const createSessionServerSyncSlice: StateCreator<
       if (!isLatest()) return
       if (!ok) sideLoads.delete(key)
       else Object.assign(load, { at: Date.now(), settled: true })
+      if (!anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     })
     sideLoads.set(key, load)
     return load.pending
