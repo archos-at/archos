@@ -96,6 +96,10 @@
     "de": "Ein baurechtlicher Text aus einem Länder-Release wird nun mit seinem Namen zitiert, zum Beispiel „OIB-Richtlinie 4, Ausgabe Mai 2023“, statt mit seinem gespeicherten Dateinamen. Der Name stammt aus dem Werk und der Ausgabe, die im Release geprüft wurden; ein manuell festgelegter Titel bleibt erhalten."
   },
   {
+    "en": "A button you cannot press yet, such as send in an empty chat, now recedes instead of being the brightest thing on the screen.",
+    "de": "Ein Button, den Sie noch nicht drücken können, etwa „Senden“ in einem leeren Chat, tritt jetzt optisch zurück, statt als hellstes Element am Bildschirm hervorzustechen."
+  },
+  {
     "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
     "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
   },
@@ -1942,6 +1946,10 @@
   {
     "en": "Custom roles grant the Büroablage under a new permission name. Roles that hold the old one keep their access; the role editor offers only the new one.",
     "de": "Benutzerdefinierte Rollen gewähren unter einem neuen Berechtigungsnamen Zugriff auf die Büroablage. Rollen mit der alten Berechtigung behalten ihren Zugriff; der Rollen-Editor bietet nur die neue Berechtigung an."
+  },
+  {
+    "en": "Dark mode is calmer: cards, the chat field, the open e-mail and menus now sit just above the near-black page with a thin edge, no longer as light grey panels.",
+    "de": "Der Dark Mode wirkt ruhiger: Karten, Chatfeld, geöffnete E-Mail und Menüs heben sich jetzt mit einer feinen Kontur leicht von der fast schwarzen Seite ab und erscheinen nicht mehr als hellgraue Flächen."
   },
   {
     "en": "Dark mode tells buttons, chips and sheets apart: buttons are outlined, the open email stands clearly above selected ones, and the point markers in open points are no longer bright white discs.",
