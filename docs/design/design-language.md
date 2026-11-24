@@ -1034,14 +1034,8 @@ times stops being a physical cue and becomes texture.
   A line that arrives after its count is fetched (mail waiting, a mail import)
   fades on `duration-snap`, and a thread replacing its skeleton fades on
   `--motion-snap` too.
-  Nothing else in the remounted chat arrives: the composer's controls mount
-  disabled and take their enabled look at once, its transitions held until it
-  first stands ready or the reader presses or types
-  (`components/motion/use-settled-after-mount`); a typing indicator already
-  running when the thread mounts is simply there, and fades in only for a wait
-  that begins in the open thread. An empty state (`EmptyState`) has no entrance
-  at all: it is a page's resting content, and an empty Meine Ablage or Dateien
-  had faded and zoomed its glyph again after every switch. The thread reopens
+  A typing indicator already running when the thread mounts is simply there,
+  and fades in only for a wait that begins in the open thread. The thread reopens
   where the reader left it (`lib/thread-positions`), and a side reopens the chat
   last open on it (`lastChatBySide`). Focus is not moved into the composer after
   a switch: it stays on the switch the reader pressed.

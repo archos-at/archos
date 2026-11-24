@@ -67,6 +67,7 @@ export function EmptyState({
       className={cn(
         'flex w-full min-w-0 flex-col items-center justify-center text-center',
         variant === 'panel' ? 'rounded-surface border border-dashed bg-muted px-6 py-12' : 'py-10',
+        'animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none',
         className,
       )}
       {...props}
@@ -78,7 +79,7 @@ export function EmptyState({
           icon={Icon}
           tone={tone}
           size={size}
-          className="mb-4"
+          className="mb-4 animate-in zoom-in-95 duration-base ease-entrance motion-reduce:animate-none"
         />
       )}
       {/* The headline is the section step, 16/24/600 (paper on a desk, type): at 14/500 it was the size of the body under it. */}
