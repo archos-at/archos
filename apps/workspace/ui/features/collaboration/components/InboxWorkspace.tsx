@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { CheckCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,11 +14,13 @@ import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import type { InboxItemView, InboxListFilter } from '@/lib/inbox/types'
 import { cn } from '@/lib/utils'
 import { useInboxList } from '../hooks/use-inbox'
+import { markOf } from '../hooks/use-inbox-mark'
+import { MARK_CLIENT, type InboxMarkClient } from '../hooks/use-mark-answer'
 import { ARCHIVE_UNDO_MS, useUndoableArchive } from '../hooks/use-undoable-archive'
-import { newestFirstOverdueOnTop } from '../lib/inbox-entry-order'
+import { newestFirstOverdueOnTop, nextAfterLeaving, sameDocumentAs } from '../lib/inbox-entry-order'
 import { isOpenRequest } from '../lib/inbox-queue'
 import { InboxEntry } from './InboxEntry'
-import { InboxOpened } from './InboxOpened'
+import { InboxOpened, isSettledByAnswer } from './InboxOpened'
 import { InboxQueueSkeleton } from './InboxSkeleton'
 
 export const INBOX_TABS = ['waiting', 'news', 'archived'] as const
@@ -41,9 +43,10 @@ export interface InboxWorkspaceProps {
   offer?: ReactNode
   title?: string
   back?: ReactNode
+  markClient?: InboxMarkClient
 }
 
-export function InboxWorkspace({ viewerId = null, offer = null, title, back = null }: InboxWorkspaceProps): JSX.Element {
+export function InboxWorkspace({ viewerId = null, offer = null, title, back = null, markClient = MARK_CLIENT }: InboxWorkspaceProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const router = useRouter()
   const pathname = usePathname() ?? '/app/inbox'
@@ -52,12 +55,38 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
   const pickedId = params?.get('item') ?? null
   const list = useInboxList(true, TAB_FILTER[tab])
   const archiveLater = useUndoableArchive(list.archive)
+  const known = useRef(new Map<string, InboxItemView>())
+  known.current = new Map(list.items.map((item) => [item.id, item]))
+  const { refresh } = list
+  const resolveLater = useUndoableArchive(
+    useCallback(
+      async (itemId: string): Promise<void> => {
+        const target = known.current.get(itemId)
+        const mark = target ? markOf(target) : null
+        if (!mark) return
+        try {
+          await markClient.update(mark.documentId, mark.annotationId, { status: 'resolved', expectedStatus: 'open' })
+        } catch {
+          toast.error(t('inbox.mark.failed'))
+        }
+        refresh()
+      },
+      [markClient, refresh, t]
+    )
+  )
+  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set())
 
   const entries = useMemo(() => {
-    const shown = list.items.filter((item) => !archiveLater.pendingIds.has(item.id) && (tab !== 'news' || !isOpenRequest(item)))
+    const hidden = (item: InboxItemView): boolean =>
+      archiveLater.pendingIds.has(item.id) || resolveLater.pendingIds.has(item.id) || (tab === 'waiting' && answered.has(item.id))
+    const shown = list.items.filter((item) => !hidden(item) && (tab !== 'news' || !isOpenRequest(item)))
     return newestFirstOverdueOnTop(shown)
-  }, [list.items, archiveLater.pendingIds, tab])
+  }, [list.items, archiveLater.pendingIds, resolveLater.pendingIds, answered, tab])
   const picked = entries.find((item) => item.id === pickedId) ?? entries[0] ?? null
+  const sameDocument = useMemo(() => {
+    const rest = picked ? sameDocumentAs(entries, picked) : []
+    return rest.length > 0 ? { next: rest[0], remaining: rest.length } : null
+  }, [entries, picked])
 
   const go = useCallback(
     (next: { tab?: InboxTab; item?: string | null }): void => {
@@ -85,12 +114,42 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
     [go, list]
   )
 
+  const leave = useCallback(
+    (itemId: string): void => {
+      if (picked?.id !== itemId) return
+      const next = nextAfterLeaving(entries, itemId)
+      if (next) pick(next)
+      else go({ item: null })
+    },
+    [entries, picked, pick, go]
+  )
+
   const archive = useCallback(
     (itemId: string): void => {
+      leave(itemId)
       archiveLater.request(itemId)
       toast(t('inbox.archived'), { duration: ARCHIVE_UNDO_MS, action: { label: t('inbox.undo'), onClick: () => archiveLater.undo(itemId) } })
     },
-    [archiveLater, t]
+    [archiveLater, leave, t]
+  )
+
+  const resolve = useCallback(
+    (item: InboxItemView): void => {
+      leave(item.id)
+      resolveLater.request(item.id)
+      toast(t('inbox.mark.resolved'), { duration: ARCHIVE_UNDO_MS, action: { label: t('inbox.undo'), onClick: () => resolveLater.undo(item.id) } })
+    },
+    [leave, resolveLater, t]
+  )
+
+  const answer = useCallback(
+    (item: InboxItemView): void => {
+      if (!isSettledByAnswer(item)) return
+      leave(item.id)
+      setAnswered((current) => new Set(current).add(item.id))
+      refresh()
+    },
+    [leave, refresh]
   )
 
   useEffect(() => {
@@ -105,6 +164,7 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
       } else if (!picked) return
       else if (key === 'enter' && picked.href && !target?.closest('button, a')) router.push(picked.href)
       else if (key === 'e' && !picked.archived) archive(picked.id)
+      else if (key === 'r') document.querySelector<HTMLTextAreaElement>('[data-testid="inbox-opened-reply"]')?.focus()
       else if (key === 'u') void (picked.read ? list.markUnread([picked.id]) : list.markRead([picked.id]))
       else return
       event.preventDefault()
@@ -132,59 +192,71 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          {tab !== 'archived' && (
-            <Button variant="ghost" size="sm" className="text-muted-foreground shrink-0" disabled={!hasUnread || list.mutating} onClick={() => void list.markAllRead()} data-testid="inbox-mark-all-read">
-              <CheckCheck aria-hidden />
-              {t('inbox.markAllReadShort')}
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('text-muted-foreground shrink-0', tab === 'archived' && 'invisible')}
+            aria-hidden={tab === 'archived' || undefined}
+            tabIndex={tab === 'archived' ? -1 : undefined}
+            disabled={tab === 'archived' || !hasUnread || list.mutating}
+            onClick={() => void list.markAllRead()}
+            data-testid="inbox-mark-all-read"
+          >
+            <CheckCheck aria-hidden />
+            {t('inbox.markAllReadShort')}
+          </Button>
         </div>
       </div>
 
       {offer}
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
-        <div className="scroll-fade-bottom min-h-0 overflow-y-auto pb-6" data-testid="inbox-entries">
-          {list.loading ? (
-            <InboxQueueSkeleton />
-          ) : list.error ? (
-            <EmptyState title={t('inbox.errors.loadFailed')} />
-          ) : entries.length === 0 ? (
-            <EmptyState title={t(EMPTY[tab][0])} description={t(EMPTY[tab][1])} />
-          ) : (
-            <ul className="flex flex-col">
-              {entries.map((item) => (
-                <li key={item.id}>
-                  <InboxEntry item={item} current={item.id === picked?.id} onPick={pick} />
-                </li>
-              ))}
-              {list.hasMore && (
-                <li className="px-4 pt-3">
-                  <Button variant="ghost" size="sm" disabled={list.loadingMore} onClick={list.loadMore}>
-                    {list.loadingMore ? t('inbox.loadingMore') : t('inbox.loadMore')}
-                  </Button>
-                </li>
-              )}
-            </ul>
-          )}
+      {!list.loading && !list.error && entries.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center pb-16" data-testid="inbox-entries">
+          <EmptyState title={t(EMPTY[tab][0])} description={t(EMPTY[tab][1])} className="border-0 bg-transparent" />
         </div>
+      ) : (
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
+          <div className="scroll-fade-bottom min-h-0 overflow-y-auto pb-6" data-testid="inbox-entries">
+            {list.loading ? (
+              <InboxQueueSkeleton />
+            ) : list.error ? (
+              <EmptyState title={t('inbox.errors.loadFailed')} />
+            ) : (
+              <ul className="flex flex-col">
+                {entries.map((item) => (
+                  <li key={item.id}>
+                    <InboxEntry item={item} current={item.id === picked?.id} onPick={pick} />
+                  </li>
+                ))}
+                {list.hasMore && (
+                  <li className="px-4 pt-3">
+                    <Button variant="ghost" size="sm" disabled={list.loadingMore} onClick={list.loadMore}>
+                      {list.loadingMore ? t('inbox.loadingMore') : t('inbox.loadMore')}
+                    </Button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
 
-        <section className={cn('border-base min-h-0 p-6 lg:border-l', !picked && 'max-lg:hidden')} aria-label={t('inbox.page.opened')} data-testid="inbox-opened">
-          {picked ? (
-            <InboxOpened
-              key={picked.id}
-              item={picked}
-              viewerId={viewerId}
-              onArchive={archive}
-              onUnarchive={(itemId) => void list.unarchive(itemId)}
-              onMarkRead={(itemId) => void list.markRead([itemId])}
-              onMarkUnread={(itemId) => void list.markUnread([itemId])}
-            />
-          ) : (
-            <p className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">{t('inbox.page.pick')}</p>
-          )}
-        </section>
-      </div>
+          <section className={cn('border-base min-h-0 p-6 lg:border-l', !picked && 'max-lg:hidden')} aria-label={t('inbox.page.opened')} data-testid="inbox-opened">
+            {picked && (
+              <InboxOpened
+                key={picked.id}
+                item={picked}
+                viewerId={viewerId}
+                sameDocument={sameDocument}
+                markClient={markClient}
+                onArchive={archive}
+                onUnarchive={(itemId) => void list.unarchive(itemId)}
+                onResolve={resolve}
+                onAnswered={answer}
+                onPick={pick}
+              />
+            )}
+          </section>
+        </div>
+      )}
     </div>
   )
 }
