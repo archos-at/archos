@@ -311,6 +311,28 @@ def test_one_failed_union_is_not_taken_as_the_footprint(model: SpatialModel, mon
     assert answer.provenance == "declared"
 
 
+def test_the_envelope_survey_keeps_the_area_of_the_orientation_that_measured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import shapely.ops
+
+    box = _unit_box_triangles(flip=False)
+    expected = op._footprint_area(box)
+    assert expected > 0
+    real_union = shapely.ops.unary_union
+    calls = []
+
+    def first_fails(polygons: object) -> object:
+        calls.append(polygons)
+        if len(calls) == 1:
+            raise RuntimeError("GEOSException")
+        return real_union(polygons)
+
+    monkeypatch.setattr(shapely.ops, "unary_union", first_fails)
+    assert op._footprint_area(box) == pytest.approx(expected)
+    assert len(calls) == 2
+
+
 def test_a_converted_declared_area_is_not_said_to_be_compared_when_nothing_was_measured(
     model: SpatialModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:

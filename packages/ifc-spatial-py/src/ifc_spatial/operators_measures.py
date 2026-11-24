@@ -194,4 +194,8 @@ def _facing_union_area(triangles: np.ndarray, normals: np.ndarray) -> tuple[floa
 
 
 def _footprint_area(triangles: np.ndarray) -> float:
-    return _footprint(triangles)[0]
+    if triangles is None or len(triangles) == 0:
+        return 0.0
+    normals, _ = triangle_normals_areas(triangles)
+    area, _, _ = _facing_union_area(triangles, normals)
+    return area
