@@ -6,11 +6,25 @@ vi.mock('next/headers', () => ({
 }))
 const redirect = vi.hoisted(() => vi.fn((to: string) => { throw new Error(`redirect:${to}`) }))
 vi.mock('next/navigation', () => ({ redirect }))
+const reach = vi.hoisted(() => ({ project: true as boolean, access: true as boolean }))
+vi.mock('@/lib/auth/require-auth', () => ({
+  withPageSession: async <T,>(fn: (session: { organizationId: string }) => Promise<T>) => fn({ organizationId: 'org-1' }),
+}))
+vi.mock('@/lib/authz/projects', () => ({
+  requireProjectAccess: vi.fn(async () => {
+    if (!reach.access) throw new Error('forbidden')
+  }),
+}))
+vi.mock('@/lib/projects/repository', () => ({
+  findProjectInOrg: vi.fn(async (id: string) => (reach.project ? { id } : null)),
+}))
 
 import AppIndexPage from './page'
 
 beforeEach(() => {
   cookieValue.current = undefined
+  reach.project = true
+  reach.access = true
   redirect.mockClear()
 })
 
@@ -23,4 +37,24 @@ describe('/app', () => {
     cookieValue.current = encodeURIComponent('/app/projects/p1/files')
     await expect(AppIndexPage()).rejects.toThrow('redirect:/app/projects/p1/chat?new=1')
   })
+
+  it('opens a new personal chat when the last project is gone, never the not-found page it would loop on', async () => {
+    cookieValue.current = encodeURIComponent('/app/projects/p1/files')
+    reach.project = false
+    await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
+  })
+
+  it('opens a new personal chat when the reader lost access to the last project', async () => {
+    cookieValue.current = encodeURIComponent('/app/projects/p1/files')
+    reach.access = false
+    await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
+  })
+
+  it.each(['/app/inbox', '/app/profile', '/app/whats-new', '/app/memory', '/app/organization', '/app/platform'])(
+    'never sends a way back from %s to itself: it lands on a new personal chat',
+    async (page) => {
+      cookieValue.current = encodeURIComponent(page)
+      await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
+    }
+  )
 })

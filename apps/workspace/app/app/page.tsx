@@ -1,8 +1,22 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { LAST_PLACE_COOKIE, landingPath } from '@/components/shell/landing'
+import { withPageSession } from '@/lib/auth/require-auth'
+import { requireProjectAccess } from '@/lib/authz/projects'
+import { findProjectInOrg } from '@/lib/projects/repository'
+import { FIRST_PLACE, LAST_PLACE_COOKIE, landingPath } from '@/components/shell/landing'
+import { projectIdFromPathname } from '@/components/shell/org-sections'
 
 export default async function AppIndexPage(): Promise<never> {
-  const lastPlace = (await cookies()).get(LAST_PLACE_COOKIE)?.value
-  redirect(landingPath(lastPlace))
+  const target = landingPath((await cookies()).get(LAST_PLACE_COOKIE)?.value)
+  const projectId = projectIdFromPathname(target)
+  if (projectId === null) redirect(target)
+  const reachable = await withPageSession(async (session) => {
+    try {
+      await requireProjectAccess(session, projectId, 'project:view')
+      return (await findProjectInOrg(projectId, session.organizationId)) !== null
+    } catch {
+      return false
+    }
+  })
+  redirect(reachable ? target : FIRST_PLACE)
 }

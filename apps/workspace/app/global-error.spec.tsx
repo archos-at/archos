@@ -23,7 +23,7 @@ describe('GlobalError', () => {
     expect(screen.getByText(/something went wrong/i)).toBeDefined()
     screen.getByRole('button', { name: /try again/i }).click()
     expect(retry).toHaveBeenCalled()
-    expect(screen.getByRole('link', { name: /back to start/i }).getAttribute('href')).toBe('/app')
+    expect(screen.getByRole('link', { name: /back to start/i }).getAttribute('href')).toBe('/app/personal/chat?new=1')
   })
 
   test("speaks the visitor's language from the locale cookie, since no provider exists to ask", () => {
