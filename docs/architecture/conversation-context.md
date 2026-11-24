@@ -280,9 +280,11 @@ What slice 1 fixes, so no builder has to guess:
    answer**, per the slice 1 contract. Builds on
    [#1899](https://github.com/archos-at/archos/pull/1899), which already takes a
    turn's project from the row.
-2. **Python binds the decision and fails closed on answer-shaping reads.** The
-   direct `.collection_scope` readers move onto `scoping`, under the generated
-   contract.
+2. **Python binds the decision and fails closed on answer-shaping reads**, under
+   the generated contract. The readers that shape an answer read scope through
+   `scoping` or the bound decision only: the turn's inventory,
+   `knowledge_context.corpus_countries`, `turn/context.py` and the document-file
+   fetch. An empty bound scope lists nothing.
 3. **The old paths are dropped**, per the migration order. These scope builders
    join `kind`:
    - `jobs/run-context.ts`
@@ -290,6 +292,11 @@ What slice 1 fixes, so no builder has to guess:
    - `project-intake/run.ts`
    - the wake stop job
    - `backend-operations.ts`
+
+   The remaining direct `.collection_scope` readers move onto `scoping` here:
+   the run and job readers (`jobs/access.py`, `agent_job_setup.py`,
+   `run_envelope.py`), `routes/document_search.py` (an exempt route),
+   `routes/skills.py` and `turn/response.py`.
 4. **ADR-0191 on top:** `may.personalShelf`, the personal admit callback,
    `recorded.personalShelf` and the owner's confirmation. The personal shelf's
    row policy extends the one permissive policy on `documents` (migration 0031,
