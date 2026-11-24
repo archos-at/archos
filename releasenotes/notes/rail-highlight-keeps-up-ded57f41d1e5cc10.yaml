@@ -1,0 +1,5 @@
+---
+# area: general
+fixes:
+  - >
+    The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.

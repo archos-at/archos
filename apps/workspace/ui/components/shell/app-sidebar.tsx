@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
-import { AnimatePresence, motion, motionInstant, motionQuick, motionSnap, springGlide } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnap } from '@/components/motion'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import {
   Sidebar,
@@ -43,6 +43,7 @@ import { phoneBackTarget } from './phone-tabs'
 import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
+import { RailActivePill } from './rail-active-pill'
 import { RailChatList, useRailChats } from './rail-chats'
 import { RailModeSwitch } from './rail-mode-switch'
 import { shownSide, useRailSide } from './rail-side'
@@ -444,13 +445,7 @@ export function RailNavItem({
       >
         <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
           {active && (
-            <motion.span
-              layoutId={pillId}
-              data-slot="rail-active-pill"
-              aria-hidden
-              className="bg-sheet absolute inset-0 rounded-control shadow-xs"
-              transition={springGlide}
-            />
+            <RailActivePill pillId={pillId} at={href} />
           )}
           <Icon
             aria-hidden

@@ -5,11 +5,11 @@ import { createContext, useCallback, useContext, useEffect, useId, useState } fr
 import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
-import { motion, springGlide } from '@/components/motion'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
+import { RailActivePill } from './rail-active-pill'
 
 export const RAIL_CHAT_LIMIT = 8
 
@@ -202,7 +202,7 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
             >
               {/* Where the reader is: the rail's one sheet, gliding here from „Chat“ (`railActivePillId`). */}
               {chat.current && (
-                <motion.span layoutId={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
+                <RailActivePill pillId={pillId} at={chat.id} />
               )}
               <span className={cn('relative min-w-0 flex-1 truncate', (chat.activity === 'answered' || chat.activity === 'failed') && 'text-foreground font-medium')}>{chat.title}</span>
               <RailChatActivity activity={chat.activity} />
