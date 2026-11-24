@@ -63,7 +63,8 @@ export interface UseInboxListResult {
   loadMore: () => void
   markRead: (itemIds: string[]) => Promise<void>
   markUnread: (itemIds: string[]) => Promise<void>
-  markAllRead: () => Promise<void>
+  archiveAll: () => Promise<string | null>
+  unarchiveAll: (archivedAt: string) => Promise<boolean>
   archive: (itemId: string) => Promise<void>
   unarchive: (itemId: string) => Promise<boolean>
 }
@@ -236,14 +237,23 @@ export function useInboxList(
     [optimistic, client],
   )
 
-  const markAllRead = useCallback(async () => {
-    await optimistic(
-      (item) => (item.read ? item : { ...item, read: true, state: item.state === 'unread' ? 'read' : item.state }),
+  const archiveAll = useCallback(async (): Promise<string | null> => {
+    let archivedAt: string | null = null
+    const ok = await optimistic(
+      () => null,
       'all',
-      () => client.markAllRead(),
+      async () => {
+        archivedAt = (await client.archiveAll()).archivedAt
+      },
       { all: true },
     )
+    return ok ? archivedAt : null
   }, [optimistic, client])
+
+  const unarchiveAll = useCallback(
+    async (archivedAt: string): Promise<boolean> => mutate(() => client.unarchiveAll(archivedAt)),
+    [mutate, client],
+  )
 
   const archive = useCallback(
     async (itemId: string) => {
@@ -275,7 +285,8 @@ export function useInboxList(
     loadMore: () => void loadMore(),
     markRead,
     markUnread,
-    markAllRead,
+    archiveAll,
+    unarchiveAll,
     archive,
     unarchive,
   }

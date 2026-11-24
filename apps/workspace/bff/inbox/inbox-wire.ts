@@ -53,4 +53,8 @@ export const markReadSchema = z.union([
     .strict(),
 ])
 
-export const markUnreadSchema = z.object({ itemIds: z.array(z.guid()).min(1).max(INBOX_LIST_LIMIT) }).strict()
+export const archiveAllSchema = z.object({ all: z.literal(true) }).strict()
+
+export const unarchiveAllSchema = z.object({ archivedAt: z.iso.datetime() }).strict()
+
+export const markUnreadSchema =z.object({ itemIds: z.array(z.guid()).min(1).max(INBOX_LIST_LIMIT) }).strict()

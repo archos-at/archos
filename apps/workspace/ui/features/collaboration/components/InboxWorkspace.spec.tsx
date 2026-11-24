@@ -79,7 +79,8 @@ function hook(items: InboxItemView[], overrides: Partial<UseInboxListResult> = {
     loadMore: vi.fn(),
     markRead: vi.fn(async () => {}),
     markUnread: vi.fn(async () => {}),
-    markAllRead: vi.fn(async () => {}),
+    archiveAll: vi.fn(async () => '2026-11-24T10:00:00.000Z'),
+    unarchiveAll: vi.fn(async () => true),
     archive: vi.fn(async () => {}),
     unarchive: vi.fn(async () => true),
     ...overrides,
@@ -191,35 +192,46 @@ describe('InboxWorkspace', () => {
     expect(screen.getByTestId('inbox-entries')).toHaveTextContent(title)
   })
 
-  test('offers to mark everything read only while something is unread, and never in the archive', async () => {
-    page.search = 'tab=news'
-    serve('all', [seen])
+  test('empties the inbox even when every open request is already read, and never offers it in the archive', async () => {
+    const empty = serve('requests', [], { pending: 0, counts: { requests: 0, unread: 0 } })
     const { unmount } = render(<InboxWorkspace />)
-    expect(screen.getByTestId('inbox-mark-all-read')).toBeDisabled()
+    expect(screen.getByTestId('inbox-archive-all')).toBeDisabled()
+    expect(empty.archiveAll).not.toHaveBeenCalled()
     unmount()
 
-    const list = serve('all', [news])
+    const list = serve('requests', [{ ...newer, read: true }, { ...older, read: true }], { counts: { requests: 2, unread: 0 } })
     const view = render(<InboxWorkspace />)
-    await userEvent.click(screen.getByTestId('inbox-mark-all-read'))
-    expect(list.markAllRead).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByTestId('inbox-archive-all'))
+    expect(list.archiveAll).toHaveBeenCalledTimes(1)
     view.unmount()
 
     page.search = 'tab=archived'
     serve('archived', [{ ...news, archived: true }])
     render(<InboxWorkspace />)
-    expect(screen.getByTestId('inbox-mark-all-read')).toBeDisabled()
-    expect(screen.getByTestId('inbox-mark-all-read')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('inbox-archive-all')).toBeDisabled()
+    expect(screen.getByTestId('inbox-archive-all')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  test('„Undo“ on the toast brings back exactly what „Alle archivieren“ put away', async () => {
+    const list = serve('requests', [{ ...newer, read: true }])
+    render(<InboxWorkspace />)
+    await userEvent.click(screen.getByTestId('inbox-archive-all'))
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Inbox cleared', expect.anything()))
+    const { action } = vi.mocked(toast).mock.calls.at(-1)?.[1] ?? {}
+    if (!action || typeof action !== 'object' || !('onClick' in action)) throw new Error('the toast offers no undo')
+    act(() => action.onClick({} as never))
+    expect(list.unarchiveAll).toHaveBeenCalledWith('2026-11-24T10:00:00.000Z')
   })
 
   test.each([
     ['', 'requests', true],
     ['tab=news', 'all', true],
     ['tab=archived', 'archived', false],
-  ] as const)('keeps „Mark all read“ in its place on every tab, so the tabs never move (%s)', (search, filter, usable) => {
+  ] as const)('keeps „Archive all“ in its place on every tab, so the tabs never move (%s)', (search, filter, usable) => {
     page.search = search
     serve(filter, [{ ...news, archived: filter === 'archived' }])
     render(<InboxWorkspace />)
-    const button = screen.getByTestId('inbox-mark-all-read')
+    const button = screen.getByTestId('inbox-archive-all')
     if (usable) expect(button).toBeEnabled()
     else expect(button).toBeDisabled()
   })
