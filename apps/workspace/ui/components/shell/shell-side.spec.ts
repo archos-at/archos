@@ -22,4 +22,10 @@ describe('the side a page with none keeps, from where the person last was', () =
     expect(sideOfLastPlace('%E0%A4%A', ['p1'])).toEqual(PERSONAL_SIDE)
     expect(sideOfLastPlace('/app/personal/chat', ['p1'])).toEqual(PERSONAL_SIDE)
   })
+
+  it('never throws on a place whose project segment cannot be decoded, and stands on Persönlich', () => {
+    expect(() => sideOfLastPlace(encodeURIComponent('/app/projects/%/chat'), ['p1'])).not.toThrow()
+    expect(sideOfLastPlace(encodeURIComponent('/app/projects/%/chat'), ['p1'])).toEqual(PERSONAL_SIDE)
+    expect(sideOfLastPlace('/app/projects/%E0%A4%A/files', ['p1'])).toEqual(PERSONAL_SIDE)
+  })
 })
