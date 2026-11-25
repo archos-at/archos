@@ -502,7 +502,6 @@
   "/dev/research-report 360 target a \"Quelle #\"",
   "/dev/research-report 390 target a \"Quelle #\"",
   "/dev/revisions 360 target button \"document-lifecycle-archive\"",
-  "/dev/revisions 390 target button \"document-lifecycle-archive\"",
   "/dev/save-to-project 360 target button \"Alle Dateien\"",
   "/dev/save-to-project 390 target button \"Alle Dateien\"",
   "/dev/schedule-wizard 360 target button \"wizard-advanced\"",
