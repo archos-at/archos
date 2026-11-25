@@ -89,6 +89,18 @@ export const onboarding = {
         title: 'Your organization',
         body: 'Invite colleagues and manage roles under Organization. Theme, language and this tour live here too.',
       },
+      officeShelfPhone: {
+        title: 'Office library',
+        body: 'Your office’s shared documents — standard details, specifications, templates. You find it under “More”; file something there once and every project can draw on it.',
+      },
+      accountPhone: {
+        title: 'Your organization',
+        body: 'Invite colleagues and manage roles under “More”. Theme, language and this tour live there too.',
+      },
+      accountMemberPhone: {
+        title: 'Your account',
+        body: 'Under “More”: your profile, theme and language, and this tour whenever you want it again. Members and roles are managed by your organization’s admins.',
+      },
       accountMember: {
         title: 'Your account',
         body: 'Your profile, theme and language, and this tour whenever you want it again. Members and roles are managed by your organization’s admins.',
@@ -101,7 +113,7 @@ export const onboarding = {
       },
       searchPhone: {
         title: 'Search',
-        body: 'The magnifier at the top finds any file, chat and project in the office. A few letters are enough.',
+        body: 'Search, under “More”, finds any file, chat and project in the office. A few letters are enough.',
       },
       projectWelcome: {
         title: 'Your project is set up',

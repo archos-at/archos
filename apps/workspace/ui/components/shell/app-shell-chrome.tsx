@@ -9,12 +9,10 @@ import { FeedbackProvider } from '@/features/product-feedback/components'
 import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { cn } from '@/lib/utils'
 import { AppSidebar } from './app-sidebar'
-import { OrgHeader } from './org-header'
-import { projectIdFromPathname } from './org-sections'
-import { railModeOf } from './rail-mode'
 import { useRecordLastPlace } from './last-place'
 import { PhoneMoreSheet } from './phone-more-sheet'
-import { useRailSide } from './rail-side'
+import { useRailSide, type RailSide } from './rail-side'
+import { sideOffRoute, sideOfPath } from './shell-side'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
 import { useKeyboardUp } from './use-keyboard-up'
@@ -26,12 +24,6 @@ import type { TourEligibility } from '@/lib/onboarding/product-tour'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 const EMPTY_ACTIVITY: Record<string, string> = {}
-
-const KEEPS_THE_COVERED_CHROME = ['/app/office-shelf', '/app/base-knowledge', '/app/inbox', '/app/uploads'] as const
-
-function keepsTheCoveredChrome(pathname: string): boolean {
-  return KEEPS_THE_COVERED_CHROME.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-}
 
 export interface AppShellChromeProps {
   projects: OverviewProject[]
@@ -52,6 +44,7 @@ export interface AppShellChromeProps {
   showModels: boolean
   inboundMail?: boolean
   tours: TourEligibility
+  lastSide?: RailSide
   children: React.ReactNode
   overlay: React.ReactNode
 }
@@ -66,17 +59,22 @@ export function AppShellChrome({
   const settleSide = useRailSide((state) => state.settle)
   React.useEffect(() => settleSide(), [pathname, settleSide])
 
-  const solidPathRef = React.useRef(keepsTheCoveredChrome(pathname) ? '/app/projects' : pathname)
-  if (!keepsTheCoveredChrome(pathname)) solidPathRef.current = pathname
-
-  const projectId = projectIdFromPathname(solidPathRef.current)
-  const inProject = railModeOf(solidPathRef.current) !== null
+  const routeSide = sideOfPath(pathname)
+  const [remembered, setRemembered] = React.useState<RailSide | null>(null)
+  const routeMode = routeSide?.mode
+  const routeProjectId = routeSide?.projectId ?? null
+  React.useEffect(() => {
+    if (routeMode) setRemembered({ mode: routeMode, projectId: routeProjectId })
+  }, [routeMode, routeProjectId])
+  const projectIds = React.useMemo(() => chrome.projects.map((project) => project.id), [chrome.projects])
+  const side = routeSide ?? sideOffRoute(remembered, chrome.lastSide, projectIds)
+  const projectId = side.projectId
 
   useVisualViewport()
   const account = shellAccount(chrome)
 
   const keyboardUp = useKeyboardUp()
-  const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(solidPathRef.current)
+  const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(pathname)
 
   return (
     <ProductTour
@@ -91,30 +89,22 @@ export function AppShellChrome({
       data-keyboard={keyboardUp ? 'up' : undefined}
       className={cn(
         'bg-background text-foreground flex h-[var(--visual-viewport-height,100dvh)] overflow-hidden',
-        inProject ? 'flex-col md:flex-row' : 'flex-col',
+        'flex-col md:flex-row',
         '[--shell-inset-bottom:env(safe-area-inset-bottom)] data-[keyboard=up]:[--shell-inset-bottom:0px] max-md:data-[tab-bar=shown]:[--shell-inset-bottom:0px]',
       )}
     >
-      {inProject ? (
-        <AppSidebar
-          projectId={projectId}
-          projects={chrome.projects}
-          {...account}
-          canAccessOfficeShelf={chrome.canAccessOfficeShelf}
-          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
-          canAccessInbox={chrome.canAccessInbox}
-          showSkills={chrome.showSkills}
-          showModels={chrome.showModels}
-          inboundMailEnabled={chrome.inboundMail}
-        />
-      ) : (
-        <OrgHeader
-          {...account}
-          canAccessOfficeShelf={chrome.canAccessOfficeShelf}
-          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
-          canAccessInbox={chrome.canAccessInbox}
-        />
-      )}
+      <AppSidebar
+        projectId={projectId}
+        onSide={routeSide !== null}
+        projects={chrome.projects}
+        {...account}
+        canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+        canAccessOfficeStandards={chrome.canAccessOfficeStandards}
+        canAccessInbox={chrome.canAccessInbox}
+        showSkills={chrome.showSkills}
+        showModels={chrome.showModels}
+        inboundMailEnabled={chrome.inboundMail}
+      />
       {children}
       {tabBarShown && (
         <PhoneTabBar
@@ -124,7 +114,7 @@ export function AppShellChrome({
           inboundMailEnabled={chrome.inboundMail}
         />
       )}
-      {inProject && tabBarShown && (
+      {tabBarShown && (
         <PhoneMoreSheet
           projectId={projectId}
           projects={chrome.projects}

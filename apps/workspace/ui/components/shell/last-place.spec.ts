@@ -18,4 +18,11 @@ describe('the shell remembers where the person was, for /app', () => {
     renderHook(() => useRecordLastPlace('/app/onboarding/welcome'))
     expect(written()).toEqual([])
   })
+
+  it('records only a side’s place, so a page with no side (the Postfach, the profile) keeps the side the person came from', () => {
+    renderHook(() => useRecordLastPlace('/app/inbox'))
+    renderHook(() => useRecordLastPlace('/app/profile'))
+    renderHook(() => useRecordLastPlace('/app/personal/chat'))
+    expect(written()).toEqual([`last_place=${encodeURIComponent('/app/personal/chat')}; path=/app; max-age=31536000; samesite=lax`])
+  })
 })

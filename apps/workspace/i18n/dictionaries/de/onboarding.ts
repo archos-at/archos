@@ -91,6 +91,18 @@ export const onboarding: typeof en.onboarding = {
         title: 'Ihre Organisation',
         body: 'Unter „Organisation“ laden Sie Kolleginnen und Kollegen ein und verwalten Rollen. Design, Sprache und diese Tour finden Sie ebenfalls hier.',
       },
+      officeShelfPhone: {
+        title: 'Bürobibliothek',
+        body: 'Die gemeinsamen Unterlagen Ihres Büros — Regeldetails, Leistungsbeschreibungen, Vorlagen. Sie finden sie unter „Mehr“; einmal dort abgelegt, kann jedes Projekt darauf zurückgreifen.',
+      },
+      accountPhone: {
+        title: 'Ihre Organisation',
+        body: 'Unter „Mehr“ laden Sie Kolleginnen und Kollegen ein und verwalten Rollen. Design, Sprache und diese Tour finden Sie ebenfalls dort.',
+      },
+      accountMemberPhone: {
+        title: 'Ihr Konto',
+        body: 'Unter „Mehr“: Ihr Profil, Design und Sprache, und diese Tour, wann immer Sie sie wieder brauchen. Mitglieder und Rollen verwalten die Administratoren Ihrer Organisation.',
+      },
       accountMember: {
         title: 'Ihr Konto',
         body: 'Ihr Profil, Design und Sprache, und diese Tour, wann immer Sie sie wieder brauchen. Mitglieder und Rollen verwalten die Administratoren Ihrer Organisation.',
@@ -103,7 +115,7 @@ export const onboarding: typeof en.onboarding = {
       },
       searchPhone: {
         title: 'Suchen',
-        body: 'Die Lupe oben findet jede Datei, jeden Chat und jedes Projekt im Büro. Ein paar Buchstaben genügen.',
+        body: 'Die Suche unter „Mehr“ findet jede Datei, jeden Chat und jedes Projekt im Büro. Ein paar Buchstaben genügen.',
       },
       projectWelcome: {
         title: 'Ihr Projekt ist eingerichtet',

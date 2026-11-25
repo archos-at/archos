@@ -52,7 +52,7 @@ import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, type R
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
-import { sectionAnchor } from '@/lib/onboarding/product-tour'
+import { TOUR_ANCHORS, sectionAnchor } from '@/lib/onboarding/product-tour'
 
 
 const SIDE_DIRECTION: Record<RailMode, number> = { personal: -1, project: 1 }
@@ -69,6 +69,7 @@ export function railActivePillId(iconRail: boolean, side: RailMode): string {
 
 export interface AppSidebarProps extends ShellAccount {
   projectId: string | null
+  onSide?: boolean
   projects: ProjectSwitcherProject[]
   canAccessOfficeShelf?: boolean
   canAccessOfficeStandards?: boolean
@@ -117,6 +118,7 @@ export function AppSidebar(props: AppSidebarProps) {
 function AppSidebarFrame(props: AppSidebarProps) {
   const {
     projectId,
+    onSide = true,
     projects,
     organizationName = null,
     canAccessOfficeShelf = false,
@@ -146,8 +148,8 @@ function AppSidebarFrame(props: AppSidebarProps) {
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
-  const back = projectId === null ? null : phoneBackTarget(pathname, projectId)
-  const pageHasHeader = projectId === null || framesProjectPage(pathname, projectId)
+  const back = projectId === null || !onSide ? null : phoneBackTarget(pathname, projectId)
+  const pageHasHeader = projectId === null || !onSide || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -255,7 +257,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
           <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
             <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} />
           </div>
-          {projectId !== null && <ProjectRecorder projectId={projectId} />}
+          {projectId !== null && onSide && <ProjectRecorder projectId={projectId} />}
         </SidebarHeader>
 
         <SidebarContent className={cn('relative min-h-0 flex-1 gap-0 overflow-hidden', column)}>
@@ -332,6 +334,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
             <div className={cn('min-w-0', !iconRail && 'flex-1')}>
               <SidebarUserMenu
                 {...shellAccount(props)}
+                tourAnchor={TOUR_ANCHORS.account}
                 compact={iconRail}
                 avatarSizeClass="size-6"
                 menuSide={iconRail ? 'right' : 'top'}
@@ -344,7 +347,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
             {canAccessInbox && (
               <InboxBell
                 compact={iconRail}
-                tourAnchor={sectionAnchor('inbox')}
+                tourAnchor={TOUR_ANCHORS.inbox}
                 pathname={pathname}
                 className={iconRail ? undefined : 'absolute right-8 top-1/2 z-10 h-7 min-w-7 -translate-y-1/2 border-transparent px-1.5 pointer-coarse:h-9'}
               />

@@ -2,6 +2,7 @@
 
 import type { JSX } from 'react'
 import { Search } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,11 +13,14 @@ import { cn } from '@/lib/utils'
 import { useShellOverlays } from './shell-overlays'
 import { useModifierLabel } from './shortcut-keys'
 
+const SEARCH_PAGE = '/app/search'
+
 export function ShellSearchButton({ className }: { className?: string }): JSX.Element {
   const t = useTranslations(navCopy)
   const mod = useModifierLabel()
   const open = useShellOverlays((s) => s.paletteOpen)
   const openPalette = useShellOverlays((s) => s.openPaletteByPointer)
+  const here = (usePathname() ?? '').startsWith(SEARCH_PAGE)
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -29,9 +33,11 @@ export function ShellSearchButton({ className }: { className?: string }): JSX.El
       aria-keyshortcuts="Control+K Meta+K"
       data-testid="shell-search"
       data-tour={TOUR_ANCHORS.search}
+      data-here={here ? '' : undefined}
       className={cn(
         'text-muted-foreground hover:bg-hover hover:text-foreground duration-quick pointer-coarse:size-11 relative flex size-9 shrink-0 items-center justify-center rounded-control outline-none transition-colors ease-out motion-reduce:transition-none',
         FOCUS_RING,
+        here && 'bg-sheet text-foreground shadow-xs',
         className
       )}
     >

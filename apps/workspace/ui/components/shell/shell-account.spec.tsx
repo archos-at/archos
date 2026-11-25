@@ -29,13 +29,12 @@ vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 const avatars: { surface: string; props: Record<string, unknown> }[] = []
 vi.mock('./sidebar-user-menu', () => ({
   SidebarUserMenu: (props: Record<string, unknown>) => {
-    avatars.push({ surface: props.compact === true && props.menuSide === 'bottom' ? 'top bar' : 'rail', props })
+    avatars.push({ surface: 'rail', props })
     return <div data-testid="user-menu" />
   },
 }))
 
 import { AppSidebar } from './app-sidebar'
-import { OrgHeader } from './org-header'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { shellAccount, type ShellAccount } from './shell-account'
 import { useShellOverlays } from './shell-overlays'
@@ -65,18 +64,10 @@ describe('one account, in every place that shows it', () => {
     expect(Object.keys(shellAccount({ ...ACCOUNT, canAccessInbox: true } as ShellAccount)).sort()).toEqual(ACCOUNT_KEYS)
   })
 
-  test('the rail’s avatar and the top bar’s avatar get the same account, the office switch included', () => {
-    render(
-      <>
-        <AppSidebar {...ACCOUNT} projectId="p1" projects={[{ id: 'p1', name: 'Seestadt' }]} canAccessInbox />
-        <OrgHeader {...ACCOUNT} canAccessOfficeShelf canAccessInbox />
-      </>
-    )
+  test('the rail’s avatar gets the whole account, the office switch included', () => {
+    render(<AppSidebar {...ACCOUNT} projectId="p1" projects={[{ id: 'p1', name: 'Seestadt' }]} canAccessInbox />)
     const rail = avatars.findLast((avatar) => avatar.surface === 'rail')
-    const top = avatars.findLast((avatar) => avatar.surface === 'top bar')
-    const accountOf = (props: Record<string, unknown> | undefined) => Object.fromEntries(ACCOUNT_KEYS.map((key) => [key, props?.[key]]))
-    expect(accountOf(rail?.props)).toEqual(ACCOUNT)
-    expect(accountOf(top?.props)).toEqual(accountOf(rail?.props))
+    expect(Object.fromEntries(ACCOUNT_KEYS.map((key) => [key, rail?.props[key]]))).toEqual(ACCOUNT)
   })
 
   test('„Mehr“ offers the switch to another office, and a tap on one starts it', async () => {

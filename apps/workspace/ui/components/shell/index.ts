@@ -1,6 +1,5 @@
 export { AppSidebar, type AppSidebarProps } from './app-sidebar'
 export { AppShellChrome, type AppShellChromeProps } from './app-shell-chrome'
-export { OrgHeader, type OrgHeaderProps } from './org-header'
 export { projectIdFromPathname } from './org-sections'
 export { ShellContent, type ShellContentProps, type ShellContentWidth } from './shell-content'
 export { BackLink, type BackLinkProps } from './back-link'

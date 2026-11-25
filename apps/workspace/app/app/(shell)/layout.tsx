@@ -1,10 +1,13 @@
 import type { JSX } from 'react'
 import { type ReactNode } from 'react'
+import { cookies } from 'next/headers'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
 import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
+import { LAST_PLACE_COOKIE } from '@/components/shell/landing'
+import { sideOfLastPlace } from '@/components/shell/shell-side'
 import { resolveShellChrome } from '@/lib/shell/chrome'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
 import { RecentlyDeleted } from '@/features/projects/components/recently-deleted'
@@ -18,6 +21,10 @@ export default async function AppShellLayout({
   overlay: ReactNode
 }): Promise<JSX.Element> {
   const chrome = await runWithTenantSlot(resolveShellChrome)
+  const lastSide = sideOfLastPlace(
+    (await cookies()).get(LAST_PLACE_COOKIE)?.value,
+    chrome.projects.map((project) => project.id)
+  )
 
   return (
     <RailChatsProvider>
@@ -40,6 +47,7 @@ export default async function AppShellLayout({
       showModels={chrome.showModels}
       inboundMail={chrome.inboundMail}
       tours={chrome.tours}
+      lastSide={lastSide}
       overlay={overlay}
     >
       {/* `relative` is load-bearing for the docked chat panels: they position
