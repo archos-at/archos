@@ -27,8 +27,9 @@ ADR's to say.
    page and loses its drafts.
 2. **Let it arrive, not jump.** `DockedSplit` glides the whole row both ways:
    the page's and the panel's shares (`flex-grow`) and the seam's width move
-   from the row as it stood to the library's new layout, eased on the motion
-   kit's entrance and exit tokens, while the panel's content keeps its open
+   from the row as it stood to the library's new layout, on the motion kit's
+   `motionDeliberateMove` both ways (320ms, `--ease-move`: the page is on
+   screen and resizes, it neither arrives nor leaves), while the panel's content keeps its open
    width and slides in or out under the group's clip. The page column resizes
    with it frame by frame, so a centred chat never steps sideways; a transform
    cannot do that, because the composer's own width changes. Closing keeps the

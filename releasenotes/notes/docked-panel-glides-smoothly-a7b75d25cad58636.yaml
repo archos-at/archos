@@ -1,0 +1,10 @@
+---
+# area: general
+fixes:
+  - >
+    A file opened beside the chat now slides in and out smoothly, the page
+    beside it easing into its new width instead of jumping in the first
+    moment.
+  - >
+    On the phone, the highlight under the bottom tabs glides to the tab you
+    tap in the same calm way.

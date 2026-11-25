@@ -11,6 +11,8 @@ const EASE_ENTRANCE: Bezier = [0.16, 1, 0.3, 1]
 
 const EASE_EXIT: Bezier = [0.23, 1, 0.32, 1]
 
+const EASE_MOVE: Bezier = [0.77, 0, 0.175, 1]
+
 export interface SpringTransition {
   readonly type: 'spring'
   readonly stiffness: number
@@ -71,6 +73,10 @@ export const motionQuickExit: Transition = { duration: 0.18, ease: EASE_EXIT }
 export const motionSnapExit: Transition = { duration: 0.12, ease: EASE_EXIT }
 
 export const motionDeliberate: Transition = { duration: 0.32, ease: EASE_OUT }
+
+export const motionMove: Transition = { duration: 0.24, ease: EASE_MOVE }
+
+export const motionDeliberateMove: Transition = { duration: 0.32, ease: EASE_MOVE }
 
 export const motionInstant: Transition = { duration: 0, delay: 0 }
 

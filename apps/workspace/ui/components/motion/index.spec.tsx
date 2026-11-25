@@ -7,8 +7,10 @@ import {
   motionBase,
   motionDeliberate,
   motionDeliberateEntrance,
+  motionDeliberateMove,
   motionEntrance,
   motionInstant,
+  motionMove,
   motionQuick,
   motionQuickExit,
   motionSnapExit,
@@ -322,5 +324,31 @@ describe('motionDeliberateEntrance', () => {
     expect(motionDeliberateEntrance.duration).toBe(motionDeliberate.duration)
     expect(motionDeliberateEntrance.ease).toEqual(motionEntrance.ease)
     expect(motionSheetEnter).toBe(motionDeliberateEntrance)
+  })
+})
+
+describe('motionMove', () => {
+  const progressAt = ([x1, y1, x2, y2]: [number, number, number, number], time: number): number => {
+    const at = (a: number, b: number, t: number): number => 3 * a * t * (1 - t) ** 2 + 3 * b * t ** 2 * (1 - t) + t ** 3
+    let low = 0
+    let high = 1
+    for (let step = 0; step < 40; step += 1) {
+      const mid = (low + high) / 2
+      if (at(x1, x2, mid) < time) low = mid
+      else high = mid
+    }
+    return at(y1, y2, (low + high) / 2)
+  }
+
+  it('moves a 560px split about a pixel in its first frame, where the ease-out jumps a third of a column', () => {
+    const frame = 1000 / 60 / (motionDeliberateMove.duration as number) / 1000
+    expect(560 * progressAt(motionDeliberateMove.ease as [number, number, number, number], frame)).toBeLessThan(2)
+    expect(560 * progressAt(motionDeliberateEntrance.ease as [number, number, number, number], frame)).toBeGreaterThan(100)
+  })
+
+  it('is one curve at two lengths: the tab pill on the base step, the split on the deliberate ceiling', () => {
+    expect(motionMove.ease).toEqual(motionDeliberateMove.ease)
+    expect(motionMove.duration).toBe(motionBase.duration)
+    expect(motionDeliberateMove.duration).toBe(motionDeliberate.duration)
   })
 })
