@@ -6,7 +6,7 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { sourceSignalStyle } from '@/features/layout/components/SourceSignalChip'
 import { SectionLabel } from '@/components/ui/section-label'
-import { AuthorityTag } from '../AuthorityTag'
+import { AuthorityTag, labelNamesAuthority } from '../AuthorityTag'
 import { KIND_TO_SIGNAL, type SourceSignal } from '@/lib/source-kinds'
 import {
   citationNumbers,
@@ -74,8 +74,7 @@ export const SourceCard: FC<{
   const used = isCited(doc)
   const numbers = citationNumbers(doc)
   const allRepeat = !!loci && loci.length > 0 && loci.every((locus) => locus.repeat)
-  const showAuthority =
-    !!doc.authority && !tabLabel.toLowerCase().startsWith(doc.authority.toLowerCase())
+  const showAuthority = !!doc.authority && !labelNamesAuthority(tabLabel, doc.authority)
   const fileName = doc.fileName ?? doc.title
   const edition = documentEdition(fileName, doc.title)
   const named = edition ? { ...doc, title: documentShortName(fileName, doc.title) } : doc
@@ -111,7 +110,7 @@ export const SourceCard: FC<{
             aria-hidden="true"
           />
         )}
-        {showAuthority && <AuthorityTag>{doc.authority}</AuthorityTag>}
+        {showAuthority && <AuthorityTag authority={doc.authority} label={tabLabel} />}
         <span className="truncate">{tabLabel}</span>
       </SectionLabel>
 

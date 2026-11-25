@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    A source under an answer now says its name once, „OIB-Richtlinie 2.1"
+    rather than „OIB OIB-Richtlinie 2.1", and shows the whole name wherever
+    the row has room for it.
