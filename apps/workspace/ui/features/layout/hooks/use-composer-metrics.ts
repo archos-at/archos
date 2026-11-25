@@ -12,7 +12,9 @@ const GREETING_ABOVE_MIDDLE_PX = 70
 
 export const WELCOME_OFFSET_FALLBACK = `round(nearest, calc(50cqh + ${GREETING_ABOVE_MIDDLE_PX}px), 1px)`
 
-const REST_LIFT_FALLBACK = `round(nearest, min(0px, calc(100% - ${GREETING_ABOVE_MIDDLE_PX - COMPOSER_GAP_PX}px - 50cqh)), 1px)`
+const REST_LIFT_FALLBACK = `var(--composer-rest-lift, round(nearest, min(0px, calc(100% - ${GREETING_ABOVE_MIDDLE_PX - COMPOSER_GAP_PX}px - 50cqh)), 1px))`
+
+export const COMPOSER_ON_PHONE_FLOOR = 'max-md:[--composer-rest-lift:0px]'
 
 export const restGeometry = (column: number, composer: number, onFloor = false): { y: number; welcomeOffset: number } => {
   const greetingLine = onFloor ? 0 : column / 2 + GREETING_ABOVE_MIDDLE_PX
@@ -39,7 +41,7 @@ export interface ComposerMetrics {
 export function useComposerMetrics(
   isThreadEmpty: boolean,
   keyboardUp = false,
-  { predicted = false }: { predicted?: boolean } = {}
+  { predicted = false, phone = false }: { predicted?: boolean; phone?: boolean | null } = {}
 ): ComposerMetrics {
   const [composerHeight, setComposerHeight] = useState<number | null>(null)
   const [columnHeight, setColumnHeight] = useState<number | null>(null)
@@ -76,7 +78,7 @@ export function useComposerMetrics(
   const measured = composerHeight != null && columnHeight != null
 
   const rest = measured ? restGeometry(columnHeight, composerHeight, keyboardUp) : null
-  const restY = keyboardUp ? 0 : rest ? rest.y : REST_LIFT_FALLBACK
+  const restY = keyboardUp || phone === true ? 0 : rest && phone === false ? rest.y : REST_LIFT_FALLBACK
   const composerY = isThreadEmpty ? restY : 0
 
   const welcomeOffsetRef = useRef<number | null>(null)

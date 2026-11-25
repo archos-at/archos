@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, an empty chat's input now waits at the bottom of the screen, as
+    in a chat that has started, so tapping into it no longer makes the page
+    drift or jitter in the app installed on an iPhone.

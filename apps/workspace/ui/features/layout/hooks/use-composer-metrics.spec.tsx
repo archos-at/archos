@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react'
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { motion } from '@/components/motion'
-import { restGeometry, useComposerMetrics, type ComposerMetrics } from './use-composer-metrics'
+import { COMPOSER_ON_PHONE_FLOOR, restGeometry, useComposerMetrics, type ComposerMetrics } from './use-composer-metrics'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 
 const COLUMN_H = 900
@@ -47,6 +47,7 @@ interface HarnessProps {
   composerHeight?: number
   columnHeight?: number
   keyboardUp?: boolean
+  phone?: boolean | null
 }
 
 const Harness = ({
@@ -55,8 +56,9 @@ const Harness = ({
   composerHeight = COMPOSER_H,
   columnHeight = COLUMN_H,
   keyboardUp = false,
+  phone = false,
 }: HarnessProps): JSX.Element => {
-  const metrics = useComposerMetrics(isThreadEmpty, keyboardUp)
+  const metrics = useComposerMetrics(isThreadEmpty, keyboardUp, { phone })
   latest = metrics
   renders += 1
   return (
@@ -112,6 +114,17 @@ describe('useComposerMetrics', () => {
     expect(latest.composerMotion.animate.y).toBe(0)
     expect(latest.composerMotion.transition).toEqual({ duration: 0 })
     expect(columnVar(container, '--welcome-offset')).toBe(`${COMPOSER_H + 32}px`)
+  })
+
+  test('on a phone the empty chat composer stands on the floor before any tap, the greeting where it stood', () => {
+    const { container } = render(<Harness isThreadEmpty phone />)
+    expect(latest.composerMotion.animate.y).toBe(0)
+    expect(columnVar(container, '--welcome-offset')).toBe(`${EXPECTED_WELCOME_OFFSET}px`)
+  })
+
+  test('until the phone is known, the lift is left to the stylesheet, which floors it below md', () => {
+    render(<Harness isThreadEmpty phone={null} />)
+    expect(String(latest.composerMotion.animate.y)).toContain('var(--composer-rest-lift')
   })
 
   test('never lifts the composer off the bottom of a short column', () => {
@@ -223,10 +236,11 @@ describe('the composer of an empty chat on the server', () => {
     return <motion.div ref={metrics.composerRef} style={metrics.composerStyle} {...metrics.composerMotion} />
   }
 
-  test('rests at the line it will be measured to, in CSS, before any script runs', () => {
+  test('rests at the line it will be measured to, in CSS, before any script runs, and on the floor on a phone', () => {
     expect(renderToString(<ServerComposer isThreadEmpty />)).toContain(
-      'translateY(round(nearest, min(0px, calc(100% - 38px - 50cqh)), 1px))'
+      'translateY(var(--composer-rest-lift, round(nearest, min(0px, calc(100% - 38px - 50cqh)), 1px)))'
     )
+    expect(COMPOSER_ON_PHONE_FLOOR).toBe('max-md:[--composer-rest-lift:0px]')
   })
 
   test('a chat that will resume keeps its composer on the floor', () => {

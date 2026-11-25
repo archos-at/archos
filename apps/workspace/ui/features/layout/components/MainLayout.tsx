@@ -22,8 +22,10 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { ViewerActionHost } from '@/features/documents/components/viewer-action-host'
-import { useComposerMetrics } from '../hooks/use-composer-metrics'
+import { COMPOSER_ON_PHONE_FLOOR, useComposerMetrics } from '../hooks/use-composer-metrics'
 import { useKeyboardUp } from '@/components/shell/use-keyboard-up'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
+import { cn } from '@/lib/utils'
 import { useChatStarted, useLinkedChatPending } from '../hooks/use-chat-started'
 import { useSessionRows } from '../hooks/use-session-rows'
 import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
@@ -84,7 +86,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
 
   const keyboardUp = useKeyboardUp()
   const { composerRef, columnVars, composerStyle, composerMotion } =
-    useComposerMetrics(isThreadEmpty, keyboardUp, { predicted: useArrivalPredicted() })
+    useComposerMetrics(isThreadEmpty, keyboardUp, { predicted: useArrivalPredicted(), phone: useIsMobileOnceKnown() })
 
   const [toolbarHeight, setToolbarHeight] = useState<number | null>(null)
   const toolbarVars = useMemo<CSSProperties>(
@@ -145,7 +147,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             whole column is the drop target for attachments, toolbar and
             transcript included, not only the composer card (`ChatDropZone`). */}
         <ChatDropZone
-          className="flex min-w-0 flex-col overflow-hidden [container-type:size]"
+          className={cn('flex min-w-0 flex-col overflow-hidden [container-type:size]', COMPOSER_ON_PHONE_FLOOR)}
           style={{
             width: '100%',
             ...columnVars,

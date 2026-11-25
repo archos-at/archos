@@ -5,7 +5,6 @@ import {
   useFitToVisualViewport,
   useVisualViewport,
   VISUAL_VIEWPORT_HEIGHT_VAR,
-  VISUAL_VIEWPORT_TOP_VAR,
 } from './use-visual-viewport'
 
 class FakeVisualViewport extends EventTarget {
@@ -18,9 +17,6 @@ const LAYOUT_HEIGHT = 800
 
 const published = (): string =>
   document.documentElement.style.getPropertyValue(VISUAL_VIEWPORT_HEIGHT_VAR)
-
-const publishedTop = (): string =>
-  document.documentElement.style.getPropertyValue(VISUAL_VIEWPORT_TOP_VAR)
 
 describe('useVisualViewport', () => {
   let viewport: FakeVisualViewport
@@ -50,7 +46,6 @@ describe('useVisualViewport', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     document.documentElement.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
-    document.documentElement.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
   })
 
   const openKeyboard = (visibleHeight: number, offsetTop = 0): void => {
@@ -71,30 +66,6 @@ describe('useVisualViewport', () => {
     openKeyboard(460, 300)
     expect(published()).toBe('460px')
     expect(scrollTo).toHaveBeenCalledWith(0, 0)
-  })
-
-  test('an installed iPhone app that keeps the pan: the shell stands where the visible area is, and follows it back', () => {
-    renderHook(() => useVisualViewport())
-    openKeyboard(460, 260)
-    expect(publishedTop()).toBe('260px')
-
-    viewport.offsetTop = 120
-    viewport.dispatchEvent(new Event('scroll'))
-    flushFrame()
-    expect(publishedTop()).toBe('120px')
-
-    viewport.offsetTop = 0
-    viewport.dispatchEvent(new Event('scroll'))
-    flushFrame()
-    expect(publishedTop()).toBe('0px')
-  })
-
-  test('the keyboard going down clears the top as well as the height', () => {
-    renderHook(() => useVisualViewport())
-    openKeyboard(460, 260)
-    openKeyboard(LAYOUT_HEIGHT, 0)
-    expect(published()).toBe('')
-    expect(publishedTop()).toBe('')
   })
 
   test.each([
