@@ -1236,6 +1236,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "„Ansehen“ on the line saying that documents could not be read seemed to do nothing once their list was open; the line now steps aside while that list is shown and returns when you go back to the folder.",
+            "de": "„Ansehen“ in der Zeile mit dem Hinweis, dass Dokumente nicht gelesen werden konnten, schien nichts zu bewirken, sobald deren Liste geöffnet war; jetzt wird die Zeile ausgeblendet, solange die Liste angezeigt wird, und erscheint wieder, wenn Sie zum Ordner zurückkehren."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "The toolbar at the bottom of the model viewer casts its full shadow again; it used to stop in a hard line just below the buttons.",

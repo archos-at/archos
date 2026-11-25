@@ -6436,6 +6436,10 @@
     "de": "„Als PDF herunterladen“ lädt jetzt auch Word-, Excel- und PowerPoint-Dateien als PDF herunter."
   },
   {
+    "en": "„Ansehen“ on the line saying that documents could not be read seemed to do nothing once their list was open; the line now steps aside while that list is shown and returns when you go back to the folder.",
+    "de": "„Ansehen“ in der Zeile mit dem Hinweis, dass Dokumente nicht gelesen werden konnten, schien nichts zu bewirken, sobald deren Liste geöffnet war; jetzt wird die Zeile ausgeblendet, solange die Liste angezeigt wird, und erscheint wieder, wenn Sie zum Ordner zurückkehren."
+  },
+  {
     "en": "„Erstelle ein Dokument über …“ now starts a deep research whose finished report is filed in the project under Berichte. If you only want a thorough answer, you still get it in the chat.",
     "de": "„Erstelle ein Dokument über …“ startet jetzt eine Tiefenrecherche, deren fertiger Bericht im Projekt unter „Berichte“ abgelegt wird. Wer nur eine gründliche Antwort will, bekommt sie weiterhin im Chat."
   },
