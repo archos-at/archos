@@ -1,0 +1,8 @@
+---
+# area: answers
+improvements:
+  - >
+    In the chat, the "thinking" dots, the note that a colleague's question is
+    being answered and the notice about an interrupted answer now fade in and
+    out instead of appearing and vanishing at once. In "Letzte Chats", a chat's
+    working or answered mark changes over smoothly.

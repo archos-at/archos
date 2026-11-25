@@ -16,6 +16,7 @@ import { draftFileName, draftFileType, filedExtension, type DraftFileType } from
 import { fileAgentFileDraft } from '@/lib/documents/agent-file'
 import { REFUSED_AGENT_FILE_TYPES } from '@/lib/documents/agent-file-types'
 import { findProjectFolder } from '@/lib/projects/folder-service'
+import { fileDraftToPersonalShelf } from './personal-draft-filing'
 import type { FiledAgentDocumentDraft } from '@/lib/documents/agent-document'
 import type { Locale } from '@/i18n/config'
 import {
@@ -260,17 +261,21 @@ export async function fileConversationDraft(
 
   const conversation = await findConversationInOrg(conversationId, session.organizationId)
   if (!conversation) throw new NotFoundError()
-  if (!conversation.projectId) {
-    throw new UnprocessableError('This conversation has no project to file into')
-  }
-  const projectId = conversation.projectId
-
   const path = normalizeDraftPath(input.path)
   const type = draftFileType(path)
   refuseUnfileable(type)
 
   const facts = await readDraftFacts(session, conversationId, path)
   const ref = filingReference(conversationId, path)
+  if (!conversation.projectId) {
+    return fileDraftToPersonalShelf(
+      { session, conversationId, path, type, facts, request, locale: input.locale },
+      input,
+      ref,
+      filingName,
+    )
+  }
+  const projectId = conversation.projectId
   const context: RefilingContext = { session, conversationId, projectId, path, type, facts, request, locale: input.locale }
 
   const nameOf = (folderId: string | null) => folderNameOf(projectId, session.organizationId, folderId)

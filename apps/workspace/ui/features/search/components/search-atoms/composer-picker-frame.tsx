@@ -7,7 +7,7 @@ import { CommandHints, type CommandHintLabels } from '@/components/ui/command'
 export function ComposerPickerFrame({ children, hints, testId }: { children: ReactNode; hints: CommandHintLabels; testId?: string }): JSX.Element {
   return (
     <div
-      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none"
+      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg"
       data-testid={testId}
     >
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
