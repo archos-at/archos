@@ -40,7 +40,7 @@ export const usageQuerySchema = z.object({
 })
 
 export const confidentialReleaseSchema = z.object({
-  enabled: z.boolean(),
+  forbidden: z.boolean(),
 })
 
 export const deletedFolderContentSchema = z.object({

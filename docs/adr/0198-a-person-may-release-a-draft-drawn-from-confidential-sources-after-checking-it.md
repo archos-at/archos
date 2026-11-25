@@ -49,9 +49,9 @@ Option 3.
   refuses a filing (`ConversationConfinedError`, action `filing`) and the
   request carries a release, `releaseConfidential`
   (`apps/workspace/bff/conversations/confidential-release.ts`) decides:
-  1. the office allows release (`settings.confidentialRelease`, off unless an
-     admin set it to `true`), else the refusal stands; it is read uncached, so
-     switching it off holds for every filing after the save returns;
+  1. the office does not forbid release (`settings.confidentialReleaseForbidden`,
+     unset reads as not forbidden), else the refusal stands; it is read
+     uncached, so a prohibition holds for every filing after the save returns;
   2. the person may still read every recorded source (`unreadableSourcesOf`),
      else the refusal stands, confirmed or not;
   3. unconfirmed, it answers `409 CONFIDENTIAL_RELEASE_REQUIRED` with
@@ -72,11 +72,12 @@ Option 3.
   filing of the same draft asks again.
 - **Content from someone's own shelf is not released.** ADR-0193 rule 4 stands:
   the `personalShelf` refusal is not a `filing` refusal.
-- **The switch** is „Vertrauliches freigeben" under Organisation › Prüfung
-  (`PUT /api/organization/confidential-release`, `org:settings:manage`, audited as
-  `org.confidential_release.updated`). It is off until an admin turns it on:
-  nobody finds a way out of a restricted folder that no one in the office chose.
-  Off, filing behaves as before this ADR.
+- **The switch** is „Freigabe vertraulicher Inhalte verbieten" under
+  Organisation › Prüfung (`PUT /api/organization/confidential-release` with
+  `{ forbidden }`, `org:settings:manage`, audited as
+  `org.confidential_release.updated`). It is a prohibition and starts off, so no
+  admin finds a setting switched on that nobody chose, while release is the
+  default. On, filing behaves as before this ADR.
 
 ### Consequences
 
@@ -87,7 +88,7 @@ Option 3.
 - Bad: the review is only as good as the person. The agent can paraphrase a
   figure without citing it; the warning and the audit make a careless release
   less likely and traceable, not impossible. An office that will not carry that
-  switches release off.
+  forbids release.
 - Neutral: tasks, Recherche, memory and the project profile keep their refusals;
   this decision covers filing only.
 

@@ -591,9 +591,9 @@ export const organization = {
   confidentialRelease: {
     title: 'Releasing confidential content',
     description:
-      'Whether members may file a draft drawn from restricted folders or other projects into a folder those sources do not restrict.',
-    label: 'Allow release after review',
-    hint: 'Whoever files it sees the confidential sources and confirms the draft holds nothing confidential. Every release is in the audit log. Off, such a draft stays where its sources allow.',
+      'A draft drawn from restricted folders or other projects can be filed where not everyone may read those sources: whoever files it sees the sources and confirms the draft holds nothing confidential. Every release is in the audit log.',
+    label: 'Forbid releasing confidential content',
+    hint: 'On, such a draft stays where its sources allow, and nobody can release it.',
     saved: 'Saved.',
     saveError: 'The setting could not be saved. Please try again.',
     loadError: 'The setting could not be loaded.',

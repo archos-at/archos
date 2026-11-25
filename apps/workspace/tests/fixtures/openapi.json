@@ -27895,8 +27895,8 @@
     "/api/organization/confidential-release": {
       "get": {
         "operationId": "organization-confidential-release-get",
-        "summary": "Read whether members may release confidential drafts",
-        "description": "Whether a member may file a chat draft drawn from restricted folders or other projects into a folder those sources do not restrict, after confirming they checked it. Any member may read. Change with organization-confidential-release-set.",
+        "summary": "Read whether the office forbids releasing confidential drafts",
+        "description": "Whether the office forbids a member to file a chat draft drawn from restricted folders or other projects into a folder those sources do not restrict, after confirming they checked it. Unset, release is allowed. Any member may read. Change with organization-confidential-release-set.",
         "tags": [
           "organization"
         ],
@@ -27926,7 +27926,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Read whether members may release confidential drafts",
+          "title": "Read whether the office forbids releasing confidential drafts",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -27935,8 +27935,8 @@
       },
       "put": {
         "operationId": "organization-confidential-release-set",
-        "summary": "Allow or forbid releasing confidential drafts",
-        "description": "Switches whether a member may release a chat draft drawn from restricted folders or other projects into a wider folder after confirming they checked it. Off, such drafts file only where their sources allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.",
+        "summary": "Forbid or allow releasing confidential drafts",
+        "description": "Switches whether the office forbids releasing a chat draft drawn from restricted folders or other projects into a wider folder after the member confirmed they checked it. Forbidden, such drafts file only where their sources allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.",
         "tags": [
           "organization"
         ],
@@ -27947,12 +27947,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "enabled": {
+                  "forbidden": {
                     "type": "boolean"
                   }
                 },
                 "required": [
-                  "enabled"
+                  "forbidden"
                 ]
               }
             }
@@ -27985,7 +27985,7 @@
         },
         "x-sensitivity": "control",
         "x-mcp-annotations": {
-          "title": "Allow or forbid releasing confidential drafts",
+          "title": "Forbid or allow releasing confidential drafts",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,

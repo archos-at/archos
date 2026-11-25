@@ -2,7 +2,7 @@
 
 import { useState, type JSX } from 'react'
 import { toast } from 'sonner'
-import { saveConfidentialRelease } from '@/adapters/api/confidential-release-client'
+import { saveConfidentialReleaseForbidden } from '@/adapters/api/confidential-release-client'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
 import { useTranslations } from '@/i18n'
@@ -15,17 +15,17 @@ export interface ConfidentialReleaseCardProps {
 
 export function ConfidentialReleaseCard({ canEdit, initial }: ConfidentialReleaseCardProps): JSX.Element {
   const t = useTranslations(organizationCopy)
-  const [enabled, setEnabled] = useState(initial)
+  const [forbidden, setForbidden] = useState(initial)
   const [saving, setSaving] = useState(false)
 
   const toggle = async (next: boolean): Promise<void> => {
-    setEnabled(next)
+    setForbidden(next)
     setSaving(true)
     try {
-      setEnabled(await saveConfidentialRelease(next))
+      setForbidden(await saveConfidentialReleaseForbidden(next))
       toast.success(t('confidentialRelease.saved'))
     } catch {
-      setEnabled(!next)
+      setForbidden(!next)
       toast.error(t('confidentialRelease.saveError'))
     } finally {
       setSaving(false)
@@ -41,7 +41,7 @@ export function ConfidentialReleaseCard({ canEdit, initial }: ConfidentialReleas
         </div>
         <Switch
           id="org-confidential-release"
-          checked={enabled}
+          checked={forbidden}
           onCheckedChange={(next) => void toggle(next)}
           disabled={!canEdit || saving}
           aria-label={t('confidentialRelease.label')}

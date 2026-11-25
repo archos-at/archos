@@ -519,11 +519,11 @@ export const organizationOperations = [
   {
     name: 'organization-confidential-release-get',
     domain: 'organization',
-    summary: 'Read whether members may release confidential drafts',
+    summary: 'Read whether the office forbids releasing confidential drafts',
     description:
-      'Whether a member may file a chat draft drawn from restricted folders or other projects into a folder those ' +
-      'sources do not restrict, after confirming they checked it. Any member may read. Change with ' +
-      'organization-confidential-release-set.',
+      'Whether the office forbids a member to file a chat draft drawn from restricted folders or other projects into a ' +
+      'folder those sources do not restrict, after confirming they checked it. Unset, release is allowed. Any member ' +
+      'may read. Change with organization-confidential-release-set.',
     method: 'GET',
     path: '/api/organization/confidential-release',
     load: () => import('@/app/api/organization/confidential-release/route'),
@@ -531,11 +531,11 @@ export const organizationOperations = [
   {
     name: 'organization-confidential-release-set',
     domain: 'organization',
-    summary: 'Allow or forbid releasing confidential drafts',
+    summary: 'Forbid or allow releasing confidential drafts',
     description:
-      'Switches whether a member may release a chat draft drawn from restricted folders or other projects into a ' +
-      'wider folder after confirming they checked it. Off, such drafts file only where their sources allow. Needs ' +
-      'org:settings:manage. Read the current choice with organization-confidential-release-get.',
+      'Switches whether the office forbids releasing a chat draft drawn from restricted folders or other projects into ' +
+      'a wider folder after the member confirmed they checked it. Forbidden, such drafts file only where their sources ' +
+      'allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.',
     method: 'PUT',
     path: '/api/organization/confidential-release',
     body: confidentialReleaseSchema,

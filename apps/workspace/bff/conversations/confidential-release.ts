@@ -7,7 +7,7 @@ import { customFolderNames } from '@/lib/authz/folder-access'
 import { readConversationRow } from '@/lib/conversation-context/audience'
 import { getDb } from '@/lib/db'
 import { errorsCopy } from '@/i18n/namespaces/errors'
-import { confidentialReleaseEnabled } from '@/lib/organizations/confidential-release'
+import { confidentialReleaseForbidden } from '@/lib/organizations/confidential-release'
 import { ownersOf, recordView, stillRestricting, unreadableSourcesOf } from './restricted-use'
 import { listProjectNames, listRecordedSourceFolders, listRestrictingSourceProjects } from './restricted-use-repository'
 import type { Locale } from '@/i18n/config'
@@ -58,7 +58,7 @@ export async function releaseConfidential(
   refusal: ConversationConfinedError,
 ): Promise<void> {
   const { session, confirmed, request } = by
-  if (!(await confidentialReleaseEnabled(session.organizationId))) throw refusal
+  if (await confidentialReleaseForbidden(session.organizationId)) throw refusal
   const unreadable = await unreadableSourcesOf(session, conversationId)
   if (unreadable.folders.size > 0 || unreadable.projects.size > 0) throw refusal
   const record = await confidentialRecordOf(session.organizationId, conversationId)

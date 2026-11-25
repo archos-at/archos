@@ -139,7 +139,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
   },
   'org.confidential_release.updated': {
     targets: [{ type: 'organization' }],
-    metadata: { enabled: 'string', previous: 'string' },
+    metadata: { forbidden: 'string', previous: 'string' },
   },
   'conversation.confidential_released': {
     targets: [{ type: 'conversation' }],

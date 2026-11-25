@@ -52,26 +52,26 @@ describe('/api/organization/confidential-release', () => {
     stored.settings = { chatEffort: 'low' }
   })
 
-  it('reads as not allowed while the office never chose', async () => {
+  it('reads as not forbidden while the office never chose, so release is allowed', async () => {
     const res = await GET(new Request(URL))
-    expect(await res.json()).toEqual({ enabled: false })
+    expect(await res.json()).toEqual({ forbidden: false })
   })
 
-  it('switches release on, keeping the rest of the bag, and audits the switch', async () => {
-    const res = await put({ enabled: true })
+  it('forbids release, keeping the rest of the bag, audits the switch, and reads it back at once', async () => {
+    const res = await put({ forbidden: true })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ enabled: true })
-    expect(stored.settings).toEqual({ chatEffort: 'low', confidentialRelease: true })
+    expect(await res.json()).toEqual({ forbidden: true })
+    expect(stored.settings).toEqual({ chatEffort: 'low', confidentialReleaseForbidden: true })
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'org.confidential_release.updated',
-        metadata: { enabled: 'true', previous: 'false' },
+        metadata: { forbidden: 'true', previous: 'false' },
       })
     )
-    expect(await (await GET(new Request(URL))).json()).toEqual({ enabled: true })
+    expect(await (await GET(new Request(URL))).json()).toEqual({ forbidden: true })
   })
 
-  it.each([{}, { enabled: 'off' }, { enabled: null }])('refuses %j without writing', async (body) => {
+  it.each([{}, { forbidden: 'yes' }, { forbidden: null }, { enabled: true }])('refuses %j without writing', async (body) => {
     expect((await put(body)).status).toBe(400)
     expect(upsertOrganization).not.toHaveBeenCalled()
   })

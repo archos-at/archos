@@ -8,7 +8,7 @@ import { UploadScreeningCard } from '@/features/organization/components/upload-s
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 import { getDeletedFolderContentPolicy } from '@/lib/organizations/deleted-folder-content'
 import { ConfidentialReleaseCard } from '@/features/organization/components/confidential-release-card'
-import { confidentialReleaseEnabled } from '@/lib/organizations/confidential-release'
+import { confidentialReleaseForbidden } from '@/lib/organizations/confidential-release'
 import { getTranslations } from '@/i18n/server'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 
@@ -60,7 +60,7 @@ export default async function OrganizationScreeningPage(): Promise<JSX.Element> 
           <CardContent>
             <ConfidentialReleaseCard
               canEdit={hasPermission(session, ORG_PERMISSIONS.settingsManage)}
-              initial={await confidentialReleaseEnabled(session.organizationId)}
+              initial={await confidentialReleaseForbidden(session.organizationId)}
             />
           </CardContent>
         </Card>

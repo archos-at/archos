@@ -9,7 +9,7 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEventOrThrow: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ customFolderNames: vi.fn() }))
 vi.mock('@/lib/conversation-context/audience', () => ({ readConversationRow: vi.fn() }))
-vi.mock('@/lib/organizations/confidential-release', () => ({ confidentialReleaseEnabled: vi.fn() }))
+vi.mock('@/lib/organizations/confidential-release', () => ({ confidentialReleaseForbidden: vi.fn() }))
 vi.mock('@/lib/agent-api/acting-session', () => ({ currentActingSession: vi.fn() }))
 vi.mock('./restricted-use', () => ({
   ownersOf: vi.fn(),
@@ -28,7 +28,7 @@ import { recordAuditEventOrThrow } from '@/lib/audit/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { customFolderNames } from '@/lib/authz/folder-access'
 import { readConversationRow } from '@/lib/conversation-context/audience'
-import { confidentialReleaseEnabled } from '@/lib/organizations/confidential-release'
+import { confidentialReleaseForbidden } from '@/lib/organizations/confidential-release'
 import { currentActingSession } from '@/lib/agent-api/acting-session'
 import { ownersOf, recordView, stillRestricting, unreadableSourcesOf } from './restricted-use'
 import { listProjectNames, listRecordedSourceFolders, listRestrictingSourceProjects } from './restricted-use-repository'
@@ -45,7 +45,7 @@ const release = (confirmed: boolean) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(confidentialReleaseEnabled).mockResolvedValue(true)
+  vi.mocked(confidentialReleaseForbidden).mockResolvedValue(false)
   vi.mocked(unreadableSourcesOf).mockResolvedValue({ folders: new Set(), projects: new Set() })
   vi.mocked(listRecordedSourceFolders).mockResolvedValue(['f_contracts'])
   vi.mocked(listRestrictingSourceProjects).mockResolvedValue([OTHER])
@@ -80,8 +80,8 @@ describe('releaseConfidential', () => {
     )
   })
 
-  it('refuses as before when the organization switched release off', async () => {
-    vi.mocked(confidentialReleaseEnabled).mockResolvedValue(false)
+  it('refuses as before when the office forbids release', async () => {
+    vi.mocked(confidentialReleaseForbidden).mockResolvedValue(true)
     await expect(release(true)).rejects.toBe(refused)
     expect(recordAuditEventOrThrow).not.toHaveBeenCalled()
   })

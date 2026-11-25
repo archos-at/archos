@@ -1969,7 +1969,7 @@ export const chat: typeof en.chat = {
     chip: '{count, plural, one {Ein anderes Projekt} other {# andere Projekte}}',
     title: 'Dieser Chat stützt sich auf andere Projekte: {projects}.',
     gone: 'ein Projekt, das es nicht mehr gibt',
-    body: 'Er lässt sich nur mit Personen teilen, die diese Projekte öffnen dürfen. Aus ihm geht nichts ins Projektgedächtnis, in Aufgaben oder in eine Tiefenrecherche. In die Projektablage kommt ein Entwurf nur, wenn Ihr Büro das erlaubt und Sie ihn geprüft und freigegeben haben.',
+    body: 'Er lässt sich nur mit Personen teilen, die diese Projekte öffnen dürfen. Aus ihm geht nichts ins Projektgedächtnis, in Aufgaben oder in eine Tiefenrecherche. In die Projektablage kommt ein Entwurf nur, wenn Sie ihn geprüft und freigegeben haben, sofern Ihr Büro das nicht verbietet.',
   },
   screening: {
     title: 'Enthält {items} (Sensible Daten).',

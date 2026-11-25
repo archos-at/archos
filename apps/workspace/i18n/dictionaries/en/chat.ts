@@ -1953,7 +1953,7 @@ export const chat = {
     chip: '{count, plural, one {One other project} other {# other projects}}',
     title: 'This chat draws on other projects: {projects}.',
     gone: 'a project that no longer exists',
-    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks or deep research. A draft reaches the project’s files only where your office allows it and you have checked and released it.',
+    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks or deep research. A draft reaches the project’s files only once you have checked and released it, unless your office forbids that.',
   },
   screening: {
     title: 'Contains {items} (Sensitive data).',
