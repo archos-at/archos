@@ -5,7 +5,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-import { motion, springGlide } from '@/components/motion'
+import { AnimatePresence, motion, motionQuick, springGlide, useMotionToken } from '@/components/motion'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { AttentionDot } from '@/components/ui/attention-dot'
@@ -53,6 +53,7 @@ export function PhoneTabBar({
   const feedbackNews = useFeedbackUpdatedCount() > 0
   const tFeedback = useTranslations(feedbackCopy)
   const pillId = `phone-tab-pill-${React.useId()}`
+  const fade = useMotionToken(motionQuick)
 
   const flags = { canAccessOfficeShelf, canAccessInbox }
   const scope = projectId ? 'project' : 'personal'
@@ -74,9 +75,18 @@ export function PhoneTabBar({
     >
       {/* On its side the bar is one row of icon-and-label pairs, so it takes
           the width it needs for whole labels rather than a portrait column. */}
-      <ul className="mx-auto flex max-w-lg items-stretch px-1 landscape:max-w-3xl">
+      <ul className="relative mx-auto flex max-w-lg items-stretch px-1 landscape:max-w-3xl">
+        <AnimatePresence initial={false} mode="popLayout">
         {tabs.map((tab) => (
-          <li key={tab.key} className="min-w-0 flex-1">
+          <motion.li
+            key={tab.key}
+            layout="position"
+            transition={{ layout: springGlide }}
+            className="min-w-0 flex-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: fade }}
+            exit={{ opacity: 0, transition: fade }}
+          >
             <PhoneTabItem
               tab={tab}
               label={label(tab.label)}
@@ -88,8 +98,9 @@ export function PhoneTabBar({
               expanded={tab.key === 'more' ? moreOpen : undefined}
               onOpenMore={() => setMoreOpen(true)}
             />
-          </li>
+          </motion.li>
         ))}
+        </AnimatePresence>
       </ul>
     </nav>
   )
@@ -118,14 +129,19 @@ function PhoneTabItem({
 }): JSX.Element {
   const Icon = tab.icon
   const className = cn(
-    'relative flex h-[3.25rem] w-full flex-col items-center justify-center gap-1 rounded-control outline-none',
-    '[@media(max-height:31rem)]:h-11 [@media(max-height:31rem)]:flex-row [@media(max-height:31rem)]:gap-2',
+    'relative flex h-[3.25rem] w-full items-center justify-center rounded-control outline-none',
+    '[@media(max-height:31rem)]:h-11',
     PRESSABLE,
     FOCUS_RING_INSET,
     tab.active ? 'text-foreground' : 'text-muted-foreground'
   )
   const body = (
-    <>
+    <motion.span
+      layout="position"
+      transition={springGlide}
+      data-slot="phone-tab-body"
+      className="relative flex min-w-0 max-w-full flex-col items-center gap-1 [@media(max-height:31rem)]:flex-row [@media(max-height:31rem)]:gap-2"
+    >
       <span className="relative flex h-7 w-12 shrink-0 items-center justify-center [@media(max-height:31rem)]:w-10">
         {tab.active && (
           <motion.span
@@ -151,7 +167,7 @@ function PhoneTabItem({
       >
         {label}
       </span>
-    </>
+    </motion.span>
   )
 
   if (tab.href === null) {

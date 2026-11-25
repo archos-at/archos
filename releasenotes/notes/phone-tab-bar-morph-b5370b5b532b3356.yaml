@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, switching between Persönlich and a project no longer makes the
+    tabs at the bottom jump: they slide to their new places and the new tabs
+    fade in.
