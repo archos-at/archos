@@ -2836,6 +2836,10 @@
     "de": "In der Karte Rechtsgrundlage steht eine lange Fundstelle jetzt in der Zeile neben der Richtlinie statt in der schmalen Randspalte, wo sie auf sieben Zeilen umbrach."
   },
   {
+    "en": "In the app installed on an iPhone, the chat no longer drifts down after you tap into the input: the top row stays in view and the input stands right above the keyboard.",
+    "de": "In der auf einem iPhone installierten App rutscht der Chat nicht mehr nach unten, wenn Sie das Eingabefeld antippen: Die oberste Zeile bleibt sichtbar und das Eingabefeld befindet sich direkt über der Tastatur."
+  },
+  {
     "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
     "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
   },
@@ -3228,6 +3232,10 @@
     "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
+    "en": "On a phone, the questions while setting up a project no longer show the desktop buttons under each question for a moment before the page settles.",
+    "de": "Beim Einrichten eines Projekts werden auf dem Smartphone unter jeder Frage nicht mehr kurz die Desktop-Buttons angezeigt, bevor sich die Seite eingependelt hat."
+  },
+  {
     "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
     "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
   },
@@ -3238,6 +3246,10 @@
   {
     "en": "On a phone, the search box or button beside a project section's heading now sits below it, so the explanation gets the full width. It used to break to one word per line.",
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
+  },
+  {
+    "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
+    "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
   },
   {
     "en": "On a phone, the switch between Persönlich and Projekt now sits at the top of the chat, next to the project's name, which opens the list of projects. Changing sides takes one tap and changing projects two.",
@@ -4946,6 +4958,10 @@
   {
     "en": "The privacy policy and the list of external providers now name PostHog, with servers in Frankfurt, as the provider of Piloti's usage analytics, error reports and surveys, and the public website measures visits the same way. The policy says exactly what is collected and stored in your browser, and how you can object at any time.",
     "de": "Die Datenschutzerklärung und die Liste externer Anbieter nennen jetzt PostHog mit Servern in Frankfurt als Anbieter für Piloti-Nutzungsanalysen, Fehlerberichte und Umfragen. Auch die öffentliche Website erfasst Besuche auf dieselbe Weise. In der Datenschutzerklärung steht genau, welche Daten erhoben und in Ihrem Browser gespeichert werden und wie Sie jederzeit widersprechen können."
+  },
+  {
+    "en": "The privacy policy now also names the two cookies the application keeps for its display: the area you last worked in, and whether a chat will be resumed when you open it.",
+    "de": "Die Datenschutzerklärung nennt jetzt auch die beiden Cookies, die die Anwendung für ihre Darstellung speichert: den Bereich, in dem Sie zuletzt gearbeitet haben, und ob ein Chat beim Öffnen fortgesetzt wird."
   },
   {
     "en": "The privacy policy now says exactly what the website measures and stores, with no open placeholders left.",
