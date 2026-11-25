@@ -1,0 +1,6 @@
+---
+# area: documents
+fixes:
+  - >
+    A file uploaded to Meine Ablage is read again instead of failing at once
+    as if it had been deleted.
