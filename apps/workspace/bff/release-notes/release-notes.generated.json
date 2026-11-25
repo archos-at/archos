@@ -633,6 +633,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The Herleitung stands at its full size the moment it appears, and while the agent works, new steps and sources slide in instead of pushing the panel around.",
+            "de": "Die Herleitung wird sofort in voller Größe angezeigt, und während der Agent arbeitet, gleiten neue Schritte und Quellen hinein, anstatt das Panel zu verschieben."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
@@ -989,6 +997,14 @@
           "text": {
             "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
             "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A table in an answer keeps its columns while its rows arrive, so the rows you are reading no longer jump as later ones come in.",
+            "de": "Eine Tabelle in einer Antwort behält ihre Spalten bei, während die Zeilen eintreffen, sodass die gerade gelesenen Zeilen nicht mehr springen, wenn weitere dazukommen."
           }
         },
         {
