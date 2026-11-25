@@ -9,6 +9,7 @@ import { doorOfPrincipal, findVisibleOperation, visibleBackendOperations, visibl
 import type { McpCallContext } from '../telemetry'
 import { DOOR_DOCS, type DoorDoc } from './docs.generated'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { DEPLOY_TEXT, PERSON_SURFACE } from './cache-hints'
 
 export const GUIDE_URI = 'workspace://guide'
 export const GLOSSARY_URI = 'workspace://glossary'
@@ -167,19 +168,19 @@ export function registerDoorGuide(server: McpServer, ctx: McpCallContext): void 
   server.registerResource(
     'guide',
     GUIDE_URI,
-    { title: 'Working in ' + PRODUCT_NAME, description: 'How the workspace fits together, how ids flow, and which operation reads what.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.guide },
+    { title: 'Working in ' + PRODUCT_NAME, description: 'How the workspace fits together, how ids flow, and which operation reads what.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.guide, cacheHint: DEPLOY_TEXT },
     async () => markdown(GUIDE_URI, DOOR_DOCS['guide.md']),
   )
   server.registerResource(
     'glossary',
     GLOSSARY_URI,
-    { title: PRODUCT_NAME + ' glossary', description: 'The office’s German words and the catalog’s English ones.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.glossary },
+    { title: PRODUCT_NAME + ' glossary', description: 'The office’s German words and the catalog’s English ones.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.glossary, cacheHint: DEPLOY_TEXT },
     async () => markdown(GLOSSARY_URI, glossaryText()),
   )
   server.registerResource(
     'catalog',
     CATALOG_URI,
-    { title: 'Operations you can run', description: 'Every operation this connection may run, by domain, and whether it reads or writes.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.catalog },
+    { title: 'Operations you can run', description: 'Every operation this connection may run, by domain, and whether it reads or writes.', mimeType: 'text/markdown', icons: RESOURCE_ICONS.catalog, cacheHint: PERSON_SURFACE },
     async () => markdown(CATALOG_URI, catalogText(ctx)),
   )
   if (findVisibleOperation(ctx.principal, 'project-overview-get')) registerProjectResource(server, ctx)
