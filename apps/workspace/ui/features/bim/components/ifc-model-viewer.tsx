@@ -23,7 +23,11 @@ export interface IfcModelViewerProps extends UseModelViewportOptions {
 
 export function IfcModelViewer({ className, onRetry, ...options }: IfcModelViewerProps): JSX.Element {
   const t = useTranslations(bimCopy)
-  const viewport = useModelViewport({ ...options, compact: options.compact ?? true })
+  const viewport = useModelViewport({
+    ...options,
+    compact: options.compact ?? true,
+    onReload: onRetry,
+  })
 
   if (!viewport.webGpu) {
     return (
@@ -53,11 +57,9 @@ export function IfcModelViewer({ className, onRetry, ...options }: IfcModelViewe
           title={t('viewer.unavailable.title')}
           description={t('viewer.unavailable.description')}
           detail={
-            viewport.status.message
-              ? t('viewer.unavailable.reason', { message: viewport.status.message })
-              : undefined
+            viewport.status.cause ? t(`viewer.unavailable.cause.${viewport.status.cause}`) : undefined
           }
-          action={<ViewerRetry onClick={onRetry ?? viewport.download.restart} />}
+          action={<ViewerRetry onClick={viewport.download.restart} />}
         />
       </div>
     )
@@ -122,6 +124,7 @@ export function ModelViewportProgress({
   const { locale } = useLocale()
   if (phase === 'ready' || phase === 'error') return null
   const downloading = phase === 'downloading'
+  const stopLabel = t('stage.download.cancel')
   return (
     <ViewerProgress
       label={t(phase === 'parsing' ? 'stage.building' : 'stage.loading')}
@@ -133,9 +136,7 @@ export function ModelViewportProgress({
             )
           : undefined
       }
-      cancel={
-        downloading && onCancel ? { label: t('stage.download.cancel'), onClick: onCancel } : undefined
-      }
+      cancel={onCancel && phase !== 'idle' ? { label: stopLabel, onClick: onCancel } : undefined}
     />
   )
 }

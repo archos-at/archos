@@ -88,9 +88,7 @@ export function StageCanvas({
         title={t('viewer.unavailable.title')}
         description={t('viewer.unavailable.description')}
         detail={
-          viewport.status.message
-            ? t('viewer.unavailable.reason', { message: viewport.status.message })
-            : undefined
+          viewport.status.cause ? t(`viewer.unavailable.cause.${viewport.status.cause}`) : undefined
         }
         action={<ViewerRetry onClick={source.reload} />}
       />

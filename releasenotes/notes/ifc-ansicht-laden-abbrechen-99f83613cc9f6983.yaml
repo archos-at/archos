@@ -1,0 +1,12 @@
+---
+# area: bim
+improvements:
+  - >
+    A large model in an answer now waits for „3D-Ansicht laden“ instead of
+    loading by itself, and a load can be stopped at any point, not only during
+    the download.
+fixes:
+  - >
+    Two model views on one page no longer make the second fail, scrolling the
+    conversation no longer zooms a model card, and loading again after a
+    while no longer fails with an expired link.

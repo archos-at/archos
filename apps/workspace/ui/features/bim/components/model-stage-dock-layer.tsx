@@ -21,7 +21,10 @@ import type { ModelStageController } from './use-model-stage-controller'
 const MEASURE_KEY = 'M'
 
 const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
+    target.closest('[role="menu"], [role="listbox"], [role="combobox"]') !== null)
 
 function useMeasureKey(ready: boolean, toggle: () => void) {
   const toggleRef = useRef(toggle)

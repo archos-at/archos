@@ -434,7 +434,13 @@ export const bim: typeof en.bim = {
       title: 'Die 3D-Ansicht konnte nicht geladen werden',
       description:
         'Es fehlt nur das Bild — das Modell selbst ist davon nicht betroffen, alles daraus Gelesene bleibt unverändert. Ein Browser mit gesperrter GPU, eine Remote-Desktop-Sitzung oder ein abgebrochener Download sind die üblichen Ursachen.',
-      reason: 'Ursache: {message}',
+      cause: {
+        expired: 'Der Download-Link ist abgelaufen. Erneut laden holt einen neuen.',
+        download: 'Die Modelldatei konnte nicht heruntergeladen werden.',
+        gpu: 'Die Grafikkarte dieses Geräts konnte nicht gestartet werden.',
+        'device-lost': 'Die Grafikkarte hat die Darstellung abgebrochen, etwa weil der Tab im Hintergrund lag.',
+        unknown: 'Beim Aufbau des Modells ist ein Fehler aufgetreten.',
+      },
     },
     unsupported: {
       title: '3D-Ansicht in diesem Browser nicht verfügbar',
@@ -463,6 +469,11 @@ export const bim: typeof en.bim = {
     open: 'Im Modellbereich öffnen',
   },
   card: {
+    load: {
+      title: 'Großes Modell',
+      description: '{size} · {count} Bauteile. Die 3D-Ansicht lädt erst, wenn Sie sie öffnen.',
+      action: '3D-Ansicht laden',
+    },
     openModel: 'Modell öffnen',
     openElement: 'Im Modell öffnen',
     openStorey: 'Geschoß {name} im Modell öffnen',
