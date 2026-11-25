@@ -4,7 +4,7 @@ A project groups one building's files, folders, chats, research runs and buildin
 
 ## Where the app opens, and the project overview
 
-Opening the app (`/app`, also the wordmark in the rail) opens **Neuer Chat** in the area you last worked in: the project's new chat if that was a project, a new personal chat if it was under Persönlich or anything else. It does not reopen the exact page. Your browser keeps the last place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, it opens a new personal chat.
+Opening the app (`/app`) opens **Neuer Chat** in the area you last worked in: the project's new chat if that was a project, a new personal chat if it was under Persönlich or anything else. It does not reopen the exact page. Your browser keeps the last place (the `last_place` cookie, scoped to `/app`), so it follows you between sessions on one device but not between devices. The first time, it opens a new personal chat.
 
 The **project overview** („Projektübersicht“) is no longer a home page: it is a window over the page you are on, like search. It opens at once, from the wordmark at the top of the rail (from Persönlich as well as from a project), **Übersicht** at the foot of the project picker, the search palette's **Alle Projekte**, the shortcut G then P, and the phone's project list; from the keyboard it stands at once, from a click it rises (on a phone from the bottom). Nothing underneath changes or reloads, and Escape or its close button brings you back to it. Opened by its address `/app/projects` (a link, a bookmark, a reload, the welcome tour), it stands over a page of its own, and closing it opens the app where `/app` would.
 
