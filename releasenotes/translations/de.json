@@ -4844,6 +4844,10 @@
     "de": "Das Nachrichtenfeld liegt nicht mehr direkt an Ihrer letzten Antwort. Es schwebt jetzt als eigenes durchscheinendes Feld, und das Gespräch geht beim Scrollen sanft darin über, sodass es wie der Ort wirkt, an dem Sie tippen, und nicht wie eine weitere Zeile im Chat."
   },
   {
+    "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
+    "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
+  },
+  {
     "en": "The message you open stays in the inbox while you read it. Opening your last unread message no longer flips the list to \"all done\" beside it.",
     "de": "Die geöffnete Nachricht bleibt während des Lesens im Posteingang. Wenn Sie Ihre letzte ungelesene Nachricht öffnen, wechselt die Liste daneben nicht mehr zu „alles erledigt“."
   },
@@ -5966,6 +5970,10 @@
   {
     "en": "Wherever the project's mail address is shown, it now says how large a mail may be, 25 MB with about 18 MB of attachments, and links to Dateien to upload anything larger. The days in the E-Mail-Eingang's texts now always match how long mail can actually be restored.",
     "de": "Überall, wo die E-Mail-Adresse des Projekts angezeigt wird, steht jetzt, wie groß eine E-Mail sein darf: 25 MB, davon etwa 18 MB für Anhänge; für größere Dateien führt ein Link zu Dateien. Die in den Texten des E-Mail-Eingangs genannten Tage entsprechen jetzt immer der tatsächlichen Wiederherstellungsdauer von E-Mails."
+  },
+  {
+    "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
+    "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
   },
   {
     "en": "While Piloti reads a new project's documents, the setup shows how far it has got: the site, how many documents are read, and the values, contradictions and gaps found so far. You can leave and ask the project chat meanwhile; your Postfach tells you when Piloti is done.",

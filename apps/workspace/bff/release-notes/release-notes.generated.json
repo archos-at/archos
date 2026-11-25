@@ -569,6 +569,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
+            "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
@@ -901,6 +909,14 @@
           "text": {
             "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
             "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
+            "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
           }
         },
         {
