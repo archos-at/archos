@@ -147,6 +147,14 @@
           "section": "features",
           "area": "general",
           "text": {
+            "en": "On a phone, the „Chats“ list in the chat now starts with „Letzte Chats“, the last five chats of the side you are on, as the sidebar shows them on a computer.",
+            "de": "Auf dem Smartphone beginnt die Liste „Chats“ im Chat jetzt mit „Letzte Chats“ – den letzten fünf Chats der Seite, auf der Sie sich gerade befinden, wie sie am Computer in der Seitenleiste angezeigt werden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
             "en": "On a phone, the switch between Persönlich and Projekt now sits at the top of the chat, next to the project's name, which opens the list of projects. Changing sides takes one tap and changing projects two.",
             "de": "Auf dem Smartphone befindet sich der Umschalter zwischen Persönlich und Projekt jetzt oben im Chat neben dem Projektnamen, über den Sie die Projektliste öffnen. Zwischen Persönlich und Projekt wechseln Sie mit einem Tipp, zwischen Projekten mit zwei."
           }
@@ -461,6 +469,14 @@
           "text": {
             "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
             "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A chat opened from a link or a fresh page load no longer jumps while it loads: the chat bar, the input field and the lines below it stand where they stay from the start.",
+            "de": "Ein über einen Link geöffneter Chat oder ein Chat nach einem neuen Seitenaufruf springt während des Ladens nicht mehr: Chat-Leiste, Eingabefeld und die Zeilen darunter bleiben von Anfang an an ihrem Platz."
           }
         },
         {
