@@ -19,6 +19,7 @@ import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
 import { useKeyboardUp } from './use-keyboard-up'
 import { ProjectOverviewWindow } from './project-overview-window'
+import { shellAccount } from './shell-account'
 import type { OverviewProject } from '@/lib/projects/overview-project'
 import type { SidebarUser } from './sidebar-user-menu'
 import type { TourEligibility } from '@/lib/onboarding/product-tour'
@@ -72,6 +73,7 @@ export function AppShellChrome({
   const inProject = railModeOf(solidPathRef.current) !== null
 
   useVisualViewport()
+  const account = shellAccount(chrome)
 
   const keyboardUp = useKeyboardUp()
   const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(solidPathRef.current)
@@ -97,12 +99,7 @@ export function AppShellChrome({
         <AppSidebar
           projectId={projectId}
           projects={chrome.projects}
-          user={chrome.user}
-          organizationName={chrome.organizationName}
-          authRequired={chrome.authRequired}
-          canManageOrganization={chrome.canManageOrganization}
-          canViewOrganization={chrome.canViewOrganization}
-          canManagePlatform={chrome.canManagePlatform}
+          {...account}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
@@ -112,13 +109,7 @@ export function AppShellChrome({
         />
       ) : (
         <OrgHeader
-          user={chrome.user}
-          organizationName={chrome.organizationName}
-          authRequired={chrome.authRequired}
-          organizations={chrome.organizations}
-          canManageOrganization={chrome.canManageOrganization}
-          canViewOrganization={chrome.canViewOrganization}
-          canManagePlatform={chrome.canManagePlatform}
+          {...account}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
@@ -137,17 +128,12 @@ export function AppShellChrome({
         <PhoneMoreSheet
           projectId={projectId}
           projects={chrome.projects}
-          organizationName={chrome.organizationName}
           projectName={chrome.projects.find((project) => project.id === projectId)?.name ?? null}
-          user={chrome.user}
-          authRequired={chrome.authRequired}
+          {...account}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
-          canViewOrganization={chrome.canViewOrganization}
-          canManageOrganization={chrome.canManageOrganization}
-          canManagePlatform={chrome.canManagePlatform}
         />
       )}
       <React.Suspense fallback={null}>

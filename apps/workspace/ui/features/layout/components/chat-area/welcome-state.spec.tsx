@@ -5,7 +5,8 @@ import { markConversationMinted, resetConversationsOnServer } from '@/features/c
 import { resetTemporarySettling, setConversationTemporary } from '@/features/chat/lib/temporary-conversation'
 import { WelcomeState } from './chat-area-states'
 
-vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ user: { name: 'Anna Berger' } }) }))
+const auth = { user: { name: 'Anna Berger' } as { name: string } | null, isLoading: false }
+vi.mock('@/adapters/auth', () => ({ useAuth: () => auth }))
 
 describe('WelcomeState', () => {
   test('says under the greeting who sees the chat, and nothing about what the agent writes', () => {
@@ -15,6 +16,21 @@ describe('WelcomeState', () => {
     expect(screen.getByTestId('new-chat-only-you')).toHaveTextContent('Only you see this chat.')
     expect(screen.queryByText(/drafts/i)).not.toBeInTheDocument()
     expect(screen.queryByTestId('inbound-mail-waiting-line')).not.toBeInTheDocument()
+  })
+
+  test('while the sign-in is still loading it greets, and never shows a signed-in person the sign-in prompt', () => {
+    auth.user = null
+    auth.isLoading = true
+    render(<WelcomeState isAuthenticated={false} />)
+    expect(screen.getByTestId('new-chat-greeting')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
+  })
+
+  test('once the sign-in has settled without a person, it asks to sign in', () => {
+    auth.user = null
+    auth.isLoading = false
+    render(<WelcomeState isAuthenticated={false} />)
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
   test('a temporary chat swaps the greeting for its title and what it means, in the same place', () => {
@@ -38,6 +54,8 @@ describe('WelcomeState', () => {
 })
 
 afterEach(() => {
+  auth.user = { name: 'Anna Berger' }
+  auth.isLoading = false
   act(() => {
     resetConversationsOnServer()
     resetTemporarySettling()

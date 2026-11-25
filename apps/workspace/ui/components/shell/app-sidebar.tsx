@@ -31,7 +31,8 @@ import { InboxBell } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
-import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
+import { SidebarUserMenu } from './sidebar-user-menu'
+import { shellAccount, type ShellAccount } from './shell-account'
 import {
   railGroups,
   isSectionPathActive,
@@ -66,15 +67,9 @@ export function railActivePillId(iconRail: boolean, side: RailMode): string {
   return `rail-active-${side}-${iconRail ? 'icon' : 'full'}`
 }
 
-export interface AppSidebarProps {
+export interface AppSidebarProps extends ShellAccount {
   projectId: string | null
   projects: ProjectSwitcherProject[]
-  user?: SidebarUser
-  organizationName?: string | null
-  authRequired: boolean
-  canManageOrganization?: boolean
-  canViewOrganization?: boolean
-  canManagePlatform?: boolean
   canAccessOfficeShelf?: boolean
   canAccessOfficeStandards?: boolean
   showModels?: boolean
@@ -119,24 +114,20 @@ export function AppSidebar(props: AppSidebarProps) {
   )
 }
 
-function AppSidebarFrame({
-  projectId,
-  projects,
-  user,
-  organizationName = null,
-  authRequired,
-  canManageOrganization = false,
-  canViewOrganization = false,
-  canManagePlatform = false,
-  canAccessOfficeShelf = false,
-  canAccessOfficeStandards = false,
-  showModels = false,
-  showSkills = false,
-  canAccessInbox,
-  inboundMailEnabled = false,
-  pathname: pathnameOverride,
-  navigateSide,
-}: AppSidebarProps) {
+function AppSidebarFrame(props: AppSidebarProps) {
+  const {
+    projectId,
+    projects,
+    organizationName = null,
+    canAccessOfficeShelf = false,
+    canAccessOfficeStandards = false,
+    showModels = false,
+    showSkills = false,
+    canAccessInbox,
+    inboundMailEnabled = false,
+    pathname: pathnameOverride,
+    navigateSide,
+  } = props
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
@@ -340,18 +331,13 @@ function AppSidebarFrame({
           <div className={cn('relative flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
             <div className={cn('min-w-0', !iconRail && 'flex-1')}>
               <SidebarUserMenu
-                user={user}
-                organizationName={organizationName}
-                authRequired={authRequired}
+                {...shellAccount(props)}
                 compact={iconRail}
                 avatarSizeClass="size-6"
                 menuSide={iconRail ? 'right' : 'top'}
                 menuAlign="end"
                 menuSideOffset={iconRail ? 24 : 6}
                 menuMatchTrigger={!iconRail}
-                canManageOrganization={canManageOrganization}
-                canViewOrganization={canViewOrganization}
-                canManagePlatform={canManagePlatform}
                 beforeChevron={canAccessInbox && !iconRail ? 'w-12' : undefined}
               />
             </div>

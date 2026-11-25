@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A link to a chat opens that chat without its address briefly losing the
+    chat and reloading the page. On a slow phone the address could stay without
+    the chat, so going back or sharing the link no longer led to it.
