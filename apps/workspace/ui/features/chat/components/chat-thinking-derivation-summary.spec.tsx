@@ -65,33 +65,39 @@ describe('ChatThinking', () => {
       expect(screen.queryByTestId('derivation-warning')).not.toBeInTheDocument()
     })
 
-    const check = (level: 'low' | 'medium', count = 2): ConfidenceCheck => ({
+    const check = (
+      level: 'low' | 'medium',
+      count = 2,
+      problem: 'unbacked' | 'contradicted' = 'unbacked'
+    ): ConfidenceCheck => ({
       status: 'judged',
       level,
+      sourcesChecked: 2,
       findings: ['Ausgabe April 2019 gilt seit 10. April 2021.', 'Mai 2023 ist nicht verbindlich.']
         .slice(0, count)
-        .map((statement) => ({ statement, problem: 'unbacked' as const, reason: '', source: 'none' })),
+        .map((statement) => ({ statement, problem, reason: '', source: 'none' })),
     })
+    const contradicted = () => check('low', 2, 'contradicted')
     const trigger = () => document.querySelector('[data-derivation-trigger]')!
 
-    test('an answer its check rated low for unbacked statements is a warning, not a green check', () => {
+    test('an answer whose sources say something else is a warning, not a green check', () => {
       render(
         <ChatThinking
           steps={foldScene(failedCallScene())}
           citations={failedCallCitations()}
-          confidenceCheck={check('low')}
+          confidenceCheck={contradicted()}
           isThinking={false}
         />
       )
       expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
-        plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))
+        plain(tEn('thinking.derivationWarning.contradicted', { count: 2 }))
       )
       expect(trigger().querySelector('.text-success')).toBeNull()
       expect(trigger().querySelector('.text-warning')).not.toBeNull()
       expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.flagged')} · `))
     })
 
-    test('a mostly backed answer keeps its check, and the pill names what is unbacked', () => {
+    test('unbacked findings never reach the header: the check stays green and no pill is shown', () => {
       render(
         <ChatThinking
           steps={foldScene(mockupScene())}
@@ -101,9 +107,7 @@ describe('ChatThinking', () => {
         />
       )
       expect(trigger().querySelector('.text-success')).not.toBeNull()
-      expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
-        plain(tEn('thinking.derivationWarning.unbacked', { count: 1 }))
-      )
+      expect(screen.queryByTestId('derivation-warning')?.textContent ?? '').not.toMatch(/statement|Aussage/)
     })
 
     test('a clean check keeps the green check', () => {
@@ -118,11 +122,11 @@ describe('ChatThinking', () => {
       expect(trigger().querySelector('.text-success')).not.toBeNull()
     })
 
-    test('a general-knowledge answer with findings stays „without research“ and carries the pill', () => {
+    test('a general-knowledge answer with a contradiction stays „without research“ and carries the pill', () => {
       render(
         <ChatThinking
           steps={[]}
-          confidenceCheck={check('low')}
+          confidenceCheck={contradicted()}
           answerText="Eine Brandwand trennt Brandabschnitte."
           isThinking={false}
           userQuestion="Was ist eine Brandwand?"
@@ -131,7 +135,7 @@ describe('ChatThinking', () => {
       )
       const line = screen.getByTestId('derivation-no-research')
       expect(plain(line.textContent)).toContain(
-        `${tEn('thinking.noResearch')} · ${plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))}`
+        `${tEn('thinking.noResearch')} · ${plain(tEn('thinking.derivationWarning.contradicted', { count: 2 }))}`
       )
       expect(line.querySelector('.text-warning')).not.toBeNull()
     })
@@ -172,7 +176,7 @@ describe('ChatThinking', () => {
         <ChatThinking
           steps={[]}
           retrievalLedger={ledger}
-          confidenceCheck={check('low')}
+          confidenceCheck={contradicted()}
           answerText={askBack}
           isThinking={false}
           userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
