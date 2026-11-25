@@ -54,7 +54,7 @@ export function RegisterStackRow({
         aria-selected={active}
         data-testid={testId}
         className={cn(
-          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none',
+          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 pointer-coarse:min-h-11 pointer-coarse:justify-center transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none',
           FOCUS_RING_INSET,
           ACTIVE_ROW,
           actions && ROW_ACTIONS_ROOM

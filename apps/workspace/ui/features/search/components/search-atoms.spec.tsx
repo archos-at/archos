@@ -5,7 +5,7 @@ import { render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import { CommandDialog } from '@/components/ui/command'
 import { leadUpToMatch } from '../lib/passage-window'
-import { ChoiceStrip, ComposerPickerFrame, FieldShortcut, MetaLine, MetaPart, RegisterLink } from './search-atoms'
+import { ChoiceStrip, ComposerPickerFrame, FieldShortcut, MetaLine, MetaPart, RegisterLink, RegisterStack, RegisterStackRow } from './search-atoms'
 
 const inGerman = (ui: ReactElement) =>
   render(
@@ -126,6 +126,17 @@ describe('leadUpToMatch', () => {
 describe('RegisterLink', () => {
   it('is a 44px press under a finger, so a phone that paints the table first still gets a tappable title', () => {
     render(<RegisterLink href="/x">Lageplan</RegisterLink>)
-    expect(screen.getByRole('link', { name: 'Lageplan' })).toHaveClass('pointer-coarse:min-h-11', 'pointer-coarse:inline-flex')
+    expect(screen.getByRole('link', { name: 'Lageplan' })).toHaveClass('pointer-coarse:min-h-11', 'pointer-coarse:min-w-11', 'pointer-coarse:inline-flex')
+  })
+})
+
+describe('RegisterStackRow', () => {
+  it('is at least 44px tall under a finger even when it carries only a title', () => {
+    render(
+      <RegisterStack label="Register">
+        <RegisterStackRow href="/x" title="A" />
+      </RegisterStack>
+    )
+    expect(screen.getByRole('option', { name: 'A' })).toHaveClass('pointer-coarse:min-h-11')
   })
 })
