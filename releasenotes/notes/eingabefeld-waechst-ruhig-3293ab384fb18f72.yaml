@@ -1,0 +1,7 @@
+---
+# area: answers
+improvements:
+  - >
+    When a skill, an upload error or a dictation note appears under what you
+    are typing in the chat, the input box now grows to make room smoothly
+    instead of jumping, and shrinks back the same way.
