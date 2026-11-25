@@ -517,11 +517,11 @@ describe('five neutrals, three elevations', () => {
     expect(hex('paper')).not.toBe('#000000')
   })
 
-  it('in dark the open row is marked by the field’s border at 3:1, since its sheet stands barely above a picked row', () => {
-    const layer = dark()
-    expect(ratio(layer.get('--field-border') ?? '', layer.get('--selected') ?? '')).toBeGreaterThanOrEqual(3)
-    expect(literalHasRun(moduleOf('InboundMailRow'), ['data-current:bg-sheet', 'data-current:shadow-sm'])).toBe(true)
-    expect(classesOf(moduleOf('InboundMailRow'))).toContain('dark:data-current:shadow-sheet-pointer')
+  it('the open mail row is the flat selected grey, held under the pointer, and its muted text holds 4.5:1 on it in both themes', () => {
+    expect(literalHasRun(moduleOf('InboundMailRow'), ['data-current:bg-selected', 'data-current:hover:bg-selected'])).toBe(true)
+    expect(classesOf(moduleOf('InboundMailRow')).some((token) => token.startsWith('data-current:shadow') || token.includes('data-current:bg-sheet'))).toBe(false)
+    expect(ratio('#5e5b57', light().get('--selected') ?? '')).toBeGreaterThanOrEqual(4.5) // --ds-ink-muted, which the paper layer names through a var
+    expect(ratio(dark().get('--muted-foreground') ?? '', dark().get('--selected') ?? '')).toBeGreaterThanOrEqual(4.5)
   })
 
   it('in dark text, muted text and the ring hold their contrast on the lightest step a row reaches, the pressed grey', () => {
@@ -1010,7 +1010,8 @@ describe('colour is a verdict', () => {
 describe('one primary per area', () => {
   it('the reader’s primary yields while a batch is picked, to „Melden und verwerfen …“ for a forgery, and to „Verwerfen“ for a mail with nothing to file', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
-    expect(hasShape(bar, "dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
+    expect(hasShape(bar, "direct || dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
+    expect(hasShape(bar, "yieldPrimary ? 'secondary' : 'default'")).toBe(true)
     expect(hasShape(bar, "dismissFirst && ! yieldPrimary && ! reportOffered ? 'default' : 'secondary'")).toBe(true)
     const report = elementsNamed(parseSource(moduleOf('FraudReport')), ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'fraud-report-open')
     expect(report.map((element) => stringAttribute(element, 'variant'))).toEqual([undefined])
@@ -1022,7 +1023,10 @@ describe('one primary per area', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
     const opens = elementsNamed(bar, ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-open')
     expect(opens).toHaveLength(1)
-    expect(childShapes(elementOf(opens[0]) as ts.JsxElement)).toContain("t ( 'filing.open' )")
+    expect(childShapes(elementOf(opens[0]) as ts.JsxElement)).toContain("t ( direct ? 'filing.change' : 'filing.open' )")
+    const fileNow = elementsNamed(bar, ['BusyButton']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-file')
+    expect(fileNow).toHaveLength(1)
+    expect(childShapes(elementOf(fileNow[0]) as ts.JsxElement)).toContain("t ( 'filing.fileNow' )")
     const dialog = parseSource(moduleOf('FilingDialog'))
     const files = elementsNamed(dialog, ['BusyButton']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-file')
     expect(files).toHaveLength(1)
@@ -1091,11 +1095,13 @@ describe('rows, weights and the phone', () => {
   it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
     const subject = parseSource(moduleOf('InboundMailRow'))
     expect(hasShape(subject, "needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
-    expect(literalHasRun(moduleOf('InboundMailRow'), ['line-clamp-2', 'text-name', 'text-pretty'])).toBe(true)
+    expect(literalHasRun(moduleOf('InboundMailRow'), ['min-w-0', 'flex-1', 'truncate', 'text-name'])).toBe(true)
   })
 
-  it('a thread’s press sits in a 40px line with 8px under it, so it never touches the open row’s sheet', () => {
-    expect(hasClassAttribute(parseSource(moduleOf('InboundMailList')), 'box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11')).toBe(true)
+  it('a thread is a heading in ink over its rows, with no press of its own: the section files, or the selection does', () => {
+    const list = parseSource(moduleOf('InboundMailList'))
+    expect(hasClassAttribute(list, 'min-w-0 truncate text-sm font-medium')).toBe(true)
+    expect(elementsNamed(list, ['BusyButton', 'Button']).map((element) => stringAttribute(element, 'data-testid'))).not.toContain('thread-group-file')
   })
 
   it('the reader’s foot on a phone is one note over two presses: the hint for „Einordnen“ stands on a desk only', () => {

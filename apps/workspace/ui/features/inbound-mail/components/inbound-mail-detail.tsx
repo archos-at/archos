@@ -33,6 +33,7 @@ import { FactLine, mailToast, useMailToastLift } from './inbound-mail-atoms'
 import { MailHeader } from './mail-header'
 import { MailText, type MailTextState } from './mail-text'
 import { MessageFacts, MessageRow } from './message-row'
+import { TextDestination } from './filing-where'
 import { usePlanWords } from './plan-words'
 import { useSettlingReads } from './use-settling-reads'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -62,6 +63,7 @@ export interface InboundMailDetailProps {
   onChanged: () => void
   /** The decision was accepted: the mail is the inbox's now, which moves on and reports where its parts land. */
   onFiled: (sent: InboundMailView, decision: InboundMailDecision) => void
+  onHold?: (view: InboundMailView, decision: InboundMailDecision) => void
   back?: ReactNode
   actionsRef?: MutableRefObject<DetailActions | null>
   now?: number
@@ -79,6 +81,7 @@ export function InboundMailDetail({
   client,
   onChanged,
   onFiled,
+  onHold,
   back,
   actionsRef,
   now,
@@ -249,8 +252,12 @@ export function InboundMailDetail({
     if (!view || !draft || !summary || filing || dismissing || view.onlySenderReleases) return
     if (summary.files === 0 && !summary.text) return dismiss()
     if (summary.blockers.length > 0) return
-    setFiling(true)
     const decision = decisionOf(view, draft)
+    if (onHold) {
+      setDialogOpen(false)
+      return onHold(view, decision)
+    }
+    setFiling(true)
     try {
       const result = await client.file(projectId, { mails: [decision] })
       const sent = result.mails.find((mail) => mail.id === view.id)
@@ -397,6 +404,8 @@ export function InboundMailDetail({
     return words.phrase(line, reviewed ? null : attachmentOpenReason(entry, row, missing), entry.part)
   }
   const questions = draft ? filingSteps(view, draft, { missing }).length - 1 : 0
+  const deciding = !stopped && !readOnly && !!draft && view.status === 'waiting' && messagePart?.state === 'waiting'
+  const direct = offersFiling && questions === 0 && !!summary && summary.blockers.length === 0 && impersonation === null
 
   return (
     <article ref={article} className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
@@ -485,6 +494,12 @@ export function InboundMailDetail({
           </section>
         )}
 
+        {deciding && (
+          <section className="flex flex-col gap-2" aria-label={t('filing.where')} data-testid="filing-where">
+            <SectionLabel as="h3">{t('filing.where')}</SectionLabel>
+            <TextDestination lines={lines} />
+          </section>
+        )}
         {!stopped && (attachments.length > 0 || notStaged.listed.length > 0 || notStaged.layoutImages > 0) && draft && (
           <section className="flex flex-col gap-2" aria-label={t('attachments.label')}>
             <SectionLabel as="h3">{t('attachments.label')}</SectionLabel>
@@ -536,6 +551,7 @@ export function InboundMailDetail({
           impersonation={impersonation !== null}
           reportOffered={impersonation !== null && !dismissing && !filing}
           onOpenFiling={openFiling}
+          onFile={direct ? () => void file() : undefined}
           onDismiss={() => void dismiss()}
           filing={filing}
           dismissing={dismissing}

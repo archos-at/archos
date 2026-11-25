@@ -45,6 +45,11 @@ export const inboundMail = {
   },
 
   row: {
+    dest: '→ {place}',
+    quoted: '“{name}”',
+    destMore: '→ {place} +{count}',
+    destNewThread: '→ new mail thread',
+    expiresShort: 'until {date}',
     noSubject: '(no subject)',
     attachments: '{count, plural, one {# attachment} other {# attachments}}',
     automatic: 'Automatic',
@@ -100,6 +105,7 @@ export const inboundMail = {
   },
 
   group: {
+    threadMeta: 'Mail thread\u00A0· {count, plural, one {# mail} other {# mails}}',
     thread: 'Mail thread “{name}”\u00A0· {count, plural, one {# new mail} other {# new mails}}',
     threadLine: '“{name}”',
     threadAction: '{count, plural, one {File} other {File these #}}',
@@ -174,6 +180,7 @@ export const inboundMail = {
   },
 
   header: {
+    addressButton: 'Mail address',
     addressMenu: "The project's email address",
     addressMore: 'About the address',
     addressCopy: 'Copy address',
@@ -450,6 +457,11 @@ export const inboundMail = {
   },
 
   filing: {
+    change: 'Change …',
+    fileNow: 'File',
+    directHint: 'Files everything as shown above.',
+    where: 'Where it goes',
+    textLabel: 'Mail text',
     open: 'Review and file …',
     openHint: 'Shows what goes where first. Nothing is filed until you confirm.',
     openHintQuestions: '{count, plural, one {One question, then the overview.} other {# questions, then the overview.}} Nothing is filed until you confirm.',
@@ -579,6 +591,7 @@ export const inboundMail = {
   },
 
   toast: {
+    held: '{count, plural, one {Filing the mail} other {Filing # mails}}',
     filed: '{count, plural, one {# file filed} other {# files filed}}',
     filedBoth: '{count, plural, one {Filed # file and the mail text} other {Filed # files and the mail text}}',
     textFiled: 'Mail text filed',
@@ -601,9 +614,18 @@ export const inboundMail = {
   },
 
   bulk: {
+    preview: {
+      empty: 'Tap mails in the list. This side then says what the bar below does with them.',
+      title: '{count, plural, one {File # mail} other {File # mails}}',
+      titleSome: 'File {count} of {total}',
+      where: 'Where it goes',
+      thread: 'Mail thread “{name}”',
+      newThread: 'New mail thread',
+      held: '{count, plural, one {{names} stays in Project mail: not ready to file yet. Open it on its own.} other {{names} stay in Project mail: not ready to file yet. Open them one by one.}}',
+    },
+    fileSome: 'File {count}',
     start: 'Select',
     selected: '{count} selected',
-    paneHint: 'The bar under the list acts on every selected mail.',
     clear: 'Clear selection',
     fileSuggested: 'File as suggested',
     fileSuggestedBusy: 'Filing …',

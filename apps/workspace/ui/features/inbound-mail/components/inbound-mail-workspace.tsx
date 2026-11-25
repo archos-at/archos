@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 import { useShortcutsPreference } from '@/hooks/use-shortcuts-preference'
 import { bulkSelectable } from '../lib/impersonation'
 import { useMailSelection } from '../lib/use-mail-selection'
+import { useHeldFilings } from '../lib/use-held-filings'
 import { useInboxKeys, type InboxKeyTarget } from '../lib/inbox-keys'
 import { useBulkLandingReport, useLandingReport } from '../lib/inbox-landing-report'
 import { useStartHint } from '../lib/inbox-start'
@@ -53,6 +54,7 @@ import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
 import { mailToast } from './inbound-mail-atoms'
 import { MailStepper } from './mail-stepper'
+import { SelectionPreview } from './selection-preview'
 import { SelectionBar, type BulkBlock } from './selection-bar'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
@@ -78,9 +80,10 @@ export interface InboundMailWorkspaceProps {
   listLoading?: boolean
   initialChecked?: readonly string[]
   pollMs?: number
+  holdMs?: number
 }
 
-type AsSuggestedSurface = 'row' | 'ready_section' | 'thread_group' | 'selection'
+type AsSuggestedSurface = 'ready_section' | 'selection'
 
 export function InboundMailWorkspace({
   projectId,
@@ -103,6 +106,7 @@ export function InboundMailWorkspace({
   listLoading = false,
   initialChecked,
   pollMs,
+  holdMs,
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const phone = useMediaQuery(PHONE_QUERY)
@@ -171,7 +175,8 @@ export function InboundMailWorkspace({
     void reload()
   }, [status, outcome, reload, initialList, initialListFailed, listLoading])
 
-  const items = useMemo(() => (list.kind === 'ready' ? list.items : []), [list])
+  const { held, hold } = useHeldFilings(holdMs)
+  const items = useMemo(() => (list.kind === 'ready' ? list.items.filter((mail) => !held.has(mail.id)) : []), [list, held])
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sectionsOf = useCallback(
     (mails: readonly InboundMailSummaryView[], threadGroups: InboundMailListView['threadGroups']) =>
@@ -191,9 +196,7 @@ export function InboundMailWorkspace({
   const [bulkFiling, setBulkFiling] = useState<string | null>(null)
   const [bulkDismissing, setBulkDismissing] = useState(false)
   const [confirmFile, setConfirmFile] = useState<{ decisions: InboundMailDecision[]; plan: BulkPlan; surface: AsSuggestedSurface } | null>(null)
-  const [rowFiling, setRowFiling] = useState<string | null>(null)
   const [confirmDismiss, setConfirmDismiss] = useState(false)
-  const [filingRequest, setFilingRequest] = useState<string | null>(null)
 
   const readViews = useCallback(
     async (ids: string[]): Promise<Map<string, InboundMailView>> => {
@@ -227,7 +230,8 @@ export function InboundMailWorkspace({
     },
     [items]
   )
-  const selectionBlock = blockFor(selectedIds, summaryReason)
+  const readyIds = selectedIds.filter((id) => summaryReason(id) === null)
+  const selectionBlock = readyIds.length > 0 ? null : blockFor(selectedIds, summaryReason)
 
   const destinationLine = (destination: BulkDestination): string =>
     destination.kind === 'folder' && destination.label === ''
@@ -265,33 +269,22 @@ export function InboundMailWorkspace({
   }
 
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
-    const result = await client.file(projectId, { mails: decisions })
+    const ids = decisions.map((decision) => decision.mailId)
     const description = plan.destinations.map(destinationLine).join(CLAUSE_JOIN)
-    capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
-    const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { description })
-    void changed()
-    const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
-    if (sent) void reportLanding(sent, decisions[0], toastId)
-    else void reportBulk(result.mails, decisions, toastId)
-  }
-
-  const fileNow = (id: string): void => {
-    if (mailId !== id) router.push(paths.mail(id, filter))
-    setFilingRequest(id)
-  }
-
-  const fileOne = async (mailId: string): Promise<void> => {
-    if (rowFiling) return
-    setRowFiling(mailId)
-    try {
-      const built = await prepare([mailId], null)
-      if (built) await send(built.decisions, built.plan, 'row')
-    } catch (error) {
-      toast.error(t(`refusals.${refusalOf(error)}`))
-      void changed()
-    } finally {
-      setRowFiling(null)
-    }
+    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: { description }, onUndo: () => undefined, run: async (held) => {
+      try {
+        const result = await client.file(projectId, { mails: decisions })
+        capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
+        const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { id: held, description, action: undefined })
+        void changed()
+        const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
+        if (sent) void reportLanding(sent, decisions[0], toastId)
+        else void reportBulk(result.mails, decisions, toastId)
+      } catch (error) {
+        toast.error(t(`refusals.${refusalOf(error)}`), { id: held, action: undefined })
+        void changed()
+      }
+    } })
   }
 
   const fileConfirmed = async (): Promise<void> => {
@@ -313,7 +306,8 @@ export function InboundMailWorkspace({
     setBulkDismissing(true)
     try {
       await client.dismiss(projectId, { mailIds: selectedIds })
-      toast.success(t('toast.dismissedMany', { count: selectedIds.length }))
+      const ids = [...selectedIds]
+      toast.success(t('toast.dismissedMany', { count: ids.length }), { action: { label: t('toast.undo'), onClick: () => void Promise.all(ids.map((id) => client.restore(projectId, id))).finally(() => void changed()) } })
       endSelection()
       void changed()
     } catch (error) {
@@ -358,8 +352,22 @@ export function InboundMailWorkspace({
 
   const reportLanding = useLandingReport({ client, projectId, pollMs, onSettled: () => void changed() })
 
-  const filedOpen = (sent: InboundMailView, decision: InboundMailDecision): void => {
-    const toastId = toast.loading(t('toast.filing'), mailToast())
+  const holdOpen = (view: InboundMailView, decision: InboundMailDecision): void => {
+    const { rows: before, mailId: open } = keyState.current
+    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId) => {
+      try {
+        const sent = (await client.file(projectId, { mails: [decision] })).mails.find((mail) => mail.id === view.id)
+        if (sent) filedOpen(sent, decision, toastId)
+      } catch (error) {
+        toast.error(t(`refusals.${refusalOf(error)}`), { id: toastId, action: undefined })
+        void changed()
+      }
+    } })
+    if (status === 'waiting' && open === view.id) advance(open, before, before.filter((mail) => mail.id !== open))
+  }
+
+  const filedOpen = (sent: InboundMailView, decision: InboundMailDecision, held?: string | number): void => {
+    const toastId = toast.loading(t('toast.filing'), mailToast({ id: held, action: undefined }))
     const { rows: before, mailId: open } = keyState.current
     if (status === 'waiting' && open === sent.id) advance(open, before, before.filter((mail) => mail.id !== open))
     void reload()
@@ -368,20 +376,6 @@ export function InboundMailWorkspace({
   const showHandled = useCallback(() => router.replace(paths.list({ status: 'handled', outcome: null })), [router, paths])
   const reportBulk = useBulkLandingReport({ client, projectId, pollMs, onSettled: () => void changed(), onShowHandled: showHandled })
 
-  useEffect(() => {
-    if (!filingRequest || mailId !== filingRequest) return
-    let tries = 0
-    const timer = window.setInterval(() => {
-      tries += 1
-      if (document.querySelector('[data-testid="filing-dialog"]') || tries > 50) {
-        window.clearInterval(timer)
-        setFilingRequest(null)
-        return
-      }
-      detailActions.current?.file()
-    }, 100)
-    return () => window.clearInterval(timer)
-  }, [filingRequest, mailId])
 
   const keyTarget = useRef<InboxKeyTarget | null>(null)
   keyTarget.current = {
@@ -429,11 +423,12 @@ export function InboundMailWorkspace({
     selecting ? (
       <SelectionBar
         count={selectedIds.length}
-        block={selectedIds.length > INBOUND_MAIL_DECISION_MAX_MAILS ? { reason: 'too_many', count: selectedIds.length } : selectionBlock}
+        fileCount={readyIds.length}
+        block={readyIds.length > INBOUND_MAIL_DECISION_MAX_MAILS ? { reason: 'too_many', count: readyIds.length } : selectionBlock}
         max={INBOUND_MAIL_DECISION_MAX_MAILS}
         filing={bulkFiling === 'selection'}
         dismissing={bulkDismissing}
-        onFile={() => void askFile(selectedIds, null, 'selection')}
+        onFile={() => void askFile(readyIds, null, 'selection')}
         onDismiss={() => setConfirmDismiss(true)}
         onClear={endSelection}
       />
@@ -515,11 +510,6 @@ export function InboundMailWorkspace({
             hrefFor={(id) => paths.mail(id, filter)}
             quietOpen={quietOpen}
             onQuietOpenChange={setQuietToggled}
-            onFileGroup={(threadId, ids) => void askFile(ids, threadId, 'thread_group')}
-            fileGroupBusy={bulkFiling}
-            onFileOne={(id) => void fileOne(id)}
-            fileOneBusy={rowFiling}
-            onFileNow={fileNow}
             onFileReady={(ids) => void askFile(ids, null, 'ready_section')}
             onRetry={() => reload()}
             onLoadMore={async () => {
@@ -572,7 +562,9 @@ export function InboundMailWorkspace({
           className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block @3xl:overflow-y-auto @3xl:rounded-surface @3xl:bg-sheet @3xl:shadow-sm', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
           data-testid="inbound-mail-detail-pane"
         >
+          {selecting && <SelectionPreview mails={items.filter((mail) => checked.has(mail.id))} />}
           {mailId ? (
+            <div className={selecting ? 'hidden' : 'contents'}>
             <InboundMailDetail
               key={mailId}
               projectId={projectId}
@@ -583,16 +575,18 @@ export function InboundMailWorkspace({
               client={client}
               onChanged={() => void changed()}
               onFiled={filedOpen}
+              onHold={holdOpen}
               back={back}
               actionsRef={detailActions}
               now={now}
               decidedByOther={decidedByOther}
               yieldPrimary={selectedIds.length > 0}
             />
-          ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
+            </div>
+          ) : selecting || list.kind === 'loading' || firstMail.pending ? null : (
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
               <MailSearch className="size-5" aria-hidden />
-              <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
+              <p className="max-w-xs text-sm text-balance">{t('noSelection')}</p>
             </div>
           )}
         </div>

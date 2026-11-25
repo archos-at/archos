@@ -17,7 +17,7 @@ export type ListSection =
 
 export type Readiness = 'ready' | 'needs_you' | 'others'
 
-const READINESS_ORDER: readonly Readiness[] = ['ready', 'needs_you', 'others']
+const READINESS_ORDER: readonly Readiness[] = ['needs_you', 'ready', 'others']
 
 const DAY_MS = 86_400_000
 export const EXPIRY_SOON_DAYS = 5
