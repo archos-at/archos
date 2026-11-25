@@ -257,7 +257,8 @@ describe('the chat column', () => {
 
   test('ChatToolbar takes its width from thread-column.ts', () => {
     const { container } = render(createElement(ChatToolbar, { conversationId: 'session-1', isCollaborationEnabled: false }))
-    const column = columnAbove(screen.getByTestId('thread-menu'))
+    const pill = screen.getByTestId('thread-menu').closest('[data-slot="chat-header-thread"]') as HTMLElement
+    const column = columnAbove(pill.parentElement as HTMLElement)
     expectRecipe(column, THREAD_COLUMN_INNER)
     expectOnlyColumnWidths(container, THREAD_COLUMN_INNER)
   })
