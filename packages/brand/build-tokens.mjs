@@ -97,7 +97,7 @@ function fontFaces(tokens) {
   font-style: ${f.style};
   font-display: swap;
 }`
-    return f.fallback ? [face, fallbackFace(f.fallback)] : [face]
+    return [face, ...(f.fallbacks ?? []).map(fallbackFace)]
   })
 }
 
