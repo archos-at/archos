@@ -4164,6 +4164,10 @@
     "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
   },
   {
+    "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+    "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+  },
+  {
     "en": "Switching to another conversation and back, or reloading during an answer, shows the text that had already arrived at once instead of typing it out again, and each conversation reopens where you left it.",
     "de": "Wenn Sie zu einer anderen Unterhaltung wechseln und zurückkehren oder während einer Antwort die Seite neu laden, wird der bereits eingetroffene Text sofort vollständig angezeigt, statt erneut schrittweise eingeblendet zu werden. Außerdem öffnet sich jede Unterhaltung wieder an der Stelle, an der Sie sie verlassen haben."
   },
