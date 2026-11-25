@@ -1,3 +1,6 @@
+import { useAuth } from '@/adapters/auth'
+import { usePathname } from 'next/navigation'
+import { chatSideOf } from '@/components/shell/rail-mode'
 import {
   useState,
   useCallback,
@@ -105,8 +108,13 @@ export function useInputAreaController({
   })
 
   const currentConversationId = useChatStore((state) => state.currentConversation?.id)
-  const chatHasProject = useChatStore(
-    (state) => (state.currentConversation ? state.currentConversation.projectId : state.projectId) != null
+  const routeSide = chatSideOf(usePathname() ?? '')
+  const chatHasProject = useChatStore((state) =>
+    state.currentConversation
+      ? state.currentConversation.projectId != null
+      : routeSide !== undefined
+        ? routeSide !== null
+        : state.projectId != null
   )
   const canMention = canCollaborate && chatHasProject
   const ensureSession = useChatStore((state) => state.ensureSession)
@@ -219,6 +227,7 @@ export function useInputAreaController({
   })
 
   const isDisabledByAuth = !isAuthenticated
+  const { isLoading: authLoading } = useAuth()
   const isViewerInSharedThread = capabilities.deniedBy === 'read-only-role'
   const cannotChatInProject = capabilities.deniedBy === 'no-project-chat-permission'
   const cannotContribute = !capabilities.canContribute
@@ -288,7 +297,7 @@ export function useInputAreaController({
   ])
 
   const getPlaceholder = (): string => {
-    if (!isAuthenticated) return t('inputArea.signInToStart')
+    if (!isAuthenticated && !authLoading) return t('inputArea.signInToStart')
     if (isResponseMode) return t('inputArea.typeResponse')
     if (steering) return t('inputArea.steer')
     if (typingAhead) return t('inputArea.typeAhead')

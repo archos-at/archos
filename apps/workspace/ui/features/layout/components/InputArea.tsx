@@ -1,6 +1,7 @@
 'use client'
 
 import { type FC, memo } from 'react'
+import { useChatStarted } from '../hooks/use-chat-started'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 
@@ -20,13 +21,12 @@ import { ComposerAboveField } from './input-area/composer-above-field'
 import { ComposerField } from './input-area/composer-field'
 import { ComposerControls } from './input-area/composer-controls'
 
-import { useChatStore } from '@/features/chat/store'
 import { useTemporarySwitch } from '@/features/chat/conversation-privacy'
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
-  const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
+  const chatStarted = useChatStarted()
   const arriving = useComposerArriving(props.isAuthenticated ?? false)
   const temporary = useTemporarySwitch(controller.currentConversationId).pressed
 

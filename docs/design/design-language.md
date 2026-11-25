@@ -1032,6 +1032,15 @@ times stops being a physical cue and becomes texture.
   in the window since the chat mounted (`components/motion/use-input-since-mount`),
   so sending the first message and „Neuer Chat“ keep them; an activation that
   sends no press or key (a screen reader's virtual cursor) places them at once.
+  A chat opened cold lays out as it will settle from the first paint: a new
+  chat words its placeholder for the route's side, and a link to a chat
+  (`?session=`) holds the started chat's toolbar and composer lines while the
+  list and its messages load (`layout/hooks/use-chat-started`). A session
+  whose token is still on its way counts as loading (`adapters/auth`), so
+  nobody signed in sees the sign-in prompt, and the greeting's heading holds
+  its place unseen until the name is known.
+  `bun run shift-check --load --session=<wos-session> <chat routes>` fails on
+  any shift of the load at 390 and 360.
   A line that arrives after its count is fetched (mail waiting, a mail import)
   fades on `duration-snap`, and a thread replacing its skeleton fades on
   `--motion-snap` too. An `EmptyState` stands at once where the reader arrived
