@@ -5516,6 +5516,10 @@
     "de": "Was sich jede Woche geändert hat, finden Sie jetzt nach Bereichen sortiert unter „Neuerungen“ in Ihrem Benutzermenü. Einmal pro Woche fasst eine kurze Notiz die Neuerungen der Woche zusammen. Wenn Sie sie schließen, bleibt sie geschlossen. Mit „Nicht mehr anzeigen“ deaktivieren Sie diese Hinweise; über einen Schalter in Ihrem Profil können Sie sie wieder aktivieren."
   },
   {
+    "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
+    "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
+  },
+  {
     "en": "What the assistant keeps about you personally, such as how you like your answers or what you are responsible for, now goes into a memory of your own that only you can read. It no longer lands in the project's memory in front of the team, even when you say it in a project chat, and it follows you into every project.",
     "de": "Was sich der Assistent über Sie persönlich merkt, etwa wie Sie Ihre Antworten bevorzugen oder wofür Sie verantwortlich sind, wird jetzt in einem eigenen Speicher abgelegt, den nur Sie lesen können. Es landet nicht mehr im für das Team sichtbaren Projektspeicher – auch wenn Sie es in einem Projekt-Chat erwähnen – und begleitet Sie in jedes Projekt."
   },

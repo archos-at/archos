@@ -125,6 +125,7 @@ dark at 900px and 390px. What was wrong, and what became of it:
 | „Skizze" on the acoustic and energy cards | Neither has a sketch: bars and a label scale | „Prüfung" |
 | Answer footer on three lines | Copy, „Antwortdetails" and feedback each took a line | One line; the details open full-width below it |
 | Answer footer on two rows, 85px | Sources and actions on separate rows with different left edges; three ways to copy side by side („Zitieren", the book icon, Word); „War das hilfreich?" took a third of the row | One row, 37px: sources at the start scroll sideways with a fade at whichever edge has more and a count that unfolds them all; one copy menu (with sources, answer only, cite as …); „Antwortdetails" is an ⓘ with the warning dot; the question is the thumbs' tooltip |
+| Three things opened three ways in three places under the footer | The source count re-flowed the chips, „Antwortdetails" only faded while its height jumped, the 👎 reasons grew inside the button group; all three could be open at once | One drawer under the line holds one at a time (`answer-footer-machine.ts`): opening grows it, switching fades the old content out at its height and then glides to the new one, closing fades and shrinks; the strip never re-flows; „Bewertung gespeichert." is announced, and the filled thumb is the visible receipt |
 
 What was looked at and deliberately kept, so it is not relitigated without
 new evidence:
