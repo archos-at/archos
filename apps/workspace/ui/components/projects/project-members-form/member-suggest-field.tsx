@@ -110,7 +110,7 @@ export function MemberSuggestField({
         <PopoverContent
           align="start"
           sideOffset={4}
-          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1.5"
+          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-surface p-1"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >
@@ -136,7 +136,7 @@ export function MemberSuggestField({
                   }}
                   onMouseEnter={() => setHighlight(index)}
                   className={cn(
-                    'duration-snap flex cursor-pointer items-center gap-3 rounded-surface px-3 py-2 transition-colors ease-out pointer-coarse:min-h-11 motion-reduce:transition-none',
+                    'duration-snap flex cursor-pointer items-center gap-3 rounded-control px-3 py-2 transition-colors ease-out pointer-coarse:min-h-11 motion-reduce:transition-none',
                     index === active && 'bg-accent'
                   )}
                 >

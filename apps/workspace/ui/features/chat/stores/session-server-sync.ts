@@ -11,7 +11,7 @@ import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages } from './messages-store'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient, isRightsLost } from '../lib/conversations-client-access'
-import { wasOnServerBefore } from '../lib/conversation-on-server'
+import { wasMintedHere, wasOnServerBefore } from '../lib/conversation-on-server'
 import { isConversationErased } from '../lib/erased-conversations'
 import { CONVERSATION_LIST_PAGE } from '../lib/conversation-list-page'
 import { keepsProvisionalTitle, named } from '../lib/conversation-title'
@@ -183,6 +183,7 @@ export const createSessionServerSyncSlice: StateCreator<
     const conversation = get().conversations.find((c) => c.id === conversationId)
     if (!conversation) return
     if (conversation.messages.length > 0 && !isAwaitingServerMessages(conversationId)) return
+    if (conversation.messages.length === 0 && wasMintedHere(conversationId) && !isAwaitingServerMessages(conversationId)) return
     if (get().currentConversation?.id === conversationId) get().setPendingMessagesFor(conversationId)
     if (hydratingConversationIds.has(conversationId)) return
     hydratingConversationIds.add(conversationId)

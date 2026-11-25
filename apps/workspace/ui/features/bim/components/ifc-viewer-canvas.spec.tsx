@@ -662,7 +662,7 @@ describe('lifecycle', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(disposed.geometry).toBe(1)
     expect(capturePosthogException).toHaveBeenCalledTimes(1)
-    expect(capturePosthogException).toHaveBeenCalledWith(noAdapter, { source: 'ifc-viewer-load' })
+    expect(capturePosthogException).toHaveBeenCalledWith(noAdapter, { source: 'ifc-viewer-load', phase: 'building' })
   })
 
   it('does not take the page down when the reader leaves while a wedged kernel is still streaming', async () => {
@@ -710,7 +710,7 @@ describe('lifecycle', () => {
     expect(() => unmount()).not.toThrow()
     expect(disposed.renderer).toBe(1)
     expect(capturePosthogException).toHaveBeenCalledTimes(2)
-    expect(capturePosthogException).toHaveBeenCalledWith(trap, { source: 'ifc-viewer-load' })
+    expect(capturePosthogException).toHaveBeenCalledWith(trap, { source: 'ifc-viewer-load', phase: 'building' })
   })
 
   it('reports a failed download as an error rather than an empty canvas', async () => {
@@ -735,7 +735,7 @@ describe('lifecycle', () => {
 
     await waitFor(() =>
       expect(onStatus).toHaveBeenCalledWith(
-        expect.objectContaining({ phase: 'error', message: expect.stringContaining('403') })
+        expect.objectContaining({ phase: 'error', cause: 'expired' })
       )
     )
   })

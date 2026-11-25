@@ -257,6 +257,22 @@
         },
         {
           "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "The model view now looks like the rest of ARCHOS: solid tool bars with the same corners as other menus, a plain background instead of a sky, a view picker you can walk with the arrow keys, and „Fassung“ where it said „Revision“.",
+            "de": "Die Modellansicht sieht jetzt wie der Rest von ARCHOS aus: mit undurchsichtigen Werkzeugleisten und denselben abgerundeten Ecken wie die anderen Menüs, einem schlichten Hintergrund statt eines Himmels, einer Ansichtsauswahl, durch die Sie mit den Pfeiltasten navigieren können, und „Fassung“ statt „Revision“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "A large model in an answer now waits for „3D-Ansicht laden“ instead of loading by itself, and a load can be stopped at any point, not only during the download.",
+            "de": "Ein großes Modell in einer Antwort wird jetzt erst nach Klick auf „3D-Ansicht laden“ geladen und der Ladevorgang kann jederzeit abgebrochen werden, nicht nur während des Downloads."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
@@ -277,6 +293,14 @@
           "text": {
             "en": "„Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.",
             "de": "„Meine Ablage“ behält ihren Kopf, wenn Sie einen Ordner öffnen, wie die Ablage eines Projekts und die Bürobibliothek: Der Titel und die Werkzeugzeile bleiben, wo sie sind, und der Weg zum Ordner steht in der Zeile unter dem Kopf. Auch während Sie in „Meine Ablage“ oder der Bürobibliothek suchen, bleibt der Kopf stehen, mit dem Weg zurück in der Werkzeugzeile."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project switcher and the search lists for colleagues, members and addresses now have the same corners as the other menus.",
+            "de": "Der Projektumschalter und die Suchlisten für Kolleginnen und Kollegen, Mitglieder und Adressen haben jetzt die gleiche Rundung wie die anderen Menüs."
           }
         },
         {
@@ -309,6 +333,14 @@
           "text": {
             "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
             "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The welcome and project tours show the app as it is today: the Persönlich | Projekt switch, your projects, the Bürobibliothek, the Postfach, search and your account with the switch to another office. On a phone they point at the switch at the top of the chat, the tab bar and „Mehr“.",
+            "de": "Die Willkommens- und Projekttouren zeigen die App, wie sie heute aussieht: den Umschalter Persönlich | Projekt, Ihre Projekte, die Bürobibliothek, das Postfach, die Suche und Ihr Konto mit der Möglichkeit, zu einem anderen Büro zu wechseln. Auf dem Smartphone zeigen sie auf den Umschalter oben im Chat, die Tab-Leiste und „Mehr“."
           }
         },
         {
@@ -491,6 +523,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "When you send the first message of a new chat, the bar at the top now fades in where it will stay: the menu, the date and the sharing buttons no longer jump sideways while the chat's name arrives.",
+            "de": "Wenn Sie die erste Nachricht eines neuen Chats senden, blendet sich die Leiste oben jetzt an der Stelle ein, an der sie bleibt: Menü, Datum und Teilen-Schaltflächen springen nicht mehr seitwärts, während der Chatname erscheint."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
             "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
           }
@@ -537,6 +577,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
+            "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
@@ -565,6 +613,14 @@
           "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
             "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
+            "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
           }
         },
         {
@@ -723,6 +779,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
+            "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
             "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
           }
@@ -733,6 +797,14 @@
           "text": {
             "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
             "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The welcome tour no longer breaks at its second step, where it ran over the project overview window and closed it at the first click. Cards beside the top or the foot of the sidebar now stay on screen, so the tour no longer gets stuck at the Postfach.",
+            "de": "Die Einführungstour bleibt nicht mehr beim zweiten Schritt hängen, bei dem sie das Projektübersichtsfenster überlagerte und beim ersten Klick schloss. Karten neben dem oberen oder unteren Ende der Seitenleiste bleiben jetzt sichtbar, sodass die Tour nicht mehr beim Postfach hängen bleibt."
           }
         },
         {
@@ -853,6 +925,30 @@
           "text": {
             "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
             "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
+            "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone or tablet, a few small controls are now big enough to hit with a finger: the way up from a folder, the review's filters and comment kinds, the base knowledge filters, attachment links in a mail thread and the chip that says something waits for you.",
+            "de": "Auf Smartphone oder Tablet sind einige kleine Bedienelemente jetzt groß genug, um sie mit dem Finger anzutippen: die Schaltfläche, mit der Sie aus einem Ordner eine Ebene nach oben gelangen, die Filter und Kommentararten im Review, die Filter im Basiswissen, Links zu Anhängen in einem Mail-Thread und der Chip, der anzeigt, dass etwas auf Sie wartet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Typing the first letters of a new chat no longer flashes the loading placeholder: the greeting and the input stay where they are until you send.",
+            "de": "Wenn Sie die ersten Buchstaben eines neuen Chats eingeben, blinkt der Ladeplatzhalter nicht mehr: Begrüßung und Eingabefeld bleiben an ihrem Platz, bis Sie die Nachricht senden."
           }
         },
         {

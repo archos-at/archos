@@ -91,7 +91,7 @@ export function ConversationPrivacyLine({
   return (
     <ConversationPrivacyLineView
       temporary={temporary}
-      reserved={statesTemporary}
+      reserved
       privateToReader={sharing === 'private'}
       className={className}
     />

@@ -16,7 +16,7 @@ const config: AppConfig = {
 
 const Column = (): ReactNode => {
   const isThreadEmpty = useThreadPhase() === 'empty'
-  const { composerRef, columnVars, composerStyle, composerMotion } = useComposerMetrics(isThreadEmpty, { predicted: useArrivalPredicted() })
+  const { composerRef, columnVars, composerStyle, composerMotion } = useComposerMetrics(isThreadEmpty, false, { predicted: useArrivalPredicted() })
   return (
     <div className="relative flex min-h-0 flex-1 flex-col [container-type:size]" style={columnVars} data-testid="chat-column">
       <ChatArea isAuthenticated />

@@ -45,6 +45,8 @@ import { formatCalendarDate } from '@/lib/format'
 
 const MENU_FOCUS_GUARD_MS = 250
 
+const joins = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: motionQuick } as const
+
 interface ChatToolbarProps {
   sessionTitle?: string
   onNewSession?: () => void
@@ -184,18 +186,25 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
       <div className={cn(THREAD_COLUMN_INNER, 'flex items-start justify-between gap-3 max-sm:items-stretch sm:items-center max-md:landscape:mx-0 max-md:landscape:min-w-0 max-md:landscape:flex-1')}>
       <div
         className={cn(
-          'pointer-events-auto flex min-h-12 min-w-0 items-center gap-0.5 rounded-surface p-0.5 max-sm:flex-1 sm:min-h-8',
-          isChatStarted && 'border border-base bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/50',
+          'pointer-events-auto relative isolate flex min-h-12 min-w-0 items-center gap-0.5 rounded-surface border border-transparent p-0.5 max-sm:flex-1 sm:min-h-8 sm:max-w-[calc(100%-12rem)]',
           !isChatStarted && 'sm:hidden'
         )}
+        data-slot="chat-header-thread"
       >
+        <AnimatePresence initial={false}>
+          {isChatStarted && (
+            <motion.div
+              key="glass"
+              aria-hidden="true"
+              {...joins}
+              className="pointer-events-none absolute -inset-px -z-10 rounded-surface border border-base bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/50"
+            />
+          )}
+        </AnimatePresence>
         {/* A phone has no rail, so the door to the chat list stays here; from `sm` up the rail lists the chats. */}
         <Button
           variant="ghost"
-          className={cn(
-            'h-11 shrink-0 gap-1.5 rounded-[6px] px-3 text-sm font-medium sm:hidden',
-            isChatStarted && 'max-sm:w-12 max-sm:flex-col max-sm:gap-0 max-sm:px-0 max-sm:text-meta'
-          )}
+          className="h-11 shrink-0 rounded-[5px] font-medium sm:hidden max-sm:w-12 max-sm:flex-col max-sm:gap-0 max-sm:px-0 max-sm:text-meta"
           onClick={handleMenuClick}
           disabled={!isAuthenticated}
           title={!isAuthenticated ? t('chatToolbar.signInToView') : t('chatToolbar.toggleSessions')}
@@ -204,154 +213,169 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
           <MessageSquareText className="size-4" aria-hidden="true" />
           <span data-slot="history-door-label">{t('chatToolbar.historyDoor')}</span>
         </Button>
-        {isChatStarted && (sessionTitle || hasStatus) && <div aria-hidden="true" className="h-4 w-px shrink-0 bg-border sm:hidden" />}
 
-        {isChatStarted && (sessionTitle || hasStatus) && (
-          <nav
-            className="flex min-w-0 flex-1 flex-col justify-center pl-1 pr-1.5 text-sm sm:flex-initial sm:flex-row sm:items-center sm:gap-1.5"
-            aria-label={tChat('breadcrumb.ariaLabel')}
-          >
-              <div className="flex min-w-0 flex-1 items-center gap-2 sm:contents">
-              {sessionTitle ? (
-                isEditingTitle ? (
-                  <input
-                    ref={titleInputRef}
-                    value={editedTitle}
-                    onChange={(e) => {
-                      focusGuardUntilRef.current = 0
-                      setEditedTitle(e.target.value)
-                    }}
-                    onKeyDown={handleTitleKeyDown}
-                    onBlur={handleTitleBlur}
-                    aria-label={tChat('breadcrumb.renameInputAria')}
-                    enterKeyHint="done"
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className={cn('h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground pointer-coarse:text-base sm:h-7 sm:pointer-fine:text-xs', FIELD_FOCUS_RING)}
-                  />
-                ) : (
-                  <button data-attr="chat-start-editing-title"
-                    type="button"
-                    onClick={startEditingTitle}
-                    disabled={!canRename}
-                    aria-label={tChat('breadcrumb.renameAria')}
-                    title={canRename ? tChat('breadcrumb.renameAria') : sessionTitle}
-                    className="flex min-h-9 min-w-0 max-w-[420px] flex-1 items-center rounded-control px-1 py-0.5 text-left text-sm font-medium leading-snug text-foreground sm:text-xs sm:leading-4 transition-colors duration-quick ease-out motion-reduce:transition-none enabled:cursor-text enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 sm:flex-initial"
+        <AnimatePresence initial={false}>
+          {isChatStarted && (
+            <motion.div
+              key="thread"
+              {...joins}
+              className="flex min-w-0 flex-1 items-center gap-0.5 self-stretch sm:flex-initial"
+              data-slot="chat-header-thread-row"
+            >
+              <div aria-hidden="true" className="h-4 w-px shrink-0 bg-border sm:hidden" />
+              <nav
+                className="flex min-h-9 min-w-0 flex-1 flex-col justify-center pl-1 pr-1.5 text-sm pointer-coarse:min-h-11 sm:w-[26rem] sm:flex-initial sm:flex-row sm:items-center sm:justify-start sm:gap-1.5"
+                aria-label={tChat('breadcrumb.ariaLabel')}
+                data-slot="chat-title-slot"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:contents">
+                  {isEditingTitle ? (
+                    <input
+                      ref={titleInputRef}
+                      value={editedTitle}
+                      onChange={(e) => {
+                        focusGuardUntilRef.current = 0
+                        setEditedTitle(e.target.value)
+                      }}
+                      onKeyDown={handleTitleKeyDown}
+                      onBlur={handleTitleBlur}
+                      aria-label={tChat('breadcrumb.renameInputAria')}
+                      enterKeyHint="done"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className={cn('h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground pointer-coarse:text-base sm:h-7 sm:pointer-fine:text-xs', FIELD_FOCUS_RING)}
+                    />
+                  ) : sessionTitle ? (
+                    <button data-attr="chat-start-editing-title"
+                      type="button"
+                      onClick={startEditingTitle}
+                      disabled={!canRename}
+                      aria-label={tChat('breadcrumb.renameAria')}
+                      title={canRename ? tChat('breadcrumb.renameAria') : sessionTitle}
+                      className="flex min-h-9 min-w-0 max-w-[420px] flex-1 items-center rounded-control px-1 py-0.5 text-left text-sm font-medium leading-snug text-foreground sm:text-xs sm:leading-4 transition-colors duration-quick ease-out motion-reduce:transition-none enabled:cursor-text enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 sm:flex-initial"
+                    >
+                      <ChatTitleText title={sessionTitle} conversationId={currentSessionId} />
+                    </button>
+                  ) : null}
+                  {hasStatus && (
+                    <ThreadStatus
+                      surface="phone"
+                      sharingState={sharingState}
+                      currentUserId={currentUserId}
+                      isResearching={isDeepResearchStreaming}
+                      researchingLabel={t('chatToolbar.researching')}
+                      onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
+                      className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:hidden"
+                    />
+                  )}
+                </div>
+              </nav>
+
+              {(canRename || canShare || canDelete || isAuthenticated) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn('size-11 shrink-0 rounded-[5px] px-0 sm:size-7', !(canRename || canDelete) && 'sm:hidden')}
+                      aria-label={t('chatToolbar.moreActions')}
+                      title={t('chatToolbar.moreActions')}
+                      data-testid="thread-menu"
+                    >
+                      <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuItem
+                      onSelect={handleNewSessionClick}
+                      disabled={!isAuthenticated}
+                      className="sm:hidden"
+                      data-testid="new-chat-menu-item"
+                    >
+                      <SquarePen className="size-4" aria-hidden="true" />
+                      {t('chatToolbar.newChat')}
+                    </DropdownMenuItem>
+                    {canRename && (
+                      <DropdownMenuItem disabled={isDeepResearchStreaming} onSelect={startEditingTitleFromMenu} data-testid="rename-session">
+                        <PencilLine className="size-4" aria-hidden="true" />
+                        {t('chatToolbar.rename')}
+                      </DropdownMenuItem>
+                    )}
+                    {canShare && (
+                      <DropdownMenuItem onSelect={() => setIsShareOpen(true)} className="sm:hidden" data-testid="share-button">
+                        <Share2 className="size-4" aria-hidden="true" />
+                        {tCollab('sharing.action')}
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem variant="destructive" disabled={isDeepResearchStreaming} onSelect={() => setIsDeleteOpen(true)} data-testid="delete-session">
+                        <Trash2 className="size-4" aria-hidden="true" />
+                        {t('chatToolbar.delete')}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <AnimatePresence initial={false}>
+                {changedOn && (
+                  <motion.span
+                    key="changed"
+                    {...joins}
+                    className="text-muted-foreground text-meta hidden shrink-0 whitespace-nowrap pl-1 pr-2 md:inline"
+                    data-testid="chat-changed-on"
                   >
-                    <ChatTitleText title={sessionTitle} conversationId={currentSessionId} />
-                  </button>
-                )
-              ) : null}
-              {hasStatus && (
-                <ThreadStatus
-                  surface="phone"
-                  sharingState={sharingState}
-                  currentUserId={currentUserId}
-                  isResearching={isDeepResearchStreaming}
-                  researchingLabel={t('chatToolbar.researching')}
-              onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
-                  className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:hidden"
-                />
-              )}
-              </div>
-          </nav>
-        )}
+                    {t('chatToolbar.changedOn', { date: changedOn })}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-        {isChatStarted && (canRename || canShare || canDelete || isAuthenticated) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn('size-11 shrink-0 rounded-[6px] px-0 sm:size-7', !(canRename || canDelete) && 'sm:hidden')}
-                aria-label={t('chatToolbar.moreActions')}
-                title={t('chatToolbar.moreActions')}
-                data-testid="thread-menu"
-              >
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem
-                onSelect={handleNewSessionClick}
-                disabled={!isAuthenticated}
-                className="sm:hidden"
-                data-testid="new-chat-menu-item"
-              >
-                <SquarePen className="size-4" aria-hidden="true" />
-                {t('chatToolbar.newChat')}
-              </DropdownMenuItem>
-              {canRename && (
-                <DropdownMenuItem disabled={isDeepResearchStreaming} onSelect={startEditingTitleFromMenu} data-testid="rename-session">
-                  <PencilLine className="size-4" aria-hidden="true" />
-                  {t('chatToolbar.rename')}
-                </DropdownMenuItem>
+      <AnimatePresence initial={false}>
+        {isChatStarted && (hasStatus || onlyReader || canShare) && (
+          <motion.div
+            key="people"
+            {...joins}
+            className="pointer-events-auto flex min-h-12 shrink-0 items-center gap-0.5 rounded-surface border border-base bg-card/60 p-0.5 backdrop-blur supports-[backdrop-filter]:bg-card/50 max-sm:hidden sm:min-h-8"
+            data-slot="chat-header-people"
+          >
+            <AnimatePresence initial={false}>
+              {(hasStatus || onlyReader) && (
+                <motion.div key="status" {...joins} className="flex items-center gap-1 pl-1 pr-1.5">
+                  {onlyReader && <OnlyYou label={tChat('privacy.onlyYouShort')} statement={tChat('privacy.onlyYou')} />}
+                  <ThreadStatus
+                    surface="desktop"
+                    sharingState={sharingState}
+                    currentUserId={currentUserId}
+                    isResearching={isDeepResearchStreaming}
+                    researchingLabel={t('chatToolbar.researching')}
+                    onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
+                    className="contents"
+                  />
+                </motion.div>
               )}
-              {canShare && (
-                <DropdownMenuItem onSelect={() => setIsShareOpen(true)} className="sm:hidden" data-testid="share-button">
+            </AnimatePresence>
+            {canShare && (
+              <>
+                {(hasStatus || onlyReader) && <div aria-hidden="true" className="mr-1 h-4 w-px bg-border" />}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 rounded-[5px] px-2 text-xs font-medium"
+                  onClick={() => setIsShareOpen(true)}
+                  data-testid="share-open"
+                >
                   <Share2 className="size-4" aria-hidden="true" />
                   {tCollab('sharing.action')}
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem variant="destructive" disabled={isDeepResearchStreaming} onSelect={() => setIsDeleteOpen(true)} data-testid="delete-session">
-                  <Trash2 className="size-4" aria-hidden="true" />
-                  {t('chatToolbar.delete')}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {isChatStarted && changedOn && (
-          <span className="text-muted-foreground text-meta hidden shrink-0 whitespace-nowrap pl-1 pr-2 md:inline" data-testid="chat-changed-on">
-            {t('chatToolbar.changedOn', { date: changedOn })}
-          </span>
-        )}
-      </div>
-
-      {isChatStarted && (hasStatus || onlyReader || canShare) && (
-      <div className="pointer-events-auto flex min-h-12 shrink-0 items-center gap-0.5 rounded-surface border border-base bg-card/60 p-0.5 backdrop-blur supports-[backdrop-filter]:bg-card/50 max-sm:hidden sm:min-h-8">
-        <AnimatePresence initial={false}>
-        {(hasStatus || onlyReader) && (
-          <motion.div
-            key="status"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={motionQuick}
-            className="flex items-center gap-1 pl-1 pr-1.5"
-          >
-            {onlyReader && <OnlyYou label={tChat('privacy.onlyYouShort')} statement={tChat('privacy.onlyYou')} />}
-            <ThreadStatus
-              surface="desktop"
-              sharingState={sharingState}
-              currentUserId={currentUserId}
-              isResearching={isDeepResearchStreaming}
-              researchingLabel={t('chatToolbar.researching')}
-              onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
-              className="contents"
-            />
+                </Button>
+              </>
+            )}
           </motion.div>
         )}
-        </AnimatePresence>
-        {canShare && (
-          <>
-            {(hasStatus || onlyReader) && <div aria-hidden="true" className="mr-1 h-4 w-px bg-border" />}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 rounded-[5px] px-2 text-xs font-medium"
-              onClick={() => setIsShareOpen(true)}
-              data-testid="share-open"
-            >
-              <Share2 className="size-4" aria-hidden="true" />
-              {tCollab('sharing.action')}
-            </Button>
-          </>
-        )}
-      </div>
-      )}
+      </AnimatePresence>
       </div>
 
       {isSharingReachable && isShareOpen && conversationId && (

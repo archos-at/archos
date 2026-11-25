@@ -15,7 +15,7 @@ const warm = vi.fn()
 const show = (mode: 'personal' | 'project' = 'personal') =>
   render(
     <RailChatsSource value={{ items: [], allHref: '/app/personal/chat', onWarmOtherSide: warm }}>
-      <RailModeSwitch mode={mode} collapsed={false} />
+      <RailModeSwitch mode={mode} collapsed={false} tourAnchor="side-switch" />
     </RailChatsSource>
   )
 const thumb = (): HTMLElement => document.querySelector<HTMLElement>('[data-slot="rail-mode-thumb"]')!

@@ -399,7 +399,7 @@ export function ReviewPanel({
                 data-testid={`review-filter-${option}`}
                 onClick={() => setFilter(option)}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors duration-quick ease-out pointer-coarse:h-10',
+                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors duration-quick ease-out pointer-coarse:h-11',
                   filter === option ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                 )}
               >

@@ -33,10 +33,12 @@ export function RailModeSwitch({
   mode,
   collapsed,
   navigate,
+  tourAnchor,
 }: {
   mode: RailMode
   collapsed: boolean
   navigate?: (href: string) => void
+  tourAnchor: string
 }): JSX.Element {
   const t = useTranslations(navCopy)
   const router = useRouter()
@@ -93,6 +95,7 @@ export function RailModeSwitch({
       loop={false}
       aria-label={t('railMode')}
       data-testid="rail-mode-switch"
+      data-tour={tourAnchor}
       data-shown={shown}
       className={cn('bg-selected relative gap-0 rounded-[6px] p-0.5', collapsed ? 'flex-col flex-nowrap' : 'grid w-full grid-cols-2')}
     >

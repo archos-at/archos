@@ -46,6 +46,7 @@ interface HarnessProps {
   composerMounted?: boolean
   composerHeight?: number
   columnHeight?: number
+  keyboardUp?: boolean
 }
 
 const Harness = ({
@@ -53,8 +54,9 @@ const Harness = ({
   composerMounted = true,
   composerHeight = COMPOSER_H,
   columnHeight = COLUMN_H,
+  keyboardUp = false,
 }: HarnessProps): JSX.Element => {
-  const metrics = useComposerMetrics(isThreadEmpty)
+  const metrics = useComposerMetrics(isThreadEmpty, keyboardUp)
   latest = metrics
   renders += 1
   return (
@@ -102,6 +104,16 @@ describe('useComposerMetrics', () => {
     expect(latest.composerMotion.animate.y).toBe(0)
   })
 
+  test('stands an empty chat on the floor while the keyboard is up, the greeting just above it', () => {
+    const { container, rerender } = render(<Harness isThreadEmpty />)
+    expect(latest.composerMotion.animate.y).toBe(-EXPECTED_LIFT)
+
+    rerender(<Harness isThreadEmpty keyboardUp columnHeight={500} />)
+    expect(latest.composerMotion.animate.y).toBe(0)
+    expect(latest.composerMotion.transition).toEqual({ duration: 0 })
+    expect(columnVar(container, '--welcome-offset')).toBe(`${COMPOSER_H + 32}px`)
+  })
+
   test('never lifts the composer off the bottom of a short column', () => {
     render(<Harness isThreadEmpty columnHeight={180} />)
     expect(latest.composerMotion.animate.y).toBe(0)
@@ -130,7 +142,7 @@ describe('useComposerMetrics', () => {
 
   test('glides, never jumps, when the chat corrects what the server predicted for its first paint', () => {
     const Predicted = ({ isThreadEmpty, predicted }: { isThreadEmpty: boolean; predicted: boolean }): JSX.Element => {
-      latest = useComposerMetrics(isThreadEmpty, { predicted })
+      latest = useComposerMetrics(isThreadEmpty, false, { predicted })
       return <div />
     }
     const { rerender } = render(<Predicted isThreadEmpty={false} predicted />)

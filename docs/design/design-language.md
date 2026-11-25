@@ -56,7 +56,7 @@ Every pixel of a screen belongs to one plane. Name the plane in the class (`bg-p
 - **Type** (General Sans, size/line/weight): 11/16/500 codes only (a format: PDF, DWG); 12/16/440 meta (`text-meta`); **12/16/500 muted label** (`SectionLabel`, the card eyebrow: a column head, a group label over a list such as „Dateien“, a field label such as „E-Mail-Text“); 13/20/500 names and controls (`text-name`); 14/20/440 body; 16/24/600 section (`text-section`: a group heading, the preview's file name, an empty state's headline); 18/26/500 pane title (`text-pane-title`: the open mail's subject); 20/28/500 page title (`text-page-title`, the `PageHeader`, and `PAGE_TITLE_CLASS` where a page lays out its own header); **mono 13/20/440** a string to copy (the project's mail address). Every row's name is `text-name`, the mail list's subject included (it was 14px). Weights 440, 500 and 600 only; a title carries its rank by size at 500 (the page title was 24/600 and the pane title 20/600 from 2026-11-10 to 2026-11-11, and read heavy beside every page that still set its own 20/500 title), 600 is for the 16px heading and for state (a mail or point that needs the reader), 500 for one that waits on a press, 440 for one that is handled; 700 stays the wordmark's. `cn()` knows these sizes (`TYPE_SCALE` in `bff/utils.ts`): before, tailwind-merge read `text-name` as a colour and dropped it beside `text-foreground`.
 - **Spacing**: 4, 8, 12, 16, 24, 32, 48. Row 40 for one line, 56 for a name and one meta line (10px around 20 + 16; the Papierkorb, the mail list, Offene Punkte), compact 32 not built. Control 32 (touch 44). **On a phone a row is 56, or 72 with two meta lines; a meta line breaks only at a separator and never ends a line with one** (the Papierkorb's two fixed lines: what it holds, then what stays and who deleted it; Offene Punkte's one line: what, where, who has it, by when).
 - **Radius**: 4 control and inline, 8 sheet and card, 14 overlay, floating bar and bubble, full for pills; each step 2px under the first ladder (6 / 10 / 16, 2026-11-24, the founder: „slightly reduce all the radii“). Hand-written values took the same 2px off from 6 up. There is no `--radius`.
-- **Concentric radius**: a rounded box inside a rounded box takes the outer radius less the gap between their edges (the outer's border and padding), so both curves share a centre. A menu item 4px inside an 8 menu is 4 (`DropdownMenu`, `ContextMenu`, `Select`: a menu is a small list on the surface step, its rows 4px in; at 14 a 220px menu read rounder than every card around it, 2026-11-24); `Command` sits its rows 6px inside the 14 palette, so 8; a 4 tab 4px inside its track makes the track 8 (`Tabs`); a 4 segment 2px inside its track makes the track 6 (`ToggleGroup segmented`, the section nav, the rail's switch); a press 4px inside a 14 floating bar is 10 (the BIM viewer's bars). A corner under 4px reads as square, so the outer grows instead. A wrapper that paints nothing (a focus ring around a chip) takes the shape of what it wraps. The rule holds while the gap is at most half the outer radius: further in, a box no longer runs along the curve. A 6 item at 6px inside a 16 menu bulged against the menu's curve (2026-11-24). `scripts/check-concentric-radius.mjs` in `bun run lint` reads the JSX and fails a nesting off the rule, `--fix` rewrites the class where it is written (in the kit for a kit pair), and `--live` measures the rendered `/dev` previews for what JSX cannot show (a class chosen by a condition, a button rendered by a child component).
+- **Concentric radius**: a rounded box inside a rounded box takes the outer radius less the gap between their edges (the outer's border and padding), so both curves share a centre. A menu item 4px inside an 8 menu is 4 (`DropdownMenu`, `ContextMenu`, `Select`: a menu is a small list on the surface step, its rows 4px in; at 14 a 220px menu read rounder than every card around it, 2026-11-24); `Command` sits its rows 6px inside the 14 palette, so 8; a 4 tab 4px inside its track makes the track 8 (`Tabs`); a 4 segment 2px inside its track makes the track 6 (`ToggleGroup segmented`, the section nav, the rail's switch); a press 4px inside an 8 floating bar is 4 (the BIM viewer's bars, `FloatingToolbar`). A corner under 4px reads as square, so the outer grows instead. A wrapper that paints nothing (a focus ring around a chip) takes the shape of what it wraps. The rule holds while the gap is at most half the outer radius: further in, a box no longer runs along the curve. A 6 item at 6px inside a 16 menu bulged against the menu's curve (2026-11-24). `scripts/check-concentric-radius.mjs` in `bun run lint` reads the JSX and fails a nesting off the rule, `--fix` rewrites the class where it is written (in the kit for a kit pair), and `--live` measures the rendered `/dev` previews for what JSX cannot show (a class chosen by a condition, a button rendered by a child component).
 - **Neutrals**: the table above. **Lines**: hairline `rgb(15 14 13 / 0.08)` (`--hairline`; dark `rgb(245 244 242 / 0.08)`), edge `rgb(15 14 13 / 0.12)` (`--edge`; dark 0.12 of paper white), field border `#8a8784` (`--field-border`; dark `#73716e`): a field is white with it, never a desk well (the Ordner tab's search). **The thumb** (`--elevation-thumb`, `shadow-thumb`): the press's edge and 1px shadow in light; in dark the field border is its edge, since its fill stands barely above the track and the edge 3.7:1 (the open tab and the chosen view were barely lighter than their track, review of 2026-11-10).
 - **The press** (`--elevation-press`, `shadow-press`): `0 0 0 1px var(--edge)`; under the pointer `--elevation-xs` (`shadow-xs`), the edge and `0 1px 2px rgb(15 14 13 / .06)`, which is also the thumb's at rest. **Elevation 1** (sheet, `--elevation-1`, `shadow-sm`): `0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / .06), 0 2px 6px rgb(15 14 13 / .04)`. **Elevation 2** (menu, floating bar, a document's page on its stage, `shadow-md`): `0 0 0 1px rgb(15 14 13 / .08), 0 4px 12px rgb(15 14 13 / .10), 0 12px 32px rgb(15 14 13 / .08)`; dark adds the 13% edge and an `inset 0 1px 0` lit top. **Elevation 3** (dialog only, `shadow-lg`): `0 0 0 1px rgb(15 14 13 / .10), 0 24px 64px rgb(15 14 13 / .22)` over a 40% ink scrim.
 - **Colour roles**: action = ink; picked = selected grey; hover = one step down the ladder (the wash, below); status = ochre, red, green; provenance hues unchanged; a person is no colour in Dateien.
@@ -545,8 +545,9 @@ insets too.
 
 Held statically by `apps/workspace/ui/components/ui/touch-target.spec.ts`,
 `apps/workspace/ui/components/ui/mobile-affordances.spec.ts` and
-`apps/workspace/ui/components/ui/breakpoints.spec.ts`, and in the browser by
-`task workspace:phone-audit`, CI's phone gate: every `/dev` route at 390 and 360,
+`apps/workspace/ui/components/ui/breakpoints.spec.ts` and the lint rule
+`grid/touch-target` (a control under 44px on a touch screen), and by hand in the
+browser by `task workspace:phone-audit`: every `/dev` route at 390 and 360,
 failing on any new sideways scroll or control under 44x44. What
 `ci/phone-audit-baseline.json` lists is known and still to fix, so a green run does
 not mean every page is clean (`docs/contributing/testing-and-verification.md`).
@@ -1090,7 +1091,29 @@ times stops being a physical cue and becomes texture.
   it never dims. On a new chat the switch is a draft (`composerTemporary`)
   that the first message carries, so pressing it creates no chat, no row in
   „Letzte Chats“ and no `?session=`. The welcome says what temporary means,
-  so the line under the composer stays out.
+  so the line under the composer states nothing there, but keeps its row.
+- **The composer keeps one height through a turn.** Its rows stand from the
+  empty chat on: the AI notice under it is there unseen until the first
+  message and then fades in, and the privacy line keeps its row in every
+  state. The „lenkt“ chip of a steerable turn sits on the card's top edge,
+  out of the flow, and fades in and out. Before, starting a chat grew the
+  composer by both lines and the chip, and the end of every turn shrank it
+  by the chip, moving the thread with it. `node scripts/measure-stream-socket.mjs`
+  prints `composerHeights`, one entry when nothing moved.
+- **The chat's header joins in its final shape and moves nothing** (the
+  owner, 2026-11-25: „no layout shift ever“). The first message lays out
+  the whole row at once: the title's slot, the `⋯` and „Geändert am“ stand
+  where they will stay before the title is in, and from `sm` the slot is a
+  fixed 26rem, so the first line and then the generated name only fill it.
+  The pill keeps room for who can read (`sm:max-w-[calc(100%-12rem)]`), so
+  „Nur Sie · Teilen“ arriving once the server has the chat does not narrow
+  the title. On a phone „Chats“ is the glyph over its word in an empty chat
+  too, and the pill's glass is a layer of its own, so neither the door nor
+  its padding changes as the chat starts. What joins (the glass, the row,
+  the people, a new title over the old) fades on `motionQuick`; a chat
+  opened cold is simply there. `/dev/chat-toolbar?case=journey` plays it:
+  `bun run shift-check --press=chat-toolbar-journey '/dev/chat-toolbar?case=journey'`
+  fails on any shift at 1280 and 390.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto

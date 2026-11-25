@@ -14,8 +14,8 @@ export const WELCOME_OFFSET_FALLBACK = `round(nearest, calc(50cqh + ${GREETING_A
 
 const REST_LIFT_FALLBACK = `round(nearest, min(0px, calc(100% - ${GREETING_ABOVE_MIDDLE_PX - COMPOSER_GAP_PX}px - 50cqh)), 1px)`
 
-export const restGeometry = (column: number, composer: number): { y: number; welcomeOffset: number } => {
-  const greetingLine = column / 2 + GREETING_ABOVE_MIDDLE_PX
+export const restGeometry = (column: number, composer: number, onFloor = false): { y: number; welcomeOffset: number } => {
+  const greetingLine = onFloor ? 0 : column / 2 + GREETING_ABOVE_MIDDLE_PX
   return {
     y: Math.round(Math.min(0, composer + COMPOSER_GAP_PX - greetingLine)),
     welcomeOffset: Math.round(Math.max(greetingLine, composer + COMPOSER_GAP_PX)),
@@ -36,7 +36,11 @@ export interface ComposerMetrics {
   }
 }
 
-export function useComposerMetrics(isThreadEmpty: boolean, { predicted = false }: { predicted?: boolean } = {}): ComposerMetrics {
+export function useComposerMetrics(
+  isThreadEmpty: boolean,
+  keyboardUp = false,
+  { predicted = false }: { predicted?: boolean } = {}
+): ComposerMetrics {
   const [composerHeight, setComposerHeight] = useState<number | null>(null)
   const [columnHeight, setColumnHeight] = useState<number | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
@@ -71,8 +75,8 @@ export function useComposerMetrics(isThreadEmpty: boolean, { predicted = false }
 
   const measured = composerHeight != null && columnHeight != null
 
-  const rest = measured ? restGeometry(columnHeight, composerHeight) : null
-  const restY = rest ? rest.y : REST_LIFT_FALLBACK
+  const rest = measured ? restGeometry(columnHeight, composerHeight, keyboardUp) : null
+  const restY = keyboardUp ? 0 : rest ? rest.y : REST_LIFT_FALLBACK
   const composerY = isThreadEmpty ? restY : 0
 
   const welcomeOffsetRef = useRef<number | null>(null)

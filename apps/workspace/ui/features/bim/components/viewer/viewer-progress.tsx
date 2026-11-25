@@ -38,11 +38,11 @@ export function ViewerProgress({
         {...(determinate
           ? { 'aria-valuenow': Math.round(clamped), 'aria-valuemin': 0, 'aria-valuemax': 100 }
           : {})}
-        className="h-1 w-48 overflow-hidden rounded-full bg-border"
+        className="bg-border h-1.5 w-48 overflow-hidden"
       >
         <div
           className={cn(
-            'h-full rounded-full bg-foreground/70',
+            'bg-primary h-full',
             determinate
               ? // `scaleX`, not width: a width tween is a layout animation.
                 'w-full origin-left transition-transform duration-quick ease-out motion-reduce:transition-none'

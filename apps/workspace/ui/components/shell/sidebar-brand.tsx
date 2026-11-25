@@ -7,6 +7,7 @@ import { Logo } from '@/components/brand/logo'
 import { useSidebar } from '@/components/ui/sidebar'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { TOUR_ANCHORS } from '@/lib/onboarding/product-tour'
 import { cn } from '@/lib/utils'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 import { PROJECT_OVERVIEW_PATH } from './landing'
@@ -22,6 +23,7 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
       href={PROJECT_OVERVIEW_PATH}
       onClick={(event) => overviewLinkClick(PROJECT_OVERVIEW_PATH, event)}
       aria-label={t('allProjects')}
+      data-tour={TOUR_ANCHORS.projects}
       data-focus-inset=""
       className="text-foreground rounded-control"
     >

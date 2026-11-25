@@ -1,0 +1,8 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone or tablet, a few small controls are now big enough to hit with
+    a finger: the way up from a folder, the review's filters and comment
+    kinds, the base knowledge filters, attachment links in a mail thread and
+    the chip that says something waits for you.

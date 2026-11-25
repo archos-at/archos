@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-22
+status: accepted
+date: 2026-11-25
 decision-makers: the product owner
 consulted: support ticket 12 of 2026-11-20 (KAN-95); KAN-5 and KAN-39 on seeing the element one asked about
 informed: everyone working on the answer cards and the BIM skill
@@ -52,6 +52,16 @@ Chosen option: **A**, because it is the rule ADR-0144 already set for the model
 view in this chat, and it is the only option under which a person never waits
 for, or pays bandwidth for, a picture they did not ask to see.
 
+Accepted on 2026-11-25 with one limit, the product owner's: **A holds for a
+large model only**. A model over 20 MB or over 15 000 elements
+(`AUTOLOAD_MAX_BYTES`, `AUTOLOAD_MAX_ELEMENTS` in
+`apps/workspace/ui/features/bim/lib/model-load-gate.ts`) arrives as a still card
+with its size, its element count and „3D-Ansicht laden“. A smaller one starts
+by itself, as under B, because it draws in seconds and KAN-39's reader then
+sees the element at once. The element list (a JSON read the highlight legend
+needs) is still fetched before the press; the model file and its geometry are
+not.
+
 An `ifc_viewer` card arrives with its title, its legend of highlight groups
 with counts, its note, „Modell öffnen“ and „3D-Ansicht laden“. Nothing of the
 model is requested before that press. The press is the person's, as „Anzeigen“
@@ -73,9 +83,9 @@ is in ADR-0144.
 
 ### Confirmation
 
-Nothing enforces this yet; review is the only gate. What should: a spec in
-`apps/workspace/ui/features/cards` that renders an `ifc_viewer` card and
-asserts no request for the model's source or its elements before the press.
+`IfcViewerCard.spec.tsx` renders a card for a large model and asserts no
+request for the model's source before the press, and one after it.
+`model-load-gate.spec.ts` holds the two limits.
 
 ## Pros and Cons of the Options
 

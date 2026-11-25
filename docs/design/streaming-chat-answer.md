@@ -708,8 +708,13 @@ Three rules hold across all of them:
 **One object from the send.** The question's Herleitung header mounts with the
 question row and is the working cue from the first frame: „Denkt nach…" with
 the label's shimmer, a timer from the question's timestamp once it passes two
-seconds (`useElapsedSeconds`, in a reserved `3.5ch` with tabular digits), and
-no typing bubble that a panel later replaces. The steps grow into the same
+seconds (`useElapsedSeconds`, in a slot `4ch` wide that stands for the whole
+live turn, tabular digits read from the left), and no typing bubble that a
+panel later replaces. The parts right of the label (the wide panel's summary,
+the ending word, the clock, the chevron) have no box of their own, and the ones
+that come, go or change stand left of the ones that stay, so none of them
+pushes another; the summary fades to a new line when its count changes. In a
+box of their own they slid left whenever the clock arrived or the summary grew. The steps grow into the same
 object. The header's icon slot holds a spinner while the turn works; the
 screen reader hears the phase, never the per-step phrase, at most once every 3 s.
 

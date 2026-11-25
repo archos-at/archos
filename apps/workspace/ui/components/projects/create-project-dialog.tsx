@@ -23,7 +23,6 @@ interface CreateProjectDialogProps {
   label?: string
   variant?: ButtonProps['variant']
   size?: ButtonProps['size']
-  tourAnchor?: string
   addressClients?: CreateProjectFormProps['addressClients']
   initial?: CreateProjectFormProps['initial']
 }
@@ -33,7 +32,6 @@ export function CreateProjectDialog({
   label,
   variant = 'default',
   size = 'default',
-  tourAnchor,
   addressClients,
   initial,
 }: CreateProjectDialogProps): JSX.Element {
@@ -54,7 +52,7 @@ export function CreateProjectDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant={variant} size={size} data-tour={tourAnchor}>
+        <Button variant={variant} size={size}>
           <Plus className="size-4" />
           {label ?? t('dialog.newProject')}
         </Button>

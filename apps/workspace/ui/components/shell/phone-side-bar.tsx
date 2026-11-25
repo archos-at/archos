@@ -8,6 +8,7 @@ import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { PRESSABLE } from '@/components/ui/press'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { TOUR_ANCHORS } from '@/lib/onboarding/product-tour'
 import { cn } from '@/lib/utils'
 import type { ProjectSwitcherProject } from './project-list'
 import type { RailMode } from './rail-mode'
@@ -34,7 +35,7 @@ export function PhoneSideBar({
       className="flex h-14 items-center gap-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
     >
       <div className="w-52 shrink-0">
-        <RailModeSwitch mode={mode} collapsed={false} navigate={navigateSide} />
+        <RailModeSwitch mode={mode} collapsed={false} navigate={navigateSide} tourAnchor={TOUR_ANCHORS.sidesPhone} />
       </div>
       {mode === 'project' && projectName && (
         <button

@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    When you send the first message of a new chat, the bar at the top now fades
+    in where it will stay: the menu, the date and the sharing buttons no longer
+    jump sideways while the chat's name arrives.

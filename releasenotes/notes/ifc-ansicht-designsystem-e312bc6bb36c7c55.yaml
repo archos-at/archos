@@ -1,0 +1,8 @@
+---
+# area: bim
+improvements:
+  - >
+    The model view now looks like the rest of ARCHOS: solid tool bars with the
+    same corners as other menus, a plain background instead of a sky, a view
+    picker you can walk with the arrow keys, and „Fassung“ where it said
+    „Revision“.

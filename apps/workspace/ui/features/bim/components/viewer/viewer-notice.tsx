@@ -1,11 +1,13 @@
 'use client'
 
 import type { JSX } from 'react'
-import { type ComponentType, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { EmptyStateDisc } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 
 export interface ViewerNoticeProps {
-  icon: ComponentType<{ className?: string }>
+  icon: LucideIcon
   title: string
   description?: string
   detail?: string
@@ -14,7 +16,7 @@ export interface ViewerNoticeProps {
 }
 
 export function ViewerNotice({
-  icon: Icon,
+  icon,
   title,
   description,
   detail,
@@ -29,13 +31,13 @@ export function ViewerNotice({
         className
       )}
     >
-      <Icon className="size-6 text-muted-foreground" aria-hidden="true" />
-      <p className="text-sm font-medium text-foreground">{title}</p>
+      <EmptyStateDisc icon={icon} className="mb-2" />
+      <p className="text-section text-balance text-foreground">{title}</p>
       {description && (
         <p className="max-w-prose text-sm text-balance text-muted-foreground">{description}</p>
       )}
       {detail && <p className="max-w-prose text-xs text-muted-foreground">{detail}</p>}
-      {action && <div className="mt-2">{action}</div>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   )
 }

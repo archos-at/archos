@@ -154,7 +154,7 @@ describe('the project overview is a window of the shell, as search is', () => {
     await waitFor(() => expect(overview()).toBeNull())
   })
 
-  test('/app/projects loaded directly (a bookmark, the welcome tour, a feedback link) shows it at once over its own page', async () => {
+  test('/app/projects loaded directly (a bookmark, a feedback link) shows it at once over its own page', async () => {
     pathname = '/app/projects'
     render(shell())
     expect(await screen.findByTestId('project-overview-window')).toHaveAttribute('data-instant', 'true')

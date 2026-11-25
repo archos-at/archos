@@ -640,18 +640,21 @@ and `apps/workspace/ui/components/ui/touch-target.spec.ts`. Capture a 390x844
 viewport alongside the desktop shot when you ship a surface — the playbook above
 has the command.
 
-**The browser measurement is back, as a CI gate, without the swipe check.**
+**The browser measurement is a local tool, not a gate.** It ran as CI's
+Workspace phone gate until 2026-11-25: four shards of about 11 minutes on every
+UI change, the slowest job by far, and its findings flapped between runs (17
+`NEW` rows on `/dev/search` that a local run of the same tree did not find). The
+44px floor is now the lint rule `grid/touch-target`
+(`apps/workspace/eslint-rules/touch-target.mjs`), which reads class names; a
+page wider than the phone has no gate. Run the audit by hand when you change a
+phone layout:
 `task workspace:phone-audit` (`apps/workspace/scripts/phone-audit.mjs`) loads every
 `/dev` route at 390x844 and 360x780 with a touch screen and fails on a page wider
 than the phone and on a control under 44x44, counting a `touch-target` catchment
 and a frame's declared `data-tap-reach`. Known exceptions are in
-`ci/phone-audit-baseline.json`, which only shrinks. CI is the reference: each
-shard uploads what it measured as the `phone-findings-<n>` artifact, and the baseline
-is the union of those four files, because a local Chromium of another version lays
-some pages out a few pixels differently. CI's
-**Workspace phone gate** runs it in four shards when anything under `apps/workspace`
-or `packages/brand` changes; it is not part of `verify`, because a browser pass over every
-preview takes minutes. What the old `workspace:touch-audit` also caught and this
+`ci/phone-audit-baseline.json`, which only shrinks. A local Chromium of another
+version lays some pages out a few pixels differently from the one the baseline was
+seeded with, so read a `NEW` row against the page before you trust it. What the old `workspace:touch-audit` also caught and this
 does not: a region whose `touch-action` refuses the vertical pan (a reasoning
 graph that swallowed every swipe), and a `truncate` that never fires. Walk the
 chain by hand for the first ([gotchas](gotchas.md)).
@@ -1145,7 +1148,10 @@ CLS jump), and prints one JSON line per run from `window.__streamSocket`:
   `shiftsMoved`, the largest moves of elements on screen before and after;
   `shiftsEdge`, sources that entered or left the viewport, whose dy/dh are
   of the visible part only and say nothing about distance
-  ([gotchas](gotchas.md)).
+  ([gotchas](gotchas.md)); `composerHeights`, each height the composer took
+  from the send on, one entry when it never grew or shrank under the thread.
+  The scripted hello offers `steer`, as the product's does, so the „lenkt“
+  chip comes and goes with the turn.
 - The reader: `reading.firstProseMaxDelta` and `reading.lastLineMaxDelta`,
   the largest frame-to-frame jump in px of the answer's first prose block and
   of the last visible line while on screen, the reader's own scrolling

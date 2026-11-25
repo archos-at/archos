@@ -39,10 +39,10 @@ export const ViewerIconButtonBase = forwardRef<HTMLButtonElement, ViewerIconButt
         title={label}
         disabled={disabled}
         onClick={onClick}
-        variant={active ? 'default' : 'ghost'}
+        variant="ghost"
         size="icon"
         className={cn(
-          'size-9 rounded-md',
+          'text-muted-foreground hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground size-9 rounded-control',
           adornment && 'w-auto gap-1 px-2',
           className
         )}

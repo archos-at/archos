@@ -6,13 +6,14 @@ import { REPLAY_BLOCK_CLASS } from '@/lib/analytics/posthog-config'
 import type { IfcViewerCanvasController } from './use-ifc-viewer-canvas-controller'
 
 export function IfcViewerCanvasView({ controller }: { controller: IfcViewerCanvasController }) {
-  const { canvasRef, className, dragging, handleDoubleClick, handleKeyDown, handlePointerCancel, handlePointerDown, handlePointerMove, handlePointerUp, hovering, keysId, measuring, overlayLabelsRef, overlaySvgRef, setHovering, t } = controller
+  const { canvasRef, className, compact, dragging, handleDoubleClick, handleKeyDown, handlePointerCancel, handlePointerDown, handlePointerMove, handlePointerUp, hovering, keysId, measuring, overlayLabelsRef, overlaySvgRef, setHovering, t } = controller
   return (
     <div className={cn('relative', REPLAY_BLOCK_CLASS, className)}>
       <canvas
         ref={canvasRef}
         className={cn(
-          'size-full touch-none select-none [-webkit-touch-callout:none] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60',
+          compact ? 'touch-pan-y' : 'touch-none',
+          'size-full select-none [-webkit-touch-callout:none] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60',
           measuring
             ? 'cursor-crosshair'
             : dragging

@@ -1,3 +1,4 @@
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { useCallback, useEffect, useRef } from 'react'
 import type { RenderOptions } from '@ifc-lite/renderer'
 import { rendererSectionPlane } from '../lib/viewer-camera'
@@ -21,14 +22,19 @@ export function useIfcViewerFrame(viewer: IfcViewerState) {
     themeRef,
     xrayRef,
   } = viewer
+  const hiddenCopyRef = useRef<{ source: ReadonlySet<number>; copy: Set<number> } | null>(null)
+  const hiddenCopy = useCallback((): Set<number> => {
+    const source = hiddenRef.current as ReadonlySet<number>
+    if (hiddenCopyRef.current?.source !== source) hiddenCopyRef.current = { source, copy: new Set(source) }
+    return hiddenCopyRef.current.copy
+  }, [])
   const hiddenPickOption = useCallback(
     (): { hiddenIds?: Set<number> } =>
-      hiddenRef.current && hiddenRef.current.size > 0
-        ? { hiddenIds: new Set(hiddenRef.current) }
-        : {},
-    []
+      hiddenRef.current && hiddenRef.current.size > 0 ? { hiddenIds: hiddenCopy() } : {},
+    [hiddenCopy]
   )
 
+  const renderFailedRef = useRef(false)
   const drawOverlay = useCallback((renderer: RendererLike) => {
     const overlay = overlayRef.current
     const canvas = canvasRef.current
@@ -49,9 +55,7 @@ export function useIfcViewerFrame(viewer: IfcViewerState) {
     const theme = themeRef.current
     return {
       isolatedIds: isolatedRef.current,
-      ...(hiddenRef.current && hiddenRef.current.size > 0
-        ? { hiddenIds: new Set(hiddenRef.current) }
-        : {}),
+      ...(hiddenRef.current && hiddenRef.current.size > 0 ? { hiddenIds: hiddenCopy() } : {}),
       selectedId: selectedRef.current,
       ghostExceptIds: xrayRef.current && xrayRef.current.size > 0 ? xrayRef.current : null,
       ...(xrayRef.current && xrayRef.current.size > 0
@@ -65,7 +69,7 @@ export function useIfcViewerFrame(viewer: IfcViewerState) {
         ? rendererSectionPlane(sectionRef.current, modelBoundsMetres(renderer))
         : undefined,
     }
-  }, [])
+  }, [hiddenCopy])
 
   const drawFrame = useCallback(() => {
     const renderer = rendererRef.current
@@ -77,8 +81,11 @@ export function useIfcViewerFrame(viewer: IfcViewerState) {
         isInteracting: interactingRef.current,
         ...interactiveFrameOptions(),
       })
-    } catch {
-      // A lost device makes render() a no-op upstream; anything else here is
+    } catch (error) {
+      if (!renderFailedRef.current) {
+        renderFailedRef.current = true
+        capturePosthogException(error, { source: 'ifc-viewer-render' })
+      }
     }
     drawOverlay(renderer)
   }, [drawOverlay, frameOptions])

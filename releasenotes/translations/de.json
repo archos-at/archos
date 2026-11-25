@@ -564,6 +564,10 @@
     "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
   },
   {
+    "en": "A large model in an answer now waits for „3D-Ansicht laden“ instead of loading by itself, and a load can be stopped at any point, not only during the download.",
+    "de": "Ein großes Modell in einer Antwort wird jetzt erst nach Klick auf „3D-Ansicht laden“ geladen und der Ladevorgang kann jederzeit abgebrochen werden, nicht nur während des Downloads."
+  },
+  {
     "en": "A large upload no longer shows as failed while it is still being read: it stays at Wird gelesen, a notice says reading continues in the background, and the file becomes citable once it is ready.",
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
@@ -3120,6 +3124,10 @@
     "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
   },
   {
+    "en": "On a phone or tablet, a few small controls are now big enough to hit with a finger: the way up from a folder, the review's filters and comment kinds, the base knowledge filters, attachment links in a mail thread and the chip that says something waits for you.",
+    "de": "Auf Smartphone oder Tablet sind einige kleine Bedienelemente jetzt groß genug, um sie mit dem Finger anzutippen: die Schaltfläche, mit der Sie aus einem Ordner eine Ebene nach oben gelangen, die Filter und Kommentararten im Review, die Filter im Basiswissen, Links zu Anhängen in einem Mail-Thread und der Chip, der anzeigt, dass etwas auf Sie wartet."
+  },
+  {
     "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
     "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
   },
@@ -3254,6 +3262,10 @@
   {
     "en": "On a wide screen the bell docks the inbox beside your page: what waits on you comes first, grouped by document and most urgent on top, and an entry opens the chat or the review in place while the inbox stays open for the next one.",
     "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
+  },
+  {
+    "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
+    "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
   },
   {
     "en": "On an iPhone, the input field no longer hides behind the keyboard.",
@@ -4832,6 +4844,10 @@
     "de": "Das Nachrichtenfeld liegt nicht mehr direkt an Ihrer letzten Antwort. Es schwebt jetzt als eigenes durchscheinendes Feld, und das Gespräch geht beim Scrollen sanft darin über, sodass es wie der Ort wirkt, an dem Sie tippen, und nicht wie eine weitere Zeile im Chat."
   },
   {
+    "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
+    "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
+  },
+  {
     "en": "The message you open stays in the inbox while you read it. Opening your last unread message no longer flips the list to \"all done\" beside it.",
     "de": "Die geöffnete Nachricht bleibt während des Lesens im Posteingang. Wenn Sie Ihre letzte ungelesene Nachricht öffnen, wechselt die Liste daneben nicht mehr zu „alles erledigt“."
   },
@@ -4850,6 +4866,10 @@
   {
     "en": "The model picker shows roughly how many points a typical question costs on each model, so a cheap model can be told from an expensive one at a glance.",
     "de": "Die Modellauswahl zeigt neben jedem Modell, was eine typische Anfrage ungefähr an Punkten kostet, damit sich ein günstiges von einem teuren Modell auf einen Blick unterscheiden lässt."
+  },
+  {
+    "en": "The model view now looks like the rest of ARCHOS: solid tool bars with the same corners as other menus, a plain background instead of a sky, a view picker you can walk with the arrow keys, and „Fassung“ where it said „Revision“.",
+    "de": "Die Modellansicht sieht jetzt wie der Rest von ARCHOS aus: mit undurchsichtigen Werkzeugleisten und denselben abgerundeten Ecken wie die anderen Menüs, einem schlichten Hintergrund statt eines Himmels, einer Ansichtsauswahl, durch die Sie mit den Pfeiltasten navigieren können, und „Fassung“ statt „Revision“."
   },
   {
     "en": "The navigation rail can be resized by dragging its right edge, and it opens at the width you chose. Dragging it all the way in folds it to the icon column.",
@@ -4958,6 +4978,10 @@
   {
     "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
     "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
+  },
+  {
+    "en": "The project switcher and the search lists for colleagues, members and addresses now have the same corners as the other menus.",
+    "de": "Der Projektumschalter und die Suchlisten für Kolleginnen und Kollegen, Mitglieder und Adressen haben jetzt die gleiche Rundung wie die anderen Menüs."
   },
   {
     "en": "The project switcher in the sidebar has the search and the order of the one on a phone: the projects you opened last, then the rest. The collapsed sidebar shows the project's initials, so it says which project you are in.",
@@ -5176,6 +5200,14 @@
     "de": "Die wichtigste Einladung auf der Website lautet jetzt, Piloti mit einer echten Planungsfrage aus einem laufenden Projekt auszuprobieren. Die vorbereitete E-Mail bittet um die Frage, den Standort und den Gebäudetyp."
   },
   {
+    "en": "The welcome and project tours show the app as it is today: the Persönlich | Projekt switch, your projects, the Bürobibliothek, the Postfach, search and your account with the switch to another office. On a phone they point at the switch at the top of the chat, the tab bar and „Mehr“.",
+    "de": "Die Willkommens- und Projekttouren zeigen die App, wie sie heute aussieht: den Umschalter Persönlich | Projekt, Ihre Projekte, die Bürobibliothek, das Postfach, die Suche und Ihr Konto mit der Möglichkeit, zu einem anderen Büro zu wechseln. Auf dem Smartphone zeigen sie auf den Umschalter oben im Chat, die Tab-Leiste und „Mehr“."
+  },
+  {
+    "en": "The welcome tour no longer breaks at its second step, where it ran over the project overview window and closed it at the first click. Cards beside the top or the foot of the sidebar now stay on screen, so the tour no longer gets stuck at the Postfach.",
+    "de": "Die Einführungstour bleibt nicht mehr beim zweiten Schritt hängen, bei dem sie das Projektübersichtsfenster überlagerte und beim ersten Klick schloss. Karten neben dem oberen oder unteren Ende der Seitenleiste bleiben jetzt sichtbar, sodass die Tour nicht mehr beim Postfach hängen bleibt."
+  },
+  {
     "en": "The what-if card for a U-value, a stair, an escape route or daylight no longer passes or fails a value where another edition of the guideline applies at your project's site, or where which edition applies is not yet settled. It shows the value against the limit as a hint instead, and says why, such as \"am Standort gilt Ausgabe September 2025\".",
     "de": "Die What-if-Karte für einen U-Wert, eine Treppe, einen Fluchtweg oder Tageslicht stuft einen Wert nicht mehr als eingehalten oder nicht eingehalten ein, wenn am Projektstandort eine andere Ausgabe der Richtlinie gilt oder noch unklar ist, welche Ausgabe gilt. Stattdessen zeigt sie den Wert im Verhältnis zum Grenzwert als Hinweis an und nennt den Grund, zum Beispiel „am Standort gilt Ausgabe September 2025“."
   },
@@ -5232,6 +5264,10 @@
     "de": "Zwei gleiche Fassungen meldet der Vergleich in einem Satz statt mit einer leeren Liste, und er arbeitet mit Zeichen und Strichen statt mit Rot und Grün, die in Piloti für die Herkunft stehen."
   },
   {
+    "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
+    "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
+  },
+  {
     "en": "Two new skills start switched on for chat: Einreichcheck lists what a building-permit application still lacks in your province, and Bestand lists what still binds after a conversion, a change of use or a larger renovation.",
     "de": "Zwei neue Skills sind im Chat von Anfang an eingeschaltet: Der Einreichcheck zeigt, was einem Bauansuchen in Ihrem Bundesland noch fehlt, und Bestand zeigt, was nach einem Umbau, einer Nutzungsänderung oder einer größeren Sanierung weiterhin gilt."
   },
@@ -5250,6 +5286,10 @@
   {
     "en": "Typing into any field on an iPhone or iPad no longer zooms the page in and leaves it there. This affected tablets everywhere and phones when renaming a conversation, a file or a building in the project wizard.",
     "de": "Das Tippen in ein beliebiges Feld auf einem iPhone oder iPad vergrößert die Seite nicht mehr dauerhaft. Das betrifft Tablets generell und Smartphones beim Umbenennen einer Unterhaltung, einer Datei oder eines Gebäudes im Projektassistenten."
+  },
+  {
+    "en": "Typing the first letters of a new chat no longer flashes the loading placeholder: the greeting and the input stay where they are until you send.",
+    "de": "Wenn Sie die ersten Buchstaben eines neuen Chats eingeben, blinkt der Ladeplatzhalter nicht mehr: Begrüßung und Eingabefeld bleiben an ihrem Platz, bis Sie die Nachricht senden."
   },
   {
     "en": "Under \"Bearbeitet\", a mail filed this way says \"Ohne Klick abgelegt\" and names the E-Mail-Verlauf it went into.",
@@ -5836,6 +5876,10 @@
     "de": "Wenn Sie eine neue Frage senden, während Piloti noch die vorherige beantwortet, wird die frühere Antwort vollständig beendet, bevor die neue beginnt. So können sich die beiden nicht mehr in einer Unterhaltung vermischen. Falls die frühere Antwort ausnahmsweise nicht innerhalb weniger Sekunden stoppt, teilt Piloti Ihnen mit, dass sie noch abgeschlossen wird, und bittet Sie, die Frage erneut zu senden."
   },
   {
+    "en": "When you send the first message of a new chat, the bar at the top now fades in where it will stay: the menu, the date and the sharing buttons no longer jump sideways while the chat's name arrives.",
+    "de": "Wenn Sie die erste Nachricht eines neuen Chats senden, blendet sich die Leiste oben jetzt an der Stelle ein, an der sie bleibt: Menü, Datum und Teilen-Schaltflächen springen nicht mehr seitwärts, während der Chatname erscheint."
+  },
+  {
     "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
     "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
   },
@@ -5934,6 +5978,10 @@
   {
     "en": "Wherever the project's mail address is shown, it now says how large a mail may be, 25 MB with about 18 MB of attachments, and links to Dateien to upload anything larger. The days in the E-Mail-Eingang's texts now always match how long mail can actually be restored.",
     "de": "Überall, wo die E-Mail-Adresse des Projekts angezeigt wird, steht jetzt, wie groß eine E-Mail sein darf: 25 MB, davon etwa 18 MB für Anhänge; für größere Dateien führt ein Link zu Dateien. Die in den Texten des E-Mail-Eingangs genannten Tage entsprechen jetzt immer der tatsächlichen Wiederherstellungsdauer von E-Mails."
+  },
+  {
+    "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
+    "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
   },
   {
     "en": "While Piloti reads a new project's documents, the setup shows how far it has got: the site, how many documents are read, and the values, contradictions and gaps found so far. You can leave and ask the project chat meanwhile; your Postfach tells you when Piloti is done.",
