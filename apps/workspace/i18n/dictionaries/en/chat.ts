@@ -1843,23 +1843,24 @@ export const chat = {
     cited: {
       ariaLabel: 'Source check of the answer: {level}',
       tooltip:
-        'A checking model read the cited statements against their sources and looked for statements of law without a citation. It checks nothing else, such as what is known about you, your office or the project. It can be wrong.',
+        'A checking model reads each cited statement against its source and looks for statements of law without a citation. It does not check what is said about you, your office or the project. It can be wrong.',
       sourcesChecked:
-        '{count, plural, one {#\u00A0cited source checked} other {#\u00A0cited sources checked}}',
-      nothingCited: "No source cited. The level is the assistant's own assessment.",
+        '{count, plural, one {#\u00A0cited source checked.} other {#\u00A0cited sources checked.}}',
+      nothingCited: 'No source cited.',
+      ownLevel: "The answer cites no source. The level is the assistant's own assessment.",
       levelMeanings: {
-        high: 'High: no cited statement departs from its source, and no statement of law lacks a citation.',
+        high: 'High: every cited statement is borne out by its source, and every statement of law has a citation.',
         medium:
           'Medium: a source says nothing about a cited statement, a statement of law has no citation, or the answer itself names an open point.',
-        low: 'Low: a source says something else than the answer.',
+        low: 'Low: a source says something other than the answer.',
       },
       findingsLabel: 'Please check',
       problems: {
-        contradicted: 'the source says something else',
-        sourceSilent: 'the source says nothing about it',
-        lawUncited: 'statement of law without a citation',
+        contradicted: 'The source says something else',
+        sourceSilent: 'The source says nothing about it',
+        lawUncited: 'Statement of law without a citation',
       },
-      checkedAgainst: 'checked against {source}',
+      checkedAgainst: 'Checked against {source}',
     },
     checked: {
       ariaLabel: 'Evidence check of the answer: {level}',

@@ -1452,7 +1452,7 @@ export const chat: typeof en.chat = {
       files: '{count, plural, one {#\u00A0Datei nicht fertig} other {#\u00A0Dateien nicht fertig}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
       contradicted:
-        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
+        '{count, plural, one {#\u00A0Aussage widerspricht ihrer Quelle} other {#\u00A0Aussagen widersprechen ihrer Quelle}}',
     },
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
@@ -1858,23 +1858,24 @@ export const chat: typeof en.chat = {
     cited: {
       ariaLabel: 'Quellenprüfung der Antwort: {level}',
       tooltip:
-        'Ein Prüfmodell hat die zitierten Stellen gegen ihre Quellen gelesen und nach Rechtsaussagen ohne Fundstelle gesucht. Alles andere prüft es nicht, etwa Wissen über Sie, Ihr Büro oder das Projekt. Es kann irren.',
+        'Ein Prüfmodell liest jede zitierte Stelle gegen ihre Quelle und sucht Rechtsaussagen ohne Fundstelle. Angaben über Sie, Ihr Büro oder das Projekt prüft es nicht. Es kann irren.',
       sourcesChecked:
-        '{count, plural, one {#\u00A0zitierte Quelle geprüft} other {#\u00A0zitierte Quellen geprüft}}',
-      nothingCited: 'Keine Quelle zitiert. Die Stufe ist die Einschätzung des Assistenten.',
+        '{count, plural, one {#\u00A0zitierte Quelle geprüft.} other {#\u00A0zitierte Quellen geprüft.}}',
+      nothingCited: 'Keine Quelle zitiert.',
+      ownLevel: 'Die Antwort zitiert keine Quelle. Die Stufe ist die eigene Einschätzung des Assistenten.',
       levelMeanings: {
-        high: 'Hoch: keine zitierte Stelle weicht von ihrer Quelle ab, und keine Rechtsaussage steht ohne Fundstelle.',
+        high: 'Hoch: jede zitierte Stelle ist durch ihre Quelle gedeckt, und jede Rechtsaussage hat eine Fundstelle.',
         medium:
           'Mittel: eine Quelle sagt zu einer zitierten Stelle nichts, eine Rechtsaussage hat keine Fundstelle, oder die Antwort nennt selbst einen offenen Punkt.',
         low: 'Niedrig: eine Quelle sagt etwas anderes als die Antwort.',
       },
       findingsLabel: 'Bitte prüfen',
       problems: {
-        contradicted: 'die Quelle sagt etwas anderes',
-        sourceSilent: 'die Quelle sagt dazu nichts',
+        contradicted: 'Die Quelle sagt etwas anderes',
+        sourceSilent: 'Die Quelle sagt dazu nichts',
         lawUncited: 'Rechtsaussage ohne Fundstelle',
       },
-      checkedAgainst: 'geprüft gegen {source}',
+      checkedAgainst: 'Geprüft gegen {source}',
     },
     checked: {
       ariaLabel: 'Belegprüfung der Antwort: {level}',

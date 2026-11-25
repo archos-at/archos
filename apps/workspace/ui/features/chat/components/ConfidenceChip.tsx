@@ -152,7 +152,7 @@ const LevelChip: FC<{ confidence: AnswerConfidence; ariaLabel: string; children:
           </button>
         </Chip>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{children}</TooltipContent>
+      <TooltipContent className="max-w-xs text-pretty">{children}</TooltipContent>
     </Tooltip>
   )
 }
@@ -165,36 +165,50 @@ const CitedChip: FC<{
   const t = useTranslations(chatCopy)
   const levelLabel = t(`confidence.levels.${confidence}`)
   const sources = check.sourcesChecked ?? 0
+  const ownLevel = sources === 0 && check.findings.length === 0
   return (
     <LevelChip
       confidence={confidence}
       ariaLabel={t('confidence.cited.ariaLabel', { level: levelLabel })}
     >
-      <span className="block" data-testid="confidence-check-scope">
-        {sources > 0
-          ? t('confidence.cited.sourcesChecked', { count: sources })
-          : t('confidence.cited.nothingCited')}
+      <span className="block">
+        {ownLevel ? t('confidence.cited.ownLevel') : t(`confidence.cited.levelMeanings.${confidence}`)}
       </span>
-      <span className="mt-1 block">{t(`confidence.cited.levelMeanings.${confidence}`)}</span>
+      <CappedNote cappedReason={cappedReason} />
       {check.findings.length > 0 ? (
-        <span className="mt-1 block" data-testid="confidence-check-findings">
-          <span className="font-medium">{t('confidence.cited.findingsLabel')}:</span>
+        <span className="mt-2 block" data-testid="confidence-check-findings">
+          <span className="text-background/70 block">{t('confidence.cited.findingsLabel')}</span>
           {check.findings.map((finding) => {
             const kind = findingKind(finding)
             return (
-              <span key={`${finding.problem}-${finding.statement}`} className="mt-0.5 block">
-                „{finding.statement}“ – {t(`confidence.cited.problems.${kind}`)}
-                {finding.reason ? `: ${finding.reason}` : ''}
-                {kind === 'lawUncited'
-                  ? null
-                  : ` (${t('confidence.cited.checkedAgainst', { source: finding.source })})`}
+              <span key={`${finding.problem}-${finding.statement}`} className="mt-1.5 block">
+                <span className="block">„{finding.statement}“</span>
+                <span className="block font-normal">
+                  {t(`confidence.cited.problems.${kind}`)}
+                  {finding.reason ? `: ${finding.reason}` : null}
+                </span>
+                {kind === 'lawUncited' ? null : (
+                  <span className="text-background/70 block font-normal">
+                    {t('confidence.cited.checkedAgainst', { source: finding.source })}
+                  </span>
+                )}
               </span>
             )
           })}
         </span>
       ) : null}
-      <span className="mt-1 block">{t('confidence.cited.tooltip')}</span>
-      <CappedNote cappedReason={cappedReason} />
+      <span className="text-background/70 mt-2 block font-normal">
+        {ownLevel ? null : (
+          <>
+            <span data-testid="confidence-check-scope">
+              {sources > 0
+                ? t('confidence.cited.sourcesChecked', { count: sources })
+                : t('confidence.cited.nothingCited')}
+            </span>{' '}
+          </>
+        )}
+        {t('confidence.cited.tooltip')}
+      </span>
     </LevelChip>
   )
 }
