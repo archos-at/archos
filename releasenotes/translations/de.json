@@ -5936,6 +5936,10 @@
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
   },
   {
+    "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+    "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
+  },
+  {
     "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
     "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
   },

@@ -913,6 +913,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+            "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "search",
           "text": {
             "en": "On a phone, a document's title in the search register is a full finger-sized target, so tapping it opens the document instead of missing.",
