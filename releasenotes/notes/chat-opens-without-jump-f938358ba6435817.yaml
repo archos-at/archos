@@ -2,6 +2,5 @@
 # area: general
 fixes:
   - >
-    A chat no longer jumps while it opens: the loading placeholder lies over
-    the chat instead of beside it, so the greeting and the input stay where they
-    first appear.
+    When a chat has loaded, the greeting and the input no longer drop into
+    place: the loading placeholder now lies over the chat instead of above it.

@@ -146,12 +146,12 @@ function AppSidebarFrame(props: AppSidebarProps) {
 
   const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`
 
-  const chatPath = sideProjectId === null ? PERSONAL_CHAT_PATH : `${base}/chat`
-  const onChat = onSide && (pathname === chatPath || pathname.startsWith(`${chatPath}/`))
+  const routeChatPath = projectId === null ? PERSONAL_CHAT_PATH : `/app/projects/${projectId}/chat`
+  const onChat = onSide && (pathname === routeChatPath || pathname.startsWith(`${routeChatPath}/`))
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = projectId === null || !onSide ? null : phoneBackTarget(pathname, projectId)
-  const pageHasHeader = projectId === null || !onSide || framesProjectPage(pathname, projectId)
+  const pageHasHeader = projectId === null || !onSide || onChat || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
