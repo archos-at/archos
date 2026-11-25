@@ -5556,6 +5556,10 @@
     "de": "Wenn ARCHOS für einen Anhang keinen Ordner vorschlagen kann und die meisten früheren Anhänge dieses Absenders in einem Ordner abgelegt wurden, wird dieser Ordner eingetragen und mit „Wie bei den letzten E-Mails von …“ gekennzeichnet. Ohne Ihr Zutun wird dort nichts abgelegt: Antworten, die ohne Klick abgelegt werden, landen weiterhin nur im von ARCHOS vorgeschlagenen Ordner."
   },
   {
+    "en": "When ARCHOS starts an answer over while writing it, the new answer is now shown as it is written. Before, only its heading appeared and the text stayed hidden until the answer was finished.",
+    "de": "Wenn ARCHOS eine Antwort während des Schreibens neu startet, wird die neue Antwort jetzt bereits während des Schreibens angezeigt. Bisher war nur die Überschrift sichtbar; der Text blieb verborgen, bis die Antwort fertig war."
+  },
+  {
     "en": "When Piloti compares two Fassungen of a plan in the chat, you now see the same page of both side by side, with the changes boxed on each, and the changes written out beneath. Pressing a page opens that Fassung with every change marked.",
     "de": "Wenn Piloti im Chat zwei Planfassungen vergleicht, sehen Sie jetzt dieselbe Seite beider Fassungen nebeneinander, mit eingerahmten Änderungen auf jeder Seite und einer Auflistung der Änderungen darunter. Wenn Sie auf eine Seite klicken, wird diese Fassung mit allen markierten Änderungen geöffnet."
   },

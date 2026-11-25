@@ -814,6 +814,14 @@
           "section": "fixes",
           "area": "answers",
           "text": {
+            "en": "When ARCHOS starts an answer over while writing it, the new answer is now shown as it is written. Before, only its heading appeared and the text stayed hidden until the answer was finished.",
+            "de": "Wenn ARCHOS eine Antwort während des Schreibens neu startet, wird die neue Antwort jetzt bereits während des Schreibens angezeigt. Bisher war nur die Überschrift sichtbar; der Text blieb verborgen, bis die Antwort fertig war."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
             "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
             "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
           }
