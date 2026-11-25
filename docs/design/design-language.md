@@ -1202,6 +1202,25 @@ times stops being a physical cue and becomes texture.
   - `CardSlot` (`CardSlotArrival.tsx`): a card slot growing into its card, or
     a held place folding away when the card never comes.
   - Radix Collapsible, for an accordion the reader opened.
+  - `useSlideBelow(listRef, clipRef?)` (`components/motion`): a list growing
+    while the reader watches it, where the growth is not at its end (the
+    Herleitung's rows and the blocks under its graph, live and while the
+    panel folds). It measures the children's layout in the commit that moved
+    them and plays the move as motion the browser does not count as a layout
+    shift: what moved slides from where it stood by `translate`, and what grew
+    or joined is revealed from its top by `clip-path`, both on
+    `motionDeliberateEntrance`. Under reduced motion what moved fades out where
+    it stood and in where it lands (`--motion-quick` each way), and what grew
+    is uncovered while it is invisible. An inner list's hook calls the
+    enclosing one (`SlideBelowScope`), so a commit only the graph makes still
+    moves the blocks under it. A height glide would still record a shift every
+    frame (0.028 against 0.046 for the same 200 px jump, measured 2026-11);
+    this records none, with one gap: Chromium credits the `translate` only to a
+    block that had no transform in the frame before, so a growth that lands
+    while the last slide is still running is scored (0.022 on a 4x throttled
+    phone, 2026-11; nothing unthrottled at 1280). It works only in the same
+    task as the change: started from a `ResizeObserver` it is one frame late
+    and the jump is recorded first.
 
   Never in the same frame as a large commit (the settle of a streamed answer,
   a new turn mounting). A block above the reading point never animates its
@@ -1274,13 +1293,24 @@ times stops being a physical cue and becomes texture.
   inside the text and takes no width
   ([streaming-chat-answer.md](streaming-chat-answer.md#the-reveal-is-paced-not-typed)).
 - **The live Herleitung moves only its frontier edges.** While a turn is
-  live, the connectors into the newest row are React Flow's built-in
-  `animated` edges (the library's marching `dashdraw` dash); nothing else in the
-  graph moves. Nodes, source cards and connectors simply appear, and a settled
-  graph has no animated edge. The cost is accepted and bounded: one marching
-  edge measured ~245 ms of main thread per second on a 4x throttled phone, so
-  the flag is limited to the frontier edges and to live turns
-  (`renderedEdges` in `ReasoningFlow.tsx`, preview `/dev/derivation?variant=live`).
+  live, the connectors into the newest row march (`reasoning-flow-edge-live`
+  in `globals.css`, the dash React Flow's `animated` edge drew,
+  standing still under reduced motion); nothing else in the graph loops, and
+  a settled graph has no marching edge. The cost is accepted and bounded: one marching edge measured ~245 ms of main thread per second on a
+  4x throttled phone, so the flag is limited to the frontier edges and to live
+  turns (`renderedEdges` in `flow-inner.tsx`, preview
+  `/dev/derivation?variant=live`).
+- **The Herleitung is laid out before it is painted.** Its rows are CSS
+  (`flow-inner.tsx`): each node stands in its row at the column its fan
+  planned, so the graph has its height in the first frame, a stored one
+  included, and its connectors are drawn from the boxes the browser laid out
+  in the same frame. Until 2026-11 React Flow placed the nodes once it had
+  measured them, after the paint: the graph stood invisible at 160 px and then
+  took its height (CLS 0.150 on a cold `/dev/chat-turn` at 390). What joins a
+  live graph (a row, a column, a card) fades in on `duration-base` and is
+  revealed from its top while what stands below it slides down to make room
+  (`useSlideBelow`, under **Height**); the live panel does the same for the blocks under
+  the graph and for its own bottom edge.
 - Hover: `transition-colors` on interactive rows and links; never a transform
   and never a shadow on hover. There is no exception: the raised card's lift
   was one until 2026-11-12.

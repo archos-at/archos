@@ -1,5 +1,4 @@
 import type { ReasoningFlowProps } from './reasoning-flow-props'
-import { type Node, type Edge } from '@xyflow/react'
 import type { Translator } from '@/i18n'
 import { type RowLinking } from '../WorkList'
 import { quoteQuery } from '../../../lib/work-sentence'
@@ -36,16 +35,17 @@ import {
   SourceColumnData,
   ColumnSlot,
   FindingsData,
+  FlowNode,
   RoundData,
 } from './flow-node-data'
 import { GROUPED_MAX_W, FanLayout, packSlots } from './flow-layout'
-import { edge } from './flow-edges'
+import { edge, type FlowEdge } from './flow-edges'
 import { LIMIT, limitations, foldSummary } from './flow-labels'
 import { roundKind, SpineFolding, GraphInteraction, NO_INTERACTION } from './round-kind'
 
 export interface BuiltGraph {
-  nodes: Node[]
-  edges: Edge[]
+  nodes: FlowNode[]
+  edges: FlowEdge[]
   rows: string[][]
 }
 
@@ -199,8 +199,8 @@ export function buildGraph(
         source: CENTRE_OUT,
       }
     : null
-  const nodes: Node[] = []
-  const edges: Edge[] = []
+  const nodes: FlowNode[] = []
+  const edges: FlowEdge[] = []
 
   const roundIds = spine ? visible.map((_, i) => `round-${i}`) : []
 
@@ -399,13 +399,13 @@ export function sameNodeData(a: unknown, b: unknown): boolean {
   return keys.every((key) => key in bFields && sameNodeData(aFields[key], bFields[key]))
 }
 
-export function animateFrontier(edges: Edge[], newestRow: readonly string[]): Edge[] {
+export function animateFrontier(edges: FlowEdge[], newestRow: readonly string[]): FlowEdge[] {
   if (newestRow.length === 0) return edges
   const frontier = new Set(newestRow)
   return edges.map((e) => (frontier.has(e.target) ? { ...e, animated: true } : e))
 }
 
-export function keepEdgeIdentity(prev: readonly Edge[], next: Edge[]): Edge[] {
+export function keepEdgeIdentity(prev: readonly FlowEdge[], next: FlowEdge[]): FlowEdge[] {
   if (prev.length === 0) return next
   const prevById = new Map(prev.map((e) => [e.id, e]))
   const kept = next.map((e) => {
@@ -413,5 +413,5 @@ export function keepEdgeIdentity(prev: readonly Edge[], next: Edge[]): Edge[] {
     return old && sameNodeData(old, e) ? old : e
   })
   const unchanged = kept.length === prev.length && kept.every((e, i) => e === prev[i])
-  return unchanged ? (prev as Edge[]) : kept
+  return unchanged ? (prev as FlowEdge[]) : kept
 }
