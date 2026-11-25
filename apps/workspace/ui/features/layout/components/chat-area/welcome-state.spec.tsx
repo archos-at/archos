@@ -26,6 +26,18 @@ describe('WelcomeState', () => {
     expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
   })
 
+  test('holds the heading’s place unseen until the name is known, so a name arriving does not widen a heading already shown', () => {
+    auth.user = null
+    auth.isLoading = true
+    const { rerender } = render(<WelcomeState isAuthenticated={false} />)
+    expect(screen.getByTestId('new-chat-greeting').querySelector('h1')).toHaveClass('invisible')
+    auth.user = { name: 'Anna Berger' }
+    auth.isLoading = false
+    rerender(<WelcomeState isAuthenticated />)
+    expect(screen.getByTestId('new-chat-greeting').querySelector('h1')).not.toHaveClass('invisible')
+    expect(screen.getByTestId('new-chat-greeting')).toHaveTextContent(/Anna/)
+  })
+
   test('once the sign-in has settled without a person, it asks to sign in', () => {
     auth.user = null
     auth.isLoading = false

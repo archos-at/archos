@@ -175,7 +175,7 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
           than showing static examples. */}
       <div className="grid w-full max-w-md items-end justify-items-center" data-temporary={temporary || undefined}>
         <WelcomeFace shown={!temporary} testId="new-chat-greeting">
-          <h1 className="text-foreground text-center text-[23px] font-medium">{heading}</h1>
+          <h1 className={cn('text-foreground text-center text-[23px] font-medium', isLoading && 'invisible')}>{heading}</h1>
           <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
             <Lock className="size-3.5 shrink-0" aria-hidden="true" />
             {tChat('privacy.newChat')}
@@ -209,7 +209,7 @@ const WelcomeFace: FC<{ shown: boolean; testId: string; children: ReactNode }> =
     aria-hidden={shown ? undefined : true}
     inert={!shown}
     className={cn(
-      'col-start-1 row-start-1 flex flex-col items-center transition-opacity duration-quick ease-out motion-reduce:transition-none',
+      'col-start-1 row-start-1 flex w-full flex-col items-center transition-opacity duration-quick ease-out motion-reduce:transition-none',
       shown ? 'opacity-100' : 'pointer-events-none opacity-0'
     )}
   >
