@@ -27,7 +27,7 @@ vi.mock('@/lib/conversation-context', () => ({
     projectId: request.projectId ?? null,
     projectCollectionName: `proj_col_${request.projectId}`,
     shelves: [
-      { collection: 'oib_knowledge', shelf: 'base' },
+      { collection: 'base_corpus', shelf: 'base' },
       { collection: `proj_col_${request.projectId}`, shelf: 'project' },
     ],
     restrictedCollections: [],

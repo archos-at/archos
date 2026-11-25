@@ -52,7 +52,6 @@ describe('validateCollectionName', () => {
   })
 
   it('rejects uploads to the base corpus (400 INVALID_COLLECTION)', async () => {
-    vi.stubEnv('BASE_COLLECTION_NAME', 'base_corpus')
     const response = await validateCollectionName(
       ['collections', 'base_corpus'],
       session,
@@ -61,7 +60,7 @@ describe('validateCollectionName', () => {
     expect((await errorBody(response as Response)).error.code).toBe('INVALID_COLLECTION')
   })
 
-  it('rejects the default base corpus name when the env var is unset', async () => {
+  it('rejects the base corpus under the name it had until 2026-11 as well', async () => {
     const response = await validateCollectionName(
       ['collections', 'oib_knowledge'],
       session,

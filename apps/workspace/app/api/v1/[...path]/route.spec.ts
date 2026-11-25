@@ -14,7 +14,7 @@ vi.mock('@/lib/proxy/collection-authz', () => ({
 }))
 
 vi.mock('@/lib/conversation-context', () => ({
-  resolveConversationScope: vi.fn().mockResolvedValue({ shelves: [{ collection: 'oib_knowledge', shelf: 'base' }] }),
+  resolveConversationScope: vi.fn().mockResolvedValue({ shelves: [{ collection: 'base_corpus', shelf: 'base' }] }),
 }))
 
 vi.mock('@/lib/proxy/proxy-request', () => ({

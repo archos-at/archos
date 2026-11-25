@@ -490,9 +490,9 @@ class TestANewNameMayBeANewerRevision:
     def test_the_base_corpus_is_never_asked(self, tmp_path, live_ingestor, stores, model):
         from agent.knowledge import register_summary
 
-        register_summary("oib_knowledge", "B.txt", "Statik.")
+        register_summary("base_corpus", "B.txt", "Statik.")
 
-        _ingest(live_ingestor, tmp_path, "oib_knowledge", "C.txt")
+        _ingest(live_ingestor, tmp_path, "base_corpus", "C.txt")
 
         assert model.asked("NEWER FASSUNG") == []
         assert model.asked("replaced one Fassung") == []
@@ -633,11 +633,11 @@ class TestARevisionChosenAtUpload:
     def test_the_base_corpus_ignores_it(self, tmp_path, live_ingestor, stores, model):
         from agent.knowledge import register_summary
 
-        register_summary("oib_knowledge", "B.txt", "Statik.")
+        register_summary("base_corpus", "B.txt", "Statik.")
 
-        _ingest(live_ingestor, tmp_path, "oib_knowledge", "C.txt", revision_of="B.txt")
+        _ingest(live_ingestor, tmp_path, "base_corpus", "C.txt", revision_of="B.txt")
 
-        assert _documents("oib_knowledge")["B.txt"].superseded_by is None
+        assert _documents("base_corpus")["B.txt"].superseded_by is None
 
 
 class TestAPurgeThatCanBeUndone:

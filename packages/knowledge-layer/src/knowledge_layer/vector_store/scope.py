@@ -7,9 +7,12 @@ from typing import Literal
 
 from qdrant_client import models
 
+from agent.common.source_kinds import LEGACY_BASE_CORPUS_COLLECTION
+from agent.common.source_kinds import current_collection
 from agent.profile_names import legacy_profile_token
 
 from .payload import coerce_field
+from .schema import BASE_CORPUS_SCOPE
 from .schema import COUNTRY_FIELD
 from .schema import DATETIME_FIELDS
 from .schema import FOLDER_KIND
@@ -143,7 +146,14 @@ def scope_condition(scopes: Sequence[str]) -> models.FieldCondition:
     names = [scope for scope in scopes if isinstance(scope, str) and scope.strip()]
     if not names or len(names) != len(scopes):
         raise ValueError(f"A Qdrant read needs at least one non-empty scope, got {list(scopes)!r}")
-    return models.FieldCondition(key=SCOPE_FIELD, match=models.MatchAny(any=list(dict.fromkeys(names))))
+    return models.FieldCondition(key=SCOPE_FIELD, match=models.MatchAny(any=list(dict.fromkeys(_read_names(names)))))
+
+
+def _read_names(names: Sequence[str]) -> list[str]:
+    current = [current_collection(name) for name in names]
+    if BASE_CORPUS_SCOPE in current:
+        current.append(LEGACY_BASE_CORPUS_COLLECTION)
+    return current
 
 
 def _is_folder() -> models.FieldCondition:

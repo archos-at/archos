@@ -665,14 +665,14 @@ the folder.
 ### Collection scoping (multitenancy)
 
 Every turn reads a signed scope =
-`[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
+`[base_corpus, archiv_<org>, proj_<id>, s_<conversation>]`, built in
 `apps/workspace/bff/retrieval-scope/collection-scope-request.ts` through the
 conversation-context module: a chat turn's signed decision (`may.shelves`), or
 the signed request-context envelope (`collectionScope`) of a run, job or
 external call. No plain scope header is sent or read (ADR-0194). This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
+`REQUIRE_AUTH=false`). `base_corpus` is in every scope, whatever the project's
 site. Its entry is signed with the countries the request may read (`base-entry.ts`):
 the office's corpus countries, and for a project those of them its own knowledge
 context reads (`projectCorpusCountries`, ADR-0173 `retrieval.countries`). So an unplaced
@@ -837,7 +837,7 @@ together:
    text back out of Qdrant (a structural fetch). The per-job call is **scoped** to the job's own
    successful files (`file_names=[...]`), so the caller's known-indexed set is
    diffed directly and the full `list_files` metadata scan — O(collection
-   size) on every single-file upload, painful on the large `oib_knowledge`
+   size) on every single-file upload, painful on the large `base_corpus`
    corpus — is skipped; the unscoped full-collection diff remains available
    for manual/out-of-band reconciliation.
 
@@ -1431,7 +1431,7 @@ system — each plane has its own storage, admin surface, and priority):
 | Plane | Holds | Lives | Managed via | Priority rule |
 |---|---|---|---|---|
 | **Catalog** | verified RIS pointers, prose legal facts (`binding_note`), open TODOs (`review_note`), non-RIS stubs (MA 37, ÖNORM) | norm store (DB) seeded from `configs/norms/<cc>/registry.yml` | `/app/platform` norms editor + verify-and-pick | tells the agent *where law lives* and *what binds what* |
-| **Corpus** | full norm texts inside the RAG (OIB PDFs today) | per-country base collection — `NormsFile.corpus_collection` (AT: `oib_knowledge`) | `/app/platform` Base-Knowledge upload/sync | requirements are cited from here (normative documents only) |
+| **Corpus** | full norm texts inside the RAG (OIB PDFs today) | per-country base collection — `NormsFile.corpus_collection` (AT: `base_corpus`) | `/app/platform` Base-Knowledge upload/sync | requirements are cited from here (normative documents only) |
 | **Project/parcel** | uploads incl. Flächenwidmungs-/Bebauungsplan (tag-classified at ingestion) | project collections in the RAG | project Files UI | **per-parcel source of truth**: `parcel_note` renders tagged plans into the agent's prompt as the governing source for Widmung/Bauklasse/Höhe — above OIB and Bauordnung |
 
 Country expansion touches data, not architecture: a new
@@ -1460,7 +1460,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   passages: `packages/agent/src/agent/knowledge/law_lookup/`), and by `ris_fetch_document` in
   deep research, which still drives the three older RIS tools itself.
 - **The OIB corpus is not in the catalog.** The `oib_corpus_files` table and its
-  objects → `oib_knowledge` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
+  objects → `base_corpus` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
   Erläuterung / Begriffsbestimmungen / Zitierte Normen / Änderungsdokument)
   derives from the filename (`norm_registry.oib_doc_class`). The 15
   `aenderungen_*` diff files and the superseded `zitierte_normen` revision are

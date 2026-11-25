@@ -197,7 +197,7 @@ describe('AgentResponse', () => {
         title: 'OIB-Richtlinie 2',
         citationKey: 'oib-rl_2.pdf, p.12',
         fileName: 'oib-rl_2.pdf',
-        collection: 'oib_knowledge',
+        collection: 'base_corpus',
         kind: 'building_law' as const,
         origin: 'kb' as const,
         page: 12,

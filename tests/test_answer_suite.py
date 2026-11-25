@@ -296,7 +296,7 @@ def test_an_empty_inventory_refuses_to_measure(tmp_path):
     filled = tmp_path / "filled.db"
     with sqlite3.connect(filled) as db:
         db.execute("CREATE TABLE document_metadata (collection TEXT, filename TEXT)")
-        db.execute("INSERT INTO document_metadata VALUES ('oib_knowledge', 'oib-rl_2_ausgabe_mai_2023.pdf')")
+        db.execute("INSERT INTO document_metadata VALUES ('base_corpus', 'oib-rl_2_ausgabe_mai_2023.pdf')")
     assert suite_preflight.inventory_ready(filled) is True
 
 
@@ -446,7 +446,7 @@ def test_an_inventory_under_a_path_with_uri_syntax_is_read(tmp_path):
     filled = folder / "filled.db"
     with sqlite3.connect(filled) as db:
         db.execute("CREATE TABLE document_metadata (collection TEXT, filename TEXT)")
-        db.execute("INSERT INTO document_metadata VALUES ('oib_knowledge', 'oib-rl_2_ausgabe_mai_2023.pdf')")
+        db.execute("INSERT INTO document_metadata VALUES ('base_corpus', 'oib-rl_2_ausgabe_mai_2023.pdf')")
     db.close()
     assert suite_preflight.inventory_ready(filled) is True
     assert not (tmp_path / "run ").exists()  # nothing opened beside it

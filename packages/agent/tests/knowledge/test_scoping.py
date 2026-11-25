@@ -40,7 +40,7 @@ def _signed(scope):
 
 class TestGetCollectionScopeFromContext:
     def test_a_signed_scope_is_read(self):
-        scope = ["oib_knowledge", "proj_test", "s_conv123"]
+        scope = ["base_corpus", "proj_test", "s_conv123"]
         with _signed(scope):
             assert get_collection_scope_from_context() == scope
 
@@ -57,12 +57,12 @@ class TestGetCollectionScopeFromContext:
             assert get_collection_scope_from_context() is None
 
     def test_a_plain_scope_header_is_never_read(self):
-        plain = base64.urlsafe_b64encode(json.dumps(["oib_knowledge", "s_conv"]).encode()).decode()
+        plain = base64.urlsafe_b64encode(json.dumps(["base_corpus", "s_conv"]).encode()).decode()
         with _headers({"x-grid-collection-scope": plain}):
             assert get_collection_scope_from_context() is None
 
     def test_an_envelope_is_refused_without_a_secret_to_verify_it(self, monkeypatch):
-        headers = signed_headers(collectionScope=["oib_knowledge"])
+        headers = signed_headers(collectionScope=["base_corpus"])
         monkeypatch.delenv("INTERNAL_API_TOKEN")
         with _headers(headers):
             assert get_collection_scope_from_context() is None
@@ -73,12 +73,12 @@ class TestGetCollectionScopeFromContext:
             assert get_collection_scope_from_context() is None
 
     def test_duplicates_preserve_order(self):
-        with _signed(["oib_knowledge", "proj_x", "oib_knowledge", "s_conv1", "proj_x"]):
-            assert get_collection_scope_from_context() == ["oib_knowledge", "proj_x", "s_conv1"]
+        with _signed(["base_corpus", "proj_x", "base_corpus", "s_conv1", "proj_x"]):
+            assert get_collection_scope_from_context() == ["base_corpus", "proj_x", "s_conv1"]
 
     def test_double_prefixed_session_collection_is_normalized(self):
-        with _signed(["oib_knowledge", "proj_x", "s_s_conv1"]):
-            assert get_collection_scope_from_context() == ["oib_knowledge", "proj_x", "s_conv1"]
+        with _signed(["base_corpus", "proj_x", "s_s_conv1"]):
+            assert get_collection_scope_from_context() == ["base_corpus", "proj_x", "s_conv1"]
 
     def test_empty_list(self):
         with _signed([]):
@@ -89,23 +89,23 @@ class TestTheShelfTravelsInTheEnvelope:
     def test_the_new_form_carries_a_shelf_per_collection(self):
         with _signed(
             [
-                {"collection": "oib_knowledge", "shelf": "base"},
+                {"collection": "base_corpus", "shelf": "base"},
                 {"collection": "archiv_org1", "shelf": "office_shelf"},
                 {"collection": "proj_alpha", "shelf": "project"},
                 {"collection": "s_9f2a4c", "shelf": "session"},
             ]
         ):
             assert get_scoped_collections_from_context() == [
-                ScopedCollection("oib_knowledge", Shelf.BASE),
+                ScopedCollection("base_corpus", Shelf.BASE),
                 ScopedCollection("archiv_org1", Shelf.OFFICE_SHELF),
                 ScopedCollection("proj_alpha", Shelf.PROJECT),
                 ScopedCollection("s_9f2a4c", Shelf.SESSION),
             ]
 
     def test_the_legacy_bare_string_form_leaves_the_shelf_unknown(self):
-        with _signed(["oib_knowledge", "s_9f2a4c"]):
+        with _signed(["base_corpus", "s_9f2a4c"]):
             assert get_scoped_collections_from_context() == [
-                ScopedCollection("oib_knowledge", None),
+                ScopedCollection("base_corpus", None),
                 ScopedCollection("s_9f2a4c", None),
             ]
 
@@ -114,12 +114,12 @@ class TestTheShelfTravelsInTheEnvelope:
             [
                 {"collection": "proj_alpha", "shelf": "projekt"},
                 {"collection": "archiv_org1", "shelf": ""},
-                {"collection": "oib_knowledge"},
+                {"collection": "base_corpus"},
             ]
         ):
             entries = get_scoped_collections_from_context()
         assert [entry.shelf for entry in entries] == [None, None, None]
-        assert [entry.collection for entry in entries] == ["proj_alpha", "archiv_org1", "oib_knowledge"]
+        assert [entry.collection for entry in entries] == ["proj_alpha", "archiv_org1", "base_corpus"]
 
     def test_the_new_form_still_normalizes_and_dedupes_collection_names(self):
         with _signed(
@@ -172,7 +172,7 @@ class TestABlankNameMeansTheSameOnBothSidesOfTheSeam:
 
 class TestSignedEnvelopePrecedence:
     def test_the_signed_scope_wins_over_a_forged_plain_header(self):
-        trusted = ["oib_knowledge", "s_my_conversation"]
+        trusted = ["base_corpus", "s_my_conversation"]
         forged = base64.urlsafe_b64encode(json.dumps(["s_victim_conversation"]).encode()).decode()
         with _headers({**signed_headers(collectionScope=trusted), "x-grid-collection-scope": forged}):
             assert get_collection_scope_from_context() == trusted

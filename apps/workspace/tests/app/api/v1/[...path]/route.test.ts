@@ -48,12 +48,12 @@ function scopeOf(shelves: ScopedCollection[], projectId: string | null): Convers
 }
 
 const PROJECT_SHELVES: ScopedCollection[] = [
-  { collection: 'oib_knowledge', shelf: 'base' },
+  { collection: 'base_corpus', shelf: 'base' },
   { collection: 'proj_proj-1', shelf: 'project' },
   { collection: 's_conv-1', shelf: 'session' },
 ]
 const ANON_SHELVES: ScopedCollection[] = [
-  { collection: 'oib_knowledge', shelf: 'base' },
+  { collection: 'base_corpus', shelf: 'base' },
   { collection: 's_conv-1', shelf: 'session' },
 ]
 const mockRequireProjectAccess = vi.mocked(requireProjectAccess)
@@ -110,7 +110,6 @@ describe('/api/v1/[...path]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('REQUIRE_AUTH', undefined)
-    vi.stubEnv('BASE_COLLECTION_NAME', undefined)
   })
 
   describe('scope header', () => {
@@ -188,7 +187,7 @@ describe('/api/v1/[...path]', () => {
       ['POST', 'archiv_org_1'],
       ['POST', 's_conv-1'],
       ['DELETE', 's_conv-1'],
-      ['POST', 'oib_knowledge'],
+      ['POST', 'base_corpus'],
       ['POST', 'random-name'],
     ] as const)('forwards no %s into the files of %s (404)', async (method, collection) => {
       vi.stubEnv('REQUIRE_AUTH', 'true')

@@ -66,7 +66,7 @@ const openCitation = () => {
     timestamp: new Date('2026-10-13T09:00:00Z'),
     citationKey: `${FILE}, p.2`,
     fileName: FILE,
-    collection: 'oib_knowledge',
+    collection: 'base_corpus',
     kind: 'building_law',
     page: 2,
     isCited: true,

@@ -362,7 +362,7 @@ def test_a_submit_without_a_run_id_still_runs(client, prod_token, submit_mock):
 
 
 def test_a_body_that_names_a_scope_no_envelope_signs_is_refused(client, prod_token, submit_mock):
-    resp = _post(client, _valid_body(collection_scope=["oib_knowledge", "proj_other"]))
+    resp = _post(client, _valid_body(collection_scope=["base_corpus", "proj_other"]))
     assert resp.status_code == 422
     submit_mock.assert_not_awaited()
 

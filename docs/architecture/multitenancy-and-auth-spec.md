@@ -407,7 +407,7 @@ names become server‑authoritative, assigned by the BFF.**
 
 | Collection | Name | Lifetime | Notes |
 | --- | --- | --- | --- |
-| Base / global OIB corpus | `oib_knowledge` | Persistent (read‑only base) | Always layered in |
+| Base / global OIB corpus | `base_corpus` | Persistent (read‑only base) | Always layered in |
 | Project corpus | `proj_<projectId>` | Persistent | Documents shared by project members |
 | Ephemeral conversation uploads | `conv_<conversationId>` (or keep `s_`‑prefix) | TTL‑reaped | `s_` / `conv_` prefix keeps TTL reaping applicable |
 | Optional private | `user_<userId>` | Persistent | Optional, per‑user private |
@@ -415,7 +415,7 @@ names become server‑authoritative, assigned by the BFF.**
 ### Retrieval layering
 
 The BFF computes `collection_scope[]` from the authorized context (e.g.
-`[oib_knowledge, proj_<id>, conv_<id>]`) and passes it to Python `infer()`. The native
+`[base_corpus, proj_<id>, conv_<id>]`) and passes it to Python `infer()`. The native
 `knowledge_retrieval` **fans out** across those collections and **merges by score** (scores
 comparable: same embedding model + cosine `[0,1]`). The TTL reaper removes **only**
 ephemeral (`s_` / `conv_`) collections; base + project persist.
@@ -424,7 +424,7 @@ ephemeral (`s_` / `conv_`) collections; base + project persist.
 flowchart TB
     BFF["BFF computes collection_scope[]<br/>from authorized context"]
     subgraph Scope["collection_scope[] for this request"]
-        Base["oib_knowledge<br/>(base, persistent, read-only)"]
+        Base["base_corpus<br/>(base, persistent, read-only)"]
         ProjC["proj_<projectId><br/>(project, persistent)"]
         ConvC["conv_<conversationId><br/>(ephemeral, TTL-reaped)"]
     end
@@ -740,7 +740,7 @@ sequenceDiagram
     B->>B: Authorize (org_id + project_members for C.project_id)
     B->>DB: INSERT messages (role="user")
     B->>DB: Load recent history for C
-    B->>B: Compute collection_scope[] = [oib_knowledge, proj_<id>, conv_<id>]
+    B->>B: Compute collection_scope[] = [base_corpus, proj_<id>, conv_<id>]
     B->>P: infer(query, context{org_id, project_id, user_id, role, collection_scope[], history}) + Bearer JWT
     P->>W: Verify JWT via JWKS (cached)
     W-->>P: Public keys

@@ -7,6 +7,7 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.knowledge.base import BaseRetriever
 from agent.knowledge.factory import register_retriever
 from agent.knowledge.schema import Chunk
@@ -78,7 +79,7 @@ class LlamaIndexRetriever(BaseRetriever):
 
     STATIC_RESULT_CACHE_COLLECTIONS = frozenset(
         name.strip()
-        for name in os.environ.get("STATIC_RESULT_CACHE_COLLECTIONS", "oib_knowledge").split(",")
+        for name in os.environ.get("STATIC_RESULT_CACHE_COLLECTIONS", BASE_CORPUS_COLLECTION).split(",")
         if name.strip()
     )
     STATIC_RESULT_CACHE_TTL_SECONDS = int(os.environ.get("STATIC_RESULT_CACHE_TTL_SECONDS", "3600"))

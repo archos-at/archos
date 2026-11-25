@@ -6,7 +6,7 @@ import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { officeShelfCollectionNames } from '@/lib/office-shelf/collection'
 import { isOfficeShelfCollectionName } from '@/lib/office-shelf/collection-prefix'
 import { isPersonalShelfCollectionName, personalShelfCollectionName } from '@/lib/personal-shelf/collection'
-import { sessionCollectionName } from '@/lib/retrieval-scope/collection-scope'
+import { isBaseCorpusCollection, sessionCollectionName } from '@/lib/retrieval-scope/collection-scope'
 import { getProjectFolderAccess, restrictedCollectionBase } from '@/lib/authz/folder-access'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -142,9 +142,7 @@ async function authorizeCollection(
   const wholeCollectionDelete = method === 'DELETE' && subPath.length === 0
   const upload = method === 'POST' && subPath[0] === 'documents'
   const fileDelete = method === 'DELETE' && subPath[0] === 'documents'
-  const baseName = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
-
-  if (collectionName === baseName) {
+  if (isBaseCorpusCollection(collectionName)) {
     return errorEnvelope(400, 'INVALID_COLLECTION', 'Uploads to the base corpus are not allowed')
   }
 

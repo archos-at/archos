@@ -12,7 +12,7 @@ from agent.common import knowledge_context
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.knowledge_context import set_turn_knowledge_context
 
-CORPUS = "oib_knowledge"
+CORPUS = "base_corpus"
 TEXT = "Fluchtweg Breite Stiegenhaus"
 AUSTRIAN, GERMAN, UNMARKED = "OIB-RL4.pdf", "MBO.pdf", "Unmarked.pdf"
 

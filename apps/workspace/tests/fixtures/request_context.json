@@ -9,7 +9,7 @@
         "organizationId": "org_123",
         "userId": "user_456",
         "projectId": "proj_789",
-        "collectionScope": ["oib_knowledge", "proj_proj_789", "s_conv_1"],
+        "collectionScope": ["base_corpus", "proj_proj_789", "s_conv_1"],
         "projectContext": "Project: Acme widget audit\nFocus: supply chain resilience",
         "projectMemory": "- Prefers concise citations\n- Based in Germany",
         "modelOverrides": {
@@ -40,7 +40,7 @@
       "name": "anonymous_minimal_scope",
       "comment": "REQUIRE_AUTH=false / anonymous single-tenant deployment: no org, no user, no project — only the base collection scope and an explicit reflection-off flag survive.",
       "input": {
-        "collectionScope": ["oib_knowledge"],
+        "collectionScope": ["base_corpus"],
         "memoryReflectionEnabled": false
       },
       "headers": {
@@ -54,7 +54,7 @@
         "organizationId": "org_222",
         "userId": "user_333",
         "projectId": "proj_444",
-        "collectionScope": ["oib_knowledge", "proj_proj_444"],
+        "collectionScope": ["base_corpus", "proj_proj_444"],
         "projectContext": "Multi-line\ncontext\nvalue with unicode: café",
         "modelOverrides": null,
         "budget": null,
@@ -79,7 +79,7 @@
         "organizationId": "org_123",
         "userId": "user_456",
         "projectId": "proj_789",
-        "collectionScope": ["oib_knowledge", "proj_proj_789", "s_conv_1"],
+        "collectionScope": ["base_corpus", "proj_proj_789", "s_conv_1"],
         "projectContext": "Project: Acme widget audit\nFocus: supply chain resilience",
         "projectMemory": "- Prefers concise citations\n- Based in Germany",
         "modelOverrides": {
@@ -94,21 +94,21 @@
         "disabledSources": ["web_search"],
         "memoryReflectionEnabled": true
       },
-      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"oib_knowledge\",\"proj_proj_789\",\"s_conv_1\"],\"projectContext\":\"Project: Acme widget audit\\nFocus: supply chain resilience\",\"projectMemory\":\"- Prefers concise citations\\n- Based in Germany\",\"modelOverrides\":{\"deep_research\":\"openrouter/anthropic/claude-3.7-sonnet\",\"shallow_research\":\"openrouter/openai/gpt-4o-mini\"},\"budget\":{\"remainingOrgUsd\":42.5,\"remainingUserUsd\":10,\"remainingProjectUsd\":5.25},\"disabledSources\":[\"web_search\"],\"memoryReflectionEnabled\":true}",
-      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbIm9pYl9rbm93bGVkZ2UiLCJwcm9qX3Byb2pfNzg5Iiwic19jb252XzEiXSwicHJvamVjdENvbnRleHQiOiJQcm9qZWN0OiBBY21lIHdpZGdldCBhdWRpdFxuRm9jdXM6IHN1cHBseSBjaGFpbiByZXNpbGllbmNlIiwicHJvamVjdE1lbW9yeSI6Ii0gUHJlZmVycyBjb25jaXNlIGNpdGF0aW9uc1xuLSBCYXNlZCBpbiBHZXJtYW55IiwibW9kZWxPdmVycmlkZXMiOnsiZGVlcF9yZXNlYXJjaCI6Im9wZW5yb3V0ZXIvYW50aHJvcGljL2NsYXVkZS0zLjctc29ubmV0Iiwic2hhbGxvd19yZXNlYXJjaCI6Im9wZW5yb3V0ZXIvb3BlbmFpL2dwdC00by1taW5pIn0sImJ1ZGdldCI6eyJyZW1haW5pbmdPcmdVc2QiOjQyLjUsInJlbWFpbmluZ1VzZXJVc2QiOjEwLCJyZW1haW5pbmdQcm9qZWN0VXNkIjo1LjI1fSwiZGlzYWJsZWRTb3VyY2VzIjpbIndlYl9zZWFyY2giXSwibWVtb3J5UmVmbGVjdGlvbkVuYWJsZWQiOnRydWV9",
-      "signature": "321d7d0b286149b87b5b84f630c96f96f7c677af69b8d939ba345d7ad41d61d1"
+      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"base_corpus\",\"proj_proj_789\",\"s_conv_1\"],\"projectContext\":\"Project: Acme widget audit\\nFocus: supply chain resilience\",\"projectMemory\":\"- Prefers concise citations\\n- Based in Germany\",\"modelOverrides\":{\"deep_research\":\"openrouter/anthropic/claude-3.7-sonnet\",\"shallow_research\":\"openrouter/openai/gpt-4o-mini\"},\"budget\":{\"remainingOrgUsd\":42.5,\"remainingUserUsd\":10,\"remainingProjectUsd\":5.25},\"disabledSources\":[\"web_search\"],\"memoryReflectionEnabled\":true}",
+      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbImJhc2VfY29ycHVzIiwicHJval9wcm9qXzc4OSIsInNfY29udl8xIl0sInByb2plY3RDb250ZXh0IjoiUHJvamVjdDogQWNtZSB3aWRnZXQgYXVkaXRcbkZvY3VzOiBzdXBwbHkgY2hhaW4gcmVzaWxpZW5jZSIsInByb2plY3RNZW1vcnkiOiItIFByZWZlcnMgY29uY2lzZSBjaXRhdGlvbnNcbi0gQmFzZWQgaW4gR2VybWFueSIsIm1vZGVsT3ZlcnJpZGVzIjp7ImRlZXBfcmVzZWFyY2giOiJvcGVucm91dGVyL2FudGhyb3BpYy9jbGF1ZGUtMy43LXNvbm5ldCIsInNoYWxsb3dfcmVzZWFyY2giOiJvcGVucm91dGVyL29wZW5haS9ncHQtNG8tbWluaSJ9LCJidWRnZXQiOnsicmVtYWluaW5nT3JnVXNkIjo0Mi41LCJyZW1haW5pbmdVc2VyVXNkIjoxMCwicmVtYWluaW5nUHJvamVjdFVzZCI6NS4yNX0sImRpc2FibGVkU291cmNlcyI6WyJ3ZWJfc2VhcmNoIl0sIm1lbW9yeVJlZmxlY3Rpb25FbmFibGVkIjp0cnVlfQ",
+      "signature": "ee0e4640f3ee016aec79950c692657abb37021f87d8ed9c7d1aa7cc5d8ac2e74"
     },
     {
       "name": "signed_envelope_minimal_scope",
       "comment": "Same input as the anonymous_minimal_scope case above, minted as an envelope. Exercises the case where most fields are omitted from the payload entirely (falsy/empty-array omission rules identical to buildRequestContextHeaders) -- including federalState, pinning the envelope-WITHOUT-federalState case (backlog T3-9 follow-up, 2026-07-16).",
       "secret": "grid-envelope-fixture-secret",
       "input": {
-        "collectionScope": ["oib_knowledge"],
+        "collectionScope": ["base_corpus"],
         "memoryReflectionEnabled": false
       },
-      "envelopeJson": "{\"collectionScope\":[\"oib_knowledge\"],\"memoryReflectionEnabled\":false}",
-      "header": "eyJjb2xsZWN0aW9uU2NvcGUiOlsib2liX2tub3dsZWRnZSJdLCJtZW1vcnlSZWZsZWN0aW9uRW5hYmxlZCI6ZmFsc2V9",
-      "signature": "7d7b5b164d46cd4cc773c19b60682d4cd897c424794b60f4dfb7944565824783"
+      "envelopeJson": "{\"collectionScope\":[\"base_corpus\"],\"memoryReflectionEnabled\":false}",
+      "header": "eyJjb2xsZWN0aW9uU2NvcGUiOlsiYmFzZV9jb3JwdXMiXSwibWVtb3J5UmVmbGVjdGlvbkVuYWJsZWQiOmZhbHNlfQ",
+      "signature": "013b4e4c12d163cb9cf4afef5cee50ff98501fd40ec667475a6d1e307f6b77bd"
     },
     {
       "name": "signed_envelope_with_federal_state",
@@ -118,7 +118,7 @@
         "organizationId": "org_123",
         "userId": "user_456",
         "projectId": "proj_789",
-        "collectionScope": ["oib_knowledge", "proj_proj_789", "s_conv_1"],
+        "collectionScope": ["base_corpus", "proj_proj_789", "s_conv_1"],
         "projectContext": "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna",
         "projectMemory": "- Prefers concise citations\n- Based in Germany",
         "modelOverrides": {
@@ -134,9 +134,9 @@
         "memoryReflectionEnabled": true,
         "federalState": "vienna"
       },
-      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"oib_knowledge\",\"proj_proj_789\",\"s_conv_1\"],\"projectContext\":\"PROJECT_CONTEXT v1\\n\\nconfirmed:\\n- federal_state=vienna\",\"projectMemory\":\"- Prefers concise citations\\n- Based in Germany\",\"modelOverrides\":{\"deep_research\":\"openrouter/anthropic/claude-3.7-sonnet\",\"shallow_research\":\"openrouter/openai/gpt-4o-mini\"},\"budget\":{\"remainingOrgUsd\":42.5,\"remainingUserUsd\":10,\"remainingProjectUsd\":5.25},\"disabledSources\":[\"web_search\"],\"memoryReflectionEnabled\":true,\"federalState\":\"vienna\"}",
-      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbIm9pYl9rbm93bGVkZ2UiLCJwcm9qX3Byb2pfNzg5Iiwic19jb252XzEiXSwicHJvamVjdENvbnRleHQiOiJQUk9KRUNUX0NPTlRFWFQgdjFcblxuY29uZmlybWVkOlxuLSBmZWRlcmFsX3N0YXRlPXZpZW5uYSIsInByb2plY3RNZW1vcnkiOiItIFByZWZlcnMgY29uY2lzZSBjaXRhdGlvbnNcbi0gQmFzZWQgaW4gR2VybWFueSIsIm1vZGVsT3ZlcnJpZGVzIjp7ImRlZXBfcmVzZWFyY2giOiJvcGVucm91dGVyL2FudGhyb3BpYy9jbGF1ZGUtMy43LXNvbm5ldCIsInNoYWxsb3dfcmVzZWFyY2giOiJvcGVucm91dGVyL29wZW5haS9ncHQtNG8tbWluaSJ9LCJidWRnZXQiOnsicmVtYWluaW5nT3JnVXNkIjo0Mi41LCJyZW1haW5pbmdVc2VyVXNkIjoxMCwicmVtYWluaW5nUHJvamVjdFVzZCI6NS4yNX0sImRpc2FibGVkU291cmNlcyI6WyJ3ZWJfc2VhcmNoIl0sIm1lbW9yeVJlZmxlY3Rpb25FbmFibGVkIjp0cnVlLCJmZWRlcmFsU3RhdGUiOiJ2aWVubmEifQ",
-      "signature": "cbf8588f7b541efc660b5edd5efcae5a513842d175bde2979a49820a71e9bdc4"
+      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"base_corpus\",\"proj_proj_789\",\"s_conv_1\"],\"projectContext\":\"PROJECT_CONTEXT v1\\n\\nconfirmed:\\n- federal_state=vienna\",\"projectMemory\":\"- Prefers concise citations\\n- Based in Germany\",\"modelOverrides\":{\"deep_research\":\"openrouter/anthropic/claude-3.7-sonnet\",\"shallow_research\":\"openrouter/openai/gpt-4o-mini\"},\"budget\":{\"remainingOrgUsd\":42.5,\"remainingUserUsd\":10,\"remainingProjectUsd\":5.25},\"disabledSources\":[\"web_search\"],\"memoryReflectionEnabled\":true,\"federalState\":\"vienna\"}",
+      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbImJhc2VfY29ycHVzIiwicHJval9wcm9qXzc4OSIsInNfY29udl8xIl0sInByb2plY3RDb250ZXh0IjoiUFJPSkVDVF9DT05URVhUIHYxXG5cbmNvbmZpcm1lZDpcbi0gZmVkZXJhbF9zdGF0ZT12aWVubmEiLCJwcm9qZWN0TWVtb3J5IjoiLSBQcmVmZXJzIGNvbmNpc2UgY2l0YXRpb25zXG4tIEJhc2VkIGluIEdlcm1hbnkiLCJtb2RlbE92ZXJyaWRlcyI6eyJkZWVwX3Jlc2VhcmNoIjoib3BlbnJvdXRlci9hbnRocm9waWMvY2xhdWRlLTMuNy1zb25uZXQiLCJzaGFsbG93X3Jlc2VhcmNoIjoib3BlbnJvdXRlci9vcGVuYWkvZ3B0LTRvLW1pbmkifSwiYnVkZ2V0Ijp7InJlbWFpbmluZ09yZ1VzZCI6NDIuNSwicmVtYWluaW5nVXNlclVzZCI6MTAsInJlbWFpbmluZ1Byb2plY3RVc2QiOjUuMjV9LCJkaXNhYmxlZFNvdXJjZXMiOlsid2ViX3NlYXJjaCJdLCJtZW1vcnlSZWZsZWN0aW9uRW5hYmxlZCI6dHJ1ZSwiZmVkZXJhbFN0YXRlIjoidmllbm5hIn0",
+      "signature": "59e046f6f8bbbb683b2bd1610a4fec9163dcf0a7ec6266ce29901b7a613f3eeb"
     },
     {
       "name": "signed_envelope_with_conversation_and_issued_at",
@@ -146,14 +146,14 @@
         "organizationId": "org_123",
         "userId": "user_456",
         "projectId": "proj_789",
-        "collectionScope": ["oib_knowledge", "proj_proj_789"],
+        "collectionScope": ["base_corpus", "proj_proj_789"],
         "memoryReflectionEnabled": true,
         "conversationId": "s_conv_1",
         "issuedAt": 1789430400000
       },
-      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"oib_knowledge\",\"proj_proj_789\"],\"memoryReflectionEnabled\":true,\"conversationId\":\"s_conv_1\",\"issuedAt\":1789430400000}",
-      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbIm9pYl9rbm93bGVkZ2UiLCJwcm9qX3Byb2pfNzg5Il0sIm1lbW9yeVJlZmxlY3Rpb25FbmFibGVkIjp0cnVlLCJjb252ZXJzYXRpb25JZCI6InNfY29udl8xIiwiaXNzdWVkQXQiOjE3ODk0MzA0MDAwMDB9",
-      "signature": "fb8acc1b3060e47630e50c817b6839e3689b41aad809aaec832f7a3a541573b9"
+      "envelopeJson": "{\"organizationId\":\"org_123\",\"userId\":\"user_456\",\"projectId\":\"proj_789\",\"collectionScope\":[\"base_corpus\",\"proj_proj_789\"],\"memoryReflectionEnabled\":true,\"conversationId\":\"s_conv_1\",\"issuedAt\":1789430400000}",
+      "header": "eyJvcmdhbml6YXRpb25JZCI6Im9yZ18xMjMiLCJ1c2VySWQiOiJ1c2VyXzQ1NiIsInByb2plY3RJZCI6InByb2pfNzg5IiwiY29sbGVjdGlvblNjb3BlIjpbImJhc2VfY29ycHVzIiwicHJval9wcm9qXzc4OSJdLCJtZW1vcnlSZWZsZWN0aW9uRW5hYmxlZCI6dHJ1ZSwiY29udmVyc2F0aW9uSWQiOiJzX2NvbnZfMSIsImlzc3VlZEF0IjoxNzg5NDMwNDAwMDAwfQ",
+      "signature": "0c6e7b6d5ac56989caa2483a646e403e2824ca5e2374e81a5d42c08368fd75af"
     },
     {
       "name": "signed_envelope_with_requester",

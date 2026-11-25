@@ -1871,7 +1871,7 @@ def knowledge_search(query: str) -> str:
         "Found 1 relevant document(s):\n\n"
         "--- Result 1 ---\n"
         "Source: OIB-330.pdf\n"
-        "Collection: oib_knowledge\n"
+        "Collection: base_corpus\n"
         "Page: 12\n"
         "Citation: OIB-330.pdf, p.12\n"
         "Content Type: text\n"
@@ -1905,7 +1905,7 @@ class TestChatQuoteVerification:
         populate_from_config(
             [
                 {
-                    "id": "oib_knowledge",
+                    "id": "base_corpus",
                     "name": "OIB Knowledge",
                     "description": "Search the internal OIB knowledge base.",
                     "tools": ["knowledge_search"],
@@ -1983,7 +1983,7 @@ class TestChatRepairPass:
         populate_from_config(
             [
                 {
-                    "id": "oib_knowledge",
+                    "id": "base_corpus",
                     "name": "OIB Knowledge",
                     "description": "Search the internal OIB knowledge base.",
                     "tools": ["knowledge_search"],
@@ -2373,7 +2373,7 @@ class TestKnowledgeInventoryIsNotCitable:
 
     def test_grouped_inventory_does_not_mix_oib_into_office_shelf(self):
         documents = [
-            {"file_name": "oib-rl_2.pdf", "summary": "Brandschutz.", "shelf": "base", "collection": "oib_knowledge"},
+            {"file_name": "oib-rl_2.pdf", "summary": "Brandschutz.", "shelf": "base", "collection": "base_corpus"},
             {
                 "file_name": "Buero-Standard.pdf",
                 "summary": "Detail.",

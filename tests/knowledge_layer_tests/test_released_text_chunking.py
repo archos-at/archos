@@ -82,9 +82,9 @@ def test_a_released_text_without_numbered_clauses_keeps_the_heading_path() -> No
 
 
 def test_the_job_knows_a_released_text_by_the_edition_its_mark_names() -> None:
-    assert is_released_text({"knowledge_edition_id": "edition:rl-2-2023", "country_id": "XA"}, "oib_knowledge")
-    assert not is_released_text({"country_id": "XA"}, "oib_knowledge")
-    assert not is_released_text({"knowledge_edition_id": ""}, "oib_knowledge")
+    assert is_released_text({"knowledge_edition_id": "edition:rl-2-2023", "country_id": "XA"}, "base_corpus")
+    assert not is_released_text({"country_id": "XA"}, "base_corpus")
+    assert not is_released_text({"knowledge_edition_id": ""}, "base_corpus")
 
 
 def test_an_office_copy_of_an_edition_is_no_released_text() -> None:

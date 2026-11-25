@@ -26,7 +26,7 @@ from agent.project_context import RequestContext
 
 VERTRAEGE = "proj_p1_r0123456789ab"
 PERSONAL = "proj_p1_rbbbbbbbbbbbb"
-SCOPE = ["oib_knowledge", "proj_p1", VERTRAEGE, PERSONAL]
+SCOPE = ["base_corpus", "proj_p1", VERTRAEGE, PERSONAL]
 
 
 class Bff:
@@ -136,7 +136,7 @@ class TestTheScopeEveryReadPathTakes:
     def test_keeps_only_the_restricted_collections_the_turn_may_draw_on(self):
         with bound(_use(drawable={VERTRAEGE})):
             names = [entry.collection for entry in scoping.get_scoped_collections_from_context() or []]
-        assert names == ["oib_knowledge", "proj_p1", VERTRAEGE]
+        assert names == ["base_corpus", "proj_p1", VERTRAEGE]
 
     def test_is_unchanged_outside_a_turn_with_restricted_scope(self):
         with bound(None):
@@ -145,7 +145,7 @@ class TestTheScopeEveryReadPathTakes:
 
     def test_listing_never_includes_a_restricted_collection(self):
         entries = [ScopedCollection(name, None) for name in SCOPE]
-        assert [entry.collection for entry in without_restricted(entries)] == ["oib_knowledge", "proj_p1"]
+        assert [entry.collection for entry in without_restricted(entries)] == ["base_corpus", "proj_p1"]
 
 
 def _result(text: str, call_id: str = "call-1") -> ToolMessage:

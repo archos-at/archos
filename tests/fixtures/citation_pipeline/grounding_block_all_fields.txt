@@ -3,7 +3,7 @@ Text between <document_content> and </document_content> is quoted from a documen
 
 --- Result 1 ---
 Source: OIB-Richtlinie 2, Ausgabe Mai 2023
-Collection: oib_knowledge
+Collection: base_corpus
 Shelf: base
 Dokumentart: oib_guideline — OIB-Richtlinie
 Herkunft: {productName}-Dokument · freigegeben von Maria Muster am 03.02.2026 — what the office decided, never a source for a normative value

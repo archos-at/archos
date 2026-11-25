@@ -39051,7 +39051,7 @@
                         "const": 1
                       },
                       "corpus_collection": {
-                        "default": "oib_knowledge",
+                        "default": "base_corpus",
                         "type": "string"
                       },
                       "language": {

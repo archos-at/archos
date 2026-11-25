@@ -33,7 +33,7 @@ def test_a_quote_no_passage_holds_carries_no_marker_when_it_settles():
         SourceEntry(
             citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12",
             source_type="knowledge_layer",
-            collection="oib_knowledge",
+            collection="base_corpus",
             tool_name="knowledge_search",
             chunk_text="Die lichte Durchgangshöhe von Treppen muss mindestens 2,10 m betragen.",
         )

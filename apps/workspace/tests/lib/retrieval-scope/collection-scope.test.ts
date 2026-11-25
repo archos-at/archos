@@ -18,26 +18,26 @@ const baseSession = {
 
 describe('computeCollectionScope', () => {
   it('always includes base corpus', () => {
-    expect(computeCollectionScope(baseSession, {})).toEqual(['oib_knowledge'])
+    expect(computeCollectionScope(baseSession, {})).toEqual(['base_corpus'])
   })
 
   it('adds project corpus when projectId is provided', () => {
     expect(computeCollectionScope(baseSession, { projectId: 'abc' })).toEqual([
-      'oib_knowledge',
+      'base_corpus',
       'proj_abc',
     ])
   })
 
   it('adds conversation corpus with s_ prefix', () => {
     expect(computeCollectionScope(baseSession, { conversationId: 'uuid-123' })).toEqual([
-      'oib_knowledge',
+      'base_corpus',
       's_uuid-123',
     ])
   })
 
   it('does not double-prefix already-prefixed conversation corpus', () => {
     expect(computeCollectionScope(baseSession, { conversationId: 's_uuid-123' })).toEqual([
-      'oib_knowledge',
+      'base_corpus',
       's_uuid-123',
     ])
   })
@@ -45,13 +45,13 @@ describe('computeCollectionScope', () => {
   it('returns ordered base, project, conversation', () => {
     expect(
       computeCollectionScope(baseSession, { projectId: 'abc', conversationId: 'uuid-123' }),
-    ).toEqual(['oib_knowledge', 'proj_abc', 's_uuid-123'])
+    ).toEqual(['base_corpus', 'proj_abc', 's_uuid-123'])
   })
 })
 
 describe('buildCollectionScopeHeader', () => {
   it('encodes scope as base64url JSON', () => {
-    const scope = ['oib_knowledge', 'proj_abc', 's_uuid-123']
+    const scope = ['base_corpus', 'proj_abc', 's_uuid-123']
     const header = buildCollectionScopeHeader(scope)
     expect(Buffer.from(header, 'base64url').toString('utf-8')).toEqual(
       JSON.stringify(scope),

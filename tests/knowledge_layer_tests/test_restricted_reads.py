@@ -35,7 +35,7 @@ SALARY_SUMMARY = "Gehälter: GF 182.000 EUR, Bauleiter 74.000 EUR"
 def _builder() -> MagicMock:
     builder = MagicMock()
     builder.get_function_config = MagicMock(
-        return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        return_value=KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     )
     return builder
 
@@ -71,7 +71,7 @@ def scope(monkeypatch):
         signed_decision(
             may={
                 "shelves": [
-                    {"collection": "oib_knowledge", "shelf": Shelf.BASE.value},
+                    {"collection": "base_corpus", "shelf": Shelf.BASE.value},
                     {"collection": PROJ, "shelf": Shelf.PROJECT.value},
                     {"collection": R, "shelf": Shelf.PROJECT.value},
                 ],

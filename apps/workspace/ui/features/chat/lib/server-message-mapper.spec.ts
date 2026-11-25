@@ -544,7 +544,7 @@ describe('mapServerMessageToChatMessage — the answer’s provenance', () => {
             v: 1,
             sources: [
               {
-                document_id: 'doc:oib_knowledge:oib-rl_2.pdf',
+                document_id: 'doc:base_corpus:oib-rl_2.pdf',
                 citation_key: 'oib-rl_2.pdf, p.12',
                 file_name: 'oib-rl_2.pdf',
                 page: 12,

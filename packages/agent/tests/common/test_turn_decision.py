@@ -44,7 +44,7 @@ def test_it_reads_what_the_bff_signed():
     assert decision.audience_version == 0
     assert decision.solo is False
     assert decision.workspace_read == "document+projectFacts"
-    assert decision.trace_metadata()["context.shelves"] == ["oib_knowledge"]
+    assert decision.trace_metadata()["context.shelves"] == ["base_corpus"]
 
 
 def test_it_refuses_a_forged_tampered_stale_or_unsigned_decision():

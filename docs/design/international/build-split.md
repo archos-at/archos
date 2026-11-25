@@ -266,7 +266,7 @@ Merged on develop: #1593 (one visibility predicate), #1592 (PDFs parsed only in 
 Each returns when its trigger arrives, as its own session.
 - Default-deny egress for every workload, the data-class inventory, and export, erasure, backups and retention across all stores.
 - Office region packs; office records proposed to or contributed into the platform (E43, E45); `arcgis_rest`; `location-lookup`.
-- The contract step that drops `norm_registry` and `oib_knowledge` (after S8 has run in production).
+- The contract step that drops `norm_registry` (after S8 has run in production). The corpus is `base_corpus` since 2026-11.
 - `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, agentic intake; the Steckbrief confirmation itself is S15's). Trigger: the agentic project-setup track.
 - The alias map (E29). Trigger: a source changes its format.
 - Switzerland's LexFind connector; DPIA and TIA templates (documents, not code).

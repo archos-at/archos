@@ -63,7 +63,7 @@ def test_trace_lanes_lane_is_decided_by_the_stated_shelf_not_a_collection_guess(
 
 def test_trace_lanes_group_by_lane():
     chunks = [
-        _chunk(file_name="OIB-RL_2_Brandschutz.pdf", page=12, collection="oib_knowledge"),
+        _chunk(file_name="OIB-RL_2_Brandschutz.pdf", page=12, collection="base_corpus"),
         _chunk(file_name="Konzept.pdf", page=1, collection="proj_abc"),
         _chunk(file_name="Vorlage.pdf", collection="archiv_org1"),
     ]
@@ -80,7 +80,7 @@ def test_trace_lanes_group_by_lane():
 
 def test_trace_lanes_sources_carry_the_display_title():
     (lane,) = _trace_lanes_for_chunks(
-        [_chunk(file_name="oib-rl_2.3_ausgabe_mai_2023.pdf", page=4, collection="oib_knowledge")]
+        [_chunk(file_name="oib-rl_2.3_ausgabe_mai_2023.pdf", page=4, collection="base_corpus")]
     )
     assert (lane.sources[0].name, lane.sources[0].title) == (
         "oib-rl_2.3_ausgabe_mai_2023.pdf",
@@ -112,9 +112,9 @@ def test_emitted_hits_are_captured_for_the_per_round_ledger():
     token = begin_lane_capture()
     try:
         with retrieval_round_scope(0):
-            _trace_lanes_for_chunks([_chunk(file_name="OIB-RL_2.pdf", page=12, collection="oib_knowledge")])
+            _trace_lanes_for_chunks([_chunk(file_name="OIB-RL_2.pdf", page=12, collection="base_corpus")])
         with retrieval_round_scope(1):
-            _trace_lanes_for_chunks([_chunk(file_name="OIB-RL_2.pdf", page=31, collection="oib_knowledge")])
+            _trace_lanes_for_chunks([_chunk(file_name="OIB-RL_2.pdf", page=31, collection="base_corpus")])
         hits = get_lane_captures()
     finally:
         end_lane_capture(token)
@@ -129,7 +129,7 @@ def test_a_search_result_is_one_sources_step_built_from_its_records(emitted):
     from agent.common.turn_status import lane_tool_scope
     from agent.common.turn_status import retrieval_round_scope
 
-    chunks = [_chunk(file_name="OIB-RL_4.pdf", page=3, collection="oib_knowledge")]
+    chunks = [_chunk(file_name="OIB-RL_4.pdf", page=3, collection="base_corpus")]
     with retrieval_round_scope(2), lane_tool_scope(READ_PASSAGE_TOOL):
         format_results(SimpleNamespace(success=True, chunks=chunks, error_message=None), "q")
         lanes = list(_trace_lanes_for_chunks(chunks))
@@ -140,7 +140,7 @@ def test_a_search_result_is_one_sources_step_built_from_its_records(emitted):
 def test_format_results_appends_trace_lanes_block():
     result = SimpleNamespace(
         success=True,
-        chunks=[_chunk(file_name="OIB-RL_4.pdf", page=3, collection="oib_knowledge")],
+        chunks=[_chunk(file_name="OIB-RL_4.pdf", page=3, collection="base_corpus")],
         error_message=None,
     )
     text = format_results(result, "test query")

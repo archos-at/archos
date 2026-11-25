@@ -115,7 +115,7 @@ class TestWireKind:
         assert wire["lane_label"] == "OIB-Richtlinie"
 
     def test_corpus_collection_is_baurecht(self):
-        entry = SourceEntry(citation_key="anhang.pdf", collection="oib_knowledge", source_type="knowledge_layer")
+        entry = SourceEntry(citation_key="anhang.pdf", collection="base_corpus", source_type="knowledge_layer")
         assert source_entry_to_wire(entry)["kind"] == "building_law"
 
     def test_ris_url_is_baurecht(self):
@@ -226,7 +226,7 @@ class TestLegacyShelfFallback:
     def test_it_reads_the_known_prefixes(self, collection, expected):
         assert legacy_shelf_for_collection_name(collection) is expected
 
-    @pytest.mark.parametrize("collection", ["oib_knowledge", "some_custom_corpus", "", None])
+    @pytest.mark.parametrize("collection", ["base_corpus", "some_custom_corpus", "", None])
     def test_it_fails_closed_on_anything_else(self, collection):
         assert legacy_shelf_for_collection_name(collection) is None
 

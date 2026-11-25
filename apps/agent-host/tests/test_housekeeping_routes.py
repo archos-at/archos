@@ -96,10 +96,17 @@ def test_chat_checkpoints_without_a_checkpoint_db_says_why_it_did_nothing(
 
 def test_base_corpus_runs_one_sync_cycle_and_reports_its_counts(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     from agent import oib_sync
+    from agent_host.jobs import corpus_payloads
     from agent_host.jobs import ingest_dispatch
     from agent_host.jobs.corpus_payloads import mark_corpus_chunks
 
     calls = []
+
+    def move():
+        calls.append("move")
+        return 7
+
+    monkeypatch.setattr(corpus_payloads, "move_legacy_corpus_scope", move)
 
     def sync(*, enqueue, mark_chunks):
         calls.append("sync")
@@ -110,8 +117,8 @@ def test_base_corpus_runs_one_sync_cycle_and_reports_its_counts(client: TestClie
     monkeypatch.setattr(oib_sync, "sync", sync)
     response = client.post("/v1/maintenance/housekeeping/base-corpus", headers=AUTH)
     assert response.status_code == 200
-    assert response.json() == {"enqueued": 3, "ingested_recorded": 2, "failed": 1, "total": 12}
-    assert calls == ["sync"]
+    assert response.json() == {"scope_moved": 7, "enqueued": 3, "ingested_recorded": 2, "failed": 1, "total": 12}
+    assert calls == ["move", "sync"], "the old base-corpus name is moved before the sync reads the corpus"
 
 
 def test_base_corpus_does_not_sync_for_a_caller_without_the_token(client: TestClient, monkeypatch: pytest.MonkeyPatch):

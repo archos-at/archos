@@ -43,7 +43,7 @@ class TestBuildResult:
 
     def test_every_state_field_reaches_the_result(self):
         ledger = [{"index": 0, "docs": [], "new_docs": []}]
-        read = [{"document_id": "doc:oib_knowledge:oib-rl_2.pdf", "file_name": "oib-rl_2.pdf"}]
+        read = [{"document_id": "doc:base_corpus:oib-rl_2.pdf", "file_name": "oib-rl_2.pdf"}]
         result = _result(
             routing_decision="shallow",
             answer_confidence="low",
@@ -177,7 +177,7 @@ class TestPostAnswerTurnFacts:
         assert self._facts(_state(), noted_this_turn=(note,)).noted_this_turn == (note,)
 
     def test_an_open_scope_crosses_as_no_restriction(self):
-        assert self._facts(_state(collection_scope=["oib_knowledge", "proj_1"])).restriction.restricted is False
+        assert self._facts(_state(collection_scope=["base_corpus", "proj_1"])).restriction.restricted is False
         assert self._facts(_state()).restriction.restricted is False
 
     def test_the_restriction_evidence_crosses(self):
@@ -185,8 +185,8 @@ class TestPostAnswerTurnFacts:
         restricted_b = "proj_1_rba9876543210"
         restricted_c = "proj_1_rcccccccccccc"
         state = _state(
-            collection_scope=["oib_knowledge", "proj_1", restricted_a, restricted_b, restricted_c],
-            verified_sources=[{"collection": restricted_a}, {"collection": "oib_knowledge"}],
+            collection_scope=["base_corpus", "proj_1", restricted_a, restricted_b, restricted_c],
+            verified_sources=[{"collection": restricted_a}, {"collection": "base_corpus"}],
             read_sources=[{"collection": "proj_1"}],
             available_documents=[
                 {"collection": restricted_c, "file_name": "prompt.pdf", "summary": "in the prompt"},

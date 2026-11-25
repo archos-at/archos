@@ -12,7 +12,7 @@ from agent.knowledge.already_read import render_already_read_block
 def _entry(
     citation_key: str,
     *,
-    collection: str = "oib_knowledge",
+    collection: str = "base_corpus",
     clause: str | None = None,
     tool_name: str = "knowledge_search",
 ) -> SourceEntry:
@@ -32,16 +32,16 @@ class TestAppend:
     def test_a_first_capture_becomes_a_line(self):
         lines = merge_digest(None, [_entry("oib-rl_2_ausgabe_mai_2023.pdf, p.12", clause="3.5.2")], turn=1)
 
-        assert lines == ["oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"]
+        assert lines == ["oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"]
 
     def test_a_second_turn_appends_its_document(self):
-        previous = ["oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"]
+        previous = ["oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"]
 
         lines = merge_digest(previous, [_entry("oib-rl_3_ausgabe_mai_2023.pdf, p.4")], turn=2)
 
         assert lines == [
-            "oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1",
-            "oib-rl_3_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 4 | Punkte - | Turn 2",
+            "oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1",
+            "oib-rl_3_ausgabe_mai_2023.pdf | base_corpus | Seiten 4 | Punkte - | Turn 2",
         ]
 
     def test_a_page_without_a_clause_and_vice_versa(self):
@@ -55,8 +55,8 @@ class TestAppend:
         )
 
         assert lines == [
-            "plan.pdf | oib_knowledge | Seiten 1 | Punkte - | Turn 1",
-            "oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1",
+            "plan.pdf | base_corpus | Seiten 1 | Punkte - | Turn 1",
+            "oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1",
         ]
 
     def test_nothing_digestible_is_absent_not_empty(self):
@@ -75,13 +75,13 @@ class TestDedupe:
             turn=2,
         )
 
-        assert lines == ["oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12, 30 | Punkte 3.5.2, 4.1 | Turn 2"]
+        assert lines == ["oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12, 30 | Punkte 3.5.2, 4.1 | Turn 2"]
 
     def test_the_same_passage_twice_counts_once(self):
         capture = _entry("oib-rl_2_ausgabe_mai_2023.pdf, p.12", clause="3.5.2")
 
         assert merge_digest(None, [capture, capture], turn=1) == [
-            "oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"
+            "oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"
         ]
 
     def test_the_same_filename_in_two_collections_is_two_documents(self):
@@ -109,15 +109,15 @@ class TestDedupe:
 
     def test_a_reread_updates_the_turn_and_moves_to_the_end(self):
         previous = [
-            "a.pdf | oib_knowledge | Seiten 1 | Punkte - | Turn 1",
-            "b.pdf | oib_knowledge | Seiten 2 | Punkte - | Turn 2",
+            "a.pdf | base_corpus | Seiten 1 | Punkte - | Turn 1",
+            "b.pdf | base_corpus | Seiten 2 | Punkte - | Turn 2",
         ]
 
         lines = merge_digest(previous, [_entry("a.pdf, p.9")], turn=5)
 
         assert lines == [
-            "b.pdf | oib_knowledge | Seiten 2 | Punkte - | Turn 2",
-            "a.pdf | oib_knowledge | Seiten 1, 9 | Punkte - | Turn 5",
+            "b.pdf | base_corpus | Seiten 2 | Punkte - | Turn 2",
+            "a.pdf | base_corpus | Seiten 1, 9 | Punkte - | Turn 5",
         ]
 
     def test_non_documents_never_become_lines(self):

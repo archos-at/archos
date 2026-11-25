@@ -123,7 +123,7 @@ alias switch.
 
 | Collection | Holds | Why separate |
 |---|---|---|
-| `corpus_chunks_v1` | The legal corpus per country profile (`oib_knowledge` today) | No tenant. Every office reads it, so it gets a global HNSW, 1 shard and RF 3, and every node serves it locally |
+| `corpus_chunks_v1` | The legal corpus per country profile (`base_corpus` today) | No tenant. Every office reads it, so it gets a global HNSW, 1 shard and RF 3, and every node serves it locally |
 | `office_chunks_v1` | Every chunk an office owns: Bürobibliothek, projects, restricted folders, conversation uploads | One tenant-partitioned index, which is Qdrant's recommended multitenant layout. `office_id` is indexed `is_tenant`, so each office's data sits together on disk |
 | `office_documents_v1` | One point per document Fassung: a summary vector plus document metadata | Document-level search, `with_lookup` joins for grouped results, "similar documents", facets |
 

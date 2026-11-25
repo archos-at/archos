@@ -45,7 +45,7 @@ def _oib_source():
         title="OIB-Richtlinie 2",
         source_type="knowledge_layer",
         tool_name="knowledge_search",
-        collection="oib_knowledge",
+        collection="base_corpus",
     )
 
 

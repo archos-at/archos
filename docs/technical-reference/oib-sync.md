@@ -1,6 +1,6 @@
 # OIB Richtlinien Sync
 
-How the base corpus (the OIB, Österreichisches Institut für Bautechnik, Richtlinien and the other documents the platform owner uploads) is stored and ingested into the `oib_knowledge` collection in Qdrant. ADR-0082 step A2.
+How the base corpus (the OIB, Österreichisches Institut für Bautechnik, Richtlinien and the other documents the platform owner uploads) is stored and ingested into the `base_corpus` collection in Qdrant (named `oib_knowledge` until 2026-11; the sync moves points still filed under the old name before each cycle, `move_legacy_base_corpus`). ADR-0082 step A2.
 
 There is one design and no switch: the corpus lives in object storage, one table says what is in it, and every file that is not indexed yet becomes one job on the durable ingest queue (ADR-0076), run by the ingest workers. Nothing is ingested in the web process. The code is `packages/agent/src/agent/corpus_store.py` (storage, table, cache), `packages/agent/src/agent/oib_sync.py` (ingestion), `packages/agent/src/agent/oib_status.py` (the status view) and `apps/agent-host/src/agent_host/routes/oib.py` (the routes).
 
@@ -162,7 +162,7 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 
 ## Collection management
 
-`_ensure_collection(ingestor)` creates `OIB_COLLECTION_NAME` (default `oib_knowledge`) with the description `"Persistent OIB Richtlinien knowledge base."` if it is missing, and is safe to call repeatedly. Base and project collections like `oib_knowledge` are **never** subject to TTL auto-deletion (only `s_`-prefixed session collections are reaped).
+`_ensure_collection(ingestor)` creates `base_corpus` (`BASE_CORPUS_COLLECTION`) with the description `"Persistent OIB Richtlinien knowledge base."` if it is missing, and is safe to call repeatedly. Base and project collections like `base_corpus` are **never** subject to TTL auto-deletion (only `s_`-prefixed session collections are reaped).
 
 ---
 
@@ -174,7 +174,6 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | `SUMMARY_DB` | none | The knowledge database; holds `oib_corpus_files`. Required |
 | `FRONTEND_INTERNAL_URL`, `INTERNAL_API_TOKEN` | none | How the backend reaches the BFF to write and delete objects |
 | `SEAWEED_ENDPOINT`, `SEAWEED_ACCESS_KEY`, `SEAWEED_SECRET_KEY`, `SEAWEED_BUCKET` | none, none, none, `grid-documents` | The read-only credential and bucket the backend downloads with |
-| `OIB_COLLECTION_NAME` | `oib_knowledge` | Target collection (a scope in Qdrant's corpus collection) |
 | `QDRANT_URL` | none (required) | The Qdrant cluster every chunk is stored in |
 
 ---
@@ -223,7 +222,7 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock
-       └── Qdrant (oib_knowledge scope)
+       └── Qdrant (base_corpus scope)
 ```
 
 The OIB collection is included as the default `base_collection` in every query's scope (see [Collection Scoping](collection-scoping.md)).

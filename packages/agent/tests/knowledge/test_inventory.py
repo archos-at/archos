@@ -50,7 +50,7 @@ class TestFoldersInTheInventory:
         assert "`folder=`" in text
 
     def test_nothing_is_said_about_folders_when_no_file_has_one(self):
-        text = render_inventory_block([_doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base")])
+        text = render_inventory_block([_doc("oib-rl_2.pdf", collection="base_corpus", shelf="base")])
         assert "Ordner" not in text
 
     def test_the_folder_sits_before_the_tags(self):
@@ -105,7 +105,7 @@ class TestAllocateInventory:
         assert {d.collection for d in out} == {"proj_1", "archiv_org"}
 
     def test_user_shelves_are_not_evicted_by_the_oib_corpus(self):
-        base = [_doc(f"oib-rl_{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(40)]
+        base = [_doc(f"oib-rl_{i}.pdf", collection="base_corpus", shelf="base") for i in range(40)]
         office_shelf = [_doc("Buero-Standard.pdf", collection="archiv_org", shelf="office_shelf")]
         project = [_doc("Lacknergasse.pdf", collection="proj_1", shelf="project")]
         out = allocate_inventory(base + office_shelf + project, max_documents=20)
@@ -115,14 +115,14 @@ class TestAllocateInventory:
         assert sum(1 for d in out if d.shelf == "base") == 18
 
     def test_cap_of_zero_keeps_everything(self):
-        docs = [_doc(f"{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(5)]
+        docs = [_doc(f"{i}.pdf", collection="base_corpus", shelf="base") for i in range(5)]
         assert len(allocate_inventory(docs, max_documents=0)) == 5
 
     def test_within_a_shelf_the_cut_is_filename_sorted(self):
         docs = [
-            _doc("m.pdf", collection="oib_knowledge", shelf="base"),
-            _doc("a.pdf", collection="oib_knowledge", shelf="base"),
-            _doc("z.pdf", collection="oib_knowledge", shelf="base"),
+            _doc("m.pdf", collection="base_corpus", shelf="base"),
+            _doc("a.pdf", collection="base_corpus", shelf="base"),
+            _doc("z.pdf", collection="base_corpus", shelf="base"),
         ]
         out = allocate_inventory(docs, max_documents=2)
         assert [d.file_name for d in out] == ["a.pdf", "m.pdf"]
@@ -137,7 +137,7 @@ class TestAllocateInventory:
 
     def test_unknown_shelf_is_not_treated_as_base(self):
         unknown = [_doc("mystery.pdf", collection="custom_x", shelf=None)]
-        base = [_doc(f"oib-{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(10)]
+        base = [_doc(f"oib-{i}.pdf", collection="base_corpus", shelf="base") for i in range(10)]
         out = allocate_inventory(unknown + base, max_documents=3)
         assert "mystery.pdf" in {d.file_name for d in out}
 
@@ -145,7 +145,7 @@ class TestAllocateInventory:
 class TestRenderInventoryBlock:
     def test_groups_by_shelf_and_refuses_to_call_oib_the_office_shelf(self):
         docs = [
-            _doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base", summary="Brandschutz."),
+            _doc("oib-rl_2.pdf", collection="base_corpus", shelf="base", summary="Brandschutz."),
             _doc("Lacknergasse.pdf", collection="proj_1", shelf="project", summary="Ansichten."),
             _doc("Buero-Standard.pdf", collection="archiv_org", shelf="office_shelf", summary="Detail."),
         ]
@@ -175,7 +175,7 @@ class TestRenderInventoryBlock:
         assert "only this chat" in text
 
     def test_empty_in_scope_office_shelf_is_shown_empty_not_omitted(self):
-        docs = [_doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base")]
+        docs = [_doc("oib-rl_2.pdf", collection="base_corpus", shelf="base")]
         text = render_inventory_block(docs, in_scope_shelves=[Shelf.OFFICE_SHELF, Shelf.BASE])
         assert "### Bürobibliothek" in text
         office_shelf = text.split("### Bürobibliothek", 1)[1].split("### ", 1)[0]
@@ -204,12 +204,12 @@ class TestRenderInventoryBlock:
         assert "Lacknergasse.pdf" not in office_shelf
 
     def test_base_only_does_not_invent_an_empty_office_shelf(self):
-        text = render_inventory_block([_doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base")])
+        text = render_inventory_block([_doc("oib-rl_2.pdf", collection="base_corpus", shelf="base")])
         assert "### Bürobibliothek" not in text
 
     def test_listing_focus_hides_other_shelves(self):
         docs = [
-            _doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base"),
+            _doc("oib-rl_2.pdf", collection="base_corpus", shelf="base"),
             _doc("Lacknergasse.pdf", collection="proj_1", shelf="project"),
             _doc("Buero-Standard.pdf", collection="archiv_org", shelf="office_shelf"),
         ]
@@ -257,7 +257,7 @@ class TestScopedCollectionRoundTrip:
     def test_scope_entries_carry_the_shelf_the_renderer_needs(self):
         entries = [
             ScopedCollection("archiv_org", Shelf.OFFICE_SHELF),
-            ScopedCollection("oib_knowledge", Shelf.BASE),
+            ScopedCollection("base_corpus", Shelf.BASE),
         ]
         text = render_inventory_block([], in_scope_shelves=[e.shelf for e in entries if e.shelf])
         assert "### Bürobibliothek" in text
@@ -328,21 +328,21 @@ class TestBaseShelfIsFolded:
         set_inventory_drops(None)
 
     def test_base_filenames_are_not_spelled_out(self):
-        docs = [_doc(f"oib-rl_{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(39)]
+        docs = [_doc(f"oib-rl_{i}.pdf", collection="base_corpus", shelf="base") for i in range(39)]
         text = render_inventory_block(docs)
 
         assert "oib-rl_7.pdf" not in text
         assert "39 files" in text
 
     def test_the_fold_names_the_way_to_reach_the_files(self):
-        docs = [_doc(f"oib-rl_{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(39)]
+        docs = [_doc(f"oib-rl_{i}.pdf", collection="base_corpus", shelf="base") for i in range(39)]
         text = render_inventory_block(docs)
 
         assert "knowledge_search" in text
         assert "Do not invent" in text
 
     def test_a_listing_turn_about_base_still_gets_every_name(self):
-        docs = [_doc(f"oib-rl_{i}.pdf", collection="oib_knowledge", shelf="base") for i in range(39)]
+        docs = [_doc(f"oib-rl_{i}.pdf", collection="base_corpus", shelf="base") for i in range(39)]
         text = render_inventory_block(docs, focus_shelf=Shelf.BASE)
 
         assert "oib-rl_7.pdf" in text
@@ -350,7 +350,7 @@ class TestBaseShelfIsFolded:
 
     def test_user_shelves_are_still_spelled_out(self):
         docs = [
-            _doc("oib-rl_2.pdf", collection="oib_knowledge", shelf="base"),
+            _doc("oib-rl_2.pdf", collection="base_corpus", shelf="base"),
             _doc("Lacknergasse.pdf", collection="proj_1", shelf="project"),
             _doc("Buero-Standard.pdf", collection="archiv_org", shelf="office_shelf"),
         ]
@@ -360,7 +360,7 @@ class TestBaseShelfIsFolded:
         assert "Buero-Standard.pdf" in text
 
     def test_the_count_includes_what_the_cap_dropped(self):
-        docs = [_doc(f"oib-rl_{i:02d}.pdf", collection="oib_knowledge", shelf="base") for i in range(39)]
+        docs = [_doc(f"oib-rl_{i:02d}.pdf", collection="base_corpus", shelf="base") for i in range(39)]
         kept, dropped = allocate_inventory_detailed(docs, max_documents=10)
         set_inventory_drops(dropped)
 
@@ -380,7 +380,7 @@ class TestTruncationEdgesTheFirstPassMissed:
 
     def test_base_still_names_itself_when_the_cap_took_every_row(self):
         docs = [_doc(f"proj-{i:02d}.pdf", collection="proj_1", shelf="project") for i in range(6)]
-        docs += [_doc(f"oib-{i:02d}.pdf", collection="oib_knowledge", shelf="base") for i in range(39)]
+        docs += [_doc(f"oib-{i:02d}.pdf", collection="base_corpus", shelf="base") for i in range(39)]
         kept, dropped = allocate_inventory_detailed(docs, max_documents=6)
         set_inventory_drops(dropped)
 
@@ -404,8 +404,8 @@ class TestTruncationEdgesTheFirstPassMissed:
 class TestFilesStillBeingRead:
     def test_it_names_a_file_that_is_still_being_read(self):
         block = render_inventory_block(
-            [_doc("oib-rl_2.pdf", collection="oib_knowledge")],
-            in_scope_shelves=[ScopedCollection("oib_knowledge", Shelf.BASE)],
+            [_doc("oib-rl_2.pdf", collection="base_corpus")],
+            in_scope_shelves=[ScopedCollection("base_corpus", Shelf.BASE)],
             in_flight=["grundriss_eg.pdf"],
         )
 
@@ -415,8 +415,8 @@ class TestFilesStillBeingRead:
 
     def test_it_forbids_presenting_an_answer_that_silently_omits_it(self):
         block = render_inventory_block(
-            [_doc("oib-rl_2.pdf", collection="oib_knowledge")],
-            in_scope_shelves=[ScopedCollection("oib_knowledge", Shelf.BASE)],
+            [_doc("oib-rl_2.pdf", collection="base_corpus")],
+            in_scope_shelves=[ScopedCollection("base_corpus", Shelf.BASE)],
             in_flight=["plan.pdf"],
         )
 
@@ -424,8 +424,8 @@ class TestFilesStillBeingRead:
 
     def test_a_bulk_upload_carries_the_shape_and_not_the_list(self):
         block = render_inventory_block(
-            [_doc("oib-rl_2.pdf", collection="oib_knowledge")],
-            in_scope_shelves=[ScopedCollection("oib_knowledge", Shelf.BASE)],
+            [_doc("oib-rl_2.pdf", collection="base_corpus")],
+            in_scope_shelves=[ScopedCollection("base_corpus", Shelf.BASE)],
             in_flight=[f"plan_{i}.pdf" for i in range(40)],
         )
 
@@ -435,12 +435,12 @@ class TestFilesStillBeingRead:
 
     def test_nothing_in_flight_changes_nothing(self):
         with_none = render_inventory_block(
-            [_doc("oib-rl_2.pdf", collection="oib_knowledge")],
-            in_scope_shelves=[ScopedCollection("oib_knowledge", Shelf.BASE)],
+            [_doc("oib-rl_2.pdf", collection="base_corpus")],
+            in_scope_shelves=[ScopedCollection("base_corpus", Shelf.BASE)],
         )
         with_empty = render_inventory_block(
-            [_doc("oib-rl_2.pdf", collection="oib_knowledge")],
-            in_scope_shelves=[ScopedCollection("oib_knowledge", Shelf.BASE)],
+            [_doc("oib-rl_2.pdf", collection="base_corpus")],
+            in_scope_shelves=[ScopedCollection("base_corpus", Shelf.BASE)],
             in_flight=[],
         )
 
@@ -460,7 +460,7 @@ class TestTheFamiliesAreNamed:
         set_norm_families(None)
 
     def _base(self, *names: str):
-        return [_doc(name, collection="oib_knowledge", shelf="base") for name in names]
+        return [_doc(name, collection="base_corpus", shelf="base") for name in names]
 
     def test_the_folded_shelf_lists_each_family_and_its_members(self):
         from agent.common.norm_registry import oib_families

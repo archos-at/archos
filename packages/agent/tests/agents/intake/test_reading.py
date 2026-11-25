@@ -84,7 +84,7 @@ class TestOnlyTheProjectShelves:
         from agent.knowledge.scoping import ScopedCollection
 
         scope = [
-            ScopedCollection("oib_knowledge", Shelf.BASE),
+            ScopedCollection("base_corpus", Shelf.BASE),
             ScopedCollection("proj_1", Shelf.PROJECT),
             ScopedCollection("archiv_1", Shelf.OFFICE_SHELF),
             ScopedCollection("legacy", None),

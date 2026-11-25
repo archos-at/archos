@@ -227,7 +227,7 @@ async def test_search_in_scope_collection_allowed(app, monkeypatch):
         res = await client.post(
             "/v1/collections/proj_a/search",
             json={"query": "q"},
-            headers=_scope_headers(["oib_knowledge", "proj_a"], secret="s3cr3t"),
+            headers=_scope_headers(["base_corpus", "proj_a"], secret="s3cr3t"),
         )
 
     assert res.status_code == 200

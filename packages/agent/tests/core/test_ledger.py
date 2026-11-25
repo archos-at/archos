@@ -10,7 +10,7 @@ from agent.core.ledger import read_but_uncited
 def _kb(
     citation_key: str,
     *,
-    collection: str = "oib_knowledge",
+    collection: str = "base_corpus",
     doc_class: str | None = "oib_guideline",
     tool_name: str = "knowledge_tool",
 ) -> SourceEntry:
@@ -69,7 +69,7 @@ class TestReadButUncited:
         wire = read_but_uncited([_kb("oib-rl_2.pdf, p.12")], [])
         assert wire is not None
         entry = wire[0]
-        assert entry["document_id"] == "doc:oib_knowledge:oib-rl_2.pdf"
+        assert entry["document_id"] == "doc:base_corpus:oib-rl_2.pdf"
         assert entry["file_name"] == "oib-rl_2.pdf"
         assert entry["page"] == 12
         assert entry["kind"] == "building_law"

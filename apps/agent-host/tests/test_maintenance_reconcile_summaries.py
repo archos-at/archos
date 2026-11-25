@@ -234,18 +234,18 @@ async def test_fails_per_collection_and_sweeps_the_others(world):
 @pytest.mark.asyncio
 async def test_scopes_to_the_collections_the_caller_names(world):
     world.summaries["proj_a"] = ["ghost.pdf"]
-    world.summaries["oib_knowledge"] = ["ghost.pdf"]
-    world.ingestor = _Ingestor({"proj_a": 1, "oib_knowledge": 1}, {"proj_a": [], "oib_knowledge": []})
+    world.summaries["base_corpus"] = ["ghost.pdf"]
+    world.ingestor = _Ingestor({"proj_a": 1, "base_corpus": 1}, {"proj_a": [], "base_corpus": []})
     world.ingestor = _Ingestor(
-        {"proj_a": 1, "oib_knowledge": 1},
-        {"proj_a": [("live.pdf", FileStatus.SUCCESS)], "oib_knowledge": [("live.pdf", FileStatus.SUCCESS)]},
+        {"proj_a": 1, "base_corpus": 1},
+        {"proj_a": [("live.pdf", FileStatus.SUCCESS)], "base_corpus": [("live.pdf", FileStatus.SUCCESS)]},
     )
 
     result = await reconcile_orphaned_summaries(["proj_a"], dry_run=False)
 
     assert result["collections_scanned"] == 1
     assert world.unregistered == [("proj_a", "ghost.pdf")]
-    assert world.summaries["oib_knowledge"] == ["ghost.pdf"]
+    assert world.summaries["base_corpus"] == ["ghost.pdf"]
 
 
 @pytest.mark.asyncio

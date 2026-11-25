@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
@@ -10,6 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from agent import corpus_store
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
 from agent.knowledge.factory import get_ingestor
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 EnqueueIngestJob = Callable[[Any], bool]
 
-COLLECTION_NAME = os.environ.get("OIB_COLLECTION_NAME") or os.environ.get("COLLECTION_NAME") or "oib_knowledge"
+COLLECTION_NAME = BASE_CORPUS_COLLECTION
 
 SYNC_LOCK_KEY = "oib-sync"
 

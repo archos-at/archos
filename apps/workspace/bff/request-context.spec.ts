@@ -339,11 +339,11 @@ describe('verifyRequestContextEnvelope', () => {
     const { header, signature } = mint({
       organizationId: 'org_1',
       userId: 'user_1',
-      collectionScope: ['oib_knowledge', { collection: 'proj_a_r0123456789ab', shelf: 'project' }],
+      collectionScope: ['base_corpus', { collection: 'proj_a_r0123456789ab', shelf: 'project' }],
       issuedAt: NOW,
     })
     expect(verifyRequestContextEnvelope(header, signature, SECRET, NOW)?.collectionScope).toEqual([
-      'oib_knowledge',
+      'base_corpus',
       'proj_a_r0123456789ab',
     ])
   })
@@ -391,7 +391,7 @@ describe('verifyRequestContextEnvelope', () => {
   })
 
   it('refuses an envelope that names nobody, however well signed', () => {
-    const { header, signature } = mint({ collectionScope: ['oib_knowledge'], issuedAt: NOW })
+    const { header, signature } = mint({ collectionScope: ['base_corpus'], issuedAt: NOW })
     expect(verifyRequestContextEnvelope(header, signature, SECRET, NOW)).toBeNull()
   })
 
@@ -434,7 +434,7 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
       organizationId: 'org_1',
       userId: 'user_1',
       projectId: 'proj_1',
-      collectionScope: ['oib_knowledge'],
+      collectionScope: ['base_corpus'],
       projectContext: 'context',
       projectMemory: 'memory',
       modelOverrides: { shallow_research: 'm' },

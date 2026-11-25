@@ -15,7 +15,7 @@
           {
             "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
             "kind": "building_law",
-            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+            "documentId": "doc:base_corpus:oib-rl_2_ausgabe_mai_2023.pdf"
           },
           {
             "name": "Projektbeschreibung_Haus_Josef.pdf",
@@ -59,7 +59,7 @@
           {
             "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
             "kind": "building_law",
-            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+            "documentId": "doc:base_corpus:oib-rl_2_ausgabe_mai_2023.pdf"
           },
           {
             "name": "Errichtung von Fotovoltaikanlagen (PV-Anlagen)",
@@ -189,7 +189,7 @@
           {
             "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
             "kind": "building_law",
-            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+            "documentId": "doc:base_corpus:oib-rl_2_ausgabe_mai_2023.pdf"
           }
         ],
         "recordsReleased": false
