@@ -80,6 +80,8 @@ export function PhoneTabBar({
         {tabs.map((tab) => (
           <motion.li
             key={tab.key}
+            layout="position"
+            transition={{ layout: springGlide }}
             className="min-w-0 flex-1"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: fade }}
