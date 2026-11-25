@@ -537,6 +537,17 @@ export const chat = {
       previewRetry: 'Try again',
       filed: 'Filed in the project',
       open: 'Open in the project',
+      personal: {
+        file: 'Save to Meine Ablage',
+        fileConflict: 'A file with this name is already in Meine Ablage.',
+        fileAnyway: 'Save under a new name',
+        filed: 'Saved in Meine Ablage',
+        filedIn: 'Saved in Meine Ablage, folder “{folder}”',
+        updated: 'Updated, saved in Meine Ablage',
+        update: 'Update in Meine Ablage',
+        eyebrowFiled: 'In Meine Ablage',
+        open: 'Open in Meine Ablage',
+      },
     },
     fileDraft: {
       revisedFiledNumbered: 'In the project as revision {number} of “{name}”',
