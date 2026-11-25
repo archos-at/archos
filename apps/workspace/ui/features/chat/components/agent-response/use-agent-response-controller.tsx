@@ -47,8 +47,6 @@ import { usePersonalTurnNotes } from '../../stores/turn-notes-store'
 import { answerMetaToAnatomy, summaryDuplicatesBody } from '../../lib/answer-meta-cards'
 import { AnatomyBlock, AnatomyMasthead, mastheadShows } from '../AnswerAnatomy'
 
-import { AnswerFeedback } from '../AnswerFeedback'
-import { RetryThoroughButton } from '../RetryThoroughButton'
 import { AnswerActions } from '../AnswerActions'
 import { CardSlot, forgetArrivals } from '../CardSlotArrival'
 import { projectKeysIn } from '@/lib/text/answer-directives'
@@ -352,22 +350,6 @@ export function useAgentResponseController({
     ]
   )
   const memoryChip = useMemo(() => <MemoryNotedChip items={memoryItems} />, [memoryItems])
-  const feedback = useMemo(
-    () =>
-      hasFeedback && messageId ? (
-        <>
-          {!inert && <RetryThoroughButton messageId={messageId} conversationId={conversationId} />}
-          <AnswerFeedback
-            compact
-            pending={inert}
-            messageId={messageId}
-            conversationId={conversationId}
-          />
-        </>
-      ) : null,
-    [hasFeedback, messageId, conversationId, inert]
-  )
-
   const proseRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const heightRelease = useMotionToken(motionBase)
@@ -628,7 +610,6 @@ export function useAgentResponseController({
     diagramFilingTarget,
     answerActions,
     memoryChip,
-    feedback,
     proseRef,
     frameRef,
     footerReserved,

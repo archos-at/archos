@@ -1,4 +1,4 @@
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { AgentResponse } from './AgentResponse'
@@ -149,7 +149,7 @@ describe('AgentResponse', () => {
       expect(screen.getByText(/^\d{1,2}:\d{2}/)).toBeInTheDocument()
     })
 
-    test("a down-vote opens its disclosure as the meta row's own next line", async () => {
+    test('a down-vote opens its reasons in the footer drawer, under the whole line', async () => {
       const user = userEvent.setup()
       vi.stubGlobal(
         'fetch',
@@ -168,15 +168,61 @@ describe('AgentResponse', () => {
         const thumb = screen.getByRole('button', { name: 'Mark this answer as not helpful' })
         await user.click(thumb)
 
-        const metaRow = screen.getByRole('button', { name: 'Copy' }).closest('.min-h-6')
-        const disclosure = (await screen.findByText('What was the problem?')).closest('.w-full')
-
-        expect(metaRow).toContainElement(disclosure as HTMLElement)
-        expect(thumb.closest('.min-h-6')?.parentElement).toBe(disclosure?.parentElement)
-        expect(disclosure).not.toContainElement(thumb)
+        const drawer = screen.getByTestId('answer-footer-drawer')
+        expect(await within(drawer).findByText('What was the problem?')).toBeInTheDocument()
+        expect(drawer).toHaveAttribute('data-panel', 'reasons')
+        expect(drawer).not.toContainElement(thumb)
       } finally {
         vi.unstubAllGlobals()
       }
+    })
+
+    test('the drawer holds one thing at a time: the down-vote swaps out the open details', async () => {
+      const user = userEvent.setup()
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ feedback: [] }) })
+      )
+      try {
+        render(
+          <AgentResponse
+            content="Answer"
+            messageId="m-swap"
+            conversationId="conv-1"
+            answerConfidence="high"
+            timestamp={new Date('2026-07-17T10:30:00')}
+          />
+        )
+        const trigger = screen.getByTestId('answer-details-trigger')
+        const drawer = screen.getByTestId('answer-footer-drawer')
+
+        await user.click(trigger)
+        expect(trigger).toHaveAttribute('aria-expanded', 'true')
+        await waitFor(() => expect(drawer).toHaveAttribute('data-panel', 'details'))
+
+        const down = screen.getByRole('button', { name: 'Mark this answer as not helpful' })
+        await user.click(down)
+        expect(trigger).toHaveAttribute('aria-expanded', 'false')
+        await waitFor(() => expect(drawer).toHaveAttribute('data-panel', 'reasons'))
+        expect(within(drawer).queryByText('Confidence: high')).not.toBeInTheDocument()
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
+    test('Escape shuts the drawer', async () => {
+      const user = userEvent.setup()
+      render(
+        <AgentResponse content="Answer" answerConfidence="high" timestamp={new Date('2026-07-17T10:30:00')} />
+      )
+      const trigger = screen.getByTestId('answer-details-trigger')
+      await user.click(trigger)
+      await user.keyboard('{Escape}')
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      await waitFor(() =>
+        expect(screen.getByTestId('answer-footer-drawer')).not.toHaveAttribute('data-panel')
+      )
     })
 
     test('the export actions, the thumbs and the details trigger share the wrapping meta row', () => {

@@ -33,7 +33,11 @@ vi.mock('../store', () => ({
 }))
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-vi.mock('./AnswerFeedback', () => ({ AnswerFeedback: () => null }))
+vi.mock('./AnswerFeedback', () => ({
+  AnswerFeedback: () => null,
+  AnswerFeedbackThumbs: () => null,
+  AnswerFeedbackReasons: () => null,
+}))
 
 const animations = vi.hoisted(() => [] as { keyframes: unknown; stops: number }[])
 vi.mock('motion/react', async (importOriginal) => {

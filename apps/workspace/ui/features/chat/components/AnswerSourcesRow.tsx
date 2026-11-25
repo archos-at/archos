@@ -21,6 +21,7 @@ import { isPrecedent } from '../lib/precedent'
 import { SourcePreviewChip } from './SourcePreview'
 import { useCitationScope } from './CitationScope'
 import { useCurrentProject } from '@/features/projects/lib/current-project'
+import { useAnswerFooter } from './agent-response/footer-context'
 
 interface AnswerSourcesRowProps {
   documents: CitedDocument[]
@@ -29,7 +30,8 @@ interface AnswerSourcesRowProps {
   isStreaming?: boolean
   withDivider?: boolean
   /** `strip`: one line that scrolls sideways, for the answer footer's single row. */
-  layout?: 'wrap' | 'strip'
+  /** `list`: every source, wrapped, with no label: the footer drawer's full list. */
+  layout?: 'wrap' | 'strip' | 'list'
 }
 
 const MAX_ANSWER_SOURCES = 8
@@ -92,6 +94,8 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
   const [expanded, setExpanded] = useState(false)
   const [overflowing, setOverflowing] = useState(false)
   const strip = layout === 'strip'
+  const footer = useAnswerFooter()
+  const listOpen = footer?.panel === 'sources'
   const rowRef = useRef<HTMLDivElement>(null)
   useHeightGlide(rowRef, expanded)
   const [arrivesLive] = useState(isStreaming)
@@ -103,7 +107,7 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
   const rest = documents.filter((doc) => citationNumbers(doc).length === 0)
   const folded = Math.max(0, MAX_ANSWER_SOURCES - numbered.length)
   const collapsed = [...numbered, ...rest.slice(0, folded)]
-  const shown = expanded || strip ? documents : collapsed
+  const shown = expanded || layout !== 'wrap' ? documents : collapsed
   const revealedIds = expanded && !strip ? new Set(documents.filter((doc) => !collapsed.includes(doc)).map((doc) => doc.id)) : null
   const hidden = documents.length - shown.length
   const display: CitedDocument[] = shown
@@ -185,45 +189,48 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
         )
   })
 
+  if (layout === 'list') {
+    return (
+      <div role="list" aria-label={t('answerSources.ariaLabel')} className="flex flex-wrap gap-1.5">
+        {chips}
+      </div>
+    )
+  }
+
   if (strip) {
     return (
-      <div
-        ref={rowRef}
-        className={cn('flex min-w-0 items-center gap-1.5', expanded && 'flex-wrap', entrance)}
-      >
+      <div className={cn('flex min-w-0 flex-1 items-center gap-1.5', entrance)}>
         <SectionLabel>{t('answerSources.label')}</SectionLabel>
-        {(overflowing || expanded) && (
+        {footer && (overflowing || listOpen) && (
           <button
             data-attr="answer-sources-count"
             type="button"
-            onClick={() => setExpanded((open) => !open)}
-            aria-expanded={expanded}
+            onClick={() => footer.send({ type: 'toggle', panel: 'sources' })}
+            aria-expanded={listOpen}
+            aria-controls={listOpen ? footer.drawerId : undefined}
             aria-label={
-              expanded
+              listOpen
                 ? t('answerSources.less')
                 : t('answerSources.showAll', { count: documents.length })
             }
             data-testid="answer-sources-count"
-            className="rounded-control text-muted-foreground duration-quick hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 inline-flex h-5 min-w-5 shrink-0 items-center justify-center px-1 text-xs font-medium tabular-nums transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+            className={cn(
+              'rounded-control text-muted-foreground duration-quick hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 inline-flex h-5 min-w-5 shrink-0 items-center justify-center px-1 text-xs font-medium tabular-nums transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+              listOpen && 'bg-hover text-foreground'
+            )}
           >
             {documents.length}
           </button>
         )}
-        {expanded ? (
-          <div role="list" aria-label={t('answerSources.ariaLabel')} className="contents">
+        <HorizontalScroll
+          aria-label={t('answerSources.ariaLabel')}
+          onOverflowChange={setOverflowing}
+          className="scrollbar-hide min-w-0 flex-1"
+        >
+          <div role="list" aria-label={t('answerSources.ariaLabel')} className="flex gap-1.5 [&>*]:shrink-0">
             {chips}
           </div>
-        ) : (
-          <HorizontalScroll
-            aria-label={t('answerSources.ariaLabel')}
-            onOverflowChange={setOverflowing}
-            className="scrollbar-hide min-w-0 flex-1"
-          >
-            <div role="list" aria-label={t('answerSources.ariaLabel')} className="flex gap-1.5 [&>*]:shrink-0">
-              {chips}
-            </div>
-          </HorizontalScroll>
-        )}
+        </HorizontalScroll>
       </div>
     )
   }
