@@ -470,6 +470,7 @@ describe('AnswerFeedbackHealth — breakdowns', () => {
     expect(within(rows[0]).getByRole('button', { name: 'Planwerk Graz' })).toBeInTheDocument()
     expect(within(rows[0]).queryByText('org_big')).toBeNull()
     expect(within(rows[1]).getByRole('button', { name: 'org_tiny' })).toBeInTheDocument()
+    for (const row of rows) expect(within(row).getByRole('button')).toHaveClass('pointer-coarse:leading-11')
   })
 
   it('withholds a percentage from an organization with too few votes', async () => {
