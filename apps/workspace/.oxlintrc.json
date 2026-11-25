@@ -156,6 +156,11 @@
         // See eslint-rules/touch-target.mjs.
         "grid/touch-target": "error",
 
+        // useIsMobile() is false on the server, so a tree it picks paints the
+        // desktop layout on a phone and swaps after hydration (the search
+        // register, 2026-11-25). See eslint-rules/layout-before-paint.mjs.
+        "grid/layout-before-paint": "error",
+
         // The other half of the tenant boundary, and the half row-level
         // security cannot backstop: `getCached` answers from the store BEFORE
         // the loader runs, so an unpartitioned key never reaches a tenant scope
