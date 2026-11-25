@@ -51,7 +51,7 @@ function AttentionFilters({ counts, value, onChange }: { counts: EntryCounts; va
           onClick={() => onChange(key)}
           data-testid={`base-knowledge-attention-${key ?? 'all'}`}
           className={cn(
-            'text-name focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 transition-colors duration-quick focus-visible:outline-none focus-visible:ring-2',
+            'text-name focus-visible:ring-ring inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 pointer-coarse:h-11 transition-colors duration-quick focus-visible:outline-none focus-visible:ring-2',
             value === key ? 'bg-desk text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
           )}
         >

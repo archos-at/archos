@@ -152,6 +152,10 @@
         // See eslint-rules/field-focus-inside.mjs.
         "grid/field-focus-inside": "error",
 
+        // A control a finger presses is 44px on a touch screen.
+        // See eslint-rules/touch-target.mjs.
+        "grid/touch-target": "error",
+
         // The other half of the tenant boundary, and the half row-level
         // security cannot backstop: `getCached` answers from the store BEFORE
         // the loader runs, so an unpartitioned key never reaches a tenant scope

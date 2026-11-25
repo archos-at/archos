@@ -24,7 +24,7 @@ export interface ComposerMetrics {
   }
 }
 
-export function useComposerMetrics(isThreadEmpty: boolean): ComposerMetrics {
+export function useComposerMetrics(isThreadEmpty: boolean, keyboardUp = false): ComposerMetrics {
   const [composerHeight, setComposerHeight] = useState<number | null>(null)
   const [columnHeight, setColumnHeight] = useState<number | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
@@ -59,7 +59,7 @@ export function useComposerMetrics(isThreadEmpty: boolean): ComposerMetrics {
 
   const measured = composerHeight != null && columnHeight != null
 
-  const restLift = measured
+  const restLift = measured && !keyboardUp
     ? Math.max(0, Math.round((columnHeight - composerHeight - COMPOSER_GAP_PX - GREETING_H_PX) / 2))
     : 0
   const composerLift = isThreadEmpty ? restLift : 0

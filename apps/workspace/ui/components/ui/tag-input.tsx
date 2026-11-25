@@ -92,7 +92,7 @@ export function TagInput({
         if (event.target === event.currentTarget) inputRef.current?.focus()
       }}
       className={cn(
-        'flex min-h-10 w-full min-w-0 flex-wrap items-center gap-1.5 rounded-control border px-2 py-1.5 text-sm',
+        'flex min-h-10 pointer-coarse:min-h-11 w-full min-w-0 flex-wrap items-center gap-1.5 rounded-control border px-2 py-1.5 text-sm',
         'transition-[color,opacity] duration-quick ease-out motion-reduce:transition-none',
         readOnly ? 'border-dashed bg-transparent' : 'border-input bg-input-background',
         !readOnly && FIELD_FOCUS_WITHIN_RING,

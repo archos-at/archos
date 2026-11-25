@@ -276,17 +276,6 @@ workspace:
   - 'tests/fixtures/base-knowledge/turn_law_austria.json'
   - 'tests/fixtures/golden/scoring_parity.json'
   # End of the files this tier's tests read.
-phone:
-  - '.node-version'
-  - 'apps/workspace/**'
-  - 'ci/phone-audit-baseline.json'
-  - 'packages/brand/**'
-  - 'Taskfile.yml'
-  - 'taskfiles/workspace.yml'
-  - '.github/workflows/ci.yml'
-  - '.github/filters.yml'
-  - '.github/actions/setup-bun/**'
-  - '.github/actions/setup-task/**'
 site:
   # The Node version every job of this tier runs on (setup-node reads it).
   - '.node-version'

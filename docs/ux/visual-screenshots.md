@@ -195,10 +195,11 @@ PNG, JPEG, GIF, WebP, SVG, MP4, MOV and WebM all work.
 | `visual/screenshots.manifest.json` staleness gate | nothing. A capture is taken against the branch under review, so it cannot go stale |
 | `workspace:touch-audit` | `task workspace:phone-audit`, which discovers the routes from `app/dev/` |
 
-The touch audit came back as `scripts/phone-audit.mjs`, a CI gate: every `/dev`
-route at 390 and 360 with a touch screen, failing on a page wider than the
-phone and on a control under 44x44 that `ci/phone-audit-baseline.json` does not
-list. Scroll traps are not measured again. `mobile-affordances.spec.ts` still
+The touch audit came back as `scripts/phone-audit.mjs`, run by hand (a CI gate
+until 2026-11-25, when the lint rule `grid/touch-target` took over the 44px
+floor): every `/dev` route at 390 and 360 with a touch screen, failing on a page
+wider than the phone and on a control under 44x44 that
+`ci/phone-audit-baseline.json` does not list. Scroll traps are not measured again. `mobile-affordances.spec.ts` still
 holds the static half of the contract.
 
 ## Agents

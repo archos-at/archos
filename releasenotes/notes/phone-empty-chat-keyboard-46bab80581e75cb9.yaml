@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On an iPhone, tapping into the input of an empty chat no longer lets it
+    drift down the screen: the input stands right above the keyboard, as in
+    a chat that has started.
