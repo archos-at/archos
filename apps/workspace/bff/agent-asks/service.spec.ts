@@ -191,6 +191,19 @@ describe('askAgent', () => {
     expect(created?.visibility).toBeUndefined()
   })
 
+  it('starts a conversation without a project on the person’s personal side, unless personal is false', async () => {
+    await askAgent(SESSION, { question: 'Was gilt zur OIB 2?' }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[0]?.[0]).toMatchObject({ projectId: null, startedInPersonal: true })
+
+    await askAgent(SESSION, { question: 'Was gilt zur OIB 2?', personal: false }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[1]?.[0]).toMatchObject({ projectId: null, startedInPersonal: false })
+  })
+
+  it('never starts a project’s conversation on the personal side, whatever personal says', async () => {
+    await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?', projectId: PROJECT, personal: true }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[0]?.[0]).toMatchObject({ projectId: PROJECT, startedInPersonal: false })
+  })
+
   it('writes the question as the person’s message under the ask’s id, which is the turn’s id', async () => {
     await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 })
     const [message] = vi.mocked(insertMessages).mock.calls[0]?.[0] ?? []

@@ -149,7 +149,9 @@ answers as you, with your rights, and may file a document while it answers
   conversation of the first question.
 - **You can read along.** Every question your agent asks lands in a private
   conversation of yours in ARCHOS, with ARCHOS's answer, like one you typed.
-  Nobody else sees it unless you share it.
+  Nobody else sees it unless you share it. A question without a project lands
+  under Persönlich, where ARCHOS may also read your Meine Ablage; the agent
+  can pass `personal: false` to keep it out of Persönlich.
 - **ARCHOS does not ask itself.** ARCHOS, inside the product, cannot use this to
   ask ARCHOS, and an answer ARCHOS is giving to your agent cannot start another
   one.
