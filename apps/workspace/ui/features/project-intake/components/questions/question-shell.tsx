@@ -3,7 +3,7 @@
 import type { JSX, ReactNode } from 'react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { DesktopLayoutOnly } from '@/components/ui/layout-only'
-import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
 import { useTranslations } from '@/i18n'
 import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step'
 import { ASIDE_ACTION_CLASS, PRIMARY_ACTION_CLASS, StepFooter, type StepProgress } from '../setup-frame'

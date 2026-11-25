@@ -20,12 +20,6 @@ const getSnapshot = (): boolean => window.matchMedia(MOBILE_LAYOUT_QUERY).matche
 
 const getServerSnapshot = (): boolean => false
 
-const getUnknownSnapshot = (): null => null
-
 export function useIsMobile(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-}
-
-export function useIsMobileOnceKnown(): boolean | null {
-  return useSyncExternalStore(subscribe, getSnapshot, getUnknownSnapshot)
 }
