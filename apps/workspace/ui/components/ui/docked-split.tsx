@@ -277,6 +277,12 @@ function glide(
     }
   }
   if (seam && canAnimate(seam)) motions.push(seam.animate([{ width: from.seam }, opening ? {} : { width: '0px' }], options))
+  for (const motion of motions) motion.pause()
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      for (const motion of motions) if (motion.playState === 'paused') motion.startTime = document.timeline.currentTime
+    }),
+  )
   return motions
 }
 

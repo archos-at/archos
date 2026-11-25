@@ -32,7 +32,9 @@ ADR's to say.
    width and slides in or out under the group's clip. The page column resizes
    with it frame by frame, so a centred chat never steps sideways; a transform
    cannot do that, because the composer's own width changes. Closing keeps the
-   real panel in the row, inert, until the glide ends. Under reduced motion, or
+   real panel in the row, inert, until the glide ends. The glide is held at
+   its first keyframe for one painted frame and its clock starts on the next
+   (`gotchas.md`, search `stale time`), so a slow commit cannot eat its start. Under reduced motion, or
    with `slide={false}` for an open the reader did not make, the row changes
    once. Add no entrance of your own on top. `docked-split.spec.tsx` holds
    both directions.

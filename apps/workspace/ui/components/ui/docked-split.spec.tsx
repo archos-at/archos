@@ -194,10 +194,12 @@ interface Glide {
   options: KeyframeAnimationOptions
   finish: () => void
   cancelled: boolean
+  state: AnimationPlayState
 }
 
 function recordGlides(): Glide[] {
   const glides: Glide[] = []
+  Object.defineProperty(document, 'timeline', { configurable: true, value: { currentTime: 0 } })
   Object.defineProperty(HTMLElement.prototype, 'animate', {
     configurable: true,
     writable: true,
@@ -209,12 +211,22 @@ function recordGlides(): Glide[] {
         abort = reject
       })
       finished.catch(() => {})
-      const glide: Glide = { target: this, keyframes, options, finish: () => {}, cancelled: false }
+      const glide: Glide = { target: this, keyframes, options, finish: () => {}, cancelled: false, state: 'running' }
       const motion = {
         finished,
+        get playState() {
+          return glide.state
+        },
+        pause: () => {
+          glide.state = 'paused'
+        },
+        set startTime(_: CSSNumberish | null) {
+          glide.state = 'running'
+        },
         cancel: () => {
           if (glide.cancelled) return
           glide.cancelled = true
+          glide.state = 'idle'
           abort(new DOMException('cancelled', 'AbortError'))
         },
       } as unknown as Animation
@@ -232,6 +244,7 @@ const growOf = (glides: Glide[], id: string): string | undefined =>
 describe('DockedSplit moving the row', () => {
   afterEach(() => {
     delete (HTMLElement.prototype as { animate?: unknown }).animate
+    delete (document as { timeline?: unknown }).timeline
   })
 
   it('glides the page wider as the panel shuts, the real panel in the row until it has gone', async () => {
@@ -247,7 +260,7 @@ describe('DockedSplit moving the row', () => {
 
     expect(Number(growOf(glides, 'file-ask-page'))).toBeCloseTo((1120 / 1440) * 100, 1)
     expect(Number(growOf(glides, 'file-ask-panel'))).toBeCloseTo((320 / 1440) * 100, 1)
-    expect(glides.every((glide) => glide.options.duration! > 0)).toBe(true)
+    expect(glides.every((glide) => Number(glide.options.duration) > 0)).toBe(true)
     expect(widthOf('file-ask-page')).toBe(1440)
     expect(document.getElementById('file-ask-panel')?.textContent).toBe('file')
     expect(document.querySelector('[data-separator]')).not.toBeNull()
@@ -260,14 +273,21 @@ describe('DockedSplit moving the row', () => {
     expect(glides.every((glide) => glide.cancelled)).toBe(true)
   })
 
-  it('glides the page narrower as the panel opens, from the row it had', () => {
+  it('glides the page narrower as the panel opens, from the row it had, its clock started a frame after the open row is painted', () => {
     const glides = recordGlides()
     rootWidths.set('start-dock', 1440)
     const { rerender } = render(<Shell peekOpen={false} />)
     deliverResizes()
 
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame'] })
     rerender(<Shell peekOpen />)
 
+    expect(glides.map((glide) => glide.state)).toEqual(glides.map(() => 'paused'))
+    vi.advanceTimersToNextFrame()
+    expect(glides.map((glide) => glide.state)).toEqual(glides.map(() => 'paused'))
+    vi.advanceTimersToNextFrame()
+    vi.useRealTimers()
+    expect(glides.map((glide) => glide.state)).toEqual(glides.map(() => 'running'))
     expect(Number(growOf(glides, 'file-ask-page'))).toBe(100)
     expect(Number(growOf(glides, 'file-ask-panel'))).toBe(0)
     expect(widthOf('file-ask-panel')).toBe(320)
