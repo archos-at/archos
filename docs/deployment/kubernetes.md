@@ -2513,7 +2513,7 @@ deliberate non-goal here (§10), not an oversight.
 **green CI push run** on `develop`: a run that passed every check and tagged
 the commit's three images ([ci.md](../contributing/ci.md#images-and-deploys)).
 Before `pulumi up` it runs a **preflight** that the committed stack file is
-configured (see below), `tsc --noEmit` (typed manifests), and two checks on the
+configured (see below), `bun check` (typed manifests, TypeScript 7), and two checks on the
 *same commit* the apply runs: `scripts/validate-crs.mjs` (schema-validates
 every CustomResource against the real upstream CRD schemas) and the
 **CrossGuard policy pack** (§7c). The plan is previewed with the same image

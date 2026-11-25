@@ -62,6 +62,13 @@ const FIXTURES = {
   ].join('\n'),
   'app/api/internal/usage/route.ts': "import { db } from '@/lib/db'\nexport const handle = db",
   'ui/features/cards/schematics/kit.tsx': "export const size = 'text-sm'",
+  'ui/canary-layout.tsx': [
+    "import { useIsMobile } from '@/hooks/use-is-mobile'",
+    'export function Register() {',
+    '  const isMobile = useIsMobile()',
+    '  return isMobile ? <ul /> : <table />',
+    '}',
+  ].join('\n'),
   'tests/canary.test.ts': 'export const fixture: any = {}',
   'bff/canary-repository.ts': "import { projects } from '@/lib/db/schema'\nexport const table = projects",
   'bff/canary-table.ts': "import { projects } from '@/lib/db/schema/projects'\nexport const table = projects",
@@ -82,6 +89,7 @@ const EXPECTED = [
   ['app/api/canary/route.ts', 'eslint(no-restricted-imports)'],
   ['bff/canary-repository.ts', 'eslint(no-restricted-imports)'],
   ['ui/features/cards/schematics/kit.tsx', 'grid(card-type-scale)'],
+  ['ui/canary-layout.tsx', 'grid(layout-before-paint)'],
   ['tests/canary.test.ts', 'typescript(no-explicit-any)'],
 ]
 

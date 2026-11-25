@@ -3,7 +3,7 @@
 import { type CSSProperties, type FC, useCallback, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useShallow } from 'zustand/react/shallow'
-import { useIsMobile } from '@/hooks/use-is-mobile'
+import { MobileLayoutOnly } from '@/components/ui/layout-only'
 import { ChatToolbar } from './ChatToolbar'
 import { SessionsPanel } from './SessionsPanel'
 import { ChatArea } from './ChatArea'
@@ -76,7 +76,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   const deleteAllConversations = useChatStore((s) => s.deleteAllConversations)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
 
-  const isMobile = useIsMobile()
   const peekedFile = useFilePreviewStore((s) => s.file)
   const previewHidden = useFilePreviewStore((s) => s.hidden)
   const previewMode = useFilePreviewStore((s) => s.mode)
@@ -179,19 +178,21 @@ export const MainLayout: FC<MainLayoutProps> = ({
             onHeightChange={setToolbarHeight}
           />
 
-          {isMobile && peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
-            <button data-attr="chat-expand-file"
-              type="button"
-              onClick={expandFile}
-              className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))] sm:top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
-            >
-              <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                {documentDisplayName(peekedFile)}
-              </span>
-              <span className="text-muted-foreground shrink-0 text-xs">
-                {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
-              </span>
-            </button>
+          {peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
+            <MobileLayoutOnly>
+              <button data-attr="chat-expand-file"
+                type="button"
+                onClick={expandFile}
+                className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))] sm:top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
+              >
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {documentDisplayName(peekedFile)}
+                </span>
+                <span className="text-muted-foreground shrink-0 text-xs">
+                  {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
+                </span>
+              </button>
+            </MobileLayoutOnly>
           )}
 
           {/* A chat the reader may no longer read whole (ADR-0088) has no

@@ -92,7 +92,7 @@ export function AppShellChrome({
       data-tab-bar={tabBarShown ? 'shown' : 'hidden'}
       data-keyboard={keyboardUp ? 'up' : undefined}
       className={cn(
-        'bg-background text-foreground flex h-[var(--visual-viewport-height,100dvh)] overflow-hidden',
+        'bg-background text-foreground relative top-[var(--visual-viewport-top,0px)] flex h-[var(--visual-viewport-height,100dvh)] overflow-hidden',
         'flex-col md:flex-row',
         '[--shell-inset-bottom:env(safe-area-inset-bottom)] data-[keyboard=up]:[--shell-inset-bottom:0px] max-md:data-[tab-bar=shown]:[--shell-inset-bottom:0px] max-md:[--chat-inset-top:0px]',
       )}

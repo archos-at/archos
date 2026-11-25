@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChatThinking } from '@/features/chat'
 import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
@@ -23,6 +23,13 @@ import { turnEnding, NO_MESSAGES, welcomeEntrance } from '../chat-area/chat-area
 import type { ChatAreaController } from './use-chat-area-controller'
 
 export function ChatMessageList({ controller }: { controller: ChatAreaController }) {
+  const threadKey = controller.currentConversation?.id ?? 'draft'
+  const [mountedOn] = useState(threadKey)
+  const shownThread = useRef(threadKey)
+  const switchedFrom = shownThread.current === threadKey && threadKey === mountedOn ? null : shownThread.current
+  useEffect(() => {
+    shownThread.current = threadKey
+  }, [threadKey])
   const [typingAtMount, setTypingAtMount] = useState(controller.showTypingPlaceholder)
   if (typingAtMount && !controller.showTypingPlaceholder) setTypingAtMount(false)
   const handback = controller.handback
@@ -98,11 +105,14 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                             presence, so the rows of the thread left are gone in the
                             same commit. Keyed per row only, they all played their exit
                             for 180 ms beside the new thread's rows. */}
-                <AnimatePresence
-                  key={controller.currentConversation?.id ?? 'draft'}
-                  initial={false}
-                  presenceAffectsLayout={false}
+                <motion.div
+                  key={threadKey}
+                  className="flex flex-col gap-4"
+                  initial={switchedFrom === null ? false : { opacity: 0 }}
+                  animate={{ opacity: 1, transition: controller.arrivalFade }}
+                  data-testid="thread-turns"
                 >
+                <AnimatePresence initial={false} presenceAffectsLayout={false}>
                   {controller.displayableMessages.map((message) => {
                     const isUserMessage = message.messageType === 'user' || message.role === 'user'
                     const messageSteps = isUserMessage
@@ -307,6 +317,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     )
                   })}
                 </AnimatePresence>
+                </motion.div>
 
                 {/* The routing rule for a message that tags nobody (ADR-0036).
                     In `mention` mode it states the rule where the question occurs —

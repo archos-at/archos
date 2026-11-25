@@ -579,6 +579,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+            "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
             "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
           }
@@ -629,6 +637,14 @@
           "text": {
             "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
             "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the app installed on an iPhone, the chat no longer drifts down after you tap into the input: the top row stays in view and the input stands right above the keyboard.",
+            "de": "In der auf einem iPhone installierten App rutscht der Chat nicht mehr nach unten, wenn Sie das Eingabefeld antippen: Die oberste Zeile bleibt sichtbar und das Eingabefeld befindet sich direkt über der Tastatur."
           }
         },
         {
@@ -859,6 +875,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, the questions while setting up a project no longer show the desktop buttons under each question for a moment before the page settles.",
+            "de": "Beim Einrichten eines Projekts werden auf dem Smartphone unter jeder Frage nicht mehr kurz die Desktop-Buttons angezeigt, bevor sich die Seite eingependelt hat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }
@@ -893,6 +917,14 @@
           "text": {
             "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
             "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+            "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
           }
         },
         {
@@ -955,6 +987,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
+            "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
             "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
           }
@@ -1005,6 +1045,14 @@
           "text": {
             "en": "Deleting a folder in the Bürobibliothek no longer moves its documents into the folder above; they go to the bin with it. A topic of Normen & Richtlinien still moves its norms up a level, and a norm is still removed from there.",
             "de": "Wer in der Bürobibliothek einen Ordner löscht, verschiebt seine Dokumente nicht mehr in den Ordner darüber; sie kommen mit ihm in den Papierkorb. Ein Thema in Normen & Richtlinien verschiebt seine Normen weiterhin eine Ebene nach oben, und eine Norm wird weiterhin dort entfernt."
+          }
+        },
+        {
+          "section": "other",
+          "area": "general",
+          "text": {
+            "en": "The privacy policy now also names the two cookies the application keeps for its display: the area you last worked in, and whether a chat will be resumed when you open it.",
+            "de": "Die Datenschutzerklärung nennt jetzt auch die beiden Cookies, die die Anwendung für ihre Darstellung speichert: den Bereich, in dem Sie zuletzt gearbeitet haben, und ob ein Chat beim Öffnen fortgesetzt wird."
           }
         }
       ]
