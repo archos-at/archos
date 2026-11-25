@@ -107,7 +107,7 @@ export function useInk(content: string, enabled: boolean): readonly InkRun[] {
     const kept = content.startsWith(ink.content) ? ink.runs : NO_INK
     setInk(on ? nextInk(ink, content, performance.now()) : { content, runs: kept })
   }
-  return ink.runs
+  return reduced ? NO_INK : ink.runs
 }
 
 const playing = new WeakMap<HTMLElement, { born: number; animation: Animation }>()
