@@ -541,7 +541,9 @@ in `features/chat/lib/stream-pace.ts`):
   fade it painted every frame (330/s). The veil keeps fps at 57–58, long
   tasks at 2–4 and main thread at 550 ms/s (2026-09).
 - It cuts only at a word gap outside an open `**`, link, code span, fence or
-  table row; a table row appears whole. The search for the next clean cut is
+  table cell; a table row fills cell by cell, each cell whole, and the cells
+  of a table that streams here stand at the top of their row, so a row still
+  filling moves none of its cells. The search for the next clean cut is
   one forward walk that keeps running counts of what `isCleanCut` reads
   (`cleanCutsAfter`): asked position by position, it re-read the whole prefix
   per character inside an open fence, 6.9 ms a frame on a desktop for 3.5k of
@@ -556,7 +558,16 @@ in `features/chat/lib/stream-pace.ts`):
   the first row comes. A row with no cell written yet (`| `) is not a clean
   cut either: it drew as a blank row whose cells then grew one by one, each
   step pushing everything below it down (64 → 84 → 87 → 90 px on a phone,
-  stream audit 2026-10). A check table reserves its status tally's line from
+  stream audit 2026-10). The shape that header and first row decide is the
+  table's for as long as it stays on the page (`table-renderers.tsx`): its
+  stacking (`data-stack`, which `table-shape.ts` would otherwise switch to
+  `always` the moment a later row brings a sentence, restacking the whole
+  table from 420 to 775 px in one frame) and its columns (`useStreamedColumns`:
+  a `<colgroup>` measured before the first paint, and `table-layout: fixed`,
+  so a long cell in a later row cannot narrow the others and rewrap every
+  row). Together they were CLS 0.093 of 0.109 on
+  `/dev/stream-replay?fixture=varianten` at 1280 (2026-11). A table opened
+  already written keeps the automatic layout and its own stacking. A check table reserves its status tally's line from
   its header on and draws no tally while rows arrive, so the chips fade into
   that line when the table closes. One that closes with no tally keeps the
   empty line where it streamed; dropping it pulled the rows up the moment the

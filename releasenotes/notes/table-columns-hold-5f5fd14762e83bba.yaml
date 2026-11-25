@@ -1,0 +1,6 @@
+---
+# area: answers
+fixes:
+  - >
+    A table in an answer keeps its columns while its rows arrive, so the rows
+    you are reading no longer jump as later ones come in.

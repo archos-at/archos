@@ -132,7 +132,7 @@ export default function StreamReplayPage() {
 
   return (
     <main className="bg-background min-h-screen p-6">
-      <div className="text-muted-foreground mb-4 font-mono text-xs">
+      <div className="text-muted-foreground mb-4 truncate font-mono text-xs">
         /dev/stream-replay?fixture={name} · phase: {view.phase} · {events.length} events
       </div>
       <div data-replay-answer className="mx-auto w-full max-w-[760px]">
