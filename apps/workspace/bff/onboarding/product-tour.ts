@@ -2,7 +2,7 @@ export type TourId = 'welcome' | 'project'
 
 export const TOUR_QUERY_PARAM = 'tour'
 
-export const TOUR_HOME = '/app/projects'
+export const TOUR_HOME = '/app/personal/chat'
 
 export function tourStartUrl(path: string, tour: TourId): string {
   return `${path}?${TOUR_QUERY_PARAM}=${tour}`
@@ -15,7 +15,10 @@ export function projectTourUrl(projectId: string): string {
 }
 
 export const TOUR_ANCHORS = {
-  createProject: 'create-project',
+  sides: 'side-switch',
+  sidesPhone: 'side-switch-phone',
+  projects: 'projects',
+  projectSwitcher: 'project-switcher',
   inbox: 'inbox',
   account: 'account-menu',
   sectionChat: 'section-chat',
@@ -56,49 +59,60 @@ export interface TourStop {
   gate?: 'canAccessOfficeShelf' | 'canAccessInbox'
   arrivalId?: string
   memberId?: string
-  phone?: { id: string; anchor?: TourAnchor; placement?: TourPlacement; memberId?: string }
+  shelflessId?: string
+  phone?: { id: string; anchor?: TourAnchor; placement?: TourPlacement; memberId?: string; shelflessId?: string } | null
 }
 
 export interface PlacedTourStop extends TourStop {
   side?: TourSide
   shiftX?: number
+  middleY?: number
 }
 
 const WELCOME_STOPS: readonly TourStop[] = [
   { id: 'welcome', arrivalId: 'welcomeJoined' },
-  { id: 'createProject', anchor: TOUR_ANCHORS.createProject, placement: 'below', arrivalId: 'createProjectJoined' },
   {
-    id: 'officeShelf',
-    anchor: TOUR_ANCHORS.sectionOfficeShelf,
+    id: 'sides',
+    anchor: TOUR_ANCHORS.sides,
     placement: 'beside',
-    gate: 'canAccessOfficeShelf',
-    phone: { id: 'officeShelfPhone', anchor: TOUR_ANCHORS.more },
+    phone: { id: 'sidesPhone', anchor: TOUR_ANCHORS.sidesPhone, placement: 'below' },
   },
+  {
+    id: 'projects',
+    anchor: TOUR_ANCHORS.projects,
+    placement: 'beside',
+    arrivalId: 'projectsJoined',
+    phone: { id: 'morePhone', anchor: TOUR_ANCHORS.more, shelflessId: 'morePhoneShelfless' },
+  },
+  { id: 'officeShelf', anchor: TOUR_ANCHORS.sectionOfficeShelf, placement: 'beside', gate: 'canAccessOfficeShelf', phone: null },
   { id: 'inbox', anchor: TOUR_ANCHORS.inbox, placement: 'beside', gate: 'canAccessInbox' },
-  {
-    id: 'account',
-    anchor: TOUR_ANCHORS.account,
-    placement: 'beside',
-    memberId: 'accountMember',
-    phone: { id: 'accountPhone', memberId: 'accountMemberPhone', anchor: TOUR_ANCHORS.more },
-  },
-  { id: 'shortcuts', phone: { id: 'searchPhone', anchor: TOUR_ANCHORS.more } },
+  { id: 'search', anchor: TOUR_ANCHORS.search, placement: 'beside', phone: null },
+  { id: 'account', anchor: TOUR_ANCHORS.account, placement: 'beside', memberId: 'accountMember', phone: null },
 ]
 
 const PROJECT_STOPS: readonly TourStop[] = [
   { id: 'projectWelcome', arrivalId: 'projectWelcomeJoined' },
-  { id: 'projectChat', anchor: TOUR_ANCHORS.sectionChat, placement: 'beside' },
+  {
+    id: 'projectChat',
+    anchor: TOUR_ANCHORS.sectionChat,
+    placement: 'beside',
+    phone: { id: 'projectChatPhone', anchor: TOUR_ANCHORS.sectionChat },
+  },
   { id: 'projectFiles', anchor: TOUR_ANCHORS.sectionFiles, placement: 'beside' },
   {
-    id: 'projectOfficeShelf',
+    id: 'filesOrOfficeShelf',
     anchor: TOUR_ANCHORS.sectionOfficeShelf,
     placement: 'beside',
     gate: 'canAccessOfficeShelf',
-    phone: { id: 'projectOfficeShelfPhone', anchor: TOUR_ANCHORS.more },
+    phone: { id: 'filesOrOfficeShelfPhone', anchor: TOUR_ANCHORS.more },
   },
-  { id: 'filesOrOfficeShelf', gate: 'canAccessOfficeShelf' },
   { id: 'projectSources' },
-  { id: 'projectSettings', anchor: TOUR_ANCHORS.sectionSettings, placement: 'beside' },
+  {
+    id: 'projectSettings',
+    anchor: TOUR_ANCHORS.projectSwitcher,
+    placement: 'beside',
+    phone: { id: 'projectSettingsPhone', anchor: TOUR_ANCHORS.sectionSettings },
+  },
 ]
 
 export const TOURS: Record<TourId, readonly TourStop[]> = {
@@ -106,13 +120,13 @@ export const TOURS: Record<TourId, readonly TourStop[]> = {
   project: PROJECT_STOPS,
 }
 
-export const ARRIVAL_ANCHOR: Record<TourId, TourAnchor | null> = {
-  welcome: TOUR_ANCHORS.createProject,
-  project: null,
+export const ARRIVAL_ANCHOR: Record<TourId, readonly TourAnchor[]> = {
+  welcome: [TOUR_ANCHORS.sides, TOUR_ANCHORS.sidesPhone],
+  project: [],
 }
 
 export function tourForPath(pathname: string): TourId | null {
-  if (pathname === TOUR_HOME) return 'welcome'
+  if (pathname === TOUR_HOME || pathname.startsWith(`${TOUR_HOME}/`)) return 'welcome'
   if (/^\/app\/projects\/[^/]+(\/|$)/.test(pathname)) return 'project'
   return null
 }
@@ -174,6 +188,15 @@ export function cardShift(box: AnchorBox, viewport: Viewport): number {
   return clamped - left
 }
 
+// nextstepjs 2.3.0 flips `right-top` / `right-bottom` the wrong way near an edge, so a centred
+// `right` card is moved back on screen by this much once its height is known.
+export function cardShiftY(middleY: number, cardHeight: number, viewportHeight: number): number {
+  const top = middleY - cardHeight / 2
+  const max = viewportHeight - CARD_GUTTER_PX - cardHeight
+  const clamped = Math.max(CARD_GUTTER_PX, Math.min(top, max))
+  return clamped - top
+}
+
 export function placeStops(
   stops: readonly TourStop[],
   reader: TourReader,
@@ -182,21 +205,38 @@ export function placeStops(
 ): PlacedTourStop[] {
   return stops.flatMap((given): PlacedTourStop[] => {
     if (given.gate && !reader[given.gate]) return []
+    if (reader.phone && given.phone === null) return []
     const stop: TourStop =
       reader.phone && given.phone
-        ? { ...given, ...given.phone, arrivalId: undefined, memberId: given.phone.memberId, phone: undefined }
+        ? {
+            ...given,
+            ...given.phone,
+            arrivalId: undefined,
+            memberId: given.phone.memberId,
+            shelflessId: given.phone.shelflessId,
+            phone: undefined,
+          }
         : given
     const id = copyFor(stop, reader)
     if (!stop.anchor) return [{ id }]
     const box = locate(tourAnchorSelector(stop.anchor))
-    if (!box) return [{ id }]
+    if (!box) return []
     const side = cardSide(box, viewport, stop.placement ?? 'below')
     const shiftX = side === 'top' ? cardShift(box, viewport) : 0
-    return [{ id, anchor: stop.anchor, side, ...(shiftX !== 0 ? { shiftX } : {}) }]
+    return [
+      {
+        id,
+        anchor: stop.anchor,
+        side,
+        ...(shiftX !== 0 ? { shiftX } : {}),
+        ...(side === 'right' ? { middleY: (box.top + box.bottom) / 2 } : {}),
+      },
+    ]
   })
 }
 
 function copyFor(stop: TourStop, reader: TourReader): string {
+  if (stop.shelflessId && !reader.canAccessOfficeShelf) return stop.shelflessId
   if (stop.arrivalId && !reader.handover) return stop.arrivalId
   if (stop.memberId && !reader.canManageOrganization) return stop.memberId
   return stop.id

@@ -21,6 +21,7 @@ import {
   TOUR_HOME,
   TOUR_PLACEMENT_ATTRIBUTE,
   TOUR_SEEN_KEYS,
+  cardShiftY,
   isSetupPage,
   placeStops,
   requestedTour,
@@ -174,11 +175,14 @@ function ProductTourRunner({
 }
 
 function waitForArrival(tour: TourId, start: () => void): () => void {
-  const anchor = ARRIVAL_ANCHOR[tour]
+  const anchors = ARRIVAL_ANCHOR[tour]
   const startedAt = Date.now()
   const timer = window.setInterval(() => {
     const elapsed = Date.now() - startedAt
-    const ready = anchor ? locateAnchor(tourAnchorSelector(anchor)) !== null : elapsed >= ARRIVAL_SETTLE_MS
+    const ready =
+      anchors.length > 0
+        ? anchors.some((anchor) => locateAnchor(tourAnchorSelector(anchor)) !== null)
+        : elapsed >= ARRIVAL_SETTLE_MS
     if (!ready && elapsed < ARRIVAL_TIMEOUT_MS) return
     window.clearInterval(timer)
     start()
@@ -209,9 +213,18 @@ function ProductTourCard({
   skipTour,
 }: CardComponentProps): JSX.Element {
   const t = useTranslations(onboardingCopy, 'tour')
-  const shiftX = React.useContext(PlacedStopsContext)[currentStep]?.shiftX ?? 0
+  const placed = React.useContext(PlacedStopsContext)[currentStep]
+  const shiftX = placed?.shiftX ?? 0
+  const middleY = placed?.middleY
+  const cardRef = React.useRef<HTMLDivElement>(null)
+  const [shiftY, setShiftY] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const height = cardRef.current?.offsetHeight
+    setShiftY(middleY === undefined || !height ? 0 : cardShiftY(middleY, height, window.innerHeight))
+  }, [middleY, currentStep])
+  const transform = shiftX || shiftY ? `translate(${shiftX}px, ${shiftY}px)` : undefined
   return (
-    <div style={shiftX ? { transform: `translateX(${shiftX}px)` } : undefined}>
+    <div ref={cardRef} style={transform ? { transform } : undefined}>
     <TourCard
       title={step.title}
       step={currentStep}
@@ -235,25 +248,25 @@ function ProductTourCard({
 
 function StopBody({ stop }: { stop: PlacedTourStop }): JSX.Element {
   const t = useTranslations(onboardingCopy, 'tour')
-  if (stop.id === 'shortcuts') {
+  if (stop.id === 'search') {
     return (
       <div className="space-y-3">
-        <p>{t('stops.shortcuts.body')}</p>
+        <p>{t('stops.search.body')}</p>
         <dl className="space-y-2">
-          <TourDetailRow term={t('stops.shortcuts.palette')}>
+          <TourDetailRow term={t('stops.search.palette')}>
             <ShortcutKeys segments={[{ kind: 'chord', caps: [MOD, 'K'] }]} />
           </TourDetailRow>
-          <TourDetailRow term={t('stops.shortcuts.cheatsheet')}>
+          <TourDetailRow term={t('stops.search.cheatsheet')}>
             <ShortcutKeys segments={[{ kind: 'chord', caps: ['?'] }]} />
           </TourDetailRow>
         </dl>
       </div>
     )
   }
-  if (stop.id === 'filesOrOfficeShelf') {
+  if (stop.id === 'filesOrOfficeShelf' || stop.id === 'filesOrOfficeShelfPhone') {
     return (
       <div className="space-y-3">
-        <p>{t('stops.filesOrOfficeShelf.body')}</p>
+        <p>{t(`stops.${stop.id}.body`)}</p>
         <dl className="space-y-2.5">
           <TourDetailRow term={t('stops.filesOrOfficeShelf.filesTerm')} stacked>
             {t('stops.filesOrOfficeShelf.filesDetail')}

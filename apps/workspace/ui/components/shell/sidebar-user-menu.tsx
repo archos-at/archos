@@ -265,8 +265,8 @@ export function SidebarUserMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        {/* The tour lives on the projects home; from anywhere else this
-            navigates there first. */}
+        {/* The welcome tour lives on the personal chat; from anywhere but a
+            project this navigates there first. */}
         <DropdownMenuItem onSelect={() => startTour()} className="gap-2">
           <Compass className="size-4 text-muted-foreground" aria-hidden />
           {t('userMenu.productTour')}

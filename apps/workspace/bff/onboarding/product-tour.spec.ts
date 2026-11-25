@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { onboarding as de } from '@/i18n/dictionaries/de/onboarding'
+import { onboarding as en } from '@/i18n/dictionaries/en/onboarding'
 import {
   ARRIVAL_ANCHOR,
   NO_TOURS,
   TOURS,
+  TOUR_HOME,
   TOUR_SEEN_KEYS,
   TOUR_START_URL,
   TOUR_ANCHORS,
   cardShift,
+  cardShiftY,
   cardSide,
   isSetupPage,
   placeStops,
@@ -30,57 +34,65 @@ const nowhere = (): AnchorBox | null => null
 
 const ids = (stops: { id: string }[]): string[] => stops.map((stop) => stop.id)
 
+const READERS: Record<string, TourReader> = {
+  admin: ALL_ON,
+  joiner: { ...ALL_ON, handover: false },
+  member: { ...ALL_ON, handover: false, canManageOrganization: false },
+  bare: { canAccessOfficeShelf: false, canAccessInbox: false, canManageOrganization: false, handover: false },
+}
+
 describe('welcome tour', () => {
-  it('opens and closes on centred cards, with the header controls in between', () => {
+  it('opens on a centred card, then the two sides, the projects, the office’s doorways and the person', () => {
     expect(ids(placeStops(TOURS.welcome, ALL_ON, everywhere, DESKTOP))).toEqual([
       'welcome',
-      'createProject',
+      'sides',
+      'projects',
       'officeShelf',
       'inbox',
+      'search',
       'account',
-      'shortcuts',
     ])
   })
 
-  it('drops the Archiv and the Postfach for an organization without them', () => {
+  it('drops the Bürobibliothek and the Postfach for a reader without them', () => {
     const reader = { ...ALL_ON, canAccessOfficeShelf: false, canAccessInbox: false }
     expect(ids(placeStops(TOURS.welcome, reader, everywhere, DESKTOP))).toEqual([
       'welcome',
-      'createProject',
+      'sides',
+      'projects',
+      'search',
       'account',
-      'shortcuts',
     ])
+  })
+
+  it('lives on the personal chat, where a new person lands, never over the project overview window', () => {
+    expect(TOUR_HOME).toBe('/app/personal/chat')
+    expect(new URL(TOUR_START_URL, 'http://x').pathname).toBe(TOUR_HOME)
+    expect(tourForPath('/app/projects')).toBeNull()
+    expect(ARRIVAL_ANCHOR.welcome).toEqual([TOUR_ANCHORS.sides, TOUR_ANCHORS.sidesPhone])
   })
 })
 
 describe('project tour', () => {
-  it('walks chat, Files, the Archiv and the two compared, then sources and settings', () => {
+  it('walks chat, Ablage, Ablage against Bürobibliothek, sources and settings', () => {
     expect(ids(placeStops(TOURS.project, ALL_ON, everywhere, DESKTOP))).toEqual([
       'projectWelcome',
       'projectChat',
       'projectFiles',
-      'projectOfficeShelf',
       'filesOrOfficeShelf',
       'projectSources',
       'projectSettings',
     ])
   })
 
-  it('points at the rail items the sidebar marks, by section key', () => {
+  it('points at the rail items the sidebar marks, by section key, and at the project switcher for settings', () => {
     const anchors = TOURS.project.flatMap((stop) => (stop.anchor ? [stop.anchor] : []))
-    expect(anchors).toEqual(['chat', 'files', 'officeShelf', 'settings'].map(sectionAnchor))
+    expect(anchors).toEqual([...['chat', 'files', 'officeShelf'].map(sectionAnchor), TOUR_ANCHORS.projectSwitcher])
   })
 
-  it('drops both Archiv stops when the organization has no Archiv', () => {
+  it('drops the Bürobibliothek stop when the reader has no Bürobibliothek', () => {
     const placed = placeStops(TOURS.project, { ...ALL_ON, canAccessOfficeShelf: false }, everywhere, DESKTOP)
-    expect(ids(placed)).not.toContain('projectOfficeShelf')
     expect(ids(placed)).not.toContain('filesOrOfficeShelf')
-  })
-
-  it('keeps every stop on a phone, centred, when the rail is a closed drawer', () => {
-    const placed = placeStops(TOURS.project, ALL_ON, nowhere, PHONE)
-    expect(placed).toHaveLength(TOURS.project.length)
-    expect(placed.every((stop) => stop.side === undefined)).toBe(true)
   })
 
   it('on a phone, points at the tab bar: above each tab, and the Bürobibliothek at "Mehr"', () => {
@@ -93,15 +105,13 @@ describe('project tour', () => {
     const placed = placeStops(TOURS.project, { ...ALL_ON, phone: true }, (selector) => tabs[selector] ?? null, PHONE)
     expect(ids(placed)).toEqual([
       'projectWelcome',
-      'projectChat',
+      'projectChatPhone',
       'projectFiles',
-      'projectOfficeShelfPhone',
-      'filesOrOfficeShelf',
+      'filesOrOfficeShelfPhone',
       'projectSources',
-      'projectSettings',
+      'projectSettingsPhone',
     ])
-    const officeShelf = placed.find((stop) => stop.id === 'projectOfficeShelfPhone')
-    expect(officeShelf).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
+    expect(placed.find((stop) => stop.id === 'filesOrOfficeShelfPhone')).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
     for (const stop of placed.filter((each) => each.side === 'top')) {
       const box = tabs[tourAnchorSelector(stop.anchor!)]!
       const width = Math.min(352, PHONE.width - 32)
@@ -111,15 +121,88 @@ describe('project tour', () => {
     }
   })
 
-  it('keeps the desktop stop on a desktop — the phone variant is only for a phone', () => {
-    const placed = placeStops(TOURS.project, ALL_ON, everywhere, DESKTOP)
-    expect(ids(placed)).toContain('projectOfficeShelf')
-    expect(ids(placed)).not.toContain('projectOfficeShelfPhone')
+  it('waits for nothing on arrival — the rail is shell chrome, already standing', () => {
+    expect(ARRIVAL_ANCHOR.project).toEqual([])
+  })
+})
+
+describe('a stop whose anchor is not on the screen', () => {
+  it('is skipped, never shown pointing at nothing; the centred stops stay', () => {
+    expect(ids(placeStops(TOURS.project, ALL_ON, nowhere, DESKTOP))).toEqual(['projectWelcome', 'projectSources'])
+    expect(ids(placeStops(TOURS.welcome, ALL_ON, nowhere, DESKTOP))).toEqual(['welcome'])
   })
 
-  it('waits for nothing on arrival — the rail is shell chrome, already standing', () => {
-    expect(ARRIVAL_ANCHOR.project).toBeNull()
-    expect(ARRIVAL_ANCHOR.welcome).not.toBeNull()
+  it('is skipped on the folded icon rail, which has no wordmark and no magnifier', () => {
+    const folded = (selector: string): AnchorBox | null =>
+      selector === tourAnchorSelector(TOUR_ANCHORS.projects) || selector === tourAnchorSelector(TOUR_ANCHORS.search) ? null : BOX
+    expect(ids(placeStops(TOURS.welcome, ALL_ON, folded, DESKTOP))).toEqual(['welcome', 'sides', 'officeShelf', 'inbox', 'account'])
+  })
+})
+
+describe('the welcome tour on a phone', () => {
+  const anchors: Record<string, AnchorBox> = {
+    [tourAnchorSelector(TOUR_ANCHORS.sidesPhone)]: { left: 16, right: 224, top: 8, bottom: 52 },
+    [tourAnchorSelector(TOUR_ANCHORS.more)]: { left: 312, right: 389, top: 760, bottom: 812, placement: 'above' },
+    [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 234, right: 311, top: 760, bottom: 812, placement: 'above' },
+  }
+  const locate = (selector: string): AnchorBox | null => anchors[selector] ?? null
+
+  it('is four stops: the switch at the top of the chat, „Mehr“ for the rest, and the Postfach tab (ADR-0196)', () => {
+    const placed = placeStops(TOURS.welcome, { ...ALL_ON, phone: true }, locate, PHONE)
+    expect(ids(placed)).toEqual(['welcome', 'sidesPhone', 'morePhone', 'inbox'])
+    expect(placed.find((stop) => stop.id === 'sidesPhone')).toMatchObject({ anchor: TOUR_ANCHORS.sidesPhone, side: 'bottom-left' })
+    expect(placed.find((stop) => stop.id === 'morePhone')).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
+  })
+
+  it('does not name a Bürobibliothek under „Mehr“ to a reader who has none', () => {
+    const placed = placeStops(TOURS.welcome, { ...ALL_ON, canAccessOfficeShelf: false, phone: true }, locate, PHONE)
+    expect(ids(placed)).toContain('morePhoneShelfless')
+  })
+})
+
+describe('the welcome tour on a desktop', () => {
+  it('opens a card beside each rail doorway, kept on screen at the rail’s top and its foot', () => {
+    const anchors: Record<string, AnchorBox> = {
+      [tourAnchorSelector(TOUR_ANCHORS.sides)]: { left: 12, right: 260, top: 58, bottom: 90 },
+      [tourAnchorSelector(TOUR_ANCHORS.projects)]: { left: 24, right: 88, top: 18, bottom: 38 },
+      [tourAnchorSelector(TOUR_ANCHORS.search)]: { left: 196, right: 222, top: 15, bottom: 41 },
+      [tourAnchorSelector(TOUR_ANCHORS.sectionOfficeShelf)]: { left: 12, right: 260, top: 716, bottom: 752 },
+      [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 198, right: 226, top: 776, bottom: 804 },
+      [tourAnchorSelector(TOUR_ANCHORS.account)]: { left: 12, right: 190, top: 776, bottom: 804 },
+    }
+    const placed = placeStops(TOURS.welcome, ALL_ON, (selector) => anchors[selector] ?? null, DESKTOP)
+    for (const id of ['sides', 'projects', 'search', 'officeShelf', 'inbox', 'account']) {
+      const stop = placed.find((each) => each.id === id)!
+      expect(stop.side).toBe('right')
+      const height = 240
+      const top = stop.middleY! - height / 2 + cardShiftY(stop.middleY!, height, DESKTOP.height)
+      expect(top).toBeGreaterThanOrEqual(16)
+      expect(top + height).toBeLessThanOrEqual(DESKTOP.height - 16)
+    }
+  })
+})
+
+describe('the copy', () => {
+  const variants = (tour: keyof typeof TOURS): string[] =>
+    Object.values(READERS).flatMap((reader) =>
+      [false, true].flatMap((phone) => ids(placeStops(TOURS[tour], { ...reader, phone }, everywhere, phone ? PHONE : DESKTOP))),
+    )
+
+  it('has a title and a body in German and English for every stop any reader can reach', () => {
+    for (const id of new Set([...variants('welcome'), ...variants('project')])) {
+      for (const dictionary of [de, en]) {
+        const stop = (dictionary.tour.stops as Record<string, { title?: string; body?: string }>)[id]
+        expect(stop?.title, id).toBeTruthy()
+        expect(stop?.body, id).toBeTruthy()
+      }
+    }
+  })
+
+  it('names no place the shell no longer has', () => {
+    const text = JSON.stringify(de.tour.stops)
+    for (const gone of ['Organisation erstellt', 'Seitenleiste', 'Menü oben', 'Dateien', 'Büroablage', 'Archiv']) {
+      expect(text).not.toContain(gone)
+    }
   })
 })
 
@@ -128,17 +211,28 @@ describe('cardSide', () => {
     expect(cardSide({ left: 1040, right: 1184, top: 96, bottom: 132 }, DESKTOP, 'below')).toBe('bottom-right')
   })
 
-  it('below an anchor in the left half — the phone "New project" button — hangs it rightwards', () => {
-    expect(cardSide({ left: 16, right: 158, top: 120, bottom: 156 }, PHONE, 'below')).toBe('bottom-left')
+  it('below an anchor in the left half — the phone’s side switch — hangs it rightwards', () => {
+    expect(cardSide({ left: 16, right: 224, top: 8, bottom: 52 }, PHONE, 'below')).toBe('bottom-left')
   })
 
   it('the element overrides the stop: a tab says "above" even for a stop written for the rail', () => {
     expect(cardSide({ left: 81, right: 158, top: 760, bottom: 812, placement: 'above' }, PHONE, 'beside')).toBe('top')
   })
 
-  it('beside a rail item, centres on it wherever it is — the library never flips `right`', () => {
+  it('beside a rail item, centres on it wherever it is — `right-top` / `right-bottom` flip the wrong way in nextstepjs', () => {
     expect(cardSide({ left: 12, right: 224, top: 150, bottom: 186 }, DESKTOP, 'beside')).toBe('right')
-    expect(cardSide({ left: 12, right: 224, top: 680, bottom: 716 }, DESKTOP, 'beside')).toBe('right')
+    expect(cardSide({ left: 12, right: 224, top: 776, bottom: 804 }, DESKTOP, 'beside')).toBe('right')
+  })
+})
+
+describe('cardShiftY', () => {
+  it('leaves a card that fits where NextStep centred it', () => {
+    expect(cardShiftY(400, 200, DESKTOP.height)).toBe(0)
+  })
+
+  it('moves a card beside the switch down below the top gutter, and one beside the bell up above the foot', () => {
+    expect(cardShiftY(74, 240, DESKTOP.height)).toBe(62)
+    expect(cardShiftY(790, 240, DESKTOP.height)).toBe(-106)
   })
 })
 
@@ -153,48 +247,14 @@ describe('cardShift', () => {
   })
 })
 
-describe('the welcome tour on a phone', () => {
-  const more: AnchorBox = { left: 312, right: 389, top: 760, bottom: 812, placement: 'above' }
-  const anchors: Record<string, AnchorBox> = {
-    [tourAnchorSelector(TOUR_ANCHORS.more)]: more,
-    [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 234, right: 311, top: 760, bottom: 812, placement: 'above' },
-  }
-
-  it('finds the Bürobibliothek, the account and the search under „Mehr“, and the Postfach in the tab bar (ADR-0196)', () => {
-    const placed = placeStops(TOURS.welcome, { ...ALL_ON, phone: true }, (selector) => anchors[selector] ?? null, PHONE)
-    expect(ids(placed)).toEqual(expect.arrayContaining(['officeShelfPhone', 'inbox', 'accountPhone', 'searchPhone']))
-    expect(ids(placed)).not.toContain('shortcuts')
-    for (const id of ['officeShelfPhone', 'inbox', 'accountPhone', 'searchPhone']) {
-      expect(placed.find((stop) => stop.id === id)).toMatchObject({ side: 'top' })
-    }
-  })
-
-  it('tells a member about their account, not about managing the office', () => {
-    const placed = placeStops(TOURS.welcome, { ...ALL_ON, canManageOrganization: false, phone: true }, (selector) => anchors[selector] ?? null, PHONE)
-    expect(ids(placed)).toContain('accountMemberPhone')
-  })
-})
-
-describe('the welcome tour on a desktop', () => {
-  it('points at the rail’s doorways beside it, not at a bar above the page (ADR-0196)', () => {
-    const anchors: Record<string, AnchorBox> = {
-      [tourAnchorSelector(TOUR_ANCHORS.sectionOfficeShelf)]: { left: 12, right: 260, top: 680, bottom: 716 },
-      [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 200, right: 232, top: 780, bottom: 812 },
-      [tourAnchorSelector(TOUR_ANCHORS.account)]: { left: 12, right: 190, top: 780, bottom: 812 },
-    }
-    const placed = placeStops(TOURS.welcome, ALL_ON, (selector) => anchors[selector] ?? null, DESKTOP)
-    for (const id of ['officeShelf', 'inbox', 'account']) {
-      expect(placed.find((stop) => stop.id === id)).toMatchObject({ side: 'right' })
-    }
-  })
-})
-
 describe('where tours run and how they are asked for', () => {
-  it('maps the projects home to the welcome tour and any project page to the project tour', () => {
-    expect(tourForPath('/app/projects')).toBe('welcome')
+  it('maps the personal chat to the welcome tour and any project page to the project tour', () => {
+    expect(tourForPath('/app/personal/chat')).toBe('welcome')
+    expect(tourForPath('/app/personal/chat/c1')).toBe('welcome')
     expect(tourForPath('/app/projects/p1')).toBe('project')
     expect(tourForPath('/app/projects/p1/files')).toBe('project')
     expect(tourForPath('/app/organization')).toBeNull()
+    expect(tourForPath('/app/personal/shelf')).toBeNull()
   })
 
   it('reads the tour from the hand-over URLs, and nothing else', () => {
@@ -215,10 +275,10 @@ describe('where tours run and how they are asked for', () => {
 })
 
 describe('the joiner', () => {
-  const joiner: TourReader = { ...ALL_ON, handover: false }
+  const joiner = READERS.joiner!
 
-  it('is told projects arrive as colleagues add them — their page may still be empty', () => {
-    expect(ids(placeStops(TOURS.welcome, joiner, everywhere, DESKTOP))).toContain('createProjectJoined')
+  it('is told projects arrive as colleagues add them', () => {
+    expect(ids(placeStops(TOURS.welcome, joiner, everywhere, DESKTOP))).toContain('projectsJoined')
   })
 
   it('is welcomed to the organization, not told it is ready', () => {
@@ -232,14 +292,12 @@ describe('the joiner', () => {
   })
 
   it('is not promised organization management they do not hold', () => {
-    const member = { ...joiner, canManageOrganization: false }
-    expect(ids(placeStops(TOURS.welcome, member, everywhere, DESKTOP))).toContain('accountMember')
+    expect(ids(placeStops(TOURS.welcome, READERS.member!, everywhere, DESKTOP))).toContain('accountMember')
     expect(ids(placeStops(TOURS.welcome, joiner, everywhere, DESKTOP))).toContain('account')
   })
 
   it('keeps the spotlight on a variant stop — only the words change', () => {
-    const member = { ...joiner, canManageOrganization: false }
-    const account = placeStops(TOURS.welcome, member, everywhere, DESKTOP).find((stop) => stop.id === 'accountMember')
+    const account = placeStops(TOURS.welcome, READERS.member!, everywhere, DESKTOP).find((stop) => stop.id === 'accountMember')
     expect(account?.anchor).toBe('account-menu')
     expect(account?.side).toBeDefined()
   })
@@ -264,13 +322,13 @@ describe('isSetupPage', () => {
   it('marks the intake wizard, which no tour interrupts — its first save hands over by itself', () => {
     expect(isSetupPage('/app/projects/p1/intake')).toBe(true)
     expect(isSetupPage('/app/projects/p1/chat')).toBe(false)
-    expect(isSetupPage('/app/projects')).toBe(false)
+    expect(isSetupPage('/app/personal/chat')).toBe(false)
   })
 })
 
 describe('withoutTourRequest', () => {
   it('takes the tour request out and keeps everything else', () => {
-    expect(withoutTourRequest('/app/projects', '?tour=welcome')).toBe('/app/projects')
+    expect(withoutTourRequest('/app/personal/chat', '?tour=welcome')).toBe('/app/personal/chat')
     expect(withoutTourRequest('/dev/product-tour', '?variant=project&tour=project')).toBe(
       '/dev/product-tour?variant=project',
     )

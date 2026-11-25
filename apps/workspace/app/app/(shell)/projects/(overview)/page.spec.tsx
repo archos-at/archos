@@ -4,7 +4,7 @@ vi.mock('@/i18n/server', () => ({ getTranslations: async () => (key: string) => 
 
 import ProjectsPage, { generateMetadata } from './page'
 
-describe('/app/projects, for a bookmark, a refresh, the welcome tour and the links that land there', () => {
+describe('/app/projects, for a bookmark, a refresh and the links that land there', () => {
   it('leaves the overview to the shell, which opens it over this page (`ProjectOverviewWindow`)', async () => {
     expect(ProjectsPage()).toBeNull()
     expect(await generateMetadata()).toEqual({ title: 'portfolio.title' })
