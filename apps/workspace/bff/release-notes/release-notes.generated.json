@@ -41,6 +41,14 @@
         },
         {
           "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the Chat tab takes you back to the chat you were in instead of starting a new one, so a look at the Ablage no longer loses your conversation.",
+            "de": "Auf dem Smartphone bringt Sie der Tab Chat zurück zu Ihrem bisherigen Chat, statt einen neuen zu starten – so verlieren Sie Ihre Unterhaltung beim Blick in die Ablage nicht mehr."
+          }
+        },
+        {
+          "section": "features",
           "area": "collaboration",
           "text": {
             "en": "An answer's details now show where it read: the projects and folders, and whether Meine Ablage or your personal memory was in play.",
