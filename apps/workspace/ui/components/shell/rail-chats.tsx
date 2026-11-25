@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useState } fr
 import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
-import { motion, motionSnap, springGlide, useMotionToken } from '@/components/motion'
+import { AnimatePresence, motion, motionSnap, springGlide, useIconSwapTransition, useMotionToken } from '@/components/motion'
 import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -80,18 +80,36 @@ function useRecentChatsCollapsed(): [boolean, () => void] {
 
 const ACTIVITY_LABEL = { working: 'chatWorking', waiting: 'chatWaiting', answered: 'chatAnswered', failed: 'chatFailed' } as const
 
-function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX.Element | null {
+function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX.Element {
   const t = useTranslations(navCopy)
-  if (!activity) return null
-  const mark = 'relative ml-auto size-3.5 shrink-0'
+  const swap = useIconSwapTransition()
+  const mark = 'size-3.5'
   return (
-    <>
-      {activity === 'working' && <Loader2 className={cn(mark, 'text-accent-primary animate-spin motion-reduce:animate-none')} aria-hidden data-testid="rail-chat-working" />}
-      {activity === 'waiting' && <MessageCircleQuestion className={cn(mark, 'text-accent-primary')} aria-hidden data-testid="rail-chat-waiting" />}
-      {activity === 'answered' && <span className="bg-primary relative ml-auto size-2 shrink-0 rounded-full" aria-hidden data-testid="rail-chat-answered" />}
-      {activity === 'failed' && <CircleAlert className={cn(mark, 'text-destructive')} aria-hidden data-testid="rail-chat-failed" />}
-      <span className="sr-only">{t(ACTIVITY_LABEL[activity])}</span>
-    </>
+    <AnimatePresence initial={false}>
+      {activity && (
+        <motion.span
+          key="activity"
+          className="relative ml-auto flex size-3.5 shrink-0 items-center justify-end"
+          exit={{ opacity: 0, transition: swap.exit }}
+        >
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span
+              key={activity}
+              className="flex items-center"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1, transition: swap.enter }}
+              exit={{ opacity: 0, scale: 0.6, transition: swap.exit }}
+            >
+              {activity === 'working' && <Loader2 className={cn(mark, 'text-accent-primary animate-spin motion-reduce:animate-none')} aria-hidden data-testid="rail-chat-working" />}
+              {activity === 'waiting' && <MessageCircleQuestion className={cn(mark, 'text-accent-primary')} aria-hidden data-testid="rail-chat-waiting" />}
+              {activity === 'answered' && <span className="bg-primary size-2 rounded-full" aria-hidden data-testid="rail-chat-answered" />}
+              {activity === 'failed' && <CircleAlert className={cn(mark, 'text-destructive')} aria-hidden data-testid="rail-chat-failed" />}
+            </motion.span>
+          </AnimatePresence>
+          <span className="sr-only">{t(ACTIVITY_LABEL[activity])}</span>
+        </motion.span>
+      )}
+    </AnimatePresence>
   )
 }
 
