@@ -1,31 +1,27 @@
 import type { JSX } from 'react'
 import { fireEvent, render } from '@testing-library/react'
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
-import { useComposerMetrics, type ComposerMetrics } from './use-composer-metrics'
+import { renderToString } from 'react-dom/server'
+import { motion } from '@/components/motion'
+import { restGeometry, useComposerMetrics, type ComposerMetrics } from './use-composer-metrics'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 
 const COLUMN_H = 900
 const COMPOSER_H = 206
-const EXPECTED_LIFT = 317
-const EXPECTED_WELCOME_OFFSET = 555
+const EXPECTED_LIFT = 282
+const EXPECTED_WELCOME_OFFSET = 520
 
 let restoreObservers: () => void
 const originalDescriptors: Record<string, PropertyDescriptor | undefined> = {}
 
 const stubLayout = (): void => {
-  for (const prop of ['offsetHeight', 'clientHeight', 'offsetParent'] as const) {
+  for (const prop of ['getBoundingClientRect', 'offsetParent'] as const) {
     originalDescriptors[prop] = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)
   }
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
     configurable: true,
-    get(this: HTMLElement) {
-      return Number(this.dataset.h ?? 0)
-    },
-  })
-  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return Number(this.dataset.h ?? 0)
+    value(this: HTMLElement) {
+      return new DOMRect(0, 0, 0, Number(this.dataset.h ?? 0))
     },
   })
   Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
@@ -132,6 +128,16 @@ describe('useComposerMetrics', () => {
     expect(latest.composerMotion.transition).toEqual({ duration: 0 })
   })
 
+  test('glides, never jumps, when the chat corrects what the server predicted for its first paint', () => {
+    const Predicted = ({ isThreadEmpty, predicted }: { isThreadEmpty: boolean; predicted: boolean }): JSX.Element => {
+      latest = useComposerMetrics(isThreadEmpty, { predicted })
+      return <div />
+    }
+    const { rerender } = render(<Predicted isThreadEmpty={false} predicted />)
+    rerender(<Predicted isThreadEmpty predicted={false} />)
+    expect(latest.composerMotion.transition).toMatchObject({ type: 'spring' })
+  })
+
   test('travels back up on a new chat the reader pressed for', () => {
     const { rerender } = render(<Harness isThreadEmpty={false} />)
 
@@ -196,5 +202,28 @@ describe('useComposerMetrics', () => {
       ticks.forEach((tick) => tick())
       expect(columnVar(container, '--composer-h')).toBe('240px')
     })
+  })
+})
+
+describe('the composer of an empty chat on the server', () => {
+  const ServerComposer = ({ isThreadEmpty }: { isThreadEmpty: boolean }): JSX.Element => {
+    const metrics = useComposerMetrics(isThreadEmpty)
+    return <motion.div ref={metrics.composerRef} style={metrics.composerStyle} {...metrics.composerMotion} />
+  }
+
+  test('rests at the line it will be measured to, in CSS, before any script runs', () => {
+    expect(renderToString(<ServerComposer isThreadEmpty />)).toContain(
+      'translateY(round(nearest, min(0px, calc(100% - 38px - 50cqh)), 1px))'
+    )
+  })
+
+  test('a chat that will resume keeps its composer on the floor', () => {
+    expect(renderToString(<ServerComposer isThreadEmpty={false} />)).not.toContain('translateY')
+  })
+
+  test('the measured rest is the CSS rest: the composer hangs 32px under a greeting line 70px above the middle', () => {
+    expect(restGeometry(900, 136)).toEqual({ y: -352, welcomeOffset: 520 })
+    expect(restGeometry(901, 136)).toEqual({ y: -352, welcomeOffset: 521 })
+    expect(restGeometry(300, 260)).toEqual({ y: 0, welcomeOffset: 292 })
   })
 })

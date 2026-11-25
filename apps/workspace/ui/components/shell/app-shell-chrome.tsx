@@ -10,6 +10,7 @@ import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { cn } from '@/lib/utils'
 import { AppSidebar } from './app-sidebar'
 import { useRecordLastPlace } from './last-place'
+import { useRecordChatResume } from '@/features/chat/hooks/use-record-chat-resume'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { useRailSide, type RailSide } from './rail-side'
 import { sideOffRoute, sideOfPath } from './shell-side'
@@ -56,6 +57,7 @@ export function AppShellChrome({
 }: AppShellChromeProps): JSX.Element {
   const pathname = usePathname() ?? ''
   useRecordLastPlace(pathname)
+  useRecordChatResume()
   const settleSide = useRailSide((state) => state.settle)
   React.useEffect(() => settleSide(), [pathname, settleSide])
 

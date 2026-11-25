@@ -5,7 +5,7 @@ import { useDocumentsStore } from '@/features/documents/store'
 import { discardSessionDocumentsResources } from '@/features/documents/discard-session-resources'
 import { isAwaitingServerMessages } from './chat-storage'
 import { hasLiveRun, hasNoUserChatMessages } from '../lib/session-activity'
-import { conversationMatchesProject, isHiddenJobConversation } from '../lib/project-scope'
+import { conversationMatchesProject, conversationsOnSide, isHiddenJobConversation } from '../lib/project-scope'
 import { turnStateFor } from './messages-store'
 import { withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createNewConversation } from './new-conversation'
@@ -128,13 +128,7 @@ export const createSessionNavigationSlice: StateCreator<
 
   getUserConversations: () => {
     const { conversations, currentUserId, projectId } = get()
-    if (!currentUserId) return []
-    return conversations.filter(
-      (c) =>
-        c.userId === currentUserId &&
-        conversationMatchesProject(c, projectId) &&
-        !isHiddenJobConversation(c)
-    )
+    return conversationsOnSide(conversations, currentUserId, projectId)
   },
 
   createConversation: () => {

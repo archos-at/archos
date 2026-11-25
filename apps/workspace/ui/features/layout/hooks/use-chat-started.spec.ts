@@ -2,7 +2,9 @@ import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
+import { createElement } from 'react'
 import { useChatStarted, useLinkedChatPending } from './use-chat-started'
+import { ChatArrivalProvider, type ChatArrival } from './use-thread-phase'
 
 let search = new URLSearchParams()
 vi.mock('next/navigation', () => ({ useSearchParams: () => search }))
@@ -53,5 +55,16 @@ describe('useChatStarted', () => {
     useChatStore.setState({ serverConversationsLoaded: true, conversations: [linked()] })
     expect(renderHook(() => useLinkedChatPending()).result.current).toBe(false)
     expect(renderHook(() => useChatStarted()).result.current).toBe(false)
+  })
+
+  test('a cold load that will resume a chat holds the started layout; one that will not stays a new chat', () => {
+    useChatStore.setState({ hasHydrated: false })
+    const startedWith = (arrival: ChatArrival): boolean =>
+      renderHook(() => useChatStarted(), {
+        wrapper: ({ children }) => createElement(ChatArrivalProvider, { value: arrival, children }),
+      }).result.current
+    expect(startedWith({ resumes: true })).toBe(true)
+    expect(startedWith({ resumes: false })).toBe(false)
+    expect(startedWith({})).toBe(false)
   })
 })

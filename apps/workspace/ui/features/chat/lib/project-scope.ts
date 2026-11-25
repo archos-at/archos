@@ -17,3 +17,12 @@ export function isHiddenJobConversation(conversation: {
 }): boolean {
   return isJobConversation(conversation) && !isTaskThread(conversation)
 }
+
+export function conversationsOnSide<
+  T extends { id?: string | null; userId: string; projectId?: string | null; jobId?: string | null },
+>(conversations: readonly T[], userId: string | null, side: string | null | undefined): T[] {
+  if (!userId) return []
+  return conversations.filter(
+    (c) => c.userId === userId && conversationMatchesProject(c, side) && !isHiddenJobConversation(c),
+  )
+}
