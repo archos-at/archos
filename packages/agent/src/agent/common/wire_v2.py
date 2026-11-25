@@ -23,6 +23,7 @@ from agent.common.wire_model import WireModel as _Model
 WIRE_VERSION: Literal[2] = 2
 
 CLOSE_CLIENT_OUTDATED = 4426
+_UNKNOWN_AS_NULL = {"x-unknown-as-null": True}
 
 Scalar = str | int | float | bool
 
@@ -246,9 +247,8 @@ class ConfidenceCheck(_Model):
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
-    unavailable_reason: ConfidenceUnavailable | None = Field(
-        default=None, json_schema_extra={"x-unknown-as-null": True}
-    )
+    unavailable_reason: ConfidenceUnavailable | None = Field(default=None, json_schema_extra=_UNKNOWN_AS_NULL)
+    sources_checked: int | None = Field(default=None, ge=0)
 
 
 class TurnResult(_Model):
@@ -261,7 +261,7 @@ class TurnResult(_Model):
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
     answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
-        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+        Field(default=None, json_schema_extra=_UNKNOWN_AS_NULL)
     )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None

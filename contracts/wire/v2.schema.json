@@ -786,6 +786,19 @@
           "default": null,
           "title": "Level"
         },
+        "sources_checked": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources Checked"
+        },
         "status": {
           "enum": [
             "judged",

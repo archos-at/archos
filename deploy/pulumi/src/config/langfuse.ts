@@ -183,7 +183,7 @@ export function loadLangfuse(
       "ghcr.io/langfuse/langfuse-worker@sha256:da9f618dd784219aa6508ab6941c4a89c4ef6fb429fb1734c4163df3baa8f1ca",
     clickhouseImage:
       cfg.get("clickhouseImage") ??
-      "clickhouse/clickhouse-server@sha256:1c0b76ac42e16b4eeb0be84013c67269b660701971d29bab9ad0d01b0ba6c10d",
+      "clickhouse/clickhouse-server@sha256:13f4949b03320e04fe1d2f75ed38734530e78b55469168cc6d5062f198563269",
     v4HistoricBackfill: bool(cfg, "langfuseV4HistoricBackfill", false),
     clickhouseStorageSize: cfg.get("clickhouseStorageSize") ?? "50Gi",
     queueMaxmemory: cfg.get("langfuseQueueMaxmemory") ?? "512mb",

@@ -27,7 +27,20 @@ export interface ConfidenceCheck {
   level?: (typeof LEVELS)[number]
   findings: ConfidenceFinding[]
   unavailableReason?: ConfidenceUnavailableReason
+  sourcesChecked?: number
 }
+
+export const checksCitationsOnly = (check: ConfidenceCheck | undefined): boolean =>
+  check?.sourcesChecked !== undefined
+
+export type FindingKind = 'contradicted' | 'sourceSilent' | 'lawUncited'
+
+export const findingKind = (finding: ConfidenceFinding): FindingKind =>
+  finding.problem === 'contradicted'
+    ? 'contradicted'
+    : finding.source === 'none'
+      ? 'lawUncited'
+      : 'sourceSilent'
 
 const MAX_FINDINGS = 8
 
@@ -84,7 +97,16 @@ export function sanitizeConfidenceCheck(input: unknown): ConfidenceCheck | undef
         .filter((finding): finding is ConfidenceFinding => finding !== undefined)
     : []
   const level = oneOf(input.level, LEVELS)
-  if (status === 'judged' && level) return { status, level, findings }
-  const unavailableReason = sanitizeUnavailableReason(input.unavailableReason ?? input.unavailable_reason)
+  const sourcesChecked = count(input.sourcesChecked ?? input.sources_checked)
+  if (status === 'judged' && level)
+    return {
+      status,
+      level,
+      findings,
+      ...(sourcesChecked !== undefined && { sourcesChecked }),
+    }
+  const unavailableReason = sanitizeUnavailableReason(
+    input.unavailableReason ?? input.unavailable_reason
+  )
   return { status: 'unavailable', findings: [], ...(unavailableReason && { unavailableReason }) }
 }

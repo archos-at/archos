@@ -1450,7 +1450,6 @@ export const chat = {
       failed: '{count, plural, one {#\u00A0call failed} other {#\u00A0calls failed}}',
       files: '{count, plural, one {#\u00A0file not finished} other {#\u00A0files not finished}}',
       open: '{count, plural, one {#\u00A0open point} other {#\u00A0open points}}',
-      unbacked: '{count, plural, one {#\u00A0statement not backed} other {#\u00A0statements not backed}}',
       contradicted:
         '{count, plural, one {#\u00A0statement contradicts its source} other {#\u00A0statements contradict their source}}',
     },
@@ -1851,6 +1850,28 @@ export const chat = {
       citationFallback:
         'Medium confidence: the source shown was attached by the assistant, not cited by the answer itself.',
     },
+    cited: {
+      ariaLabel: 'Source check of the answer: {level}',
+      tooltip:
+        'A checking model reads each cited statement against its source and looks for statements of law without a citation. It does not check what is said about you, your office or the project. It can be wrong.',
+      sourcesChecked:
+        '{count, plural, one {#\u00A0cited source checked.} other {#\u00A0cited sources checked.}}',
+      nothingCited: 'No source cited.',
+      ownLevel: "The answer cites no source. The level is the assistant's own assessment.",
+      levelMeanings: {
+        high: 'High: every cited statement is borne out by its source, and every statement of law has a citation.',
+        medium:
+          'Medium: a source says nothing about a cited statement, a statement of law has no citation, or the answer itself names an open point.',
+        low: 'Low: a source says something other than the answer.',
+      },
+      findingsLabel: 'Please check',
+      problems: {
+        contradicted: 'The source says something else',
+        sourceSilent: 'The source says nothing about it',
+        lawUncited: 'Statement of law without a citation',
+      },
+      checkedAgainst: 'Checked against {source}',
+    },
     checked: {
       ariaLabel: 'Evidence check of the answer: {level}',
       tooltip:
@@ -1860,11 +1881,8 @@ export const chat = {
         medium: 'Medium: the main point is backed, secondary statements are not.',
         low: 'Low: the main point is not backed, or a source contradicts the answer.',
       },
-      findingsLabel: 'Not backed',
-      problems: { unbacked: 'not backed', contradicted: 'contradicts the source' },
-      checkedAgainst: 'checked against {source}',
-      noSource: 'no source',
-      quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
+      quoteUnverified:
+        'A quotation could not be confirmed word for word in its source, so the level is capped.',
       lawUnsettled:
         'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
       openPoint:

@@ -1,4 +1,4 @@
-import { render, screen } from '@/test-utils'
+import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, test, expect } from 'vitest'
 import { ConfidenceChip } from './ConfidenceChip'
@@ -129,13 +129,111 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     source: '[1] Section A-A.pdf, p.2',
   } as const
 
-  test('names what the check found unbacked, and the source it checked against', async () => {
+  test('names what the check found, and the source it checked against', async () => {
     const user = userEvent.setup()
     render(
       <ConfidenceChip
         confidence="low"
         reason="Everything is backed."
         version={2}
+        check={{ status: 'judged', level: 'low', findings: [finding], sourcesChecked: 3 }}
+      />
+    )
+
+    expect(screen.getByRole('button')).toHaveAccessibleName('Source check of the answer: low')
+    await user.hover(screen.getByRole('button'))
+
+    const findings = (await screen.findAllByTestId('confidence-check-findings'))[0]
+    expect(findings).toHaveTextContent('The stair is 1.50 m wide')
+    expect(findings).toHaveTextContent('The source says something else: the section gives 1.10 m')
+    expect(findings).toHaveTextContent('Checked against [1] Section A-A.pdf, p.2')
+    expect((await screen.findAllByTestId('confidence-check-scope'))[0]).toHaveTextContent(
+      '3 cited sources checked.'
+    )
+    expect(screen.queryByText(/Everything is backed\./)).not.toBeInTheDocument()
+  })
+
+  test('tells a silent source from a statement of law without a citation', async () => {
+    const user = userEvent.setup()
+    const silent = {
+      statement: 'Treppe 1,20 m',
+      problem: 'unbacked',
+      reason: '',
+      source: '[2] OIB-RL 4',
+    } as const
+    const law = {
+      statement: 'Ein Handlauf ist Pflicht',
+      problem: 'unbacked',
+      reason: '',
+      source: 'none',
+    } as const
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        check={{
+          status: 'judged',
+          level: 'medium',
+          findings: [silent, law],
+          sourcesChecked: 1,
+        }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    const findings = (await screen.findAllByTestId('confidence-check-findings'))[0]
+    const silentLine = within(findings).getByText('„Treppe 1,20 m“').parentElement
+    const lawLine = within(findings).getByText('„Ein Handlauf ist Pflicht“').parentElement
+    expect(silentLine).toHaveTextContent('The source says nothing about it')
+    expect(silentLine).toHaveTextContent('Checked against [2] OIB-RL 4')
+    expect(lawLine).toHaveTextContent('Statement of law without a citation')
+    expect(lawLine).not.toHaveTextContent('Checked against')
+  })
+
+  test('says the level is the assistant’s own when nothing was cited', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="high"
+        check={{ status: 'judged', level: 'high', findings: [], sourcesChecked: 0 }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect(
+      (await screen.findAllByText("The answer cites no source. The level is the assistant's own assessment.")).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/^High:/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('confidence-check-scope')).not.toBeInTheDocument()
+  })
+
+  test('with nothing cited, a statement of law without a citation still explains the level', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        check={{
+          status: 'judged',
+          level: 'medium',
+          findings: [{ statement: 'Ein Handlauf ist Pflicht', problem: 'unbacked', reason: '', source: 'none' }],
+          sourcesChecked: 0,
+        }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/^Medium: a source says nothing/)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByTestId('confidence-check-scope'))[0]).toHaveTextContent('No source cited.')
+    expect(screen.queryByText(/The level is the assistant's own assessment/)).not.toBeInTheDocument()
+  })
+
+  test('a check made under the old rule shows its level and no findings', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="low"
         check={{ status: 'judged', level: 'low', findings: [finding] }}
       />
     )
@@ -143,11 +241,7 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect(screen.getByRole('button')).toHaveAccessibleName('Evidence check of the answer: low')
     await user.hover(screen.getByRole('button'))
 
-    const findings = (await screen.findAllByTestId('confidence-check-findings'))[0]
-    expect(findings).toHaveTextContent('The stair is 1.50 m wide')
-    expect(findings).toHaveTextContent('contradicts the source: the section gives 1.10 m')
-    expect(findings).toHaveTextContent('checked against [1] Section A-A.pdf, p.2')
-    expect(screen.queryByText(/Everything is backed\./)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('confidence-check-findings')).not.toBeInTheDocument()
   })
 
   test('says when a quote the server could not find capped the level', async () => {

@@ -1461,9 +1461,8 @@ export const chat: typeof en.chat = {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       files: '{count, plural, one {#\u00A0Datei nicht fertig} other {#\u00A0Dateien nicht fertig}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
-      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
       contradicted:
-        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
+        '{count, plural, one {#\u00A0Aussage widerspricht ihrer Quelle} other {#\u00A0Aussagen widersprechen ihrer Quelle}}',
     },
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
@@ -1866,6 +1865,28 @@ export const chat: typeof en.chat = {
       citationFallback:
         'Mittlere Sicherheit: die angeführte Quelle wurde ergänzt, nicht von der Antwort selbst zitiert.',
     },
+    cited: {
+      ariaLabel: 'Quellenprüfung der Antwort: {level}',
+      tooltip:
+        'Ein Prüfmodell liest jede zitierte Stelle gegen ihre Quelle und sucht Rechtsaussagen ohne Fundstelle. Angaben über Sie, Ihr Büro oder das Projekt prüft es nicht. Es kann irren.',
+      sourcesChecked:
+        '{count, plural, one {#\u00A0zitierte Quelle geprüft.} other {#\u00A0zitierte Quellen geprüft.}}',
+      nothingCited: 'Keine Quelle zitiert.',
+      ownLevel: 'Die Antwort zitiert keine Quelle. Die Stufe ist die eigene Einschätzung des Assistenten.',
+      levelMeanings: {
+        high: 'Hoch: jede zitierte Stelle ist durch ihre Quelle gedeckt, und jede Rechtsaussage hat eine Fundstelle.',
+        medium:
+          'Mittel: eine Quelle sagt zu einer zitierten Stelle nichts, eine Rechtsaussage hat keine Fundstelle, oder die Antwort nennt selbst einen offenen Punkt.',
+        low: 'Niedrig: eine Quelle sagt etwas anderes als die Antwort.',
+      },
+      findingsLabel: 'Bitte prüfen',
+      problems: {
+        contradicted: 'Die Quelle sagt etwas anderes',
+        sourceSilent: 'Die Quelle sagt dazu nichts',
+        lawUncited: 'Rechtsaussage ohne Fundstelle',
+      },
+      checkedAgainst: 'Geprüft gegen {source}',
+    },
     checked: {
       ariaLabel: 'Belegprüfung der Antwort: {level}',
       tooltip:
@@ -1875,10 +1896,6 @@ export const chat: typeof en.chat = {
         medium: 'Mittel: die Kernaussage ist belegt, Nebenaussagen sind es nicht.',
         low: 'Niedrig: die Kernaussage ist nicht belegt, oder eine Quelle widerspricht der Antwort.',
       },
-      findingsLabel: 'Nicht belegt',
-      problems: { unbacked: 'nicht belegt', contradicted: 'widerspricht der Quelle' },
-      checkedAgainst: 'geprüft gegen {source}',
-      noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
       lawUnsettled:

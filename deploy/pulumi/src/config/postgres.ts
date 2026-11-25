@@ -42,7 +42,7 @@ export function loadPostgres(cfg: pulumi.Config): PostgresConfig {
       poolSize: positiveInt(cfg, "pgPoolerPoolSize", 12),
       image:
         cfg.get("pgPoolerImage") ??
-        "ghcr.io/cloudnative-pg/pgbouncer:1.26.0@sha256:ce54f1133c509f1db8a8092c3f1c761d8c9292065ed6b6698786bb966da4dab9",
+        "ghcr.io/cloudnative-pg/pgbouncer:1.26.1@sha256:9f648625e11f67f5171f1edd31648c7d02a1a4a5e1b8adf7d4a9db30dce8c22b",
     },
     storageSize: cfg.get("pgStorageSize") ?? "20Gi",
     appUser: cfg.get("pgAppUser") ?? "agent",

@@ -22,6 +22,7 @@ const judged = (level: 'low' | 'medium' | 'high', ...problems: Problem[]): Confi
   status: 'judged',
   level,
   findings: problems.map(finding),
+  sourcesChecked: 1,
 })
 
 const settled: HeaderStatusInput = {
@@ -34,25 +35,33 @@ const settled: HeaderStatusInput = {
   worst: null,
 }
 
-const sinking: WorstFinding = { problem: 'unbacked', count: 2, sinks: true }
-const mild: WorstFinding = { problem: 'unbacked', count: 1, sinks: false }
+const sinking: WorstFinding = { problem: 'contradicted', count: 2, sinks: true }
 
 describe('worstFinding', () => {
-  it('names a contradiction before any unbacked statement, with its own count', () => {
-    expect(worstFinding(judged('medium', 'unbacked', 'contradicted', 'unbacked'))).toEqual({
+  it('names the contradictions, with their own count', () => {
+    expect(worstFinding(judged('low', 'unbacked', 'contradicted', 'unbacked'))).toEqual({
       problem: 'contradicted',
       count: 1,
       sinks: true,
     })
   })
 
-  it('sinks the answer for unbacked statements only when the check rated it low', () => {
-    expect(worstFinding(judged('low', 'unbacked', 'unbacked'))).toEqual(sinking)
-    expect(worstFinding(judged('medium', 'unbacked'))).toEqual(mild)
+  it('never names an unbacked statement in the header, whatever the level', () => {
+    expect(worstFinding(judged('medium', 'unbacked', 'unbacked'))).toBeNull()
+    expect(worstFinding(judged('low', 'unbacked'))).toBeNull()
+  })
+
+  it('names nothing for a check made under the old rule, which judged every sentence', () => {
+    const old: ConfidenceCheck = {
+      status: 'judged',
+      level: 'low',
+      findings: [finding('contradicted')],
+    }
+    expect(worstFinding(old)).toBeNull()
   })
 
   it('has nothing to name for a clean, unavailable or missing check', () => {
-    expect(worstFinding(judged('low'))).toBeNull()
+    expect(worstFinding(judged('high'))).toBeNull()
     expect(worstFinding({ status: 'unavailable', findings: [] })).toBeNull()
     expect(worstFinding(undefined)).toBeNull()
   })
@@ -67,13 +76,8 @@ describe('headerStatus', () => {
     expect(headerStatus({ ...settled, worst: sinking })).toBe('flagged')
   })
 
-  it('stays done for a mostly backed answer: medium, only unbacked side statements', () => {
-    expect(headerStatus({ ...settled, worst: mild })).toBe('done')
-  })
-
-  it('is askedBack for an answer that asks back, under a mild finding too', () => {
+  it('is askedBack for an answer that asks back', () => {
     expect(headerStatus({ ...settled, asksBack: true })).toBe('askedBack')
-    expect(headerStatus({ ...settled, asksBack: true, worst: mild })).toBe('askedBack')
   })
 
   it('ranks a finding that sinks the answer above asking back', () => {
@@ -98,9 +102,8 @@ describe('headerStatus', () => {
 describe('headerWarning', () => {
   const calls = { failed: 1, open: 2 }
 
-  it('puts the worst finding above a failed call and an open point, mild or not', () => {
-    expect(headerWarning('flagged', sinking, calls)).toEqual({ kind: 'unbacked', count: 2 })
-    expect(headerWarning('done', mild, calls)).toEqual({ kind: 'unbacked', count: 1 })
+  it('puts a contradiction above a failed call and an open point', () => {
+    expect(headerWarning('flagged', sinking, calls)).toEqual({ kind: 'contradicted', count: 2 })
   })
 
   it('keeps a failed call above an open point when the check found nothing', () => {
@@ -109,7 +112,7 @@ describe('headerWarning', () => {
   })
 
   it('carries the finding on an answer that asked back', () => {
-    expect(headerWarning('askedBack', mild, calls)).toEqual({ kind: 'unbacked', count: 1 })
+    expect(headerWarning('askedBack', sinking, calls)).toEqual({ kind: 'contradicted', count: 2 })
   })
 
   it('says nothing while the turn is not settled with an answer', () => {
