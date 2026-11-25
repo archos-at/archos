@@ -1076,7 +1076,15 @@ times stops being a physical cue and becomes texture.
   it never dims. On a new chat the switch is a draft (`composerTemporary`)
   that the first message carries, so pressing it creates no chat, no row in
   „Letzte Chats“ and no `?session=`. The welcome says what temporary means,
-  so the line under the composer stays out.
+  so the line under the composer states nothing there, but keeps its row.
+- **The composer keeps one height through a turn.** Its rows stand from the
+  empty chat on: the AI notice under it is there unseen until the first
+  message and then fades in, and the privacy line keeps its row in every
+  state. The „lenkt“ chip of a steerable turn sits on the card's top edge,
+  out of the flow, and fades in and out. Before, starting a chat grew the
+  composer by both lines and the chip, and the end of every turn shrank it
+  by the chip, moving the thread with it. `node scripts/measure-stream-socket.mjs`
+  prints `composerHeights`, one entry when nothing moved.
 - **The chat's header joins in its final shape and moves nothing** (the
   owner, 2026-11-25: „no layout shift ever“). The first message lays out
   the whole row at once: the title's slot, the `⋯` and „Geändert am“ stand

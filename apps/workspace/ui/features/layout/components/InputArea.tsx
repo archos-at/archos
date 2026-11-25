@@ -126,11 +126,20 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         </PopoverContent>
       </Popover>
 
-      {chatStarted && (
-        <p className="text-muted-foreground mt-1.5 px-2 text-center text-xs leading-snug" data-testid="ai-disclosure">
-          {controller.t('inputArea.aiDisclosure')}
-        </p>
-      )}
+      {/* Its row stands on an empty chat too, unseen: mounted with the first
+          message, it grew the composer by a line in the frame the chat started. */}
+      <p
+        className={cn(
+          'text-muted-foreground mt-1.5 px-2 text-center text-xs leading-snug',
+          'transition-opacity duration-quick ease-out motion-reduce:transition-none',
+          !chatStarted && 'opacity-0'
+        )}
+        aria-hidden={chatStarted ? undefined : true}
+        data-testid="ai-disclosure"
+        data-shown={chatStarted || undefined}
+      >
+        {controller.t('inputArea.aiDisclosure')}
+      </p>
 
       {/* Manage-files dialog — one controlled instance shared by the desktop
           button and the mobile text entry. Mobile: a bottom sheet that slides up

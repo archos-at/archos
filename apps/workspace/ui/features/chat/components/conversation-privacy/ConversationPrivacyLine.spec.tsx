@@ -81,10 +81,13 @@ describe('ConversationPrivacyLineView in a started chat', () => {
 })
 
 describe('ConversationPrivacyLine', () => {
-  test('says nothing about access before the server has answered', () => {
+  test('on a new chat, before the server has answered, the row is kept but claims nothing, so starting the chat never grows the composer', () => {
     open(conversation())
     render(<ConversationPrivacyLine conversationId="c-1" canCollaborate statesTemporary={false} />)
-    expect(screen.queryByTestId('conversation-privacy-line')).not.toBeInTheDocument()
+    expect(screen.getByTestId('conversation-privacy-line')).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-privacy-line')).not.toHaveClass('sm:hidden')
+    expect(screen.queryByTestId('conversation-private-line')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
   })
 
   test('in a started chat, before the server has answered, the row is kept but claims nothing about access', () => {
