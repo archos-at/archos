@@ -488,7 +488,7 @@ def test_turn_identity_is_the_parsed_request_in_ledger_shape():
 
 
 class TestRestrictedMemoryInTheLiveDigest:
-    _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
+    _SCOPE = ["base_corpus", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     async def test_a_signed_scope_passes_its_restricted_collections(self, stubs):
         request = _request(
@@ -525,7 +525,7 @@ class TestRestrictedMemoryInTheLiveDigest:
 
 
 class TestRestrictedMemoryOnTheCompactHandshake:
-    _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
+    _SCOPE = ["base_corpus", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     def _bff_request(self, **overrides):
         fields = dict(
@@ -578,7 +578,7 @@ class TestRestrictedMemoryOnTheCompactHandshake:
 
 
 class TestAConfinedTurnOffersNothingTheWholeProjectReads:
-    _SCOPE = ["oib_knowledge", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
+    _SCOPE = ["base_corpus", "proj_p1", "proj_p1_r0123456789ab", "s_c1"]
 
     def _signed(self, scope=None) -> RequestContext:
         return _request(

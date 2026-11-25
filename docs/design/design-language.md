@@ -1159,6 +1159,17 @@ times stops being a physical cue and becomes texture.
   roots carry no CSS entrance of their own.** A root's `animate-in` plays on
   every mount, so a restored thread replayed every bubble's entrance and a new
   message stacked two. A row leaving gives up its height with its opacity.
+- **A streamed answer's words land in fresh ink.** The pacer (`use-paced-text`)
+  decides how fast words appear; each stretch it reveals then fades up from
+  transparent on `motionBase` (240ms, `--ease-out`), so the leading edge of the
+  answer is a soft gradient a few words long instead of characters stamped one
+  frame at a time. Opacity only, on inline spans the renderer wraps around the
+  fresh tail (`MarkdownRenderer/ink.ts`, the `ink` prop, live answers only), so
+  the line breaks and the layout are the ones the plain text would have; code
+  and directive blocks are left unwrapped. A stretch keeps its own birth time
+  across re-renders (a WAAPI animation started with a negative delay), the fade
+  runs out past the end of the stream instead of snapping, a rewrite of text
+  already shown appears at once, and reduced motion gets plain text.
 - **State changes inside an arrived turn are transitions, not entrances**:
   `AgentPrompt` dims to `opacity-75`; the answer's meta row is reserved at chip
   height (`min-h-6`) so late chips cannot grow the footer.

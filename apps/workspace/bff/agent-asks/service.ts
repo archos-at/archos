@@ -109,6 +109,7 @@ async function threadFor(
     createdBy: session.userId,
     title: clip(input.question, MAX_TITLE),
     projectId: input.projectId ?? null,
+    startedInPersonal: !input.projectId && input.personal !== false,
   })
   return { conversationId, projectId: input.projectId ?? null, created: true }
 }

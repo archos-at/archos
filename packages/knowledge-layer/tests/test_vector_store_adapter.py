@@ -73,10 +73,10 @@ async def test_retrieve_answers_from_qdrant_with_the_chunk_contract(retriever):
 async def test_retrieve_applies_the_callers_filter(retriever):
     _ingest(
         retriever,
-        "oib_knowledge",
+        "base_corpus",
         [_row("Punkt eins", "rl2.pdf", punkt_id="1"), _row("Seite", "rl2.pdf", chunking="page")],
     )
-    result = await retriever.retrieve("Punkt", "oib_knowledge", top_k=5, filters={"chunking": {"$ne": "page"}})
+    result = await retriever.retrieve("Punkt", "base_corpus", top_k=5, filters={"chunking": {"$ne": "page"}})
     assert [chunk.content for chunk in result.chunks] == ["Punkt eins"]
 
 
@@ -88,14 +88,14 @@ async def test_retrieve_from_a_collection_with_no_chunks_is_an_empty_success(ret
 def test_bm25_terms_are_priced_like_the_german_mirror(retriever):
     rows = [_row(f"OIB-Richtlinie Ausgabe Mai 2023, Abschnitt {i}.", "rl.pdf") for i in range(27)]
     rows += [_row("Ausgabe Mai 2023: Fluchtwege sind zu kennzeichnen.", "rl.pdf")]
-    _ingest(retriever, "oib_knowledge", rows)
+    _ingest(retriever, "base_corpus", rows)
 
-    text, _terms = retriever._lexical_inputs("oib-rl_2_ausgabe_mai_2023.pdf", "oib_knowledge")
+    text, _terms = retriever._lexical_inputs("oib-rl_2_ausgabe_mai_2023.pdf", "base_corpus")
     assert text == "", "every term is on the whole corpus or on none of it"
 
-    text, _terms = retriever._lexical_inputs("Fluchtwege Ausgabe", "oib_knowledge")
+    text, _terms = retriever._lexical_inputs("Fluchtwege Ausgabe", "base_corpus")
     assert text == "fluchtwege"
-    assert ("oib_knowledge", 28, "fluchtwege") in retriever._qdrant_term_df, "a priced term is cached per size"
+    assert ("base_corpus", 28, "fluchtwege") in retriever._qdrant_term_df, "a priced term is cached per size"
 
 
 def test_unmeasurable_term_frequencies_leave_the_lexical_channels_unpriced(retriever, monkeypatch):
@@ -556,9 +556,9 @@ def test_either_spelling_prices_the_spelling_the_documents_use(retriever):
 def test_umlaut_stopwords_never_reach_bm25_whatever_their_frequency(retriever):
     rows = [_row(f"Abschnitt {i} regelt die Treppe.", "rl.pdf") for i in range(24)]
     rows += [_row(f"Fluchtwege führen über das Dach {i}.", "rl.pdf") for i in range(4)]
-    _ingest(retriever, "oib_knowledge", rows)
+    _ingest(retriever, "base_corpus", rows)
 
-    text, _terms = retriever._lexical_inputs("Fluchtwege über das Dach", "oib_knowledge")
+    text, _terms = retriever._lexical_inputs("Fluchtwege über das Dach", "base_corpus")
 
     assert "über" not in text.split() and "fluchtwege" in text.split()
 

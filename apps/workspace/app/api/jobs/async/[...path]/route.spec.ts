@@ -294,8 +294,8 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
-      scope: ['oib_knowledge', 'proj_abc'],
-      scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_abc', shelf: 'project' }],
+      scope: ['base_corpus', 'proj_abc'],
+      scopedCollections: [{ collection: 'base_corpus', shelf: 'base' }, { collection: 'proj_abc', shelf: 'project' }],
       projectId: 'proj-1',
       projectCollectionName: 'proj_abc',
       conversationId: undefined,
@@ -350,7 +350,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
       userId: 'user-1',
       projectId: 'proj-1',
       collectionScope: [
-        { collection: 'oib_knowledge', shelf: 'base' },
+        { collection: 'base_corpus', shelf: 'base' },
         { collection: 'proj_abc', shelf: 'project' },
       ],
       issuedAt: expect.any(Number),
@@ -601,9 +601,9 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
     mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
-      scope: ['oib_knowledge', 'proj_abc'],
+      scope: ['base_corpus', 'proj_abc'],
       scopedCollections: [
-        { collection: 'oib_knowledge', shelf: 'base' },
+        { collection: 'base_corpus', shelf: 'base' },
         { collection: 'proj_abc', shelf: 'project' },
       ],
       projectId: 'proj-1',
@@ -673,8 +673,8 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
   it('signs nothing as a conversation the context module did not find and authorize', async () => {
     mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
-      scope: ['oib_knowledge', 's_conv-new'],
-      scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
+      scope: ['base_corpus', 's_conv-new'],
+      scopedCollections: [{ collection: 'base_corpus', shelf: 'base' }],
       projectId: undefined,
       projectCollectionName: undefined,
       conversationId: 'conv-new',

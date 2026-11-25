@@ -97,7 +97,7 @@ describe('documentIdentity and the file extension', () => {
   })
 
   test('the written list still meets the wire', () => {
-    const wire = documentIdentity({ fileName: 'oib-rl_2_ausgabe_mai_2023.pdf', collection: 'oib_knowledge' })
+    const wire = documentIdentity({ fileName: 'oib-rl_2_ausgabe_mai_2023.pdf', collection: 'base_corpus' })
     const written = documentIdentity({ fileName: 'oib-rl-2 ausgabe mai 2023' })
     expect(identityMatches(wire, written)).toBe(true)
   })
@@ -300,7 +300,7 @@ describe('resolveCitationTarget', () => {
 
     test('a shelf holding no such document is UNAVAILABLE, never another shelf’s copy', () => {
       const target = targetFor(
-        { url: '', content: '[KB] Plan.pdf, p.2', collection: 'oib_knowledge', shelf: 'base' },
+        { url: '', content: '[KB] Plan.pdf, p.2', collection: 'base_corpus', shelf: 'base' },
         shelvedDocuments
       )
 
@@ -521,7 +521,7 @@ describe('two documents are not one because their names share a guideline', () =
       content: `${fileName}, p.${page}`,
       fileName,
       citationKey: `${fileName}, p.${page}`,
-      collection: 'oib_knowledge',
+      collection: 'base_corpus',
       shelf: 'base',
       page,
       isCited: true,

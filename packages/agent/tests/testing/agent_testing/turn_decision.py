@@ -15,7 +15,7 @@ SECRET = "turn-decision-test-secret"
 
 def decision_payload(**overrides: Any) -> dict[str, Any]:
     may = {
-        "shelves": [{"collection": "oib_knowledge", "shelf": "base", "countries": ["AT"]}],
+        "shelves": [{"collection": "base_corpus", "shelf": "base", "countries": ["AT"]}],
         "restrictedCollections": [],
         "otherProjects": {"reach": "chat-projects", "restrictedFolders": True},
         "personalMemory": True,

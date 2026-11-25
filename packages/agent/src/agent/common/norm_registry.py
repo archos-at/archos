@@ -23,6 +23,7 @@ from agent.common.legacy_lane_names import LEGACY_AGENT_AUTHORED_LANE
 from agent.common.oib_file_names import canonical_oib_file_name
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.common.source_kinds import MAIL_LANE
 from agent.common.source_kinds import MAIL_LANE_LABEL
 from agent.common.source_kinds import MAIL_SOURCE_FORMAT
@@ -133,7 +134,7 @@ class NormEntry(BaseModel):
 
 class NormsFile(BaseModel):
     version: int = 1
-    corpus_collection: str = "oib_knowledge"
+    corpus_collection: str = BASE_CORPUS_COLLECTION
     language: str = ""
     states: dict[str, str | None] = Field(default_factory=dict)
 

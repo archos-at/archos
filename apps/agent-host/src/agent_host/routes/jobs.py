@@ -307,10 +307,13 @@ def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_second
         from agent import oib_sync
 
         from ..jobs.corpus_payloads import mark_corpus_chunks
+        from ..jobs.corpus_payloads import move_legacy_corpus_scope
 
         _require_internal_token(request)
+        moved = await asyncio.to_thread(move_legacy_corpus_scope)
         result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
         return {
+            "scope_moved": moved,
             "enqueued": result.enqueued,
             "ingested_recorded": result.ingested_recorded,
             "failed": result.failed,

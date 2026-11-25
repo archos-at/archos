@@ -180,10 +180,34 @@
         },
         {
           "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "A new conversation your connected agent starts with ARCHOS without naming a project now lands under Persönlich, so you find it in your chats, and ARCHOS can draw on your Meine Ablage for it. Your agent can still keep a question out of Persönlich.",
+            "de": "Eine neue Unterhaltung, die Ihr verbundener Agent mit ARCHOS beginnt, ohne ein Projekt zu nennen, wird jetzt unter Persönlich abgelegt. So finden Sie sie in Ihren Chats, und ARCHOS kann dafür auf Meine Ablage zugreifen. Ihr Agent kann eine Frage weiterhin von Persönlich ausnehmen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
             "de": "Der Assistent kann jetzt in einer PDF-Zeichnung zwischen frei platzierten Punkten messen – wie beim Messen mit gedrückter Strg-Taste – und eine Messung für Sie am Planblatt belassen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "While ARCHOS writes an answer, new words now fade in gently instead of appearing letter by letter at full strength, so a long answer reads more calmly as it arrives. Nothing on the page moves, and with reduced motion turned on the text appears as before.",
+            "de": "Während ARCHOS eine Antwort schreibt, werden neue Wörter jetzt sanft eingeblendet, statt Buchstabe für Buchstabe mit voller Deckkraft zu erscheinen. Dadurch lässt sich eine lange Antwort ruhiger lesen, während sie entsteht. Auf der Seite bewegt sich nichts, und bei aktivierter Bewegungsreduktion erscheint der Text wie bisher."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
+            "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
           }
         },
         {

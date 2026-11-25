@@ -15,7 +15,7 @@ from agent.memory.restriction import restriction_evidence
 PROJECT = "proj_abc"
 CONTRACTS = f"{PROJECT}_r0123456789ab"
 PERSONNEL = f"{PROJECT}_rba9876543210"
-SCOPE = ["oib_knowledge", PROJECT, CONTRACTS, PERSONNEL, "s_c1"]
+SCOPE = ["base_corpus", PROJECT, CONTRACTS, PERSONNEL, "s_c1"]
 
 CONTRACT_ROW = {"collection": CONTRACTS, "file_name": "Honorarvertrag.pdf", "summary": "Honorar LP 5-8: 184.000 EUR"}
 PERSONNEL_ROW = {"collection": PERSONNEL, "file_name": "Gehaltsliste.xlsx", "summary": "Gehälter 2026"}
@@ -55,7 +55,7 @@ def _evidence(*, sources=(), rows=(CONTRACT_ROW, OPEN_ROW), scope=SCOPE) -> Rest
 
 class TestEvidence:
     def test_an_open_scope_is_no_restriction(self):
-        evidence = restriction_evidence([PROJECT, "oib_knowledge"], source_collections=[PROJECT])
+        evidence = restriction_evidence([PROJECT, "base_corpus"], source_collections=[PROJECT])
         assert not evidence.restricted
 
     def test_only_restricted_collections_of_the_scope_count_as_read(self):
@@ -326,7 +326,7 @@ class TestRestrictedNotesEarlierTurnsWereShown:
     async def test_a_copy_of_an_earlier_note_is_restricted_in_a_turn_without_its_folder_in_scope(self):
         judge = _Judge(_reply([]))
         evidence = restriction_evidence(
-            ["oib_knowledge", PROJECT], listed_documents=(OPEN_ROW,), earlier_notes=(self._EARLIER,)
+            ["base_corpus", PROJECT], listed_documents=(OPEN_ROW,), earlier_notes=(self._EARLIER,)
         )
 
         assert evidence.restricted

@@ -98,7 +98,6 @@ const chatTurn = { projectId: PROJECT_ID, conversationId: CONVERSATION_ID, inter
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(findProjectCollectionName).mockResolvedValue(PROJECT_COLLECTION)
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(countGrantsForResource).mockResolvedValue(0)

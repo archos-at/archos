@@ -18,7 +18,7 @@ def _chunk(file_name: str, collection: str) -> SimpleNamespace:
 
 
 def test_a_name_that_matches_no_hit_empties_the_law_search() -> None:
-    pool = [_chunk("OIB-RL 4.pdf", "oib_knowledge"), _chunk("Museum-Grundriss.pdf", "project_x")]
+    pool = [_chunk("OIB-RL 4.pdf", "base_corpus"), _chunk("Museum-Grundriss.pdf", "project_x")]
     assert apply_agent_filters(pool, None, None, "Anderer-Plan.pdf") == []
 
 

@@ -30,7 +30,7 @@ function decided() {
       audience: { ...context.audience, solo: true, version: 0 },
       may: {
         ...context.may,
-        shelves: [{ collection: 'oib_knowledge', shelf: 'base', countries: ['AT'] }],
+        shelves: [{ collection: 'base_corpus', shelf: 'base', countries: ['AT'] }],
         personalMemory: true,
         personalShelf: true,
         projectMemory: { readableFolderIds: ['folder-only-the-bff-sees'] },

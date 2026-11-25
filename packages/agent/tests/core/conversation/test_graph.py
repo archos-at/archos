@@ -242,11 +242,11 @@ class TestConversationGraph:
 
         state = ConversationState(
             messages=[HumanMessage(content="Hello!")],
-            collection_scope=["oib_knowledge", "proj_project-1", "s_conv-1"],
+            collection_scope=["base_corpus", "proj_project-1", "s_conv-1"],
         )
         result = await turn(agent, state, thread_id="test-thread")
 
-        assert result.collection_scope == ["oib_knowledge", "proj_project-1", "s_conv-1"]
+        assert result.collection_scope == ["base_corpus", "proj_project-1", "s_conv-1"]
 
     @pytest.mark.asyncio
     async def test_run_propagates_none_data_sources(self, mock_deep_research, mock_clarifier):

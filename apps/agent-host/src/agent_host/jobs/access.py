@@ -17,6 +17,8 @@ from agent.auth import get_current_principal
 from agent.common.db_utils import ensure_schema
 from agent.common.db_utils import present_columns
 from agent.common.db_utils import present_indexes
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
+from agent.common.source_kinds import current_collection
 from agent.common.source_kinds import is_office_shelf_collection
 from agent.knowledge.restricted_collections import base_collection_of
 from agent.knowledge.scoping import signed_scope_names
@@ -234,19 +236,14 @@ def _auth_required() -> bool:
     return os.environ.get("REQUIRE_AUTH", "false").lower() == "true"
 
 
-def _base_collection_name() -> str:
-    return os.environ.get("OIB_COLLECTION_NAME") or os.environ.get("COLLECTION_NAME") or "oib_knowledge"
-
-
 def derive_project_collection(collection_scope: list[str] | None) -> str | None:
     if not collection_scope:
         return None
 
-    base_collection = _base_collection_name()
     candidates = {
         base_collection_of(collection)
         for collection in collection_scope
-        if collection != base_collection
+        if current_collection(collection) != BASE_CORPUS_COLLECTION
         and not collection.startswith("s_")
         and not is_office_shelf_collection(collection)
     }

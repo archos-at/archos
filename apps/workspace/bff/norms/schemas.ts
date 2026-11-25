@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { normalizeProfileToken } from '@/lib/project-profile/legacy-names'
+import { BASE_CORPUS_COLLECTION } from '@/lib/retrieval-scope/collection-scope'
 
 export const NORM_RANKS = [
   'federal_law',
@@ -84,7 +85,7 @@ function renameLegacyStateKeys(value: unknown): unknown {
 
 export const normsFileSchema = z.object({
   version: z.literal(1),
-  corpus_collection: z.string().default('oib_knowledge'),
+  corpus_collection: z.string().default(BASE_CORPUS_COLLECTION),
   language: z.string().default(''),
   states: z.preprocess(renameLegacyStateKeys, z.record(z.string(), z.string().nullable()).default({})),
   corpus_note: z.string().default(''),

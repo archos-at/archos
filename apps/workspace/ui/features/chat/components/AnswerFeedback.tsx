@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type FC, type FormEvent } from 'react'
+import { useCallback, useState, type FC, type FormEvent } from 'react'
 import { Check, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { AnimatePresence, motion, useIconSwapTransition } from '@/components/motion'
 import { HeightArrival } from '@/components/motion/height-arrival'
@@ -17,17 +17,12 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import type { AnswerFeedbackReason } from '@/lib/db/schema/answer-feedback'
 import { useChatStore } from '../store'
-import { useAnswerFeedback } from '../hooks/use-answer-feedback'
+import {
+  useAnswerFeedback,
+  type AnswerFeedbackState,
+} from '../hooks/use-answer-feedback'
 
 const REASONS: readonly AnswerFeedbackReason[] = ['inaccurate', 'too_slow', 'wrong_source', 'other']
-
-export interface AnswerFeedbackProps {
-  messageId: string
-  conversationId?: string | null
-  compact?: boolean
-  className?: string
-  pending?: boolean
-}
 
 const thumbBase = cn(
   'inline-flex size-6 items-center justify-center rounded-control pointer-coarse:size-11',
@@ -39,95 +34,63 @@ const thumbBase = cn(
 
 const thumbSelected = 'bg-foreground text-background hover:bg-foreground hover:text-background'
 
-export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
+type SetFeedback = (next: AnswerFeedbackState | null) => void
+type Verdict = AnswerFeedbackState['verdict'] | null
+
+const receiptIdFor = (messageId: string): string => `answer-feedback-receipt-${messageId}`
+
+export interface AnswerFeedbackThumbsProps {
+  messageId: string
+  state: AnswerFeedbackState | null
+  setFeedback: SetFeedback
+  onVerdict?: (verdict: Verdict) => void
+  pending?: boolean
+  className?: string
+}
+
+export const AnswerFeedbackThumbs: FC<AnswerFeedbackThumbsProps> = ({
   messageId,
-  conversationId,
-  compact = false,
-  className,
+  state,
+  setFeedback,
+  onVerdict,
   pending = false,
+  className,
 }) => {
   const t = useTranslations(chatCopy)
   const swap = useIconSwapTransition()
-  const projectId = useChatStore((s) => s.projectId)
-  const { state, setFeedback } = useAnswerFeedback(messageId, conversationId, projectId)
-  const [comment, setComment] = useState('')
-  const [expected, setExpected] = useState('')
-  const receiptRef = useRef<HTMLParagraphElement>(null)
-
   const verdict = state?.verdict ?? null
-  const reason = state?.reason ?? null
-  const showNote = verdict === 'down' && !state?.comment && !state?.expectedAnswer
-  const promptId = `answer-feedback-reason-${messageId}`
-  const commentId = `answer-feedback-comment-${messageId}`
-  const expectedId = `answer-feedback-expected-${messageId}`
+  const receiptId = receiptIdFor(messageId)
 
   const handleUp = useCallback(() => {
-    setComment('')
-    setExpected('')
-    setFeedback(
-      verdict === 'up' ? null : { verdict: 'up', reason: null, comment: null, expectedAnswer: null }
-    )
-  }, [verdict, setFeedback])
+    const next = verdict === 'up' ? null : 'up'
+    setFeedback(next ? { verdict: next, reason: null, comment: null, expectedAnswer: null } : null)
+    onVerdict?.(next)
+  }, [verdict, setFeedback, onVerdict])
 
   const handleDown = useCallback(() => {
-    setComment('')
-    setExpected('')
-    setFeedback(
-      verdict === 'down'
-        ? null
-        : { verdict: 'down', reason: null, comment: null, expectedAnswer: null }
-    )
-  }, [verdict, setFeedback])
+    const next = verdict === 'down' ? null : 'down'
+    setFeedback(next ? { verdict: next, reason: null, comment: null, expectedAnswer: null } : null)
+    onVerdict?.(next)
+  }, [verdict, setFeedback, onVerdict])
 
-  const handleReason = useCallback(
-    (next: string) => {
-      setFeedback({
-        verdict: 'down',
-        reason: next ? (next as AnswerFeedbackReason) : null,
-        comment: state?.comment ?? null,
-        expectedAnswer: state?.expectedAnswer ?? null,
-      })
-    },
-    [setFeedback, state?.comment, state?.expectedAnswer]
-  )
-
-  const handleCommentSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-      const nextComment = comment.trim()
-      const nextExpected = expected.trim()
-      if (!nextComment && !nextExpected) return
-      setFeedback({
-        verdict: 'down',
-        reason,
-        comment: nextComment || null,
-        expectedAnswer: nextExpected || null,
-      })
-      setComment('')
-      setExpected('')
-      receiptRef.current?.focus({ preventScroll: true })
-    },
-    [comment, expected, setFeedback, reason]
-  )
-
-  const restingRow = (
+  return (
     <div
       className={cn(
         'group/feedback flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1 text-xs',
         'duration-base transition-opacity ease-out motion-reduce:transition-none',
         pending && 'opacity-0',
-        compact && className
+        className
       )}
       inert={pending}
       aria-hidden={pending || undefined}
     >
       {/* What the vote alone commits, stated once, on the vote's own line. */}
       <p
-        ref={receiptRef}
+        id={receiptId}
         role="status"
         tabIndex={-1}
         className={cn(
-          'text-muted-foreground flex items-center gap-1 text-xs outline-none',
+          'sr-only',
           'duration-quick transition-opacity ease-out motion-reduce:transition-none',
           verdict === null && 'opacity-0'
         )}
@@ -166,7 +129,9 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
               <ThumbsUp className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{t('feedback.question')}</TooltipContent>
+          <TooltipContent>
+            {t(verdict === 'up' ? 'feedback.voteRecorded' : 'feedback.question')}
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -181,110 +146,176 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
               <ThumbsDown className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{t('feedback.question')}</TooltipContent>
+          <TooltipContent>
+            {t(verdict === 'down' ? 'feedback.voteRecorded' : 'feedback.question')}
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>
   )
+}
 
-  const disclosure = (
-    <AnimatePresence initial={false}>
-      {verdict === 'down' && (
-        <HeightArrival key="reasons" className="w-full">
-          <div className="flex max-w-md flex-col gap-2 text-xs">
-            <p id={promptId} className="text-muted-foreground text-xs">
-              {t('feedback.reasonPrompt')}
-            </p>
-            {/* Exclusive choice, structurally: Radix renders a radiogroup with
-            roving-focus arrow keys, so the chips are one tab stop. */}
-            <ToggleGroup
-              type="single"
-              value={reason ?? ''}
-              onValueChange={handleReason}
-              variant="outline"
-              size="sm"
-              aria-labelledby={promptId}
-              className="gap-1.5"
-            >
-              {REASONS.map((key) => (
-                <ToggleGroupItem
-                  key={key}
-                  value={key}
-                  className="data-[state=on]:bg-foreground data-[state=on]:text-background h-7 px-2.5 text-xs data-[state=on]:border-transparent data-[state=on]:shadow-2xs pointer-coarse:h-11"
-                >
-                  {t(`feedback.reasons.${key}`)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+export interface AnswerFeedbackReasonsProps {
+  messageId: string
+  state: AnswerFeedbackState | null
+  setFeedback: SetFeedback
+}
 
-            <AnimatePresence initial={false}>
-              {showNote && (
-                <HeightArrival key="note">
-                  <form onSubmit={handleCommentSubmit}>
-                    <Field className="gap-1.5">
-                      <FieldLabel
-                        htmlFor={commentId}
-                        className="text-muted-foreground text-xs font-normal"
-                      >
-                        {t('feedback.commentLabel')}
-                      </FieldLabel>
-                      <Textarea
-                        id={commentId}
-                        value={comment}
-                        onChange={(event) => setComment(event.target.value)}
-                        placeholder={t('feedback.commentPlaceholder')}
-                        rows={2}
-                        maxLength={2000}
-                        className="rounded-control min-h-14 resize-none py-2 text-xs"
-                      />
-                      <FieldLabel
-                        htmlFor={expectedId}
-                        className="text-muted-foreground text-xs font-normal"
-                      >
-                        {t('feedback.expectedLabel')}
-                      </FieldLabel>
-                      <Input
-                        id={expectedId}
-                        value={expected}
-                        onChange={(event) => setExpected(event.target.value)}
-                        placeholder={t('feedback.expectedPlaceholder')}
-                        maxLength={2000}
-                        className="rounded-control h-8 text-xs"
-                      />
-                      {/* Full ink when it will do something, 40% when it will not:
-                  the difference is a contrast jump, not grey vs. grey. */}
-                      <Button
-                        type="submit"
-                        size="sm"
-                        className="h-7 w-fit px-3 text-xs disabled:opacity-40 pointer-coarse:h-11"
-                        disabled={comment.trim() === '' && expected.trim() === ''}
-                      >
-                        {t('feedback.commentSubmit')}
-                      </Button>
-                    </Field>
-                  </form>
-                </HeightArrival>
-              )}
-            </AnimatePresence>
-          </div>
-        </HeightArrival>
-      )}
-    </AnimatePresence>
+export const AnswerFeedbackReasons: FC<AnswerFeedbackReasonsProps> = ({
+  messageId,
+  state,
+  setFeedback,
+}) => {
+  const t = useTranslations(chatCopy)
+  const [comment, setComment] = useState('')
+  const [expected, setExpected] = useState('')
+  const reason = state?.reason ?? null
+  const showNote = state?.verdict === 'down' && !state?.comment && !state?.expectedAnswer
+  const promptId = `answer-feedback-reason-${messageId}`
+  const commentId = `answer-feedback-comment-${messageId}`
+  const expectedId = `answer-feedback-expected-${messageId}`
+
+  const handleReason = useCallback(
+    (next: string) => {
+      setFeedback({
+        verdict: 'down',
+        reason: next ? (next as AnswerFeedbackReason) : null,
+        comment: state?.comment ?? null,
+        expectedAnswer: state?.expectedAnswer ?? null,
+      })
+    },
+    [setFeedback, state?.comment, state?.expectedAnswer]
   )
 
-  if (compact) {
-    return (
-      <>
-        {restingRow}
-        {disclosure}
-      </>
-    )
-  }
+  const handleCommentSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      const nextComment = comment.trim()
+      const nextExpected = expected.trim()
+      if (!nextComment && !nextExpected) return
+      setFeedback({
+        verdict: 'down',
+        reason,
+        comment: nextComment || null,
+        expectedAnswer: nextExpected || null,
+      })
+      setComment('')
+      setExpected('')
+      document.getElementById(receiptIdFor(messageId))?.focus({ preventScroll: true })
+    },
+    [comment, expected, setFeedback, reason, messageId]
+  )
 
   return (
+    <div className="flex max-w-md flex-col gap-2 text-xs">
+      <p id={promptId} className="text-muted-foreground text-xs">
+        {t('feedback.reasonPrompt')}
+      </p>
+      {/* Exclusive choice, structurally: Radix renders a radiogroup with
+      roving-focus arrow keys, so the chips are one tab stop. */}
+      <ToggleGroup
+        type="single"
+        value={reason ?? ''}
+        onValueChange={handleReason}
+        variant="outline"
+        size="sm"
+        aria-labelledby={promptId}
+        className="gap-1.5"
+      >
+        {REASONS.map((key) => (
+          <ToggleGroupItem
+            key={key}
+            value={key}
+            className="data-[state=on]:bg-foreground data-[state=on]:text-background h-7 px-2.5 text-xs data-[state=on]:border-transparent data-[state=on]:shadow-2xs pointer-coarse:h-11"
+          >
+            {t(`feedback.reasons.${key}`)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+
+      <AnimatePresence initial={false}>
+        {showNote && (
+          <HeightArrival key="note">
+            <form onSubmit={handleCommentSubmit}>
+              <Field className="gap-1.5">
+                <FieldLabel
+                  htmlFor={commentId}
+                  className="text-muted-foreground text-xs font-normal"
+                >
+                  {t('feedback.commentLabel')}
+                </FieldLabel>
+                <Textarea
+                  id={commentId}
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                  placeholder={t('feedback.commentPlaceholder')}
+                  rows={2}
+                  maxLength={2000}
+                  className="rounded-control min-h-14 resize-none py-2 text-xs"
+                />
+                <FieldLabel
+                  htmlFor={expectedId}
+                  className="text-muted-foreground text-xs font-normal"
+                >
+                  {t('feedback.expectedLabel')}
+                </FieldLabel>
+                <Input
+                  id={expectedId}
+                  value={expected}
+                  onChange={(event) => setExpected(event.target.value)}
+                  placeholder={t('feedback.expectedPlaceholder')}
+                  maxLength={2000}
+                  className="rounded-control h-8 text-xs"
+                />
+                {/* Full ink when it will do something, 40% when it will not:
+            the difference is a contrast jump, not grey vs. grey. */}
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-7 w-fit px-3 text-xs disabled:opacity-40 pointer-coarse:h-11"
+                  disabled={comment.trim() === '' && expected.trim() === ''}
+                >
+                  {t('feedback.commentSubmit')}
+                </Button>
+              </Field>
+            </form>
+          </HeightArrival>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+export interface AnswerFeedbackProps {
+  messageId: string
+  conversationId?: string | null
+  className?: string
+  pending?: boolean
+}
+
+export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
+  messageId,
+  conversationId,
+  className,
+  pending = false,
+}) => {
+  const projectId = useChatStore((s) => s.projectId)
+  const { state, setFeedback } = useAnswerFeedback(messageId, conversationId, projectId)
+  return (
     <div className={cn('flex flex-col gap-2', className)}>
-      {restingRow}
-      {disclosure}
+      <AnswerFeedbackThumbs
+        messageId={messageId}
+        state={state}
+        setFeedback={setFeedback}
+        pending={pending}
+      />
+      <AnimatePresence initial={false}>
+        {state?.verdict === 'down' && (
+          <HeightArrival key="reasons" className="w-full">
+            <AnswerFeedbackReasons messageId={messageId} state={state} setFeedback={setFeedback} />
+          </HeightArrival>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

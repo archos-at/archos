@@ -47,7 +47,7 @@ SECRET = "internal-test-token"  # noqa: S105  # pragma: allowlist secret
 REPO = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO / "apps" / "workspace" / "tests" / "fixtures" / "run-envelope.schema.json"
 IDENTITY = {"organization_id": "org-1", "user_id": "user-1", "project_id": "proj-1"}
-SCOPE = [{"collection": "oib_knowledge", "shelf": "base"}, {"collection": "proj_1", "shelf": "project"}]
+SCOPE = [{"collection": "base_corpus", "shelf": "base"}, {"collection": "proj_1", "shelf": "project"}]
 HOUR_MS = 60 * 60 * 1000
 
 

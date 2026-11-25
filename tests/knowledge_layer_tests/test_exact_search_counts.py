@@ -271,7 +271,7 @@ def search_with(monkeypatch):
 
 
 async def _search(**kwargs) -> str:
-    config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=False)
+    config = KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=False)
     async with knowledge_retrieval(config, MagicMock()) as info:
         return await info.single_fn(info.input_schema(**kwargs))
 

@@ -19,10 +19,10 @@ export const consultOperations = [
       'the project’s files and building law, and may file a document. ' +
       `Waits up to ${ASK_WAIT_SECONDS} s (less with waitSeconds). "completed" carries answer.text, answer.sources ` +
       '(documentId, name, page, a url opening the cited page) and answer.confidence (level, reason); an answer with ' +
-      'neither is not grounded in a document. "submitted" or "working": call agent-ask-get with the id right away; it waits ' +
-      `up to ${ASK_WAIT_SECONDS} s for the answer itself, so call it again while it still says "working". ` +
+      'neither is not grounded in a document. "submitted" or "working": call agent-ask-get at once; it waits. ' +
       '"rejected" or "failed" say why (spent budget, busy conversation). Pass projectId (from project-list) to ask ' +
-      'about one project: without it ' + PRODUCT_NAME + ' answers for the office as a whole and reads no project’s files. ' +
+      'about one project: without it ' + PRODUCT_NAME + ' answers for the office as a whole, reads no project’s files, ' +
+      'and files a new chat on the person’s personal side (personal=false: on none). ' +
       'conversationId follows up an earlier ask. Uses the organization’s model budget.',
     method: 'POST',
     path: '/api/agent-asks',
@@ -38,8 +38,8 @@ export const consultOperations = [
     description:
       'The ask agent-ask-create started, by its id: its state, the answer once "completed" (with its sources and confidence, as agent-ask-create), ' +
       'the documents ' +
-      `${PRODUCT_NAME} filed, or the reason it failed. Waits up to ${ASK_WAIT_SECONDS} s for the answer before it returns ` +
-      '(waitSeconds: 0 reads it as it is now), so call it again right away while it says "working". ' +
+      `${PRODUCT_NAME} filed, or the reason it failed. Waits up to ${ASK_WAIT_SECONDS} s for the answer (waitSeconds: 0 ` +
+      'does not); call again at once while "working". ' +
       'Only the person the ask was made for can read it.',
     method: 'GET',
     path: '/api/agent-asks/[id]',

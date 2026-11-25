@@ -67,7 +67,7 @@ def _flag(monkeypatch, on: bool) -> None:
 
 async def _tree() -> str:
     builder = MagicMock()
-    builder.get_function_config = MagicMock(return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge"))
+    builder.get_function_config = MagicMock(return_value=KnowledgeRetrievalConfig(collection_name="base_corpus"))
     async with list_files(ListFilesConfig(), builder) as info:
         return await info.single_fn(info.input_schema(view="tree"))
 

@@ -137,7 +137,7 @@ The agent already has four knowledge layers. Memory is the missing fifth.
 | **Intake profile** | Structured facts/goals/unknowns | Project | Yes | Hard project facts (Gebäudeklasse, Nutzung…) |
 | **Conversation history** | Raw messages | Conversation | **No** (siloed per chat) | The current dialog |
 | **Uploaded documents (RAG)** | Chunked text, embedded | Project (`proj_*`) | Yes | The user's own files |
-| **OIB corpus (RAG)** | Chunked Richtlinien | Global (`oib_knowledge`) | Yes | The law |
+| **OIB corpus (RAG)** | Chunked Richtlinien | Global (`base_corpus`) | Yes | The law |
 | **→ Project Memory (NEW)** | Curated, evolving findings | Project | **Yes** | What the agent has *learned/decided* about the project |
 
 The gap memory fills: today, anything the agent figures out in conversation #3

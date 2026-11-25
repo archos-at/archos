@@ -10,7 +10,7 @@ ARCHOS searches these sources on its own — you don't need to ask it to "search
 
 ### 1. Basiswissen: OIB-Richtlinien and the law corpus
 
-The OIB (Österreichisches Institut für Bautechnik) guidelines are pre-ingested into a persistent collection named `oib_knowledge`. These PDFs cover Austrian building code regulations. ARCHOS consults this base whenever it needs regulatory or technical building information.
+The OIB (Österreichisches Institut für Bautechnik) guidelines are pre-ingested into the platform's base corpus, a persistent collection named `base_corpus` that holds each country's base documents. These PDFs cover Austrian building code regulations. ARCHOS consults this base whenever it needs regulatory or technical building information.
 
 This collection is part of every question's scope and is **never** auto-deleted.
 
@@ -95,6 +95,6 @@ The system determines which collections to search for each request. This scoping
 - **Project context** — if you are working in a project, `proj_{projectId}` is included
 - **Conversation context** — if you have a conversation open, `s_{conversationId}` is included
 - **Bürobibliothek** — `archiv_{orgId}` is included for every signed-in member of an organization
-- **Base knowledge** — `oib_knowledge` is always included as the default collection
+- **Base knowledge** — `base_corpus` is always included as the default collection
 
 For technical details, see the [Collection Scoping](../technical-reference/collection-scoping.md) reference.

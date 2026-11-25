@@ -50,7 +50,7 @@ const citation = (page: number, number: number, passage?: string): CitationSourc
   content: passage ? `[KB] ${OIB}, p.${page}\n${passage}` : `[KB] ${OIB}, p.${page}`,
   citationKey: `${OIB}, p.${page}`,
   fileName: OIB,
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   title: 'OIB-Richtlinie 2.1, Ausgabe Mai 2023',
   origin: 'kb',
   kind: 'building_law',

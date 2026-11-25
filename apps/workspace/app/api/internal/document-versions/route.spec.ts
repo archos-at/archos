@@ -309,7 +309,7 @@ describe('the ops it does serve', () => {
 
   it('hands both writes the conversation, never the signed scope: what may leave is what the conversation USED (ADR-0088)', async () => {
     const restricted = 'proj_3333_r0123456789ab'
-    const headers = envelopeHeaders({ collectionScope: ['oib_knowledge', 'proj_3333', restricted] })
+    const headers = envelopeHeaders({ collectionScope: ['base_corpus', 'proj_3333', restricted] })
     await call(
       { op: 'create', projectId: PROJECT, ref: 's_conv_1-honorar', title: 'Honorar', content: '# Honorar' },
       headers,

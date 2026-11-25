@@ -109,6 +109,15 @@ def canonical_shelf_value(value: str) -> str:
     return LEGACY_SHELF_VALUES.get(key, key)
 
 
+BASE_CORPUS_COLLECTION = "base_corpus"
+# drop after release 2027-W02
+LEGACY_BASE_CORPUS_COLLECTION = "oib_knowledge"
+
+
+def current_collection(collection: str) -> str:
+    return BASE_CORPUS_COLLECTION if collection == LEGACY_BASE_CORPUS_COLLECTION else collection
+
+
 OFFICE_SHELF_COLLECTION_PREFIX = "archiv_"
 OFFICE_SHELF_TARGET_COLLECTION_PREFIX = "office_shelf_"
 OFFICE_SHELF_COLLECTION_PREFIXES: tuple[str, ...] = (

@@ -33,7 +33,7 @@ class TestRetrievalInput:
         payload = build_retrieval_input(
             query="Fluchtweglänge GK 4",
             retrieval_query="Fluchtweglänge GK 4 Geschoßfläche Gebäudeklasse",
-            collections=[_ScopedCollection("oib_knowledge", _Shelf("base")), _ScopedCollection("proj_abc")],
+            collections=[_ScopedCollection("base_corpus", _Shelf("base")), _ScopedCollection("proj_abc")],
             candidate_k=32,
             top_k=16,
             reranked=True,
@@ -45,7 +45,7 @@ class TestRetrievalInput:
             "query": "Fluchtweglänge GK 4",
             "retrieval_query": "Fluchtweglänge GK 4 Geschoßfläche Gebäudeklasse",
             "collections": [
-                {"collection": "oib_knowledge", "shelf": "base"},
+                {"collection": "base_corpus", "shelf": "base"},
                 {"collection": "proj_abc"},
             ],
             "candidate_k": 32,
@@ -78,7 +78,7 @@ class TestRetrievalOutput:
                     file_name="oib-rl-2.pdf",
                     page_number=7,
                     score=0.9134567,
-                    metadata={"collection": "oib_knowledge", "shelf": "base", "doc_class": "oib_guideline"},
+                    metadata={"collection": "base_corpus", "shelf": "base", "doc_class": "oib_guideline"},
                 ),
                 _Chunk(chunk_id="chk_10", file_name=None, page_number=None, score=0.5),
             ]
@@ -91,7 +91,7 @@ class TestRetrievalOutput:
                     "file": "oib-rl-2.pdf",
                     "page": 7,
                     "score": 0.9135,
-                    "collection": "oib_knowledge",
+                    "collection": "base_corpus",
                     "shelf": "base",
                     "doc_class": "oib_guideline",
                 },

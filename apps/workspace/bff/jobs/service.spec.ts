@@ -229,7 +229,7 @@ beforeEach(() => {
   vi.mocked(findProjectInOrg).mockResolvedValue({ collectionName: 'proj_x', status: 'active' } as never)
   vi.mocked(resolveConversationContext).mockImplementation(async (_session, request) => {
     const closed = closedContext(request.kind, request.conversationId ?? null)
-    return { ...closed, may: { ...closed.may, shelves: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_x', shelf: 'project' }] } }
+    return { ...closed, may: { ...closed.may, shelves: [{ collection: 'base_corpus', shelf: 'base' }, { collection: 'proj_x', shelf: 'project' }] } }
   })
   vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
   vi.mocked(loadProjectPromptView).mockResolvedValue(null)
@@ -775,7 +775,7 @@ describe('submitAgentRun', () => {
     await submitAgentRun(spec)
 
     expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', projectId: spec.projectId })
-    expect(vi.mocked(buildRequestContextWireHeaders).mock.calls[0][0].collectionScope).toEqual(['oib_knowledge', 'proj_x'])
+    expect(vi.mocked(buildRequestContextWireHeaders).mock.calls[0][0].collectionScope).toEqual(['base_corpus', 'proj_x'])
     expect(vi.mocked(submitJob).mock.calls[0][0]).not.toHaveProperty('collection_scope')
   })
 

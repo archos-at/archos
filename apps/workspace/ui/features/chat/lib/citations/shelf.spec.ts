@@ -70,7 +70,7 @@ describe('an unknown shelf renders unattributed', () => {
   })
 
   test('an unrecognised shelf value is dropped, not defaulted to base law', () => {
-    const doc = documentFor(wire({ shelf: 'building_law', collection: 'oib_knowledge' }))
+    const doc = documentFor(wire({ shelf: 'building_law', collection: 'base_corpus' }))
 
     expect(doc.shelf).toBeUndefined()
     expect(documentShelfLabel(doc, t)).toBeUndefined()

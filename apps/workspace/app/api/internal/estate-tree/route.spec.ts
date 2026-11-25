@@ -44,7 +44,7 @@ const session = {
   featureFlags: null,
 }
 
-function envelopeHeaders(secret = SECRET, collectionScope = ['oib_knowledge', 'proj_1']) {
+function envelopeHeaders(secret = SECRET, collectionScope = ['base_corpus', 'proj_1']) {
   const { header, signature } = buildRequestContextEnvelope(
     {
       organizationId: 'org_1',
@@ -79,7 +79,7 @@ describe('POST /api/internal/estate-tree', () => {
 
     expect(response.status).toBe(200)
     expect(vi.mocked(readEstateTree)).toHaveBeenCalledWith(
-      expect.objectContaining({ organizationId: 'org_1', userId: 'user_requester', projectId: PROJECT, conversationId: 's_conv_1', collectionScope: ['oib_knowledge', 'proj_1'] }),
+      expect.objectContaining({ organizationId: 'org_1', userId: 'user_requester', projectId: PROJECT, conversationId: 's_conv_1', collectionScope: ['base_corpus', 'proj_1'] }),
       session,
       { shelf: 'project', limit: 50 },
     )

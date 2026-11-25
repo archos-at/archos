@@ -77,7 +77,7 @@ function computeCollectionScope(
 **ScopeContext**:
 - `projectId?: string` — if present, adds `proj_{projectId}`
 - `conversationId?: string` — if present, adds `s_{conversationId}`
-- `baseCollection?: string` — defaults to `process.env.BASE_COLLECTION_NAME || 'oib_knowledge'`
+- `baseCollection?: string` — defaults to `BASE_CORPUS_COLLECTION` (`base_corpus`, `bff/retrieval-scope/collection-scope.ts`)
 - `restrictedCollections?: readonly string[]` — restricted-folder collections, placed right
   after the project collection. Only `buildCollectionScopeFromRequest` passes them, and only for
   an interactive chat turn; the session-less scheduled-run path (`jobs/service.ts`) never does
@@ -89,7 +89,7 @@ Encodes the scope array into a base64url-encoded header value:
 ```typescript
 function buildCollectionScopeHeader(scope: string[]): string
 // Example output: "WyJvaWJfa25vd2xlZGdlIiwicHJval8xMjMiLCJzX2FiYyJd"
-// Decodes to: ["oib_knowledge","proj_123","s_abc"]
+// Decodes to: ["base_corpus","proj_123","s_abc"]
 ```
 
 ---

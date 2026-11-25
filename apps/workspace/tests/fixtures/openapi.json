@@ -15843,7 +15843,7 @@
       "post": {
         "operationId": "agent-ask-create",
         "summary": "Ask ARCHOS a question and get its answer",
-        "description": "Asks ARCHOS, the office’s own agent, as the signed-in person: it answers from the office’s documents, the project’s files and building law, and may file a document. Waits up to 40 s (less with waitSeconds). \"completed\" carries answer.text, answer.sources (documentId, name, page, a url opening the cited page) and answer.confidence (level, reason); an answer with neither is not grounded in a document. \"submitted\" or \"working\": call agent-ask-get with the id right away; it waits up to 40 s for the answer itself, so call it again while it still says \"working\". \"rejected\" or \"failed\" say why (spent budget, busy conversation). Pass projectId (from project-list) to ask about one project: without it ARCHOS answers for the office as a whole and reads no project’s files. conversationId follows up an earlier ask. Uses the organization’s model budget.",
+        "description": "Asks ARCHOS, the office’s own agent, as the signed-in person: it answers from the office’s documents, the project’s files and building law, and may file a document. Waits up to 40 s (less with waitSeconds). \"completed\" carries answer.text, answer.sources (documentId, name, page, a url opening the cited page) and answer.confidence (level, reason); an answer with neither is not grounded in a document. \"submitted\" or \"working\": call agent-ask-get at once; it waits. \"rejected\" or \"failed\" say why (spent budget, busy conversation). Pass projectId (from project-list) to ask about one project: without it ARCHOS answers for the office as a whole, reads no project’s files, and files a new chat on the person’s personal side (personal=false: on none). conversationId follows up an earlier ask. Uses the organization’s model budget.",
         "tags": [
           "conversations"
         ],
@@ -15864,6 +15864,10 @@
                     "description": "The project ARCHOS should answer in, from project-list. Omit for the office as a whole.",
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "personal": {
+                    "description": "Where a new conversation without a project starts: on the person’s personal side (default), where they find it in the app and the answer may draw on their own shelf, or with false on no side, listed nowhere. Ignored with a projectId or a conversationId.",
+                    "type": "boolean"
                   },
                   "conversationId": {
                     "description": "Continue an earlier ask: its conversationId, from agent-ask-create or agent-ask-get. ARCHOS then sees the earlier questions and answers. Omit to start a new conversation.",
@@ -15923,7 +15927,7 @@
       "get": {
         "operationId": "agent-ask-get",
         "summary": "Read an ask to ARCHOS, and its answer once there",
-        "description": "The ask agent-ask-create started, by its id: its state, the answer once \"completed\" (with its sources and confidence, as agent-ask-create), the documents ARCHOS filed, or the reason it failed. Waits up to 40 s for the answer before it returns (waitSeconds: 0 reads it as it is now), so call it again right away while it says \"working\". Only the person the ask was made for can read it.",
+        "description": "The ask agent-ask-create started, by its id: its state, the answer once \"completed\" (with its sources and confidence, as agent-ask-create), the documents ARCHOS filed, or the reason it failed. Waits up to 40 s for the answer (waitSeconds: 0 does not); call again at once while \"working\". Only the person the ask was made for can read it.",
         "tags": [
           "conversations"
         ],
@@ -39047,7 +39051,7 @@
                         "const": 1
                       },
                       "corpus_collection": {
-                        "default": "oib_knowledge",
+                        "default": "base_corpus",
                         "type": "string"
                       },
                       "language": {

@@ -310,6 +310,50 @@ class TestDocumentMetadataStore:
             engine.dispose()
             DocumentMetadataStore.dispose_engine(db_url)
 
+    def test_rows_of_the_old_base_corpus_name_move_to_base_corpus_and_a_current_row_wins(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy import text
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_url = f"sqlite:///{Path(tmpdir) / 'base.db'}"
+            DocumentMetadataStore._tables_initialized.discard(db_url)
+            DocumentMetadataStore(db_url)
+            engine = create_engine(db_url)
+            with engine.begin() as conn:
+                for collection, filename, summary in (
+                    ("oib_knowledge", "rl-2.pdf", "alt"),
+                    ("oib_knowledge", "rl-4.pdf", "alt"),
+                    ("base_corpus", "rl-4.pdf", "neu"),
+                    ("proj_a", "plan.pdf", "Plan"),
+                ):
+                    conn.execute(
+                        text("INSERT INTO document_metadata (collection, filename, summary) VALUES (:c, :f, :s)"),
+                        {"c": collection, "f": filename, "s": summary},
+                    )
+                conn.execute(
+                    text(
+                        "INSERT INTO document_revision_retained (collection, filename, superseded_by) "
+                        "VALUES ('oib_knowledge', 'rl-2.pdf', 'rl-2-2023.pdf')"
+                    )
+                )
+
+            DocumentMetadataStore._tables_initialized.discard(db_url)
+            DocumentMetadataStore(db_url)
+
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("SELECT collection, filename, summary FROM document_metadata ORDER BY collection, filename")
+                ).all()
+                retained = conn.execute(text("SELECT collection FROM document_revision_retained")).scalars().all()
+            assert [tuple(row) for row in rows] == [
+                ("base_corpus", "rl-2.pdf", "alt"),
+                ("base_corpus", "rl-4.pdf", "neu"),
+                ("proj_a", "plan.pdf", "Plan"),
+            ]
+            assert retained == ["base_corpus"]
+            engine.dispose()
+            DocumentMetadataStore.dispose_engine(db_url)
+
     def test_a_german_doc_class_is_rewritten_to_its_english_key_and_others_are_left(self):
         from sqlalchemy import create_engine
         from sqlalchemy import text
@@ -579,7 +623,7 @@ class TestDocumentMetadataStore:
                 conn.execute(
                     text(
                         "INSERT INTO summaries (collection, filename, summary) "
-                        "VALUES ('oib_knowledge', 'oib-rl_2_ausgabe_mai_2023.pdf', 'Brandschutz.')"
+                        "VALUES ('base_corpus', 'oib-rl_2_ausgabe_mai_2023.pdf', 'Brandschutz.')"
                     )
                 )
                 conn.commit()
@@ -596,7 +640,7 @@ class TestDocumentMetadataStore:
             assert "idx_document_metadata_collection" in index_names
             assert "idx_summaries_collection" not in index_names  # legacy index dropped
 
-            docs = store.get_all("oib_knowledge")
+            docs = store.get_all("base_corpus")
             assert len(docs) == 1
             assert docs[0].file_name == "oib-rl_2_ausgabe_mai_2023.pdf"
             assert docs[0].summary == "Brandschutz."

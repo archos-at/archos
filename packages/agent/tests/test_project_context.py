@@ -352,7 +352,7 @@ class TestRequestContextEnvelopePrecedence:
                 "projectId": "513",
                 "conversationId": "conv_text",
                 "contextTransport": "bff",
-                "collectionScope": ["oib_knowledge"],
+                "collectionScope": ["base_corpus"],
                 "modelOverrides": {"chat": "vendor/model"},
                 "budget": {"remainingOrgUsd": 1.5},
                 "disabledSources": ["web_search"],
@@ -368,7 +368,7 @@ class TestRequestContextEnvelopePrecedence:
         assert context.context_transport == "bff"
         assert (context.organization_id, context.user_id, context.project_id) == ("org_1", "user_1", "513")
         assert context.conversation_id == "conv_text"
-        assert context.collection_scope == ["oib_knowledge"]
+        assert context.collection_scope == ["base_corpus"]
         assert context.model_overrides == {"chat": "vendor/model"}
         assert context.budget == {"remainingOrgUsd": 1.5}
         assert context.disabled_sources == ["web_search"]

@@ -27,7 +27,7 @@ const oib: CitationSource = source({
   title: 'OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023',
   fileName: 'oib-rl_2_ausgabe_mai_2023.pdf',
   citationKey: 'oib-rl_2_ausgabe_mai_2023.pdf, p.18',
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   kind: 'building_law',
   origin: 'kb',
   page: 18,

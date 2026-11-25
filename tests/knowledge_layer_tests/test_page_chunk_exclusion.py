@@ -14,7 +14,7 @@ from knowledge_layer_testing.vector_store import write
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 PROJECT = "proj_abc"
 
 

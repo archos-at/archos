@@ -386,7 +386,7 @@ class TestLaneForHit:
         assert nr.lane_for_hit(collection="proj_123", doc_class="other") == ("project", "Projektwissen")
         assert nr.lane_for_hit(collection="archiv_org", doc_class="other") == ("office", "Bürobibliothek")
         assert nr.lane_for_hit(collection="s_chat", doc_class="other") == ("project", "Private Sitzung")
-        assert nr.lane_for_hit(collection="oib_knowledge", doc_class="other") == ("building_law_base", "Basisdokument")
+        assert nr.lane_for_hit(collection="base_corpus", doc_class="other") == ("building_law_base", "Basisdokument")
 
     def test_unknown_defaults_to_web(self):
         assert nr.lane_for_hit() == ("web", "Web")
@@ -399,7 +399,7 @@ class TestLaneForHit:
         )
 
     def test_explicit_doc_class_overrides_the_base_collection(self):
-        assert nr.lane_for_hit(collection="oib_knowledge", doc_class="law") == (
+        assert nr.lane_for_hit(collection="base_corpus", doc_class="law") == (
             "building_law_ris",
             "Rechtsquelle (RIS)",
         )
@@ -633,8 +633,8 @@ class TestParcelNote:
         d.mkdir(parents=True)
         (d / "registry.yml").write_text(yaml.safe_dump({"version": 1, "entries": []}), encoding="utf-8")
         parsed = yaml.safe_load(open("configs/norms/at/registry.yml"))
-        assert nr.NormsFile.model_validate(parsed).corpus_collection == "oib_knowledge"
-        assert nr.NormsFile(version=1, entries=[]).corpus_collection == "oib_knowledge"
+        assert nr.NormsFile.model_validate(parsed).corpus_collection == "base_corpus"
+        assert nr.NormsFile(version=1, entries=[]).corpus_collection == "base_corpus"
 
 
 class TestGuessDisplayTitle:

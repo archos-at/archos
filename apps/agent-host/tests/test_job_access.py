@@ -60,8 +60,6 @@ def clear_event_store_caches():
 def auth_on(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    monkeypatch.setenv("OIB_COLLECTION_NAME", "oib_knowledge")
-    monkeypatch.delenv("COLLECTION_NAME", raising=False)
 
 
 def _insert_job_info(db_url: str, job_id: str, *, is_expired: bool = False) -> None:
@@ -110,7 +108,7 @@ def _envelope(
     issued_at: int | None | object = ...,
     secret: str | None = SECRET,
 ) -> dict[str, str]:
-    scope: list[dict[str, str]] = [{"collection": "oib_knowledge", "shelf": "base"}]
+    scope: list[dict[str, str]] = [{"collection": "base_corpus", "shelf": "base"}]
     if organization_id:
         scope.append({"collection": f"archiv_{organization_id}", "shelf": "office_shelf"})
     if project_collection:

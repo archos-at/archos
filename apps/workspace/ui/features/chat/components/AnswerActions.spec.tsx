@@ -18,7 +18,7 @@ const documents = buildCitationModel({
       timestamp: new Date('2026-08-18T09:00:00Z'),
       title: 'OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023',
       fileName: 'oib-rl_2_ausgabe_mai_2023.pdf',
-      collection: 'oib_knowledge',
+      collection: 'base_corpus',
       kind: 'building_law',
       origin: 'kb',
       page: 18,

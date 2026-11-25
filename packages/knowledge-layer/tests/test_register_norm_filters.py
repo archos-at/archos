@@ -6,42 +6,40 @@ NO_PAGE_CHUNKS = {"chunking": {"$ne": "page"}}
 
 class TestBaseCollectionFilters:
     def test_page_chunks_are_excluded_even_when_nothing_is_configured(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
         assert search_scope.base_collection_filters(config, None) == NO_PAGE_CHUNKS
 
     def test_exclusions_become_nin_clause_sorted_and_deduped(self):
-        config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge", exclude_file_names=["b.pdf", "a.pdf", "b.pdf"]
-        )
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus", exclude_file_names=["b.pdf", "a.pdf", "b.pdf"])
         assert search_scope.base_collection_filters(config, None) == {
             "$and": [NO_PAGE_CHUNKS, {"file_name": {"$nin": ["a.pdf", "b.pdf"]}}]
         }
 
     def test_caller_filters_are_anded_with_the_page_exclusion(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
         caller = {"content_type": "text"}
         assert search_scope.base_collection_filters(config, caller) == {"$and": [NO_PAGE_CHUNKS, caller]}
 
     def test_caller_filters_anded_with_exclusions(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", exclude_file_names=["x.pdf"])
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus", exclude_file_names=["x.pdf"])
         caller = {"content_type": "text"}
         assert search_scope.base_collection_filters(config, caller) == {
             "$and": [NO_PAGE_CHUNKS, {"file_name": {"$nin": ["x.pdf"]}}, caller]
         }
 
     def test_the_filter_is_never_empty(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
         assert search_scope.base_collection_filters(config, None) is not None
 
 
 class TestBaseCollectionProfileRouting:
     def test_resolved_base_matches_configured_collection_for_austria(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
-        assert search_scope.resolve_base_collection(config) == "oib_knowledge"
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
+        assert search_scope.resolve_base_collection(config) == "base_corpus"
 
     def test_target_collections_unchanged_when_profile_equals_config(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
         )
@@ -49,14 +47,14 @@ class TestBaseCollectionProfileRouting:
         assert search_scope._resolve_target_collections(
             config, "s_abc", base
         ) == search_scope._resolve_target_collections(config, "s_abc")
-        assert search_scope._resolve_target_collections(config, "s_abc", base) == ["oib_knowledge", "s_abc"]
+        assert search_scope._resolve_target_collections(config, "s_abc", base) == ["base_corpus", "s_abc"]
 
     def test_target_collections_default_base_is_backward_compatible(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
         )
-        assert search_scope._resolve_target_collections(config, None) == ["oib_knowledge"]
+        assert search_scope._resolve_target_collections(config, None) == ["base_corpus"]
 
 
 def test_explicit_non_default_collection_is_never_rerouted():

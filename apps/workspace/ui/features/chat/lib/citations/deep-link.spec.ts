@@ -16,7 +16,7 @@ const locus = (page: number, number: number): CitationSource => ({
   content: `[KB] ${FILE}, p.${page}`,
   citationKey: `${FILE}, p.${page}`,
   fileName: FILE,
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   title: 'OIB-Richtlinie 2.1, Ausgabe Mai 2023',
   kind: 'building_law',
   lane: 'building_law_oib',
@@ -87,7 +87,7 @@ describe('citation deep links', () => {
   })
 
   it('a mangled link degrades to nothing rather than throwing', () => {
-    expect(parseCitationLink('doc:oib_knowledge:file.pdf,p:3')).toBeNull()
+    expect(parseCitationLink('doc:base_corpus:file.pdf,p:3')).toBeNull()
     expect(parseCitationLink('%E0%A4%A')).toBeNull()
     expect(parseCitationLink('')).toBeNull()
     expect(parseCitationLink(null)).toBeNull()

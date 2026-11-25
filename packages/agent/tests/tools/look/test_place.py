@@ -46,7 +46,7 @@ class TestThePlace:
         assert place_facts(RESOLVED, 2, None, None) is not None
         assert place_facts(SimpleNamespace(file_name="OIB-RL 2.pdf", collection="", target=None), 1, None, None) is None
         assert (
-            place_facts(SimpleNamespace(file_name="x.pdf", collection="oib_knowledge", target=None), 1, None, None)
+            place_facts(SimpleNamespace(file_name="x.pdf", collection="base_corpus", target=None), 1, None, None)
             is None
         )
 

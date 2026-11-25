@@ -59,7 +59,7 @@ Source: `apps/workspace/app/api/v1/[...path]/route.ts:84`
 
 `buildCollectionScopeFromRequest(session, { projectId?, conversationId? })`, reached through the conversation-context module (`resolveConversationScope`), builds the ordered scope that a turn's decision or a request-context envelope signs. No proxy sends it as a plain header:
 
-1. The base collection (e.g., `oib_knowledge`).
+1. The base collection (e.g., `base_corpus`).
 2. If `projectId` is set: the project's collection (`proj_{projectId}`).
 3. If `conversationId` is set: the conversation's session-scoped collection (`s_{conversationId}`).
 

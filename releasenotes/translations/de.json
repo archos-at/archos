@@ -664,6 +664,10 @@
     "de": "Der vorläufige Titel eines neuen Chats wird in „Letzte Chats“ nach einer fehlgeschlagenen Antwort oder einem Neuladen nicht mehr grau angezeigt, und ein von Ihnen vergebener Name bleibt erhalten, wenn ARCHOS den Chat gerade benennt."
   },
   {
+    "en": "A new conversation your connected agent starts with ARCHOS without naming a project now lands under Persönlich, so you find it in your chats, and ARCHOS can draw on your Meine Ablage for it. Your agent can still keep a question out of Persönlich.",
+    "de": "Eine neue Unterhaltung, die Ihr verbundener Agent mit ARCHOS beginnt, ohne ein Projekt zu nennen, wird jetzt unter Persönlich abgelegt. So finden Sie sie in Ihren Chats, und ARCHOS kann dafür auf Meine Ablage zugreifen. Ihr Agent kann eine Frage weiterhin von Persönlich ausnehmen."
+  },
+  {
     "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
     "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
   },
@@ -5512,6 +5516,10 @@
     "de": "Was sich jede Woche geändert hat, finden Sie jetzt nach Bereichen sortiert unter „Neuerungen“ in Ihrem Benutzermenü. Einmal pro Woche fasst eine kurze Notiz die Neuerungen der Woche zusammen. Wenn Sie sie schließen, bleibt sie geschlossen. Mit „Nicht mehr anzeigen“ deaktivieren Sie diese Hinweise; über einen Schalter in Ihrem Profil können Sie sie wieder aktivieren."
   },
   {
+    "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
+    "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
+  },
+  {
     "en": "What the assistant keeps about you personally, such as how you like your answers or what you are responsible for, now goes into a memory of your own that only you can read. It no longer lands in the project's memory in front of the team, even when you say it in a project chat, and it follows you into every project.",
     "de": "Was sich der Assistent über Sie persönlich merkt, etwa wie Sie Ihre Antworten bevorzugen oder wofür Sie verantwortlich sind, wird jetzt in einem eigenen Speicher abgelegt, den nur Sie lesen können. Es landet nicht mehr im für das Team sichtbaren Projektspeicher – auch wenn Sie es in einem Projekt-Chat erwähnen – und begleitet Sie in jedes Projekt."
   },
@@ -6078,6 +6086,10 @@
   {
     "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
     "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
+  },
+  {
+    "en": "While ARCHOS writes an answer, new words now fade in gently instead of appearing letter by letter at full strength, so a long answer reads more calmly as it arrives. Nothing on the page moves, and with reduced motion turned on the text appears as before.",
+    "de": "Während ARCHOS eine Antwort schreibt, werden neue Wörter jetzt sanft eingeblendet, statt Buchstabe für Buchstabe mit voller Deckkraft zu erscheinen. Dadurch lässt sich eine lange Antwort ruhiger lesen, während sie entsteht. Auf der Seite bewegt sich nichts, und bei aktivierter Bewegungsreduktion erscheint der Text wie bisher."
   },
   {
     "en": "While Piloti reads a new project's documents, the setup shows how far it has got: the site, how many documents are read, and the values, contradictions and gaps found so far. You can leave and ask the project chat meanwhile; your Postfach tells you when Piloti is done.",

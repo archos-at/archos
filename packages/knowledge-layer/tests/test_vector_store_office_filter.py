@@ -28,7 +28,7 @@ OFFICE_A = "org_a"
 OFFICE_B = "org_b"
 PROJECT = "proj_shared"
 OTHER_PROJECT = "proj_of_b"
-CORPUS = "oib_knowledge"
+CORPUS = "base_corpus"
 TEXT = "Fluchtweg Breite Stiegenhaus"
 
 WITH_AND_WITHOUT = pytest.mark.parametrize("dropped", [False, True], ids=["office-filtered", "condition-dropped"])

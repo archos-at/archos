@@ -144,6 +144,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Realtime channel | connecting, live, offline | `features/realtime/connection.ts` | kept twice |
 | Connection presence | connected, reconnecting, offline | `shared/hooks/use-connection-presence.ts` | |
 | Dictation | checking, unavailable, idle, starting, recording, transcribing | `features/dictation/lib/dictation-machine.ts` | on XState since this sweep (read) |
+| Answer footer drawer | closed, sources, details, reasons | `features/chat/lib/answer-footer-machine.ts` | on XState since 2026-11-25: one drawer, one thing at a time |
 | Viewer action | held, pending, shown, offered, refused, failed, undone, kept | `features/chat/lib/viewer-actions.ts` | any status may overwrite any |
 | Server proposal card | proposed + problem, busy, overtaken | `features/cards/hooks/use-server-proposal.ts` | |
 | Card decision | accepted, rejected, saved, dismissed, partiallyApplied | `features/cards/card-decision.ts` | |

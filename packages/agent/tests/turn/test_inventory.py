@@ -160,14 +160,14 @@ class TestAggregateDocumentsAcrossCollections:
 
     def test_user_shelf_survives_a_cap_that_would_have_been_all_oib(self):
         async def fetch_one(coll):
-            if coll == "oib_knowledge":
+            if coll == "base_corpus":
                 return [_Doc(f"oib-{i:02d}.pdf") for i in range(20)]
             return [_Doc("Buero-Standard.pdf")]
 
         result = asyncio.run(
             aggregate_documents_across_collections(
                 [
-                    ScopedCollection("oib_knowledge", Shelf.BASE),
+                    ScopedCollection("base_corpus", Shelf.BASE),
                     ScopedCollection("archiv_org", Shelf.OFFICE_SHELF),
                 ],
                 fetch_one,
@@ -241,18 +241,18 @@ def test_session_collection_name_is_idempotent():
 
 class TestScope:
     def test_the_fallback_builds_base_and_session_with_their_shelves(self, monkeypatch):
-        monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
+        monkeypatch.setenv("COLLECTION_NAME", "base_corpus")
         assert fallback_scope("conv-1") == [
-            ScopedCollection("oib_knowledge", Shelf.BASE),
+            ScopedCollection("base_corpus", Shelf.BASE),
             ScopedCollection("s_conv-1", Shelf.SESSION),
         ]
 
     def test_no_conversation_means_the_base_corpus_only(self, monkeypatch):
-        monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
-        assert fallback_scope(None) == [ScopedCollection("oib_knowledge", Shelf.BASE)]
+        monkeypatch.setenv("COLLECTION_NAME", "base_corpus")
+        assert fallback_scope(None) == [ScopedCollection("base_corpus", Shelf.BASE)]
 
     def test_a_stated_scope_wins_even_empty_and_only_no_scope_falls_back(self, monkeypatch):
-        monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
+        monkeypatch.setenv("COLLECTION_NAME", "base_corpus")
         stated = [ScopedCollection("archiv_org", Shelf.OFFICE_SHELF)]
         assert resolve_scope(stated, "conv-1") == stated
         assert resolve_scope([], "conv-1") == []
@@ -265,7 +265,7 @@ class TestScope:
         from agent.common.turn_decision import bind_turn_decision
         from agent.common.turn_decision import reset_turn_decision
 
-        monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
+        monkeypatch.setenv("COLLECTION_NAME", "base_corpus")
         token = bind_turn_decision(signed_decision(may={"shelves": []}) if bound == "empty decision" else None)
         try:
             assert resolve_scope([], "conv-1") == []
@@ -422,7 +422,7 @@ class TestTheFamiliesLeaveTheGather:
         from agent.knowledge.inventory import get_norm_families
         from agent.knowledge.inventory import set_norm_families
 
-        scope = [ScopedCollection("oib_knowledge", Shelf.BASE)]
+        scope = [ScopedCollection("base_corpus", Shelf.BASE)]
 
         async def fetch_one(_collection):
             return [_Doc("oib-rl_2_ausgabe_mai_2023.pdf"), _Doc("oib-rl_2.1_ausgabe_mai_2023.pdf")]

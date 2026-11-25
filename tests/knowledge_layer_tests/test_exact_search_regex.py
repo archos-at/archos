@@ -39,7 +39,7 @@ PROJECT = [
 def scope(monkeypatch):
     monkeypatch.setattr(
         "agent.knowledge.scoping.get_scoped_collections_from_context",
-        lambda: [ScopedCollection("oib_knowledge", Shelf.BASE), ScopedCollection("proj_1", Shelf.PROJECT)],
+        lambda: [ScopedCollection("base_corpus", Shelf.BASE), ScopedCollection("proj_1", Shelf.PROJECT)],
     )
     monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
@@ -115,7 +115,7 @@ def search_with(monkeypatch, scope):
 
 
 async def _search(**kwargs) -> str:
-    config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+    config = KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     async with knowledge_retrieval(config, MagicMock()) as info:
         return await info.single_fn(info.input_schema(**kwargs))
 
@@ -248,7 +248,7 @@ class TestRegexSearch:
     async def test_the_regex_mode_can_be_switched_off(self, search_with):
         search_with(_Store([]))
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge", include_base_collection=True, match_modes=["meaning", "exact"]
+            collection_name="base_corpus", include_base_collection=True, match_modes=["meaning", "exact"]
         )
         async with knowledge_retrieval(config, MagicMock()) as info:
             out = await info.single_fn(info.input_schema(query="Fluchtweg", match="regex"))
@@ -420,7 +420,7 @@ class TestLiteralSearchIsRecorded:
 class TestDescriptionFollowsMatchModes:
     async def _description(self, modes):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge", include_base_collection=True, match_modes=modes
+            collection_name="base_corpus", include_base_collection=True, match_modes=modes
         )
         async with knowledge_retrieval(config, MagicMock()) as info:
             return info.description
@@ -506,7 +506,7 @@ class TestShelfScope:
                 [
                     _chunk("Grundriss_EG.pdf", "Fluchtweg 40 m", page=2, chunk_id="1"),
                     _chunk(
-                        "OIB-RL2.pdf", "Fluchtweg 40 m und Fluchtweg", page=7, chunk_id="2", collection="oib_knowledge"
+                        "OIB-RL2.pdf", "Fluchtweg 40 m und Fluchtweg", page=7, chunk_id="2", collection="base_corpus"
                     ),
                 ]
             )

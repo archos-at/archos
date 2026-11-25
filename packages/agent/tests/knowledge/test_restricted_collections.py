@@ -29,7 +29,7 @@ def test_a_name_the_bff_mints_is_restricted_and_reads_back_to_its_project() -> N
     [
         PROJECT,
         "proj_1",
-        "oib_knowledge",
+        "base_corpus",
         "archiv_org_01HZX4Y8K2M3N5P6Q7R8S9T0VW",  # pragma: allowlist secret
         "s_9b2e1f0a-7c3d-4e5f-8a9b-0c1d2e3f4a5b",
         f"{PROJECT}_r0123456789a",  # eleven digits
@@ -57,6 +57,6 @@ def test_a_prefix_reader_still_shelves_it_as_the_project() -> None:
 
 def test_restricted_collections_in_a_scope() -> None:
     restricted = _bff_name(PROJECT, str(uuid.uuid4()))
-    assert restricted_collections_in(["oib_knowledge", PROJECT, restricted, None]) == [restricted]
-    assert restricted_collections_in(["oib_knowledge", PROJECT]) == []
+    assert restricted_collections_in(["base_corpus", PROJECT, restricted, None]) == [restricted]
+    assert restricted_collections_in(["base_corpus", PROJECT]) == []
     assert restricted_collections_in(None) == []

@@ -17,13 +17,12 @@ import { CardSlotLiveProvider } from './CardSlotArrival'
 import { AnswerDataProvider } from '@/shared/components/MarkdownRenderer/answer-block-context'
 import { AnswerProjectStrip } from '@/shared/components/MarkdownRenderer/project-binding'
 import { LookupFoundNothingNote } from './agent-response/answer-notes'
-import { AnswerDetails } from './agent-response/answer-details'
+import { AnswerFooter } from './agent-response/answer-footer'
 import { StreamingCaret } from './agent-response/answer-role'
 import { proseClass } from './agent-response/answer-prose'
 import { AgentResponseProps } from './agent-response/agent-response-props'
 import { useAgentResponseController } from './agent-response/use-agent-response-controller'
 import { memo } from 'react'
-import { AnswerFeedback } from './AnswerFeedback'
 
 const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
   const controller = useAgentResponseController(props)
@@ -77,6 +76,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                       <MarkdownRenderer
                         content={controller.body}
                         isStreaming={controller.live}
+                        ink
                         remarkPlugins={controller.markerPlugins}
                         caret={
                           controller.live &&
@@ -117,40 +117,10 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             If that changes, <AnswerActions /> drops into the row below. */}
                 {controller.reserveMetaRow && (
                   <div
-                    className={controller.hasMetaRow ? 'flex min-h-6 flex-col gap-1.5' : 'min-h-6'}
+                    className={controller.hasMetaRow ? undefined : 'min-h-6'}
                     aria-hidden={controller.hasMetaRow ? undefined : true}
                   >
-                    {controller.memoryChip}
-                    {controller.hasDetailsContent && (
-                      <AnswerDetails
-                        conversationId={controller.conversationId}
-                        messageId={controller.messageId}
-                        hasConfidence={controller.hasConfidence}
-                        answerConfidence={controller.answerConfidence}
-                        answerConfidenceCappedReason={controller.answerConfidenceCappedReason}
-                        answerConfidenceReason={controller.answerConfidenceReason}
-                        confidenceCheck={controller.confidenceCheck}
-                        answerConfidenceVersion={controller.answerConfidenceVersion}
-                        skillsActivated={controller.skillsActivated}
-                        skillsHidden={controller.skillsHidden}
-                        showReasoning={controller.showReasoning}
-                        researchTruncated={controller.researchTruncated}
-                        truncationReason={controller.truncationReason}
-                        degradedReasons={controller.degradedReasons}
-                        citationsRemoved={controller.citationsRemoved}
-                        readSources={controller.readSources}
-                        hasAnswerSources={controller.hasAnswerSources}
-                        timestamp={controller.timestamp}
-                        answerDurationMs={controller.answerDurationMs}
-                      />
-                    )}
-                    {controller.hasFeedback && controller.messageId && (
-                      <AnswerFeedback
-                        pending={controller.inert}
-                        messageId={controller.messageId}
-                        conversationId={controller.conversationId}
-                      />
-                    )}
+                    <AnswerFooter controller={controller} sources={null} withActions={false} />
                   </div>
                 )}
               </div>
@@ -260,6 +230,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                           <MarkdownRenderer
                             content={controller.body}
                             isStreaming={controller.live}
+                            ink
                             remarkPlugins={controller.markerPlugins}
                             caret={
                               controller.live &&
@@ -317,49 +288,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                         className={controller.hasMetaRow ? undefined : 'min-h-6'}
                         aria-hidden={controller.hasMetaRow ? undefined : true}
                       >
-                        {/* One line: the sources at the start, then the actions,
-                    the details and the vote. `compact` feedback: the thumbs
-                    stay on this line and their disclosure takes the next one
-                    full-width. */}
-                        {controller.hasDetailsContent ? (
-                          <AnswerDetails
-                            conversationId={controller.conversationId}
-                            messageId={controller.messageId}
-                            hasConfidence={controller.hasConfidence}
-                            answerConfidence={controller.answerConfidence}
-                            answerConfidenceCappedReason={controller.answerConfidenceCappedReason}
-                            answerConfidenceReason={controller.answerConfidenceReason}
-                            confidenceCheck={controller.confidenceCheck}
-                            answerConfidenceVersion={controller.answerConfidenceVersion}
-                            skillsActivated={controller.skillsActivated}
-                            skillsHidden={controller.skillsHidden}
-                            showReasoning={controller.showReasoning}
-                            researchTruncated={controller.researchTruncated}
-                            truncationReason={controller.truncationReason}
-                            degradedReasons={controller.degradedReasons}
-                            citationsRemoved={controller.citationsRemoved}
-                            readSources={controller.readSources}
-                            hasAnswerSources={controller.hasAnswerSources}
-                            timestamp={controller.timestamp}
-                            answerDurationMs={controller.answerDurationMs}
-                            lead={sources}
-                            before={controller.answerActions}
-                            beside={controller.memoryChip}
-                            after={controller.feedback}
-                          />
-                        ) : (
-                          <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1.5">
-                            {sources}
-                            {controller.memoryChip}
-                            <div className="-mr-[5px] ml-auto flex flex-wrap items-center justify-end gap-0.5 pointer-coarse:mr-0">
-                              {controller.answerActions}
-                              {controller.answerActions && controller.feedback && (
-                                <span className="bg-border mx-1 h-3.5 w-px" aria-hidden="true" />
-                              )}
-                              {controller.feedback}
-                            </div>
-                          </div>
-                        )}
+                        <AnswerFooter controller={controller} sources={sources} />
                       </div>
                     ) : (
                       sources

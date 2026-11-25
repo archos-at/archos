@@ -38,31 +38,31 @@ def _result(chunks, success=True, error=None, backend="llamaindex", query="q") -
 class TestResolveTargetCollections:
     def test_legacy_fixed_collection_ignores_session(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             use_fixed_collection=True,
             include_session_collection=True,
         )
-        assert _resolve_target_collections(config, "s_abc") == ["oib_knowledge"]
+        assert _resolve_target_collections(config, "s_abc") == ["base_corpus"]
 
     def test_base_plus_session(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
         )
-        assert _resolve_target_collections(config, "s_abc") == ["oib_knowledge", "s_abc"]
+        assert _resolve_target_collections(config, "s_abc") == ["base_corpus", "s_abc"]
 
     def test_raw_conversation_id_is_normalized_to_session_collection(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
         )
-        assert _resolve_target_collections(config, "abc") == ["oib_knowledge", "s_abc"]
+        assert _resolve_target_collections(config, "abc") == ["base_corpus", "s_abc"]
 
     def test_session_only_when_base_disabled(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=False,
             include_session_collection=True,
         )
@@ -70,13 +70,13 @@ class TestResolveTargetCollections:
 
     def test_project_collections_appended_in_order(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
             project_collections=["proj_a", "proj_b"],
         )
         assert _resolve_target_collections(config, "s_abc") == [
-            "oib_knowledge",
+            "base_corpus",
             "s_abc",
             "proj_a",
             "proj_b",
@@ -84,28 +84,28 @@ class TestResolveTargetCollections:
 
     def test_dedup_preserves_order(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
-            project_collections=["oib_knowledge", "s_abc", "proj_a", "proj_a"],
+            project_collections=["base_corpus", "s_abc", "proj_a", "proj_a"],
         )
-        assert _resolve_target_collections(config, "s_abc") == ["oib_knowledge", "s_abc", "proj_a"]
+        assert _resolve_target_collections(config, "s_abc") == ["base_corpus", "s_abc", "proj_a"]
 
     def test_no_session_available(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=True,
             include_session_collection=True,
         )
-        assert _resolve_target_collections(config, None) == ["oib_knowledge"]
+        assert _resolve_target_collections(config, None) == ["base_corpus"]
 
     def test_empty_falls_back_to_base(self):
         config = KnowledgeRetrievalConfig(
-            collection_name="oib_knowledge",
+            collection_name="base_corpus",
             include_base_collection=False,
             include_session_collection=False,
         )
-        assert _resolve_target_collections(config, None) == ["oib_knowledge"]
+        assert _resolve_target_collections(config, None) == ["base_corpus"]
 
 
 class TestRestrictScopeToTurn:
@@ -117,13 +117,13 @@ class TestRestrictScopeToTurn:
         set_turn_intent(shelf="session")
         try:
             entries = [
-                ScopedCollection("oib_knowledge", Shelf.BASE),
+                ScopedCollection("base_corpus", Shelf.BASE),
                 ScopedCollection("archiv_org", Shelf.OFFICE_SHELF),
                 ScopedCollection("s_1", Shelf.SESSION),
             ]
             kept = [entry.collection for entry in restrict_scope_to_turn(entries)]
             assert "archiv_org" not in kept
-            assert set(kept) == {"s_1", "oib_knowledge"}
+            assert set(kept) == {"s_1", "base_corpus"}
         finally:
             set_turn_intent()
 
@@ -135,13 +135,13 @@ class TestRestrictScopeToTurn:
         set_turn_intent(source_preset="project")
         try:
             entries = [
-                ScopedCollection("oib_knowledge", Shelf.BASE),
+                ScopedCollection("base_corpus", Shelf.BASE),
                 ScopedCollection("archiv_org", Shelf.OFFICE_SHELF),
                 ScopedCollection("proj_1", Shelf.PROJECT),
                 ScopedCollection("s_1", Shelf.SESSION),
             ]
             assert [entry.collection for entry in restrict_scope_to_turn(entries)] == [
-                "oib_knowledge",
+                "base_corpus",
                 "proj_1",
                 "s_1",
             ]
@@ -214,7 +214,7 @@ class TestMergeResults:
 
 
 class TestMergeEmbeddingMismatch:
-    def _mismatch(self, collection: str = "oib_knowledge"):
+    def _mismatch(self, collection: str = "base_corpus"):
         return _result(
             [],
             success=False,
@@ -234,7 +234,7 @@ class TestMergeEmbeddingMismatch:
 
     def test_mismatch_exception_layer_is_an_error(self):
         merged = merge_results(
-            [RuntimeError("Collection 'oib_knowledge' embedding mismatch: stale vectors")],
+            [RuntimeError("Collection 'base_corpus' embedding mismatch: stale vectors")],
             query="q",
             top_k=5,
             backend_name="llamaindex",
@@ -306,7 +306,7 @@ class TestMergeDiversity:
         assert [c.score for c in merged.chunks] == [0.9, 0.8, 0.7, 0.6]
 
     def test_same_file_name_in_different_collections_counts_separately(self):
-        base = _result([_chunk(0.9, "a.pdf", rank=0, collection="oib_knowledge"), _chunk(0.5, "b.pdf", rank=1)])
+        base = _result([_chunk(0.9, "a.pdf", rank=0, collection="base_corpus"), _chunk(0.5, "b.pdf", rank=1)])
         project = _result([_chunk(0.8, "a.pdf", rank=0, collection="proj_123")])
         merged = merge_results([base, project], query="q", top_k=2, backend_name="llamaindex", max_per_document=1)
         assert [(c.file_name, c.score) for c in merged.chunks] == [("a.pdf", 0.9), ("a.pdf", 0.8)]
@@ -358,7 +358,7 @@ class TestTTLSessionExclusion:
         reaper = _FakeReaper(
             [
                 _expired_collection("s_session1"),
-                _expired_collection("oib_knowledge"),
+                _expired_collection("base_corpus"),
                 _expired_collection("project_corpus"),
             ]
         )
@@ -366,7 +366,7 @@ class TestTTLSessionExclusion:
         assert reaper.deleted == ["s_session1"]
 
     def test_non_session_never_deleted_even_when_expired(self):
-        reaper = _FakeReaper([_expired_collection("oib_knowledge")])
+        reaper = _FakeReaper([_expired_collection("base_corpus")])
         reaper._cleanup_expired_collections()
         assert reaper.deleted == []
 

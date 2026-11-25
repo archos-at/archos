@@ -11,7 +11,7 @@ from agent.core.conversation import ConversationGraph
 from agent.core.models import ConversationState
 from agent.core.models import ResearchAgentState
 
-DIGEST = ["oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"]
+DIGEST = ["oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"]
 
 
 def _answer(messages, text: str, **fields) -> ResearchAgentState:

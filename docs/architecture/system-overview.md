@@ -199,7 +199,7 @@ different questions and reach the agent differently:
   uploaded documents, and chat attachments live as embeddings in Qdrant,
   queried per turn and scoped by the turn's signed scope (its decision, or a
   run's signed envelope):
-  `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`. Legal claims
+  `[base_corpus, archiv_<org>, proj_<id>, s_<conversation>]`. Legal claims
   must ground here and are cited.
 - **Memory & context — "the briefing, carried every turn."** The intake profile
   and agent-curated project/org memory are compact text, **injected into every
@@ -216,7 +216,7 @@ project | web`) are a labelling dimension *within* it, not a second hierarchy:
 
 | Level | Documents (Qdrant) | Learned state (`app`) | Visible to |
 |---|---|---|---|
-| Platform | `oib_knowledge` (OIB corpus) | platform lessons | everyone |
+| Platform | `base_corpus` (OIB corpus) | platform lessons | everyone |
 | Organization | `archiv_<org>` (Archiv, ADR-0024, feature-gated) | — | that org |
 | Project | `proj_<id>` (uploaded documents) | project memory | project members |
 | Conversation | `s_<conversation>` (chat attachments) | — | that conversation |
@@ -374,7 +374,7 @@ marks it purged. Restore is possible only while the row is un-claimed.
 | **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not a scheduled task, which is a `task_definitions` row in `app` (§5.12), document summaries |
 | **`checkpoints`** (Postgres) | backend | LangGraph conversation checkpoints (thread state) |
 | **SeaweedFS** (`grid-documents`) | BFF writes, backend/purger read | OIB PDFs + uploaded documents, keyed by org/project |
-| **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `oib_knowledge`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |
+| **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `base_corpus`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |
 
 Schema evolves via Drizzle migrations (`apps/workspace/migrations/`, applied on
 frontend start). → `docs/database/`.

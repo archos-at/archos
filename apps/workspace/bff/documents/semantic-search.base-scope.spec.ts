@@ -31,18 +31,18 @@ beforeEach(() => {
 
 describe('fetchGroupedSemanticHits and the base corpus', () => {
   it('signs the base entry with the office’s entitled countries and leaves other collections bare', async () => {
-    await fetchGroupedSemanticHits('org_1', ['oib_knowledge', 'proj_1'], 'Fluchtweg', 3)
+    await fetchGroupedSemanticHits('org_1', ['base_corpus', 'proj_1'], 'Fluchtweg', 3)
 
     expect(signed[0].collectionScope).toEqual([
-      { collection: 'oib_knowledge', shelf: 'base', countries: ['QA'] },
+      { collection: 'base_corpus', shelf: 'base', countries: ['QA'] },
       'proj_1',
     ])
   })
 
   it('signs an empty country list for an office entitled to none, so no other country’s text is read', async () => {
-    await fetchGroupedSemanticHits('org_2', ['oib_knowledge'], 'Fluchtweg', 3)
+    await fetchGroupedSemanticHits('org_2', ['base_corpus'], 'Fluchtweg', 3)
 
-    expect(signed[0].collectionScope).toEqual([{ collection: 'oib_knowledge', shelf: 'base', countries: [] }])
+    expect(signed[0].collectionScope).toEqual([{ collection: 'base_corpus', shelf: 'base', countries: [] }])
   })
 
   it('signs no base entry when the base is not searched', async () => {
