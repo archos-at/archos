@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useState } fr
 import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
-import { motion, motionSnap, useMotionToken } from '@/components/motion'
+import { motion, motionSnap, springGlide, useMotionToken } from '@/components/motion'
 import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -185,6 +185,9 @@ export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | nul
   const pillId = useId()
   const [collapsed, toggle] = useRecentChatsCollapsed()
   const [renaming, setRenaming] = useState<string | null>(null)
+  const glide = useMotionToken(springGlide)
+  const fade = useMotionToken(motionSnap)
+  const [firstIds] = useState(() => new Set(chats.items.map((chat) => chat.id)))
   const finishRename = (chat: RailChat, title: string | null): void => {
     setRenaming(null)
     const next = title?.trim()
@@ -216,9 +219,16 @@ export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | nul
       </h2>
       {/* `p-px` (and `-mx-px`, so the rows keep their edge), because a scroll box clips on every side: with `py-px`
           alone the current row's 1px edge was cut at its left and right. The foot fades while more lies below. */}
-      <ul id={listId} aria-label={t('recentChats')} hidden={collapsed} aria-busy={chats.loading || undefined} className="scroll-fade-bottom -mx-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-px" data-testid="rail-chats">
+      <motion.ul layoutScroll id={listId} aria-label={t('recentChats')} hidden={collapsed} aria-busy={chats.loading || undefined} className="scroll-fade-bottom -mx-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-px" data-testid="rail-chats">
         {chats.items.map((chat) => (
-          <li key={chat.id} className="group/chat relative shrink-0">
+          <motion.li
+            key={chat.id}
+            layout="position"
+            initial={firstIds.has(chat.id) ? false : { opacity: 0 }}
+            animate={{ opacity: 1, transition: fade }}
+            transition={glide}
+            className="group/chat relative shrink-0"
+          >
             {renaming === chat.id ? (
               <RailChatRename chat={chat} onDone={(title) => finishRename(chat, title)} />
             ) : (
@@ -258,7 +268,7 @@ export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | nul
             <RailChatMenu chat={chat} chats={chats} onRename={() => setRenaming(chat.id)} />
             </>
             )}
-          </li>
+          </motion.li>
         ))}
         {chats.loading &&
           PENDING_ROW_WIDTHS.slice(chats.items.length).map((width) => (
@@ -268,13 +278,13 @@ export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | nul
           ))}
         {/* After the last chat, as a chat app's „more“, only while there are more: in the heading's face. */}
         {chats.more && (
-          <li className="shrink-0">
+          <motion.li layout="position" transition={glide} className="shrink-0">
             <Link href={chats.allHref} onClick={chats.onOpenAll} data-focus-inset data-testid="rail-all-chats" className={cn(QUIET, 'h-7 pointer-coarse:h-11')}>
               {t('allChats')}
             </Link>
-          </li>
+          </motion.li>
         )}
-      </ul>
+      </motion.ul>
     </section>
   )
 }
