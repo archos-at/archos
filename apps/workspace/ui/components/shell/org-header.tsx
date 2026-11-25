@@ -21,36 +21,19 @@ import { cn } from '@/lib/utils'
 import { BRAND_INSET_ORG, BRAND_ROW } from './brand-slot'
 import { ConnectionBand } from './connection-band'
 import { ShellSearchButton } from './shell-search-button'
-import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
-import type { SwitchableOrganization } from '@/lib/organizations/switchable'
+import { SidebarUserMenu } from './sidebar-user-menu'
+import { shellAccount, type ShellAccount } from './shell-account'
 import { PROJECT_OVERVIEW_PATH, isOverviewPath } from './landing'
 import { overviewLinkClick } from './project-overview-entry'
 
 
-export interface OrgHeaderProps {
-  user?: SidebarUser
-  organizationName?: string | null
-  authRequired: boolean
-  organizations?: readonly SwitchableOrganization[]
-  canManageOrganization: boolean
-  canViewOrganization: boolean
-  canManagePlatform: boolean
+export interface OrgHeaderProps extends ShellAccount {
   canAccessOfficeShelf: boolean
   canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
 }
 
-export function OrgHeader({
-  user,
-  organizationName,
-  authRequired,
-  organizations = [],
-  canManageOrganization,
-  canViewOrganization,
-  canManagePlatform,
-  canAccessOfficeShelf,
-  canAccessInbox,
-}: OrgHeaderProps): JSX.Element {
+export function OrgHeader({ canAccessOfficeShelf, canAccessInbox, ...account }: OrgHeaderProps): JSX.Element {
   const pathname = usePathname() ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
@@ -120,17 +103,11 @@ export function OrgHeader({
           {/* Space, not a rule, between the doorways and the person. */}
           <div className="hidden w-2 md:block" aria-hidden />
           <SidebarUserMenu
-            user={user}
-            organizationName={organizationName}
-            authRequired={authRequired}
+            {...shellAccount(account)}
             compact
             menuSide="bottom"
             menuAlign="end"
             avatarSizeClass="size-8"
-            canManageOrganization={canManageOrganization}
-            canViewOrganization={canViewOrganization}
-            canManagePlatform={canManagePlatform}
-            organizations={organizations}
             tourAnchor={TOUR_ANCHORS.account}
           />
         </div>
