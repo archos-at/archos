@@ -175,7 +175,7 @@ describe('ChatToolbar', () => {
       expect(onNewSession).toHaveBeenCalledTimes(1)
     })
 
-    test('beside a title the door’s word stands under its glyph, so the title keeps its room', () => {
+    test('the door’s word stands under its glyph, so the title keeps its room', () => {
       render(<ChatToolbar sessionTitle="Brandschutz Stiegenhaus" />)
 
       expect(screen.getByTestId('chat-history-door')).toHaveClass('max-sm:flex-col', 'max-sm:text-meta')
@@ -234,6 +234,60 @@ describe('ChatToolbar', () => {
       rect.mockRestore()
 
       expect(onHeightChange).toHaveBeenCalledWith(163)
+    })
+  })
+
+  describe('the header holds still while the chat starts and its title arrives', () => {
+    test('the door has one shape in an empty chat and in a started one, so it never jumps', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const door = screen.getByTestId('chat-history-door')
+      const empty = door.className
+
+      rerender(<ChatToolbar isChatStarted />)
+
+      expect(screen.getByTestId('chat-history-door')).toBe(door)
+      expect(door.className).toBe(empty)
+    })
+
+    test('the pill draws its glass on a layer of its own, so its padding and the door stay put', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      const empty = pill.className.split(' ').filter((name) => name !== 'sm:hidden')
+
+      rerender(<ChatToolbar isChatStarted />)
+
+      expect(pill.className.split(' ')).toEqual(empty)
+    })
+
+    test('the title slot and the ⋯ stand before the title arrives; the title only fills the slot', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted />)
+      const slot = screen.getByRole('navigation')
+      const menu = screen.getByTestId('thread-menu')
+      const slotClass = slot.className
+      expect(menu.previousElementSibling).toBe(slot)
+
+      rerender(<ChatToolbar isChatStarted sessionTitle="Was ist eine Abstandsfläche?" />)
+      rerender(<ChatToolbar isChatStarted sessionTitle="Abstandsflächen nach § 79 der Bauordnung für Wien" />)
+
+      expect(screen.getByRole('navigation')).toBe(slot)
+      expect(screen.getByTestId('thread-menu')).toBe(menu)
+      expect(slot.className).toBe(slotClass)
+      expect(slot).toContainElement(screen.getByText('Abstandsflächen nach § 79 der Bauordnung für Wien'))
+    })
+
+    test('from `sm` the slot is as wide and as tall as a title, whatever the title says', () => {
+      render(<ChatToolbar isChatStarted />)
+      const slot = screen.getByRole('navigation')
+
+      expect(slot.className).toMatch(/(^| )sm:w-\[[^\]]+\]( |$)/)
+      expect(slot).toHaveClass('min-h-9', 'pointer-coarse:min-h-11', 'sm:justify-start')
+    })
+
+    test('the pill leaves the room of who-can-read, so their arrival does not narrow the title', () => {
+      render(<ChatToolbar isChatStarted />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+
+      expect(pill.className).toMatch(/(^| )sm:max-w-\[calc\(100%-\d+rem\)\]( |$)/)
     })
   })
 

@@ -1085,6 +1085,20 @@ times stops being a physical cue and becomes texture.
   composer by both lines and the chip, and the end of every turn shrank it
   by the chip, moving the thread with it. `node scripts/measure-stream-socket.mjs`
   prints `composerHeights`, one entry when nothing moved.
+- **The chat's header joins in its final shape and moves nothing** (the
+  owner, 2026-11-25: „no layout shift ever“). The first message lays out
+  the whole row at once: the title's slot, the `⋯` and „Geändert am“ stand
+  where they will stay before the title is in, and from `sm` the slot is a
+  fixed 26rem, so the first line and then the generated name only fill it.
+  The pill keeps room for who can read (`sm:max-w-[calc(100%-12rem)]`), so
+  „Nur Sie · Teilen“ arriving once the server has the chat does not narrow
+  the title. On a phone „Chats“ is the glyph over its word in an empty chat
+  too, and the pill's glass is a layer of its own, so neither the door nor
+  its padding changes as the chat starts. What joins (the glass, the row,
+  the people, a new title over the old) fades on `motionQuick`; a chat
+  opened cold is simply there. `/dev/chat-toolbar?case=journey` plays it:
+  `bun run shift-check --press=chat-toolbar-journey '/dev/chat-toolbar?case=journey'`
+  fails on any shift at 1280 and 390.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto

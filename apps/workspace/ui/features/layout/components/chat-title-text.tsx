@@ -2,6 +2,7 @@
 
 import type { JSX } from 'react'
 import { MessageCircleDashed } from 'lucide-react'
+import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { Chip } from '@/components/ui/chip'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -16,7 +17,20 @@ export function ChatTitleText({ title, conversationId }: { title: string; conver
   return (
     <>
       {/* `hyphens-auto` (the page is `lang="de"`): a German compound breaks at a syllable, never mid-word. */}
-      <span className="line-clamp-2 hyphens-auto break-words sm:line-clamp-1">{title}</span>
+      <span className="grid min-w-0" data-slot="chat-title-cell">
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={title}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={motionQuick}
+            className="line-clamp-2 hyphens-auto break-words [grid-area:1/1] sm:line-clamp-1"
+          >
+            {title}
+          </motion.span>
+        </AnimatePresence>
+      </span>
       <Chip
         variant="muted"
         size="sm"
