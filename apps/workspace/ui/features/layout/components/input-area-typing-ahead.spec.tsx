@@ -330,6 +330,16 @@ describe('InputArea', () => {
           expect(screen.getByRole('button', { name: /stop response/i })).toBeInTheDocument()
         })
 
+        test('the chip stands out of the flow, so the composer keeps its height as turns start and end', () => {
+          offerSteering()
+          startOwnTurn()
+          render(<InputArea isAuthenticated={true} connectionMode="sse" />)
+
+          const chip = screen.getByTestId('composer-steer-chip')
+          expect(chip.parentElement?.className).toMatch(/(^|\s)absolute(\s|$)/)
+          expect(chip.className).not.toMatch(/(^|\s)mb-/)
+        })
+
         test('Enter sends the note into the running turn, not a question, and clears the field', async () => {
           const user = userEvent.setup()
           offerSteering()

@@ -188,6 +188,7 @@ const summarize = (probe) => {
     clsBeforeSettle: round3(probe.clsBeforeSettle),
     clsAfterSettle: round3(probe.clsAfterSettle),
     caretShift: round3(probe.caretShift ?? 0),
+    composerHeights: probe.composerHeights ?? [],
     shiftsMoved: top(
       probe.shifts.flatMap((shift) =>
         shift.moved.map((source) => ({ t: shift.t, v: round3(shift.value), after: shift.afterSettle, ...source }))

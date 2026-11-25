@@ -514,15 +514,20 @@ describe('InputArea', () => {
   })
 
 
-  test('the AI notice stands under the composer of a running chat, and not on an empty one', () => {
+  test('the AI notice shows under the composer of a running chat; an empty one keeps its row unseen, so the composer never grows', () => {
     const { unmount } = render(<InputArea isAuthenticated />)
-    expect(screen.queryByTestId('ai-disclosure')).not.toBeInTheDocument()
+    const reserved = screen.getByTestId('ai-disclosure')
+    expect(reserved).toHaveClass('opacity-0')
+    expect(reserved).toHaveAttribute('aria-hidden', 'true')
     unmount()
 
     mockConversationMessages = [{ id: 'm1', role: 'user', content: 'Wie viele Stellplätze?' }]
     render(<InputArea isAuthenticated />)
 
-    expect(screen.getByTestId('ai-disclosure')).toHaveTextContent(new RegExp(`^${PRODUCT_NAME} is an AI`))
-    expect(screen.getByTestId('ai-disclosure').className).not.toMatch(/bg-/)
+    const shown = screen.getByTestId('ai-disclosure')
+    expect(shown).toHaveTextContent(new RegExp(`^${PRODUCT_NAME} is an AI`))
+    expect(shown).not.toHaveClass('opacity-0')
+    expect(shown).not.toHaveAttribute('aria-hidden')
+    expect(shown.className).not.toMatch(/bg-/)
   })
 })

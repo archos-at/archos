@@ -1145,7 +1145,10 @@ CLS jump), and prints one JSON line per run from `window.__streamSocket`:
   `shiftsMoved`, the largest moves of elements on screen before and after;
   `shiftsEdge`, sources that entered or left the viewport, whose dy/dh are
   of the visible part only and say nothing about distance
-  ([gotchas](gotchas.md)).
+  ([gotchas](gotchas.md)); `composerHeights`, each height the composer took
+  from the send on, one entry when it never grew or shrank under the thread.
+  The scripted hello offers `steer`, as the product's does, so the „lenkt“
+  chip comes and goes with the turn.
 - The reader: `reading.firstProseMaxDelta` and `reading.lastLineMaxDelta`,
   the largest frame-to-frame jump in px of the answer's first prose block and
   of the last visible line while on screen, the reader's own scrolling

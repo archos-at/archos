@@ -60,7 +60,7 @@ shoving another's content.
 | # | Phase | Entered by (data) | Visible | Loop | Owner |
 |---|---|---|---|---|---|
 | P0 | idle | no running view | The composer shows Send. | none | InputArea |
-| P1 | sent | `user_message` sent, `beginTurn` | The question row rises in. An anchor glide brings the question to the top. The Herleitung header mounts in the same row with "Denkt nach…". Send becomes Stop at once. The field stays live: for typing ahead, or, when the hello offers `steer`, for steering the turn („Den Agenten lenken …“, a „lenkt“ chip by the field). | header shimmer | ChatArea, ChatThinking, InputArea |
+| P1 | sent | `user_message` sent, `beginTurn` | The question row rises in. An anchor glide brings the question to the top. The Herleitung header mounts in the same row with "Denkt nach…". Send becomes Stop at once. The field stays live: for typing ahead, or, when the hello offers `steer`, for steering the turn („Den Agenten lenken …“, a „lenkt“ chip on the composer card's top edge, out of the flow, so the composer keeps its height). | header shimmer | ChatArea, ChatThinking, InputArea |
 | P2 | working, no steps | `RUN_STARTED` | The same header. The timer fades in once it passes 2 s, counted from the question's timestamp. | shimmer | ChatThinking |
 | P3 | steps | first `STEP_*` | The panel opens with an opacity fade and shows the whole graph, the executed-step chips under it. The live line cross-fades on each step. | spinner, shimmer, frontier edges | ChatThinking, ReasoningFlow |
 | P4 | masthead | `CUSTOM masthead` before the first word | The answer has begun: the panel folds and the answer card mounts under the bar with its masthead as one entrance. | shimmer | ChatArea, AgentResponse |
