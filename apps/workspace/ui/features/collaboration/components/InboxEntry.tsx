@@ -2,7 +2,6 @@
 
 import type { JSX } from 'react'
 import { AttentionDot } from '@/components/ui/attention-dot'
-import { Badge } from '@/components/ui/badge'
 import { namespaceRoot, useLocale, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { formatRelativeTime } from '@/lib/format'
@@ -10,6 +9,7 @@ import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { cn } from '@/lib/utils'
 import { inboxDue } from '../lib/inbox-due'
+import { InboxDuePill } from './InboxDuePill'
 import { inboxReason } from '../lib/inbox-reason'
 import { InboxKindIcon } from './InboxItemFace'
 
@@ -25,11 +25,7 @@ export function InboxDueBadge({ item }: { item: InboxItemView }): JSX.Element | 
   const { locale } = useLocale()
   const due = inboxDue(item, t, locale)
   if (!due) return null
-  return (
-    <Badge variant={due.variant} className="shrink-0" data-testid="inbox-entry-due">
-      {due.label}
-    </Badge>
-  )
+  return <InboxDuePill due={due} testId="inbox-entry-due" />
 }
 
 export function inboxEntryPlace(item: InboxItemView, personal: string, shown: string): string {

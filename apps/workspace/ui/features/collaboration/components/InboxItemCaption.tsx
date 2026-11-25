@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import { Fragment } from 'react'
-import { CheckCircle2, Clock, EyeOff } from 'lucide-react'
+import { CheckCircle2, EyeOff } from 'lucide-react'
 
 import { useLocale, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -10,6 +10,7 @@ import { formatRelativeTime } from '@/lib/format'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { cn } from '@/lib/utils'
 import type { InboxDue } from '../lib/inbox-due'
+import { InboxDuePill } from './InboxDuePill'
 
 
 export interface InboxItemCaptionProps {
@@ -41,19 +42,7 @@ export function InboxItemCaption({ item, place, openMarks, due, answered }: Inbo
     ...(due
       ? [{
           key: 'due',
-          node: (
-            <span
-              data-testid="inbox-item-due"
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1',
-                due.variant === 'danger' && 'font-medium text-error',
-                due.variant === 'warning' && 'font-medium text-warning',
-              )}
-            >
-              <Clock className="size-3" aria-hidden />
-              {due.label}
-            </span>
-          ),
+          node: <InboxDuePill due={due} testId="inbox-item-due" />,
         }]
       : []),
     ...(openMarks > 0

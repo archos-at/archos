@@ -921,7 +921,7 @@ describe('InboxItemRow — a colleague’s work on a mark, in the reader’s wor
 
   test('says by when the Zuständige is responsible, when the mark has a date', () => {
     german(onMark({ dueOn: '2026-10-24' }))
-    expect(screen.getByTestId('inbox-item-due')).toHaveTextContent('Frist 24. Okt. 2026')
+    expect(screen.getByTestId('inbox-item-due')).toHaveTextContent('Frist 24.10.2026')
     expectBodyOnlyInPush(
       onMark({ dueOn: '2026-10-24' }),
       'Sie sind dafür zuständig, bis 24. Okt. 2026. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.',
