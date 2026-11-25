@@ -3,6 +3,7 @@ import { type ReactNode } from 'react'
 import { cookies } from 'next/headers'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
 import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
+import { ChatResumeRecorder } from '@/features/chat/components/chat-resume-recorder'
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
@@ -67,6 +68,7 @@ export default async function AppShellLayout({
       </main>
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
       <WhatsNewNoticeInShell state={chrome.whatsNew} />
+      <ChatResumeRecorder />
     </AppShellChrome>
     </ShellNormDialog>
     </RailChatsProvider>

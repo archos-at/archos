@@ -1,3 +1,5 @@
+import { conversationMatchesProject, conversationsOnSide } from './project-scope'
+
 export const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000
 
 export interface ResumableSession {
@@ -29,4 +31,31 @@ export function resumableSessionId(
 
   const age = Math.max(0, now - newestAt)
   return age <= windowMs ? newest.id : null
+}
+
+export interface ArrivalConversation extends ResumableSession {
+  userId: string
+  projectId?: string | null
+  jobId?: string | null
+}
+
+export interface ArrivalState {
+  currentUserId: string | null
+  currentConversation: { id: string; userId?: string | null; projectId?: string | null } | null
+  conversations: readonly ArrivalConversation[]
+}
+
+export function openOnSide(
+  state: Pick<ArrivalState, 'currentConversation' | 'currentUserId'>,
+  side: string | null | undefined
+): string | null {
+  const open = state.currentConversation
+  return open && open.userId === state.currentUserId && conversationMatchesProject(open, side) ? open.id : null
+}
+
+export function resumesUntil(state: ArrivalState, side: string | null, now: number = Date.now()): number | null {
+  if (openOnSide(state, side)) return Number.POSITIVE_INFINITY
+  const onSide = conversationsOnSide(state.conversations, state.currentUserId, side)
+  const resumed = onSide.find((c) => c.id === resumableSessionId(onSide, now))
+  return resumed ? timeOf(resumed.updatedAt) + RESUME_WINDOW_MS : null
 }

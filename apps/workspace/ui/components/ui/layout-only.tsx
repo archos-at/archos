@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 
-import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
 
 type Wrapper = 'div' | 'span'
 

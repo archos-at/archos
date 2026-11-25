@@ -9,6 +9,7 @@ import { ACTING_CARD_TYPES } from '@/features/cards/card-decision'
 import { AnswerCardItem } from '@/features/cards/components/AnswerCards'
 import { DrawnProvider, SURFACE_EXCLUDED_LEAVES, preflight, structuralRefusal } from './catalog'
 import { surfaceLeaves } from './surface-messages'
+import { SurfaceLayout } from './surface-views'
 
 const STEPS = [{ label: 'Fläche', operation: 'product', unit: 'm²', operands: [{ label: 'Länge', value: 40 }, { label: 'Breite', value: 30 }] }]
 
@@ -270,7 +271,7 @@ describe('a card through A2UI', () => {
     warn.mockRestore()
   })
 
-  it('mounts a card once, A2UI’s drawing only, with no hidden copy beside it', async () => {
+  it('keeps A2UI’s drawing alone once drawn: the layout that held its place is gone', async () => {
     let mounts = 0
     function Counted() {
       useEffect(() => {
@@ -281,11 +282,39 @@ describe('a card through A2UI', () => {
     const { container } = render(<A2uiCard card={BASIS} surfaceKey="m1:8" render={() => <Counted />} />)
     await waitFor(() => expect(document.querySelector('[data-a2ui-surface="m1:8"]:not([aria-hidden])')).not.toBeNull())
     expect(screen.getAllByTestId('counted')).toHaveLength(1)
-    expect(mounts).toBe(1)
+    expect(mounts).toBeLessThanOrEqual(2)
     expect(container.querySelectorAll('[data-a2ui-surface]')).toHaveLength(1)
     expect(container.querySelector('.invisible')).toBeNull()
+    expect(container.querySelector('[data-slot="card-layout"]')).toBeNull()
     expect(container.querySelector('[data-slot="card-placeholder"]')).toBeNull()
     expect(container.textContent).not.toMatch(/Loading/)
+  })
+
+  it('holds a surface’s place with the very layout A2UI draws, so the swap moves nothing', async () => {
+    const composition = {
+      type: 'surface',
+      components: [
+        { id: 'root', component: 'Column', children: ['row', 'tabs'] },
+        { id: 'row', component: 'Row', children: ['a', 'b'] },
+        { id: 'a', ...LEAF },
+        { id: 'b', component: 'Text', text: TABLE },
+        { id: 'tabs', component: 'Tabs', tabs: [{ title: 'Eins', child: 'c' }, { title: 'Zwei', child: 'd' }] },
+        { id: 'c', ...LEAF, title: 'c' },
+        { id: 'd', component: 'Text', text: 'Zwei' },
+      ],
+    } as unknown as AnswerCard
+    const markup = (element: Element) =>
+      element.innerHTML
+        .replace(/<\/?a2ui-react-[^>]*>/g, '')
+        .replace(/ (id|aria-controls|aria-labelledby|data-attr|data-pill-id)="[^"]*"/g, '')
+        .replace(/ style="opacity: [\d.]+;"/g, '')
+    const held = render(<SurfaceLayout card={composition} render={renderCard} />)
+    const layout = markup(held.container)
+    held.unmount()
+    render(<A2uiCard card={composition} surfaceKey="m1:12" render={renderCard} />)
+    await waitFor(() => expect(document.querySelector('[data-a2ui-surface="m1:12"]:not([aria-hidden])')).not.toBeNull())
+    expect(layout).toContain('data-a2ui-node="Row"')
+    expect(markup(document.querySelector('[data-a2ui-surface="m1:12"]') as Element)).toBe(layout)
   })
 
   it('tells whatever holds its place that it is on screen, once', async () => {

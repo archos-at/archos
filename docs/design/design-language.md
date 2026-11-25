@@ -1047,10 +1047,25 @@ times stops being a physical cue and becomes texture.
   A chat opened cold lays out as it will settle from the first paint: a new
   chat words its placeholder for the route's side, and a link to a chat
   (`?session=`) holds the started chat's toolbar and composer lines while the
-  list and its messages load (`layout/hooks/use-chat-started`). A session
-  whose token is still on its way counts as loading (`adapters/auth`), so
-  nobody signed in sees the sign-in prompt, and the greeting's heading holds
-  its place unseen until the name is known.
+  list and its messages load (`layout/hooks/use-chat-started`). The server
+  knows whether the chat will resume one (the newest of the side's chats
+  touched within 12 hours, or the one left open there): the browser keeps a
+  `chat_resume.<side>` cookie for each side that will, holding nothing but
+  `1` and living exactly as long as the resume would (`bff/conversations/chat-resume-cookie`, written by `chat/components/chat-resume-recorder` in the shell layout).
+  A chat that resumes paints the message skeleton; one that does not paints
+  the greeting and the composer at their rest from the first frame, with the
+  name the server read from the session (`layout/hooks/use-thread-phase`).
+  Their rest is CSS, so it needs no measurement: the greeting's foot stands
+  70px above the middle of the chat column (`50cqh`, the column is a size
+  container) and the composer hangs 32px under it, on the floor when it is
+  taller than the room below (`useComposerMetrics`, `restGeometry`). The time
+  of day is the office's (`OFFICE_TIME_ZONE`) until the browser's own clock
+  takes over. Should the browser disagree with the cookie (another tab, cleared
+  storage), the greeting fades out under the arriving thread, or fades in as
+  the skeleton leaves. A session whose token is still on its way counts as
+  loading (`adapters/auth`), so nobody signed in sees the sign-in prompt; the
+  greeting's heading holds its place unseen only where no server named the
+  person.
   `bun run shift-check --load --session=<wos-session> <chat routes>` fails on
   any shift of the load at 390 and 360.
   A line that arrives after its count is fetched (mail waiting, a mail import)
