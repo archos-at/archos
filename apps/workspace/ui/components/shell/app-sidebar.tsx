@@ -254,7 +254,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
         >
           <SidebarBrand iconRail={iconRail} />
           <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
-            <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} />
+            <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} tourAnchor={TOUR_ANCHORS.sides} />
           </div>
           {projectId !== null && onSide && <ProjectRecorder projectId={projectId} />}
         </SidebarHeader>
@@ -278,7 +278,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
               keeps it as a tile of its initials, on the selector's own line,
               so nothing below it moves when the rail opens under the pointer. */}
           {sideProjectId !== null && (
-            <div className={cn('mt-1 flex h-10 shrink-0 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
+            <div data-tour={TOUR_ANCHORS.projectSwitcher} className={cn('mt-1 flex h-10 shrink-0 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
               <ProjectSwitcher projects={projects} activeProjectId={sideProjectId} collapsed={iconRail} />
             </div>
           )}

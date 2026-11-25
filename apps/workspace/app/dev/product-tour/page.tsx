@@ -5,11 +5,9 @@ import { Suspense, useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
-import { ShellContent } from '@/components/shell'
-import { ProjectOverview } from '@/components/projects/project-overview'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductTour, useStartProductTour } from '@/features/onboarding/components/product-tour'
-import { NO_TOURS, type TourId } from '@/lib/onboarding/product-tour'
+import { NO_TOURS, TOUR_HOME, type TourId } from '@/lib/onboarding/product-tour'
 import type { JSX } from 'react'
 
 const USER = { name: 'Anna Berger', email: 'anna.berger@example.at' }
@@ -66,13 +64,17 @@ function Preview(): JSX.Element {
         </div>
       ) : (
         <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row">
-          <AppSidebar projectId={null} onSide={false} pathname="/app/projects" projects={PROJECTS} showModels={false} showSkills={false} {...chrome} />
+          <AppSidebar projectId={null} pathname={TOUR_HOME} projects={PROJECTS} showModels={false} showSkills={false} {...chrome} />
           <main className="bg-background relative flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <ShellContent width="wide">
-              <ProjectOverview projects={[]} viewerActivity={{}} />
-            </ShellContent>
+            <EmptyState
+              variant="bare"
+              icon={MessageSquare}
+              title="Neuer Chat"
+              description="Chat placeholder — the real chat needs a backend."
+              className="m-auto"
+            />
           </main>
-          <PhoneTabBar projectId={null} pathname="/app/projects" canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
+          <PhoneTabBar projectId={null} pathname={TOUR_HOME} canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
         </div>
       )}
       {!joined && !handover && <Replay />}

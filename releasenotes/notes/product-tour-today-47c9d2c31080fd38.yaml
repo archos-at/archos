@@ -1,0 +1,15 @@
+---
+# area: general
+improvements:
+  - >
+    The welcome and project tours show the app as it is today: the
+    Persönlich | Projekt switch, your projects, the Bürobibliothek, the
+    Postfach, search and your account with the switch to another office.
+    On a phone they point at the switch at the top of the chat, the tab bar
+    and „Mehr“.
+fixes:
+  - >
+    The welcome tour no longer breaks at its second step, where it ran over
+    the project overview window and closed it at the first click. Cards beside
+    the top or the foot of the sidebar now stay on screen, so the tour no
+    longer gets stuck at the Postfach.

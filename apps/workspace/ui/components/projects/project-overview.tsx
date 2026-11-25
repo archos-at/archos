@@ -17,7 +17,6 @@ import { overviewOrder } from '@/lib/projects/overview-order'
 import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
-import { TOUR_ANCHORS } from '@/lib/onboarding/product-tour'
 import { CreateProjectDialog } from './create-project-dialog'
 import { ProjectActivity, ProjectOpenLink, ProjectSettingsLink } from './project-atoms'
 import { getProjectStatus } from './project-status'
@@ -65,10 +64,7 @@ export function ProjectOverview({
         >
           <h1 className={cn('grow text-balance', PAGE_TITLE_CLASS)}>{t('portfolio.title')}</h1>
           <div className="order-last shrink-0 sm:order-none">
-            <CreateProjectDialog
-              defaultOpen={autoOpenCreate}
-              tourAnchor={TOUR_ANCHORS.createProject}
-            />
+            <CreateProjectDialog defaultOpen={autoOpenCreate} />
           </div>
           {closeAction}
         </header>
