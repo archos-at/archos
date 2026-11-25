@@ -3176,6 +3176,10 @@
     "de": "Auf dem Smartphone wird Suche auch unter „Mehr“ angezeigt."
   },
   {
+    "en": "On a phone, a document's title in the search register is a full finger-sized target, so tapping it opens the document instead of missing.",
+    "de": "Auf dem Smartphone ist der Dokumenttitel im Suchregister jetzt groß genug, um ihn sicher anzutippen und das Dokument zu öffnen, statt daneben zu tippen."
+  },
+  {
     "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
     "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
   },
