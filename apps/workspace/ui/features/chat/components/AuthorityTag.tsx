@@ -1,9 +1,18 @@
 import type { FC } from 'react'
 
-const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const WORD_CHAR = /[\p{L}\p{N}]/u
 
-export const labelNamesAuthority = (label: string, authority: string): boolean =>
-  new RegExp(`(^|[^\\p{L}\\p{N}])${escaped(authority.trim())}($|[^\\p{L}\\p{N}])`, 'iu').test(label)
+const isWordChar = (char: string | undefined): boolean => char !== undefined && WORD_CHAR.test(char)
+
+export const labelNamesAuthority = (label: string, authority: string): boolean => {
+  const needle = authority.trim().toLocaleLowerCase('de')
+  if (!needle) return false
+  const haystack = label.toLocaleLowerCase('de')
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, at + 1)) {
+    if (!isWordChar(haystack[at - 1]) && !isWordChar(haystack[at + needle.length])) return true
+  }
+  return false
+}
 
 export const AuthorityTag: FC<{ authority: string | undefined | null; label: string }> = ({ authority, label }) =>
   !authority || labelNamesAuthority(label, authority) ? null : (
