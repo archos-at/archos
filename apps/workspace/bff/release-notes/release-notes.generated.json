@@ -851,6 +851,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, an empty chat's input now waits at the bottom of the screen, as in a chat that has started, so tapping into it no longer makes the page drift or jitter in the app installed on an iPhone.",
+            "de": "Bei einem leeren Chat befindet sich das Eingabefeld auf dem Smartphone jetzt am unteren Bildschirmrand, wie in einem gestarteten Chat. Dadurch verrutscht oder springt die Seite beim Antippen in der auf einem iPhone installierten App nicht mehr."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
             "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
           }

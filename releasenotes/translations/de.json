@@ -3204,6 +3204,10 @@
     "de": "Auf dem Smartphone ist der Dokumenttitel im Suchregister jetzt groß genug, um ihn sicher anzutippen und das Dokument zu öffnen, statt daneben zu tippen."
   },
   {
+    "en": "On a phone, an empty chat's input now waits at the bottom of the screen, as in a chat that has started, so tapping into it no longer makes the page drift or jitter in the app installed on an iPhone.",
+    "de": "Bei einem leeren Chat befindet sich das Eingabefeld auf dem Smartphone jetzt am unteren Bildschirmrand, wie in einem gestarteten Chat. Dadurch verrutscht oder springt die Seite beim Antippen in der auf einem iPhone installierten App nicht mehr."
+  },
+  {
     "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
     "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
   },
