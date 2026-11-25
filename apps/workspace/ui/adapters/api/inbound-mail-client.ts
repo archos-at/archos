@@ -88,8 +88,13 @@ export function getInboundMailText(projectId: string, mailId: string, signal?: A
   return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/text`, 'Failed to load the mail text', { signal })
 }
 
+/** Browsers refuse a keepalive request whose body passes 64 KiB; a larger filing goes as an ordinary request. */
+export const KEEPALIVE_BODY_LIMIT = 60_000
+
 export function fileInboundMails(projectId: string, body: FileInboundMailsBody, options: { keepalive?: boolean } = {}): Promise<InboundMailDecisionResultView> {
-  return request(`${projectBase(projectId)}/inbound-mails/file`, 'Failed to file the mail', { ...postJson(body), keepalive: options.keepalive })
+  const init = postJson(body)
+  const keepalive = options.keepalive === true && new Blob([init.body as string]).size <= KEEPALIVE_BODY_LIMIT
+  return request(`${projectBase(projectId)}/inbound-mails/file`, 'Failed to file the mail', { ...init, keepalive })
 }
 
 export function dismissInboundMails(projectId: string, body: DismissInboundMailsBody): Promise<{ mails: InboundMailView[] }> {
