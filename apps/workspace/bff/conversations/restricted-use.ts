@@ -225,18 +225,29 @@ export async function recordedRestrictedFolders(conversationId: string, organiza
   return stillRestricting((await recordView(organizationId, audience.projectId, recorded)).tree, recorded)
 }
 
+export interface RestrictingRecord {
+  projectId: string | null
+  folders: string[]
+  ownerOf: ReadonlyMap<string, string>
+}
+
+export async function restrictingRecordOf(organizationId: string, conversationId: string): Promise<RestrictingRecord> {
+  const recorded = await listRecordedSourceFolders(getDb(), organizationId, conversationId)
+  if (recorded.length === 0) return { projectId: null, folders: [], ownerOf: new Map() }
+  const audience = await readConversationRow(organizationId, conversationId)
+  const view = await recordView(organizationId, audience.projectId, recorded)
+  return { projectId: audience.projectId, folders: stillRestricting(view.tree, recorded), ownerOf: view.ownerOf }
+}
+
 export async function recordedForeignRestrictedFolders(
   conversationId: string,
   organizationId: string
 ): Promise<Map<string, string | null>> {
-  const recorded = await listRecordedSourceFolders(getDb(), organizationId, conversationId)
-  if (recorded.length === 0) return new Map()
-  const audience = await readConversationRow(organizationId, conversationId)
-  const view = await recordView(organizationId, audience.projectId, recorded)
+  const record = await restrictingRecordOf(organizationId, conversationId)
   return new Map(
-    stillRestricting(view.tree, recorded)
-      .filter((folderId) => view.ownerOf.get(folderId) !== audience.projectId)
-      .map((folderId) => [folderId, view.ownerOf.get(folderId) ?? null])
+    record.folders
+      .filter((folderId) => record.ownerOf.get(folderId) !== record.projectId)
+      .map((folderId) => [folderId, record.ownerOf.get(folderId) ?? null])
   )
 }
 

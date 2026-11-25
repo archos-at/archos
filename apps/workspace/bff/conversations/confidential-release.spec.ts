@@ -8,18 +8,14 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEventOrThrow: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ customFolderNames: vi.fn() }))
-vi.mock('@/lib/conversation-context/audience', () => ({ readConversationRow: vi.fn() }))
 vi.mock('@/lib/organizations/confidential-release', () => ({ confidentialReleaseForbidden: vi.fn() }))
 vi.mock('@/lib/agent-api/acting-session', () => ({ currentActingSession: vi.fn() }))
 vi.mock('./restricted-use', () => ({
-  ownersOf: vi.fn(),
-  recordView: vi.fn(),
-  stillRestricting: vi.fn(),
+  restrictingRecordOf: vi.fn(),
   unreadableSourcesOf: vi.fn(),
 }))
 vi.mock('./restricted-use-repository', () => ({
   listProjectNames: vi.fn(),
-  listRecordedSourceFolders: vi.fn(),
   listRestrictingSourceProjects: vi.fn(),
 }))
 
@@ -27,11 +23,10 @@ import { ConfidentialReleaseRequiredError, ConversationConfinedError } from '@/l
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { customFolderNames } from '@/lib/authz/folder-access'
-import { readConversationRow } from '@/lib/conversation-context/audience'
 import { confidentialReleaseForbidden } from '@/lib/organizations/confidential-release'
 import { currentActingSession } from '@/lib/agent-api/acting-session'
-import { ownersOf, recordView, stillRestricting, unreadableSourcesOf } from './restricted-use'
-import { listProjectNames, listRecordedSourceFolders, listRestrictingSourceProjects } from './restricted-use-repository'
+import { restrictingRecordOf, unreadableSourcesOf } from './restricted-use'
+import { listProjectNames, listRestrictingSourceProjects } from './restricted-use-repository'
 import { filingReleaseOf, releaseConfidential } from './confidential-release'
 
 const ORG = 'org_1'
@@ -47,12 +42,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(confidentialReleaseForbidden).mockResolvedValue(false)
   vi.mocked(unreadableSourcesOf).mockResolvedValue({ folders: new Set(), projects: new Set() })
-  vi.mocked(listRecordedSourceFolders).mockResolvedValue(['f_contracts'])
   vi.mocked(listRestrictingSourceProjects).mockResolvedValue([OTHER])
-  vi.mocked(readConversationRow).mockResolvedValue({ projectId: HERE } as Awaited<ReturnType<typeof readConversationRow>>)
-  vi.mocked(recordView).mockResolvedValue({ tree: new Map(), ownerOf: new Map([['f_contracts', HERE]]) })
-  vi.mocked(stillRestricting).mockReturnValue(['f_contracts'])
-  vi.mocked(ownersOf).mockReturnValue([HERE])
+  vi.mocked(restrictingRecordOf).mockResolvedValue({ projectId: HERE, folders: ['f_contracts'], ownerOf: new Map([['f_contracts', HERE]]) })
   vi.mocked(customFolderNames).mockResolvedValue(new Map([['f_contracts', 'Verträge']]))
   vi.mocked(listProjectNames).mockResolvedValue(new Map([[HERE, 'Seestadt'], [OTHER, 'Wohnbau Nord']]))
 })
@@ -95,8 +86,7 @@ describe('releaseConfidential', () => {
   })
 
   it('names a restricted folder of another project with that project', async () => {
-    vi.mocked(recordView).mockResolvedValue({ tree: new Map(), ownerOf: new Map([['f_contracts', OTHER]]) })
-    vi.mocked(ownersOf).mockReturnValue([OTHER])
+    vi.mocked(restrictingRecordOf).mockResolvedValue({ projectId: HERE, folders: ['f_contracts'], ownerOf: new Map([['f_contracts', OTHER]]) })
     vi.mocked(listRestrictingSourceProjects).mockResolvedValue([])
     const error = (await release(false).catch((caught: unknown) => caught)) as ConfidentialReleaseRequiredError
     expect(error.sources).toEqual([{ kind: 'folder', name: 'Verträge', project: 'Wohnbau Nord' }])
