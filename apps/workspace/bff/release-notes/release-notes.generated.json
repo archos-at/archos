@@ -579,6 +579,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+            "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
             "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
           }
@@ -909,6 +917,14 @@
           "text": {
             "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
             "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+            "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
           }
         },
         {

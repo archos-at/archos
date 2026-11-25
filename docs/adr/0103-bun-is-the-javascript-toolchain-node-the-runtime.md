@@ -69,7 +69,11 @@ In this change:
 
 The other JavaScript projects (`frontends/web`, `deploy/pulumi`,
 `packages/ifc-spatial`) move their installs to Bun in their own change; this
-record covers them.
+record covers them. `apps/cms` and `deploy/pulumi` (with its policy pack) type
+check with `bun check` too, but keep `typescript` at 6 for a tool that calls its
+JS API at runtime: Payload's MCP plugin (`ts.transpileModule`) and Pulumi's
+ts-node. `apps/website` stays on TypeScript 6 whole, because `astro check` is the
+only checker that reads `.astro` files.
 
 ### Consequences
 

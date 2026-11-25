@@ -4164,6 +4164,10 @@
     "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
   },
   {
+    "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+    "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+  },
+  {
     "en": "Switching to another conversation and back, or reloading during an answer, shows the text that had already arrived at once instead of typing it out again, and each conversation reopens where you left it.",
     "de": "Wenn Sie zu einer anderen Unterhaltung wechseln und zurückkehren oder während einer Antwort die Seite neu laden, wird der bereits eingetroffene Text sofort vollständig angezeigt, statt erneut schrittweise eingeblendet zu werden. Außerdem öffnet sich jede Unterhaltung wieder an der Stelle, an der Sie sie verlassen haben."
   },
@@ -5934,6 +5938,10 @@
   {
     "en": "When you share a chat that drew on a restricted folder, Piloti offers only colleagues who may read all of those folders, and shows the others greyed out with \"Has no access to a folder this chat draws on\". It never names the folder.",
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
+  },
+  {
+    "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+    "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
   },
   {
     "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",

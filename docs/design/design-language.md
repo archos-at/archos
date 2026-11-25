@@ -588,7 +588,9 @@ arrangement differ, render both in `MobileLayoutOnly` and `DesktopLayoutOnly`
 first paint, and the one that does not belong is dropped once the hook knows
 the screen. Inside both trees an `id` waits for `useIsMobileOnceKnown()`, so the
 server markup never names an element twice. What a click does, which overlay
-opens, whether to fetch: `useIsMobile()` answers those.
+opens, whether to fetch: `useIsMobile()` answers those. The lint rule
+`grid/layout-before-paint` fails a JSX branch, a JSX child or an early
+`return null` chosen by `useIsMobile()`.
 
 ## Component layers (atomic design)
 
@@ -1068,6 +1070,10 @@ times stops being a physical cue and becomes texture.
   person.
   `bun run shift-check --load --session=<wos-session> <chat routes>` fails on
   any shift of the load at 390 and 360.
+  Switching to another chat that is already loaded fades its turns in on the
+  arrival fade (`--motion-snap`, instant under reduced motion), keyed by the
+  conversation (`thread-turns` in `chat-area/chat-message-list`); the chat the
+  page opened on, and every later render of the same chat, does not fade.
   In the rail, a new chat joins „Recent chats“ by fading in at the top while
   the rows below glide down by transform (`layout="position"`); a row that
   leaves is removed in the same commit, so the glide covers it.

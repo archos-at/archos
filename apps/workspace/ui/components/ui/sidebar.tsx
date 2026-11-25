@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { useIsMobile } from '@/hooks/use-is-mobile'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -190,11 +191,10 @@ function Sidebar({
   collapsible?: 'offcanvas' | 'icon'
   peekOnHover?: boolean
 }): React.JSX.Element | null {
-  const { isMobile, state, peek, setPeek } = useSidebar()
+  const { state, peek, setPeek } = useSidebar()
   const peekHandlers = useSidebarPeek(peekOnHover && collapsible === 'icon' && state === 'collapsed', peek, setPeek)
 
-
-  if (isMobile) return null
+  if (useIsMobileOnceKnown() === true) return null
 
   return (
     <div
