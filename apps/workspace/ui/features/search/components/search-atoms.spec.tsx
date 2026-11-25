@@ -5,7 +5,7 @@ import { render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import { CommandDialog } from '@/components/ui/command'
 import { leadUpToMatch } from '../lib/passage-window'
-import { ChoiceStrip, ComposerPickerFrame, FieldShortcut, MetaLine, MetaPart } from './search-atoms'
+import { ChoiceStrip, ComposerPickerFrame, FieldShortcut, MetaLine, MetaPart, RegisterLink } from './search-atoms'
 
 const inGerman = (ui: ReactElement) =>
   render(
@@ -120,5 +120,12 @@ describe('leadUpToMatch', () => {
     const none = [{ text: 'Kein Treffer hier', match: false }]
     expect(leadUpToMatch(near)).toBe(near)
     expect(leadUpToMatch(none)).toBe(none)
+  })
+})
+
+describe('RegisterLink', () => {
+  it('is a 44px press under a finger, so a phone that paints the table first still gets a tappable title', () => {
+    render(<RegisterLink href="/x">Lageplan</RegisterLink>)
+    expect(screen.getByRole('link', { name: 'Lageplan' })).toHaveClass('pointer-coarse:min-h-11', 'pointer-coarse:inline-flex')
   })
 })
