@@ -587,31 +587,25 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
       <AnimatePresence initial={false}>
         {isInterrupted && (
           <HeightArrival key="interrupted" testId="thinking-interrupted">
-            <div className="grid border-t border-border px-4 pb-3 pt-2.5">
-              <div
-                aria-hidden={!isRecoveryPending}
-                className={cn(
-                  'col-start-1 row-start-1 flex items-start gap-2 transition-opacity duration-quick ease-out motion-reduce:transition-none',
-                  !isRecoveryPending && 'invisible opacity-0'
-                )}
-              >
-                <Spinner size="xs" className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span className="text-xs leading-relaxed text-muted-foreground" role={isRecoveryPending ? 'status' : undefined}>
-                  {t('thinking.recoveringNotice')}
-                </span>
-              </div>
-              <div
-                aria-hidden={isRecoveryPending}
-                className={cn(
-                  'col-start-1 row-start-1 flex items-start gap-2 transition-opacity duration-quick ease-out motion-reduce:transition-none',
-                  isRecoveryPending && 'invisible opacity-0'
-                )}
-              >
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
-                <span className="text-xs leading-relaxed text-muted-foreground" role={isRecoveryPending ? undefined : 'status'}>
-                  {t('thinking.interruptedNotice')}
-                </span>
-              </div>
+            <div className="relative border-t border-border px-4 pb-3 pt-2.5">
+              <AnimatePresence initial={false} mode="popLayout">
+                <motion.div
+                  key={isRecoveryPending ? 'recovering' : 'interrupted'}
+                  className="flex items-start gap-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: enter }}
+                  exit={{ opacity: 0, transition: leave }}
+                >
+                  {isRecoveryPending ? (
+                    <Spinner size="xs" className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
+                  )}
+                  <span className="text-xs leading-relaxed text-muted-foreground" role="status">
+                    {t(isRecoveryPending ? 'thinking.recoveringNotice' : 'thinking.interruptedNotice')}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </HeightArrival>
         )}
