@@ -6,10 +6,10 @@
  *                       a title or an accessible name on it or an ancestor;
  *   h-scroll            a box that scrolls sideways, hiding what is past its edge;
  *   off-screen          a button, link or field past the viewport's side;
- *   clipped-edge        a sheet's 12% edge (a ring OUTSIDE its box, `0 0 0 1px`) cut by an ancestor that clips at the box;
+ *   clipped-edge/-shadow  a sheet's ring (`0 0 0 1px`) or drop shadow cut by a clipping ancestor with no fill of its own;
  *   edge-painted-over   a band with a fill of its own (a sticky row) painted over a sheet's edge.
  *
- *   node scripts/clip-check.mjs                         Dateien's real-project states and the reasoning graph (`/dev/look`)
+ *   node scripts/clip-check.mjs                         Dateien's real-project states, the reasoning graph (`/dev/look`) and the model stage
  *   node scripts/clip-check.mjs '/dev/x?a=1' '/dev/y'   the routes named
  *   node scripts/clip-check.mjs --base=http://localhost:3420   a dev server on another port (default 3000)
  *   node scripts/clip-check.mjs --chrome=/path/to/chrome       a Chrome or Chromium binary (default: Playwright's own)
@@ -25,7 +25,7 @@ const BASE = args.find((arg) => arg.startsWith('--base='))?.slice('--base='.leng
 const FILES = '/dev/files-page?project=real&rail=1'
 const STATES = ['', '&brief=open', '&view=list', '&folders=many', '&upload=1', '&q=Bericht', '&folder=r-abgabe', '&folder=r-abgabe-long',
   '&folder=r-deep-5', '&folder=r-test', '&folder=r-grund', '&folder=r-berichte', '&folder=r-berichte&view=list',
-  '&folder=r-berichte&picking=1', '&folder=r-archiv&view=list'].map((state) => `${FILES}${state}`).concat(['/dev/look'])
+  '&folder=r-berichte&picking=1', '&folder=r-archiv&view=list'].map((state) => `${FILES}${state}`).concat(['/dev/look', '/dev/bim-stage'])
   .flatMap((route) => [route, `${route}${route.includes('?') ? '&' : '?'}lang=en`])
 const WIDTHS = [[1700, 800], [1440, 900], [1024, 768], [768, 1024], [390, 844]]
 
@@ -63,6 +63,21 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     }
     return !text
   }
+  const outsetShadowReach = (value) => {
+    if (!value || value === 'none') return null
+    const reach = { top: 0, right: 0, bottom: 0, left: 0 }
+    for (const layer of value.split(/,(?![^(]*\))/)) {
+      if (/\binset\b/.test(layer)) continue
+      const [x = 0, y = 0, blur = 0, spread = 0] = (layer.replace(/rgba?\([^)]*\)/g, '').match(/-?[\d.]+px/g) ?? []).map(parseFloat)
+      reach.top = Math.max(reach.top, blur + spread - y)
+      reach.bottom = Math.max(reach.bottom, blur + spread + y)
+      reach.left = Math.max(reach.left, blur + spread - x)
+      reach.right = Math.max(reach.right, blur + spread + x)
+    }
+    return reach.top + reach.right + reach.bottom + reach.left > 0 ? reach : null
+  }
+  const hasOwnFill = (acs) => (acs.backgroundColor !== 'rgba(0, 0, 0, 0)' && acs.backgroundColor !== 'transparent') || acs.backgroundImage !== 'none'
+  const scrollsSidewaysWithMore = (acs, a) => (acs.overflowX === 'auto' || acs.overflowX === 'scroll') && a.scrollWidth > a.clientWidth + 1
   const all = Array.from(document.querySelectorAll('body *'))
   for (const el of all) {
     if (!visible(el)) continue
@@ -81,7 +96,9 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
       const r = el.getBoundingClientRect()
       if (r.right > vw + 1 || r.left < -1) out.push({ kind: 'off-screen', el: label(el), x: [Math.round(r.left), Math.round(r.right)] })
     }
-    if (cs.boxShadow && cs.boxShadow !== 'none' && /0px 0px 0px 1px/.test(cs.boxShadow)) {
+    const reach = outsetShadowReach(cs.boxShadow)
+    if (reach) {
+      const ring = /0px 0px 0px 1px/.test(cs.boxShadow)
       const r = el.getBoundingClientRect()
       let scrolled = false
       for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
@@ -91,16 +108,21 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
         if (!clipsX && !clipsY) continue
         if (scrolled && !clipsX) continue
         const ar = a.getBoundingClientRect()
-        const scrollsY = acs.overflowY === 'auto' || acs.overflowY === 'scroll'
+        const scrollsY = (acs.overflowY === 'auto' || acs.overflowY === 'scroll') && a.scrollHeight > a.clientHeight + 1
         const inView = r.bottom > ar.top && r.top < ar.bottom && r.right > ar.left && r.left < ar.right
         if (!inView) break
-        const cutX = clipsX && (r.left - 1 < ar.left || r.right + 1 > ar.right)
-        const cutY = clipsY && !scrollsY && !scrolled && (r.top - 1 < ar.top || r.bottom + 1 > ar.bottom)
+        const ringCut = ring && ((clipsX && (r.left - 1 < ar.left || r.right + 1 > ar.right)) ||
+          (clipsY && !scrollsY && !scrolled && (r.top - 1 < ar.top || r.bottom + 1 > ar.bottom)))
+        const edge = (side) => ({ left: ar.left, right: window.innerWidth - ar.right, top: ar.top, bottom: window.innerHeight - ar.bottom })[side]
+        const shadowCut = !hasOwnFill(acs) && !scrollsY && !scrolled && (
+          (clipsY && (r.bottom + reach.bottom - ar.bottom > 2 && edge('bottom') > 2 || ar.top - (r.top - reach.top) > 2 && edge('top') > 2)) ||
+          (clipsX && !scrollsSidewaysWithMore(acs, a) && (r.right + reach.right - ar.right > 2 && edge('right') > 2 || ar.left - (r.left - reach.left) > 2 && edge('left') > 2)))
         if (scrollsY) scrolled = true
-        if (cutX || cutY) {
-          out.push({ kind: 'clipped-edge', el: label(el), by: label(a).slice(0, 60) })
+        if (ringCut || shadowCut) {
+          out.push({ kind: ringCut ? 'clipped-edge' : 'clipped-shadow', el: label(el), by: label(a).slice(0, 60) })
           break
         }
+        if (hasOwnFill(acs)) break
       }
     }
   }
