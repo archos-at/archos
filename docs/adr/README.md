@@ -208,7 +208,7 @@ Consequences, where a reader looks for them.
 | [0136](0136-search-is-one-query-over-a-projection-beside-the-index.md) | Search is one query over a projection beside the index: the dossier's facts are filtered where authorization lives | Proposed |
 | [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Accepted |
 | [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Accepted |
-| [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered | Accepted |
+| [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered (grading narrowed by 0197) | Accepted |
 | [0140](0140-a-turn-that-needs-the-person-pauses-and-a-new-run-resumes-it.md) | A turn that needs the person pauses, and a new run resumes it: LangGraph `interrupt()` with the checkpointer, as AG-UI 1.0's interrupt outcome | Proposed |
 | [0141](0141-a-person-reworks-piloti-drawing-as-an-excalidraw-sketch.md) | A person reworks Piloti's drawing as an Excalidraw sketch; the model still writes mermaid | Accepted |
 | [0142](0142-piloti-cards-render-in-the-persons-own-assistant-as-mcp-apps.md) | Piloti's cards render in the person's own assistant as MCP Apps, starting with the proposal card | Accepted |
@@ -266,6 +266,7 @@ Consequences, where a reader looks for them.
 | [0194](0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) | A conversation's context is decided once, in the BFF, and enforced everywhere | Proposed |
 | [0195](0195-the-buerobibliothek-has-its-own-papierkorb-the-project-bin-over-a-shelf.md) | The Bürobibliothek has its own Papierkorb: the project bin's code over a shelf | Proposed |
 | [0196](0196-one-chrome-stands-on-every-page-of-the-app.md) | One chrome stands on every page of the app | Accepted |
+| [0197](0197-the-answer-check-judges-citations-and-statements-of-law-only.md) | The answer check judges citations and statements of law only; amends 0139 | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

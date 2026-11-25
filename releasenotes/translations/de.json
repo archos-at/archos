@@ -4912,6 +4912,10 @@
     "de": "Die rechtlichen Hinweise in der App (Impressum, Datenschutzerklärung, Nutzungsbedingungen, KI-Hinweis und Liste der Anbieter, die Daten verarbeiten) nennen jetzt ARCHOS (vormals Piloti), sodass klar ist, dass sie auch für Ihr Konto aus der Zeit vor der Umbenennung gelten; außerdem nennen sie den Betreiber, seine Adresse und seine Kontakt-E-Mail-Adresse."
   },
   {
+    "en": "The line above an answer no longer warns about „Aussagen ohne Beleg“; it warns only when a source the answer cites says something else. The Sicherheit label under the answer now says what was checked, such as „3 zitierte Quellen geprüft“, and names a source that says nothing or a statement of law without one.",
+    "de": "Die Zeile über einer Antwort warnt nicht mehr vor „Aussagen ohne Beleg“; sie warnt nur noch, wenn eine Quelle, die die Antwort zitiert, etwas anderes sagt. Die Angabe „Sicherheit“ unter der Antwort nennt jetzt, was geprüft wurde, etwa „3 zitierte Quellen geprüft“, und zeigt eine Quelle, die zu einer Aussage nichts sagt, oder eine Rechtsaussage ohne Fundstelle."
+  },
+  {
     "en": "The line above an answer now names what the answer's own check could not back, such as two statements without a source, and shows a warning instead of the green check when that sinks the answer. An answer that cites nothing and asks you something reads as a question back, no longer as answered without research.",
     "de": "Die Zeile über einer Antwort nennt jetzt, was die eigene Prüfung der Antwort nicht belegen konnte, etwa zwei Aussagen ohne Quelle, und zeigt eine Warnung statt des grünen Häkchens, wenn das die Antwort entkräftet. Eine Antwort, die nichts zitiert und Ihnen eine Frage stellt, wirkt nun wie eine Rückfrage und nicht mehr wie eine ohne Recherche beantwortete Frage."
   },

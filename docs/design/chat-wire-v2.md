@@ -323,6 +323,12 @@ client reads leniently:**
   `x-unknown-as-null` (below): a bundle that knows the field reads a cause
   added later as no reason, and the turn still settles
   (`test_wire_v2_open_tabs.py`, `wire-v2.spec.ts`).
+- `confidence_check.sources_checked` (ADR-0197) is the same case, and it is
+  what tells the two grading rules apart, so `answer_confidence_version` stays
+  `2`: a judged check with it judged citations and statements of law only; one
+  without it was made under ADR-0139's every-statement rule, and the chip shows
+  its level without its findings. An older bundle strips the key and shows the
+  findings as before.
 
 Changing what a known field may hold is a break. `answer_confidence_version`
 is the worked example: the confidence rule changed (the answer check,

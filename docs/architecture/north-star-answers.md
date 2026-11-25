@@ -926,8 +926,9 @@ fact, and an estimate goes nowhere near the confirmed facts.
 
 **Checks.** Row `ns-gk-unstated`: a read or search, „Fluchtniveau“,
 „10,65“ and „11 m“ in the answer, judge `separates_sources`. Langfuse:
-`answer-confidence` not high; the check's findings name the unstated
-Gebäudeklasse as unbacked.
+`answer-confidence` not high. The answer check no longer names an uncited
+project fact (ADR-0197); it names the Gebäudeklasse only when the answer states
+what the law requires for it without a citation.
 
 ---
 

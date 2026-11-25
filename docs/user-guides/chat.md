@@ -246,12 +246,16 @@ stopping a run is done from its block.
 
 Above the answer sits the *Herleitung*. Folded, it is one line: how many steps
 the turn took, how many sources the answer cites, and at most one warning, the
-worst there is. What the answer check found about the answer itself comes first
-(„1 Aussage widerspricht der Quelle“, then „2 Aussagen ohne Beleg“), then
-„1 Abruf fehlgeschlagen“, then „1 Punkt offen“. The glyph turns into a warning
-triangle only when a finding sinks the answer: a statement its source
-contradicts, or a check that rated the answer low. A mostly backed answer, with
-a side statement unbacked, keeps its green check and lets the pill say so. An
+worst there is. A cited source that says something else than the answer comes
+first („1 Aussage widerspricht der Quelle“), then „1 Abruf fehlgeschlagen“,
+then „1 Punkt offen“; the glyph then turns into a warning triangle. Nothing
+else the check found reaches the header: a source that says nothing about a
+statement, or a statement of law without a citation, is named in the
+confidence chip under the answer, which also says what was checked („3 zitierte
+Quellen geprüft“, or „Keine Quelle zitiert. Die Stufe ist die Einschätzung des
+Assistenten.“). What the answer says about you, your office or the project,
+from memory or from earlier in the chat, is not checked against a source and
+never shows as a finding. An
 answer that cites nothing and ends by asking you something reads „Rückfrage“ on
 the right, with a question mark for its glyph; a cited answer that closes by
 inviting you to correct its assumption („Liegt das Projekt in einem anderen
@@ -331,13 +335,13 @@ documents with theirs, and „Offen“ every call that failed or found nothing:
 Tiefgarage“ keine Fundstelle ergab.“ It is the basis of a draft, never a proof.
 
 **Two turns need no graph.** A turn that looked nothing up says „Ohne Recherche
-beantwortet“ in one line, with the check's finding beside it when there is one
-(„Ohne Recherche beantwortet · 2 Aussagen ohne Beleg“); if it only asked you
+beantwortet“ in one line, with a contradicted source beside it when there is
+one („Ohne Recherche beantwortet · 1 Aussage widerspricht der Quelle“); if it only asked you
 something back, the line says „Rückfrage gestellt“ instead. A turn whose record
 names documents it read is never „Ohne Recherche“, even when its steps were not
 kept. A turn of a single call is that call, in the past: „Gelesen:
-Brandschutzkonzept · S. 7 · zitiert [1]“, but only while the check found
-nothing; with a finding or a Rückfrage it gets the full header, where the glyph
+Brandschutzkonzept · S. 7 · zitiert [1]“, but only while no cited source
+says something else; with such a finding or a Rückfrage it gets the full header, where the glyph
 and the pill have room. Neither one-liner opens.
 
 **Older turns fold by step.** A turn stored before the calls had rows draws its
