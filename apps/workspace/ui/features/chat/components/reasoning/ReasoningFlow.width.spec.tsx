@@ -101,3 +101,18 @@ describe('the planned width', () => {
     expect(plannedWidth()).toBe(`${sheetRoom(262)}px`)
   })
 })
+
+describe('the grouped column on a phone', () => {
+  test('lays its cards on the trace itself: no surface between the panel and a source card', () => {
+    reportedWidth = 342
+    render(<ReasoningFlow steps={steps} userQuestion="Frage?" answerConfidence="high" />)
+    const group = document.querySelector<HTMLElement>('[data-source-group]')
+    expect(group).not.toBeNull()
+    const card = group!.querySelector('[role="listitem"]')
+    expect(card).not.toBeNull()
+    const surface = /(^|\s)(bg-(?!transparent)\S+|border|rounded-surface|shadow-\S+)(\s|$)/
+    for (let at = card!.parentElement; at && at !== group!.parentElement; at = at.parentElement) {
+      expect(at.className).not.toMatch(surface)
+    }
+  })
+})

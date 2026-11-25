@@ -132,7 +132,7 @@ const SourceColumnFlowNode: FC<{ data: SourceColumnData }> = ({ data }) => {
       style={{ width: data.colW !== undefined ? `${data.colW}px` : 'var(--source-w)' }}
     >
       {data.grouped ? (
-        <div className="bg-muted rounded-surface border px-3 py-3">
+        <div data-source-group="">
           <Eyebrow>{data.groupLabel}</Eyebrow>
           <div className="mt-2">{stack}</div>
         </div>
