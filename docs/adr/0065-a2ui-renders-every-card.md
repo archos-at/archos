@@ -97,7 +97,19 @@ model keeps writing card objects; only composition is A2UI-shaped.
   module loads, so the library cannot even be imported on the server. Only
   `features/a2ui/react-catalog.tsx` imports it, and `A2uiCard` loads that
   module in the browser alone; `catalog.tsx` is the server-safe contract
-  (component APIs, `preflight`, the contexts).
+  (component APIs, `preflight`, the contexts). *Amended 2026-11-25:* the
+  placeholder had one fixed height (96 px), so every card jumped to its real
+  height when A2UI drew it: a cold load of `/dev/a2ui` scored CLS 0.32 at
+  1280 px and 0.51 at 390 px in a single shift. Until A2UI has drawn, the card
+  now holds its place with its own layout: `SurfaceLayout`
+  (`features/a2ui/surface-views.tsx`) draws the surface from the same Row,
+  Column, Tabs, Text and leaf views A2UI's catalog uses, invisible and inert,
+  under a placeholder stretched over it. The server renders that too, so the
+  first frame has the final size and the swap moves nothing (CLS 0 at 1280,
+  390 and 360). The cost is the one the 2026-09-27 amendment removed, but
+  short-lived: the leaves mount once in that layout and once in A2UI's
+  drawing, and the layout is gone in the commit A2UI reports itself drawn. A
+  surface `preflight` refuses is drawn directly from the first frame.
 - **Churn.** Nearly every minor release of A2UI has broken its API. The pins
   are exact: `@a2ui/react` 0.14.0 and `@a2ui/web_core` 0.14.0
   (`frontends/ui/package.json`), `a2ui-core==0.4.0` (`pyproject.toml`), the
@@ -125,8 +137,9 @@ model keeps writing card objects; only composition is A2UI-shaped.
   types.
 - `frontends/ui/src/features/a2ui/ssr.spec.tsx`: in a node environment,
   `catalog.tsx` and `A2uiCard` import without a DOM and a card server-renders
-  as its placeholder, so `@a2ui/react` cannot creep back into the server
-  bundle.
+  as its own layout under its placeholder, without `@a2ui/react`, so the
+  library cannot creep back into the server bundle. `A2uiCard.spec.tsx` pins
+  that this layout's markup is A2UI's drawing, host elements aside.
 - `/dev/a2ui` marks each card A2UI drew; a browser probe over it is how the
   "every card, no fallback" claim was checked when this was adopted.
 
