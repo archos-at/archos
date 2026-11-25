@@ -180,6 +180,14 @@
         },
         {
           "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "A new conversation your connected agent starts with ARCHOS without naming a project now lands under Persönlich, so you find it in your chats, and ARCHOS can draw on your Meine Ablage for it. Your agent can still keep a question out of Persönlich.",
+            "de": "Eine neue Unterhaltung, die Ihr verbundener Agent mit ARCHOS beginnt, ohne ein Projekt zu nennen, wird jetzt unter Persönlich abgelegt. So finden Sie sie in Ihren Chats, und ARCHOS kann dafür auf Meine Ablage zugreifen. Ihr Agent kann eine Frage weiterhin von Persönlich ausnehmen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
