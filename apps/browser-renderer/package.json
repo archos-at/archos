@@ -16,6 +16,6 @@
     "ws": "8.23.0"
   },
   "devDependencies": {
-    "devtools-protocol": "0.0.1744848"
+    "devtools-protocol": "0.0.1747637"
   }
 }
