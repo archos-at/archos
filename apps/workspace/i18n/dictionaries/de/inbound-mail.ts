@@ -605,6 +605,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   bulk: {
+    start: 'Auswählen',
     selected: '{count} ausgewählt',
     paneHint: 'Die Leiste unter der Liste gilt für alle ausgewählten E-Mails.',
     clear: 'Auswahl aufheben',

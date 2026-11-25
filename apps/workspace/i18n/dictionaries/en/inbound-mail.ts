@@ -601,6 +601,7 @@ export const inboundMail = {
   },
 
   bulk: {
+    start: 'Select',
     selected: '{count} selected',
     paneHint: 'The bar under the list acts on every selected mail.',
     clear: 'Clear selection',

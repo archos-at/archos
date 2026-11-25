@@ -62,6 +62,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           busy={dismissing}
           busyLabel={t('bar.dismissBusy')}
           blocked={filing}
+          disabled={count === 0}
           onClick={onDismiss}
           data-testid="selection-dismiss"
         >
@@ -73,7 +74,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           busy={filing}
           busyLabel={t('bulk.fileSuggestedBusy')}
           blocked={dismissing}
-          disabled={block !== null}
+          disabled={count === 0 || block !== null}
           aria-describedby={reason ? whyId : undefined}
           onClick={onFile}
           className="min-w-0 flex-1"

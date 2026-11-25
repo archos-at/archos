@@ -740,7 +740,12 @@ of a page-wide „Verworfen · …“.
 attachment's place only when a field of it is the agent's stored suggestion;
 the rule's default folder for a new Verlauf is a plain „Ordner: …“.
 
-**Bulk** by selection: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
+**Bulk** by selection, picked as in Dateien: no row carries a box at rest;
+„Auswählen“ beside the Wartet/Bearbeitet switch (only while a waiting mail may
+join a bulk decision) starts picking, the boxes appear, a press on a row ticks
+it instead of opening it, the rows' own presses step back, and the bar's ×
+ends it (so does filing or dismissing the selection, or switching the tab).
+X on the keys' row ticks it and starts picking too. The bar: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
 Verwerfen“, enabled only when every selected mail is complete
 (`incompleteReason === null`); while it is not, the reason stands as a line
 under the count („Bei 1 E-Mail muss der Absender bestätigt werden. Öffnen Sie

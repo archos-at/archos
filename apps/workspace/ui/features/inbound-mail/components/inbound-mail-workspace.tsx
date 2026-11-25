@@ -30,6 +30,8 @@ import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocab
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { cn } from '@/lib/utils'
 import { useShortcutsPreference } from '@/hooks/use-shortcuts-preference'
+import { bulkSelectable } from '../lib/impersonation'
+import { useMailSelection } from '../lib/use-mail-selection'
 import { useInboxKeys, type InboxKeyTarget } from '../lib/inbox-keys'
 import { useBulkLandingReport, useLandingReport } from '../lib/inbox-landing-report'
 import { useStartHint } from '../lib/inbox-start'
@@ -113,7 +115,7 @@ export function InboundMailWorkspace({
     listLoading ? { kind: 'loading' } : initialList ? { kind: 'ready', ...initialList } : initialListFailed ? { kind: 'error' } : { kind: 'loading' }
   )
   const [loadingMore, setLoadingMore] = useState(false)
-  const [checked, setChecked] = useState<Set<string>>(() => new Set(initialChecked))
+  const { checked, selecting, start: startSelection, end: endSelection, toggle } = useMailSelection(initialChecked)
   const [focusedId, setFocusedId] = useState<string | null>(mailId)
   const [quietToggled, setQuietToggled] = useState<boolean | null>(null)
   const [focusTarget, setFocusTarget] = useState<string | null>(null)
@@ -297,7 +299,7 @@ export function InboundMailWorkspace({
     setBulkFiling('selection')
     try {
       await send(confirmFile.decisions, confirmFile.plan, confirmFile.surface)
-      setChecked(new Set())
+      endSelection()
     } catch (error) {
       toast.error(t(`refusals.${refusalOf(error)}`))
       void changed()
@@ -312,7 +314,7 @@ export function InboundMailWorkspace({
     try {
       await client.dismiss(projectId, { mailIds: selectedIds })
       toast.success(t('toast.dismissedMany', { count: selectedIds.length }))
-      setChecked(new Set())
+      endSelection()
       void changed()
     } catch (error) {
       toast.error(t(`refusals.${refusalOf(error)}`))
@@ -321,14 +323,6 @@ export function InboundMailWorkspace({
       setBulkDismissing(false)
     }
   }
-
-  const toggle = (id: string, value: boolean): void =>
-    setChecked((current) => {
-      const next = new Set(current)
-      if (value) next.add(id)
-      else next.delete(id)
-      return next
-    })
 
   const keyState = useRef({ rows, mailId })
   keyState.current = { rows, mailId }
@@ -432,7 +426,7 @@ export function InboundMailWorkspace({
     ) : null
 
   const selectionBar =
-    selectedIds.length > 0 ? (
+    selecting ? (
       <SelectionBar
         count={selectedIds.length}
         block={selectedIds.length > INBOUND_MAIL_DECISION_MAX_MAILS ? { reason: 'too_many', count: selectedIds.length } : selectionBlock}
@@ -441,7 +435,7 @@ export function InboundMailWorkspace({
         dismissing={bulkDismissing}
         onFile={() => void askFile(selectedIds, null, 'selection')}
         onDismiss={() => setConfirmDismiss(true)}
-        onClear={() => setChecked(new Set())}
+        onClear={endSelection}
       />
     ) : null
 
@@ -497,7 +491,7 @@ export function InboundMailWorkspace({
             sections={sections}
             status={status}
             onFilterChange={(nextStatus, nextOutcome) => {
-              setChecked(new Set())
+              endSelection()
               setQueryState('')
               router.replace(paths.list({ status: nextStatus, outcome: nextOutcome }))
             }}
@@ -511,7 +505,12 @@ export function InboundMailWorkspace({
             openId={mailId}
             focusedId={focusedId}
             checked={checked}
-            onCheckedChange={toggle}
+            selecting={selecting}
+            onStartSelection={status === 'waiting' && items.some((mail) => bulkSelectable(mail)) ? startSelection : undefined}
+            onCheckedChange={(id, value) => {
+              toggle(id, value)
+              setFocusedId(null)
+            }}
             onFocusRow={setFocusedId}
             hrefFor={(id) => paths.mail(id, filter)}
             quietOpen={quietOpen}

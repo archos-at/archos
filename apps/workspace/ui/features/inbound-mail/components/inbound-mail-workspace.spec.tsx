@@ -312,6 +312,25 @@ describe('InboundMailWorkspace', () => {
     expect(nav.push).toHaveBeenCalledWith(expect.stringContaining(`/files/mail/${id}`))
   })
 
+  it('picks as Dateien does: no boxes at rest, „Select“ shows them, a press on a row ticks it, the bar’s × ends it', async () => {
+    renderWorkspace('many')
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const row = await screen.findByTestId(`inbound-mail-row-${id}`)
+    expect(within(row).queryByTestId('inbound-mail-row-checkbox')).toBeNull()
+    expect(screen.queryByTestId('inbound-mail-selection-bar')).toBeNull()
+    await userEvent.click(screen.getByTestId('selection-start'))
+    expect(screen.queryByTestId('selection-start')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-selection-bar')).toHaveTextContent('0 selected')
+    expect(screen.getByTestId('selection-file')).toBeDisabled()
+    await userEvent.click(within(row).getByTestId('inbound-mail-row-link'))
+    expect(nav.push).not.toHaveBeenCalled()
+    expect(within(screen.getByTestId(`inbound-mail-row-${id}`)).getByTestId('inbound-mail-row-checkbox')).toBeChecked()
+    expect(screen.getByTestId('inbound-mail-selection-bar')).toHaveTextContent('1 selected')
+    await userEvent.click(screen.getByTestId('selection-clear'))
+    expect(screen.queryByTestId('inbound-mail-selection-bar')).toBeNull()
+    expect(within(screen.getByTestId(`inbound-mail-row-${id}`)).queryByTestId('inbound-mail-row-checkbox')).toBeNull()
+  })
+
   it('ignores the keys while the person types', () => {
     renderWorkspace('one')
     const input = document.createElement('input')
@@ -333,10 +352,12 @@ describe('InboundMailWorkspace', () => {
   it('never offers an impersonation for bulk filing: no checkbox, a red label, and X does not select it', async () => {
     renderWorkspace('many')
     const row = await screen.findByTestId(`inbound-mail-row-${DETAIL_VARIANTS['impersonation-colleague'].view.id}`)
+    await userEvent.click(screen.getByTestId('selection-start'))
     expect(within(row).queryByTestId('inbound-mail-row-checkbox')).toBeNull()
     expect(within(row).getByTestId('inbound-mail-row-impersonation')).toHaveTextContent('Poses as Miriam Huber · do not file')
     const other = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)
     expect(within(other).getByTestId('inbound-mail-row-checkbox')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('selection-clear'))
     for (let step = 0; step < 10 && row.dataset.focused !== 'true'; step += 1) {
       fireEvent.keyDown(window, { key: 'j' })
       await waitFor(() => expect(screen.getAllByTestId(/^inbound-mail-row-/).some((candidate) => candidate.dataset.focused === 'true')).toBe(true))
@@ -449,6 +470,7 @@ describe('InboundMailWorkspace', () => {
     const id = DETAIL_VARIANTS['member-verified'].view.id
     const { client } = renderOpen('many', id)
     const dismiss = vi.spyOn(client, 'dismiss')
+    await userEvent.click(screen.getByTestId('selection-start'))
     const box = within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS.revision.view.id}`)).getByTestId('inbound-mail-row-checkbox')
     box.focus()
     fireEvent.keyDown(box, { key: 'Backspace' })

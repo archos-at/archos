@@ -49,6 +49,7 @@ export function InboundMailRow({
   focused,
   checked,
   onCheckedChange,
+  selecting,
   onFocusRow,
   inGroup = false,
   groupThread,
@@ -86,15 +87,16 @@ export function InboundMailRow({
     ? t('row.expiresOn', { date: dayMonth(mail.expiresAt, locale) })
     : null
   const ready = waiting && !filingNow && reason === null && !impersonating
-  const offerFile = ready && !inGroup && onFileAsSuggested !== undefined
-  const offerFileNow = expiresSoon && waiting && claim !== 'colleague' && onFileNow !== undefined
+  const offerFile = ready && !inGroup && !selecting && onFileAsSuggested !== undefined
+  const offerFileNow = expiresSoon && waiting && !selecting && claim !== 'colleague' && onFileNow !== undefined
   const needsReader = waiting && !filingNow && reason !== null && claim !== 'colleague'
   const places = ready ? placesLine(mail.suggestedPlaces, groupThread, t) : null
+  const pickable = selecting && waiting && bulkSelectable(mail)
 
   return (
     <Item
       as="li"
-      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row and a picked run: one grey, they fused into one block */)}
+      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', ROW_HAIRLINE, selecting && waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row and a picked run: one grey, they fused into one block */)}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}
@@ -104,10 +106,10 @@ export function InboundMailRow({
       data-current={open || undefined}
       data-cursor={(focused && !open) || undefined}
     >
-      {/* Above the link's full-row press area, so a tap on the box selects instead of opening. No column in the handled
-          list, where nothing is filed or dismissed in bulk: an empty 28px gutter read as an indent under a thread. */}
-      <div className={cn('relative z-10 flex h-8 w-4 shrink-0 items-center', !waiting && 'hidden')}>
-        {waiting && bulkSelectable(mail) && (
+      {/* Above the link's full-row press area, so a tap on the box selects instead of opening. Only while picking, as in
+          Dateien: at rest an empty 28px gutter read as an indent, and a box on every row as a choice to make. */}
+      <div className={cn('relative z-10 flex h-8 w-4 shrink-0 items-center', !(waiting && selecting) && 'hidden')}>
+        {waiting && selecting && bulkSelectable(mail) && (
           <Checkbox
             checked={checked}
             onCheckedChange={(value) => onCheckedChange(value === true)}
@@ -120,6 +122,13 @@ export function InboundMailRow({
         <Link
           href={href}
           onFocus={onFocusRow}
+          onClick={(event) => {
+            if (!pickable) return
+            event.preventDefault()
+            onCheckedChange(!checked)
+            const pressedByPointer = event.detail > 0
+            if (pressedByPointer) event.currentTarget.blur()
+          }}
           aria-current={open ? 'page' : undefined}
           data-testid="inbound-mail-row-link"
           className="flex min-w-0 flex-1 items-start gap-3 rounded-inline outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"

@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
+import { CheckCircle2, CheckSquare, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -44,6 +44,8 @@ export interface InboundMailListProps {
   openId: string | null
   focusedId: string | null
   checked: ReadonlySet<string>
+  selecting: boolean
+  onStartSelection?: () => void
   onCheckedChange: (mailId: string, checked: boolean) => void
   onFocusRow: (mailId: string) => void
   hrefFor: (mailId: string) => string
@@ -100,6 +102,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
       <div className={cn('flex flex-col gap-2 px-4 pb-3 pt-2', !showFilter && 'hidden')} /* 24px under the tabs, as every tab */>
+        <div className="flex items-center justify-between gap-3">
         <ToggleGroup
           type="single"
           segmented
@@ -129,6 +132,14 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
             {t('filters.handled')}
           </ToggleGroupItem>
         </ToggleGroup>
+        {/* As in Dateien: picking is a mode the reader starts, so the boxes stand only while it lasts. */}
+        {status === 'waiting' && props.onStartSelection && !props.selecting && (
+          <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={props.onStartSelection} data-testid="selection-start">
+            <CheckSquare className="size-4" aria-hidden />
+            {t('bulk.start')}
+          </Button>
+        )}
+        </div>
         {searchable && (
           <SearchField
             size="sm"
@@ -172,6 +183,7 @@ function ListBody({
   openId,
   focusedId,
   checked,
+  selecting,
   onCheckedChange,
   onFocusRow,
   hrefFor,
@@ -295,7 +307,7 @@ function ListBody({
     )
   }
 
-  const picking = checked.size > 0
+  const picking = selecting
   const row = (mail: InboundMailSummaryView, group?: string): JSX.Element => (
     <InboundMailRow
       key={mail.id}
@@ -309,7 +321,7 @@ function ListBody({
       open={mail.id === openId}
       focused={mail.id === focusedId}
       checked={checked.has(mail.id)}
-      selecting={checked.size > 0}
+      selecting={selecting}
       onCheckedChange={(value) => onCheckedChange(mail.id, value)}
       onFocusRow={() => onFocusRow(mail.id)}
       now={now}
