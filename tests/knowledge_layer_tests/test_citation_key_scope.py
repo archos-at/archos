@@ -111,7 +111,7 @@ def test_the_shelf_travels_from_chunk_metadata_into_the_citation_payload():
     text = _format(
         [
             _chunk(file_name="Plan.pdf", collection="s_9f2a4c", shelf="session"),
-            _chunk(file_name="Norm.pdf", collection="oib_knowledge", shelf="base", page=12),
+            _chunk(file_name="Norm.pdf", collection="base_corpus", shelf="base", page=12),
         ]
     )
     assert "Shelf: session" in text

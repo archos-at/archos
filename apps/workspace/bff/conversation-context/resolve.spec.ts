@@ -33,7 +33,7 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
       const projectId = request.audience?.exists ? (request.audience.projectId ?? undefined) : request.projectId
       const restricted = request.interactiveChat && projectId ? [`proj_${projectId}_restricted`] : []
       const scopedCollections = [
-        { collection: 'oib_knowledge', shelf: 'base' as const },
+        { collection: 'base_corpus', shelf: 'base' as const },
         { collection: 'office_org_1', shelf: 'office_shelf' as const },
         ...(projectId ? [{ collection: `proj_${projectId}`, shelf: 'project' as const }] : []),
         ...restricted.map((collection) => ({ collection, shelf: 'project' as const })),
@@ -238,7 +238,7 @@ describe('resolveConversationContext', () => {
     state.rows = [row({ projectId: 'p1' })]
     const run = await resolveConversationContext(session, { kind: 'run', conversationId: 's_c' })
 
-    expect(run.may.shelves.map((entry) => entry.collection)).toEqual(['oib_knowledge', 'office_org_1', 'proj_p1', 's_s_c'])
+    expect(run.may.shelves.map((entry) => entry.collection)).toEqual(['base_corpus', 'office_org_1', 'proj_p1', 's_s_c'])
     expect(run.may.restrictedCollections).toEqual([])
   })
 

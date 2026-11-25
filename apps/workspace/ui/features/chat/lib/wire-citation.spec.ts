@@ -17,7 +17,7 @@ const KB_WIRE: WireCitationSource = {
   content: '[KB] oib-rl_2_ausgabe_mai_2023.pdf, p.12',
   title: 'OIB-Richtlinie 2',
   citation_key: 'oib-rl_2_ausgabe_mai_2023.pdf, p.12',
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   source_type: 'knowledge_layer',
   tool: 'knowledge_search',
   origin: 'kb',

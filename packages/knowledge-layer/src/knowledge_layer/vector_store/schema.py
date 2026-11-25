@@ -7,6 +7,7 @@ from typing import Any
 from qdrant_client import QdrantClient
 from qdrant_client import models
 
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.common.source_kinds import OFFICE_SHELF_COLLECTION_PREFIXES
 from agent.knowledge.base import READING_ORDER
 
@@ -210,6 +211,8 @@ TEXT_FIELDS: tuple[str, ...] = (TEXT_FIELD, TEXT_STEM_FIELD)
 INDEXED_FIELDS = frozenset(KEYWORD_FIELDS + INTEGER_FIELDS + DATETIME_FIELDS + BOOL_FIELDS + TEXT_FIELDS)
 
 TENANT_PREFIXES = (*OFFICE_SHELF_COLLECTION_PREFIXES, "proj_", "s_")
+
+BASE_CORPUS_SCOPE = BASE_CORPUS_COLLECTION
 
 EMBED_IDENTITY_KEYS = ("embed_fingerprint", "embed_model")
 

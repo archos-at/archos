@@ -106,7 +106,7 @@ describe('/api/auth/websocket-scope', () => {
     }
     mockGetUserSession.mockResolvedValue(session)
     mockResolveConversationContext.mockResolvedValue(
-      decided([{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }], 'proj-1')
+      decided([{ collection: 'base_corpus', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }], 'proj-1')
     )
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope?projectId=proj-1')

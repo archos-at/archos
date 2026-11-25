@@ -130,13 +130,13 @@ describe('the base corpus in the signed scope', () => {
   it('signs the base entry with the office’s entitled countries, so a base source is found for them', async () => {
     await findSimilarPassages(session, legal)
 
-    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: ['QA'] })
+    expect(baseEntry()).toEqual({ collection: 'base_corpus', shelf: 'base', countries: ['QA'] })
   })
 
   it('signs an empty country list for an office entitled to none, so another country’s base text is not read', async () => {
     await findSimilarPassages({ ...session, organizationId: 'org_2' } as AuthorizedSession, legal)
 
-    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: [] })
+    expect(baseEntry()).toEqual({ collection: 'base_corpus', shelf: 'base', countries: [] })
   })
 })
 

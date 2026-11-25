@@ -2,6 +2,7 @@ import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
 import { ApiError, BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
+import { BASE_CORPUS_COLLECTION } from '@/lib/retrieval-scope/collection-scope'
 
 export type KnowledgeFileState = 'ingested' | 'stale' | 'pending' | 'failed' | 'removed' | 'inconsistent'
 
@@ -425,7 +426,7 @@ export async function streamKnowledgeBaseCorpus(): Promise<Response> {
 export async function withdrawCorpusFile(fileName: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   const backendUrl = getBackendUrl()
-  const collection = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  const collection = BASE_CORPUS_COLLECTION
   const res = await fetch(`${backendUrl}/v1/collections/${encodeURIComponent(collection)}/knowledge-mark`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },

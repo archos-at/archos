@@ -115,7 +115,7 @@ beforeEach(() => {
   )
   vi.mocked(ensureDocumentThread).mockResolvedValue(THREAD)
   vi.mocked(resolveTurnContext).mockResolvedValue({
-    scope: ['oib_knowledge', 'proj_1'],
+    scope: ['base_corpus', 'proj_1'],
     scopedCollections: [],
     header: 'c2NvcGU',
     conversationId: THREAD,

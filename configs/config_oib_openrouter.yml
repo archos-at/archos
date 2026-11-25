@@ -249,7 +249,7 @@ functions:
 
   knowledge_search:
     _type: knowledge_retrieval
-    collection_name: ${COLLECTION_NAME:-oib_knowledge}
+    collection_name: base_corpus
     include_base_collection: true
     include_session_collection: true
     project_collections: []

@@ -31,7 +31,7 @@ const context = (patch: Partial<VerifiedRequestContext> = {}): VerifiedRequestCo
   projectId: PROJECT,
   conversationId: 's_conv_1',
   issuedAt: Date.now(),
-  collectionScope: ['oib_knowledge', 'archiv_org_1', 'proj_1', 's_conv_1'],
+  collectionScope: ['base_corpus', 'archiv_org_1', 'proj_1', 's_conv_1'],
   contextKind: 'chat',
   ...patch,
 })
@@ -94,7 +94,7 @@ describe('readEstateTree: the project shelf', () => {
   it.each([
     ['the turn has no project', context({ projectId: null })],
     ['the turn has no conversation', context({ conversationId: null })],
-    ['the project’s collection is not in the signed scope', context({ collectionScope: ['oib_knowledge'] })],
+    ['the project’s collection is not in the signed scope', context({ collectionScope: ['base_corpus'] })],
   ])('404s when %s', async (_name, ctx) => {
     await expect(readEstateTree(ctx, session, { shelf: 'project' })).rejects.toThrow(NotFoundError)
     expect(listTreeDocuments).not.toHaveBeenCalled()

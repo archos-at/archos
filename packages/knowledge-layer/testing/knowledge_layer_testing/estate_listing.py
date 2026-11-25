@@ -26,7 +26,7 @@ ROWS = [
     ),
     FileRow(file_name="Brandschutzkonzept.pdf", shelf="project", collection="proj_a", folder="Gutachten/Brandschutz"),
     FileRow(file_name="Vorlage.docx", shelf="office_shelf", collection="office_shelf_org", folder="Vorlagen"),
-    FileRow(file_name="oib-rl_2_ausgabe_mai_2023.pdf", shelf="base", collection="oib_knowledge"),
+    FileRow(file_name="oib-rl_2_ausgabe_mai_2023.pdf", shelf="base", collection="base_corpus"),
 ]
 SECRET = FileRow(file_name="Vertrag.pdf", shelf="project", collection="proj_a_r0123456789ab", folder="Personal")
 

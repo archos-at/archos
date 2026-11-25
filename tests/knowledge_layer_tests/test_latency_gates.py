@@ -296,7 +296,7 @@ def _config(**overrides):
     from knowledge_layer.register import KnowledgeRetrievalConfig
 
     return KnowledgeRetrievalConfig(
-        collection_name="oib_knowledge",
+        collection_name="base_corpus",
         include_base_collection=True,
         include_session_collection=False,
         generate_summary=False,

@@ -24,7 +24,7 @@ vi.mock('@/lib/retrieval-scope/collection-scope', async (importOriginal) => {
   return {
     ...actual,
     computeCollectionScope: vi.fn((_session, ctx) => {
-      const scope: string[] = ['oib_knowledge']
+      const scope: string[] = ['base_corpus']
       if (ctx.projectId) scope.push(`proj_${ctx.projectId}`)
       if (ctx.conversationId) scope.push(actual.sessionCollectionName(ctx.conversationId))
       return scope
@@ -72,7 +72,7 @@ describe('buildCollectionScopeFromRequest', () => {
   it('builds base-only scope for anonymous mode', async () => {
     vi.stubEnv('REQUIRE_AUTH', 'false')
     const { scope } = await buildCollectionScopeFromRequest(null, {})
-    expect(scope).toEqual(['oib_knowledge'])
+    expect(scope).toEqual(['base_corpus'])
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
     vi.stubEnv('REQUIRE_AUTH', undefined)
   })
@@ -84,7 +84,7 @@ describe('buildCollectionScopeFromRequest', () => {
       projectId: 'proj_1',
       conversationId: 'conv_1',
     })
-    expect(scope).toEqual(['oib_knowledge', 'proj_proj_1', 's_conv_1'])
+    expect(scope).toEqual(['base_corpus', 'proj_proj_1', 's_conv_1'])
     expect(mockRequireProjectAccess).toHaveBeenCalledWith(baseSession, 'proj_1', [
       'project:chat',
       'project:edit',
@@ -96,7 +96,7 @@ describe('buildCollectionScopeFromRequest', () => {
     vi.stubEnv('REQUIRE_AUTH', 'true')
     mockGetDb.mockReturnValue(mockDbSelect([{ prefs: { active_project_id: 'pref_1' } }]) as never)
     const { scope, projectId } = await buildCollectionScopeFromRequest(baseSession, {})
-    expect(scope).toEqual(['oib_knowledge'])
+    expect(scope).toEqual(['base_corpus'])
     expect(projectId).toBeUndefined()
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
     vi.stubEnv('REQUIRE_AUTH', undefined)

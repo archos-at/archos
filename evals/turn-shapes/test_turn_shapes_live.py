@@ -66,7 +66,7 @@ _DATA_SOURCE_TOOL_NAMES = frozenset(name for source in _DATA_SOURCES for name in
 _KNOWLEDGE_HIT = """\
 --- Result 1 ---
 Source: OIB-Richtlinie 4 – Nutzungssicherheit und Barrierefreiheit (Ausgabe April 2019)
-Collection: oib_knowledge
+Collection: base_corpus
 Shelf: basiswissen
 Dokumentart: oib_guideline — OIB-Richtlinie
 Page: 5
@@ -80,7 +80,7 @@ Relevance Score: 0.87
 bei Absturzhöhen über 12 m mindestens 1,10 m. Die Höhe ist ab der Standfläche zu messen.
 
 ## Trace-Lanes
-- oib_knowledge: 1 hit
+- base_corpus: 1 hit
 """
 
 _RIS_HIT = """\

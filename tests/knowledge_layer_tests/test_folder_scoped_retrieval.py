@@ -150,7 +150,7 @@ class TestFolderReachesTheModel:
 
 
 PROJECT = "proj_1"
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 
 PLAN_DOCS = [
     AvailableDocument(file_name="x.pdf", folder_path="03_Einreichung/Pläne", collection=PROJECT, shelf="project"),

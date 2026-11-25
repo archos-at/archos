@@ -72,7 +72,7 @@ def store(monkeypatch):
     monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
     monkeypatch.setattr(
         "agent.knowledge.scoping.get_scoped_collections_from_context",
-        lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
+        lambda: [ScopedCollection("base_corpus", Shelf.BASE)],
     )
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
@@ -82,7 +82,7 @@ def store(monkeypatch):
 def _builder() -> MagicMock:
     builder = MagicMock()
     builder.get_function_config = MagicMock(
-        return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        return_value=KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     )
     return builder
 
@@ -177,7 +177,7 @@ class TestTheFilterIsTheAnswer:
         await _read(document="OIB-Richtlinie 2, Ausgabe Mai 2023", clause="3.5.2")
 
         (call,) = store.calls
-        assert call["collection"] == "oib_knowledge"
+        assert call["collection"] == "base_corpus"
         assert call["top_k"] == _MAX_PASSAGE_CHUNKS
         assert {"clause_id": {"$eq": "3.5.2"}} in call["filters"]["$and"]
 
@@ -293,7 +293,7 @@ class TestFormatParity:
         out = await _read(document=OIB, clause="3.5.2")
 
         located = _chunk(clause="3.5.2", page=12, content="Fluchtweglänge …", chunk_id="a")
-        located.metadata["collection"] = "oib_knowledge"
+        located.metadata["collection"] = "base_corpus"
         located.metadata["shelf"] = str(Shelf.BASE)
         expected = format_results(
             RetrievalResult(

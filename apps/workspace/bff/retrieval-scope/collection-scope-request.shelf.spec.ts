@@ -49,7 +49,6 @@ function shelfOf(payload: ScopedCollection[], collection: string): string | unde
 
 beforeEach(() => {
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(findProjectCollectionName).mockResolvedValue(null)
@@ -63,7 +62,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
     })
 
     expect(decodeHeader(headerValue)).toEqual([
-      { collection: 'oib_knowledge', shelf: 'base', countries: ['AT'] },
+      { collection: 'base_corpus', shelf: 'base', countries: ['AT'] },
       { collection: `archiv_${ORG_ID}`, shelf: 'office_shelf' },
       { collection: `proj_${PROJECT_ID}`, shelf: 'project' },
       { collection: `s_${CONVERSATION_ID}`, shelf: 'session' },
@@ -104,17 +103,17 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
     expect(shelfOf(payload, 's_already')).toBe('session')
   })
 
-  it('emits shelf `base` for the base knowledge corpus under any configured name', async () => {
+  it('emits shelf `base` for the base knowledge corpus, named base_corpus whatever the environment says', async () => {
     vi.stubEnv('BASE_COLLECTION_NAME', 'grid_base_corpus')
 
     const { headerValue } = await buildCollectionScopeFromRequest(session, {})
 
-    expect(shelfOf(decodeHeader(headerValue), 'grid_base_corpus')).toBe('base')
+    expect(shelfOf(decodeHeader(headerValue), 'base_corpus')).toBe('base')
   })
 
   it('OMITS the shelf for a collection it cannot attribute, rather than defaulting it', async () => {
     vi.mocked(computeCollectionScope).mockReturnValueOnce([
-      'oib_knowledge',
+      'base_corpus',
       'some_custom_corpus',
     ])
 
@@ -124,7 +123,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
     expect(payload).toContainEqual({ collection: 'some_custom_corpus' })
     expect(shelfOf(payload, 'some_custom_corpus')).toBeUndefined()
     expect(Object.keys(payload[1])).toEqual(['collection'])
-    expect(shelfOf(payload, 'oib_knowledge')).toBe('base')
+    expect(shelfOf(payload, 'base_corpus')).toBe('base')
   })
 
   it('keeps the returned `scope` a bare id list for callers that echo it', async () => {
@@ -134,7 +133,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
     })
 
     expect(scope).toEqual([
-      'oib_knowledge',
+      'base_corpus',
       `archiv_${ORG_ID}`,
       `proj_${PROJECT_ID}`,
       `s_${CONVERSATION_ID}`,
@@ -150,8 +149,8 @@ describe('the base corpus is in every project scope, whatever its site (ADR-0173
   ])('signs it, for a project %s, with the office countries its context reads', async (_site, reads, signed) => {
     contextForPage.mockResolvedValueOnce({ retrieval: { countries: reads } })
     const { scope, headerValue } = await buildCollectionScopeFromRequest(session, { projectId: PROJECT_ID })
-    expect(scope).toContain('oib_knowledge')
-    expect(decodeHeader(headerValue).find((entry) => entry.shelf === 'base')).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: signed })
+    expect(scope).toContain('base_corpus')
+    expect(decodeHeader(headerValue).find((entry) => entry.shelf === 'base')).toEqual({ collection: 'base_corpus', shelf: 'base', countries: signed })
     expect(scope).toContain(`proj_${PROJECT_ID}`)
   })
 
@@ -162,6 +161,6 @@ describe('the base corpus is in every project scope, whatever its site (ADR-0173
   })
 
   it('keeps it for a turn without a project', async () => {
-    expect((await buildCollectionScopeFromRequest(session, {})).scope).toContain('oib_knowledge')
+    expect((await buildCollectionScopeFromRequest(session, {})).scope).toContain('base_corpus')
   })
 })

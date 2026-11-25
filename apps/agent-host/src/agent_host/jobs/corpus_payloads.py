@@ -9,3 +9,10 @@ def mark_corpus_chunks(payloads: dict[str, dict[str, str | bool]]) -> None:
     store = get_store()
     if store.exists(COLLECTION_NAME):
         store.set_file_payloads(COLLECTION_NAME, payloads)
+
+
+def move_legacy_corpus_scope() -> int:
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import move_legacy_base_corpus
+
+    return move_legacy_base_corpus(get_store())

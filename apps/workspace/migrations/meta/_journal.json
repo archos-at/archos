@@ -1891,6 +1891,13 @@
       "when": 1795602800000,
       "tag": "0269_personal_chat_owner_only",
       "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1795602900000,
+      "tag": "0270_base_corpus_collection",
+      "breakpoints": true
     }
   ]
 }

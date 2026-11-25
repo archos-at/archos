@@ -140,7 +140,7 @@ class TestTheFolderReads:
         assert folders.search_folders(placed, [PROJECT], vector(CARD_TEXT), folder="Pläne") == []
 
     def test_the_corpus_has_no_folder_channel(self, placed):
-        assert folders.search_folders(placed, ["oib_knowledge"], vector(CARD_TEXT)) == []
+        assert folders.search_folders(placed, ["base_corpus"], vector(CARD_TEXT)) == []
 
     def test_the_folder_scroll_and_a_kind_read(self, placed):
         [card] = folders.folder_cards(placed, [PROJECT])
@@ -184,7 +184,7 @@ class TestTheCardsLifecycle:
 
     def test_the_corpus_takes_no_card(self, placed):
         with pytest.raises(ValueError, match="office scope"):
-            folders.upsert_folder_card(placed, "oib_knowledge", CARD, vector(CARD_TEXT))
+            folders.upsert_folder_card(placed, "base_corpus", CARD, vector(CARD_TEXT))
 
     def test_a_file_payload_write_never_touches_a_card(self, placed):
         placed.set_file_payloads(PROJECT, {"BS.pdf": {"tags": ["brandschutz"]}})

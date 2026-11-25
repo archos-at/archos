@@ -20,7 +20,7 @@ from agent.knowledge.schema import RetrievalResult
 
 rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 MEMBERS = {
     "2": "oib-rl_2_ausgabe_mai_2023.pdf",
     "2.1": "oib-rl_2.1_ausgabe_mai_2023.pdf",
@@ -339,7 +339,7 @@ class TestTheOrdinarySearchIsUntouched:
 
     async def test_a_failed_fan_out_is_reported_as_a_failure(self, corpus):
         store = corpus(MEMBERS)
-        store.search_error = "Retrieval failed: Collection 'oib_knowledge' embedding mismatch: e5 vs nv-embed"
+        store.search_error = "Retrieval failed: Collection 'base_corpus' embedding mismatch: e5 vs nv-embed"
 
         out = await _search()
 

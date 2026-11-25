@@ -16,7 +16,7 @@ def _chunk(
     doc_class: str | None = None,
     chunk_id: str | None = None,
 ) -> SimpleNamespace:
-    metadata = {"collection": "oib_knowledge"}
+    metadata = {"collection": "base_corpus"}
     if doc_class:
         metadata["doc_class"] = doc_class
     return SimpleNamespace(

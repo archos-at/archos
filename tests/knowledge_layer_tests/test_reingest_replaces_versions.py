@@ -90,7 +90,7 @@ def test_tmp_prefixed_and_percent_encoded_stored_names_match(ingestor, registrie
 
 
 def test_the_find_filters_by_name_instead_of_reading_the_collection(ingestor, registries, monkeypatch):
-    _collection("oib_knowledge", {"c1": "statik standard.pdf", "c2": "anderes.pdf"})
+    _collection("base_corpus", {"c1": "statik standard.pdf", "c2": "anderes.pdf"})
     asked: list = []
     real = store_module.QdrantStore.scroll
 
@@ -100,7 +100,7 @@ def test_the_find_filters_by_name_instead_of_reading_the_collection(ingestor, re
 
     monkeypatch.setattr(store_module.QdrantStore, "scroll", recording)
 
-    ingestor._find_previous_versions("oib_knowledge", ["statik standard.pdf"])
+    ingestor._find_previous_versions("base_corpus", ["statik standard.pdf"])
 
     assert len(asked) == 1
     spellings = asked[0]["file_name"]["$in"]
@@ -754,7 +754,7 @@ def _ingest_base_corpus(ing, tmp_path, file_name: str, config: dict | None = Non
     upload = tmp_path / "tmp_corpus.txt"
     upload.write_text("Mindestens 1,20 m lichte Durchgangsbreite.", encoding="utf-8")
     job_id = ing.submit_job(
-        [str(upload)], "oib_knowledge", config={"original_filenames": [file_name], "priority": "bulk", **(config or {})}
+        [str(upload)], "base_corpus", config={"original_filenames": [file_name], "priority": "bulk", **(config or {})}
     )
     status = _wait_terminal(ing, job_id)
     assert status.file_details[0].status.value == "success"
@@ -765,25 +765,25 @@ def test_the_dokumentart_an_admin_chose_at_upload_is_stamped_by_the_job(tmp_path
 
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt", {"doc_class": "law"})
 
-    assert get_document_doc_class("oib_knowledge", "statik.txt") == "law"
+    assert get_document_doc_class("base_corpus", "statik.txt") == "law"
 
 
 def test_the_admins_choice_beats_the_class_a_replaced_version_carried(tmp_path, live_ingestor, stores):
     from agent.knowledge import get_document_doc_class
 
-    _seed_previous_version(live_ingestor, stores, "oib_knowledge", "statik.txt")  # a person set "tragwerk"
+    _seed_previous_version(live_ingestor, stores, "base_corpus", "statik.txt")  # a person set "tragwerk"
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt", {"doc_class": "law"})
 
-    assert get_document_doc_class("oib_knowledge", "statik.txt") == "law"
+    assert get_document_doc_class("base_corpus", "statik.txt") == "law"
 
 
 def test_a_replacement_with_no_choice_keeps_what_a_person_set(tmp_path, live_ingestor, stores):
     from agent.knowledge import get_document_doc_class
 
-    _seed_previous_version(live_ingestor, stores, "oib_knowledge", "statik.txt")
+    _seed_previous_version(live_ingestor, stores, "base_corpus", "statik.txt")
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt")
 
-    assert get_document_doc_class("oib_knowledge", "statik.txt") == "tragwerk"
+    assert get_document_doc_class("base_corpus", "statik.txt") == "tragwerk"
 
 
 def test_without_a_choice_the_class_is_guessed_from_the_file_name(tmp_path, live_ingestor, stores):
@@ -791,7 +791,7 @@ def test_without_a_choice_the_class_is_guessed_from_the_file_name(tmp_path, live
 
     _ingest_base_corpus(live_ingestor, tmp_path, "oib-rl_2_ausgabe_mai_2023.txt")
 
-    assert get_document_doc_class("oib_knowledge", "oib-rl_2_ausgabe_mai_2023.txt") == "oib_guideline"
+    assert get_document_doc_class("base_corpus", "oib-rl_2_ausgabe_mai_2023.txt") == "oib_guideline"
 
 
 def test_a_class_outside_the_vocabulary_is_not_stamped(tmp_path, live_ingestor, stores):
@@ -799,7 +799,7 @@ def test_a_class_outside_the_vocabulary_is_not_stamped(tmp_path, live_ingestor, 
 
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt", {"doc_class": "not_a_real_class"})
 
-    assert get_document_doc_class("oib_knowledge", "statik.txt") == "other"
+    assert get_document_doc_class("base_corpus", "statik.txt") == "other"
 
 
 def test_an_oib_document_gets_its_starting_display_title_from_its_name(tmp_path, live_ingestor, stores):
@@ -807,7 +807,7 @@ def test_an_oib_document_gets_its_starting_display_title_from_its_name(tmp_path,
 
     _ingest_base_corpus(live_ingestor, tmp_path, "oib-rl_2_ausgabe_mai_2023.txt")
 
-    assert get_document_display_title("oib_knowledge", "oib-rl_2_ausgabe_mai_2023.txt") == (
+    assert get_document_display_title("base_corpus", "oib-rl_2_ausgabe_mai_2023.txt") == (
         "OIB-Richtlinie 2, Ausgabe Mai 2023"
     )
 
@@ -817,16 +817,16 @@ def test_a_name_that_gives_no_default_title_gets_none(tmp_path, live_ingestor, s
 
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt")
 
-    assert get_document_display_title("oib_knowledge", "statik.txt") is None
+    assert get_document_display_title("base_corpus", "statik.txt") is None
 
 
 def test_a_title_an_admin_set_survives_the_replacement_of_the_document(tmp_path, live_ingestor, stores):
     from agent.knowledge import get_document_display_title
 
-    _seed_previous_version(live_ingestor, stores, "oib_knowledge", "statik.txt")  # "Statik Bauteil B"
+    _seed_previous_version(live_ingestor, stores, "base_corpus", "statik.txt")  # "Statik Bauteil B"
     _ingest_base_corpus(live_ingestor, tmp_path, "statik.txt")
 
-    assert get_document_display_title("oib_knowledge", "statik.txt") == "Statik Bauteil B"
+    assert get_document_display_title("base_corpus", "statik.txt") == "Statik Bauteil B"
 
 
 def test_a_project_document_is_not_given_a_base_corpus_title_or_class(tmp_path, live_ingestor, stores):

@@ -24,8 +24,16 @@ export interface ScopeContext {
   restrictedCollections?: readonly string[]
 }
 
+export const BASE_CORPUS_COLLECTION = 'base_corpus'
+// drop after release 2027-W02
+export const LEGACY_BASE_CORPUS_COLLECTION = 'oib_knowledge'
+
+export function isBaseCorpusCollection(name: string): boolean {
+  return name === BASE_CORPUS_COLLECTION || name === LEGACY_BASE_CORPUS_COLLECTION
+}
+
 export function resolveBaseCollectionName(): string {
-  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  return BASE_CORPUS_COLLECTION
 }
 
 export function computeCollectionScope(

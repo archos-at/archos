@@ -52,10 +52,10 @@ def test_a_missing_shelf_is_unknown_and_is_never_defaulted() -> None:
 
 
 def test_a_legacy_bare_string_payload_still_reads() -> None:
-    entries = _parse_scope_payload(["oib_knowledge", "s_conv_abc"])
+    entries = _parse_scope_payload(["base_corpus", "s_conv_abc"])
 
     assert entries is not None
-    assert [entry.collection for entry in entries] == ["oib_knowledge", "s_conv_abc"]
+    assert [entry.collection for entry in entries] == ["base_corpus", "s_conv_abc"]
     assert all(entry.shelf is None for entry in entries)
 
 

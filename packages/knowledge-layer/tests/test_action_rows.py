@@ -20,7 +20,7 @@ from agent.knowledge.scoping import ScopedCollection
 
 rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
 
 

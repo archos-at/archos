@@ -85,7 +85,7 @@ def test_no_restricted_use_is_bound_when_the_decision_draws_on_none():
 def test_the_search_keeps_an_empty_turn_scope_empty_instead_of_the_config_path(bound):
     from knowledge_layer.search import resolve_scoped_collections
 
-    config = MagicMock(collection_name="oib_knowledge", use_fixed_collection=False, include_base_collection=True)
+    config = MagicMock(collection_name="base_corpus", use_fixed_collection=False, include_base_collection=True)
     config.include_session_collection = True
     config.project_collections = ["proj_config"]
     bound(signed_decision(may={"shelves": []}))
@@ -101,7 +101,7 @@ def test_a_required_turn_without_a_decision_reads_no_countries_from_plain_header
     bound(None)
     plain = RequestContext(
         organization_id="org_1",
-        collection_scope_entries=[{"collection": "oib_knowledge", "shelf": "base", "countries": ["AT"]}],
+        collection_scope_entries=[{"collection": "base_corpus", "shelf": "base", "countries": ["AT"]}],
     )
     with (
         patch("agent.project_context.get_signed_request_context", return_value=None),
@@ -113,7 +113,7 @@ def test_a_required_turn_without_a_decision_reads_no_countries_from_plain_header
 def test_a_turn_reads_the_base_countries_of_its_decision(bound):
     from agent.common import knowledge_context
 
-    bound(signed_decision(may={"shelves": [{"collection": "oib_knowledge", "shelf": "base", "countries": ["DE"]}]}))
+    bound(signed_decision(may={"shelves": [{"collection": "base_corpus", "shelf": "base", "countries": ["DE"]}]}))
     assert knowledge_context.corpus_countries() == frozenset({"DE"})
 
 
@@ -137,7 +137,7 @@ def test_a_required_turn_without_a_decision_reads_nothing_from_a_signed_scope_th
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     bound(None)
-    config = MagicMock(collection_name="oib_knowledge", use_fixed_collection=False, include_base_collection=True)
+    config = MagicMock(collection_name="base_corpus", use_fixed_collection=False, include_base_collection=True)
     config.include_session_collection = True
     config.project_collections = ["proj_config"]
     signed = MagicMock(envelope_signature="sig", collection_scope_entries=[{"collection": 5}])
@@ -152,7 +152,7 @@ def test_an_empty_signed_scope_outside_a_turn_stays_empty_instead_of_the_config_
     from agent.turn.inventory import resolve_scope
 
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    config = MagicMock(collection_name="oib_knowledge", use_fixed_collection=False, include_base_collection=True)
+    config = MagicMock(collection_name="base_corpus", use_fixed_collection=False, include_base_collection=True)
     config.include_session_collection = True
     config.project_collections = ["proj_config"]
     signed = MagicMock(envelope_signature="sig", collection_scope_entries=[])
@@ -171,7 +171,7 @@ def test_the_owners_shelf_is_searched_only_while_drawable_like_a_restricted_fold
         signed_decision(
             may={
                 "shelves": [
-                    {"collection": "oib_knowledge", "shelf": "base"},
+                    {"collection": "base_corpus", "shelf": "base"},
                     {"collection": PERSONAL, "shelf": "personal"},
                 ],
                 "restrictedCollections": [PERSONAL],
@@ -183,9 +183,9 @@ def test_the_owners_shelf_is_searched_only_while_drawable_like_a_restricted_fold
     use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="user_1", project_id=None))
     token = bind_restricted_use(use)
     try:
-        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge", PERSONAL]
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["base_corpus", PERSONAL]
         use.drop({PERSONAL})
-        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["oib_knowledge"]
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["base_corpus"]
     finally:
         reset_restricted_use(token)
 

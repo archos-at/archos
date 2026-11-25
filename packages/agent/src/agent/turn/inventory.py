@@ -11,6 +11,7 @@ from dataclasses import field
 
 from agent.common.profiler import profiled_span
 from agent.common.retrieval_status import documents_waiting_step
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.common.source_kinds import Shelf
 from agent.common.wire_v2 import StatusStep
 from agent.knowledge import get_available_documents_async
@@ -59,7 +60,7 @@ def session_collection_name(conversation_id: str) -> str:
 
 
 def base_collection_name() -> str:
-    return os.environ.get("COLLECTION_NAME") or os.environ.get("OIB_COLLECTION_NAME") or "oib_knowledge"
+    return BASE_CORPUS_COLLECTION
 
 
 def fallback_scope(conversation_id: str | None) -> list[ScopedCollection]:

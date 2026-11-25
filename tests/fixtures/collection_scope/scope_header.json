@@ -8,7 +8,7 @@
       "emittedByBff": true,
       "entries": [
         {
-          "collection": "oib_knowledge",
+          "collection": "base_corpus",
           "shelf": "base"
         },
         {
@@ -26,7 +26,7 @@
       ],
       "parsed": [
         {
-          "collection": "oib_knowledge",
+          "collection": "base_corpus",
           "shelf": "base"
         },
         {
@@ -42,7 +42,7 @@
           "shelf": "session"
         }
       ],
-      "header": "W3siY29sbGVjdGlvbiI6Im9pYl9rbm93bGVkZ2UiLCJzaGVsZiI6ImJhc2UifSx7ImNvbGxlY3Rpb24iOiJhcmNoaXZfb3JnXzEiLCJzaGVsZiI6Im9mZmljZV9zaGVsZiJ9LHsiY29sbGVjdGlvbiI6InByb2pfM2YyNTA0ZTAtNGY4OS0xMWQzLTlhMGMtMDMwNWU4MmMzMzAxIiwic2hlbGYiOiJwcm9qZWN0In0seyJjb2xsZWN0aW9uIjoic19jb252X2FiYyIsInNoZWxmIjoic2Vzc2lvbiJ9XQ"
+      "header": "W3siY29sbGVjdGlvbiI6ImJhc2VfY29ycHVzIiwic2hlbGYiOiJiYXNlIn0seyJjb2xsZWN0aW9uIjoiYXJjaGl2X29yZ18xIiwic2hlbGYiOiJvZmZpY2Vfc2hlbGYifSx7ImNvbGxlY3Rpb24iOiJwcm9qXzNmMjUwNGUwLTRmODktMTFkMy05YTBjLTAzMDVlODJjMzMwMSIsInNoZWxmIjoicHJvamVjdCJ9LHsiY29sbGVjdGlvbiI6InNfY29udl9hYmMiLCJzaGVsZiI6InNlc3Npb24ifV0"
     },
     {
       "name": "a personal chat's own shelf",
@@ -98,12 +98,12 @@
       "name": "legacy bare-string array still parses, every shelf unknown",
       "emittedByBff": false,
       "entries": [
-        "oib_knowledge",
+        "base_corpus",
         "s_conv_abc"
       ],
       "parsed": [
         {
-          "collection": "oib_knowledge",
+          "collection": "base_corpus",
           "shelf": null
         },
         {
@@ -111,7 +111,7 @@
           "shelf": null
         }
       ],
-      "header": "WyJvaWJfa25vd2xlZGdlIiwic19jb252X2FiYyJd"
+      "header": "WyJiYXNlX2NvcnB1cyIsInNfY29udl9hYmMiXQ"
     },
     {
       "name": "an old BFF's `archiv` shelf reads as the office shelf (one release)",

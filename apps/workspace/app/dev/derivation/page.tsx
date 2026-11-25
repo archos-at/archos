@@ -70,7 +70,7 @@ const citations: CitationSource[] = [
     content: '[KB] OIB-RL_2_Brandschutz.pdf, p.18',
     citationKey: 'OIB-RL_2_Brandschutz.pdf, p.18',
     fileName: 'OIB-RL_2_Brandschutz.pdf',
-    collection: 'oib_knowledge',
+    collection: 'base_corpus',
     title: 'OIB-Richtlinie 2 – Brandschutz',
     origin: 'kb',
     timestamp: new Date('2024-01-15T14:30:00'),

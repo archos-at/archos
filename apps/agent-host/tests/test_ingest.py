@@ -614,7 +614,7 @@ async def test_concurrent_dispatches_of_one_document_submit_once(app, keyed_inge
 
 @pytest.mark.asyncio
 async def test_without_a_document_id_every_dispatch_submits(app, keyed_ingestor, no_network):
-    body = {"file_ref": "http://seaweedfs.test/bucket/oib/rl1.pdf", "collection": "oib_knowledge"}
+    body = {"file_ref": "http://seaweedfs.test/bucket/oib/rl1.pdf", "collection": "base_corpus"}
     await _post_json(app, body)
     await _post_json(app, body)
     assert len(keyed_ingestor.submitted) == 2

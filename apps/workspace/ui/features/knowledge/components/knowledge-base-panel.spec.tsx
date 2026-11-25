@@ -5,7 +5,7 @@ import { server } from '@/mocks/server'
 import { KnowledgeBasePanel } from './knowledge-base-panel'
 
 const corpusStatus = {
-  collectionName: 'oib_knowledge',
+  collectionName: 'base_corpus',
   collectionExists: true,
   collectionUpdatedAt: '2026-07-01T00:00:00Z',
   summary: {

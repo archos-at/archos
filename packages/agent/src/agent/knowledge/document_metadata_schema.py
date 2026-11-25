@@ -7,6 +7,8 @@ from agent.common.db_utils import lock_schema
 from agent.common.db_utils import present_columns
 from agent.common.db_utils import present_indexes
 from agent.common.db_utils import redact_db_url
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
+from agent.common.source_kinds import LEGACY_BASE_CORPUS_COLLECTION
 from agent.knowledge.document_classification import LEGACY_DOC_CLASSES
 
 if TYPE_CHECKING:
@@ -84,6 +86,25 @@ def _run_schema(store, conn) -> None:
     store._ensure_index(conn)
     store._create_retained_table(conn)
     store._rename_legacy_doc_classes(conn)
+    _rename_legacy_base_corpus(conn)
+
+
+def _rename_legacy_base_corpus(conn) -> None:
+    from sqlalchemy import text
+
+    names = {"current": BASE_CORPUS_COLLECTION, "legacy": LEGACY_BASE_CORPUS_COLLECTION}
+    for table in (TABLE_NAME, RETAINED_TABLE_NAME):
+        conn.execute(
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+            text(
+                f"UPDATE {table} SET collection = :current WHERE collection = :legacy "
+                f"AND NOT EXISTS (SELECT 1 FROM {table} AS kept WHERE kept.collection = :current "
+                f"AND kept.filename = {table}.filename)"
+            ),
+            names,
+        )
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(text(f"DELETE FROM {table} WHERE collection = :legacy"), names)
 
 
 def _rename_legacy_doc_classes(store, conn) -> None:

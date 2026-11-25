@@ -65,8 +65,8 @@ def test_a_job_s_project_collection_comes_from_the_signed_envelope_alone(monkeyp
 
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     header, signature = signed_envelope(
-        organizationId="org_1", userId="user_1", collectionScope=["oib_knowledge", "proj_signed"]
+        organizationId="org_1", userId="user_1", collectionScope=["base_corpus", "proj_signed"]
     )
-    assert signed_job_scope({"header": header, "signature": signature}) == ["oib_knowledge", "proj_signed"]
+    assert signed_job_scope({"header": header, "signature": signature}) == ["base_corpus", "proj_signed"]
     assert derive_project_collection(signed_job_scope({"header": header, "signature": signature})) == "proj_signed"
     assert signed_job_scope({"header": header, "signature": "0" * 64}) is None

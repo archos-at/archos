@@ -55,10 +55,11 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
 
 def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:
     from agent import corpus_store
+    from agent.common.source_kinds import current_collection
     from agent.oib_sync import COLLECTION_NAME
 
     named = update.model_fields_set
-    if collection != COLLECTION_NAME or not named & {"country_id", "released"}:
+    if current_collection(collection) != COLLECTION_NAME or not named & {"country_id", "released"}:
         return False
     current = corpus_store.get_mark(update.file_name) or corpus_store.FileMark()
     changed = {field: getattr(update, field) for field in ("country_id", "edition_id", "released") if field in named}

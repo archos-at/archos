@@ -444,7 +444,7 @@ Source: `apps/workspace/app/api/health/route.ts`
 | `POST` | `/api/v1/{path}` | Varies | Same allowlist: `collections` (create). No upload is forwarded: every shelf has a first-party upload route. The agent runtime's turn routes (`chat`, `chat/completions`, `workflow`, …) are not forwarded: they ran outside the signed context envelope. | JSON | JSON from backend |
 
 Collection validation rules in `validateCollectionName()` (per method):
-- Base collection (e.g., `oib_knowledge`): rejected with `400 INVALID_COLLECTION`.
+- Base collection (e.g., `base_corpus`): rejected with `400 INVALID_COLLECTION`.
 - `GET /api/v1/collections` (every tenant's collections): `404`.
 - Project collections (`proj_*`): requires authenticated session + `project:documents:write` (or `project:edit`). A raw upload is refused with `403` — `/api/documents/upload` writes the document row and runs the file-type and quota admission, which the ingest path does not. A file delete is refused with `403` too: it removed chunks by filename and nothing else, so the row and the object stayed (`DELETE /api/documents/{id}` instead). Deleting the whole collection is refused with `403` (the project purge erases it). No `DELETE` is forwarded at all.
 - Archiv collections (`archiv_*`): this org's Archiv + `org:office_shelf:manage`. Raw upload (`/api/documents/upload` with `scope=office_shelf` instead), file delete (`DELETE /api/documents/{id}` instead) and whole-collection delete: `403`.

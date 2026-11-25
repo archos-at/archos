@@ -47,7 +47,7 @@ describe('AgentResponse', () => {
         timestamp: new Date('2026-08-18T09:00:00Z'),
         title: 'OIB-Richtlinie 2',
         fileName: 'oib-rl_2.pdf',
-        collection: 'oib_knowledge',
+        collection: 'base_corpus',
         kind: 'building_law' as const,
         origin: 'kb' as const,
         page: 18,

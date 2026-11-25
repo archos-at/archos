@@ -54,7 +54,7 @@ function envelope(
       organizationId: 'org_1',
       userId: 'user_asker',
       projectId: 'p1',
-      collectionScope: overrides.collectionScope ?? ['oib_knowledge', 'proj_1'],
+      collectionScope: overrides.collectionScope ?? ['base_corpus', 'proj_1'],
       ...(overrides.conversationId === null ? {} : { conversationId: overrides.conversationId ?? 's_conv_1' }),
       issuedAt: Date.now(),
     },
@@ -298,23 +298,23 @@ describe('GET /api/internal/document-file', () => {
   describe('with a turn decision', () => {
     it('serves only what the decision lets the turn draw on, though the envelope signs more', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
-      const headers = { ...envelope(), ...decided(['oib_knowledge']) }
+      const headers = { ...envelope(), ...decided(['base_corpus']) }
       expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(404)
-      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(200)
+      expect((await GET(request('?collection=base_corpus&filename=plan.png', 'test-token', headers))).status).toBe(200)
     })
 
     it('serves a socket turn whose envelope signs no scope, from its decision’s shelves (ADR-0194)', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
       const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1']) }
       expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
-      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+      expect((await GET(request('?collection=base_corpus&filename=plan.png', 'test-token', headers))).status).toBe(404)
     })
 
     it('serves the document check, a headless socket turn, its focused document from its decision (ADR-0194)', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
       const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1'], { kind: 'headless' }) }
       expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
-      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+      expect((await GET(request('?collection=base_corpus&filename=plan.png', 'test-token', headers))).status).toBe(404)
     })
 
     it('404s under a decision made for another conversation or asker', async () => {

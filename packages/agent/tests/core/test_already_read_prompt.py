@@ -6,7 +6,7 @@ from agent.core.prompt import system_prompt_template
 from agent.knowledge.already_read import DIGEST_HEADING
 from agent.knowledge.schema import AvailableDocument
 
-DIGEST = ["oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"]
+DIGEST = ["oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"]
 TOOLS = [
     {"name": "knowledge_search", "description": "Search the knowledge base."},
     {"name": "read_passage", "description": "Open a named passage."},

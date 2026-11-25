@@ -1706,7 +1706,7 @@ _RESTRICTED = "proj_8f2c3b1e_r22222222aaaa"
 
 
 def _restricted_envelope(*collections: str) -> list[tuple[bytes, bytes]]:
-    scope = [{"collection": name, "shelf": "project"} for name in ("oib_knowledge", *collections)]
+    scope = [{"collection": name, "shelf": "project"} for name in ("base_corpus", *collections)]
     return _envelope(
         {"organizationId": "org_1", "userId": "user_asker", "collectionScope": scope, "conversationId": CONV}
     )

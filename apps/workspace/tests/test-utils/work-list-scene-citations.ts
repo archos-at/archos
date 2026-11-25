@@ -12,7 +12,7 @@ const citation = (
   content: `[KB] ${fileName}`,
   citationKey: `${fileName}${locus.page ? `, p.${locus.page}` : ''}`,
   fileName,
-  collection: kind === 'building_law' ? 'oib_knowledge' : 'project',
+  collection: kind === 'building_law' ? 'base_corpus' : 'project',
   origin: 'kb',
   timestamp: new Date('2026-10-22T10:00:05Z'),
   kind,
