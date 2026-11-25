@@ -106,6 +106,7 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
           ) : controller.slash.open ? (
             <SlashCommandPicker
               ref={controller.slash.pickerRef}
+              instant
               query={controller.slash.query}
               skills={controller.slash.skills}
               loading={controller.slash.loading}
@@ -115,6 +116,7 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
           ) : (
             <MentionPicker
               ref={controller.mentionPickerRef}
+              instant
               query={controller.mentionQuery?.query ?? ''}
               candidates={controller.mentionData?.candidates ?? []}
               canInvite={controller.mentionData?.canInvite ?? false}

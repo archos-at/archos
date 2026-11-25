@@ -68,6 +68,8 @@ export const motionEntrance: Transition = { duration: 0.24, ease: EASE_ENTRANCE 
 
 export const motionQuickExit: Transition = { duration: 0.18, ease: EASE_EXIT }
 
+export const motionSnapExit: Transition = { duration: 0.12, ease: EASE_EXIT }
+
 export const motionDeliberate: Transition = { duration: 0.32, ease: EASE_OUT }
 
 export const motionInstant: Transition = { duration: 0, delay: 0 }

@@ -212,6 +212,14 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you type / or @ in the chat, the list of skills or people now appears at once instead of fading in, and questions ARCHOS puts to you leave a little faster once answered.",
+            "de": "Wenn Sie im Chat / oder @ eingeben, erscheint die Liste der Skills oder Personen jetzt sofort statt allmählich einzublenden, und Fragen, die ARCHOS Ihnen stellt, verschwinden nach der Beantwortung etwas schneller."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "office-knowledge",
           "text": {
             "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
@@ -336,6 +344,14 @@
           "text": {
             "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
             "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "In the chat, the \"thinking\" dots, the note that a colleague's question is being answered and the notice about an interrupted answer now fade in and out instead of appearing and vanishing at once. In \"Letzte Chats\", a chat's working or answered mark changes over smoothly.",
+            "de": "Im Chat blenden die Denk-Punkte, der Hinweis, dass die Frage eines Kollegen beantwortet wird, und die Meldung über eine unterbrochene Antwort nun ein und aus, statt abrupt zu erscheinen und zu verschwinden. In „Letzte Chats“ wechselt die Kennzeichnung eines Chats als in Bearbeitung oder beantwortet nun fließend."
           }
         },
         {
@@ -816,6 +832,14 @@
           "text": {
             "en": "In a chat outside a project, ARCHOS searches the OIB guidelines, the office's archive and your own files again. Since a recent change, a question asked in such a chat could come back with no sources at all.",
             "de": "In einem Chat außerhalb eines Projekts durchsucht ARCHOS erneut die OIB-Richtlinien, das Büroarchiv und Ihre eigenen Dateien. Seit einer kürzlichen Änderung kann es vorkommen, dass eine in einem solchen Chat gestellte Frage ganz ohne Quellen beantwortet wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file ARCHOS makes in a Persönlich chat can now be kept: the card offers „In Meine Ablage legen“ and saves it to your own shelf. Until now the card offered „Ins Projekt ablegen“ there and it always failed, because a Persönlich chat has no project.",
+            "de": "Eine Datei, die ARCHOS in einem Persönlich-Chat erstellt, können Sie jetzt behalten: Die Karte bietet „In Meine Ablage legen“ an und speichert sie in Ihrer eigenen Ablage. Bisher schlägt „Ins Projekt ablegen“ dort immer fehl, weil ein Persönlich-Chat kein Projekt hat."
           }
         },
         {

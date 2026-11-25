@@ -114,6 +114,18 @@ describe('GET /api/agent-asks/[id]', () => {
     expect(getAsk).toHaveBeenCalledWith(SESSION, ID, 25)
   })
 
+  it('waits the full 40 s when no wait is named, so a model that calls at once does not spin', async () => {
+    vi.mocked(getAsk).mockResolvedValue(view())
+    await read(new Request(`http://example.test/api/agent-asks/${ID}`), params(ID))
+    expect(getAsk).toHaveBeenCalledWith(SESSION, ID, 40)
+  })
+
+  it('reads the ask as it is for waitSeconds=0', async () => {
+    vi.mocked(getAsk).mockResolvedValue(view())
+    await read(new Request(`http://example.test/api/agent-asks/${ID}?waitSeconds=0`), params(ID))
+    expect(getAsk).toHaveBeenCalledWith(SESSION, ID, 0)
+  })
+
   it('refuses a wait past the bound with 400', async () => {
     const response = await read(new Request(`http://example.test/api/agent-asks/${ID}?waitSeconds=41`), params(ID))
     expect(response.status).toBe(400)

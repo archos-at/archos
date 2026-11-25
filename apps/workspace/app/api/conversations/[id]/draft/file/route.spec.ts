@@ -51,6 +51,10 @@ vi.mock('@/lib/documents/agent-document', () => ({
   fileAgentDocumentDraft: vi.fn(),
 }))
 
+vi.mock('@/lib/conversations/personal-draft-filing', () => ({
+  fileDraftToPersonalShelf: vi.fn(),
+}))
+
 vi.mock('@/lib/projects/folder-service', () => ({
   findProjectFolder: vi.fn(),
 }))
@@ -62,6 +66,7 @@ import { findDocumentAuthoredByRef, listProjectDocuments } from '@/lib/documents
 import { listDocumentVersions } from '@/lib/documents/version-repository'
 import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
 import { findProjectFolder } from '@/lib/projects/folder-service'
+import { fileDraftToPersonalShelf } from '@/lib/conversations/personal-draft-filing'
 import { POST } from './route'
 
 const PROJECT = '33333333-3333-4333-8333-333333333333'
@@ -236,13 +241,19 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 
-  it('answers 422 when the conversation has no project to file into', async () => {
+  it('files a draft of a chat without a project into Meine Ablage, never into a project', async () => {
     vi.mocked(findConversationInOrg).mockResolvedValue(conversation({ projectId: null }))
+    vi.mocked(fileDraftToPersonalShelf).mockResolvedValue({ documentId: DOC, versionId: VERSION } as never)
 
     const res = await post({ path: PATH, title: TITLE })
 
-    expect(res.status).toBe(422)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(201)
+    expect(fileDraftToPersonalShelf).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'conv-1', path: 'entwuerfe/aktenvermerk.md' }),
+      expect.objectContaining({ title: TITLE }),
+      expect.any(String),
+      expect.any(Function),
+    )
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 

@@ -544,6 +544,17 @@ export const chat: typeof en.chat = {
       previewRetry: 'Erneut versuchen',
       filed: 'Liegt im Projekt',
       open: 'Im Projekt öffnen',
+      personal: {
+        file: 'In Meine Ablage legen',
+        fileConflict: 'Eine Datei mit diesem Namen liegt bereits in Meine Ablage.',
+        fileAnyway: 'Unter neuem Namen ablegen',
+        filed: 'Liegt in Meine Ablage',
+        filedIn: 'Liegt in Meine Ablage, Ordner „{folder}“',
+        updated: 'Aktualisiert, liegt in Meine Ablage',
+        update: 'In Meine Ablage aktualisieren',
+        eyebrowFiled: 'In Meine Ablage',
+        open: 'In Meine Ablage öffnen',
+      },
     },
     fileDraft: {
       revisedFiledNumbered: 'Liegt als Fassung {number} von „{name}“ im Projekt',

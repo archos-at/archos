@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import { documentFilesHref } from '@/features/documents/chat-card-parts'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -111,7 +112,12 @@ export function useDraftFiling({
   const shownDocumentId = filedDoc?.documentId ?? documentId ?? null
   const filedAtVersion = filedDoc?.draftVersion ?? filedDraftVersion ?? null
   const shownFiled = filed || filedDoc !== null
-  const href = shownDocumentId && projectId ? documentFilesHref(projectId, shownDocumentId) : null
+  const personal = !projectId
+  const href = !shownDocumentId
+    ? null
+    : projectId
+      ? documentFilesHref(projectId, shownDocumentId)
+      : `${PERSONAL_SHELF_PATH}?doc=${encodeURIComponent(shownDocumentId)}`
   const filedDecision = decision === 'filed'
   const filedKnown = shownFiled || filedDecision
   const changedSinceFiling =
@@ -194,9 +200,17 @@ export function useDraftFiling({
   const revised = filedDoc?.outcome === 'revised' && filedDoc.revisionOf ? filedDoc.revisionOf : null
   const folderName =
     filedDoc && filedDoc.folderName !== undefined ? (filedDoc.folderName ?? tFiles('folders.allFiles')) : null
+  const personalLabel =
+    filedDoc?.outcome === 'updated'
+      ? t('cards.documentDraft.personal.updated')
+      : filedDoc?.folderName
+        ? t('cards.documentDraft.personal.filedIn', { folder: filedDoc.folderName })
+        : t('cards.documentDraft.personal.filed')
   const stateLabel = changedSinceFiling
     ? t('cards.fileDraft.changedSinceFiling')
-    : revised
+    : personal && filedKnown
+      ? personalLabel
+      : revised
       ? filedDoc?.versionNumber
         ? t('cards.fileDraft.revisedFiledNumbered', { name: revised.name, number: String(filedDoc.versionNumber) })
         : t('cards.fileDraft.revisedFiled', { name: revised.name })
@@ -210,6 +224,7 @@ export function useDraftFiling({
 
   return {
     projectId,
+    personal,
     conversationId,
     canDecide,
     filed,
