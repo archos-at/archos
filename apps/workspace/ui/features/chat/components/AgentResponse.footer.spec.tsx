@@ -234,14 +234,15 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Was this helpful?')).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: 'Mark this answer as helpful' })
       ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
 
       await user.click(screen.getByTestId('answer-details-trigger'))
-      expect(screen.getAllByText('Was this helpful?')).toHaveLength(1)
+      expect(
+        screen.getAllByRole('button', { name: 'Mark this answer as helpful' })
+      ).toHaveLength(1)
     })
 
     test('the sources row draws no divider inside the card (the body hairline already separates)', () => {

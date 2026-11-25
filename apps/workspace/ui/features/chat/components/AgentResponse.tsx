@@ -293,7 +293,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                 >
                   <div
                     className={cn(
-                      'duration-base flex flex-col gap-2.5 border-t px-4 pt-3 pb-[14px] transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
+                      'duration-base flex flex-col gap-1.5 border-t px-4 py-1 transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
                       controller.live && controller.mountedLive && 'invisible opacity-0'
                     )}
                     data-testid="answer-footer"

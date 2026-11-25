@@ -124,6 +124,7 @@ dark at 900px and 390px. What was wrong, and what became of it:
 | „Schematisch — ohne Maßangabe." under a flowchart | A disclaimer about measurements on a drawing with no geometry | Only on Mermaid's own SVG fallback and in a filed copy |
 | „Skizze" on the acoustic and energy cards | Neither has a sketch: bars and a label scale | „Prüfung" |
 | Answer footer on three lines | Copy, „Antwortdetails" and feedback each took a line | One line; the details open full-width below it |
+| Answer footer 51px tall for one line of icons | The grey band under a two-word answer was as heavy as the answer; „War das hilfreich?" took a third of its width | `py-1` (33px); the question is the thumbs' tooltip |
 
 What was looked at and deliberately kept, so it is not relitigated without
 new evidence:

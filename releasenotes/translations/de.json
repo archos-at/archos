@@ -4504,6 +4504,10 @@
     "de": "Das Banner nennt den Ablageort eines Berichts schon beim Start der Recherche, solange Sie sie noch abbrechen können, und verlinkt die fertige Datei mit „Im Projekt öffnen“. Konnte nichts abgelegt werden, verspricht es nichts."
   },
   {
+    "en": "The bar under an answer, with copy, „Antwortdetails“ and the thumbs, is a third slimmer, so a short answer no longer sits on a band as heavy as itself. „War das hilfreich?“ now shows when you point at a thumb.",
+    "de": "Die Leiste unter einer Antwort mit Kopieren, „Antwortdetails“ und den Daumen ist um ein Drittel schmaler, sodass eine kurze Antwort nicht mehr auf einem Band liegt, das so schwer wirkt wie sie selbst. „War das hilfreich?“ erscheint jetzt, wenn Sie auf einen Daumen zeigen."
+  },
+  {
     "en": "The bin keeps its list to a readable width and says how long each item stays in bold; on a phone each item has two short lines.",
     "de": "Der Papierkorb hält seine Liste auf einer gut lesbaren Breite und zeigt fett an, wie lange jedes Element noch im Papierkorb bleibt; auf dem Smartphone wird jedes Element in zwei kurzen Zeilen dargestellt."
   },
