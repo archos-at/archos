@@ -1,6 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useChatStore } from '@/features/chat/store'
+import { useLinkedChatPending } from '../../hooks/use-chat-started'
 
 import type { ChatMessage } from '@/features/chat/types'
 import { useAnswerRevealStore } from '@/features/chat/stores/answer-reveal-store'
@@ -196,8 +197,9 @@ export function useChatAreaController({
 
   const isEmpty = displayableMessages.length === 0
   const sharedHistoryPending = shared && sharedLoading && isEmpty
+  const linkedChatPending = useLinkedChatPending()
   const showSkeleton =
-    threadPhase === 'hydrating' || threadPhase === 'loading' || sharedHistoryPending
+    threadPhase === 'hydrating' || threadPhase === 'loading' || sharedHistoryPending || (linkedChatPending && isEmpty)
   const listReady = !showSkeleton
   const sharedPendingClaimRef = useRef<string | null>(null)
   useLayoutEffect(() => {
