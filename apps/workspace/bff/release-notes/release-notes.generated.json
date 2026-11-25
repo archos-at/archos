@@ -558,6 +558,14 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "On a phone, the folders in the Ablage are shorter and closer together, so the files below them come into view sooner; each folder is still easy to tap.",
+            "de": "Auf dem Smartphone sind die Ordner in der Ablage kürzer und liegen näher beieinander, sodass die darunterliegenden Dateien schneller sichtbar werden; jeder Ordner lässt sich weiterhin gut antippen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "On a phone, the Ablage no longer jumps when it opens: the row with the search and the filters keeps its place from the start, so the file list stays where it first appears instead of dropping down a moment later.",
             "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
           }
@@ -868,6 +876,14 @@
         },
         {
           "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "The activity chart in a project's Übersicht is now drawn in calm ink instead of a loud blue.",
+            "de": "Das Aktivitätsdiagramm in der Projektübersicht wird jetzt in einem dezenten Tintenfarbton statt in auffälligem Blau dargestellt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "In a chat outside a project, ARCHOS searches the OIB guidelines, the office's archive and your own files again. Since a recent change, a question asked in such a chat could come back with no sources at all.",
@@ -992,6 +1008,14 @@
           "text": {
             "en": "On a phone, switching between Persönlich and a project no longer makes the tabs at the bottom jump: they slide to their new places and the new tabs fade in.",
             "de": "Am Smartphone springen die Tabs unten beim Wechsel zwischen Persönlich und einem Projekt nicht mehr: Sie gleiten an ihre neuen Positionen und neue Tabs werden eingeblendet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "In the Postfach a Frist always looks the same, a small pill with a clock, ochre when it is overdue or due soon and with the date written as 24.10.2026.",
+            "de": "Im Postfach sieht eine Frist immer gleich aus: als kleines pillenförmiges Element mit einer Uhr, ockerfarben, wenn sie überfällig oder bald fällig ist, und mit dem Datum im Format 24.10.2026."
           }
         },
         {
@@ -1128,6 +1152,14 @@
           "text": {
             "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
             "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A source under an answer now says its name once, „OIB-Richtlinie 2.1\" rather than „OIB OIB-Richtlinie 2.1\", and shows the whole name wherever the row has room for it.",
+            "de": "Eine Quelle unter einer Antwort nennt ihren Namen jetzt nur einmal: „OIB-Richtlinie 2.1“ statt „OIB OIB-Richtlinie 2.1“ und zeigt den vollständigen Namen überall dort an, wo in der Zeile genug Platz ist."
           }
         },
         {

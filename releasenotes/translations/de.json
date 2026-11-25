@@ -1068,6 +1068,10 @@
     "de": "Eine Quelle aus einem anderen Projekt ist jetzt als Präzedenzfall gekennzeichnet und enthält den Projektstatus sowie das Bundesland. Verwendet eine Antwort einen solchen Präzedenzfall, unterscheidet sie zwischen den geltenden Vorgaben, der üblichen Vorgehensweise des Büros und dem Projekt, in dem etwas bereits umgesetzt wurde, und weist darauf hin, wenn sich Vorschriften oder Bundesland unterscheiden."
   },
   {
+    "en": "A source under an answer now says its name once, „OIB-Richtlinie 2.1\" rather than „OIB OIB-Richtlinie 2.1\", and shows the whole name wherever the row has room for it.",
+    "de": "Eine Quelle unter einer Antwort nennt ihren Namen jetzt nur einmal: „OIB-Richtlinie 2.1“ statt „OIB OIB-Richtlinie 2.1“ und zeigt den vollständigen Namen überall dort an, wo in der Zeile genug Platz ist."
+  },
+  {
     "en": "A standard in Grundlagen des Büros now opens as its file, in the same viewer as any document, with its edition, validity and last check beside it. Editing its details is one press away instead of the first thing you see.",
     "de": "Ein Standard unter Grundlagen des Büros öffnet sich jetzt als Datei im selben Viewer wie jedes Dokument, mit Ausgabe, Gültigkeit und letzter Prüfung daneben. Seine Details lassen sich mit einem Klick bearbeiten, statt dass die Bearbeitung das Erste ist, was Sie sehen."
   },
@@ -2872,6 +2876,10 @@
     "de": "In der Herleitung tragen gelesene, aber nicht zitierte Dokumente jetzt ebenfalls eine Kennzeichnung und Farbe, die zeigt, ob sie aus dem Projekt, dem Büroarchiv oder diesem Chat stammen."
   },
   {
+    "en": "In the Postfach a Frist always looks the same, a small pill with a clock, ochre when it is overdue or due soon and with the date written as 24.10.2026.",
+    "de": "Im Postfach sieht eine Frist immer gleich aus: als kleines pillenförmiges Element mit einer Uhr, ockerfarben, wenn sie überfällig oder bald fällig ist, und mit dem Datum im Format 24.10.2026."
+  },
+  {
     "en": "In the Prüfansicht you now see which Anmerkung a colleague has open, whose box is being drawn and who is on another page, and „/“ puts a few words beside your pointer for everyone looking. Working on a drawing together feels like sitting at one table, and when Piloti reads a part of the sheet, that part lights up.",
     "de": "In der Prüfansicht sehen Sie jetzt, welche Anmerkung ein Kollege geöffnet hat, wer gerade einen Rahmen zeichnet und wer auf einer anderen Seite arbeitet. Mit „/“ erscheinen ein paar Wörter neben Ihrem Cursor, die alle sehen. Gemeinsam an einer Zeichnung zu arbeiten fühlt sich an, als säßen Sie an einem Tisch, und wenn Piloti einen Teil des Plans liest, wird dieser hervorgehoben."
   },
@@ -3274,6 +3282,10 @@
   {
     "en": "On a phone, the document type in the file preview header is shortened instead of running under the buttons.",
     "de": "Am Telefon wird die Dokumentart im Kopf der Dateivorschau gekürzt, statt unter die Schaltflächen zu laufen."
+  },
+  {
+    "en": "On a phone, the folders in the Ablage are shorter and closer together, so the files below them come into view sooner; each folder is still easy to tap.",
+    "de": "Auf dem Smartphone sind die Ordner in der Ablage kürzer und liegen näher beieinander, sodass die darunterliegenden Dateien schneller sichtbar werden; jeder Ordner lässt sich weiterhin gut antippen."
   },
   {
     "en": "On a phone, the last filter in the Tasks list ran off the edge of the card and could not be reached. Filter rows and view switchers now stay inside their card and scroll sideways when the labels do not fit.",
@@ -4530,6 +4542,10 @@
   {
     "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
     "de": "Die Prüfung von U-Wert und Schalldämmung behandelt eine Wand oder Decke ohne auswertbaren IsExternal-Wert nicht mehr als innenliegend. Im Prüfbuch erscheint sie jetzt als nicht entscheidbar, und „Was dem Modell fehlt“ nennt den fehlenden Wert."
+  },
+  {
+    "en": "The activity chart in a project's Übersicht is now drawn in calm ink instead of a loud blue.",
+    "de": "Das Aktivitätsdiagramm in der Projektübersicht wird jetzt in einem dezenten Tintenfarbton statt in auffälligem Blau dargestellt."
   },
   {
     "en": "The address field in the new project dialog suggests Austrian addresses as you type and fills in the Bundesland.",
