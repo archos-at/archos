@@ -34,4 +34,7 @@ describe('projectIdFromPathname', () => {
     expect(projectIdFromPathname('/dev/app-rail')).toBeNull()
     expect(projectIdFromPathname('')).toBeNull()
   })
+  test('reads no project from a segment that cannot be decoded, rather than throwing', () => {
+    expect(projectIdFromPathname('/app/projects/%/chat')).toBeNull()
+  })
 })

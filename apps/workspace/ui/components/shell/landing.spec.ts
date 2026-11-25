@@ -38,4 +38,7 @@ describe('where /app lands', () => {
   it('keeps a query, which is part of a place', () => {
     expect(isPlace('/app/personal/chat?session=c1')).toBe(true)
   })
+  it('opens Persönlich for a last place whose project cannot be decoded', () => {
+    expect(landingPath(encodeURIComponent('/app/projects/%/chat'))).toBe(FIRST_PLACE)
+  })
 })
