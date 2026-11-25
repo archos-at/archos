@@ -81,11 +81,11 @@ describe('a sheet that reaches the screen edge ends its list above the home indi
 })
 
 describe('the phone dock names its tools whole', () => {
-  it('keeps the caption at 11px and gives it the width of the tool, with no side padding', () => {
+  it('sets the caption on the type scale and gives it the width of the tool, with no side padding', () => {
     const Icon = () => null
     render(createElement(ViewerToolButton, { label: 'Messen', caption: 'Messen', icon: Icon }))
     const tool = screen.getByRole('button', { name: 'Messen' })
-    expect(classesOf(tool.className)).toEqual(expect.arrayContaining(['text-[11px]', 'px-0', 'py-1.5']))
+    expect(classesOf(tool.className)).toEqual(expect.arrayContaining(['text-xs', 'px-0', 'py-1.5']))
   })
 })
 
