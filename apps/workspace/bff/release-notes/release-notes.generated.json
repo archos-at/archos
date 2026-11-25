@@ -425,6 +425,14 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "Everything under an answer now sits on one slim line: its sources, one copy button that also cites every source, Word, „Antwortdetails“ as an ⓘ, and the thumbs. Many sources scroll sideways, and their number unfolds them all.",
+            "de": "Alles unter einer Antwort steht jetzt in einer schmalen Zeile: ihre Quellen, eine Kopieren-Taste, die auch alle Quellen zitiert, Word, „Antwortdetails“ als ⓘ und die Daumen. Viele Quellen lassen sich seitlich scrollen, und ihre Anzahl klappt alle auf."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
