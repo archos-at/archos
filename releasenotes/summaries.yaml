@@ -14,6 +14,40 @@
 # 500 characters; the German is translated like any note. `task release:lint`
 # checks this file too.
 
+2026-W48: >
+  The sidebar now switches between „Persönlich“ and „Projekt“: under Persönlich
+  are your chats without a project and „Meine Ablage“, a shelf of your own that
+  nobody else in the office sees. In the review you can measure distances, paths
+  and areas on a PDF drawing, snapped to its lines and to a scale you set once
+  for all pages, and ARCHOS can measure for you in the chat. A project can now
+  hold several buildings on one site, and the Bürobibliothek has its own
+  Papierkorb.
+
+2026-W47: >
+  ARCHOS now makes real Word, Excel, PowerPoint and PDF files in a calm house
+  style, shows each as a card to open or download, and files it into the project
+  as a draft when you ask. Several chats can answer at the same time, and any
+  two files, such as two room lists, can be compared row by row. In the
+  E-Mail-Eingang, later replies to a filed conversation are filed without a
+  click, and reading uploads no longer uses up your monthly limit.
+
+2026-W46: >
+  Answers now use the edition of a law or OIB-Richtlinie that binds at the
+  project's site and say since when it binds there. What ARCHOS keeps about you
+  personally goes into „Mein Gedächtnis“, which only you read, and a chat can be
+  made temporary so that nothing from it is kept. Dateien, the sidebar and
+  project mail have a calmer design, and the app moved to the web address of its
+  new name, with every former link still working.
+
+2026-W45: >
+  Every project now has its own mail address: put it in Cc when you write to the
+  Behörde or the Statik, and mail waits in the project's E-Mail-Eingang until a
+  person files it, with a folder suggested for each attachment. Your own mail to
+  that address is filed directly, and a filed conversation becomes one
+  E-Mail-Verlauf that answers can cite. DXF files such as a Katasterauszug open
+  as a PDF to scale, and in the chat you can measure setbacks, boundaries and
+  what remains buildable.
+
 2026-W44: >
   Ctrl+K now searches everything your office holds, by name, by kind and by
   what a document says, and documents can be filtered by drawing number,

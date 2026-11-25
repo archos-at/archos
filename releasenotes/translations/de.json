@@ -1140,6 +1140,10 @@
     "de": "Eine Wortsuche, die nicht alle Ihre Dokumente durchsuchen konnte, wird in der Herleitung nicht mehr als vollständig angezeigt. Sie ist mit einem gestrichelten Ring markiert und weist darauf hin, dass ein fehlender Treffer kein Beweis ist; eine unvollständige Suche ohne Treffer erscheint unter „Offen“."
   },
   {
+    "en": "ARCHOS now makes real Word, Excel, PowerPoint and PDF files in a calm house style, shows each as a card to open or download, and files it into the project as a draft when you ask. Several chats can answer at the same time, and any two files, such as two room lists, can be compared row by row. In the E-Mail-Eingang, later replies to a filed conversation are filed without a click, and reading uploads no longer uses up your monthly limit.",
+    "de": "ARCHOS erstellt jetzt echte Word-, Excel-, PowerPoint- und PDF-Dateien in einem ruhigen Hausstil, zeigt jede als Karte zum Öffnen oder Herunterladen und legt sie auf Wunsch als Entwurf im Projekt ab. Mehrere Chats können gleichzeitig antworten, und zwei beliebige Dateien, etwa zwei Raumlisten, lassen sich Zeile für Zeile vergleichen. Im E-Mail-Eingang werden spätere Antworten auf einen abgelegten Verlauf ohne Klick abgelegt, und das Einlesen von Uploads verbraucht Ihr Monatslimit nicht mehr."
+  },
+  {
     "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
     "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
   },
@@ -1614,6 +1618,10 @@
   {
     "en": "Answers now show what else Piloti read. The details of an answer list the documents Piloti looked at but did not cite, as quiet document chips, so you can see how broad the research was without those documents backing any claim.",
     "de": "Antworten zeigen jetzt auch, was Piloti sonst noch gelesen hat. In den Details einer Antwort stehen die Dokumente, die Piloti herangezogen, aber nicht zitiert hat, als dezente Dokument-Chips, damit Sie sehen, wie breit die Recherche war, ohne dass diese Dokumente eine Aussage belegen."
+  },
+  {
+    "en": "Answers now use the edition of a law or OIB-Richtlinie that binds at the project's site and say since when it binds there. What ARCHOS keeps about you personally goes into „Mein Gedächtnis“, which only you read, and a chat can be made temporary so that nothing from it is kept. Dateien, the sidebar and project mail have a calmer design, and the app moved to the web address of its new name, with every former link still working.",
+    "de": "Antworten stützen sich jetzt auf die Ausgabe eines Gesetzes oder einer OIB-Richtlinie, die am Standort des Projekts verbindlich ist, und sagen, seit wann sie dort gilt. Was ARCHOS über Sie persönlich behält, kommt in „Mein Gedächtnis“, das nur Sie lesen, und ein Chat lässt sich auf temporär stellen, sodass nichts daraus behalten wird. Dateien, Seitenleiste und Projekt-E-Mail sind ruhiger gestaltet, und die App ist unter die Webadresse ihres neuen Namens gezogen, wobei alle bisherigen Links weiter funktionieren."
   },
   {
     "en": "Answers on fire safety, site rules, stairs and energy now follow a worked method instead of restating numbers from the guideline. Each skill in the slash menu now has a one-sentence description.",
@@ -2386,6 +2394,10 @@
   {
     "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
     "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
+  },
+  {
+    "en": "Every project now has its own mail address: put it in Cc when you write to the Behörde or the Statik, and mail waits in the project's E-Mail-Eingang until a person files it, with a folder suggested for each attachment. Your own mail to that address is filed directly, and a filed conversation becomes one E-Mail-Verlauf that answers can cite. DXF files such as a Katasterauszug open as a PDF to scale, and in the chat you can measure setbacks, boundaries and what remains buildable.",
+    "de": "Jedes Projekt hat jetzt eine eigene E-Mail-Adresse: Setzen Sie sie in Cc, wenn Sie der Behörde oder der Statik schreiben, und die E-Mails warten im E-Mail-Eingang des Projekts, bis jemand sie ablegt, mit einem Ordnervorschlag für jeden Anhang. Ihre eigenen E-Mails an diese Adresse werden direkt abgelegt, und ein abgelegter Verlauf wird zu einem E-Mail-Verlauf, den Antworten zitieren können. DXF-Dateien wie ein Katasterauszug öffnen sich als maßstäbliches PDF, und im Chat messen Sie Abstände, Grenzen und was nach den Abständen bebaubar bleibt."
   },
   {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
@@ -5138,6 +5150,10 @@
   {
     "en": "The sidebar is a little wider, so most project names fit in full.",
     "de": "Die Sidebar ist etwas breiter, sodass die meisten Projektnamen vollständig angezeigt werden."
+  },
+  {
+    "en": "The sidebar now switches between „Persönlich“ and „Projekt“: under Persönlich are your chats without a project and „Meine Ablage“, a shelf of your own that nobody else in the office sees. In the review you can measure distances, paths and areas on a PDF drawing, snapped to its lines and to a scale you set once for all pages, and ARCHOS can measure for you in the chat. A project can now hold several buildings on one site, and the Bürobibliothek has its own Papierkorb.",
+    "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter Persönlich finden Sie Ihre Chats ohne Projekt und „Meine Ablage“, eine eigene Ablage, die sonst niemand im Büro sieht. In der Prüfung messen Sie Strecken, Wege und Flächen auf einem PDF-Plan, eingerastet auf seine Linien und auf einen Maßstab, den Sie einmal für alle Seiten setzen, und ARCHOS misst auf Wunsch im Chat für Sie. Ein Projekt kann jetzt mehrere Gebäude auf einem Grundstück umfassen, und die Bürobibliothek hat einen eigenen Papierkorb."
   },
   {
     "en": "The sidebar, and on a phone the tab bar with „Mehr“, now stays the same on every page, including the Postfach, the search, your profile and the organisation, instead of switching to a separate bar at the top.",
