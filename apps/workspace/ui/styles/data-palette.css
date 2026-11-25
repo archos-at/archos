@@ -33,6 +33,10 @@
    alone. The two meter states are STATUS colours, deliberately outside the
    categorical slots so a meter can never impersonate a series; the over-limit
    step always ships beside its icon and sentence.
+
+   A chart with ONE series has nothing to tell apart, so it takes no hue: it is
+   drawn in the brand's ink (`--data-ink`, packages/brand Chart.md, „Farbe"),
+   as the website's charts are. The hues are for a second series and on.
    ============================================================================= */
 :root {
   --data-series-1: #2a78d6; /* blue */
@@ -44,6 +48,7 @@
   --data-series-7: #4a3aa7; /* violet */
   --data-series-8: #e34948; /* red */
   --data-series-other: #767672; /* the folded tail, neutral on purpose */
+  --data-ink: var(--foreground);
   --data-meter: #2a78d6; /* under the limit */
   --data-meter-over: #d03b3b; /* at or over the limit */
 }
