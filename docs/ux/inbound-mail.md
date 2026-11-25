@@ -728,7 +728,8 @@ Rückgängig“, then, in place, „Wird abgelegt …“ and where it landed. Un
 sends nothing and opens the mail again. The hold belongs to the page, not to one
 mail: moving to the next mail, or elsewhere in the app, keeps it and its undo
 until the five seconds end; closing the tab or reloading sends it at once, with
-`keepalive`. A selection's and „Alle …“'s filing wait the same way, and a selection's
+`keepalive`, best effort: a request the browser drops leaves the mail waiting,
+nothing half filed. A selection's and „Alle …“'s filing wait the same way, and a selection's
 dismissal offers „Rückgängig“ as one mail's does. „Öffnen“ and „Ansehen“ are the way on. A mail of which something was filed and
 one part dismissed says „1 Teil verworfen · wiederherstellbar bis …“ instead
 of a page-wide „Verworfen · …“.
