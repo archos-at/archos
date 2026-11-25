@@ -652,6 +652,10 @@
     "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
   },
   {
+    "en": "A new chat now opens with its greeting and input box already in place, instead of first showing the outline of a conversation that is loading. The outline appears only when a chat is actually being picked up again.",
+    "de": "Ein neuer Chat öffnet sich jetzt direkt mit Begrüßung und Eingabefeld, statt zuerst die Ladeansicht eines Gesprächs zu zeigen. Diese erscheint nur, wenn ein Chat tatsächlich wieder aufgenommen wird."
+  },
+  {
     "en": "A new chat now opens with the greeting and the input box together in the middle of the screen, instead of the greeting floating high and the input pinned to the bottom edge. As soon as you ask something, the input returns to the bottom and the answer gets the full height.",
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
@@ -1828,6 +1832,10 @@
     "de": "Karten unter einer Antwort erscheinen jetzt, sobald Piloti sie geschrieben hat. Bisher warteten sie, bis die ganze Antwort geprüft war, bei langen Antworten bis zu zwanzig Sekunden."
   },
   {
+    "en": "Cards in an answer no longer jump when they finish drawing. While a card loads, its place already has the size of the finished card, so the text below it stays where you are reading.",
+    "de": "Die Karten in einer Antwort springen nicht mehr, sobald sie fertig geladen sind. Während eine Karte lädt, entspricht ihr Platz bereits der Größe der fertigen Karte, sodass der Text darunter beim Lesen an derselben Stelle bleibt."
+  },
+  {
     "en": "Cards no longer show stray characters, such as a link printed in raw brackets next to the card's own working link. A card offers only the links it builds from the source it names.",
     "de": "Karten zeigen keine störenden Zeichen mehr, etwa einen Link in rohen Klammern neben dem eigenen, funktionierenden Link der Karte. Eine Karte bietet nur die Links an, die sie aus der genannten Quelle baut."
   },
@@ -2828,6 +2836,10 @@
     "de": "In der Karte Rechtsgrundlage steht eine lange Fundstelle jetzt in der Zeile neben der Richtlinie statt in der schmalen Randspalte, wo sie auf sieben Zeilen umbrach."
   },
   {
+    "en": "In the app installed on an iPhone, the chat no longer drifts down after you tap into the input: the top row stays in view and the input stands right above the keyboard.",
+    "de": "In der auf einem iPhone installierten App rutscht der Chat nicht mehr nach unten, wenn Sie das Eingabefeld antippen: Die oberste Zeile bleibt sichtbar und das Eingabefeld befindet sich direkt über der Tastatur."
+  },
+  {
     "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
     "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
   },
@@ -3220,6 +3232,10 @@
     "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
+    "en": "On a phone, the questions while setting up a project no longer show the desktop buttons under each question for a moment before the page settles.",
+    "de": "Beim Einrichten eines Projekts werden auf dem Smartphone unter jeder Frage nicht mehr kurz die Desktop-Buttons angezeigt, bevor sich die Seite eingependelt hat."
+  },
+  {
     "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
     "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
   },
@@ -3230,6 +3246,10 @@
   {
     "en": "On a phone, the search box or button beside a project section's heading now sits below it, so the explanation gets the full width. It used to break to one word per line.",
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
+  },
+  {
+    "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
+    "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
   },
   {
     "en": "On a phone, the switch between Persönlich and Projekt now sits at the top of the chat, next to the project's name, which opens the list of projects. Changing sides takes one tap and changing projects two.",
@@ -3334,6 +3354,10 @@
   {
     "en": "Opening a chat no longer shows „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ and a sign-in button for a few seconds while your sign-in is still loading.",
     "de": "Beim Öffnen eines Chats werden nicht mehr für einige Sekunden „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ und ein Login-Button angezeigt, während Ihr Login noch geladen wird."
+  },
+  {
+    "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
+    "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
   },
   {
     "en": "Opening a citation of a drawing or photo now marks the drawing it refers to, such as the floor plan or the section, with a labeled box instead of only opening the page. The box shows which drawing on the sheet was read, not the exact object within it.",
@@ -4140,6 +4164,10 @@
     "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
   },
   {
+    "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+    "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+  },
+  {
     "en": "Switching to another conversation and back, or reloading during an answer, shows the text that had already arrived at once instead of typing it out again, and each conversation reopens where you left it.",
     "de": "Wenn Sie zu einer anderen Unterhaltung wechseln und zurückkehren oder während einer Antwort die Seite neu laden, wird der bereits eingetroffene Text sofort vollständig angezeigt, statt erneut schrittweise eingeblendet zu werden. Außerdem öffnet sich jede Unterhaltung wieder an der Stelle, an der Sie sie verlassen haben."
   },
@@ -4936,6 +4964,10 @@
     "de": "Die Datenschutzerklärung und die Liste externer Anbieter nennen jetzt PostHog mit Servern in Frankfurt als Anbieter für Piloti-Nutzungsanalysen, Fehlerberichte und Umfragen. Auch die öffentliche Website erfasst Besuche auf dieselbe Weise. In der Datenschutzerklärung steht genau, welche Daten erhoben und in Ihrem Browser gespeichert werden und wie Sie jederzeit widersprechen können."
   },
   {
+    "en": "The privacy policy now also names the two cookies the application keeps for its display: the area you last worked in, and whether a chat will be resumed when you open it.",
+    "de": "Die Datenschutzerklärung nennt jetzt auch die beiden Cookies, die die Anwendung für ihre Darstellung speichert: den Bereich, in dem Sie zuletzt gearbeitet haben, und ob ein Chat beim Öffnen fortgesetzt wird."
+  },
+  {
     "en": "The privacy policy now says exactly what the website measures and stores, with no open placeholders left.",
     "de": "Die Datenschutzerklärung gibt jetzt genau an, was die Website misst und speichert. Es gibt keine offenen Platzhalter mehr."
   },
@@ -5134,6 +5166,10 @@
   {
     "en": "The title and tabs of Files stay in place on every tab, the inbox included, and on a phone the open tab is shown whole.",
     "de": "Der Titel und die Tabs von Files bleiben auf allen Tabs an derselben Stelle, auch im Posteingang. Auf dem Smartphone wird der aktive Tab vollständig angezeigt."
+  },
+  {
+    "en": "The toolbar at the bottom of the model viewer casts its full shadow again; it used to stop in a hard line just below the buttons.",
+    "de": "Die Toolbar am unteren Rand des Modell-Viewers wirft wieder ihren vollständigen Schatten; zuvor endete dieser direkt unter den Schaltflächen abrupt."
   },
   {
     "en": "The upload area now states the largest file you can upload as a size per file, and the number it shows is the one your organization is held to. It no longer shows 95 MB for a 100 MB limit.",
@@ -5904,6 +5940,10 @@
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
   },
   {
+    "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+    "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
+  },
+  {
     "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
     "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
   },
@@ -6302,6 +6342,10 @@
   {
     "en": "„Mir zugewiesen“ in the Prüfansicht finds your Anmerkungen also while the connection to your colleagues is down.",
     "de": "Unter „Mir zugewiesen“ finden Sie in der Prüfansicht Ihre Anmerkungen auch dann, wenn die Verbindung zu Ihren Kolleginnen und Kollegen unterbrochen ist."
+  },
+  {
+    "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
+    "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
   },
   {
     "en": "„Piloti hat sich gemerkt“ now belongs to the answer it appeared under. It used to list everything noted anywhere in the conversation, so an early answer could claim notes taken much later; now each answer shows only what it produced, and an answer that produced nothing shows nothing.",

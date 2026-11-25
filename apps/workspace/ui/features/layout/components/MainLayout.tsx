@@ -3,7 +3,7 @@
 import { type CSSProperties, type FC, useCallback, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useShallow } from 'zustand/react/shallow'
-import { useIsMobile } from '@/hooks/use-is-mobile'
+import { MobileLayoutOnly } from '@/components/ui/layout-only'
 import { ChatToolbar } from './ChatToolbar'
 import { SessionsPanel } from './SessionsPanel'
 import { ChatArea } from './ChatArea'
@@ -29,7 +29,7 @@ import { useSessionRows } from '../hooks/use-session-rows'
 import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { chatSideOf } from '@/components/shell/rail-mode'
 import { motion } from '@/components/motion'
-import { selectThreadPhase } from '../lib/thread-phase'
+import { useArrivalPredicted, useThreadPhase } from '../hooks/use-thread-phase'
 import { TOOLBAR_CLEAR_VAR, toolbarClearance } from '../lib/toolbar-clearance'
 
 interface MainLayoutProps {
@@ -63,7 +63,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     }))
   )
   const linkedChatPending = useLinkedChatPending()
-  const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty') && !linkedChatPending
+  const isThreadEmpty = useThreadPhase() === 'empty' && !linkedChatPending
   const chatStarted = useChatStarted()
   const routeSide = chatSideOf(usePathname() ?? '')
   const sessions = useSessionRows(routeSide)
@@ -76,7 +76,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   const deleteAllConversations = useChatStore((s) => s.deleteAllConversations)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
 
-  const isMobile = useIsMobile()
   const peekedFile = useFilePreviewStore((s) => s.file)
   const previewHidden = useFilePreviewStore((s) => s.hidden)
   const previewMode = useFilePreviewStore((s) => s.mode)
@@ -85,7 +84,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
 
   const keyboardUp = useKeyboardUp()
   const { composerRef, columnVars, composerStyle, composerMotion } =
-    useComposerMetrics(isThreadEmpty, keyboardUp)
+    useComposerMetrics(isThreadEmpty, keyboardUp, { predicted: useArrivalPredicted() })
 
   const [toolbarHeight, setToolbarHeight] = useState<number | null>(null)
   const toolbarVars = useMemo<CSSProperties>(
@@ -146,7 +145,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             whole column is the drop target for attachments, toolbar and
             transcript included, not only the composer card (`ChatDropZone`). */}
         <ChatDropZone
-          className="flex min-w-0 flex-col overflow-hidden"
+          className="flex min-w-0 flex-col overflow-hidden [container-type:size]"
           style={{
             width: '100%',
             ...columnVars,
@@ -162,7 +161,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
               whole pill row over the fade, with the thread readable behind it. */}
           <div
             aria-hidden="true"
-            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,3.5rem)+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,3.5rem)-0.5rem)] to-transparent"
+            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))+0.5rem)] sm:h-[calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))-0.5rem)] sm:from-[length:calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))-0.5rem)] to-transparent"
           />
 
           {/* The thread header: an opaque band in the page's tone over the top of
@@ -179,19 +178,21 @@ export const MainLayout: FC<MainLayoutProps> = ({
             onHeightChange={setToolbarHeight}
           />
 
-          {isMobile && peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
-            <button data-attr="chat-expand-file"
-              type="button"
-              onClick={expandFile}
-              className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
-            >
-              <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                {documentDisplayName(peekedFile)}
-              </span>
-              <span className="text-muted-foreground shrink-0 text-xs">
-                {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
-              </span>
-            </button>
+          {peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
+            <MobileLayoutOnly>
+              <button data-attr="chat-expand-file"
+                type="button"
+                onClick={expandFile}
+                className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))] sm:top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
+              >
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {documentDisplayName(peekedFile)}
+                </span>
+                <span className="text-muted-foreground shrink-0 text-xs">
+                  {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
+                </span>
+              </button>
+            </MobileLayoutOnly>
           )}
 
           {/* A chat the reader may no longer read whole (ADR-0088) has no

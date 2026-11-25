@@ -133,3 +133,19 @@ describe('RailChatList — the open chat’s sheet', () => {
     expect(sections).not.toContain(pill.getAttribute('data-pill-id'))
   })
 })
+
+describe('RailChatList — a chat that joins the list', () => {
+  test('fades in at the top while the chats that were there keep their faces', () => {
+    const { rerender } = render(<RailChatList chats={chats()} />)
+    const older = screen.getByRole('link', { name: 'Stellplatznachweis' }).closest('li')!
+    rerender(
+      <RailChatList
+        chats={chats({ items: [{ id: 'c2', title: 'Abstandsflächen', href: '/app/projects/p1/chat?session=c2', current: true }, ...chats().items] })}
+      />
+    )
+    const joined = screen.getByRole('link', { name: 'Abstandsflächen' }).closest('li')!
+    expect(joined.style.opacity).toBe('0')
+    expect(older.style.opacity).not.toBe('0')
+    expect(screen.getByRole('link', { name: 'Stellplatznachweis' }).closest('li')).toBe(older)
+  })
+})

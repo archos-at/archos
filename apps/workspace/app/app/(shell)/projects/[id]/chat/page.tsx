@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { chatRouteElsewhere } from '@/lib/conversations/chat-route'
+import { chatArrivalResumes } from '@/lib/conversations/chat-arrival'
 import { getUserSession } from '@/lib/auth/session'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
 import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
@@ -12,13 +13,14 @@ import { ProjectChatClient } from './project-chat-client'
 
 interface ProjectChatPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ session?: string }>
+  searchParams: Promise<{ session?: string; new?: string }>
 }
 
 const ProjectChatPage = async ({ params, searchParams }: ProjectChatPageProps): Promise<ReactNode> => {
   return runWithTenantSlot(async () => {
     const { id } = await params
-    const { session: conversationId } = await searchParams
+    const search = await searchParams
+    const conversationId = search.session
     if (conversationId) {
       const session = await getUserSession().catch(() => null)
       if (session?.organizationId && session.organizationMembershipId) {
@@ -29,11 +31,13 @@ const ProjectChatPage = async ({ params, searchParams }: ProjectChatPageProps): 
 
     let canCollaborate = false
     let organizationId: string | null = null
+    let greetingName: string | null = null
     let canChatInProject = true
     try {
       const session = await getUserSession()
       if (session) {
         organizationId = session.organizationId
+        greetingName = session.name
         canCollaborate = isCollaborationEnabled(session)
         if (session.organizationId && session.organizationMembershipId) {
           try {
@@ -61,6 +65,7 @@ const ProjectChatPage = async ({ params, searchParams }: ProjectChatPageProps): 
         projectName={projectName}
         canCollaborate={canCollaborate}
         canChatInProject={canChatInProject}
+        arrival={{ resumes: await chatArrivalResumes(id, search), greetingName }}
       />
     )
   })

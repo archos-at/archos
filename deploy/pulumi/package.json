@@ -5,7 +5,7 @@
   "description": "Pulumi (TypeScript) program that deploys the Grid OIB stack to Kubernetes.",
   "main": "index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
+    "typecheck": "bun check && bun check -p tsconfig.worker.json",
     "test": "vitest run",
     "preview": "pulumi preview",
     "validate": "pulumi preview --json > .plan.json && node scripts/validate-crs.mjs .plan.json",

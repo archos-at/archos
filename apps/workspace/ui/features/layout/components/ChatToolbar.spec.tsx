@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import type { ResourceSharingState } from '@/lib/sharing/types'
 import { ChatToolbar } from './ChatToolbar'
+import { TOOLBAR_BREATH_PX, TOOLBAR_CLEAR_PADDING } from '../lib/toolbar-clearance'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import type { ChatMessage } from '@/features/chat/types'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
@@ -252,7 +253,7 @@ describe('ChatToolbar', () => {
     test('the pill draws its glass on a layer of its own, so its padding and the door stay put', () => {
       const { rerender } = render(<ChatToolbar isChatStarted={false} />)
       const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
-      const empty = pill.className.split(' ').filter((name) => name !== 'sm:hidden')
+      const empty = pill.className.split(' ').filter((name) => name !== 'sm:invisible')
 
       rerender(<ChatToolbar isChatStarted />)
 
@@ -281,6 +282,20 @@ describe('ChatToolbar', () => {
 
       expect(slot.className).toMatch(/(^| )sm:w-\[[^\]]+\]( |$)/)
       expect(slot).toHaveClass('min-h-9', 'pointer-coarse:min-h-11', 'sm:justify-start')
+    })
+
+    test('from `sm` the pill keeps its height in an empty chat, and the thread clears exactly that header', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      expect(pill).toHaveClass('sm:invisible')
+      expect(pill).not.toHaveClass('sm:hidden')
+      const height = Number(/(?:^| )sm:min-h-\[([\d.]+)rem\]/.exec(pill.className)?.[1])
+
+      rerender(<ChatToolbar isChatStarted />)
+      expect(pill).toHaveClass(`sm:min-h-[${height}rem]`)
+
+      const fallback = Number(/sm:pt-\[var\(--chat-toolbar-clear,calc\(max\(0\.5rem,[^)]*\)\)\)\+([\d.]+)rem\)\)\]/.exec(TOOLBAR_CLEAR_PADDING)?.[1])
+      expect(fallback).toBe(0.5 + height + TOOLBAR_BREATH_PX / 16)
     })
 
     test('the pill leaves the room of who-can-read, so their arrival does not narrow the title', () => {

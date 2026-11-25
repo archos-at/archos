@@ -482,7 +482,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 ## Validation (no target cluster required)
 
 ```bash
-npm run typecheck   # tsc: every typed manifest, incl. Gateway/Envoy CRD specs,
+bun run typecheck   # bun check (TypeScript 7): every typed manifest, incl. Gateway/Envoy CRD specs,
                     # the launch-gate tool, and the Email Worker against
                     # @cloudflare/workers-types (tsconfig.worker.json)
 npm run validate    # pulumi preview → schema-check every CustomResource in the

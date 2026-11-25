@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, the search register opens as the stacked list straight away.
+    It used to show the desktop table for a moment and then jump to the list.

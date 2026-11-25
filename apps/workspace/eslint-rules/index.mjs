@@ -9,6 +9,7 @@
 
 import cardTypeScale from './card-type-scale.mjs'
 import fieldFocusInside from './field-focus-inside.mjs'
+import layoutBeforePaint from './layout-before-paint.mjs'
 import motionVocabulary from './motion-vocabulary.mjs'
 import noRestrictedSyntax from './no-restricted-syntax.mjs'
 import requireTenantCacheKey from './require-tenant-cache-key.mjs'
@@ -23,6 +24,7 @@ export default {
     'motion-vocabulary': motionVocabulary,
     'card-type-scale': cardTypeScale,
     'field-focus-inside': fieldFocusInside,
+    'layout-before-paint': layoutBeforePaint,
     'no-restricted-syntax': noRestrictedSyntax,
     'touch-target': touchTarget,
   },

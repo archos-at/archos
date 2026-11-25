@@ -579,6 +579,19 @@ reaches them. A breakpoint question in JavaScript uses the exported queries,
 never a hand-written `(max-width: 767px)`; `breakpoints.spec.ts` holds the CSS
 and the TypeScript to one string and fails on a raw `md` width.
 
+**The stylesheet picks the tree; the hook only picks behaviour.** The server
+cannot see the screen, so `useIsMobile()` answers `false` on the server and in
+the hydration render: a tree it picks is the desktop one on a phone until the
+bundle boots, then swaps, a pop and a layout shift. Where a phone and a desktop
+arrangement differ, render both in `MobileLayoutOnly` and `DesktopLayoutOnly`
+(`components/ui/layout-only.tsx`): each is hidden by `md:` or `max-md:` from the
+first paint, and the one that does not belong is dropped once the hook knows
+the screen. Inside both trees an `id` waits for `useIsMobileOnceKnown()`, so the
+server markup never names an element twice. What a click does, which overlay
+opens, whether to fetch: `useIsMobile()` answers those. The lint rule
+`grid/layout-before-paint` fails a JSX branch, a JSX child or an early
+`return null` chosen by `useIsMobile()`.
+
 ## Component layers (atomic design)
 
 The UI is built atomically: **atoms** compose into **molecules**, molecules into
@@ -1036,12 +1049,34 @@ times stops being a physical cue and becomes texture.
   A chat opened cold lays out as it will settle from the first paint: a new
   chat words its placeholder for the route's side, and a link to a chat
   (`?session=`) holds the started chat's toolbar and composer lines while the
-  list and its messages load (`layout/hooks/use-chat-started`). A session
-  whose token is still on its way counts as loading (`adapters/auth`), so
-  nobody signed in sees the sign-in prompt, and the greeting's heading holds
-  its place unseen until the name is known.
+  list and its messages load (`layout/hooks/use-chat-started`). The server
+  knows whether the chat will resume one (the newest of the side's chats
+  touched within 12 hours, or the one left open there): the browser keeps a
+  `chat_resume.<side>` cookie for each side that will, holding nothing but
+  `1` and living exactly as long as the resume would (`bff/conversations/chat-resume-cookie`, written by `chat/components/chat-resume-recorder` in the shell layout).
+  A chat that resumes paints the message skeleton; one that does not paints
+  the greeting and the composer at their rest from the first frame, with the
+  name the server read from the session (`layout/hooks/use-thread-phase`).
+  Their rest is CSS, so it needs no measurement: the greeting's foot stands
+  70px above the middle of the chat column (`50cqh`, the column is a size
+  container) and the composer hangs 32px under it, on the floor when it is
+  taller than the room below (`useComposerMetrics`, `restGeometry`). The time
+  of day is the office's (`OFFICE_TIME_ZONE`) until the browser's own clock
+  takes over. Should the browser disagree with the cookie (another tab, cleared
+  storage), the greeting fades out under the arriving thread, or fades in as
+  the skeleton leaves. A session whose token is still on its way counts as
+  loading (`adapters/auth`), so nobody signed in sees the sign-in prompt; the
+  greeting's heading holds its place unseen only where no server named the
+  person.
   `bun run shift-check --load --session=<wos-session> <chat routes>` fails on
   any shift of the load at 390 and 360.
+  Switching to another chat that is already loaded fades its turns in on the
+  arrival fade (`--motion-snap`, instant under reduced motion), keyed by the
+  conversation (`thread-turns` in `chat-area/chat-message-list`); the chat the
+  page opened on, and every later render of the same chat, does not fade.
+  In the rail, a new chat joins „Recent chats“ by fading in at the top while
+  the rows below glide down by transform (`layout="position"`); a row that
+  leaves is removed in the same commit, so the glide covers it.
   A line that arrives after its count is fetched (mail waiting, a mail import)
   fades on `duration-snap`, and a thread replacing its skeleton fades on
   `--motion-snap` too. An `EmptyState` stands at once where the reader arrived
@@ -1341,7 +1376,7 @@ More than one ambient loop on screen. `ease-linear`. `transition-all`.
 - Avoid side stripes: a coloured or ruled bar down the left (inline-start) edge of a card, callout, quote, toast, peek, row or chip, for status or for emphasis, is discouraged. And no status tint across a whole card. Status is a 10px rounded swatch on the title line, or an icon and a word — see **Emphasis without a stripe**.
 - No purple/generic-AI aesthetic. **Provenance signals are the only chroma** — no blue active states (actions and focus are ink app-wide), and a source color is never used outside its meaning or without its icon + label. No general accent token: one existed briefly and was withdrawn (see §"Accent pop" above). A control that wants to stand out wants contrast, not chroma.
 - No touch size on a `md:` breakpoint, no reveal that only hover can open, no `touch-action` that takes the page scroll from a surface that does not own the gesture, no `vh`, no meaning carried only by a tooltip. See [Touch](#touch).
-- No hand-written breakpoint width in JavaScript; ask `useIsMobile()` or pass a query from `hooks/use-is-mobile.ts`. See [Breakpoints](#breakpoints-four-axes-four-questions).
+- No hand-written breakpoint width in JavaScript; ask `useIsMobile()` or pass a query from `hooks/use-is-mobile.ts`. No tree chosen by `useIsMobile()`: `MobileLayoutOnly` / `DesktopLayoutOnly` decide before the first paint. See [Breakpoints](#breakpoints-four-axes-four-questions).
 
 ## The app rail
 
