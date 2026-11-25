@@ -33,6 +33,7 @@ import { refreshInboundMailWaiting, resetInboundMailWaitingForTests } from '@/ho
 import { SHORTCUTS_PREFERENCE_KEY } from '@/hooks/use-shortcuts-preference'
 import { ProjectSectionFrame, SectionActionsInline } from '@/components/shell/project-section-frame'
 import { TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
+import { resetHeldFilingsForTests } from '../lib/use-held-filings'
 import { InboundMailWorkspace } from './inbound-mail-workspace'
 
 function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) {
@@ -66,6 +67,7 @@ function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof I
 
 beforeEach(() => {
   vi.clearAllMocks()
+  resetHeldFilingsForTests()
   resetInboundMailWaitingForTests()
   media.phone = false
   window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
@@ -392,6 +394,28 @@ describe('InboundMailWorkspace', () => {
     expect(await screen.findByTestId(`inbound-mail-row-${id}`)).toBeInTheDocument()
     expect(nav.push).toHaveBeenCalledWith(expect.stringContaining(`/files/mail/${id}`))
     expect(file).not.toHaveBeenCalled()
+  })
+
+  it('keeps a held filing through a remount, as moving to the next mail is, and sends nothing until the hold ends', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client, unmount } = renderOpen('many', id, { holdMs: 60_000 })
+    const file = vi.spyOn(client, 'file')
+    await userEvent.click(screen.getByTestId('decision-open'))
+    await userEvent.click(within(await screen.findByTestId('filing-dialog')).getByTestId('decision-file'))
+    unmount()
+    renderWorkspace('many', { holdMs: 60_000 })
+    expect(screen.queryByTestId(`inbound-mail-row-${id}`)).toBeNull()
+    expect(file).not.toHaveBeenCalled()
+  })
+
+  it('never dismisses the hidden open mail with ⌫ while picking with nothing ticked', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client } = renderOpen('many', id)
+    const dismiss = vi.spyOn(client, 'dismiss')
+    await userEvent.click(screen.getByTestId('selection-start'))
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    await act(async () => {})
+    expect(dismiss).not.toHaveBeenCalled()
   })
 
   it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {

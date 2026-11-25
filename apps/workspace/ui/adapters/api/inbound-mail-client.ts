@@ -88,8 +88,8 @@ export function getInboundMailText(projectId: string, mailId: string, signal?: A
   return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/text`, 'Failed to load the mail text', { signal })
 }
 
-export function fileInboundMails(projectId: string, body: FileInboundMailsBody): Promise<InboundMailDecisionResultView> {
-  return request(`${projectBase(projectId)}/inbound-mails/file`, 'Failed to file the mail', postJson(body))
+export function fileInboundMails(projectId: string, body: FileInboundMailsBody, options: { keepalive?: boolean } = {}): Promise<InboundMailDecisionResultView> {
+  return request(`${projectBase(projectId)}/inbound-mails/file`, 'Failed to file the mail', { ...postJson(body), keepalive: options.keepalive })
 }
 
 export function dismissInboundMails(projectId: string, body: DismissInboundMailsBody): Promise<{ mails: InboundMailView[] }> {

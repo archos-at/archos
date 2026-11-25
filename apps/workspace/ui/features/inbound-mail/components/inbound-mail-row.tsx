@@ -116,7 +116,7 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
           {who !== null && <span className="min-w-0 shrink truncate">{who}</span>}
           {who !== null && status && <span aria-hidden>·</span>}
           {status && (
-            <span className={cn('inline-flex min-w-0 shrink-0 items-center gap-1 truncate', STATUS_TONE[status.tone])} data-testid={status.testId} data-reason={status.key}>
+            <span className={cn('inline-flex min-w-0 items-center gap-1 truncate', STATUS_TONE[status.tone])} data-testid={status.testId} data-reason={status.key}>
               {status.tone === 'busy' && <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />}
               {status.tone === 'danger' && <ShieldAlert className="size-3 shrink-0" aria-hidden />}
               {status.tone === 'warning' && <CircleAlert className="size-3 shrink-0" aria-hidden />}

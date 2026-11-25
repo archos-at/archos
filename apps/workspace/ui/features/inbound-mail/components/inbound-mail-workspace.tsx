@@ -177,8 +177,8 @@ export function InboundMailWorkspace({
     void reload()
   }, [status, outcome, reload, initialList, initialListFailed, listLoading])
 
-  const { held, hold } = useHeldFilings(holdMs)
-  const items = useMemo(() => (list.kind === 'ready' ? list.items.filter((mail) => !held.has(mail.id)) : []), [list, held])
+  const { hidden, settled, hold } = useHeldFilings(holdMs)
+  const items = useMemo(() => (list.kind !== 'ready' ? [] : status === 'waiting' ? list.items.filter((mail) => !hidden.has(mail.id)) : list.items), [list, hidden, status])
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sectionsOf = useCallback(
     (mails: readonly InboundMailSummaryView[], threadGroups: InboundMailListView['threadGroups']) =>
@@ -273,18 +273,20 @@ export function InboundMailWorkspace({
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     const ids = decisions.map((decision) => decision.mailId)
     const description = plan.destinations.map(destinationLine).join(CLAUSE_JOIN)
-    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: mailToast({ ...NEAR_THE_PRESS, description }), onUndo: () => undefined, run: async (held) => {
+    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: mailToast({ ...NEAR_THE_PRESS, description }), onUndo: () => undefined, run: async (held, { keepalive }) => {
       try {
-        const result = await client.file(projectId, { mails: decisions })
+        const result = await client.file(projectId, { mails: decisions }, { keepalive })
         capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
         const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { id: held, description, action: undefined })
         void changed()
         const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
         if (sent) void reportLanding(sent, decisions[0], toastId)
         else void reportBulk(result.mails, decisions, toastId)
+        return true
       } catch (error) {
         toast.error(t(`refusals.${refusalOf(error)}`), { id: held, action: undefined })
         void changed()
+        return false
       }
     } })
   }
@@ -308,8 +310,7 @@ export function InboundMailWorkspace({
     setBulkDismissing(true)
     try {
       await client.dismiss(projectId, { mailIds: selectedIds })
-      const ids = [...selectedIds]
-      toast.success(t('toast.dismissedMany', { count: ids.length }), { action: { label: t('toast.undo'), onClick: () => void Promise.all(ids.map((id) => client.restore(projectId, id))).finally(() => void changed()) } })
+      toast.success(t('toast.dismissedMany', { count: selectedIds.length }))
       endSelection()
       void changed()
     } catch (error) {
@@ -350,19 +351,26 @@ export function InboundMailWorkspace({
     advance(open, before.rows, after)
   }, [projectId, client, reload, status, sectionsOf, quietToggled, advance])
 
+  const firstSettled = useRef(settled)
+  useEffect(() => {
+    if (settled !== firstSettled.current) void reload()
+  }, [settled, reload])
+
   useInboxLive({ projectId, enabled: status === 'waiting', stamp: waiting.stamp, lastRead: lastReload, reload })
 
   const reportLanding = useLandingReport({ client, projectId, pollMs, onSettled: () => void changed() })
 
   const holdOpen = (view: InboundMailView, decision: InboundMailDecision): void => {
     const { rows: before, mailId: open } = keyState.current
-    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(NEAR_THE_PRESS), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId) => {
+    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(NEAR_THE_PRESS), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId, { keepalive }) => {
       try {
-        const sent = (await client.file(projectId, { mails: [decision] })).mails.find((mail) => mail.id === view.id)
+        const sent = (await client.file(projectId, { mails: [decision] }, { keepalive })).mails.find((mail) => mail.id === view.id)
         if (sent) filedOpen(sent, decision, toastId)
+        return true
       } catch (error) {
         toast.error(t(`refusals.${refusalOf(error)}`), { id: toastId, action: undefined })
         void changed()
+        return false
       }
     } })
     if (status === 'waiting' && open === view.id) advance(open, before, before.filter((mail) => mail.id !== open))
@@ -394,6 +402,7 @@ export function InboundMailWorkspace({
     file: () => detailActions.current?.file(),
     dismissOpen: () => detailActions.current?.dismiss(),
     askDismissSelection: () => setConfirmDismiss(true),
+    selecting,
   }
   useInboxKeys(shortcutsOn, firstMail.ref, keyTarget)
 

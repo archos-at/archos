@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import { mail, messagePart, part, summaryOf } from '@/app/dev/inbound-mail/fixture-builders'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -76,9 +76,26 @@ describe('a ready mail says on its second line where one press files it', () => 
   })
 
   it('says the time short, as a mail program does, and draws no trust glyph for a sender the server vouches for', async () => {
-    row(ready({ receivedAt: new Date(Date.now() - 60_000).toISOString(), senderTrust: 'member_verified', senderFlags: [], impersonation: null }))
-    await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toMatch(/^\d{1,2}:\d{2}( [AP]M)?$/))
-    expect(screen.queryByTestId('sender-trust-glyph')).toBeNull()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-19T11:00:00Z'))
+      row(ready({ receivedAt: '2026-11-19T10:59:00Z', senderTrust: 'member_verified', senderFlags: [], impersonation: null }))
+      await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toMatch(/^\d{1,2}:\d{2}( [AP]M)?$/))
+      expect(screen.queryByTestId('sender-trust-glyph')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says „yesterday“ for the calendar day before, across the change from summer time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-10-25T22:30:00Z'))
+      row(ready({ receivedAt: '2026-10-24T20:00:00Z' }))
+      await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toBe('yesterday'))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('is two lines: no avatar, no press of its own', () => {
