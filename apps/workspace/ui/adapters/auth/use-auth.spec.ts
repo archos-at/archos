@@ -9,7 +9,8 @@ vi.mock('@workos-inc/authkit-nextjs/components', () => ({
   useAuth: () => ({ ...session, organizationId: 'org-1', getAuth: vi.fn(), signOut: vi.fn() }),
   useAccessToken: () => ({ ...token, getAccessToken: vi.fn() }),
 }))
-vi.mock('@/shared/context', () => ({ useAppConfig: () => ({ authRequired: true }) }))
+const config = { authRequired: true }
+vi.mock('@/shared/context', () => ({ useAppConfig: () => config }))
 vi.mock('@/lib/analytics/posthog', () => ({ resetPosthog: vi.fn() }))
 vi.mock('@/lib/push/browser', () => ({ forgetThisDevice: vi.fn() }))
 vi.mock('@/lib/push/client', () => ({ pushClient: {} }))
@@ -18,6 +19,7 @@ const anna = { id: 'u-1', firstName: 'Anna', lastName: 'Berger', email: 'anna@ex
 
 describe('useAuth', () => {
   beforeEach(() => {
+    config.authRequired = true
     session.user = null
     session.loading = false
     Object.assign(token, { accessToken: undefined, loading: false, error: null })
@@ -44,8 +46,16 @@ describe('useAuth', () => {
     expect(result.current).toMatchObject({ isAuthenticated: false, isLoading: false, error: 'refresh failed' })
   })
 
-  test('no session, settled: signed out', () => {
+  test('a visitor with no session, once both loads are done, is signed out and settled, so the sign-in prompt shows', () => {
     const { result } = renderHook(() => useAuth())
-    expect(result.current).toMatchObject({ isAuthenticated: false, isLoading: false })
+    expect(result.current).toMatchObject({ isAuthenticated: false, isLoading: false, user: null })
+  })
+
+  test('without sign-in (no auth required) it is never loading, with no AuthKit user and no token', () => {
+    config.authRequired = false
+    session.loading = true
+    token.loading = true
+    const { result } = renderHook(() => useAuth())
+    expect(result.current).toMatchObject({ isAuthenticated: true, isLoading: false, authRequired: false })
   })
 })
