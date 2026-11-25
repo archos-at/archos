@@ -29,7 +29,10 @@
       "version": null,
       "date": "2026-11-23",
       "dateEnd": "2026-11-29",
-      "summary": null,
+      "summary": {
+        "en": "The sidebar now switches between „Persönlich“ and „Projekt“: under Persönlich are your chats without a project and „Meine Ablage“, a shelf of your own that nobody else in the office sees. In the review you can measure distances, paths and areas on a PDF drawing, snapped to its lines and to a scale you set once for all pages, and ARCHOS can measure for you in the chat. A project can now hold several buildings on one site, and the Bürobibliothek has its own Papierkorb.",
+        "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter Persönlich finden Sie Ihre Chats ohne Projekt und „Meine Ablage“, eine eigene Ablage, die sonst niemand im Büro sieht. In der Prüfung messen Sie Strecken, Wege und Flächen auf einem PDF-Plan, eingerastet auf seine Linien und auf einen Maßstab, den Sie einmal für alle Seiten setzen, und ARCHOS misst auf Wunsch im Chat für Sie. Ein Projekt kann jetzt mehrere Gebäude auf einem Grundstück umfassen, und die Bürobibliothek hat einen eigenen Papierkorb."
+      },
       "notes": [
         {
           "section": "features",
@@ -1127,7 +1130,10 @@
       "version": null,
       "date": "2026-11-16",
       "dateEnd": "2026-11-22",
-      "summary": null,
+      "summary": {
+        "en": "ARCHOS now makes real Word, Excel, PowerPoint and PDF files in a calm house style, shows each as a card to open or download, and files it into the project as a draft when you ask. Several chats can answer at the same time, and any two files, such as two room lists, can be compared row by row. In the E-Mail-Eingang, later replies to a filed conversation are filed without a click, and reading uploads no longer uses up your monthly limit.",
+        "de": "ARCHOS erstellt jetzt echte Word-, Excel-, PowerPoint- und PDF-Dateien in einem ruhigen Hausstil, zeigt jede als Karte zum Öffnen oder Herunterladen und legt sie auf Wunsch als Entwurf im Projekt ab. Mehrere Chats können gleichzeitig antworten, und zwei beliebige Dateien, etwa zwei Raumlisten, lassen sich Zeile für Zeile vergleichen. Im E-Mail-Eingang werden spätere Antworten auf einen abgelegten Verlauf ohne Klick abgelegt, und das Einlesen von Uploads verbraucht Ihr Monatslimit nicht mehr."
+      },
       "notes": [
         {
           "section": "features",
@@ -1777,7 +1783,10 @@
       "version": null,
       "date": "2026-11-09",
       "dateEnd": "2026-11-15",
-      "summary": null,
+      "summary": {
+        "en": "Answers now use the edition of a law or OIB-Richtlinie that binds at the project's site and say since when it binds there. What ARCHOS keeps about you personally goes into „Mein Gedächtnis“, which only you read, and in a temporary chat nothing goes into any memory. Dateien, the sidebar and project mail have a calmer design, and the app moved to the web address of its new name, with every former link still working.",
+        "de": "Antworten stützen sich jetzt auf die Ausgabe eines Gesetzes oder einer OIB-Richtlinie, die am Standort des Projekts verbindlich ist, und sagen, seit wann sie dort gilt. Was ARCHOS über Sie persönlich behält, kommt in „Mein Gedächtnis“, das nur Sie lesen, und in einem temporären Chat gelangt nichts in ein Gedächtnis. Dateien, Seitenleiste und Projekt-E-Mail sind ruhiger gestaltet, und die App ist unter die Webadresse ihres neuen Namens gezogen, wobei alle bisherigen Links weiter funktionieren."
+      },
       "notes": [
         {
           "section": "features",
@@ -3307,7 +3316,10 @@
       "version": null,
       "date": "2026-11-02",
       "dateEnd": "2026-11-08",
-      "summary": null,
+      "summary": {
+        "en": "Every project now has its own mail address: put it in Cc when you write to the Behörde or the Statik, and mail waits in the project's E-Mail-Eingang until a person files it, with a folder suggested for each attachment. Your own mail to that address is filed directly, and a filed conversation becomes one E-Mail-Verlauf that answers can cite. DXF files such as a Katasterauszug open as a PDF to scale, and in the chat you can measure setbacks, boundaries and what remains buildable.",
+        "de": "Jedes Projekt hat jetzt eine eigene E-Mail-Adresse: Setzen Sie sie in Cc, wenn Sie der Behörde oder der Statik schreiben, und die E-Mails warten im E-Mail-Eingang des Projekts, bis jemand sie ablegt, mit einem Ordnervorschlag für jeden Anhang. Ihre eigenen E-Mails an diese Adresse werden direkt abgelegt, und ein abgelegter Verlauf wird zu einem E-Mail-Verlauf, den Antworten zitieren können. DXF-Dateien wie ein Katasterauszug öffnen sich als maßstäbliches PDF, und im Chat messen Sie Abstände, Grenzen und was nach den Abständen bebaubar bleibt."
+      },
       "notes": [
         {
           "section": "features",
