@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const elsewhere = vi.hoisted(() => vi.fn())
 const redirect = vi.hoisted(() => vi.fn((href: string) => { throw new Error(`NEXT_REDIRECT ${href}`) }))
+const cookieNames = vi.hoisted(() => new Set<string>())
 vi.mock('next/navigation', () => ({ redirect }))
+vi.mock('next/headers', () => ({ cookies: async () => ({ has: (name: string) => cookieNames.has(name) }) }))
 vi.mock('@/lib/auth/session', () => ({
-  getUserSession: async () => ({ organizationId: 'org-1', organizationMembershipId: 'm-1', userId: 'u-1' }),
+  getUserSession: async () => ({ organizationId: 'org-1', organizationMembershipId: 'm-1', userId: 'u-1', name: 'Anna Berger' }),
 }))
 vi.mock('@/lib/authz/feature-flags', () => ({ isCollaborationEnabled: () => true }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn(async () => ({})) }))
@@ -37,5 +39,32 @@ describe('a project’s chat page renders only a chat of that project (the owner
     await expect(open('s_a')).resolves.toBeTruthy()
     await expect(open()).resolves.toBeTruthy()
     expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('the server tells the chat whether this side resumes one, so its first paint is the final one', () => {
+  const arrivalOf = async (search: Record<string, string>) => {
+    elsewhere.mockResolvedValue(null)
+    const page = (await ProjectChatPage({ params: Promise.resolve({ id: 'p1' }), searchParams: Promise.resolve(search) })) as {
+      props: { arrival: { resumes: boolean; greetingName: string | null } }
+    }
+    return page.props.arrival
+  }
+
+  beforeEach(() => cookieNames.clear())
+
+  test('no chat to resume on this project: the greeting', async () => {
+    cookieNames.add('chat_resume.p2')
+    expect(await arrivalOf({})).toEqual({ resumes: false, greetingName: 'Anna Berger' })
+  })
+
+  test('a chat to resume on this project: the skeleton, unless a new chat was asked for', async () => {
+    cookieNames.add('chat_resume.p1')
+    expect((await arrivalOf({})).resumes).toBe(true)
+    expect((await arrivalOf({ new: '1' })).resumes).toBe(false)
+  })
+
+  test('a link to a chat: the skeleton', async () => {
+    expect((await arrivalOf({ session: 's_a' })).resumes).toBe(true)
   })
 })

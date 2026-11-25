@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/adapters/auth'
 import { MainLayout } from '@/features/layout'
 import { useChatStore } from '@/features/chat/store'
+import { ChatArrivalProvider, type ChatArrival } from '@/features/layout/hooks/use-thread-phase'
 import { conversationMatchesProject } from '@/features/chat/lib/project-scope'
 import { newChatDropsFilePreview } from '@/features/documents/lib/ask-arrival'
 import { fileItemFromStatus } from '@/features/documents/lib/document-question'
@@ -18,6 +19,7 @@ export interface ProjectChatClientProps {
   canCollaborate?: boolean
   canChatInProject?: boolean
   projectName: string | null
+  arrival?: ChatArrival
 }
 
 const ProjectChatContent = ({
@@ -25,6 +27,7 @@ const ProjectChatContent = ({
   projectName,
   canCollaborate = false,
   canChatInProject = true,
+  arrival,
 }: ProjectChatClientProps): ReactNode => {
   const { isAuthenticated, signIn } = useAuth()
   const setProjectId = useChatStore((s) => s.setProjectId)
@@ -241,14 +244,18 @@ const ProjectChatContent = ({
   }, [subjectId, projectId, projectName, canCollaborate])
 
   return (
-    <MainLayout
-      isAuthenticated={isAuthenticated}
-      onSignIn={signIn}
-      canCollaborate={canCollaborate}
-      canChatInProject={canChatInProject}
-    />
+    <ChatArrivalProvider value={arrival ?? NO_ARRIVAL}>
+      <MainLayout
+        isAuthenticated={isAuthenticated}
+        onSignIn={signIn}
+        canCollaborate={canCollaborate}
+        canChatInProject={canChatInProject}
+      />
+    </ChatArrivalProvider>
   )
 }
+
+const NO_ARRIVAL: ChatArrival = {}
 
 export const ProjectChatClient = (props: ProjectChatClientProps): ReactNode => {
   return (

@@ -29,7 +29,7 @@ import { useSessionRows } from '../hooks/use-session-rows'
 import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { chatSideOf } from '@/components/shell/rail-mode'
 import { motion } from '@/components/motion'
-import { selectThreadPhase } from '../lib/thread-phase'
+import { useArrivalPredicted, useThreadPhase } from '../hooks/use-thread-phase'
 import { TOOLBAR_CLEAR_VAR, toolbarClearance } from '../lib/toolbar-clearance'
 
 interface MainLayoutProps {
@@ -63,7 +63,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     }))
   )
   const linkedChatPending = useLinkedChatPending()
-  const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty') && !linkedChatPending
+  const isThreadEmpty = useThreadPhase() === 'empty' && !linkedChatPending
   const chatStarted = useChatStarted()
   const routeSide = chatSideOf(usePathname() ?? '')
   const sessions = useSessionRows(routeSide)
@@ -85,7 +85,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
 
   const keyboardUp = useKeyboardUp()
   const { composerRef, columnVars, composerStyle, composerMotion } =
-    useComposerMetrics(isThreadEmpty, keyboardUp)
+    useComposerMetrics(isThreadEmpty, keyboardUp, { predicted: useArrivalPredicted() })
 
   const [toolbarHeight, setToolbarHeight] = useState<number | null>(null)
   const toolbarVars = useMemo<CSSProperties>(
@@ -146,7 +146,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             whole column is the drop target for attachments, toolbar and
             transcript included, not only the composer card (`ChatDropZone`). */}
         <ChatDropZone
-          className="flex min-w-0 flex-col overflow-hidden"
+          className="flex min-w-0 flex-col overflow-hidden [container-type:size]"
           style={{
             width: '100%',
             ...columnVars,

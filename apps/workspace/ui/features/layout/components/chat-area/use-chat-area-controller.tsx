@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useChatStore } from '@/features/chat/store'
 import { useLinkedChatPending } from '../../hooks/use-chat-started'
+import { useThreadPhase } from '../../hooks/use-thread-phase'
 
 import type { ChatMessage } from '@/features/chat/types'
 import { useAnswerRevealStore } from '@/features/chat/stores/answer-reveal-store'
@@ -24,7 +25,6 @@ import { useShowReasoningSkills } from '@/lib/user-preferences/use-show-reasonin
 import {
   isDisplayableMessage,
   isTransientConnectionError,
-  selectThreadPhase,
 } from '../../lib/thread-phase'
 import { ROW_GAP_PX } from './chat-area-helpers'
 import { useThreadScrollState, useThreadFollow } from '../../hooks/use-thread-scroll'
@@ -54,7 +54,7 @@ export function useChatAreaController({
         isRecoveryPending: s.isRecoveryPending,
       }))
     )
-  const threadPhase = useChatStore(selectThreadPhase)
+  const threadPhase = useThreadPhase()
   const pendingMessagesFor = useChatStore((s) => s.pendingMessagesFor)
   const setPendingMessagesFor = useChatStore((s) => s.setPendingMessagesFor)
   const revealingId = useAnswerRevealStore((s) => s.revealingId)
@@ -199,7 +199,7 @@ export function useChatAreaController({
   const sharedHistoryPending = shared && sharedLoading && isEmpty
   const linkedChatPending = useLinkedChatPending()
   const showSkeleton =
-    threadPhase === 'hydrating' || threadPhase === 'loading' || sharedHistoryPending || (linkedChatPending && isEmpty)
+    threadPhase === 'loading' || sharedHistoryPending || (linkedChatPending && isEmpty)
   const listReady = !showSkeleton
   const sharedPendingClaimRef = useRef<string | null>(null)
   useLayoutEffect(() => {
