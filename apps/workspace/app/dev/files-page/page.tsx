@@ -39,6 +39,8 @@ const UPLOADING: TrackedFile[] = [
   { id: 'up2', fileName: 'Fluchtwegplan_EG-2OG.pdf', fileSize: 1_200_000, status: 'uploading', progress: 0, collectionName: 'dev' },
 ]
 
+primeInboundMailWaiting('dev', { count: 3, more: false })
+
 function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const phone = usePhoneLayout()
   const params = useSearchParams()
@@ -64,7 +66,6 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const currentFolderName = FOLDERS.find((folder) => folder.id === folderNav.currentFolderId)?.name ?? null
   const projectName = projectNameFor(real)
 
-  primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
     <div className={inShell ? 'relative h-full' : 'relative h-dvh'}>
       <ProjectSectionFrame projectId="dev" projectName={projectName} pathname="/app/projects/dev/files" inboundMail>

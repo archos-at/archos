@@ -131,11 +131,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
+primeInboundMailWaiting(PROJECT, { count: 3, more: false })
+
 export default function BinDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
     <main className="flex flex-col gap-10 pb-12" data-testid="bin-preview">
       {/* Over the Ablage, as its bin glyph opens it (`?bin=1`): a window, not a tab. */}

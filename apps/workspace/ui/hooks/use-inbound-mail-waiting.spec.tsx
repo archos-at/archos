@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import type { JSX } from 'react'
+import { render, renderHook, waitFor } from '@testing-library/react'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { fixtureClient, LIST_VARIANTS } from '@/app/dev/inbound-mail/fixtures'
-import { refreshInboundMailWaiting, resetInboundMailWaitingForTests, useInboundMailWaiting } from './use-inbound-mail-waiting'
+import {
+  primeInboundMailWaiting,
+  refreshInboundMailWaiting,
+  resetInboundMailWaitingForTests,
+  useInboundMailWaiting,
+  useInboundMailWaitingShown,
+} from './use-inbound-mail-waiting'
 
 beforeEach(() => resetInboundMailWaitingForTests())
 
@@ -66,5 +73,24 @@ describe('useInboundMailWaiting', () => {
     vi.spyOn(client, 'list').mockRejectedValue(new ApiRequestError('down', 503))
     await refreshInboundMailWaiting('p', client)
     expect(result.current.count).toBe(1)
+  })
+})
+
+describe('primeInboundMailWaiting', () => {
+  function Tab(): JSX.Element {
+    return <span data-testid="tab">{useInboundMailWaitingShown('p').count}</span>
+  }
+  function Page({ count }: { count: number }): JSX.Element {
+    primeInboundMailWaiting('p', { count, more: false })
+    return <Tab />
+  }
+
+  it('updates no tab when it writes the count the store already holds', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { rerender, getByTestId } = render(<Page count={3} />)
+    rerender(<Page count={3} />)
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/Cannot update a component/)
+    expect(getByTestId('tab')).toHaveTextContent('3')
+    consoleError.mockRestore()
   })
 })

@@ -76,8 +76,9 @@ export function refreshInboundMailWaiting(projectId: string, client: InboundMail
 
 export function primeInboundMailWaiting(projectId: string, state: Omit<InboundMailWaiting, 'stamp'>): void {
   const entry = entryFor(projectId)
-  entry.state = { ...state, stamp: entry.state.stamp ?? null }
   entry.readAt = Date.now()
+  if (entry.state.count === state.count && entry.state.more === state.more) return
+  entry.state = { ...state, stamp: entry.state.stamp ?? null }
   for (const listener of entry.listeners) listener()
 }
 
