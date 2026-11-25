@@ -9560,6 +9560,11 @@
           "$defs": {
             "_Finding": {
               "properties": {
+                "citation": {
+                  "description": "The [N] marker the statement carries, or 'none'.",
+                  "title": "Citation",
+                  "type": "string"
+                },
                 "problem": {
                   "enum": [
                     "unbacked",
@@ -9571,6 +9576,11 @@
                 "reason": {
                   "description": "One line: what the evidence says instead, or that it says nothing about it.",
                   "title": "Reason",
+                  "type": "string"
+                },
+                "regulation": {
+                  "description": "For a statement of law without a marker, the regulation it states; else 'none'.",
+                  "title": "Regulation",
                   "type": "string"
                 },
                 "source": {
@@ -9587,6 +9597,8 @@
               "required": [
                 "statement",
                 "problem",
+                "citation",
+                "regulation",
                 "reason",
                 "source"
               ],
@@ -9603,15 +9615,6 @@
               "title": "Findings",
               "type": "array"
             },
-            "level": {
-              "enum": [
-                "low",
-                "medium",
-                "high"
-              ],
-              "title": "Level",
-              "type": "string"
-            },
             "open_points": {
               "description": "Each point the answer itself names as open, unchecked or unresolved, its main point resting on it.",
               "items": {
@@ -9622,7 +9625,6 @@
             }
           },
           "required": [
-            "level",
             "findings",
             "open_points"
           ],

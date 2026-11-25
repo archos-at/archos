@@ -1,12 +1,16 @@
 'use client'
 
-import { type FC } from 'react'
+import { type FC, type ReactNode } from 'react'
 import { Gauge } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
-import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
+import {
+  checksCitationsOnly,
+  findingKind,
+  type ConfidenceCheck,
+} from '@/lib/conversations/confidence-check'
 import type { AnswerConfidenceCappedReason } from '@/lib/conversations/message-provenance'
 
 export type AnswerConfidence = 'low' | 'medium' | 'high'
@@ -56,8 +60,11 @@ export const ConfidenceChip: FC<ConfidenceChipProps> = ({
   if (confidence !== 'low' && confidence !== 'medium' && confidence !== 'high') {
     return null
   }
+  if (check?.status === 'judged' && checksCitationsOnly(check)) {
+    return <CitedChip confidence={confidence} check={check} cappedReason={cappedReason} />
+  }
   if (check?.status === 'judged') {
-    return <CheckedChip confidence={confidence} check={check} cappedReason={cappedReason} />
+    return <CheckedChip confidence={confidence} cappedReason={cappedReason} />
   }
 
   const byClaim = version === 2
@@ -110,13 +117,25 @@ export const ConfidenceChip: FC<ConfidenceChipProps> = ({
   )
 }
 
-const CheckedChip: FC<{
-  confidence: AnswerConfidence
-  check: ConfidenceCheck
-  cappedReason: AnswerConfidenceCappedReason | null | undefined
-}> = ({ confidence, check, cappedReason }) => {
+const CappedNote: FC<{ cappedReason: AnswerConfidenceCappedReason | null | undefined }> = ({
+  cappedReason,
+}) => {
   const t = useTranslations(chatCopy)
-  const levelLabel = t(`confidence.levels.${confidence}`)
+  return cappedReason === 'quote_unverified' ||
+    cappedReason === 'law_unsettled' ||
+    cappedReason === 'open_point' ? (
+    <span className="mt-1 block">
+      {t(`confidence.checked.${CAPPED_REASON_KEYS[cappedReason]}`)}
+    </span>
+  ) : null
+}
+
+const LevelChip: FC<{ confidence: AnswerConfidence; ariaLabel: string; children: ReactNode }> = ({
+  confidence,
+  ariaLabel,
+  children,
+}) => {
+  const t = useTranslations(chatCopy)
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -125,36 +144,89 @@ const CheckedChip: FC<{
           variant={confidence === 'low' ? 'warning' : 'muted'}
           size="sm"
           interactive
-          aria-label={t('confidence.checked.ariaLabel', { level: levelLabel })}
+          aria-label={ariaLabel}
         >
           <button type="button">
             <Gauge aria-hidden="true" />
-            {t('confidence.label', { level: levelLabel })}
+            {t('confidence.label', { level: t(`confidence.levels.${confidence}`) })}
           </button>
         </Chip>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        <span className="block">{t(`confidence.checked.levelMeanings.${confidence}`)}</span>
-        {check.findings.length > 0 ? (
-          <span className="mt-1 block" data-testid="confidence-check-findings">
-            <span className="font-medium">{t('confidence.checked.findingsLabel')}:</span>
-            {check.findings.map((finding) => (
-              <span key={`${finding.problem}-${finding.statement}`} className="mt-0.5 block">
-                „{finding.statement}“ – {t(`confidence.checked.problems.${finding.problem}`)}
-                {finding.reason ? `: ${finding.reason}` : ''} (
-                {t('confidence.checked.checkedAgainst', {
-                  source: finding.source === 'none' ? t('confidence.checked.noSource') : finding.source,
-                })}
-                )
-              </span>
-            ))}
-          </span>
-        ) : null}
-        <span className="mt-1 block">{t('confidence.checked.tooltip')}</span>
-        {cappedReason === 'quote_unverified' || cappedReason === 'law_unsettled' || cappedReason === 'open_point' ? (
-          <span className="mt-1 block">{t(`confidence.checked.${CAPPED_REASON_KEYS[cappedReason]}`)}</span>
-        ) : null}
-      </TooltipContent>
+      <TooltipContent className="max-w-xs text-pretty">{children}</TooltipContent>
     </Tooltip>
+  )
+}
+
+const CitedChip: FC<{
+  confidence: AnswerConfidence
+  check: ConfidenceCheck
+  cappedReason: AnswerConfidenceCappedReason | null | undefined
+}> = ({ confidence, check, cappedReason }) => {
+  const t = useTranslations(chatCopy)
+  const levelLabel = t(`confidence.levels.${confidence}`)
+  const sources = check.sourcesChecked ?? 0
+  const ownLevel = sources === 0 && check.findings.length === 0
+  return (
+    <LevelChip
+      confidence={confidence}
+      ariaLabel={t('confidence.cited.ariaLabel', { level: levelLabel })}
+    >
+      <span className="block">
+        {ownLevel ? t('confidence.cited.ownLevel') : t(`confidence.cited.levelMeanings.${confidence}`)}
+      </span>
+      <CappedNote cappedReason={cappedReason} />
+      {check.findings.length > 0 ? (
+        <span className="mt-2 block" data-testid="confidence-check-findings">
+          <span className="text-background/70 block">{t('confidence.cited.findingsLabel')}</span>
+          {check.findings.map((finding) => {
+            const kind = findingKind(finding)
+            return (
+              <span key={`${finding.problem}-${finding.statement}`} className="mt-1.5 block">
+                <span className="block">„{finding.statement}“</span>
+                <span className="block font-normal">
+                  {t(`confidence.cited.problems.${kind}`)}
+                  {finding.reason ? `: ${finding.reason}` : null}
+                </span>
+                {kind === 'lawUncited' ? null : (
+                  <span className="text-background/70 block font-normal">
+                    {t('confidence.cited.checkedAgainst', { source: finding.source })}
+                  </span>
+                )}
+              </span>
+            )
+          })}
+        </span>
+      ) : null}
+      <span className="text-background/70 mt-2 block font-normal">
+        {ownLevel ? null : (
+          <>
+            <span data-testid="confidence-check-scope">
+              {sources > 0
+                ? t('confidence.cited.sourcesChecked', { count: sources })
+                : t('confidence.cited.nothingCited')}
+            </span>{' '}
+          </>
+        )}
+        {t('confidence.cited.tooltip')}
+      </span>
+    </LevelChip>
+  )
+}
+
+const CheckedChip: FC<{
+  confidence: AnswerConfidence
+  cappedReason: AnswerConfidenceCappedReason | null | undefined
+}> = ({ confidence, cappedReason }) => {
+  const t = useTranslations(chatCopy)
+  const levelLabel = t(`confidence.levels.${confidence}`)
+  return (
+    <LevelChip
+      confidence={confidence}
+      ariaLabel={t('confidence.checked.ariaLabel', { level: levelLabel })}
+    >
+      <span className="block">{t(`confidence.checked.levelMeanings.${confidence}`)}</span>
+      <span className="mt-1 block">{t('confidence.checked.tooltip')}</span>
+      <CappedNote cappedReason={cappedReason} />
+    </LevelChip>
   )
 }

@@ -118,11 +118,13 @@ field at its default, and each is reset at the turn boundary in
   **Two rules, and the turn says which** (`answer_confidence_version`). Chat
   surfaces the answer check's level (ADR-0139, `markers.surface_checked_confidence`):
   one model call on the follow-ups model, at temperature 0 after the prose
-  streamed, grades the final answer against everything the turn registered
+  streamed, is handed the final answer and everything the turn registered
   (`common/claim_judge.py`; passages in full up to a budget, this turn's
   workspace records from `common/workspace_records.py`, the profile and the
-  inventory, measurements, readings, and what the quote check found), and
-  returns a level and the statements it found unbacked or contradicted
+  inventory, measurements, readings, and what the quote check found). It
+  reads each cited statement against its passage and looks for statements of
+  law without a citation, nothing else (ADR-0197); code keeps the findings it
+  can tie to the answer and derives the level from them
   (`TurnResult.confidence_check`). Three caps sit on top, in this order: the
   quote gate below (medium under a verified citation, low without one), the law
   gate (`"law_unsettled"`, at most medium), and the answer's own ceiling

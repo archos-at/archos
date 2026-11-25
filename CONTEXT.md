@@ -413,14 +413,18 @@ that does not match the source word for word, or changes what it negates
 belegt* (not verbatim in the source) and lowers the answer's confidence.
 
 **Confidence** (Sicherheit):
-How far an answer can be relied on: high, medium or low. A grading model reads
-the answer against everything its turn retrieved and read (passages, workspace
-records, the project profile, measurements, readings off drawings) and names
-the statements it relies on that nothing backs or that a source contradicts.
-A statement about the law needs a passage of that law; a record or a
-measurement backs a fact about the office or the building, never the law. A
-quote the source does not hold word for word lowers the level. When the check
-cannot run, no level is shown (*Belegprüfung nicht verfügbar*).
+How far an answer can be relied on: high, medium or low. A checking model
+reads each statement the answer cites against the passage it cites, and looks
+for statements of what a regulation requires without a citation. It names a
+cited source that says something else (*die Quelle sagt etwas anderes*), one
+that says nothing about the statement (*die Quelle sagt dazu nichts*), and law
+stated without a source (*Rechtsaussage ohne Fundstelle*); what the answer says
+about the person, the office or the project, from memory or from earlier in the
+conversation, it does not judge. A contradiction makes the level low, any other
+finding medium. A record or a measurement backs a fact about the office or the
+building, never the law. A quote the source does not hold word for word lowers
+the level. When the check cannot run, no level is shown (*Belegprüfung nicht
+verfügbar*).
 _Code_: `claim_judge`, `confidence_check`.
 
 **Answer kind**:
