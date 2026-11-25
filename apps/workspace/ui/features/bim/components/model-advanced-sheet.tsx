@@ -170,14 +170,14 @@ export function ModelAdvancedSheet({
 
           `tabIndex={-1}`: programmatically focusable, not a Tab stop.
         */}
-        <h2 ref={headingRef} tabIndex={-1} className="text-sm font-medium focus-visible:outline-none">
+        <h2 ref={headingRef} tabIndex={-1} className="text-section focus-visible:outline-none">
           {t('stage.advanced')}
         </h2>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="-mr-1 size-7 rounded-lg"
+          className="-mr-1 size-7 rounded-control"
           onClick={onClose}
           aria-label={t('stage.selection.close')}
         >

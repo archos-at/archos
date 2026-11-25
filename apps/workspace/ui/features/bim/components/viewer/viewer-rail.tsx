@@ -82,11 +82,11 @@ export function ViewerRailItem({
       title={label}
       data-testid={rest['data-testid']}
       className={cn(
-        'flex w-full items-center gap-2 rounded-surface px-2 py-1 text-left text-sm font-medium',
+        'text-name flex w-full items-center gap-2 rounded-control px-2 py-1 text-left',
         'transition-colors duration-quick ease-out',
         'focus-visible:ring-ring/60 outline-none focus-visible:ring-2',
         'pointer-coarse:min-h-11 pointer-coarse:py-2.5',
-        selected ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+        selected ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground',
         disabled && 'pointer-events-none opacity-50'
       )}
     >

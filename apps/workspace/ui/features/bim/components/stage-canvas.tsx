@@ -8,7 +8,7 @@ import { bimCopy } from '@/i18n/namespaces/bim'
 
 import { useModelViewport } from '../hooks/use-model-viewport'
 
-import { IfcViewerCanvasLazy, ModelViewportProgress, ViewerRetry } from './ifc-model-viewer'
+import { IfcViewerCanvasLazy, ModelViewportProgress, ViewerRetry, viewportNotice } from './ifc-model-viewer'
 
 import { ViewerNotice } from './viewer'
 
@@ -72,28 +72,8 @@ export function StageCanvas({
       />
     )
   }
-  if (!viewport.webGpu) {
-    return (
-      <ViewerNotice
-        icon={MonitorX}
-        title={t('viewer.unsupported.title')}
-        description={t('viewer.unsupported.description')}
-      />
-    )
-  }
-  if (viewport.status.phase === 'error') {
-    return (
-      <ViewerNotice
-        icon={MonitorX}
-        title={t('viewer.unavailable.title')}
-        description={t('viewer.unavailable.description')}
-        detail={
-          viewport.status.cause ? t(`viewer.unavailable.cause.${viewport.status.cause}`) : undefined
-        }
-        action={<ViewerRetry onClick={source.reload} />}
-      />
-    )
-  }
+  const notice = viewportNotice(viewport, t)
+  if (notice) return notice
   if (source.error) {
     return (
       <ViewerNotice
@@ -107,17 +87,6 @@ export function StageCanvas({
   if (!viewport.canvasProps) {
     return <ModelViewportProgress phase="downloading" percent={null} />
   }
-  if (viewport.download.cancelled) {
-    return (
-      <ViewerNotice
-        icon={Boxes}
-        title={t('stage.download.cancelled.title')}
-        description={t('stage.download.cancelled.description')}
-        action={<ViewerRetry onClick={viewport.download.restart} label={t('stage.download.restart')} />}
-      />
-    )
-  }
-
   return (
     <>
       <IfcViewerCanvasLazy {...viewport.canvasProps} className="size-full" />

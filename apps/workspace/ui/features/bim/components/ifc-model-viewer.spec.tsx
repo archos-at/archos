@@ -84,7 +84,7 @@ describe('IfcModelViewer with WebGPU', () => {
       />
     )
     expect(screen.getByText('Fluchtweg > 40 m')).toBeInTheDocument()
-    expect(screen.getByText('(1)')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('gives a new source its own chance, rather than staying broken', async () => {
@@ -127,8 +127,8 @@ describe('IfcModelViewer with WebGPU', () => {
       expect(warnings.flat().join(' ')).not.toContain('same key')
 
       expect(screen.getAllByText('nicht erfüllt')).toHaveLength(2)
-      expect(screen.getByText('(1)')).toBeInTheDocument()
-      expect(screen.getByText('(2)')).toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument()
 
       rerender(
         <IfcModelViewer
@@ -144,8 +144,8 @@ describe('IfcModelViewer with WebGPU', () => {
           ]}
         />
       )
-      const counts = screen.getAllByText(/^\(\d\)$/).map((node) => node.textContent)
-      expect(counts).toEqual(['(2)', '(1)'])
+      const counts = screen.getAllByText(/^\d$/).map((node) => node.textContent)
+      expect(counts).toEqual(['2', '1'])
     } finally {
       spy.mockRestore()
     }

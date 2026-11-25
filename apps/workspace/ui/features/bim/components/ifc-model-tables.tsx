@@ -136,7 +136,7 @@ export function IfcRoomSchedule({
 
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-muted text-xs">
+              <thead className="bg-desk text-xs">
                 <tr>
                   <th scope="col" className="px-2 py-1.5 text-left font-medium">
                     {t('schedule.room')}
@@ -244,7 +244,7 @@ export function IfcRoomSchedule({
                         </td>
                       </tr>
                     )}
-                    <tr className="border-t bg-muted text-xs font-medium">
+                    <tr className="bg-desk border-t text-xs font-medium">
                       <td className="px-2 py-1">{t('schedule.storeyTotal')}</td>
                       <td className="px-2 py-1 text-right tabular-nums">
                         {format(storey.netFloorArea)}
@@ -378,7 +378,7 @@ export function IfcQuantityTakeoff({
           )}
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-muted text-xs">
+              <thead className="bg-desk text-xs">
                 <tr>
                   <th scope="col" className="px-2 py-1.5 text-left font-medium">
                     {t('takeoff.group')}

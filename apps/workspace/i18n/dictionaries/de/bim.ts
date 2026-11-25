@@ -7,22 +7,22 @@ export const bim: typeof en.bim = {
     compliance: 'Anforderungen',
     structure: 'Struktur',
     quantities: 'Mengen',
-    revisions: 'Revisionen',
+    revisions: 'Fassungen',
     complianceNeedsProject: 'Nur im Projekt verfügbar',
     complianceNeedsProjectDescription:
-      'Die Anforderungen werden gegen Gebäudeklasse und Hauptnutzung geprüft, und beides steht in den Projektdaten. Öffnen Sie das Modell in einem Projekt, um das Prüfbuch zu sehen. Struktur, Mengen und Revisionen stehen hier vollständig zur Verfügung.',
+      'Die Anforderungen werden gegen Gebäudeklasse und Hauptnutzung geprüft, und beides steht in den Projektdaten. Öffnen Sie das Modell in einem Projekt, um das Prüfbuch zu sehen. Struktur, Mengen und Fassungen stehen hier vollständig zur Verfügung.',
   },
   loadFailed: {
     title: 'Modelle konnten nicht geladen werden',
     description:
-      'Die Modellliste dieses Projekts ist gerade nicht abrufbar. Das heißt NICHT, dass kein Modell hinterlegt ist — bitte erneut versuchen.',
+      'Die Modellliste dieses Projekts ist gerade nicht abrufbar. Ein Modell kann trotzdem hinterlegt sein. Bitte erneut versuchen.',
     action: 'Erneut versuchen',
   },
   empty: {
     title: 'Noch kein IFC-Modell',
     description:
       'Laden Sie in der Ablage eine .ifc-Datei hoch. {productName} liest die Struktur ein, macht das Gebäude im Chat abfragbar und zeigt es hier in 3D.',
-    action: 'Zu den Dateien',
+    action: 'Dateien öffnen',
   },
   status: {
     pending: 'In Warteschlange',
@@ -125,13 +125,13 @@ export const bim: typeof en.bim = {
     loadFailed: 'Das Bauteil konnte nicht geladen werden.',
   },
   compare: {
-    title: 'Revisionen vergleichen',
+    title: 'Fassungen vergleichen',
     description:
       'Abgeglichen über die IFC-GlobalId: Ein Re-Export, bei dem sich nur die internen Nummern der Datei ändern, meldet daher keine Änderung.',
     against: 'Vergleichen mit',
     ranAgainst: 'Verglichen mit {model}',
-    sameRevision: 'Beide Namen bezeichnen dieselbe Revision — es gibt nichts zu vergleichen.',
-    none: 'Laden Sie eine zweite Revision hoch, um zu vergleichen.',
+    sameRevision: 'Beide Namen bezeichnen dieselbe Fassung — es gibt nichts zu vergleichen.',
+    none: 'Laden Sie eine zweite Fassung hoch, um zu vergleichen.',
     run: 'Vergleichen',
     running: 'Wird verglichen…',
     failed: 'Der Bauteilvergleich konnte nicht durchgeführt werden.',
@@ -142,8 +142,8 @@ export const bim: typeof en.bim = {
     more: '… {count} weitere Bauteile',
     moreOne: '… ein weiteres Bauteil',
     truncated:
-      'Mindestens eine Revision wurde nur teilweise eingelesen — der Vergleich kann unvollständig sein.',
-    empty: 'Keine Unterschiede zwischen diesen beiden Revisionen.',
+      'Mindestens eine Fassung wurde nur teilweise eingelesen — der Vergleich kann unvollständig sein.',
+    empty: 'Keine Unterschiede zwischen diesen beiden Fassungen.',
   },
   compliance: {
     title: 'Anforderungsprüfung',
@@ -181,16 +181,16 @@ export const bim: typeof en.bim = {
     },
     confirmed: {
       by: 'Bestätigt von {who} am {when}',
-      stale: 'Ältere Revision',
+      stale: 'Ältere Fassung',
       staleHint:
-        'Diese Bestätigung wurde gegen eine frühere Revision des Modells abgegeben. Sie bleibt als Eintrag erhalten, gilt aber nicht für die aktuelle Revision.',
-      failed: 'Die Bestätigung konnte nicht gespeichert werden. Sie ist NICHT hinterlegt — bitte erneut versuchen.',
+        'Diese Bestätigung wurde gegen eine frühere Fassung des Modells abgegeben. Sie bleibt als Eintrag erhalten, gilt aber nicht für die aktuelle Fassung.',
+      failed: 'Die Bestätigung konnte nicht gespeichert werden. Sie ist nicht hinterlegt. Bitte erneut versuchen.',
       readFailed:
         'Die zu diesem Projekt erfassten Bestätigungen konnten nicht gelesen werden — vorhandene werden hier daher nicht angezeigt. Eine Anforderung unten kann bereits bestätigt sein.',
       denied:
         'Sie haben Lesezugriff auf dieses Projekt — Bestätigungen werden angezeigt, können aber nicht hinterlegt oder zurückgezogen werden. Jemand mit Bearbeitungsrecht kann das eintragen.',
       confirm: 'Manuell bestätigen',
-      reconfirm: 'Für diese Revision erneut bestätigen',
+      reconfirm: 'Für diese Fassung erneut bestätigen',
       withdraw: 'Zurückziehen',
       withdrawConfirm: 'Diese Bestätigung samt Notiz löschen?',
       save: 'Bestätigung speichern',
@@ -218,15 +218,15 @@ export const bim: typeof en.bim = {
     },
   },
   complianceDiff: {
-    title: 'Was diese Revision verändert hat',
+    title: 'Was diese Fassung verändert hat',
     description:
-      'Führt die Anforderungsprüfung auf beiden Revisionen aus und listet nur, was sich geändert hat — gegenüber {previous}.',
+      'Führt die Anforderungsprüfung auf beiden Fassungen aus und listet nur, was sich geändert hat — gegenüber {previous}.',
     run: 'Anforderungsstatus vergleichen',
     running: 'Wird verglichen…',
     failed: 'Der Statusvergleich konnte nicht durchgeführt werden.',
-    unchanged: 'Keine Anforderung hat ihren Status zwischen diesen beiden Revisionen geändert.',
+    unchanged: 'Keine Anforderung hat ihren Status zwischen diesen beiden Fassungen geändert.',
     truncated:
-      'Mindestens eine Revision wurde nur teilweise eingelesen — dieser Vergleich deckt jeweils nur einen Teil des Gebäudes ab. „Unverändert“ heißt hier nicht, dass sich nichts geändert hat.',
+      'Mindestens eine Fassung wurde nur teilweise eingelesen — dieser Vergleich deckt jeweils nur einen Teil des Gebäudes ab. „Unverändert“ heißt hier nicht, dass sich nichts geändert hat.',
     counts:
       '{beforePassed}/{beforeFailed}/{beforeUndecidable} → {afterPassed}/{afterFailed}/{afterUndecidable} erfüllt/nicht erfüllt/nicht entscheidbar',
     trend: {
@@ -308,13 +308,13 @@ export const bim: typeof en.bim = {
     },
   },
   timeline: {
-    title: 'Revisionen',
+    title: 'Fassungen',
     description:
-      '{count, plural, one {# Revision} other {# Revisionen}} von {name}, neueste zuerst.',
-    revision: 'Revision {index}',
+      '{count, plural, one {# Fassung} other {# Fassungen}} von {name}, neueste zuerst.',
+    revision: 'Fassung {index}',
     latest: 'Aktuell',
     compare: 'Mit {previous} vergleichen',
-    noDelta: 'Für diese Revision liegen keine vergleichbaren Kennzahlen vor.',
+    noDelta: 'Für diese Fassung liegen keine vergleichbaren Kennzahlen vor.',
     delta: {
       elements: 'Bauteile',
       spaces: 'Räume',
@@ -338,7 +338,7 @@ export const bim: typeof en.bim = {
     home: 'Ganzes Modell einpassen',
     back: 'Letzte Änderung rückgängig machen',
     views: 'Ansicht',
-    advanced: 'Details & Prüfung',
+    advanced: 'Details und Prüfung',
     models: 'Modelle',
     levels: 'Geschoße',
     allLevels: 'Alle Geschoße',
@@ -355,7 +355,7 @@ export const bim: typeof en.bim = {
       'Diese Datei konnte nicht eingelesen werden. Bitte exportieren Sie sie erneut aus Ihrem CAD und laden Sie sie noch einmal hoch.',
     loading: 'Modell wird geladen…',
     building: 'Gebäude wird aufgebaut…',
-    ready: 'Das Modell ist da',
+    ready: 'Modell geladen',
     tool: {
       fit: 'Einpassen',
       more: 'Mehr',
@@ -423,9 +423,9 @@ export const bim: typeof en.bim = {
       horizontal: 'horizontal',
       vertical: 'vertikal',
       first: 'Ersten Punkt anklicken',
-      second: 'Klicken Sie auf den zweiten Punkt · Esc bricht ab',
+      second: 'Zweiten Punkt anklicken · Esc bricht ab',
       firstTouch: 'Ersten Punkt antippen',
-      secondTouch: 'Zweiten Punkt antippen — Messen beendet die Messung',
+      secondTouch: 'Zweiten Punkt antippen · „Messen“ beendet',
       clear: 'Messungen löschen',
       count: '{count} Messungen',
       countOne: '1 Messung',
@@ -461,7 +461,7 @@ export const bim: typeof en.bim = {
       'Dieses Modell konnte nicht eingelesen werden. Die Datei selbst ist unverändert und kann weiterhin heruntergeladen werden.',
     noModel: 'Zu dieser Datei wurde kein Modell eingelesen.',
     loadFailed:
-      'Die Modelle dieses Projekts sind gerade nicht abrufbar. Das heißt NICHT, dass zu dieser Datei kein Modell vorliegt.',
+      'Die Modelle dieses Projekts sind gerade nicht abrufbar. Zu dieser Datei kann trotzdem ein Modell vorliegen.',
     sourceFailed:
       'Die 3D-Vorschau konnte nicht geladen werden. Das Modell selbst ist eingelesen — Struktur, Bauteile und Mengen stehen im Modellbereich zur Verfügung.',
     noWebGpu:

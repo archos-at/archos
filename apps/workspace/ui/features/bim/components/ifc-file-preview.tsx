@@ -3,6 +3,8 @@
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { EmptyStateDisc } from '@/components/ui/empty-state'
 import { ArrowUpRight, Boxes } from 'lucide-react'
 import { useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
@@ -119,6 +121,7 @@ export function IfcFilePreview({
         sourceUrl={source.data}
         onRetry={source.reload}
         elements={elements.data ?? NO_ELEMENTS}
+        frame="stage"
         className="min-h-[220px] flex-1"
       />
       {/* Offered on every surface now, project or Archiv — see the header. */}
@@ -143,12 +146,12 @@ function PreviewNote({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center',
+        'flex flex-col items-center justify-center gap-3 p-6 text-center',
         'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none',
         className
       )}
     >
-      <Boxes className="size-6 text-muted-foreground" aria-hidden />
+      <EmptyStateDisc icon={Boxes} />
       <p className="max-w-prose text-sm text-muted-foreground text-balance">{text}</p>
       {href && label && <OpenInWorkspace href={href} label={label} />}
     </div>
@@ -157,13 +160,12 @@ function PreviewNote({
 
 function OpenInWorkspace({ href, label }: { href: string; label: string }): JSX.Element {
   return (
-    <Link
-      href={href}
-      className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors duration-quick ease-out hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-target"
-    >
-      {label}
-      <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
-    </Link>
+    <Button asChild variant="secondary" size="sm" className="self-center">
+      <Link href={href}>
+        {label}
+        <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
+      </Link>
+    </Button>
   )
 }
 

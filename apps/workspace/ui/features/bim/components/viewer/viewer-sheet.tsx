@@ -140,7 +140,7 @@ function BottomSheet({
   }
 
   const bar = (
-    <span aria-hidden="true" className="bg-foreground/20 mx-auto mb-2 block h-1 w-9 rounded-full" />
+    <span aria-hidden="true" className="bg-edge mx-auto mb-2 block h-1 w-9 rounded-full" />
   )
   const titleClass = 'block text-sm font-medium text-foreground line-clamp-2 break-words'
   const subtitleNode = subtitle && (
@@ -197,7 +197,7 @@ function BottomSheet({
           type="button"
           variant="ghost"
           size="icon"
-          className="mr-1 mt-1 shrink-0 rounded-[10px]"
+          className="mr-1 mt-1 shrink-0 rounded-control"
           onClick={onClose}
           aria-label={closeLabel}
         >

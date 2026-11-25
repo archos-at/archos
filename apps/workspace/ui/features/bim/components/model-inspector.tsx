@@ -80,9 +80,9 @@ export function ModelInspector({
           {onIsolate && (
             <Button
               aria-pressed={isolated}
-              variant={isolated ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
-              className="flex-1 justify-start gap-2"
+              className="aria-pressed:bg-accent aria-pressed:text-foreground flex-1 justify-start gap-2"
               onClick={onIsolate}
             >
               <Scan className="size-4" aria-hidden="true" />

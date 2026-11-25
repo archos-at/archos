@@ -27,8 +27,8 @@ export function ModelStageView({ controller }: { controller: ModelStageControlle
                 colour so the strips beside the notch read as more stage rather
                 than as a frame around it.
               */
-              'bg-muted sm:h-[100dvh] sm:max-h-[100dvh] sm:w-full sm:max-w-full sm:rounded-none sm:border-0'
-            : 'sm:h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] sm:rounded-3xl'
+              'bg-desk sm:h-[100dvh] sm:max-h-[100dvh] sm:w-full sm:max-w-full sm:rounded-none sm:border-0'
+            : 'sm:h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] sm:rounded-overlay'
         )}
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
@@ -56,7 +56,7 @@ export function ModelStageView({ controller }: { controller: ModelStageControlle
         </DialogTitle>
 
         <div
-          className="group/stage bg-muted relative min-h-0 flex-1"
+          className="group/stage bg-desk relative min-h-0 flex-1"
           data-sheet={layout === 'phone' && compactSheet ? 'open' : undefined}
         >
           <ModelStageCanvasLayer controller={controller} />
