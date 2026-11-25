@@ -1,0 +1,28 @@
+name: CI runner smoke
+
+on:
+  push:
+    branches: [tb/ci-runner-smoke]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke (dev-cluster)
+    runs-on: dev-cluster
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Runner
+        run: |
+          id -u
+          nproc
+          sudo -n true 2>/dev/null && echo "sudo works" || echo "no sudo"
+          command -v docker >/dev/null && echo "docker cli present" || echo "no docker cli"
+          ls /var/run/secrets/kubernetes.io/serviceaccount 2>/dev/null && echo "service-account token present" || echo "no service-account token"
+          for t in git node bun uv python3 semgrep gitleaks trivy qdrant go task; do printf '%s: ' "$t"; command -v "$t" >/dev/null && echo yes || echo missing; done
+      - name: Qdrant from its binary
+        run: scripts/qdrant-test-server.sh --exec bash -c 'curl -fsS "$QDRANT_TEST_URL/healthz"'
