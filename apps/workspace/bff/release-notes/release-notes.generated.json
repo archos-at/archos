@@ -788,6 +788,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "In a chat outside a project, ARCHOS searches the OIB guidelines, the office's archive and your own files again. Since a recent change, a question asked in such a chat could come back with no sources at all.",
+            "de": "In einem Chat außerhalb eines Projekts durchsucht ARCHOS erneut die OIB-Richtlinien, das Büroarchiv und Ihre eigenen Dateien. Seit einer kürzlichen Änderung kann es vorkommen, dass eine in einem solchen Chat gestellte Frage ganz ohne Quellen beantwortet wird."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",
