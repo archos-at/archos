@@ -40,6 +40,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
   const getUserConversations = useChatStore((s) => s.getUserConversations)
 
   const initialSyncDone = useRef(false)
+  const openingFromUrl = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated || !currentUserId || !searchParams || !pathname || initialSyncDone.current)
@@ -63,6 +64,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
     const sessionExists = userConversations.some((c) => c.id === sessionId)
 
     if (sessionExists) {
+      openingFromUrl.current = sessionId
       selectConversation(sessionId)
     } else if (!serverConversationsLoaded) {
       return
@@ -93,6 +95,8 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
 
     const urlSessionId = searchParams.get('session')
     const currentSessionId = currentConversationId
+    if (currentSessionId) openingFromUrl.current = null
+    if (!currentSessionId && urlSessionId !== null && urlSessionId === openingFromUrl.current) return
 
     if (currentSessionId && currentSessionId !== urlSessionId) {
       const newParams = new URLSearchParams(searchParams.toString())

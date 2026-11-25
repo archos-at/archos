@@ -23,6 +23,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { ViewerActionHost } from '@/features/documents/components/viewer-action-host'
 import { useComposerMetrics } from '../hooks/use-composer-metrics'
+import { useChatStarted, useLinkedChatPending } from '../hooks/use-chat-started'
 import { useSessionRows } from '../hooks/use-session-rows'
 import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { chatSideOf } from '@/components/shell/rail-mode'
@@ -48,7 +49,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
     currentConversationTitle,
     currentConversationLocked,
     currentConversationPartlyReadable,
-    messageCount,
     currentUserId,
     projectId,
   } = useChatStore(
@@ -57,12 +57,13 @@ export const MainLayout: FC<MainLayoutProps> = ({
       currentConversationTitle: s.currentConversation?.title,
       currentConversationLocked: s.currentConversation?.contentLocked === true,
       currentConversationPartlyReadable: s.currentConversation?.withheldFrom !== undefined,
-      messageCount: s.currentConversation?.messages?.length ?? 0,
       currentUserId: s.currentUserId,
       projectId: s.projectId,
     }))
   )
-  const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty')
+  const linkedChatPending = useLinkedChatPending()
+  const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty') && !linkedChatPending
+  const chatStarted = useChatStarted()
   const routeSide = chatSideOf(usePathname() ?? '')
   const sessions = useSessionRows(routeSide)
   const chatSide = routeSide === undefined ? (projectId ?? null) : routeSide
@@ -168,7 +169,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
           <ChatToolbar
             sessionTitle={currentConversationTitle}
             onNewSession={handleNewSession}
-            isChatStarted={messageCount > 0}
+            isChatStarted={chatStarted}
             onDeleteSession={handleDeleteSession}
             conversationId={currentConversationId ?? null}
             isCollaborationEnabled={canCollaborate}
@@ -248,9 +249,9 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <ConversationPrivacyLine
                   conversationId={currentConversationId ?? null}
                   canCollaborate={canCollaborate}
-                  statesTemporary={messageCount > 0}
+                  statesTemporary={chatStarted}
                 />
-                {messageCount === 0 && <NewChatMailLine projectId={projectId ?? null} />}
+                {!chatStarted && <NewChatMailLine projectId={projectId ?? null} />}
               </motion.div>
             </>
           )}

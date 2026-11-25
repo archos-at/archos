@@ -72,6 +72,12 @@ function mockChatState() {
 }
 
 const mockTemporary = vi.hoisted(() => ({ pressed: false }))
+let mockPathname: string | null = null
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  usePathname: () => mockPathname,
+}))
+
 vi.mock('@/features/chat/conversation-privacy', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/chat/conversation-privacy')>()),
   useTemporarySwitch: () => ({ pressed: mockTemporary.pressed, pending: false, statement: null, sendBlocked: false }),
@@ -329,6 +335,22 @@ describe('InputArea', () => {
       expect(screen.queryByPlaceholderText('Sign in to start working')).not.toBeInTheDocument()
     } finally {
       authState.isLoading = false
+    }
+  })
+
+  test.each([
+    ['/app/projects/p-1/chat', `Ask ${PRODUCT_NAME} about this project …`],
+    ['/app/personal/chat', `Ask ${PRODUCT_NAME} anything …`],
+  ])('a new chat on %s words its placeholder for its side from the first paint, before the store knows the side', (path, wording) => {
+    const before = mockCurrentSessionId
+    mockCurrentSessionId = null
+    mockPathname = path
+    try {
+      render(<InputArea isAuthenticated={true} />)
+      expect(screen.getByPlaceholderText(wording)).toBeInTheDocument()
+    } finally {
+      mockCurrentSessionId = before
+      mockPathname = null
     }
   })
 

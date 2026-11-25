@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A chat opened from a link or a fresh page load no longer jumps while it
+    loads: the chat bar, the input field and the lines below it stand where
+    they stay from the start.

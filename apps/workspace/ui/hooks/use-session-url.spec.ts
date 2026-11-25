@@ -148,6 +148,19 @@ describe('useSessionUrl', () => {
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
     })
 
+    test('keeps a linked session in the URL while the store opens it, so the chat never blinks back to a new one', () => {
+      mockSearchParams = new URLSearchParams('session=session-123')
+      mockChatStore.currentUserId = 'user-1'
+      mockChatStore.getUserConversations.mockReturnValue([conversation({ id: 'session-123' })])
+
+      const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      mockChatStore.currentConversation = conversation({ id: 'session-123' })
+      rerender()
+
+      expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
+      expect(replacedUrl).not.toHaveBeenCalled()
+    })
+
     test('clears invalid session from URL', async () => {
       mockSearchParams = new URLSearchParams('session=invalid-session')
       mockChatStore.currentUserId = 'user-1'
