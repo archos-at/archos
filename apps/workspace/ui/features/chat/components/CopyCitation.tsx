@@ -1,7 +1,7 @@
 'use client'
 
 import { type FC, type ReactNode } from 'react'
-import { Check, Copy, Quote } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimatePresence, motion, useIconSwapTransition } from '@/components/motion'
 import { cn } from '@/lib/utils'
@@ -12,12 +12,9 @@ import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuItemText,
   DropdownMenuLabel,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CITATION_FORMATS, renderCitations, type CitationFormat } from '../lib/citation-export'
 import { toTechnicalText, toQuoteList } from '../lib/source-citation'
@@ -130,13 +127,15 @@ export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citati
   )
 }
 
-export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations }) => {
+/** Copy every source of an answer in one of the interchange formats; `copied` is the receipt. */
+export const useCopyCitations = (
+  citations: CitationRef[]
+): { copied: boolean; copy: (format: CitationFormat) => Promise<void> } => {
   const t = useTranslations(chatCopy)
-  const swap = useIconSwapTransition()
   const styles = useCitationStyles()
   const [copied, flashCopied] = useTransientFlag()
 
-  const handleCopy = async (format: CitationFormat): Promise<void> => {
+  const copy = async (format: CitationFormat): Promise<void> => {
     let text: string
     try {
       text = await renderCitations(citations, format, new Date(), styles)
@@ -147,46 +146,27 @@ export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations 
     await copyText(text, flashCopied, t('answerSources.copyFailed'))
   }
 
+  return { copied, copy }
+}
+
+/** The „Alle Quellen kopieren als" section of a dropdown menu. */
+export const CitationFormatItems: FC<{ onPick: (format: CitationFormat) => void }> = ({
+  onPick,
+}) => {
+  const t = useTranslations(chatCopy)
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {/* The label stays „Alle zitieren": the receipt is the icon's check
-            and the announcement, because the copy happened in a menu that has
-            already closed and the trigger is what the eye returns to. */}
-        <button type="button" className={COPY_ACTION_CLASSES}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={copied ? 'check' : 'quote'}
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1, transition: swap.enter }}
-              exit={{ opacity: 0, scale: 0.6, transition: swap.exit }}
-              className="inline-flex"
-              aria-hidden="true"
-            >
-              {copied ? (
-                <Check aria-hidden="true" className="size-3" />
-              ) : (
-                <Quote aria-hidden="true" className="size-3" />
-              )}
-            </motion.span>
-          </AnimatePresence>
-          {t('answerSources.citeAll')}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>
-          <SectionLabel>{t('answerSources.citeAsLabel')}</SectionLabel>
-        </DropdownMenuLabel>
-        {CITATION_FORMATS.map((format) => (
-          <DropdownMenuItem key={format} onSelect={() => void handleCopy(format)}>
-            <DropdownMenuItemText
-              title={t(`answerSources.formats.${format}.label`)}
-              hint={t(`answerSources.formats.${format}.hint`)}
-            />
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-      <CopiedAnnouncement copied={copied} />
-    </DropdownMenu>
+    <>
+      <DropdownMenuLabel>
+        <SectionLabel>{t('answerSources.citeAsLabel')}</SectionLabel>
+      </DropdownMenuLabel>
+      {CITATION_FORMATS.map((format) => (
+        <DropdownMenuItem key={format} onSelect={() => onPick(format)}>
+          <DropdownMenuItemText
+            title={t(`answerSources.formats.${format}.label`)}
+            hint={t(`answerSources.formats.${format}.hint`)}
+          />
+        </DropdownMenuItem>
+      ))}
+    </>
   )
 }

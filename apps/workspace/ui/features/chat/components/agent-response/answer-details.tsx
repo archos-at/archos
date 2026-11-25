@@ -1,7 +1,8 @@
 import { type ReactNode, memo, useState } from 'react'
 
 import { cn } from '@/lib/utils'
-import { ChevronDown } from 'lucide-react'
+import { Info } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useLocale, useTranslations } from '@/i18n'
 import { AnswerCost } from '../AnswerCost'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -37,6 +38,7 @@ export const AnswerDetails = memo(function AnswerDetails({
   answerDurationMs,
   conversationId,
   messageId,
+  lead,
   before,
   beside,
   after,
@@ -60,6 +62,7 @@ export const AnswerDetails = memo(function AnswerDetails({
   answerDurationMs?: number
   conversationId?: string | null
   messageId?: string
+  lead?: ReactNode
   before?: ReactNode
   beside?: ReactNode
   after?: ReactNode
@@ -76,44 +79,48 @@ export const AnswerDetails = memo(function AnswerDetails({
   const [attentionAtMount] = useState(needsAttention)
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="flex w-full flex-col">
-      {/* One line: copy, the trigger, and feedback at the far end. The
-          Collapsible is full-width so its content can open below; with the
-          trigger alone inside it, it took a line of its own under the rest. */}
-      <div className="flex min-h-6 flex-wrap items-center gap-2">
-        {before}
-        <CollapsibleTrigger
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 touch-target duration-quick flex items-center gap-1.5 self-start rounded-control text-xs leading-relaxed transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:self-center"
-          aria-label={t(
-            needsAttention ? 'answerDetails.triggerAriaAttention' : 'answerDetails.triggerAria'
-          )}
-          data-testid="answer-details-trigger"
-        >
-          <span>{t('answerDetails.trigger')}</span>
-          <span className="relative inline-flex">
-            <ChevronDown
-              className={`duration-quick size-3 shrink-0 transition-transform ease-out motion-reduce:transition-none${open ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-            {needsAttention && (
-              <span
-                aria-hidden="true"
-                data-testid="answer-details-attention"
-                className={cn(
-                  'text-feedback-warning absolute top-0 -right-2 size-1.5 rounded-full bg-current',
-                  !attentionAtMount &&
-                    'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none'
-                )}
-              />
-            )}
-          </span>
-        </CollapsibleTrigger>
+      {/* One line: what the answer rests on at the start, then what to do
+          with it, then the vote. The Collapsible is full-width so its content
+          opens below the whole line. */}
+      <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1.5">
+        {lead}
         {beside}
-        {after ? (
-          <>
-            <span className="flex-1" aria-hidden="true" />
-            {after}
-          </>
-        ) : null}
+        <div className="-mr-[5px] ml-auto flex flex-wrap items-center justify-end gap-0.5 pointer-coarse:mr-0">
+          {before}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CollapsibleTrigger
+                className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 duration-quick relative inline-flex size-6 items-center justify-center rounded-control transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none pointer-coarse:size-11"
+                aria-label={t(
+                  needsAttention
+                    ? 'answerDetails.triggerAriaAttention'
+                    : 'answerDetails.triggerAria'
+                )}
+                data-testid="answer-details-trigger"
+              >
+                <Info className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
+                {needsAttention && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="answer-details-attention"
+                    className={cn(
+                      'text-feedback-warning absolute top-1 right-1 size-1.5 rounded-full bg-current pointer-coarse:top-2.5 pointer-coarse:right-2.5',
+                      !attentionAtMount &&
+                        'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none'
+                    )}
+                  />
+                )}
+              </CollapsibleTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{t('answerDetails.trigger')}</TooltipContent>
+          </Tooltip>
+          {after ? (
+            <>
+              <span className="bg-border mx-1 h-3.5 w-px" aria-hidden="true" />
+              {after}
+            </>
+          ) : null}
+        </div>
       </div>
       <CollapsibleContent className="mt-1.5">
         <div className="flex flex-col gap-2">

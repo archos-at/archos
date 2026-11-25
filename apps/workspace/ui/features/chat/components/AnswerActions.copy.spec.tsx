@@ -62,12 +62,13 @@ describe('AgentResponse', () => {
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
     })
 
-    test('the citations-resolved action appears only when the answer has sources', () => {
+    test('the copy menu replaces the plain copy only when the answer has sources', () => {
       const { rerender } = render(<AgentResponse content="Die Antwort." />)
-      expect(screen.queryByRole('button', { name: /source references/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
 
       rerender(<AgentResponse content="Die Antwort [1]." citations={citations} />)
-      expect(screen.getByRole('button', { name: /source references/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
     })
 
     test('an answer that is still arriving cannot be copied', () => {

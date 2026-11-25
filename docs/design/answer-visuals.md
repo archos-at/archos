@@ -124,6 +124,7 @@ dark at 900px and 390px. What was wrong, and what became of it:
 | „Schematisch — ohne Maßangabe." under a flowchart | A disclaimer about measurements on a drawing with no geometry | Only on Mermaid's own SVG fallback and in a filed copy |
 | „Skizze" on the acoustic and energy cards | Neither has a sketch: bars and a label scale | „Prüfung" |
 | Answer footer on three lines | Copy, „Antwortdetails" and feedback each took a line | One line; the details open full-width below it |
+| Answer footer on two rows, 85px | Sources and actions on separate rows with different left edges; three ways to copy side by side („Zitieren", the book icon, Word); „War das hilfreich?" took a third of the row | One row, 37px: sources at the start scroll sideways with a fade at whichever edge has more and a count that unfolds them all; one copy menu (with sources, answer only, cite as …); „Antwortdetails" is an ⓘ with the warning dot; the question is the thumbs' tooltip |
 
 What was looked at and deliberately kept, so it is not relitigated without
 new evidence:

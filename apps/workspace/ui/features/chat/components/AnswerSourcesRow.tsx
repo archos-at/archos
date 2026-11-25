@@ -3,6 +3,7 @@
 import { useRef, useState, type CSSProperties, type FC } from 'react'
 import { useHeightGlide } from '@/components/motion/height-glide'
 import { Globe, Lock } from 'lucide-react'
+import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -13,13 +14,11 @@ import {
   citationNumbers,
   documentPages,
   refHost,
-  type CitationRef,
   type CitedDocument,
 } from '../lib/citations'
 import { useChatStore } from '../store'
 import { isPrecedent } from '../lib/precedent'
 import { SourcePreviewChip } from './SourcePreview'
-import { CopyCitationsMenu } from './CopyCitation'
 import { useCitationScope } from './CitationScope'
 import { useCurrentProject } from '@/features/projects/lib/current-project'
 
@@ -29,6 +28,8 @@ interface AnswerSourcesRowProps {
   routingDecision?: 'meta' | 'shallow' | 'deep' | 'error'
   isStreaming?: boolean
   withDivider?: boolean
+  /** `strip`: one line that scrolls sideways, for the answer footer's single row. */
+  layout?: 'wrap' | 'strip'
 }
 
 const MAX_ANSWER_SOURCES = 8
@@ -81,6 +82,7 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
   routingDecision,
   isStreaming = false,
   withDivider = true,
+  layout = 'wrap',
 }) => {
   const t = useTranslations(chatCopy)
   const metaFor = useSourceMeta()
@@ -88,6 +90,8 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
   const scope = useCitationScope()
 
   const [expanded, setExpanded] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
+  const strip = layout === 'strip'
   const rowRef = useRef<HTMLDivElement>(null)
   useHeightGlide(rowRef, expanded)
   const [arrivesLive] = useState(isStreaming)
@@ -99,8 +103,8 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
   const rest = documents.filter((doc) => citationNumbers(doc).length === 0)
   const folded = Math.max(0, MAX_ANSWER_SOURCES - numbered.length)
   const collapsed = [...numbered, ...rest.slice(0, folded)]
-  const shown = expanded ? documents : collapsed
-  const revealedIds = expanded ? new Set(documents.filter((doc) => !collapsed.includes(doc)).map((doc) => doc.id)) : null
+  const shown = expanded || strip ? documents : collapsed
+  const revealedIds = expanded && !strip ? new Set(documents.filter((doc) => !collapsed.includes(doc)).map((doc) => doc.id)) : null
   const hidden = documents.length - shown.length
   const display: CitedDocument[] = shown
 
@@ -129,18 +133,7 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
     )
   }
 
-  const refs: CitationRef[] = documents.map((doc) => ({ document: doc }))
-
-  return (
-    <div
-      ref={rowRef}
-      className={cn('flex min-h-6 flex-wrap items-center gap-1.5', withDivider && 'border-t pt-2')}
-    >
-      <SectionLabel>{t('answerSources.label')}</SectionLabel>
-      {/* The list holds only the sources; the fold button and the copy menu
-          beside it are not list items (axe aria-required-children). */}
-      <div role="list" aria-label={t('answerSources.ariaLabel')} className="contents">
-      {display.map((doc) => {
+  const chips = display.map((doc) => {
         const numbers = citationNumbers(doc)
         const isFocused = scope?.focused != null && numbers.includes(scope.focused)
         return (
@@ -190,7 +183,61 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
             </span>
           </span>
         )
-      })}
+  })
+
+  if (strip) {
+    return (
+      <div
+        ref={rowRef}
+        className={cn('flex min-w-0 items-center gap-1.5', expanded && 'flex-wrap', entrance)}
+      >
+        <SectionLabel>{t('answerSources.label')}</SectionLabel>
+        {(overflowing || expanded) && (
+          <button
+            data-attr="answer-sources-count"
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            aria-label={
+              expanded
+                ? t('answerSources.less')
+                : t('answerSources.showAll', { count: documents.length })
+            }
+            data-testid="answer-sources-count"
+            className="rounded-control text-muted-foreground duration-quick hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 inline-flex h-5 min-w-5 shrink-0 items-center justify-center px-1 text-xs font-medium tabular-nums transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          >
+            {documents.length}
+          </button>
+        )}
+        {expanded ? (
+          <div role="list" aria-label={t('answerSources.ariaLabel')} className="contents">
+            {chips}
+          </div>
+        ) : (
+          <HorizontalScroll
+            aria-label={t('answerSources.ariaLabel')}
+            onOverflowChange={setOverflowing}
+            className="scrollbar-hide min-w-0 flex-1"
+          >
+            <div role="list" aria-label={t('answerSources.ariaLabel')} className="flex gap-1.5 [&>*]:shrink-0">
+              {chips}
+            </div>
+          </HorizontalScroll>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={rowRef}
+      className={cn('flex min-h-6 flex-wrap items-center gap-1.5', withDivider && 'border-t pt-2')}
+    >
+      <SectionLabel>{t('answerSources.label')}</SectionLabel>
+      {/* The list holds only the sources; the fold button beside it is not a
+          list item (axe aria-required-children). */}
+      <div role="list" aria-label={t('answerSources.ariaLabel')} className="contents">
+        {chips}
       </div>
       {(hidden > 0 || expanded) && documents.length > MAX_ANSWER_SOURCES && (
         <button data-attr="answer-sources-more"
@@ -203,9 +250,6 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
           {expanded ? t('answerSources.less') : t('answerSources.more', { count: hidden })}
         </button>
       )}
-      {/* Every source of this answer as a citation, in the format the user's
-          own tooling reads. Quiet, at the end of the row. */}
-      <CopyCitationsMenu citations={refs} />
     </div>
   )
 }

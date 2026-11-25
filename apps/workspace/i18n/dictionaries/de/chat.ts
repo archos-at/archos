@@ -216,6 +216,7 @@ export const chat: typeof en.chat = {
     precedentProject: '{name} · {status}',
     projectStatus: { active: 'laufend', paused: 'ruhend', closed: 'abgeschlossen' },
     more: '+{count} weitere',
+    showAll: 'Alle {count} Quellen zeigen',
     less: 'Weniger anzeigen',
     clause: 'Pkt. {clause}',
     clausePage: 'Pkt. {clause} · S. {page}',
@@ -269,6 +270,9 @@ export const chat: typeof en.chat = {
   answerActions: {
     copy: 'Antwort kopieren',
     copyWithSources: 'Antwort mit ausgeschriebenen Quellenangaben kopieren',
+    copyMenu: 'Kopieren',
+    copyMenuWithSources: 'Mit Quellen',
+    copyMenuPlain: 'Nur Antwort',
     copied: 'Kopiert',
     copyFailed: 'Die Antwort konnte nicht kopiert werden.',
     sourcesHeading: 'Quellen',

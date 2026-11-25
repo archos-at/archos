@@ -65,6 +65,15 @@ describe('AnswerSourcesRow past the cap', () => {
     expect(screen.getByText('Unterlage 11')).toBeInTheDocument()
   })
 
+  test('the footer strip shows every source on one scrolling line, with no fold and no cite menu', () => {
+    const docs = Array.from({ length: 11 }, (_, i) => unnumbered(i + 1))
+    render(<AnswerSourcesRow documents={docs} anchorPrefix="test-" layout="strip" />)
+    expect(screen.getByText('Unterlage 11')).toBeInTheDocument()
+    expect(screen.queryByTestId('answer-sources-more')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /cite/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: /sources this answer is backed by/i }).closest('.overflow-x-auto')).not.toBeNull()
+  })
+
   test('a row within the cap offers no fold', () => {
     render(<AnswerSourcesRow documents={[oibDoc, risDoc]} anchorPrefix="test-" />)
     expect(screen.queryByTestId('answer-sources-more')).not.toBeInTheDocument()

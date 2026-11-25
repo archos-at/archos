@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState, useSyncExternalStore, type FC } from 'react'
-import { BookMarked, Check, Copy, FileDown, Share } from 'lucide-react'
+import { Check, Copy, FileDown, Share } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimatePresence, motion, useIconSwapTransition } from '@/components/motion'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
@@ -9,6 +9,13 @@ import { PRESSABLE } from '@/components/ui/press'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
@@ -22,8 +29,9 @@ import {
   answerMarkdownWithSources,
   hasCopyableSources,
 } from '../lib/answer-markdown'
-import type { CitedDocument } from '../lib/citations'
+import { answerDocuments, type CitationRef, type CitedDocument } from '../lib/citations'
 import { answerShareUrl, canShareNatively, shareAnswer } from '../lib/share-answer'
+import { CitationFormatItems, CopiedAnnouncement, useCopyCitations } from './CopyCitation'
 
 export interface AnswerActionsProps {
   content: string
@@ -120,6 +128,10 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
   }, [copy, body, documents, t, strip])
 
   const withSources = hasCopyableSources(documents)
+  const citationRefs = useMemo(
+    (): CitationRef[] => answerDocuments(documents).map((document) => ({ document })),
+    [documents]
+  )
   const nativeShare = useNativeShare()
 
   const handleShare = useCallback(async (): Promise<void> => {
@@ -150,9 +162,10 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
   const canExport = Boolean(conversationId && messageId)
   const showPlainCopy = !withSources
   const copyLabel = copied === 'plain' ? t('answerActions.copied') : t('answerActions.copy')
-  const copyWithSourcesLabel =
-    copied === 'withSources' ? t('answerActions.copied') : t('answerActions.copyWithSources')
   const downloadLabel = t('answerActions.downloadDocx')
+  const citations = useCopyCitations(citationRefs)
+  const menuCopied = copied !== null || citations.copied
+  const copyMenuLabel = menuCopied ? t('answerActions.copied') : t('answerActions.copyMenu')
 
   return (
     <div
@@ -195,34 +208,49 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
         </Tooltip>
       )}
       {withSources && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button data-attr="chat-copy-with-sources"
-              type="button"
-              onClick={handleCopyWithSources}
-              aria-label={copyWithSourcesLabel}
-              className={actionButton}
-            >
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={copied === 'withSources' ? 'check' : 'copy'}
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1, transition: swap.enter }}
-                  exit={{ opacity: 0, scale: 0.6, transition: swap.exit }}
-                  className="inline-flex"
-                  aria-hidden="true"
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <button
+                  data-attr="chat-copy-menu"
+                  type="button"
+                  aria-label={copyMenuLabel}
+                  className={actionButton}
                 >
-                  {copied === 'withSources' ? (
-                    <Check className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
-                  ) : (
-                    <BookMarked className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
-                  )}
-                </motion.span>
-              </AnimatePresence>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{copyWithSourcesLabel}</TooltipContent>
-        </Tooltip>
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                      key={menuCopied ? 'check' : 'copy'}
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1, transition: swap.enter }}
+                      exit={{ opacity: 0, scale: 0.6, transition: swap.exit }}
+                      className="inline-flex"
+                      aria-hidden="true"
+                    >
+                      {menuCopied ? (
+                        <Check className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
+                      )}
+                    </motion.span>
+                  </AnimatePresence>
+                </button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{copyMenuLabel}</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuItem data-attr="chat-copy-with-sources" onSelect={handleCopyWithSources}>
+              {t('answerActions.copyMenuWithSources')}
+            </DropdownMenuItem>
+            <DropdownMenuItem data-attr="chat-copy-answer" onSelect={handleCopyAnswer}>
+              {t('answerActions.copyMenuPlain')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <CitationFormatItems onPick={(format) => void citations.copy(format)} />
+          </DropdownMenuContent>
+          <CopiedAnnouncement copied={menuCopied} />
+        </DropdownMenu>
       )}
       {nativeShare && (
         <button data-attr="answer-share"

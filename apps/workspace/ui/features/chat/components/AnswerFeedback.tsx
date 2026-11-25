@@ -10,6 +10,7 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -120,71 +121,68 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
       inert={pending}
       aria-hidden={pending || undefined}
     >
-      {/* One slot, two states: the question and the receipt are stacked in the
-          same grid cell and cross-fade, so the slot is as wide as the wider of
-          the two from the first frame and the thumbs beside it never move. */}
-      <span className="grid items-center">
-        <span
-          aria-hidden={verdict !== null || undefined}
-          className={cn(
-            'text-muted-foreground group-hover/feedback:text-muted-foreground col-start-1 row-start-1 text-xs',
-            'duration-quick transition-[color,opacity] ease-out motion-reduce:transition-none',
-            verdict !== null && 'opacity-0'
-          )}
-        >
-          {t('feedback.question')}
-        </span>
-        {/* What the vote alone commits, stated once, on the vote's own line. */}
-        <p
-          ref={receiptRef}
-          role="status"
-          tabIndex={-1}
-          className={cn(
-            'text-muted-foreground col-start-1 row-start-1 flex items-center gap-1 text-xs outline-none',
-            'duration-quick transition-opacity ease-out motion-reduce:transition-none',
-            verdict === null && 'opacity-0'
-          )}
-        >
-          {verdict !== null && (
-            <>
-              {/* Only the mark moves; the sentence is legible from frame one. */}
-              <motion.span
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1, transition: swap.enter }}
-                className="inline-flex"
-                aria-hidden="true"
-              >
-                <Check className="size-3" />
-              </motion.span>
-              {/* What the press COMMITTED, not gratitude. The vote is persisted
-                  on the press, so this line is the receipt for it — while the
-                  reason and the note below are a second, optional act. Thanking
-                  here read as if the exchange were over, directly under an open
-                  "Was war das Problem?". */}
-              {t('feedback.voteRecorded')}
-            </>
-          )}
-        </p>
-      </span>
+      {/* What the vote alone commits, stated once, on the vote's own line. */}
+      <p
+        ref={receiptRef}
+        role="status"
+        tabIndex={-1}
+        className={cn(
+          'text-muted-foreground flex items-center gap-1 text-xs outline-none',
+          'duration-quick transition-opacity ease-out motion-reduce:transition-none',
+          verdict === null && 'opacity-0'
+        )}
+      >
+        {verdict !== null && (
+          <>
+            {/* Only the mark moves; the sentence is legible from frame one. */}
+            <motion.span
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1, transition: swap.enter }}
+              className="inline-flex"
+              aria-hidden="true"
+            >
+              <Check className="size-3" />
+            </motion.span>
+            {/* What the press COMMITTED, not gratitude. The vote is persisted
+                on the press, so this line is the receipt for it — while the
+                reason and the note below are a second, optional act. Thanking
+                here read as if the exchange were over, directly under an open
+                "Was war das Problem?". */}
+            {t('feedback.voteRecorded')}
+          </>
+        )}
+      </p>
       <div className="flex items-center gap-1">
-        <button data-attr="chat-up"
-          type="button"
-          onClick={handleUp}
-          aria-pressed={verdict === 'up'}
-          aria-label={t('feedback.helpfulAria')}
-          className={cn(thumbBase, verdict === 'up' && thumbSelected)}
-        >
-          <ThumbsUp className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
-        </button>
-        <button data-attr="chat-down"
-          type="button"
-          onClick={handleDown}
-          aria-pressed={verdict === 'down'}
-          aria-label={t('feedback.notHelpfulAria')}
-          className={cn(thumbBase, verdict === 'down' && thumbSelected)}
-        >
-          <ThumbsDown className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              data-attr="chat-up"
+              type="button"
+              onClick={handleUp}
+              aria-pressed={verdict === 'up'}
+              aria-label={t('feedback.helpfulAria')}
+              className={cn(thumbBase, verdict === 'up' && thumbSelected)}
+            >
+              <ThumbsUp className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('feedback.question')}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              data-attr="chat-down"
+              type="button"
+              onClick={handleDown}
+              aria-pressed={verdict === 'down'}
+              aria-label={t('feedback.notHelpfulAria')}
+              className={cn(thumbBase, verdict === 'down' && thumbSelected)}
+            >
+              <ThumbsDown className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('feedback.question')}</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -212,7 +210,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
                 <ToggleGroupItem
                   key={key}
                   value={key}
-                  className="data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs h-7 px-2.5 text-xs data-[state=on]:border-transparent pointer-coarse:h-11"
+                  className="data-[state=on]:bg-foreground data-[state=on]:text-background h-7 px-2.5 text-xs data-[state=on]:border-transparent data-[state=on]:shadow-2xs pointer-coarse:h-11"
                 >
                   {t(`feedback.reasons.${key}`)}
                 </ToggleGroupItem>
@@ -237,7 +235,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
                         placeholder={t('feedback.commentPlaceholder')}
                         rows={2}
                         maxLength={2000}
-                        className="min-h-14 resize-none rounded-control py-2 text-xs"
+                        className="rounded-control min-h-14 resize-none py-2 text-xs"
                       />
                       <FieldLabel
                         htmlFor={expectedId}
@@ -251,7 +249,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
                         onChange={(event) => setExpected(event.target.value)}
                         placeholder={t('feedback.expectedPlaceholder')}
                         maxLength={2000}
-                        className="h-8 rounded-control text-xs"
+                        className="rounded-control h-8 text-xs"
                       />
                       {/* Full ink when it will do something, 40% when it will not:
                   the difference is a contrast jump, not grey vs. grey. */}
