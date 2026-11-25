@@ -11,6 +11,7 @@ import {
   deploymentTags,
   recordToolCallTrace,
   toolCallBatch,
+  traceIdOf,
 } from './tool-call-trace'
 
 const ids = { traceId: 'a'.repeat(32), observationId: 'obs-1', eventIds: ['ev-1', 'ev-2'] as [string, string] }
@@ -140,5 +141,25 @@ describe('posting', () => {
     const sent = JSON.parse(String(init.body)) as { batch: { type: string; body: Record<string, unknown> }[] }
     expect(sent.batch.map((event) => event.type)).toEqual(['trace-create', 'observation-create'])
     expect(sent.batch[1].body).toMatchObject({ name: 'mcp.project-list', type: 'TOOL', metadata: { door: 'mcp', client_id: 'client_1' } })
+  })
+})
+
+describe('a caller’s W3C trace context', () => {
+  it('becomes the trace id, so the caller’s trace and ours are one', () => {
+    expect(traceIdOf('00-daf12afab6900789c3ab89274a2a360f-f1ac1027947a45e6-01')).toBe('daf12afab6900789c3ab89274a2a360f')
+  })
+
+  it('is ignored when it is malformed or all zeros', () => {
+    expect(traceIdOf('not-a-traceparent')).toBeNull()
+    expect(traceIdOf('00-00000000000000000000000000000000-f1ac1027947a45e6-01')).toBeNull()
+    expect(traceIdOf(undefined)).toBeNull()
+  })
+
+  it('puts the call’s protocol facts in the metadata', () => {
+    const batch = toolCallBatch(
+      { ...call, protocol: { protocol_era: 'modern', client_tasks: true, via: 'tasks/get', trace_linked: true } },
+      { traceId: 't', observationId: 'o', eventIds: ['e1', 'e2'] },
+    )
+    expect((batch.batch[0]!.body as { metadata: object }).metadata).toMatchObject({ protocol_era: 'modern', client_tasks: true, via: 'tasks/get' })
   })
 })

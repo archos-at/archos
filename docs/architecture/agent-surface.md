@@ -755,6 +755,21 @@ pinned origin the server lists the SVG mark alone. They add about 4 KB to a `sea
 none on its tools: per-operation or per-domain icons would repeat ~700 bytes on
 ~300 tools against a 1,000 character budget a tool.
 
+### Cache hints and trace context
+
+The 2026-07-28 revision puts `ttlMs` and `cacheScope` on the list and read
+results (`door/cache-hints.ts`): `server/discover`, `tools/list`,
+`prompts/list` and `resources/templates/list` for ten minutes, the catalog
+resource too (they follow the person's permissions), `resources/list` for one
+minute (the projects change; `list_changed` says when), and the guide, the
+glossary and the onboarding guide for an hour (they change with a deploy). All
+are `private`, never for a shared cache. A tool call has no cache field in the
+spec: a client still runs `project-list` each time it wants the list.
+
+A request whose `_meta` carries a W3C `traceparent` keeps it: the trace id
+becomes the `agent-tool-call` trace's id in Langfuse, so the calls of one
+client turn land in one trace, and `trace_linked` says so on the PostHog event.
+
 ### Listening
 
 A client of the 2026-07-28 revision that attached `workspace://project/{projectId}`
@@ -1332,7 +1347,11 @@ An agent can also ask the agent itself (ADR-0124,
 `agent-ask-create` (`catalog/consult.ts`) calls `POST /api/agent-asks`, which
 runs a headless turn (ADR-0106) as the person in their own private thread, with
 the trigger `agent_consult`, waits up to 40 seconds and otherwise answers
-`working` for `agent-ask-get` to poll. The organization's `piloti-ask` switch
+`working`. `agent-ask-get` then waits up to 40 seconds itself by default
+(`waitSeconds: 0` reads the ask as it is), so a model that calls it straight
+away makes one call per 40 seconds of answer rather than one per second; on
+prod in November 2026 a claude.ai chat made up to nine reads an ask when the
+read returned at once. The organization's `piloti-ask` switch
 gates it, and the turn's budget pays for it.
 A completed answer carries `answer.sources` (`documentId`, `name`, `page`, and a
 `url` that opens the cited page in the agent for the asker) and `answer.confidence`,
@@ -1379,11 +1398,33 @@ how to wait, per call, in standard MCP:
   person, so the route's own rule (the asker only) decides; an id that names
   none of theirs is `-32602`, a request that does not declare the extension
   `-32021`. The task store is the `agent_asks` table, so any replica answers
-  and `Mcp-Name` routing is not needed. Task status notifications
-  (`subscriptions/listen` with `taskIds`) are not offered; clients poll.
+  and `Mcp-Name` routing is not needed. `tasks/get` reads the ask without
+  waiting (`waitSeconds: 0`): the client paces itself by `pollIntervalMs`.
+- *Task notifications* (`door/task-listen.ts`). A client that declares the
+  extension can open `subscriptions/listen` with `notifications.taskIds` (at
+  most 20) instead of polling. The door serves that stream itself, because the
+  SDK's listen filter drops `taskIds`: it acknowledges the ids that name the
+  person's own asks (others are left out of `notifications/subscriptions/acknowledged`),
+  pushes each ask's `notifications/tasks` (the full task, as `tasks/get` would
+  answer it, the result inline once completed) at once and again on every
+  change, and ends the stream with its result once every ask ended. It follows
+  each ask through `agent-ask-get` waits of 40 seconds, so a change reaches the
+  client within the route's 750 ms poll. A request that does not declare the
+  extension is `-32021`. A listen that also names other filters is served for
+  its `taskIds` only; the client opens a second listen for the rest. Claude's
+  client polls `tasks/get` and does not listen (its docs list
+  `notifications/tasks` as not used), so this serves other clients.
 
 A client that asks for neither, and the 2025-era path, get the single call that
-waits up to 40 seconds.
+waits up to 40 seconds, then `agent-ask-get`'s 40-second waits.
+
+**What a call records about its path.** `agent_operation_called` and the
+`agent-tool-call` trace carry `protocol_era`, `client_tasks` (the call declared
+the tasks extension), `via` (`tool`, or `tasks/get`, `tasks/cancel`,
+`tasks/update`, `subscriptions/listen` for the reads the protocol made rather
+than the model) and, on `agent-ask-create`, `ask_path` (`task`, `progress`,
+`wait`). Without `via`, a client's `tasks/get` and a model's `agent-ask-get`
+were one event, and an ask's read count could not tell which polled.
 
 **The recursion lock.** In-product the agent only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no

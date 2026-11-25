@@ -14,6 +14,8 @@ import type { AskState, AskView } from '@/lib/agent-asks/ask-wire'
 import { TASKS_EXTENSION } from './ask-calls'
 import { AI_GENERATED_META } from './ai-generated-meta'
 import { callOperation, validateOperationInput } from './dispatch'
+import { recordOperationCalled } from './telemetry'
+import { MAX_LISTENED_TASKS } from './door/task-listen'
 import { createAgentDoorHandler } from './mcp-server'
 import type { AgentPrincipal } from './principal'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -243,7 +245,7 @@ describe('the tasks extension (SEP-2663)', () => {
     const task = last(done.messages).result as { status: string; result: { content: unknown[]; structuredContent: AskView } }
     expect(task.status).toBe('completed')
     expect(task.result.structuredContent.answer?.text).toBe('Höchstens 1,20 m.')
-    expect(calls('agent-ask-get')[0][1]).toEqual({ params: { id: ASK_ID } })
+    expect(calls('agent-ask-get')[0][1]).toEqual({ params: { id: ASK_ID }, query: { waitSeconds: 0 } })
   })
 
   it('reads a canceled ask as a cancelled task', async () => {
@@ -283,6 +285,94 @@ describe('the tasks extension (SEP-2663)', () => {
   it('is not served to the in-product agent’s own client, whose writes are proposals', async () => {
     const { messages } = await modern('tasks/get', { taskId: ASK_ID }, { name: ASK_ID, capabilities: TASKS, principal: inProduct })
     expect(last(messages).error?.code).toBe(-32601)
+  })
+})
+
+describe('listening to a task (notifications/tasks)', () => {
+  const listenFor = (taskIds: unknown[], capabilities: object = TASKS) =>
+    modern('subscriptions/listen', { notifications: { taskIds } }, { capabilities })
+
+  it('acknowledges the ask, pushes its state now and on each change, and closes once it ended', async () => {
+    askRoutes(['working', 'completed'])
+    const { type, messages } = await listenFor([ASK_ID])
+    expect(type).toMatch(/^text\/event-stream/)
+    expect(messages[0]).toMatchObject({
+      method: 'notifications/subscriptions/acknowledged',
+      params: { notifications: { taskIds: [ASK_ID] }, _meta: { 'io.modelcontextprotocol/subscriptionId': 1 } },
+    })
+    const pushed = messages.filter((m) => m.method === 'notifications/tasks').map((m) => m.params as { status: string; result?: { structuredContent: AskView } })
+    expect(pushed.map((task) => task.status)).toEqual(['working', 'completed'])
+    expect(pushed[1].result?.structuredContent.answer?.text).toBe('Höchstens 1,20 m.')
+    expect(last(messages).result).toMatchObject({ resultType: 'complete', _meta: { 'io.modelcontextprotocol/subscriptionId': 1 } })
+    expect(calls('agent-ask-get').map(([, input]) => input.query)).toEqual([{ waitSeconds: 0 }, { waitSeconds: 40 }])
+  })
+
+  it('drops an id that names no ask of this person’s from the acknowledgement and closes', async () => {
+    vi.mocked(callOperation).mockResolvedValue({ status: 404, ok: false, body: { error: 'Ask not found', code: 'NOT_FOUND' } })
+    const { messages } = await listenFor([ASK_ID, 'not-an-ask'])
+    expect(messages[0].params).toMatchObject({ notifications: { taskIds: [] } })
+    expect(messages.filter((m) => m.method === 'notifications/tasks')).toHaveLength(0)
+    expect(last(messages).result).toMatchObject({ resultType: 'complete' })
+  })
+
+  it('answers -32021 to a client that does not declare the tasks extension', async () => {
+    const { messages } = await listenFor([ASK_ID], {})
+    expect(last(messages).error?.code).toBe(-32021)
+    expect(calls('agent-ask-get')).toHaveLength(0)
+  })
+
+  it(`refuses more than ${MAX_LISTENED_TASKS} task ids in one listen`, async () => {
+    const { messages } = await listenFor(Array.from({ length: MAX_LISTENED_TASKS + 1 }, () => ASK_ID))
+    expect(last(messages).error?.code).toBe(-32602)
+  })
+
+  it('records each read it makes as a listen, so they never count as the model polling', async () => {
+    askRoutes(['completed'])
+    await listenFor([ASK_ID])
+    const ctx = vi.mocked(recordOperationCalled).mock.calls.at(-1)?.[0]
+    expect(ctx).toMatchObject({ via: 'subscriptions/listen', protocol: { era: 'modern', tasks: true } })
+  })
+})
+
+describe('what a call records about its protocol', () => {
+  const lastRecorded = () => vi.mocked(recordOperationCalled).mock.calls.at(-1)?.[0]
+
+  it('names the path an ask took: a task, progress, or the plain wait', async () => {
+    await modern('tools/call', askCall(), { name: 'call-operation', capabilities: TASKS })
+    expect(lastRecorded()).toMatchObject({ askPath: 'task', protocol: { era: 'modern', tasks: true } })
+    askRoutes(['completed'])
+    await modern('tools/call', askCall(), { name: 'call-operation', meta: { progressToken: 'p' } })
+    expect(lastRecorded()).toMatchObject({ askPath: 'progress', protocol: { tasks: false } })
+    await modern('tools/call', askCall(), { name: 'call-operation' })
+    expect(lastRecorded()).toMatchObject({ askPath: 'wait' })
+  })
+
+  it('tells a client’s tasks/get from a model’s agent-ask-get', async () => {
+    await modern('tasks/get', { taskId: ASK_ID }, { name: ASK_ID, capabilities: TASKS })
+    expect(lastRecorded()).toMatchObject({ via: 'tasks/get' })
+  })
+
+  it('keeps the caller’s W3C trace context', async () => {
+    const traceparent = '00-daf12afab6900789c3ab89274a2a360f-f1ac1027947a45e6-01'
+    await modern('tools/call', askCall(), { name: 'call-operation', meta: { traceparent } })
+    expect(lastRecorded()?.protocol).toMatchObject({ traceparent })
+  })
+})
+
+describe('the 2026-07-28 list results', () => {
+  it('carries cache hints: the person’s surface for minutes, the guide for an hour, both private', async () => {
+    const discover = last((await modern('server/discover', {})).messages).result
+    expect(discover).toMatchObject({ ttlMs: 600_000, cacheScope: 'private' })
+    const tools = last((await modern('tools/list', {}, { mode: 'tools' })).messages).result
+    expect(tools).toMatchObject({ ttlMs: 600_000, cacheScope: 'private' })
+    const guide = last((await modern('resources/read', { uri: 'workspace://guide' }, { name: 'workspace://guide' })).messages).result
+    expect(guide).toMatchObject({ ttlMs: 3_600_000, cacheScope: 'private' })
+  })
+
+  it('lists the tools in the same order every time', async () => {
+    const names = async () =>
+      ((last((await modern('tools/list', {}, { mode: 'tools' })).messages).result as { tools: { name: string }[] }).tools).map((tool) => tool.name)
+    expect(await names()).toEqual(await names())
   })
 })
 
