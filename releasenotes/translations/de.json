@@ -3172,6 +3172,10 @@
     "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
   },
   {
+    "en": "On a phone, the Chat tab takes you back to the chat you were in instead of starting a new one, so a look at the Ablage no longer loses your conversation.",
+    "de": "Auf dem Smartphone bringt Sie der Tab Chat zurück zu Ihrem bisherigen Chat, statt einen neuen zu starten – so verlieren Sie Ihre Unterhaltung beim Blick in die Ablage nicht mehr."
+  },
+  {
     "en": "On a phone, the Herleitung under an answer used to swallow every swipe: a finger anywhere on it moved nothing, so you could not scroll past it to the answer itself. It now scrolls like the rest of the page.",
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
