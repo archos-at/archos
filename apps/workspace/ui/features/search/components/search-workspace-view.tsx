@@ -11,7 +11,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { LoadError } from '@/components/ui/load-error'
 import { SearchField } from '@/components/ui/search-field'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { PHONE_QUERY, useIsMobile } from '@/hooks/use-is-mobile'
+import { MobileLayoutOnly } from '@/components/ui/layout-only'
+import { PHONE_QUERY, useIsMobileOnceKnown } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useLocale, useTranslations } from '@/i18n'
 import { searchCopy } from '@/i18n/namespaces/search'
@@ -103,7 +104,7 @@ export function SearchWorkspaceView({
   const { locale } = useLocale()
   const router = useRouter()
   const from = useSearchReturn()
-  const sheetLayout = useIsMobile()
+  const sheetLayout = useIsMobileOnceKnown() === true
   const phone = useMediaQuery(PHONE_QUERY)
   const [sheetOpen, setSheetOpen] = useState(filtersOpen)
   const field = useRef<HTMLInputElement | null>(null)
@@ -267,7 +268,7 @@ export function SearchWorkspaceView({
 
   return (
     <SearchFrame
-      rail={sheetLayout ? null : rail}
+      rail={rail}
       toolbar={
         <>
           <SearchToolbar
@@ -306,7 +307,7 @@ export function SearchWorkspaceView({
                     <Table2 aria-hidden />
                   </ToggleGroupItem>
                 </ToggleGroup>
-                {sheetLayout ? (
+                <MobileLayoutOnly>
                   <Button
                     type="button"
                     variant="secondary"
@@ -319,7 +320,7 @@ export function SearchWorkspaceView({
                     <SlidersHorizontal aria-hidden />
                     {filterCount > 0 ? t('filters.toggleCount', { count: filterCount }) : t('filters.toggle')}
                   </Button>
-                ) : null}
+                </MobileLayoutOnly>
                 {savedSearches}
                 {onExport && state.view === 'register' ? <SearchExportMenu onExport={onExport} busy={exporting} /> : null}
               </>
