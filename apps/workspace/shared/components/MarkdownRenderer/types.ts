@@ -8,7 +8,6 @@ export interface MarkdownRendererProps {
   compact?: boolean
   caret?: ReactNode
   remarkPlugins?: PluggableList
-  ink?: boolean
 }
 
 export type SupportedLanguage =
