@@ -186,9 +186,10 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
       <div className={cn(THREAD_COLUMN_INNER, 'flex items-start justify-between gap-3 max-sm:items-stretch sm:items-center max-md:landscape:mx-0 max-md:landscape:min-w-0 max-md:landscape:flex-1')}>
       <div
         className={cn(
-          'pointer-events-auto relative isolate flex min-h-12 min-w-0 items-center gap-0.5 rounded-surface border border-transparent p-0.5 max-sm:flex-1 sm:min-h-8 sm:max-w-[calc(100%-12rem)]',
-          !isChatStarted && 'sm:hidden'
+          'pointer-events-auto relative isolate flex min-h-12 min-w-0 items-center gap-0.5 rounded-surface border border-transparent p-0.5 max-sm:flex-1 sm:min-h-[2.625rem] sm:max-w-[calc(100%-12rem)]',
+          !isChatStarted && 'sm:invisible'
         )}
+        inert={!isChatStarted || undefined}
         data-slot="chat-header-thread"
       >
         <AnimatePresence initial={false}>

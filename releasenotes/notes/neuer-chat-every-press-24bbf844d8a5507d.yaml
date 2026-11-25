@@ -1,0 +1,6 @@
+---
+# area: answers
+fixes:
+  - >
+    „Neuer Chat“ starts a new chat every time. A second press on the same
+    page did nothing and left the address showing the old chat.

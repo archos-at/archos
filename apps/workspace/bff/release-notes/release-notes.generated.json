@@ -579,6 +579,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
+            "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
             "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
           }
@@ -621,6 +629,14 @@
           "text": {
             "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
             "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Cards in an answer no longer jump when they finish drawing. While a card loads, its place already has the size of the finished card, so the text below it stays where you are reading.",
+            "de": "Die Karten in einer Antwort springen nicht mehr, sobald sie fertig geladen sind. Während eine Karte lädt, entspricht ihr Platz bereits der Größe der fertigen Karte, sodass der Text darunter beim Lesen an derselben Stelle bleibt."
           }
         },
         {
@@ -677,6 +693,22 @@
           "text": {
             "en": "Measuring on a PDF drawing now works anywhere on the sheet, so you can measure several areas in a row; points still snap to corners and lines when close, and holding Ctrl (Cmd on a Mac) places a point exactly where the pointer is.",
             "de": "Das Messen auf einer PDF-Zeichnung funktioniert jetzt überall auf dem Blatt, sodass Sie mehrere Bereiche hintereinander messen können. Punkte rasten weiterhin in der Nähe von Ecken und Linien ein. Wenn Sie Strg (Cmd auf einem Mac) gedrückt halten, setzen Sie einen Punkt genau an der Position des Mauszeigers."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
+            "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A new chat now opens with its greeting and input box already in place, instead of first showing the outline of a conversation that is loading. The outline appears only when a chat is actually being picked up again.",
+            "de": "Ein neuer Chat öffnet sich jetzt direkt mit Begrüßung und Eingabefeld, statt zuerst die Ladeansicht eines Gesprächs zu zeigen. Diese erscheint nur, wenn ein Chat tatsächlich wieder aufgenommen wird."
           }
         },
         {
