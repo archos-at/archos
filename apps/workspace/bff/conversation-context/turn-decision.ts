@@ -2,6 +2,7 @@ import 'server-only'
 import { ForbiddenError, UnauthorizedError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { findConversationTenancy } from '@/lib/conversations/repository'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import type { VerifiedRequestContext } from '@/lib/request-context'
 import { resolveConversationContext } from './resolve'
@@ -26,7 +27,9 @@ async function assertStaysOnItsSide(body: ConversationDecision): Promise<void> {
   if (!row || row.organizationId !== body.organizationId) return
   const projectShelves = body.may.shelves.filter((entry) => entry.shelf === 'project').map((entry) => entry.collection)
   if (row.projectId === null) {
-    if (projectShelves.length > 0 || body.may.restrictedCollections.length > 0) throw new DecisionLeavesItsSideError()
+    const ownPersonalShelf = personalShelfCollectionName(body.organizationId, body.userId)
+    const restricted = body.may.restrictedCollections.filter((collection) => collection !== ownPersonalShelf)
+    if (projectShelves.length > 0 || restricted.length > 0) throw new DecisionLeavesItsSideError()
     return
   }
   const own = (await findProjectCollectionName(row.projectId, body.organizationId)) ?? `proj_${row.projectId}`
