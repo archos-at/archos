@@ -167,7 +167,7 @@ export function RegisterTitle({ children, mark }: { children: ReactNode; mark?: 
 
 export function RegisterLink({ href, children }: { href: string; children: ReactNode }): JSX.Element {
   return (
-    <Link href={href} className={cn('rounded-sm hover:underline', FOCUS_RING_INSET)}>
+    <Link href={href} className={cn('rounded-sm hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center', FOCUS_RING_INSET)}>
       {children}
     </Link>
   )
