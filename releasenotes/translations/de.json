@@ -5848,6 +5848,10 @@
     "de": "Wenn Sie eine neue Frage senden, während Piloti noch die vorherige beantwortet, wird die frühere Antwort vollständig beendet, bevor die neue beginnt. So können sich die beiden nicht mehr in einer Unterhaltung vermischen. Falls die frühere Antwort ausnahmsweise nicht innerhalb weniger Sekunden stoppt, teilt Piloti Ihnen mit, dass sie noch abgeschlossen wird, und bittet Sie, die Frage erneut zu senden."
   },
   {
+    "en": "When you send the first message of a new chat, the bar at the top now fades in where it will stay: the menu, the date and the sharing buttons no longer jump sideways while the chat's name arrives.",
+    "de": "Wenn Sie die erste Nachricht eines neuen Chats senden, blendet sich die Leiste oben jetzt an der Stelle ein, an der sie bleibt: Menü, Datum und Teilen-Schaltflächen springen nicht mehr seitwärts, während der Chatname erscheint."
+  },
+  {
     "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
     "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
   },

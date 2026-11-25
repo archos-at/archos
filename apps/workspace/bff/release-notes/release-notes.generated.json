@@ -491,6 +491,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "When you send the first message of a new chat, the bar at the top now fades in where it will stay: the menu, the date and the sharing buttons no longer jump sideways while the chat's name arrives.",
+            "de": "Wenn Sie die erste Nachricht eines neuen Chats senden, blendet sich die Leiste oben jetzt an der Stelle ein, an der sie bleibt: Menü, Datum und Teilen-Schaltflächen springen nicht mehr seitwärts, während der Chatname erscheint."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
             "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
           }
