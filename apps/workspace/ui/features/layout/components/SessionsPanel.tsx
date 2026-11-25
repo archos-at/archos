@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
+import { useRailChats } from '@/components/shell/rail-chats'
+import { PHONE_RECENT_CHATS, RecentChatsSection } from './sessions-panel/recent-chats-section'
 import { SearchField } from '@/components/ui/search-field'
 import { SectionLabel } from '@/components/ui/section-label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -128,6 +130,19 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const trimmedQuery = searchQuery.trim()
   const isSearching = trimmedQuery !== ''
 
+  const railChats = useRailChats()
+  const recentChats = useMemo(
+    () => (isMobile && !isSearching && scopeFilter === 'all' ? (railChats?.items ?? []).slice(0, PHONE_RECENT_CHATS) : []),
+    [isMobile, isSearching, scopeFilter, railChats]
+  )
+  const openRecent = useCallback(
+    (id: string) => {
+      railChats?.onOpen?.(id)
+      handleClose()
+    },
+    [railChats, handleClose]
+  )
+
   const markedSessions = useMemo(
     () => withRunMarks(sessions, deepResearch.kind === 'loaded' ? deepResearch.runs : []),
     [sessions, deepResearch]
@@ -139,14 +154,16 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
 
   const filteredSessions = useMemo(() => {
     const query = trimmedQuery.toLowerCase()
+    const shownAbove = new Set(recentChats.map((chat) => chat.id))
     return markedSessions.filter((s) => {
+      if (shownAbove.has(s.id)) return false
       if (scope === 'research' && !hasResearchMark(s)) return false
       if (scope === 'chats' && hasResearchMark(s)) return false
       if (!query) return true
       const title = s.title.trim() || untitledLabel
       return title.toLowerCase().includes(query)
     })
-  }, [markedSessions, scope, trimmedQuery, untitledLabel])
+  }, [markedSessions, scope, trimmedQuery, untitledLabel, recentChats])
 
   const todayLabel = t('sessionsPanel.today')
   const groupedSessions = useMemo(
@@ -164,7 +181,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const hasSessions = sessions.length > 0
   const deleteAllLabel =
     side === 'personal' ? t('sessionsPanel.deleteAllPersonal') : t('sessionsPanel.deleteAllProject')
-  const isEmptyState = filteredSessions.length === 0
+  const isEmptyState = filteredSessions.length === 0 && recentChats.length === 0
 
   return (
     <PageSheet
@@ -269,6 +286,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           sheet's own rise is the arrival. */}
       <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain scroll-pt-8 px-4 pb-6 md:px-8">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+          <RecentChatsSection chats={recentChats} onOpen={openRecent} />
           {groupedSessions.map(([dateLabel, dateSessions]) => (
               <div key={dateLabel} className="mb-4 flex flex-col gap-1.5 last:mb-0">
                 {/* Sticky so the day you are scrolling through stays named. The
