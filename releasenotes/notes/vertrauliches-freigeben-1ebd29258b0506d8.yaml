@@ -2,7 +2,7 @@
 # area: documents
 features:
   - >
-    A draft built on restricted folders or other projects can now be filed anywhere you may write, after you check it and confirm it holds nothing confidential; the card names the sources, and admins can switch this off under Organisation › Prüfung.
+    Once an admin allows it under Organisation › Prüfung, a draft built on restricted folders or other projects can be filed anywhere you may write, after you check it and confirm it holds nothing confidential. The card names the sources.
 improvements:
   - >
     In a personal chat, „In Meine Ablage legen“ now asks which folder of Meine Ablage the draft goes into.

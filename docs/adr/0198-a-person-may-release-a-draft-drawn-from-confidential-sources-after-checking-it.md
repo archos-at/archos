@@ -49,8 +49,9 @@ Option 3.
   refuses a filing (`ConversationConfinedError`, action `filing`) and the
   request carries a release, `releaseConfidential`
   (`apps/workspace/bff/conversations/confidential-release.ts`) decides:
-  1. the office allows release (`settings.confidentialRelease`, on unless set
-     to `false`), else the refusal stands;
+  1. the office allows release (`settings.confidentialRelease`, off unless an
+     admin set it to `true`), else the refusal stands; it is read uncached, so
+     switching it off holds for every filing after the save returns;
   2. the person may still read every recorded source (`unreadableSourcesOf`),
      else the refusal stands, confirmed or not;
   3. unconfirmed, it answers `409 CONFIDENTIAL_RELEASE_REQUIRED` with
@@ -73,7 +74,9 @@ Option 3.
   the `personalShelf` refusal is not a `filing` refusal.
 - **The switch** is „Vertrauliches freigeben" under Organisation › Prüfung
   (`PUT /api/organization/confidential-release`, `org:settings:manage`, audited as
-  `org.confidential_release.updated`). Off, filing behaves as before this ADR.
+  `org.confidential_release.updated`). It is off until an admin turns it on:
+  nobody finds a way out of a restricted folder that no one in the office chose.
+  Off, filing behaves as before this ADR.
 
 ### Consequences
 

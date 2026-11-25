@@ -20,13 +20,15 @@ function useSourceLabel(): (source: ConfidentialSource) => string {
         : t('cards.documentDraft.release.folder', { name: source.name })
 }
 
-export const ConfidentialReleaseNotice: FC<{ filing: DraftFiling }> = ({ filing }) => {
+export const ConfidentialReleaseNotice: FC<{ filing: DraftFiling }> = ({ filing }) =>
+  filing.releaseSources ? <ReleaseRequest key={filing.releaseRequest} filing={filing} sources={filing.releaseSources} /> : null
+
+const ReleaseRequest: FC<{ filing: DraftFiling; sources: ConfidentialSource[] }> = ({ filing, sources }) => {
   const t = useTranslations(chatCopy)
   const label = useSourceLabel()
   const [checked, setChecked] = useState(false)
   const confirmId = useId()
-  const { releaseSources, isFiling } = filing
-  if (!releaseSources || filing.shownFiled) return null
+  const { isFiling } = filing
   const blocked = !checked || isFiling
   return (
     <Alert variant="warning" data-testid="draft-confidential-release">
@@ -35,7 +37,7 @@ export const ConfidentialReleaseNotice: FC<{ filing: DraftFiling }> = ({ filing 
       <AlertDescription className="gap-2">
         <p>{t('cards.documentDraft.release.body')}</p>
         <ul className="list-disc pl-4" data-testid="draft-confidential-sources">
-          {releaseSources.map((source) => (
+          {sources.map((source) => (
             <li key={`${source.kind}:${source.project ?? ''}:${source.name}`}>{label(source)}</li>
           ))}
         </ul>

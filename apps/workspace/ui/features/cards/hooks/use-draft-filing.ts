@@ -123,6 +123,8 @@ export function useDraftFiling({
   const [restoreFailed, setRestoreFailed] = useState(false)
   const [conflict, setConflict] = useState<DraftConflict | null>(null)
   const [releaseSources, setReleaseSources] = useState<ConfidentialSource[] | null>(null)
+  const [releaseRequest, setReleaseRequest] = useState(0)
+  const lastForce = useRef(false)
 
   const filed = Boolean(documentId && versionId && versionState)
   const shownDocumentId = filedDoc?.documentId ?? documentId ?? null
@@ -176,6 +178,7 @@ export function useDraftFiling({
   const file = async (force: boolean, chosen?: DraftDestination): Promise<DraftFileOutcome> => {
     if (!conversationId || isFiling) return 'failed'
     if (chosen) destination.current = chosen
+    lastForce.current = force
     const sent = destination.current
     if (sent?.release) destination.current = { ...sent, release: undefined }
     setError(null)
@@ -203,6 +206,7 @@ export function useDraftFiling({
       const confidential = confidentialSourcesOf(fileError)
       if (confidential) {
         setReleaseSources(confidential)
+        setReleaseRequest((request) => request + 1)
         return 'conflict'
       }
       const changed = projectChangeOf(fileError)
@@ -220,7 +224,7 @@ export function useDraftFiling({
   const update = (): Promise<DraftFileOutcome> => file(false, {})
   const fileOverChanges = (): Promise<DraftFileOutcome> => file(false, { overChanges: true })
   const fileAsOwn = (): Promise<DraftFileOutcome> => file(false, { as: 'own' })
-  const release = (): Promise<DraftFileOutcome> => file(false, { ...destination.current, release: true })
+  const release = (): Promise<DraftFileOutcome> => file(lastForce.current, { ...destination.current, release: true })
   const keepConfidential = (): void => setReleaseSources(null)
 
   const revised = filedDoc?.outcome === 'revised' && filedDoc.revisionOf ? filedDoc.revisionOf : null
@@ -264,6 +268,7 @@ export function useDraftFiling({
     changedSinceFiling,
     projectChange,
     releaseSources,
+    releaseRequest,
     isFiling,
     error,
     conflict,
