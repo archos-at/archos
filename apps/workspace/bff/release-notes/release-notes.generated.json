@@ -337,6 +337,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The welcome and project tours show the app as it is today: the Persönlich | Projekt switch, your projects, the Bürobibliothek, the Postfach, search and your account with the switch to another office. On a phone they point at the switch at the top of the chat, the tab bar and „Mehr“.",
+            "de": "Die Willkommens- und Projekttouren zeigen die App, wie sie heute aussieht: den Umschalter Persönlich | Projekt, Ihre Projekte, die Bürobibliothek, das Postfach, die Suche und Ihr Konto mit der Möglichkeit, zu einem anderen Büro zu wechseln. Auf dem Smartphone zeigen sie auf den Umschalter oben im Chat, die Tab-Leiste und „Mehr“."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "projects",
           "text": {
             "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
@@ -789,6 +797,14 @@
           "text": {
             "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
             "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The welcome tour no longer breaks at its second step, where it ran over the project overview window and closed it at the first click. Cards beside the top or the foot of the sidebar now stay on screen, so the tour no longer gets stuck at the Postfach.",
+            "de": "Die Einführungstour bleibt nicht mehr beim zweiten Schritt hängen, bei dem sie das Projektübersichtsfenster überlagerte und beim ersten Klick schloss. Karten neben dem oberen oder unteren Ende der Seitenleiste bleiben jetzt sichtbar, sodass die Tour nicht mehr beim Postfach hängen bleibt."
           }
         },
         {
