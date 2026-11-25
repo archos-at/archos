@@ -69,6 +69,27 @@ describe('ChatThinking', () => {
       expect(status).not.toHaveTextContent('Fluchtweg')
     })
 
+    test('the clock has its slot from the first second, as wide as „9:59“ and read from the left, so ticking moves nothing', () => {
+      const since = new Date(Date.now() - 1_000)
+      const { container } = render(<ChatThinking steps={[createStep()]} isThinking since={since} />)
+
+      const slot = container.querySelector('[data-derivation-elapsed]')
+      expect(slot).not.toBeNull()
+      expect(slot).toBeEmptyDOMElement()
+      expect(slot).toHaveClass('w-[4ch]', 'shrink-0', 'text-left', 'tabular-nums')
+    })
+
+    test('the parts beside the label have no box of their own, so one arriving pushes none that stays', () => {
+      const since = new Date(Date.now() - 12_000)
+      const { container } = render(<ChatThinking steps={[createStep()]} isThinking since={since} />)
+
+      const trigger = container.querySelector('[data-derivation-trigger]')
+      const elapsed = container.querySelector('[data-derivation-elapsed]')
+      expect(elapsed?.parentElement).toHaveClass('contents')
+      expect(elapsed?.parentElement?.parentElement).toBe(trigger)
+      expect(trigger).not.toHaveClass('justify-between')
+    })
+
     test('a restored turn grows no timer', () => {
       render(<ChatThinking steps={[createStep()]} isThinking={false} answerDurationMs={11_600} />)
       expect(screen.queryByText('12s')).not.toBeInTheDocument()

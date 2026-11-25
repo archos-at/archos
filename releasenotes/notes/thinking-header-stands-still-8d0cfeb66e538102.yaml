@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    While ARCHOS works on an answer, the timer and status at the end of the
+    „Working on a response…“ line no longer push the line sideways as the
+    seconds count up or the number of sources changes.

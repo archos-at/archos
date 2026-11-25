@@ -348,7 +348,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
             type="button"
             data-derivation-trigger
             className={cn(
-              'group relative flex min-h-12 w-full cursor-pointer items-center justify-between rounded-surface px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
+              'group relative flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-surface px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
               FOCUS_RING_INSET
             )}
           >
@@ -362,7 +362,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                 the reader's eye. The label gives way (ellipsis) instead; the
                 trigger's `sr-only` name above carries it whole. */}
             <span
-              className="relative flex min-w-0 flex-nowrap items-center gap-x-2"
+              className="relative mr-auto flex min-w-0 flex-nowrap items-center gap-x-2"
               aria-hidden="true"
             >
               {/* Fixed icon slot, shared by every state: without it the text
@@ -429,10 +429,29 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
               )}
             </span>
 
-            <span className="relative flex shrink-0 items-center gap-2" aria-hidden="true">
+            {/* No box: a part that comes, goes or rolls stands left of the ones that stay. */}
+            <span className="contents" aria-hidden="true">
+              {/* While the label is the activity, the summary sits here once
+                  the PANEL is 28rem wide: beside it, at 390 px, the label read
+                  only „Such…" (Herleitung audit, 2026-09). A container query,
+                  not `sm:`: a wide window with a narrow chat column is a phone
+                  to this header. From the answer's first word the label IS the
+                  summary, and this slot stays empty for good. */}
+              <AnimatePresence mode="popLayout" initial={false}>
+                {shimmer && (
+                  <motion.span
+                    key={`summary:${summaryLabel}`}
+                    data-derivation-summary
+                    className="hidden shrink-0 text-xs text-muted-foreground @md:inline"
+                    {...swap}
+                  >
+                    {summaryLabel}
+                  </motion.span>
+                )}
+              </AnimatePresence>
               {/* The ending word rolls like the label beside it. `wait` left
                   the slot empty for the whole exit before the next word came. */}
-              <span className="relative overflow-y-clip empty:hidden">
+              <span className="relative shrink-0 overflow-y-clip empty:hidden">
                 <AnimatePresence mode="popLayout" initial={false}>
                   {endingWord && (
                     <motion.span key={endingWord} className="block text-xs font-medium text-muted-foreground" {...roll}>
@@ -441,25 +460,21 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                   )}
                 </AnimatePresence>
               </span>
-              <AnimatePresence mode="popLayout" initial={false}>
-                {showElapsed && (
-                  <motion.span
-                    key="elapsed"
-                    className="min-w-[3.5ch] text-right text-xs font-medium tabular-nums text-muted-foreground"
-                    {...swap}
-                  >
-                    {formatElapsed(shownSeconds)}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              {/* While the label is the activity, the summary sits here once
-                  the PANEL is 28rem wide: beside it, at 390 px, the label read
-                  only „Such…" (Herleitung audit, 2026-09). A container query,
-                  not `sm:`: a wide window with a narrow chat column is a phone
-                  to this header. From the answer's first word the label IS the
-                  summary, and this slot stays empty for good. */}
-              {shimmer && <span className="hidden text-xs text-muted-foreground @md:inline">{summaryLabel}</span>}
-              <ChevronDown className="size-4 text-muted-foreground transition-transform duration-quick ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+              {(isThinking || isWaiting) && (
+                <span
+                  data-derivation-elapsed
+                  className="w-[4ch] shrink-0 text-left text-xs font-medium tabular-nums text-muted-foreground"
+                >
+                  <AnimatePresence initial={false}>
+                    {showElapsed && (
+                      <motion.span key="elapsed" className="block" {...swap}>
+                        {formatElapsed(shownSeconds)}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+              )}
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-quick ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
             </span>
           </button>
         </CollapsibleTrigger>
