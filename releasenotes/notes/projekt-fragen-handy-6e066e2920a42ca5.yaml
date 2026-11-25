@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, the questions while setting up a project no longer show the
+    desktop buttons under each question for a moment before the page settles.
