@@ -258,6 +258,36 @@ describe('useSessionUrl', () => {
       expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=recent')
     })
 
+    test('a bare chat link reopens the chat open on this side, not the newest one (the phone’s Chat tab)', () => {
+      mockChatStore.currentUserId = 'u-1'
+      mockChatStore.currentConversation = conv({ id: 'left', userId: 'u-1', updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000) })
+      mockChatStore.getUserConversations.mockReturnValue([conv({ id: 'newer', userId: 'u-1' }), mockChatStore.currentConversation])
+
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+
+      expect(mockChatStore.selectConversation).toHaveBeenCalledWith('left')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=left')
+    })
+
+    test('never reopens a chat of another side or another person', () => {
+      mockChatStore.currentUserId = 'u-1'
+      mockChatStore.currentConversation = conv({ id: 'theirs', userId: 'u-2' })
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalledWith('theirs')
+
+      vi.clearAllMocks()
+      mockChatStore.currentConversation = conv({ id: 'project-chat', userId: 'u-1', projectId: 'p1' })
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalledWith('project-chat')
+    })
+
+    test('a person with no chat on this side gets an empty one', () => {
+      mockChatStore.currentUserId = 'u-1'
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
+    })
+
     test('leaves a stale session alone — a new day starts fresh', () => {
       mockChatStore.currentUserId = 'u-1'
       mockChatStore.getUserConversations.mockReturnValue([

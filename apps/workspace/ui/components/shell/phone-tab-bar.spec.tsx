@@ -121,7 +121,7 @@ describe('PhoneTabBar — under Persönlich (ADR-0193)', () => {
     render(<PhoneTabBar projectId={null} pathname="/app/personal-shelf" canAccessOfficeShelf canAccessInbox />)
     expect(bar()).toHaveAttribute('data-scope', 'personal')
     const links = within(bar()).getAllByRole('link')
-    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/app/personal/chat?new=1', '/app/personal-shelf', '/app/inbox'])
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/app/personal/chat', '/app/personal-shelf', '/app/inbox'])
     expect(within(bar()).getByRole('link', { name: 'Meine Ablage' })).toHaveAttribute('aria-current', 'page')
     expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
     expect(within(bar()).queryByRole('link', { name: 'Projects' })).toBeNull()

@@ -8,7 +8,7 @@ import {
   sectionLinkHref,
   type ProjectSectionKey,
 } from './project-sections'
-import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from './rail-mode'
+import { PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from './rail-mode'
 
 export type PhoneTabKey = 'chat' | 'files' | 'settings' | 'inbox' | 'personalShelf' | 'more'
 
@@ -58,7 +58,7 @@ function projectTab(
       : isUnder(pathname, sectionHref(section, base))
   return {
     key,
-    href: sectionLinkHref(section, base),
+    href: key === 'chat' ? sectionHref(section, base) : sectionLinkHref(section, base),
     icon: section.icon,
     label: section.label ?? { namespace: 'nav', key: PHONE_SHORT_LABEL[key] ?? `sections.${section.i18nKey}` },
     active,
@@ -113,7 +113,7 @@ export function personalPhoneTabs(pathname: string, flags: PhoneTabFlags): Phone
   const tabs: PhoneTab[] = [
     {
       key: 'chat',
-      href: NEW_PERSONAL_CHAT_HREF,
+      href: PERSONAL_CHAT_PATH,
       icon: chat.icon,
       label: { namespace: 'nav', key: `sections.${chat.i18nKey}` },
       active: isUnder(pathname, PERSONAL_CHAT_PATH),
