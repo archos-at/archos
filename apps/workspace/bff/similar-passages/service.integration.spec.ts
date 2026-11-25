@@ -8,7 +8,7 @@
  *
  * What it proves, each a claim about who may see what:
  *   - the backend is asked about the reader's project, the projects they may
- *     chat in, the office's closed projects and the Büroablage, and about no
+ *     chat in, the office's closed projects and the Bürobibliothek, and about no
  *     project they cannot read and no restricted folder they are not cleared
  *     for; the envelope is signed for exactly those plus the source's own;
  *   - a hit from a collection the call did not name is dropped, whatever the
@@ -339,10 +339,10 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
       })
     )
 
-    expect(calls[0].body.source).toMatchObject({ collection: 'oib_knowledge', file_name: 'OIB-Richtlinie_2.pdf' })
-    expect(calls[0].scope).toContain('oib_knowledge')
-    expect(calls[0].base).toMatchObject({ collection: 'oib_knowledge', shelf: 'base', countries: expect.any(Array) })
-    expect(calls[0].body.collections).not.toContain('oib_knowledge')
+    expect(calls[0].body.source).toMatchObject({ collection: 'base_corpus', file_name: 'OIB-Richtlinie_2.pdf' })
+    expect(calls[0].scope).toContain('base_corpus')
+    expect(calls[0].base).toMatchObject({ collection: 'base_corpus', shelf: 'base', countries: expect.any(Array) })
+    expect(calls[0].body.collections).not.toContain('base_corpus')
     expect(response.groups[0]).toMatchObject({ kind: 'current', documents: [{ filename: 'Brandschutzkonzept.pdf' }] })
   })
 })

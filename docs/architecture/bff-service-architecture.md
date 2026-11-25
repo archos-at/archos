@@ -120,7 +120,7 @@ exactly like a route handler.
 This was left implicit once, and every consequence the layering prevents arrived
 together. The pages under `app/projects` each ran their own queries, and so:
 
-- `projects/page.tsx` selected every non-deleted project in the organization
+- `projects/(overview)/page.tsx` selected every non-deleted project in the organization
   instead of calling `listProjects()`, bypassing the per-project FGA filtering
   and showing every member every project in the tenant — the exact enumeration
   ADR-0038 closed;

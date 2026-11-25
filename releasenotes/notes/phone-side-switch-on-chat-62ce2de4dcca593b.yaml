@@ -1,0 +1,7 @@
+---
+# area: general
+features:
+  - >
+    On a phone, the switch between Persönlich and Projekt now sits at the top
+    of the chat, next to the project's name, which opens the list of projects.
+    Changing sides takes one tap and changing projects two.

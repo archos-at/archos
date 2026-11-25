@@ -118,18 +118,20 @@ describe('OfficeShelfWorkspace — library listing', () => {
   it('opens with the project section header: a title, no mark beside it, and the controls in its action slot', async () => {
     render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
     const header = await screen.findByTestId('office-shelf-header')
-    expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
+    expect(within(header).getByRole('heading', { level: 1, name: /Office library/ })).toBeInTheDocument()
     for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
-    expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
+    expect(within(header).getByTestId('shelf-head-tools')).toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('puts the level\u2019s tools in the tool row under the title', async () => {
+  it('puts the level\u2019s tools in the tool row under the title, „Ordner anlegen“ behind its ⋯', async () => {
     deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
     expect(row).toHaveAttribute('data-tier', 'wide')
-    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /create folder/i })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByTestId('files-more'))
+    expect(await screen.findByTestId('files-new-folder')).toBeInTheDocument()
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
@@ -145,7 +147,7 @@ describe('OfficeShelfWorkspace — library listing', () => {
       )
     )
     render(<OfficeShelfWorkspace canManage />)
-    expect(await screen.findByTestId('office-shelf-document-count')).toHaveTextContent('2400')
+    expect(await screen.findByTestId('shelf-head-count')).toHaveTextContent('2400')
   })
 
   it('reads the root of the Archiv as a level, page by page, and never drains it', async () => {
@@ -170,7 +172,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByText('brandschutz-gutachten.pdf')
 
-    await user.click(screen.getByTestId('file-filter-menu-trigger'))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-filter-open'))
     await user.click(await screen.findByRole('checkbox', { name: 'Detail' }))
     expect(screen.getByText('fassadendetail.pdf')).toBeInTheDocument()
     expect(screen.queryByText('brandschutz-gutachten.pdf')).not.toBeInTheDocument()
@@ -203,6 +206,76 @@ describe('OfficeShelfWorkspace — library listing', () => {
     fireEvent.click(await screen.findByTestId('load-more-button'))
     expect(await screen.findByText('fassadendetail.pdf')).toBeInTheDocument()
     expect(cursors).toEqual([null, 'page-2'])
+  })
+})
+
+describe('OfficeShelfWorkspace — the bin', () => {
+  const binListing = {
+    entries: [
+      {
+        folderId: 'f-guides',
+        name: 'Leitfäden',
+        path: 'Leitfäden',
+        deletedAt: '2026-11-24T09:00:00.000Z',
+        deletedBy: { userId: 'user-1', name: 'Maria Huber' },
+        purgeAfter: '2026-12-08T09:00:00.000Z',
+        status: 'pending',
+        documents: 3,
+        folders: 1,
+        canRestore: true,
+        restoreBlocked: null,
+        document: null,
+      },
+    ],
+    canPurge: true,
+    nextCursor: null,
+  }
+
+  it('draws the bin glyph in the head, as the project Ablage does, linking to its own bin window', async () => {
+    deskWidth(1200)
+    render(<OfficeShelfWorkspace canManage />)
+    const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
+    expect(within(row).getByRole('link', { name: 'Bin' })).toHaveAttribute('href', '/app/office-shelf?bin=1')
+  })
+
+  it('opens the bin window on ?bin=1 and lists the office shelf’s bin, not a project’s', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/office-shelf/bin', ({ request }) => {
+        asked.push(new URL(request.url).pathname)
+        return HttpResponse.json(binListing)
+      })
+    )
+    currentSearch = 'bin=1'
+    render(<OfficeShelfWorkspace canManage />)
+
+    const dialog = await screen.findByTestId('folder-bin-dialog')
+    expect(within(dialog).getByText(/Deleted files and folders of the Office library/)).toBeInTheDocument()
+    expect(await within(dialog).findByText('Leitfäden')).toBeInTheDocument()
+    expect(asked).toEqual(['/api/office-shelf/bin'])
+  })
+
+  it('restores an entry through the office shelf’s bin route', async () => {
+    const restored: string[] = []
+    server.use(
+      http.get('/api/office-shelf/bin', () => HttpResponse.json(binListing)),
+      http.post('/api/office-shelf/bin/:folderId/restore', ({ params }) => {
+        restored.push(String(params.folderId))
+        return HttpResponse.json({ restoredTo: 'original', folders: 1, documents: 3 })
+      })
+    )
+    currentSearch = 'bin=1'
+    const user = userEvent.setup()
+    render(<OfficeShelfWorkspace canManage />)
+
+    await user.click(await screen.findByTestId('bin-restore-f-guides'))
+    await waitFor(() => expect(restored).toEqual(['f-guides']))
+  })
+
+  it('opens no bin window without ?bin=1', async () => {
+    render(<OfficeShelfWorkspace canManage />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    expect(screen.queryByTestId('folder-bin-dialog')).not.toBeInTheDocument()
   })
 })
 
@@ -507,12 +580,12 @@ async function openActions(user: ReturnType<typeof userEvent.setup>, filename: s
 }
 
 describe('OfficeShelfWorkspace — file operations', () => {
-  it('asks before deleting, names the document, and cancels without deleting', async () => {
+  it('asks before deleting, names the document and the bin, and cancels without deleting', async () => {
     let deleted = false
     server.use(
-      http.delete('/api/documents/:id', () => {
+      http.post('/api/documents/:id/bin', () => {
         deleted = true
-        return new HttpResponse(null, { status: 204 })
+        return HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
       })
     )
     const user = userEvent.setup()
@@ -522,16 +595,21 @@ describe('OfficeShelfWorkspace — file operations', () => {
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
     expect(await screen.findByText('Delete “brandschutz-gutachten.pdf”?')).toBeInTheDocument()
-    expect(screen.getByText(/removes the document for the whole organization/i)).toBeInTheDocument()
+    expect(screen.getByText(/goes to the Office library’s bin/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(deleted).toBe(false)
     expect(screen.getAllByText('brandschutz-gutachten.pdf').length).toBeGreaterThan(0)
   })
 
-  it('deletes on confirm and removes the card from the grid', async () => {
+  it('moves the document to the bin on confirm, says until when, and removes the card from the grid', async () => {
+    const binned: string[] = []
     server.use(
-      http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 204 }))
+      http.post('/api/documents/:id/bin', ({ params }) => {
+        binned.push(String(params.id))
+        return HttpResponse.json({ documentId: params.id, binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
+      }),
+      http.delete('/api/documents/:id', () => HttpResponse.json({ error: 'not this route' }, { status: 500 }))
     )
     const user = userEvent.setup()
     render(<OfficeShelfWorkspace canManage />)
@@ -542,6 +620,8 @@ describe('OfficeShelfWorkspace — file operations', () => {
 
     await waitFor(() => expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument())
     expect(screen.getByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
+    expect(binned).toEqual(['doc-2'])
+    expect(toastSuccess).toHaveBeenCalledWith(expect.stringMatching(/fassadendetail\.pdf.*bin/))
   })
 
   it('renames through the scope-aware document route and shows the new name on the card', async () => {
@@ -816,16 +896,17 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument()
   })
 
-  it('names the open folder in the header, with the office over the way there and the way up', async () => {
+  it('keeps its head in a folder and names the way there in a line under it, the way up first (KAN-86)', async () => {
     currentSearch = 'folder=f-2'
     render(<OfficeShelfWorkspace canManage organizationName="Atelier Nord" />)
 
     const header = screen.getByTestId('office-shelf-header')
-    expect(await within(header).findByRole('heading', { level: 1, name: /^Statik/ })).toBeInTheDocument()
-    const crumb = within(header).getByTestId('page-header-crumb')
-    expect(crumb).toHaveTextContent('Atelier Nord')
-    expect(within(crumb).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
-    fireEvent.click(within(header).getByTestId('page-header-up'))
+    expect(within(header).getByRole('heading', { level: 1, name: /^Office library/ })).toBeInTheDocument()
+    expect(within(header).getByTestId('page-header-crumb')).toHaveTextContent('Atelier Nord')
+    const line = await screen.findByTestId('section-place-line')
+    expect(within(line).getByTestId('section-place-current')).toHaveTextContent('Statik')
+    expect(within(line).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
+    fireEvent.click(within(line).getByTestId('page-header-up'))
     expect(new URLSearchParams(String(routerPush.mock.calls.at(-1)?.[0]).split('?')[1]).get('folder')).toBe('f-1')
   })
 
@@ -845,7 +926,8 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /create folder/i }))
+    await user.click(screen.getByTestId('files-more'))
+    await user.click(await screen.findByTestId('files-new-folder'))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))

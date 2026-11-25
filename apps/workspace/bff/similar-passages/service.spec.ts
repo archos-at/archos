@@ -94,7 +94,7 @@ beforeEach(() => {
 })
 
 describe('the backend’s collection cap', () => {
-  it('stops adding projects before the collections pass it, the reader’s own project and the Büroablage kept', async () => {
+  it('stops adding projects before the collections pass it, the reader’s own project and the Bürobibliothek kept', async () => {
     for (const project of state.reach) state.cleared.set(project.id, restricted(project, 39))
 
     const response = await findSimilarPassages(session, request)
@@ -107,7 +107,7 @@ describe('the backend’s collection cap', () => {
     expect(response.projectsSearched).toBe(11)
   })
 
-  it('cuts the reader’s own project to the cap when it alone passes it, and still asks the Büroablage', async () => {
+  it('cuts the reader’s own project to the cap when it alone passes it, and still asks the Bürobibliothek', async () => {
     state.cleared.set('p1', restricted(state.reach[0], BACKEND_SEARCH_MAX_COLLECTIONS + 5))
 
     const response = await findSimilarPassages(session, request)
@@ -130,13 +130,13 @@ describe('the base corpus in the signed scope', () => {
   it('signs the base entry with the office’s entitled countries, so a base source is found for them', async () => {
     await findSimilarPassages(session, legal)
 
-    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: ['QA'] })
+    expect(baseEntry()).toEqual({ collection: 'base_corpus', shelf: 'base', countries: ['QA'] })
   })
 
   it('signs an empty country list for an office entitled to none, so another country’s base text is not read', async () => {
     await findSimilarPassages({ ...session, organizationId: 'org_2' } as AuthorizedSession, legal)
 
-    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: [] })
+    expect(baseEntry()).toEqual({ collection: 'base_corpus', shelf: 'base', countries: [] })
   })
 })
 
@@ -181,7 +181,7 @@ describe('a failed join to the documents', () => {
     await expect(findSimilarPassages(session, request)).rejects.toBeInstanceOf(ServiceUnavailableError)
   })
 
-  it('is the error state for the Büroablage’s hits too', async () => {
+  it('is the error state for the Bürobibliothek’s hits too', async () => {
     answering('archiv_org_1', 'musterdetail.pdf')
     vi.mocked(findOfficeShelfDocumentsByFilenames).mockRejectedValueOnce(new Error('connection terminated'))
 

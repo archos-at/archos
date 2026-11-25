@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ChatThinking } from '@/features/chat'
 import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
@@ -9,13 +10,7 @@ import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBann
 import { EngagementNotice } from '@/features/collaboration/components/EngagementNotice'
 import { HandbackOffer } from '@/features/collaboration/components/HandbackOffer'
 import { SpectatedTurn } from '@/features/collaboration/components/SpectatedTurn'
-import {
-  AnimatePresence,
-  motion,
-  motionInstant,
-  motionSheetEnter,
-  motionSheetExit,
-} from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionSheetExit } from '@/components/motion'
 import { TOOLBAR_CLEAR_PADDING, TOOLBAR_CLEAR_SCROLL_MARGIN } from '../../lib/toolbar-clearance'
 import { MessageRenderer } from '../chat-area/message-renderer'
 import {
@@ -24,12 +19,25 @@ import {
   TypingIndicator,
   WelcomeState,
 } from '../chat-area/chat-area-states'
-import { turnEnding, NO_MESSAGES } from '../chat-area/chat-area-helpers'
+import { turnEnding, NO_MESSAGES, welcomeEntrance } from '../chat-area/chat-area-helpers'
 import type { ChatAreaController } from './use-chat-area-controller'
 
 export function ChatMessageList({ controller }: { controller: ChatAreaController }) {
+  const threadKey = controller.currentConversation?.id ?? 'draft'
+  const [mountedOn] = useState(threadKey)
+  const shownThread = useRef(threadKey)
+  const switchedFrom = shownThread.current === threadKey && threadKey === mountedOn ? null : shownThread.current
+  useEffect(() => {
+    shownThread.current = threadKey
+  }, [threadKey])
+  const [typingAtMount, setTypingAtMount] = useState(controller.showTypingPlaceholder)
+  if (typingAtMount && !controller.showTypingPlaceholder) setTypingAtMount(false)
   const handback = controller.handback
   const spectatedTurn = controller.spectatedTurn
+  const welcome = welcomeEntrance({
+    readerActed: controller.readerActed.current,
+    reducedMotion: controller.prefersReducedMotion,
+  })
 
   return (
     <>
@@ -52,32 +60,27 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     The offset it is bottom-aligned against is frozen for exactly
                     this reason (see `useComposerMetrics`): every number under it
                     changes in the same tick. */}
-          <AnimatePresence initial={false} mode="popLayout">
+          <AnimatePresence initial={controller.listArrivesFromSkeleton} mode="popLayout">
             {controller.isEmpty && (
               <motion.div
                 key="welcome"
                 className="flex flex-1 flex-col"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  transition: controller.prefersReducedMotion ? motionInstant : motionSheetEnter,
-                }}
+                initial={welcome.initial}
+                animate={{ opacity: 1, y: 0, transition: welcome.transition }}
                 exit={{ opacity: 0, y: 16 }}
                 transition={controller.prefersReducedMotion ? motionInstant : motionSheetExit}
               >
                 <WelcomeState
                   isAuthenticated={controller.isAuthenticated}
                   onSignIn={controller.onSignIn}
-                  inProject={Boolean(controller.activeProjectId)}
                 />
               </motion.div>
             )}
           </AnimatePresence>
           {!controller.isEmpty && (
             <motion.div
-              initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
-              animate={{ opacity: 1, transition: controller.rowEnter }}
+              initial={controller.listArrivesFromSkeleton || !controller.readerActed.current ? { opacity: 0 } : false}
+              animate={{ opacity: 1, transition: controller.arrivalFade }}
               className={cn(
                 THREAD_COLUMN,
                 THREAD_GUTTER,
@@ -102,11 +105,14 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                             presence, so the rows of the thread left are gone in the
                             same commit. Keyed per row only, they all played their exit
                             for 180 ms beside the new thread's rows. */}
-                <AnimatePresence
-                  key={controller.currentConversation?.id ?? 'draft'}
-                  initial={false}
-                  presenceAffectsLayout={false}
+                <motion.div
+                  key={threadKey}
+                  className="flex flex-col gap-4"
+                  initial={switchedFrom === null ? false : { opacity: 0 }}
+                  animate={{ opacity: 1, transition: controller.arrivalFade }}
+                  data-testid="thread-turns"
                 >
+                <AnimatePresence initial={false} presenceAffectsLayout={false}>
                   {controller.displayableMessages.map((message) => {
                     const isUserMessage = message.messageType === 'user' || message.role === 'user'
                     const messageSteps = isUserMessage
@@ -311,6 +317,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     )
                   })}
                 </AnimatePresence>
+                </motion.div>
 
                 {/* The routing rule for a message that tags nobody (ADR-0036).
                     In `mention` mode it states the rule where the question occurs —
@@ -383,7 +390,13 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                 </AnimatePresence>
 
                 {/* Latency-gap typing indicator (before the first token arrives) */}
-                {controller.showTypingPlaceholder && <TypingIndicator />}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {controller.showTypingPlaceholder && (
+                    <motion.div key="typing" exit={{ opacity: 0, transition: controller.rowLeave }}>
+                      <TypingIndicator arrives={!typingAtMount} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* The agent is working for SOMEONE in this thread (spec CC-13). Without
                     this an observer sees a thread where nothing appears to be happening
@@ -398,21 +411,31 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     first moments before the first token. `spectatingLive` is the switch,
                     and it only turns on once there is something to show, so the banner is
                     never replaced by an empty box. */}
-                {controller.shared &&
-                  controller.turnInFlight &&
-                  !controller.isStreaming &&
-                  !controller.showTypingPlaceholder &&
-                  (controller.spectatingLive && spectatedTurn ? (
-                    <SpectatedTurn
-                      turn={spectatedTurn}
-                      label={controller.turnInFlightLabel}
-                      since={
-                        controller.messages?.find((m) => m.id === spectatedTurn.turnId)?.timestamp
-                      }
-                    />
-                  ) : (
-                    <TurnInFlightBanner label={controller.turnInFlightLabel} />
-                  ))}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {controller.shared &&
+                    controller.turnInFlight &&
+                    !controller.isStreaming &&
+                    !controller.showTypingPlaceholder && (
+                      <motion.div
+                        key={controller.spectatingLive && spectatedTurn ? 'spectated' : 'in-flight'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1, transition: controller.rowEnter }}
+                        exit={{ opacity: 0, transition: controller.rowLeave }}
+                      >
+                        {controller.spectatingLive && spectatedTurn ? (
+                          <SpectatedTurn
+                            turn={spectatedTurn}
+                            label={controller.turnInFlightLabel}
+                            since={
+                              controller.messages?.find((m) => m.id === spectatedTurn.turnId)?.timestamp
+                            }
+                          />
+                        ) : (
+                          <TurnInFlightBanner label={controller.turnInFlightLabel} />
+                        )}
+                      </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* A colleague writing while you are reading is a change you must be able
                     to learn about without eyes. Polite, so it never interrupts. Keyed on

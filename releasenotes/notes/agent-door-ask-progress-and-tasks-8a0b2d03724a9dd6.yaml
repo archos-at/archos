@@ -1,4 +1,5 @@
 ---
+# area: agents
 improvements:
   - >
     An assistant connected to your workspace that asks Piloti a question can now

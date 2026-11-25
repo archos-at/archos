@@ -44,7 +44,7 @@ def harness(monkeypatch):
 
 def _config(**overrides) -> KnowledgeRetrievalConfig:
     return KnowledgeRetrievalConfig(
-        collection_name="oib_knowledge",
+        collection_name="base_corpus",
         include_base_collection=True,
         include_session_collection=False,
         generate_summary=False,
@@ -64,13 +64,13 @@ class TestKnowledgeSearchPlatformCounts:
         async with knowledge_retrieval(_config(), MagicMock()) as info:
             await info.single_fn(info.input_schema(query="OIB Richtlinie 3 Brandschutz"))
 
-        assert harness.retrieve_calls == [{"collection": "oib_knowledge", "top_k": 11}]
+        assert harness.retrieve_calls == [{"collection": "base_corpus", "top_k": 11}]
 
     async def test_defaults_used_without_platform_value(self, harness):
         async with knowledge_retrieval(_config(), MagicMock()) as info:
             await info.single_fn(info.input_schema(query="OIB Richtlinie 3 Brandschutz"))
 
-        assert harness.retrieve_calls == [{"collection": "oib_knowledge", "top_k": 8}]
+        assert harness.retrieve_calls == [{"collection": "base_corpus", "top_k": 8}]
 
     async def test_platform_counts_apply_to_every_in_scope_collection(self, harness, monkeypatch):
         monkeypatch.setattr(
@@ -82,6 +82,6 @@ class TestKnowledgeSearchPlatformCounts:
             await info.single_fn(info.input_schema(query="Holzbau Decke"))
 
         assert harness.retrieve_calls == [
-            {"collection": "oib_knowledge", "top_k": 6},
+            {"collection": "base_corpus", "top_k": 6},
             {"collection": "proj_abc", "top_k": 6},
         ]

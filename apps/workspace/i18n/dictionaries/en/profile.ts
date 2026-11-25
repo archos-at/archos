@@ -2,9 +2,14 @@ export const profile = {
   title: 'Profile',
   subtitle: 'Manage your account, appearance, and language preferences.',
   loading: 'Loading profile…',
-  backToApp: 'Back to projects',
+  backToApp: 'Back to chat',
   savedToast: 'Preferences saved',
   saveError: 'Could not save your preferences. Please try again.',
+  memory: {
+    title: 'My memory',
+    description: 'What {productName} keeps about you and how you want to work. Only you see these notes.',
+    open: 'Open',
+  },
   account: {
     title: 'Account',
     description: 'Your identity within {productName}.',

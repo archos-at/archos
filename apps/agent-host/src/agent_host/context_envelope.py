@@ -28,7 +28,6 @@ ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES: tuple[str, ...] = (
     "/v1/data_sources",
     "/v1/jobs/async/agents",
     "/v1/jobs/async/job",
-    "/v1/jobs/async/jobs",
     "/v1/drafts",
 )
 ENVELOPE_EXEMPT_WEBSOCKET_PATH_PREFIXES: tuple[str, ...] = ()

@@ -47,6 +47,7 @@ export function ProjectDeleteDialog({
       setPending(false)
       setOpen(false)
       router.push('/app/projects')
+      router.refresh()
     } catch (error) {
       if (error instanceof ProjectRequestError) {
         toast.error(error.serverMessage ?? t('dangerZone.deleteError'))

@@ -125,8 +125,29 @@ export function ShareDialog({
     if (value.reason === SHARING_ERROR_REASONS.organizationMembershipRequired) {
       return t('sharing.errors.organizationMembershipRequired')
     }
+    if (value.reason === SHARING_ERROR_REASONS.personalShelfContent) {
+      return value.confirmable ? t('sharing.errors.personalShelfContent') : t('sharing.errors.personalShelfContentNotOwner')
+    }
     return t('sharing.errors.saveFailed')
   }
+
+  const confirmPersonalShelf = (value: SharingFailure): ReactNode =>
+    value.reason === SHARING_ERROR_REASONS.personalShelfContent && value.confirmable ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        className="mt-2"
+        data-testid="confirm-personal-shelf"
+        disabled={saving}
+        onClick={() => {
+          void sharing.confirmPersonalShelf().then((ok) => {
+            if (ok) setPending(null)
+          })
+        }}
+      >
+        {t('sharing.errors.personalShelfConfirm')}
+      </Button>
+    ) : null
 
   const derivedEntries = useMemo(
     () =>
@@ -338,7 +359,10 @@ export function ShareDialog({
                 className="animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none"
               >
                 <AlertTriangle className="size-4" aria-hidden />
-                <AlertDescription>{failureMessage(failure)}</AlertDescription>
+                <AlertDescription>
+                  {failureMessage(failure)}
+                  {confirmPersonalShelf(failure)}
+                </AlertDescription>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -494,9 +518,10 @@ export function ShareDialog({
               press again. That is worse than the false success it replaced.
             */}
             {failure && (
-              <p role="alert" data-testid="confirm-failure" className="text-sm text-destructive">
-                {failureMessage(failure)}
-              </p>
+              <div role="alert" data-testid="confirm-failure" className="text-sm text-destructive">
+                <p>{failureMessage(failure)}</p>
+                {confirmPersonalShelf(failure)}
+              </div>
             )}
           </ConfirmDialog>
         )}

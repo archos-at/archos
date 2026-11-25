@@ -10,6 +10,8 @@ const mockRouter = {
   push: vi.fn(),
 }
 
+const replacedUrl = vi.spyOn(window.history, 'replaceState')
+
 const mockPathname = '/'
 let mockSearchParams = new URLSearchParams()
 
@@ -41,7 +43,9 @@ const mockChatStore = {
   currentUserId: null as string | null,
   conversations: [] as Conversation[],
   serverConversationsLoaded: true as boolean,
-  selectConversation: vi.fn(),
+  selectConversation: vi.fn((id: string) => {
+    mockChatStore.currentConversation = mockChatStore.getUserConversations().find((c) => c.id === id) ?? null
+  }),
   getUserConversations: vi.fn((): Conversation[] => []),
 } satisfies DeepPartial<ChatStoreWithHydration>
 
@@ -71,6 +75,18 @@ describe('useSessionUrl', () => {
     })
   })
 
+  test('writes the session into the URL without a server render, so the route skeleton never covers a chat that just began', () => {
+    mockChatStore.currentUserId = 'user-1'
+    mockChatStore.currentConversation = conversation({ id: 'just-created', messages: [message()] })
+    mockChatStore.getUserConversations.mockReturnValue([mockChatStore.currentConversation])
+
+    renderHook(() => useSessionUrl({ isAuthenticated: true }))
+
+    expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=just-created')
+    expect(mockRouter.replace).not.toHaveBeenCalled()
+    expect(mockRouter.push).not.toHaveBeenCalled()
+  })
+
   describe('updateSessionUrl', () => {
     test('adds session parameter to URL', () => {
       const { result } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
@@ -79,7 +95,7 @@ describe('useSessionUrl', () => {
         result.current.updateSessionUrl('session-123')
       })
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/?session=session-123')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=session-123')
     })
 
     test('removes session parameter when null', () => {
@@ -91,7 +107,7 @@ describe('useSessionUrl', () => {
         result.current.updateSessionUrl(null)
       })
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/')
     })
 
     test('preserves other query parameters', () => {
@@ -103,7 +119,7 @@ describe('useSessionUrl', () => {
         result.current.updateSessionUrl('session-123')
       })
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/?other=param&session=session-123')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?other=param&session=session-123')
     })
   })
 
@@ -117,7 +133,7 @@ describe('useSessionUrl', () => {
         result.current.clearSessionUrl()
       })
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/')
     })
   })
 
@@ -134,6 +150,17 @@ describe('useSessionUrl', () => {
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
     })
 
+    test('a deep link keeps its session while its chat is being opened', () => {
+      mockSearchParams = new URLSearchParams('session=session-123')
+      mockChatStore.currentUserId = 'user-1'
+      mockChatStore.getUserConversations.mockReturnValue([conversation({ id: 'session-123' })])
+
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+
+      expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
+      expect(replacedUrl).not.toHaveBeenCalled()
+    })
+
     test('clears invalid session from URL', async () => {
       mockSearchParams = new URLSearchParams('session=invalid-session')
       mockChatStore.currentUserId = 'user-1'
@@ -143,7 +170,7 @@ describe('useSessionUrl', () => {
 
       renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/')
     })
 
     test('holds an unknown session id until the server list has been fetched', () => {
@@ -154,7 +181,7 @@ describe('useSessionUrl', () => {
 
       const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
-      expect(mockRouter.replace).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
       expect(mockChatStore.selectConversation).not.toHaveBeenCalled()
 
       mockChatStore.conversations = [conversation({ id: 's_shared_1' })]
@@ -165,7 +192,7 @@ describe('useSessionUrl', () => {
       rerender()
 
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('s_shared_1')
-      expect(mockRouter.replace).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
     })
 
     test('still clears a genuinely stale id once the server has answered', () => {
@@ -174,13 +201,13 @@ describe('useSessionUrl', () => {
       mockChatStore.serverConversationsLoaded = false
 
       const { rerender } = renderHook(() => useSessionUrl({ isAuthenticated: true }))
-      expect(mockRouter.replace).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
 
       mockChatStore.serverConversationsLoaded = true
       mockChatStore.conversations = [conversation({ id: 'other' })]
       rerender()
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/')
     })
 
     test('does nothing when not authenticated', async () => {
@@ -228,7 +255,37 @@ describe('useSessionUrl', () => {
       renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('recent')
-      expect(mockRouter.replace).toHaveBeenCalledWith('/?session=recent')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=recent')
+    })
+
+    test('a bare chat link reopens the chat open on this side, not the newest one (the phone’s Chat tab)', () => {
+      mockChatStore.currentUserId = 'u-1'
+      mockChatStore.currentConversation = conv({ id: 'left', userId: 'u-1', updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000) })
+      mockChatStore.getUserConversations.mockReturnValue([conv({ id: 'newer', userId: 'u-1' }), mockChatStore.currentConversation])
+
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+
+      expect(mockChatStore.selectConversation).toHaveBeenCalledWith('left')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=left')
+    })
+
+    test('never reopens a chat of another side or another person', () => {
+      mockChatStore.currentUserId = 'u-1'
+      mockChatStore.currentConversation = conv({ id: 'theirs', userId: 'u-2' })
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalledWith('theirs')
+
+      vi.clearAllMocks()
+      mockChatStore.currentConversation = conv({ id: 'project-chat', userId: 'u-1', projectId: 'p1' })
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalledWith('project-chat')
+    })
+
+    test('a person with no chat on this side gets an empty one', () => {
+      mockChatStore.currentUserId = 'u-1'
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+      expect(mockChatStore.selectConversation).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
     })
 
     test('leaves a stale session alone — a new day starts fresh', () => {
@@ -240,7 +297,7 @@ describe('useSessionUrl', () => {
       renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
       expect(mockChatStore.selectConversation).not.toHaveBeenCalled()
-      expect(mockRouter.replace).not.toHaveBeenCalled()
+      expect(replacedUrl).not.toHaveBeenCalled()
     })
 
     test('does not resume for a signed-out visitor', () => {
@@ -265,7 +322,7 @@ describe('useSessionUrl', () => {
       mockChatStore.currentConversation = conversation({ id: 'session-456' })
       rerender()
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/?session=session-456')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/?session=session-456')
     })
 
     test('clears URL when conversation is cleared', async () => {
@@ -283,7 +340,7 @@ describe('useSessionUrl', () => {
       mockChatStore.currentConversation = null
       rerender()
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/')
+      expect(replacedUrl).toHaveBeenCalledWith(null, '', '/')
     })
   })
 })

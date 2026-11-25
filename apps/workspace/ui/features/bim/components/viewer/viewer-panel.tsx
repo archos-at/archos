@@ -79,7 +79,7 @@ export function ViewerPanel({
     >
       <ViewerSectionHeader className="items-start border-b border-border">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-medium text-foreground pointer-coarse:line-clamp-2 pointer-coarse:break-words pointer-coarse:whitespace-normal" title={title}>
+          <h2 className="text-section truncate text-foreground pointer-coarse:line-clamp-2 pointer-coarse:break-words pointer-coarse:whitespace-normal" title={title}>
             {title}
           </h2>
           {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
@@ -88,7 +88,7 @@ export function ViewerPanel({
           type="button"
           variant="ghost"
           size="icon"
-          className="-mt-1 -mr-1 size-7 shrink-0 rounded-md"
+          className="-mt-1 -mr-1 size-7 shrink-0 rounded-control"
           onClick={onClose}
           aria-label={closeLabel}
         >

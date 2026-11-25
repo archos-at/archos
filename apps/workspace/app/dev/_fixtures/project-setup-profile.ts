@@ -83,6 +83,7 @@ export const PROFILE_CONFIRMED: IntakeView = {
   questions: [],
   groups: withItems(REVIEW_GROUPS, (item) => (DECIDED.has(item.key) ? confirm(item) : item)),
   derivations: [CLASS_CONFIRMED],
+  buildings: [{ id: 'bldg1', name: 'Bauwerk 1' }],
 }
 
 const ESCAPE_LEVEL_HIGH: Suggestion = {
@@ -109,6 +110,18 @@ export const PROFILE_HIGH_RISE: IntakeView = {
     },
     DERIVATION_OPEN,
   ],
+  buildings: [
+    { id: 'bldg1', name: 'Bauwerk 1' },
+    { id: 'bldg2', name: 'Bauwerk 2' },
+  ],
+}
+
+export const PROFILE_SEVERAL_BUILDINGS: IntakeView = {
+  ...PROFILE_HIGH_RISE,
+  buildings: [
+    { id: 'bldg1', name: 'Haus A, Turm' },
+    { id: 'bldg2', name: 'Haus B, Hoftrakt' },
+  ],
 }
 
 export const PROFILE_SITE_UNKNOWN: IntakeView = { ...PROFILE_REVIEW, applicableLaw: { gate: 'site_unknown', uses: [], factLabels: {} } }
@@ -133,6 +146,7 @@ export const PROFILE_STEP_FIXTURES = {
   review: PROFILE_REVIEW,
   confirmed: PROFILE_CONFIRMED,
   highRise: PROFILE_HIGH_RISE,
+  severalBuildings: PROFILE_SEVERAL_BUILDINGS,
   siteUnknown: PROFILE_SITE_UNKNOWN,
   notEntitled: PROFILE_NOT_ENTITLED,
   uncurated: PROFILE_UNCURATED,

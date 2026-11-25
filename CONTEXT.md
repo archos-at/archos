@@ -110,9 +110,9 @@ verdict.
 
 **Grundlagen des Büros** (office standards):
 The standards, commentaries, authority directives, guidelines and laws an office holds itself, each a
-Büroablage file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
-check (ADR-0163). Shown as the Büroablage's tab „Normen & Richtlinien“ beside „Ordner“, with topic folders under
-one root folder of that name that the Ordner tab never lists; in the UI a single entry is a *Norm* for short and
+Bürobibliothek file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
+check (ADR-0163). Shown as the Bürobibliothek's place „Normen & Richtlinien“ beside „Dateien“, with topic folders under
+one root folder of that name that the Dateien place never lists; in the UI a single entry is a *Norm* for short and
 its *Art* says whether it is a standard, guideline, directive, commentary or law. One upload serves both tabs:
 a file whose name reads as a norm is proposed in the norm dialog, everything else stays an ordinary file.
 An *Ausgabe* (edition) is the standard's state, a *Fassung* the state of the uploaded file: a newer Ausgabe
@@ -123,9 +123,9 @@ Richtlinien“); „Grundlage" in the UI; „Version" for an Ausgabe.
 
 **Shelf**:
 Where a document lives, which decides who may read it and what a search reaches:
-the *Büroablage* (the organization's shelf, formerly „Archiv"; code name
+the *Bürobibliothek* (the organization's shelf; code name
 `officeShelf`, never `archive`, which already means soft-archived), a project, a single chat, or the shared OIB base every organization
-sees. The Büroablage can hold norms an office uploaded itself (ÖNORMEN,
+sees. A project's shelf is shown as its *Ablage*, whose first place is „Dateien“. The Bürobibliothek can hold norms an office uploaded itself (ÖNORMEN,
 Weisungen) that the OIB base does not carry.
 _Code_: `officeShelf` in identifiers, file names and modules (`lib/office-shelf`,
 `OfficeShelfWorkspace`, `canManageOfficeShelf`). Stored and public forms are
@@ -134,7 +134,10 @@ _Code_: `officeShelf` in identifiers, file names and modules (`lib/office-shelf`
 read beside the new name until an operator moves them
 ([runbook](docs/deployment/office-shelf-rename-runbook.md)): the collection
 prefix `archiv_<org>`, the old permission slug, and the history of audit rows.
-_Avoid_: folder; folders organise documents within a shelf, a shelf decides who sees them.
+_Avoid_: folder; folders organise documents within a shelf, a shelf decides who sees them. „Büroablage“ (the name
+until KAN-86): beside the project's „Ablage“ the two names read as one place, so the office's shelf became the
+„Bürobibliothek“, what the office keeps for every project. Answers written under the old name still resolve
+(`RETIRED_SHELF_QUALIFIERS`). „Archiv“, the name before that, meant soft-archived to anyone who had archived a file.
 
 **Dokumentart** (document type):
 What a document is (an OIB-Richtlinie, a law, a standard, a Grundriss, a
@@ -410,14 +413,18 @@ that does not match the source word for word, or changes what it negates
 belegt* (not verbatim in the source) and lowers the answer's confidence.
 
 **Confidence** (Sicherheit):
-How far an answer can be relied on: high, medium or low. A grading model reads
-the answer against everything its turn retrieved and read (passages, workspace
-records, the project profile, measurements, readings off drawings) and names
-the statements it relies on that nothing backs or that a source contradicts.
-A statement about the law needs a passage of that law; a record or a
-measurement backs a fact about the office or the building, never the law. A
-quote the source does not hold word for word lowers the level. When the check
-cannot run, no level is shown (*Belegprüfung nicht verfügbar*).
+How far an answer can be relied on: high, medium or low. A checking model
+reads each statement the answer cites against the passage it cites, and looks
+for statements of what a regulation requires without a citation. It names a
+cited source that says something else (*die Quelle sagt etwas anderes*), one
+that says nothing about the statement (*die Quelle sagt dazu nichts*), and law
+stated without a source (*Rechtsaussage ohne Fundstelle*); what the answer says
+about the person, the office or the project, from memory or from earlier in the
+conversation, it does not judge. A contradiction makes the level low, any other
+finding medium. A record or a measurement backs a fact about the office or the
+building, never the law. A quote the source does not hold word for word lowers
+the level. When the check cannot run, no level is shown (*Belegprüfung nicht
+verfügbar*).
 _Code_: `claim_judge`, `confidence_check`.
 
 **Answer kind**:

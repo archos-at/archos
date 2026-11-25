@@ -1,15 +1,16 @@
 import 'server-only'
+import type { ConversationPlace } from './repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { isCollaborationEnabled } from '@/lib/authz/feature-flags'
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ForbiddenError, NotFoundError, ResourceRightsLostError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { ConversationRead } from '@/lib/db/schema/conversation-reads'
 import type { Conversation, ConversationEngagement } from '@/lib/db/schema/conversations'
 import type { Message } from '@/lib/db/schema/messages'
 import type { ResourceRole, ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { isShared, requireResourceAccess } from '@/lib/sharing/access'
-import { countGrantsForResource } from '@/lib/sharing/repository'
+import { countGrantsForResource, resourceIdsWithGrants } from '@/lib/sharing/repository'
 import { resolvePeople } from '@/lib/sharing/directory'
 import { resolveRequestsOnReply } from '@/lib/mentions/service'
 import { isAgentMentionId } from '@/lib/mentions/types'
@@ -28,6 +29,8 @@ import { answerMessageId, cutStoppedRow } from './stopped-cut'
 import { sanitizeStages } from './message-stages'
 import { restrictingOtherProjects, type RestrictingOtherProject } from './cross-project-use'
 import { lockedConversationIds } from './restricted-use'
+import { readerCut } from './reader-cut'
+import { hidesShelfChatFromAgent } from './shelf-titles'
 import {
   findConversationInOrg,
   findConversationRead,
@@ -55,7 +58,12 @@ import {
   type PreparedMessage,
 } from './message-insert'
 
-export { assertConversationAcceptsUploads, deleteConversation, retryConversationErasure } from './conversation-erasure'
+export {
+  assertConversationAcceptsUploads,
+  deleteConversation,
+  deleteOwnConversations,
+  retryConversationErasure,
+} from './conversation-erasure'
 export { generateConversationTitle, updateConversationTitle } from './conversation-title'
 export type { ConversationTitleMessageInput, GenerateConversationTitleResult } from './conversation-title'
 export type { CreateMessageInput, PersistedMessage } from './message-insert'
@@ -75,6 +83,7 @@ export interface ConversationWithAccess extends Conversation {
 
 export interface ListConversationsFilter {
   projectId?: string
+  place?: ConversationPlace
   limit?: number
   cursor?: string
 }
@@ -94,24 +103,34 @@ export async function listConversations(
   const pageSize = Math.min(Math.max(1, Math.trunc(filter.limit ?? CONVERSATION_PAGE_MAX)), CONVERSATION_PAGE_MAX)
   const fetched = await listVisibleConversations(session.organizationId, session.userId, {
     projectId: filter.projectId,
+    place: filter.place,
     limit: pageSize + 1,
     after: filter.cursor,
   })
   const hasMore = fetched.length > pageSize
   const rows = hasMore ? fetched.slice(0, pageSize) : fetched
-  const locked = await lockedConversationIds(
-    session,
-    rows.map((row) => ({ id: row.id, projectId: row.projectId }))
-  )
+  const [locked, granted] = await Promise.all([
+    lockedConversationIds(
+      session,
+      rows.map((row) => ({ id: row.id, projectId: row.projectId }))
+    ),
+    resourceIdsWithGrants(session.organizationId, 'conversation', rows.map((row) => row.id)),
+  ])
+  const listed = (row: Conversation): ListedConversation => ({
+    ...(locked.has(row.id) || hidesShelfChatFromAgent(row, session.userId)
+      ? withheldConversation(row)
+      : { ...row, contentLocked: false }),
+    shared: isShared(row.visibility, granted.has(row.id) ? 1 : 0),
+  })
   return {
-    conversations: rows.map((row) => (locked.has(row.id) ? withheldConversation(row) : { ...row, contentLocked: false })),
+    conversations: rows.map(listed),
     nextCursor: hasMore ? (rows.at(-1)?.id ?? null) : null,
   }
 }
 
-export type ListedConversation = Conversation & { contentLocked: boolean }
+export type ListedConversation = Conversation & { contentLocked: boolean; shared: boolean }
 
-function withheldConversation(row: Conversation): ListedConversation {
+function withheldConversation(row: Conversation): Omit<ListedConversation, 'shared'> {
   return { ...row, title: null, tags: [], subjectResourceType: null, subjectResourceId: null, contentLocked: true }
 }
 
@@ -178,6 +197,7 @@ export async function createConversation(
     subjectResourceType: input.subjectResourceType ?? null,
     subjectResourceId: input.subjectResourceId ?? null,
     temporary: input.temporary ?? false,
+    startedInPersonal: !input.projectId && input.personal === true,
   })
   if (inserted) return inserted
 
@@ -192,11 +212,14 @@ export async function listConversationMessages(
   conversationId: string,
   query: { limit?: number; cursor?: string; include?: string } = {}
 ): Promise<MessageListResponse> {
-  await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
+  const access = await requireResourceAccess(session, 'conversation', conversationId, 'viewer', { allowLocked: true })
+  const cut = access.contentLocked ? await readerCut(session, conversationId) : null
+  if (cut?.kind === 'none') throw new ResourceRightsLostError('conversation')
+  const until = cut?.kind === 'until' ? cut.messageId : undefined
 
   const limit = Math.min(Math.max(1, Math.trunc(query.limit ?? 50)), MESSAGE_PAGE_MAX)
   const [page, tenancy] = await Promise.all([
-    listMessagePage(conversationId, { limit, before: query.cursor }),
+    listMessagePage(conversationId, { limit, before: query.cursor, until }),
     findConversationTenancy(conversationId),
   ])
   const rows = page.rows.map((row) => attributeLegacyAuthor(row, tenancy?.createdBy ?? null))
@@ -207,6 +230,7 @@ export async function listConversationMessages(
   return {
     messages: rows.map((row) => toMessageView(row, names, include)),
     nextCursor: page.hasMore ? (rows[0]?.id ?? null) : null,
+    ...(until ? { withheldFrom: until } : {}),
   }
 }
 

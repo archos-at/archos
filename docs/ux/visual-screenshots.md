@@ -187,20 +187,20 @@ PNG, JPEG, GIF, WebP, SVG, MP4, MOV and WebM all work.
 
 | Was | Now |
 |---|---|
-| `task workspace:screenshots` | `agent-browser screenshot` against a running dev server |
+| `workspace:screenshots` | `agent-browser screenshot` against a running dev server |
 | `visual/registry.mjs` targets | the `/dev/*` routes themselves; no second list to keep in sync |
 | Committed PNGs under `visual/screenshots/` | attachments on the PR |
 | `visual-coverage` workflow | nothing but a reviewer reading the attachment |
 | `screenshot-preview` workflow and its bot commits | nothing; nobody commits screenshots |
 | `visual/screenshots.manifest.json` staleness gate | nothing. A capture is taken against the branch under review, so it cannot go stale |
-| `task workspace:touch-audit` | **nothing.** It imported the registry, so it went with it |
+| `workspace:touch-audit` | `task workspace:phone-audit`, which discovers the routes from `app/dev/` |
 
-That last row is a real loss, not a migration. `touch-audit.mjs` measured every
-`/dev` surface at a phone viewport and reported overflow, scroll traps and
-sub-44px targets — things a screenshot does not show you.
-`mobile-affordances.spec.ts` still holds the static half of that contract. If
-the browser measurement is wanted back, it wants writing again as a script that
-discovers routes from `src/app/dev/` rather than from a registry.
+The touch audit came back as `scripts/phone-audit.mjs`, run by hand (a CI gate
+until 2026-11-25, when the lint rule `grid/touch-target` took over the 44px
+floor): every `/dev` route at 390 and 360 with a touch screen, failing on a page
+wider than the phone and on a control under 44x44 that
+`ci/phone-audit-baseline.json` does not list. Scroll traps are not measured again. `mobile-affordances.spec.ts` still
+holds the static half of the contract.
 
 ## Agents
 

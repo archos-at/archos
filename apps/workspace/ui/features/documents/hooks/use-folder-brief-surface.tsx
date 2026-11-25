@@ -13,6 +13,7 @@ import {
   type FolderBrief as FolderBriefData,
 } from '../lib/folder-knowledge'
 import { FolderBrief } from '../components/folder-brief'
+import { UnreadHint } from '../components/unread-hint'
 import { useBriefCollapsed } from './use-brief-collapsed'
 import { useBulkReingest } from './use-bulk-reingest'
 import { useDocumentFindings } from './use-document-findings'
@@ -86,7 +87,13 @@ export function useFolderBriefSurface({
     if (partial) onRequestDetails()
   }
 
+  const unread = brief ? brief.tally.failed + brief.tally.held : 0
+  const showingUnread = active?.kind === 'state' && (active.state === 'failed' || active.state === 'held')
   return {
+    unreadHint:
+      brief && unread > 0 && !showingUnread ? (
+        <UnreadHint count={unread} onShow={() => select({ kind: 'state', state: brief.tally.failed > 0 ? 'failed' : 'held' })} />
+      ) : null,
     brief: brief ? (
       <FolderBrief
         brief={brief}

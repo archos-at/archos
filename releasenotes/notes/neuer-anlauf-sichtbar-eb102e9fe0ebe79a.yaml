@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    When ARCHOS starts an answer over while writing it, the new answer is now
+    shown as it is written. Before, only its heading appeared and the text
+    stayed hidden until the answer was finished.

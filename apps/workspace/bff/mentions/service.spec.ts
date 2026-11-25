@@ -127,12 +127,12 @@ function requestRow(overrides: Partial<MentionRequest> = {}): MentionRequest {
   }
 }
 
-function stubCallerRole(role: ResourceRole): void {
+function stubCallerRole(role: ResourceRole, projectId: string | null = 'proj_1'): void {
   vi.mocked(requireResourceAccess).mockResolvedValue({
     role,
     reason: 'grant',
     visibility: 'private',
-    container: { organizationId: 'org_1', projectId: 'proj_1' },
+    container: { organizationId: 'org_1', projectId },
     canEscalate: false,
     contentLocked: false,
   })
@@ -649,6 +649,37 @@ describe('listMentionCandidates (spec MN-4, SH-19)', () => {
 
     const { canInvite } = await listMentionCandidates(session, 'conv_1')
     expect(canInvite).toBe(false)
+  })
+})
+
+describe('a chat without a project has no mentions (ADR-0193)', () => {
+  it('offers no one, not even the agent, and loads no directory', async () => {
+    stubCallerRole('owner', null)
+
+    const result = await listMentionCandidates(session, 'conv_1')
+
+    expect(result).toEqual({ candidates: [], canInvite: false })
+    expect(loadOrganizationDirectory).not.toHaveBeenCalled()
+  })
+
+  it('refuses a mention of a participant with 403, and writes nothing', async () => {
+    stubCallerRole('owner', null)
+
+    const failure = await send([ANNA]).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ForbiddenError)
+    expect((failure as ForbiddenError).details).toEqual({ reason: MENTION_ERROR_REASONS.personalChat })
+    expect(insertMentionRequests).not.toHaveBeenCalled()
+    expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('refuses an invite by mention with 403, so sharing stays with Teilen', async () => {
+    stubCallerRole('owner', null)
+
+    const failure = await send([BOB]).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ForbiddenError)
+    expect(grantResourceAccess).not.toHaveBeenCalled()
   })
 })
 

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { ConnectionPresenceIndicator } from './connection-presence-indicator'
 
 const APPEARANCE = {
-  band: 'h-7 justify-center px-4',
+  band: 'h-7 justify-center px-4 pointer-coarse:h-11',
   line: 'h-6 justify-start px-1',
   rail: 'min-h-9 flex-col items-start justify-center gap-2 px-3 py-2.5',
 } as const

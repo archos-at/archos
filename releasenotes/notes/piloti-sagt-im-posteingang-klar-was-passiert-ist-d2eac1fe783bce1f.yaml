@@ -1,4 +1,5 @@
 ---
+# area: administration
 improvements:
   - >
     Inbox notices about Piloti now say what it did, on which annotation in

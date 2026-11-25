@@ -108,6 +108,13 @@ express. Two run on it (added 2026-11-11, on the product owner's decision):
   the reconnect ladder and the order of every effect. Frame parsing and sending
   stay in the driver, because callers send synchronously inside the `open`
   announcement, before an actor's snapshot has moved.
+* **The round of a live answer** (`ui/features/chat/lib/answer-round-machine.ts`,
+  added 2026-11-25): writing, the retracted words fading, the quiet line, and
+  the next round fading back in, each wait a timer from the motion tokens. It
+  replaced a render-time latch and a `setTimeout` whose missing reset left a
+  restarted round's prose invisible. The latches that feed the text pacer stay
+  in the controller: an event sent from an effect reaches the pacer one render
+  after its text.
 
 A machine file is pure (no React, no browser globals) and its module keeps the
 API it had, so nothing outside those two modules imports XState. v6 is in beta

@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A link to a chat now always opens it where it belongs: a personal chat
+    never opens inside a project, and a project's chat never on the personal
+    side or in another project.

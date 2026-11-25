@@ -63,7 +63,7 @@ afterEach(() => {
   shelf.props = null
 })
 
-describe('the Büroablage with its norms', () => {
+describe('the Bürobibliothek with its norms', () => {
   it('recognises the norms of an upload and opens the norm dialog for them', async () => {
     const fetchMock = stubRecognition(ONE)
     renderShelf()

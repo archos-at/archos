@@ -6,10 +6,6 @@ export const research: typeof en.research = {
   detailsHelp:
     'Diese Details erscheinen während einer laufenden Recherche und sind für abgeschlossene Berichte möglicherweise nicht verfügbar.',
 
-  runsList: {
-    untitledRun: 'Deep-Research-Durchlauf',
-  },
-
   chatArea: {
     ariaMessages: 'Chat-Nachrichten',
     loading: 'Chat wird geladen',
@@ -29,7 +25,7 @@ export const research: typeof en.research = {
     },
     loggedOutTitle: '{productName} wird verfügbar, sobald Ihre Organisation verifiziert ist.',
     loggedOutBody:
-      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Büroablage, Aufgaben und Recherche.',
+      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Bürobibliothek, Aufgaben und Recherche.',
     signInSso: 'Mit SSO anmelden',
     welcomeTitle: 'Wie kann {productName} bei Ihrem Projekt helfen?',
   },
@@ -48,6 +44,9 @@ export const research: typeof en.research = {
     research: 'Recherche',
     moreActions: 'Weitere Aktionen',
     renameSession: 'Chat umbenennen',
+    rename: 'Umbenennen',
+    delete: 'Löschen',
+    changedOn: 'Geändert am {date}',
     researching: 'Recherche läuft',
   },
 
@@ -80,7 +79,7 @@ export const research: typeof en.research = {
     toggleAria: '{name} zulassen',
     strata: {
       law: 'Baurecht',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       project: 'Projektwissen',
       auto: 'Web',
     },
@@ -88,16 +87,26 @@ export const research: typeof en.research = {
       all: 'Alle Quellen',
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
     },
     knowledge: {
       projectName: 'Projektwissen',
       projectDescription: 'Ihre Projektunterlagen in diesem Projekt.',
-      officeName: 'Büroablage',
+      officeName: 'Bürobibliothek',
       officeDescription: 'Freigegebene Unterlagen Ihres Büros.',
     },
   },
 
+  deleteFeedback: {
+    oneFailed: 'Der Chat wurde nicht gelöscht.',
+    allFailed: 'Die Chats wurden nicht gelöscht.',
+    legalHold: 'Eine Aufbewahrungspflicht (Legal Hold) verbietet das Löschen.',
+    attachments: 'Die Anhänge ließen sich nicht entfernen. Das Löschen wird später erneut versucht.',
+    tooMany: 'Zu viele Anfragen in kurzer Zeit. Bitte versuchen Sie es gleich noch einmal.',
+    server: 'Der Server hat mit Fehler {status} geantwortet. Bitte versuchen Sie es erneut.',
+    offline: 'Der Server war nicht erreichbar. Bitte prüfen Sie Ihre Verbindung.',
+    held: '{count, plural, one {Ein Chat wurde} other {# Chats wurden}} wegen einer Aufbewahrungspflicht nicht gelöscht.',
+  },
   deleteModals: {
     cannotReverse:
       'Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher, dass Sie dies tun möchten?',
@@ -105,12 +114,14 @@ export const research: typeof en.research = {
     lossSuffix:
       ' zu löschen. Dabei gehen sämtliche Fortschritte verloren und alle von Ihnen angehängten Dateien werden entfernt.',
     all: {
-      title: 'Alle Chats dieses Projekts löschen?',
-      countSessions:
-        '{count, plural, one {der eine Chat dieses Projekts} other {alle # Chats dieses Projekts}}',
-      allSessions: 'JEDEN Chat dieses Projekts',
-      scopeNote:
-        'Es werden nur Chats dieses Projekts gelöscht. Ihre Chats in anderen Projekten sind nicht betroffen.',
+      titlePersonal: 'Alle Ihre persönlichen Chats löschen?',
+      titleProject: 'Alle Ihre Chats in diesem Projekt löschen?',
+      whatPersonal: 'alle Ihre persönlichen Chats, also jeden Chat ohne Projekt, den Sie begonnen haben',
+      whatProject: 'alle Ihre Chats in diesem Projekt, also jeden Chat dieses Projekts, den Sie begonnen haben',
+      scopeNotePersonal:
+        'Ihre Chats in Projekten bleiben erhalten, ebenso Chats, die andere mit Ihnen geteilt haben.',
+      scopeNoteProject:
+        'Ihre persönlichen Chats und Ihre Chats in anderen Projekten bleiben erhalten, ebenso die Chats anderer Mitglieder.',
       confirm: 'Alle Chats löschen',
     },
     file: {
@@ -240,16 +251,10 @@ export const research: typeof en.research = {
     countLabelOne: '1 Chat',
     syncedNote:
       'Chats werden in Ihrem Workspace gespeichert und sind auf allen Geräten verfügbar. Rechercheberichte können auf dem Server ablaufen.',
-    deleteAllDisabled: 'Alle Chats dieses Projekts löschen (deaktiviert)',
-    deleteAll: 'Alle Chats dieses Projekts löschen',
+    deleteAllPersonal: 'Alle Ihre persönlichen Chats löschen',
+    deleteAllProject: 'Alle Ihre Chats in diesem Projekt löschen',
     cannotDeleteBusy: 'Löschen nicht möglich, während Vorgänge laufen',
     deleteAllButton: 'Alle Chats löschen',
-    stopResearch: 'Recherche stoppen',
-    stopResearchTitle: 'Diesen Recherchedurchlauf stoppen',
-    stopConfirmTitle: 'Recherche stoppen?',
-    stopConfirmBody:
-      'Die laufende Recherche wird abgebrochen und kann nicht fortgesetzt werden. Der bisherige Teilfortschritt bleibt im Recherchebereich sichtbar.',
-    stopConfirmConfirm: 'Recherche stoppen',
     startNewSession: 'Neuen Chat starten',
     newSessionButton: 'Neuer Chat',
     searchPlaceholder: 'Chats durchsuchen',
@@ -275,27 +280,19 @@ export const research: typeof en.research = {
     sessionWaiting: 'Wartet auf Ihre Antwort',
     answerReady: 'Antwort fertig',
     answerFailed: 'Antwort fehlgeschlagen',
+    researchFailed: 'Recherche fehlgeschlagen',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',
     sessionLabelTemporary: '{label} (temporärer Chat, daraus wird nichts gemerkt)',
-    deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
-    deepResearchRunLabel: 'Deep-Research-Durchlauf öffnen: {label} — {status}',
     filterAria: 'Verlauf filtern',
     filterAll: 'Alle',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    researchLoadFailed: 'Deep-Research-Durchläufe konnten nicht geladen werden.',
     noRuns: 'Noch keine Deep-Research-Durchläufe',
     noRunsDescription: 'Deep-Research-Durchläufe aus diesem Projekt erscheinen hier.',
-    runStatus: {
-      running: 'Läuft',
-      completed: 'Bericht fertig',
-      failed: 'Fehlgeschlagen',
-      cancelled: 'Abgebrochen',
-    },
   },
 
 

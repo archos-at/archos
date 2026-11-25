@@ -65,45 +65,57 @@ export const onboarding: typeof en.onboarding = {
     stops: {
       welcome: {
         title: 'Willkommen bei {productName}',
-        body: 'Ihre Organisation ist bereit. Ein kurzer Rundgang zeigt, wo was liegt — er dauert etwa eine Minute.',
+        body: 'Ihre Organisation ist bereit. Ein kurzer Rundgang zeigt, wo was liegt.',
       },
       welcomeJoined: {
         title: 'Willkommen bei {productName}',
-        body: 'Hier arbeitet Ihr Team an seinen Bauprojekten. Ein kurzer Rundgang zeigt, wo was liegt — er dauert etwa eine Minute.',
+        body: 'Hier arbeitet Ihr Büro an seinen Projekten, mit {productName} als Kollegen. Ein kurzer Rundgang zeigt, wo was liegt.',
       },
-      createProjectJoined: {
+      sides: {
+        title: 'Persönlich oder Projekt',
+        body: 'Ein Schalter, zwei Seiten. Persönlich: Ihre eigenen Chats und „Meine Ablage“, nur für Sie. Projekt: alles zu einem Gebäude, mit allen, die daran arbeiten.',
+      },
+      sidesPhone: {
+        title: 'Persönlich oder Projekt',
+        body: 'Ein Schalter oben im Chat, zwei Seiten. Persönlich: Ihre eigenen Chats und „Meine Ablage“, nur für Sie. Projekt: alles zu einem Gebäude. Dort öffnet der Projektname daneben Ihre Projekte.',
+      },
+      projects: {
         title: 'Ihre Projekte',
-        body: 'Projekte erscheinen hier, sobald Kolleginnen und Kollegen Sie hinzufügen. Sie können auch selbst eines anlegen: Ein Projekt umfasst ein Gebäude, seine Unterlagen, die Beteiligten, Aufgaben und Recherchen sowie einen Chat, in dem {productName} arbeitet und jede Quelle belegt.',
+        body: 'Ein Klick auf {productName} öffnet die Projektübersicht. Dort legen Sie ein Projekt an: ein Gebäude mit seiner Ablage, seinen Beteiligten und seinen Chats.',
       },
-      createProject: {
-        title: 'Alles beginnt mit einem Projekt',
-        body: 'Ein Projekt umfasst ein Gebäude: seine Dokumente, die Beteiligten, Aufgaben und Recherchen sowie einen Chat, in dem {productName} mit Ihnen arbeitet. Jede Quelle ist belegt, ob Baurecht oder Ihre eigenen Unterlagen. Eine kurze Einrichtung fragt nach dem Gebäude, danach zeigen wir Ihnen das Projekt.',
+      projectsJoined: {
+        title: 'Ihre Projekte',
+        body: 'Ein Klick auf {productName} öffnet die Projektübersicht. Projekte erscheinen dort, sobald Kolleginnen und Kollegen Sie hinzufügen; ein eigenes legen Sie dort an.',
+      },
+      morePhone: {
+        title: 'Alles Weitere unter „Mehr“',
+        body: 'Ihre Projekte und „Neues Projekt“, die Suche, die Bürobibliothek Ihres Büros und Ihr Konto, auch der Wechsel in ein anderes Büro.',
+      },
+      morePhoneShelfless: {
+        title: 'Alles Weitere unter „Mehr“',
+        body: 'Ihre Projekte und „Neues Projekt“, die Suche und Ihr Konto, auch der Wechsel in ein anderes Büro.',
       },
       officeShelf: {
-        title: 'Büroablage',
-        body: 'Die gemeinsamen Unterlagen Ihres Büros — Regeldetails, Leistungsbeschreibungen, Vorlagen. Einmal hier abgelegt, kann jedes Projekt darauf zurückgreifen.',
+        title: 'Bürobibliothek',
+        body: 'Die gemeinsamen Unterlagen Ihres Büros: Regeldetails, Leistungsbeschreibungen, Vorlagen. Einmal hier abgelegt, greift jedes Projekt darauf zurück.',
       },
       inbox: {
         title: 'Postfach',
         body: 'Erwähnungen, Anfragen und Neuigkeiten Ihrer Kolleginnen und Kollegen landen hier.',
       },
+      search: {
+        title: 'Suchen',
+        body: 'Die Lupe findet jede Datei, jeden Chat und jedes Projekt im Büro.',
+        palette: 'Suchen',
+        cheatsheet: 'Alle Tastenkürzel',
+      },
       account: {
-        title: 'Ihre Organisation',
-        body: 'Unter „Organisation“ laden Sie Kolleginnen und Kollegen ein und verwalten Rollen. Design, Sprache und diese Tour finden Sie ebenfalls hier.',
+        title: 'Ihr Konto und Ihr Büro',
+        body: 'Profil, Design, Sprache und diese Tour. Unter „Organisation“ laden Sie Kolleginnen und Kollegen ein; gehören Sie mehreren Büros an, wechseln Sie hier.',
       },
       accountMember: {
         title: 'Ihr Konto',
-        body: 'Ihr Profil, Design und Sprache, und diese Tour, wann immer Sie sie wieder brauchen. Mitglieder und Rollen verwalten die Administratoren Ihrer Organisation.',
-      },
-      shortcuts: {
-        title: 'Schneller ans Ziel',
-        body: 'Zwei Tasten bringen Sie fast überallhin.',
-        palette: 'Zu allem springen',
-        cheatsheet: 'Alle Tastenkürzel',
-      },
-      searchPhone: {
-        title: 'Suchen und springen',
-        body: 'Die Lupe oben bringt Sie zu jedem Projekt, jedem Bereich und zur Büroablage. Ein paar Buchstaben genügen.',
+        body: 'Profil, Design, Sprache und diese Tour. Gehören Sie mehreren Büros an, wechseln Sie hier. Mitglieder und Rollen verwalten die Administratoren.',
       },
       projectWelcome: {
         title: 'Ihr Projekt ist eingerichtet',
@@ -115,35 +127,39 @@ export const onboarding: typeof en.onboarding = {
       },
       projectChat: {
         title: 'Mit {productName} arbeiten',
-        body: 'Sprechen Sie in Ihren Worten mit {productName} über dieses Gebäude oder übergeben Sie ihm eine Aufgabe. Es arbeitet mit Ihren Dateien, der Büroablage und dem Baurecht und zitiert jede Quelle.',
+        body: 'Fragen Sie {productName} zu diesem Gebäude oder übergeben Sie ihm eine Aufgabe. Ihre bisherigen Chats stehen darunter unter „Letzte Chats“.',
+      },
+      projectChatPhone: {
+        title: 'Mit {productName} arbeiten',
+        body: 'Fragen Sie {productName} zu diesem Gebäude oder übergeben Sie ihm eine Aufgabe. „Chat“ bringt Sie zurück zu Ihrem letzten Chat.',
       },
       projectFiles: {
-        title: 'Dateien: die Unterlagen dieses Projekts',
-        body: 'Laden Sie Zeichnungen, Gutachten und Schriftverkehr zu diesem Gebäude hoch. Sobald eine Datei gelesen ist, kann {productName} daraus zitieren, und zwar nur in diesem Projekt.',
-      },
-      projectOfficeShelf: {
-        title: 'Büroablage: die Unterlagen Ihres Büros',
-        body: 'Die Büroablage steht über Ihren Projekten, und jedes Projekt durchsucht sie automatisch mit. Sie ist anfangs leer: Administratoren legen Unterlagen ab, alle in der Organisation können sie lesen und zitieren.',
-      },
-      projectOfficeShelfPhone: {
-        title: 'Büroablage: die Unterlagen Ihres Büros',
-        body: 'Die Büroablage steht über Ihren Projekten, und jedes Projekt durchsucht sie automatisch mit. Sie finden sie unter „Mehr“, mit allem, was nicht in der Leiste steht.',
+        title: 'Ablage',
+        body: 'Zeichnungen, Gutachten und Schriftverkehr zu diesem Gebäude. Sobald eine Datei gelesen ist, zitiert {productName} daraus, nur in diesem Projekt.',
       },
       filesOrOfficeShelf: {
-        title: 'Dateien oder Büroablage?',
+        title: 'Ablage oder Bürobibliothek?',
         body: 'Entscheidend ist, wem die Unterlage gehört.',
-        filesTerm: 'Dateien — dieses Gebäude',
+        filesTerm: 'Ablage: dieses Gebäude',
         filesDetail: 'Seine Zeichnungen, Gutachten, Schriftverkehr. Zitiert nur in diesem Projekt.',
-        officeShelfTerm: 'Büroablage — das Büro',
-        officeShelfDetail: 'Regeldetails, Leistungsbeschreibungen, Vorlagen, frühere Einreichungen, die sich wiederverwenden lassen. Zitiert in jedem Projekt.',
+        officeShelfTerm: 'Bürobibliothek: das Büro',
+        officeShelfDetail: 'Regeldetails, Leistungsbeschreibungen, Vorlagen. Zitiert in jedem Projekt.',
+      },
+      filesOrOfficeShelfPhone: {
+        title: 'Ablage oder Bürobibliothek?',
+        body: 'Entscheidend ist, wem die Unterlage gehört. Die Bürobibliothek finden Sie unter „Mehr“.',
       },
       projectSources: {
         title: 'Jede Antwort zeigt ihre Quellen',
-        body: 'Jede Aussage ist markiert, woher sie stammt — Baurecht, Projektwissen oder Büroablage — und öffnet die Stelle, auf der sie beruht. Hat {productName} keine Quelle, sagt es das.',
+        body: 'Jede Aussage zeigt, woher sie stammt: Baurecht, Ablage oder Bürobibliothek, und öffnet die Stelle. Hat {productName} keine Quelle, sagt es das.',
       },
       projectSettings: {
-        title: 'Einstellungen und Mitglieder',
-        body: 'Laden Sie die Beteiligten an diesem Gebäude ein, und passen Sie die Projekteinrichtung an, wenn sich Eckdaten ändern.',
+        title: 'Projekte wechseln, Projekt einstellen',
+        body: 'Der Projektname öffnet die Liste Ihrer Projekte. Das Zahnrad neben einem Projekt führt zu seinen Einstellungen: Beteiligte einladen, Eckdaten anpassen.',
+      },
+      projectSettingsPhone: {
+        title: 'Beteiligte und Eckdaten',
+        body: 'Der Tab „Projekt“ zeigt, wo dieses Projekt steht. Dort laden Sie Beteiligte ein und passen die Eckdaten an.',
       },
     },
   },

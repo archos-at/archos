@@ -92,6 +92,7 @@ describe('/api/conversations/[id]/messages', () => {
         content: 'hello',
         metadata: null,
         createdAt: new Date(),
+        receivedSeq: 1,
       },
       {
         id: '550e8400-e29b-41d4-a716-446655440001',
@@ -103,6 +104,7 @@ describe('/api/conversations/[id]/messages', () => {
         content: 'hi there',
         metadata: null,
         createdAt: new Date(),
+        receivedSeq: 1,
       },
     ] })
 

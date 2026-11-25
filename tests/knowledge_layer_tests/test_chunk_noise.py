@@ -236,7 +236,7 @@ def harness(monkeypatch):
 
 async def _search(drop_ocr_noise: bool | None, **kwargs) -> str:
     config = KnowledgeRetrievalConfig(
-        collection_name="oib_knowledge",
+        collection_name="base_corpus",
         include_session_collection=False,
         project_collections=[PROJECT],
         top_k=4,

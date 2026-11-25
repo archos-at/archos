@@ -85,7 +85,7 @@ describe('useFileDragDrop', () => {
     expect(mockEvent.stopPropagation).toHaveBeenCalled()
   })
 
-  test('asks whether a zip counts only when the surface unpacks them', () => {
+  test('asks whether a zip or an Outlook archive counts only when the surface takes them', () => {
     vi.mocked(checkDraggedFilesSupported).mockClear()
     const zip = createMockDragEvent(
       [new File(['z'], 'a.zip')],
@@ -96,9 +96,15 @@ describe('useFileDragDrop', () => {
     act(() => chat.result.current.dragHandlers.onDragEnter(zip))
     const shelf = renderHook(() => useFileDragDrop({ onDrop: vi.fn(), acceptZip: true }))
     act(() => shelf.result.current.dragHandlers.onDragEnter(zip))
+    const mailShelf = renderHook(() => useFileDragDrop({ onDrop: vi.fn(), acceptZip: true, acceptMailArchives: true }))
+    act(() => mailShelf.result.current.dragHandlers.onDragEnter(zip))
 
     const options = vi.mocked(checkDraggedFilesSupported).mock.calls.map((call) => call[2])
-    expect(options).toEqual([{ allowZip: false }, { allowZip: true }])
+    expect(options).toEqual([
+      { allowZip: false, allowMailArchives: false },
+      { allowZip: true, allowMailArchives: false },
+      { allowZip: true, allowMailArchives: true },
+    ])
   })
 
   test('sets isUnsupportedDrag when files are unsupported', () => {

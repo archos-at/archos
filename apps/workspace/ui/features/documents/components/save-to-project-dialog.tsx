@@ -28,7 +28,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { validateDocumentName, type DocumentNameError } from '@/lib/documents/display-name'
 import { cn } from '@/lib/utils'
 import type { FolderItem } from '../file-types'
-import { useSaveFolders, type KnownFolders } from '../hooks/use-save-folders'
+import { useSaveFolders, type KnownFolders, type SaveShelf } from '../hooks/use-save-folders'
 import { FOLDER_ROW } from './folder-picker-sheet'
 import { folderPath } from './folder-trail'
 import { ChangeNoteField, SaveModeChoice, type SaveMode } from './save-as-revision'
@@ -44,7 +44,7 @@ export interface SaveToProjectChoice {
 export interface SaveToProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  projectId: string
+  shelf: SaveShelf
   fileName: string
   extension: string
   title?: string
@@ -78,7 +78,7 @@ function mayWrite(folder: FolderItem | undefined, rootAccess: 'read' | 'write'):
 export function SaveToProjectDialog({
   open,
   onOpenChange,
-  projectId,
+  shelf,
   fileName,
   extension,
   title,
@@ -93,7 +93,7 @@ export function SaveToProjectDialog({
   onSave,
 }: SaveToProjectDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
-  const { folders, rootAccess, status, load, create } = useSaveFolders(projectId, open, knownFolders)
+  const { folders, rootAccess, status, load, create } = useSaveFolders(shelf, open, knownFolders)
   const [stem, setStem] = useState(() => nameStem(fileName, extension))
   const [nameError, setNameError] = useState<DocumentNameError | null>(null)
   const [currentId, setCurrentId] = useState<string | null>(initialFolderId)
@@ -138,6 +138,7 @@ export function SaveToProjectDialog({
         .sort((a, b) => a.name.localeCompare(b.name)),
     [folders, location],
   )
+  const personal = shelf.kind === 'personal'
   const rootLabel = t('folders.allFiles')
   const hereLabel = here?.name ?? rootLabel
   const writable = mayWrite(here, rootAccess)
@@ -168,9 +169,9 @@ export function SaveToProjectDialog({
       <DialogContent className="sm:max-w-[480px]" closeLabel={t('saveTo.close')} data-testid="save-to-project">
         <form onSubmit={submit} className="flex min-w-0 flex-col gap-5">
           <DialogHeader>
-            <DialogTitle className="pr-10 text-base leading-snug">{title ?? t('saveTo.title')}</DialogTitle>
+            <DialogTitle className="pr-10 text-base leading-snug">{title ?? (personal ? t('saveTo.personalTitle') : t('saveTo.title'))}</DialogTitle>
             <DialogDescription>
-              {asRevision ? t('saveTo.revisionHint', { name: revisionOf }) : t('saveTo.description')}
+              {asRevision ? t('saveTo.revisionHint', { name: revisionOf }) : personal ? t('saveTo.personalDescription') : t('saveTo.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -301,7 +302,7 @@ function Crumb({ label, current, onOpen }: { label: string; current: boolean; on
           <button
             type="button"
             onClick={onOpen}
-            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 transition-colors focus-visible:outline-none focus-visible:ring-2"
+            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 pointer-coarse:min-h-11 transition-colors focus-visible:outline-none focus-visible:ring-2"
           >
             {label}
           </button>

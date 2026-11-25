@@ -17,11 +17,16 @@ from agent.auth import get_current_principal
 from agent.common.db_utils import ensure_schema
 from agent.common.db_utils import present_columns
 from agent.common.db_utils import present_indexes
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
+from agent.common.source_kinds import current_collection
 from agent.common.source_kinds import is_office_shelf_collection
 from agent.knowledge.restricted_collections import base_collection_of
+from agent.knowledge.scoping import signed_scope_names
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
+
+from .terminal import terminal_job_statuses
 
 _job_access_schema_initialized: set[str] = set()
 
@@ -40,8 +45,6 @@ _JOB_ACCESS_CLEANUP_SQL = text(
 )
 _JOB_INFO_DELETE_SQL = text("DELETE FROM job_info WHERE job_id = :job_id")
 _JOB_EVENTS_DELETE_SQL = text("DELETE FROM job_events WHERE job_id = :job_id")
-
-_TERMINAL_STATUSES = ("SUCCESS", "FAILURE", "INTERRUPTED")
 
 
 def _is_postgres(db_url: str) -> bool:
@@ -140,8 +143,9 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
         return (0, 0)
 
     is_pg = _is_postgres(db_url)
-    status_params: dict[str, Any] = {f"s{i}": s for i, s in enumerate(_TERMINAL_STATUSES)}
-    placeholders = ", ".join(f":s{i}" for i in range(len(_TERMINAL_STATUSES)))
+    terminal = terminal_job_statuses()
+    status_params: dict[str, Any] = {f"s{i}": s for i, s in enumerate(terminal)}
+    placeholders = ", ".join(f":s{i}" for i in range(len(terminal)))
     keep_newest = (
         f"job_id <> COALESCE((SELECT job_id FROM job_info WHERE status IN ({placeholders}) "
         "ORDER BY updated_at DESC LIMIT 1), '')"
@@ -232,19 +236,14 @@ def _auth_required() -> bool:
     return os.environ.get("REQUIRE_AUTH", "false").lower() == "true"
 
 
-def _base_collection_name() -> str:
-    return os.environ.get("OIB_COLLECTION_NAME") or os.environ.get("COLLECTION_NAME") or "oib_knowledge"
-
-
 def derive_project_collection(collection_scope: list[str] | None) -> str | None:
     if not collection_scope:
         return None
 
-    base_collection = _base_collection_name()
     candidates = {
         base_collection_of(collection)
         for collection in collection_scope
-        if collection != base_collection
+        if current_collection(collection) != BASE_CORPUS_COLLECTION
         and not collection.startswith("s_")
         and not is_office_shelf_collection(collection)
     }
@@ -309,7 +308,7 @@ def signed_job_scope(
         return None
     return SignedJobScope(
         organization_id=context.organization_id,
-        project_collection=derive_project_collection(context.collection_scope),
+        project_collection=derive_project_collection(signed_scope_names(context)),
         conversation_id=context.conversation_id,
     )
 
@@ -330,26 +329,6 @@ def job_access_allows(access: Mapping[str, Any], caller: JobCaller, action: JobA
         return False
     conversation_id = access.get("conversation_id")
     return bool(conversation_id) and conversation_id == scope.conversation_id
-
-
-def job_visibility_clause(caller: JobCaller) -> tuple[str, dict[str, Any]]:
-    clauses = ["(ja.owner_auth_type = :owner_auth_type AND ja.owner_subject = :owner_subject)"]
-    params: dict[str, Any] = {
-        "owner_auth_type": caller.principal.type,
-        "owner_subject": caller.principal.sub,
-    }
-    scope = caller.scope
-    shared: list[str] = []
-    if scope is not None and scope.project_collection:
-        shared.append("ja.project_collection = :scope_project_collection")
-        params["scope_project_collection"] = scope.project_collection
-    if scope is not None and scope.conversation_id:
-        shared.append("ja.conversation_id = :scope_conversation_id")
-        params["scope_conversation_id"] = scope.conversation_id
-    if scope is not None and shared:
-        clauses.append(f"(ja.organization_id = :scope_organization_id AND ({' OR '.join(shared)}))")
-        params["scope_organization_id"] = scope.organization_id
-    return f"({' OR '.join(clauses)})", params
 
 
 async def authorize_job_access(

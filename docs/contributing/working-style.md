@@ -388,7 +388,7 @@ second work item that has to be kept in step with the first forever.
 The case: asked whether event-woken turns rebuilt tasks, the first answer was
 "make a mark delegated to the agent a task run". It would have given one piece of
 work two records (the mark's offen → erledigt and the task's queued → accepted),
-two lists, and no delegation on the Büroablage, whose documents have no
+two lists, and no delegation on the Bürobibliothek, whose documents have no
 project. The mark already had the person, the status and the thread; the wake
 only lacked an end. Twenty minutes of design went into the wrong record before
 the question was asked. The decision, and the shape that answered it (Linear's:

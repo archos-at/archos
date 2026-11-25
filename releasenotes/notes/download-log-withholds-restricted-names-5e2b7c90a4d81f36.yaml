@@ -1,4 +1,5 @@
 ---
+# area: administration
 security:
   - >
     The download log no longer shows the document and folder names of entries

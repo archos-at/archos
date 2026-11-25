@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Searching your files keeps the view you chose, list or cards. In the

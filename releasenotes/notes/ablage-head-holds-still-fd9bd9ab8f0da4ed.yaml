@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    On a phone, the Ablage no longer jumps when it opens: the row with the
+    search and the filters keeps its place from the start, so the file list
+    stays where it first appears instead of dropping down a moment later.

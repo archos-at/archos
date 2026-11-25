@@ -33,7 +33,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
   const { locale } = useLocale()
   const [downloading, setDownloading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const subject = displaySubject(view.subject) ?? t('row.noSubject')
+  const subject = displaySubject(view.subject) ?? view.parts.find((part) => part.kind === 'message')?.filedAs?.name ?? t('row.noSubject')
   const recipients = view.participants.filter((participant) => participant.role !== 'from')
   const expiry = formatCalendarDate(view.expiresAt, locale)
   const expirySoon = expiryShownInline(view, now ?? Date.now())

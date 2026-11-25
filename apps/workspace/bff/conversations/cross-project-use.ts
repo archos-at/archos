@@ -4,6 +4,7 @@ import { errorsCopy } from '@/i18n/namespaces/errors'
 import { getDb } from '@/lib/db'
 import { AGENT_REFUSAL_LOCALE } from './restricted-egress'
 import { isUuid } from '@/lib/ids'
+import { personalConversationHidden } from './repository'
 import { recordedForeignRestrictedFolders } from './restricted-use'
 import {
   listProjectNames,
@@ -13,19 +14,10 @@ import {
   readConversationAudience,
   recordSourceFolders,
   recordSourceProjects,
-  type ConversationAudienceRow,
 } from './restricted-use-repository'
+import { audienceOf, decidedUnder } from '@/lib/conversation-context/audience'
+import { recordAnswerReads } from '@/lib/conversation-context/record'
 
-export function isSoloAudience(audience: ConversationAudienceRow, userId: string): boolean {
-  if (!audience.exists) return true
-  if (audience.visibility !== 'private' || audience.createdBy !== userId) return false
-  return audience.grantees.every((grantee) => grantee === userId)
-}
-
-export function audienceKey(audience: ConversationAudienceRow): string {
-  if (!audience.exists) return 'new'
-  return [audience.visibility, audience.createdBy ?? '', ...[...audience.grantees].sort()].join('|')
-}
 
 export function audienceChangedRefusal(): CrossProjectAudienceChangedError {
   return new CrossProjectAudienceChangedError(errorsCopy.messages[AGENT_REFUSAL_LOCALE].crossProject.audienceChanged)
@@ -46,18 +38,20 @@ export interface CrossProjectHandOut {
 export async function recordCrossProjectHandOut(
   party: HandOutParty,
   handOut: CrossProjectHandOut,
-  searchedFor: string
+  decidedVersion: number | null
 ): Promise<void> {
   const { organizationId, conversationId } = party
   const unchanged = await getDb().transaction(async (tx) => {
     await lockConversationAudience(tx, organizationId, conversationId)
-    const audience = await readConversationAudience(tx, organizationId, conversationId)
-    const now = audienceKey(audience)
-    if (now !== searchedFor && !(searchedFor === 'new' && isSoloAudience(audience, party.userId))) return false
-    await recordSourceProjects(tx, organizationId, conversationId, [...new Set(handOut.projectIds)])
-    await recordSourceFolders(tx, organizationId, conversationId, [...new Set(handOut.folderIds)])
+    const audience = audienceOf(await readConversationAudience(tx, organizationId, conversationId), party.userId)
+    if (!decidedUnder(decidedVersion, audience)) return false
+    const projectIds = [...new Set(handOut.projectIds)]
+    const folderIds = [...new Set(handOut.folderIds)]
+    await recordSourceProjects(tx, organizationId, conversationId, projectIds)
+    await recordSourceFolders(tx, organizationId, conversationId, folderIds)
     if (party.answerMessageId) {
       await markAnswerRestrictedUse(tx, organizationId, conversationId, party.answerMessageId)
+      await recordAnswerReads(tx, organizationId, conversationId, party.answerMessageId, { projects: projectIds, folders: folderIds })
     }
     return true
   })
@@ -70,7 +64,7 @@ export async function drewOnOtherProjects(conversationId: string, organizationId
     listRestrictingSourceProjects(db, organizationId, conversationId),
     recordedForeignRestrictedFolders(conversationId, organizationId),
   ])
-  return projects.length > 0 || folders.size > 0
+  return projects.length > 0 || folders.size > 0 || (await personalConversationHidden(conversationId))
 }
 
 export interface RestrictingOtherProject {

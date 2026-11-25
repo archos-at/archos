@@ -331,7 +331,7 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().currentConversation?.title).toBe('Summarize my document')
     })
 
-    test('truncates long titles to 50 characters', () => {
+    test('the first message titles the chat provisionally: its first line, at most 50 characters', () => {
       const conv: Conversation = {
         id: 'conv-1',
         userId: 'user-1',
@@ -346,10 +346,9 @@ describe('useChatStore', () => {
         conversations: [conv],
       })
 
-      const longMessage = 'A'.repeat(100)
-      useChatStore.getState().addUserMessage(longMessage)
+      useChatStore.getState().addUserMessage(`\n  ${'A'.repeat(100)}\nsecond line`)
 
-      expect(useChatStore.getState().currentConversation?.title).toBe('A'.repeat(50) + '...')
+      expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'A'.repeat(50) + '…', titleProvisional: true })
     })
 
     test('creates conversation if none exists', () => {

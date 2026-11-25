@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    A link to a project you cannot open, because it was deleted or is not shared
+    with you, now shows the "page not found" page instead of an error.

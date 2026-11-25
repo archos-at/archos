@@ -1,0 +1,10 @@
+---
+# area: general
+operators:
+  - >
+    A failed document read now says what went wrong in PostHog. The
+    error_reason of document_ingest_finished and the name of the
+    IngestFailedError issue carry a reason such as encrypted, no_content,
+    raw_binary_content or pdf_unparseable where they said unknown before.
+    Insights that filter on error_reason unknown will count fewer events;
+    the number of failures itself does not change.

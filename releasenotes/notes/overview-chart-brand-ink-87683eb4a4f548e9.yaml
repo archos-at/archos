@@ -1,0 +1,6 @@
+---
+# area: projects
+fixes:
+  - >
+    The activity chart in a project's Übersicht is now drawn in calm ink
+    instead of a loud blue.

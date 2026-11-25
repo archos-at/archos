@@ -20,7 +20,7 @@ or a brand string changes here and reaches every surface on the next sync.
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
 | `docs/blog-covers.md` | The blog's cover format: canvas, frame, pens, composition, and how to draw the next one. |
 | `docs/brand-basis.md` | What the brand says and stands for (Markenbasis): positioning, mission, values, antonyms, tonality, Belegpflicht, image families, logo clear space and minimum size, and which source wins when the Markenbasis and the design system disagree. |
-| `build-tokens.mjs` | Builds `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
+| `build-tokens.mjs` | Builds `dist/document-colors.json` (the light colours for printed and Office documents) and `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
 | `sync.mjs` | Copies each app the files of its layer (`TARGETS`) and deletes any it no longer receives; copies `identity.json` alone into the agent's package (a `shared` target: nothing else there is touched); writes the product's name into the files listed in `name-copies.mjs`. `--check` writes nothing and fails on a stale, missing or unexpected file. |
 | `name-copies.mjs` | The files that must spell the product's name as a literal (the service worker's fallback title, the icons' SVG `<title>`). `sync.mjs` fills them from `identity.json`, so a rename is still one edit (ADR-0149). |
 | `dist/` | Built output, committed on purpose (see the root `.gitignore` negation). |
@@ -36,13 +36,18 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
+| `apps/code-runner/src/house-style/brand/` | `document-colors.json`: the light colours, aliases resolved, which the runner's `house-style` module builds the agent's decks, PDFs, Word and Excel files from |
 
 ## Two layers: website and app
 
-The design system 3.0 is a website system: square shapes, 4px controls, no shadows. The
-workspace is rebranded with a lighter hand on purpose and keeps a softer shape language of
-its own; where its rules differ from the website's on purpose (the tonal secondary press, D4),
-`docs/design/design-language.md` says so and why. Both come from `tokens.json`, kept apart by scope:
+> Since 2026-11-22 ([ADR-0192](../../docs/adr/0192-archos-design-governs-the-app-as-well-as-the-website.md)) the app follows this system too. The app-scoped shadow and radius tokens below are what the migration retires; what the app needs beyond the website becomes the design system's app part.
+
+The design system 3.0 began as a website system: square shapes, 4px controls, no shadows.
+Until ADR-0192 the workspace kept a softer shape language of its own, and the app's surfaces
+still wear it until the migration moves them. New work follows the shared rules; where the app
+needs a treatment the website does not, it becomes part of the design system's app part rather
+than a rule of the workspace's own (`docs/design/design-language.md` names the sections this
+covers). Both layers come from `tokens.json`, kept apart by scope:
 
 | Layer | Tokens | Reaches |
 |---|---|---|
@@ -62,10 +67,10 @@ and gets 4px. The app's ladder has names of its own, so no name means two sizes:
 | `radius-none` | 0 | website: images, cards, fields, sections; app: list rows | – |
 | `radius-md` | 4 | website: buttons, gallery controls, AI tag, play button | – |
 | `radius-inline` | 4 | app: kbd, checkbox, a tag inside a field | `rounded-inline` (Tailwind `rounded-sm`) |
-| `radius-control` | 6 | app: buttons, fields, selects, tabs, menu and list items | `rounded-control` (`rounded-md`) |
-| `radius-surface` | 10 | app: cards, panels, list containers, toasts, tables, code blocks | `rounded-surface` (`rounded-lg`) |
-| `radius-overlay` | 14 | app: dialogs, popovers, menus, sheets, command palette | `rounded-overlay` (`rounded-xl`) |
-| `radius-bubble` | 18 | app: chat messages and the composer | `rounded-bubble` |
+| `radius-control` | 4 | app: buttons, fields, selects, tabs, list items | `rounded-control` (`rounded-md`) |
+| `radius-surface` | 8 | app: cards, panels, list containers, toasts, tables, code blocks, menus | `rounded-surface` (`rounded-lg`) |
+| `radius-overlay` | 14 | app: dialogs, popovers, sheets, command palette | `rounded-overlay` (`rounded-xl`) |
+| `radius-bubble` | 14 | app: chat messages and the composer | `rounded-bubble` |
 | `radius-full` | 9999 | app: chips, badges, counts, avatars, dots, switches | `rounded-full` |
 
 Until 2026-10-29 the package called 4px `radius-sm` and gave `radius-md` the app's 6px. That

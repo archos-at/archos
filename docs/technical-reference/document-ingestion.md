@@ -398,7 +398,7 @@ job does three things with them:
 | Step | What happens |
 |---|---|
 | chunking | nothing new: a `.md` is cut by `text_formats.markdown_documents`, one section per ATX heading, cited by its heading (`clause_id`), so each message is one passage and a quote (`### Zitat aus der E-Mail vom …`) is cited under the message that kept it. A body line that looks like a heading was escaped by the renderer and stays inside its real sender's section |
-| stamping (`_stamp_chunk_metadata`) | `mail_thread` puts `source_format: mail` on every chunk (excluded from the embedding and the LLM header, indexed as a keyword). `norm_registry.lane_for_hit` reads it after the stated author and before the doc_class: `project_mail` on a project, `office_mail` on the Büroablage, label „E-Mail“, the shelf's kind. A mail from `ma37.wien.gv.at` never reaches the authority lane. The grounding block states it as `Format: mail — E-Mail` (ADR-0061), so a replayed turn places it the same way |
+| stamping (`_stamp_chunk_metadata`) | `mail_thread` puts `source_format: mail` on every chunk (excluded from the embedding and the LLM header, indexed as a keyword). `norm_registry.lane_for_hit` reads it after the stated author and before the doc_class: `project_mail` on a project, `office_mail` on the Bürobibliothek, label „E-Mail“, the shelf's kind. A mail from `ma37.wien.gv.at` never reaches the authority lane. The grounding block states it as `Format: mail — E-Mail` (ADR-0061), so a replayed turn places it the same way |
 | after the summary row (`_store_mail_facts`) | `mail_thread` and `mail_origin` land on the row through `agent.knowledge.mail_facts`, which keeps no address. The Verlauf's `latest_sent_at` is its `document_date` in the payload; an attachment keeps its own date (the day it was mailed is where it came from, not when it was written). A re-upload of the name without them clears both |
 
 `list_files` prints a Verlauf as `E-Mail-Verlauf · 5 E-Mails, zuletzt
@@ -748,7 +748,7 @@ defaults (`ingest_workflow.hold_seconds`).
 ### Which failures are read again
 
 A terminal job also says *why* each file failed (`agent/knowledge/ingest_failures.py`):
-`FileProgress.failure_category` and `retryable`, and the job's `reader_version`
+`FileProgress.failure_category`, `failure_reason` and `retryable`, and the job's `reader_version`
 (`packages/knowledge-layer/src/knowledge_layer/ingest/reader_version.py`). Step 2 writes them onto the row
 (`ingest_failure_category`, `ingest_retryable`, `ingest_reader_version`, migration 0134),
 and `lib/documents/retry-policy.ts` (`canRetry`) decides from them whether reading the

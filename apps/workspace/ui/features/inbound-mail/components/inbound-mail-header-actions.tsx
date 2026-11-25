@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { Check, Copy, Info, MailPlus, MoreHorizontal } from 'lucide-react'
+import { Check, ChevronDown, Copy, Info, Mail, MailPlus, MoreHorizontal } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,44 +32,30 @@ export function InboundMailHeaderActions({
         raise()
         capturePosthog('inbound_mail_address_copied', { surface: 'header' })
       }, () => {})
-    if (compact) {
-      return (
-        <>
-          <ActionMenu
-            mode="dropdown"
-            align="end"
-            trigger={
+    const entries = [
+      { type: 'item' as const, id: 'copy', label: t('header.addressCopy'), icon: Copy, onSelect: copy, testId: 'inbound-mail-address-copy' },
+      { type: 'item' as const, id: 'more', label: t('header.addressMore'), icon: Info, onSelect: onOpenAddress, testId: 'inbound-mail-address-open' },
+    ]
+    return (
+      <div className="flex min-w-0 items-center" data-testid="inbound-mail-header-address">
+        <ActionMenu
+          mode="dropdown"
+          align="end"
+          trigger={
+            compact ? (
               <Button type="button" variant="ghost" size="icon" aria-label={t('header.addressMenu')} data-testid="inbound-mail-address-menu">
                 <MoreHorizontal className="size-4" aria-hidden />
               </Button>
-            }
-            entries={[
-              { type: 'item', id: 'copy', label: t('header.addressCopy'), icon: Copy, onSelect: copy, testId: 'inbound-mail-address-copy' },
-              { type: 'item', id: 'more', label: t('header.addressMore'), icon: Info, onSelect: onOpenAddress, testId: 'inbound-mail-address-open' },
-            ]}
-          />
-          <span className="sr-only" role="status" aria-live="polite">
-            {copied ? t('header.addressCopied') : ''}
-          </span>
-        </>
-      )
-    }
-    return (
-      <div className="flex min-w-0 items-center gap-3" data-testid="inbound-mail-header-address">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={copy}
-          data-testid="inbound-mail-address-copy"
-        >
-          {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
-          {t(copied ? 'header.addressCopied' : 'header.addressCopy')}
-        </Button>
-        <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
-          <Info className="size-4" aria-hidden />
-          {t('header.addressMore')}
-        </Button>
+            ) : (
+              <Button type="button" variant="secondary" size="sm" title={value} data-testid="inbound-mail-address-menu">
+                {copied ? <Check className="size-4" aria-hidden /> : <Mail className="size-4" aria-hidden />}
+                {t(copied ? 'header.addressCopied' : 'header.addressButton')}
+                <ChevronDown className="text-muted-foreground size-3.5" aria-hidden />
+              </Button>
+            )
+          }
+          entries={entries}
+        />
         <span className="sr-only" role="status" aria-live="polite">
           {copied ? t('header.addressCopied') : ''}
         </span>

@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Check, ChevronLeft, ChevronRight, ChevronsUpDown, Compass, Globe, LogOut, MessagesSquare, Monitor, Moon, Sun } from 'lucide-react'
+import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Compass, Globe, LogOut, MessagesSquare, Monitor, Moon, Sun } from 'lucide-react'
 
 import { useAuth } from '@/adapters/auth/use-auth'
 import { FOCUS_RING, FOCUS_RING_INSET } from '@/components/ui/focus-ring'
@@ -39,6 +39,9 @@ import { PhoneProjectList } from './phone-project-list'
 import type { ProjectSwitcherProject } from './project-list'
 import { useShellOverlays } from './shell-overlays'
 import type { SidebarUser } from './sidebar-user-menu'
+import { useOrganizationSwitch } from './organization-switcher'
+import type { ShellAccount } from './shell-account'
+import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
 
@@ -50,15 +53,12 @@ const ROW =
   ' ' +
   FOCUS_RING_INSET
 
-export interface PhoneMoreSheetProps extends MoreFlags {
+export interface PhoneMoreSheetProps extends Omit<MoreFlags, keyof ShellAccount>, ShellAccount {
   projectId: string | null
-  authRequired: boolean
   pathname?: string
-  organizationName?: string | null
   projectName?: string | null
   projects?: ProjectSwitcherProject[]
   initialView?: MoreView
-  user?: SidebarUser
 }
 
 type MoreView = 'more' | 'projects'
@@ -84,8 +84,13 @@ export function PhoneMoreSheet({
   projects,
   initialView = 'more',
   user,
-  ...flags
+  organizations = [],
+  canViewOrganization = false,
+  canManageOrganization = false,
+  canManagePlatform = false,
+  ...placeFlags
 }: PhoneMoreSheetProps): JSX.Element {
+  const flags: MoreFlags = { ...placeFlags, canViewOrganization, canManageOrganization, canManagePlatform }
   const t = useTranslations(navCopy)
   const tc = useTranslations(commonCopy)
   const tCollaboration = useTranslations(collaborationCopy)
@@ -94,6 +99,7 @@ export function PhoneMoreSheet({
   const pathname = pinnedPathname ?? currentPathname
   const open = useShellOverlays((s) => s.moreSheetOpen)
   const setOpen = useShellOverlays((s) => s.setMoreSheetOpen)
+  const askedView = useShellOverlays((s) => s.moreSheetView)
   const { signOut } = useAuth()
   const theme = useLayoutStore((s) => s.theme)
   const ActiveThemeIcon = THEME_ICONS[theme]
@@ -111,8 +117,8 @@ export function PhoneMoreSheet({
     setOpen(false)
   }, [pathname, setOpen])
   React.useEffect(() => {
-    if (open) setView(initialView)
-  }, [open, initialView])
+    if (open) setView(askedView === 'projects' ? 'projects' : initialView)
+  }, [open, initialView, askedView])
   const listing = view === 'projects' && selectable
 
   const destinations = moreDestinations(projectId, pathname, flags)
@@ -215,6 +221,7 @@ export function PhoneMoreSheet({
                 </span>
               </li>
             )}
+            {organizations.length > 1 && <OrganizationRows organizations={organizations} label={t('userMenu.switchOrganization')} />}
             {account.map(row)}
             <li className="flex min-h-12 items-center gap-3 px-4">
               <ActiveThemeIcon className="text-muted-foreground size-5 shrink-0" aria-hidden />
@@ -268,6 +275,41 @@ export function PhoneMoreSheet({
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function OrganizationRows({ organizations, label }: { organizations: readonly SwitchableOrganization[]; label: string }): JSX.Element {
+  const t = useTranslations(navCopy)
+  const { pending, failed, switchTo } = useOrganizationSwitch()
+  return (
+    <li data-slot="phone-more-organizations">
+      <SectionLabel as="h4" className="block px-4 pb-1 pt-2">
+        {label}
+      </SectionLabel>
+      <ul>
+        {organizations.map((organization) => (
+          <li key={organization.id}>
+            <button
+              type="button"
+              className={ROW}
+              disabled={organization.current || pending !== null}
+              aria-current={organization.current ? 'true' : undefined}
+              onClick={() => void switchTo(organization.id)}
+            >
+              <ArrowLeftRight className="text-muted-foreground size-5 shrink-0" aria-hidden />
+              <span className={cn('min-w-0 flex-1 truncate', organization.current && 'font-medium')}>{organization.name}</span>
+              {organization.current && <Check className="size-4 shrink-0" aria-label={t('userMenu.currentOrganization')} />}
+              {pending === organization.id && <span className="text-muted-foreground text-xs">{t('userMenu.switchingOrganization')}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {failed && (
+        <p role="alert" className="text-destructive px-4 py-1.5 text-xs">
+          {t('userMenu.switchOrganizationFailed')}
+        </p>
+      )}
+    </li>
   )
 }
 

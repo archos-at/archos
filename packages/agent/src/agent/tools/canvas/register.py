@@ -78,18 +78,14 @@ DESCRIPTIONS = {
         f"is marked twice. {_DOCUMENT}"
     ),
     "mark": (
-        "Sets `proposals` as PROPOSALS from you; none of them counts until a person takes the proposal over in "
-        "the document or dismisses it. Never say a defect has been entered. `open=true` "
-        "only when the person asks for exactly this "
-        "annotation to be set (then it is open at once, in their name; if the office lets you only propose, this is "
-        "refused, then retry without `open`); your own findings, even in a requested review, stay proposals. "
-        "First look at the page with `look` and estimate the spot there. Per proposal: `page` (from 1); `shape` "
-        "`region` (preferred: a tight frame "
-        "around the component) or `point`; `x`/`y` the top left corner, for `region` also `w`/`h` (x+w and y+h "
-        "at most 1); `kind` `hint`, `question` or `defect`; `body` in the office's German, concrete and short "
-        "(at most 2000 characters); `basis` with the source reference when the finding rests on a norm. At most "
-        f"{MAX_PROPOSALS_PER_CALL} per call, the most important first. The file is called Dokument or Fassung, never "
-        f"Plan. {_FRAME} {_DOCUMENT}"
+        "Sets `proposals` as PROPOSALS: none counts until a person takes it over or dismisses it. Never say a "
+        "defect has been entered. `open=true` only when the person asks for exactly this annotation (open at once, "
+        "in their name; if the office lets you only propose, retry without it); your own findings always stay "
+        "proposals. Estimate the spot with `look` first. Per proposal: `page` (from 1); `shape` `region` "
+        "(preferred, tight) with top left `x`/`y` and `w`/`h`, or `point` with `x`/`y`; a "
+        "measurement on a PDF drawing: `line`, `path` or `polygon` with ordered `points`, no number; `body` in the "
+        f"office's German, concrete and short; `basis` the norm it rests on. At most {MAX_PROPOSALS_PER_CALL} per "
+        f"call, most important first. The file is called Dokument or Fassung, never Plan. {_FRAME} {_DOCUMENT}"
     ),
     "update": (
         "Changes the annotation `annotation` (number or id) in the person's name, only "

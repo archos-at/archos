@@ -252,6 +252,30 @@ describe('ChatArea', () => {
     expect(screen.getByTestId('user-message')).toHaveTextContent('Hello world')
   })
 
+  test('a chat switched to fades its turns in; the chat the page opened on does not', () => {
+    const open = (id: string, content: string) =>
+      vi.mocked(useChatStore).mockImplementation((selector?: StoreSelector<ChatStoreWithHydration>) => {
+        const state: ChatStoreFixture = {
+          currentConversation: { id, messages: [{ id: `${id}-m1`, role: 'user', content, messageType: 'user' }] },
+          isLoading: false,
+          hasHydrated: true,
+          isStreaming: false,
+          respondToPrompt: mockRespondToPrompt,
+          dismissErrorCard: mockDismissErrorCard,
+        }
+        return selector ? selector(asStoreState<ChatStoreWithHydration>(state)) : state
+      })
+
+    open('chat-a', 'Erster Chat')
+    const { rerender } = render(<ChatArea isAuthenticated={true} />)
+    expect(screen.getByTestId('thread-turns').style.opacity).not.toBe('0')
+
+    open('chat-b', 'Zweiter Chat')
+    rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+    expect(screen.getByTestId('user-message')).toHaveTextContent('Zweiter Chat')
+    expect(screen.getByTestId('thread-turns').style.opacity).toBe('0')
+  })
+
   test('does not render legacy status messages', () => {
     vi.mocked(useChatStore).mockImplementation(
       (selector?: StoreSelector<ChatStoreWithHydration>) => {

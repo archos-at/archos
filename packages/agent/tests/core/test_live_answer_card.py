@@ -18,7 +18,7 @@ def _registry() -> SourceRegistry:
         SourceEntry(
             citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12",
             source_type="knowledge_layer",
-            collection="oib_knowledge",
+            collection="base_corpus",
             tool_name="knowledge_search",
         )
     )

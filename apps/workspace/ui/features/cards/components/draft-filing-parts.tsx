@@ -6,6 +6,7 @@ import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { GENERATED_DOCUMENT_FOLDER_NAME } from '@/lib/documents/generated-folder'
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import { documentFilesHref, openFiledDocument } from '@/features/documents/chat-card-parts'
 import { SaveToProjectDialog } from '@/features/documents/save-to-project'
 import { draftFileType, filedExtension } from '@/lib/conversations/draft-media'
@@ -48,21 +49,20 @@ export function openFiledInPlace(event: MouseEvent<HTMLAnchorElement>, target: F
 
 export const DraftConflictNotice: FC<{ filing: DraftFiling }> = ({ filing }) => {
   const t = useTranslations(chatCopy)
-  const { conflict, projectId, isFiling } = filing
+  const { conflict, projectId, isFiling, personal } = filing
   if (!conflict || filing.shownFiled) return null
+  const conflictHref = projectId
+    ? documentFilesHref(projectId, conflict.documentId)
+    : `${PERSONAL_SHELF_PATH}?doc=${encodeURIComponent(conflict.documentId)}`
   return (
     <div className="flex flex-col gap-1" data-testid="document-draft-conflict">
-      <p className="card-caption text-muted-foreground">{t('cards.documentDraft.fileConflict')}</p>
+      <p className="card-caption text-muted-foreground">
+        {personal ? t('cards.documentDraft.personal.fileConflict') : t('cards.documentDraft.fileConflict')}
+      </p>
       <p className="card-caption flex flex-wrap items-center gap-x-3 text-muted-foreground">
-        {projectId && (
-          <a
-            href={documentFilesHref(projectId, conflict.documentId)}
-            className={DRAFT_ACTION}
-            data-testid="document-draft-conflict-open"
-          >
-            {conflict.displayName}
-          </a>
-        )}
+        <a href={conflictHref} className={DRAFT_ACTION} data-testid="document-draft-conflict-open">
+          {conflict.displayName}
+        </a>
         <button
           type="button"
           className={DRAFT_ACTION}
@@ -72,7 +72,7 @@ export const DraftConflictNotice: FC<{ filing: DraftFiling }> = ({ filing }) => 
         >
           <StackedLabel
             busy={isFiling}
-            idle={t('cards.documentDraft.fileAnyway')}
+            idle={personal ? t('cards.documentDraft.personal.fileAnyway') : t('cards.documentDraft.fileAnyway')}
             working={t('cards.documentDraft.filing')}
           />
         </button>
@@ -125,19 +125,19 @@ export const DraftSaveDialog: FC<{
   source?: DraftSource | null
   asOwn?: boolean
 }> = ({ filing, open, onOpenChange, title, path, source, asOwn = false }) => {
-  const sourceFolder = useSourceFolder(source)
-  if (!filing.projectId) return null
+  const sourceFolder = useSourceFolder(filing.projectId ? source : null)
+  const projectSource = filing.projectId ? source : null
   return (
     <SaveToProjectDialog
       open={open}
       onOpenChange={onOpenChange}
-      projectId={filing.projectId}
+      shelf={filing.projectId ? { kind: 'project', projectId: filing.projectId } : { kind: 'personal' }}
       fileName={title}
       extension={filedExtension(draftFileType(path))}
       initialFolderId={sourceFolder.folderId ?? null}
-      initialFolderName={source ? undefined : GENERATED_DOCUMENT_FOLDER_NAME}
+      initialFolderName={filing.projectId && !source ? GENERATED_DOCUMENT_FOLDER_NAME : undefined}
       locating={sourceFolder.loading}
-      revisionOf={source?.name}
+      revisionOf={projectSource?.name}
       pending={filing.isFiling}
       error={open ? filing.error : null}
       onSave={async ({ folderId, name, as, changeNote }) => {

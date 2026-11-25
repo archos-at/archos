@@ -1,4 +1,5 @@
 ---
+# area: documents
 # One entry per user-visible change. The public sections are PUBLISHED, in
 # English and in German translation, to https://piloti.at/changelog — write
 # them for the architect using Piloti, not for the reviewer of your diff.

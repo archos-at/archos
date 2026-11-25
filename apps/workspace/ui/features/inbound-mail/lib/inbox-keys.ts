@@ -19,6 +19,7 @@ export interface InboxKeyTarget {
   file: () => void
   dismissOpen: () => void
   askDismissSelection: () => void
+  selecting: boolean
 }
 
 const PRESSABLE = 'button, a, [role="radio"], [role="checkbox"]'
@@ -77,7 +78,7 @@ export function useInboxKeys(enabled: boolean, root: RefObject<HTMLElement | nul
       if (event.target instanceof Element && !dismissKeyAllowed(event.target, root.current, open)) return
       event.preventDefault()
       if (inbox.selectedIds.length > 0) return inbox.askDismissSelection()
-      if (open) inbox.dismissOpen()
+      if (open && !inbox.selecting) inbox.dismissOpen()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

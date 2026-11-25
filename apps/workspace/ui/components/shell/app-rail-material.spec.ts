@@ -4,6 +4,7 @@ import { act, render, screen } from '@/test-utils'
 import { nodesOf, parseSource, productionSources, walk, ts } from '@/test-utils/source-ast'
 import { AppSidebar } from './app-sidebar'
 import { PhoneMoreSheet } from './phone-more-sheet'
+import { PhoneChatSideRow } from './phone-side-bar'
 import { ProjectSectionFrame } from './project-section-frame'
 import { ProjectSwitcher } from './project-switcher'
 import { RAIL_CHAT_LIMIT, RailChatList, RailChatsSource, type RailChats } from './rail-chats'
@@ -61,6 +62,7 @@ const CHATS: RailChats = {
     { id: 'c2', title: 'Zweite Frage', href: '/app/projects/p1/chat/c2', current: false, activity: 'working' },
   ],
   allHref: '/app/projects/p1/chats',
+  more: true,
 }
 
 function renderRail(props: Partial<typeof BASE_PROPS> = {}, chats: RailChats | null = null) {
@@ -111,7 +113,6 @@ const RAIL_STEMS = [
   'ui/components/shell/connection-band',
   'ui/components/shell/connection-presence-indicator',
   'ui/components/shell/phone-tab-bar',
-  'ui/components/shell/org-header',
   'ui/components/shell/shell-count',
   'ui/components/ui/sidebar',
 ] as const
@@ -125,14 +126,12 @@ const fileOf = (stem: string): string => {
 const railFiles = (): string[] => RAIL_STEMS.map(fileOf)
 
 const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
-  'ui/components/shell/phone-tab-bar': [{ pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' }],
-  'ui/components/shell/org-header': [{ pattern: /border-border bg-background flex w-full shrink-0 flex-col border-b /, reason: 'a header that stays put' }],
   'ui/components/ui/sidebar': [{ pattern: /'group-data-\[side=left\]:border-r group-data-\[side=right\]:border-l border-sidebar-border'/, reason: 'the rail’s edge to the page' }],
 }
 
 const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
-  'ui/components/shell/app-sidebar': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'the current section: a sheet with the thumb’s shadow' }],
-  'ui/components/shell/phone-tab-bar': [{ fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' }],
+  'ui/components/shell/rail-active-pill': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'where the reader is: a sheet with the thumb’s shadow' }],
+  'ui/components/shell/phone-tab-bar': [{ fill: /bg-sheet shadow-xs absolute inset-0 rounded-control/, what: 'the current tab: the same sheet, on either side' }],
   'ui/components/shell/phone-more-sheet': [{ fill: /bg-sheet shadow-press/, what: 'the phone’s project selector, the first row of „Mehr“: a press' }],
   'ui/components/ui/sidebar': [{ fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' }],
 }
@@ -232,7 +231,7 @@ describe('the app rail’s material', () => {
     phone.unmount()
   })
 
-  it('on a phone, names the project in „Mehr“ and nowhere above a page: no band, no crumb, no line over the chat', () => {
+  it('on a phone, names the project in „Mehr“ and, above a page, only in the side row at the top of the chat (the owner, 2026-11-24)', () => {
     for (const stem of ['ui/components/shell/app-sidebar', 'ui/features/layout/components/ChatToolbar', 'ui/features/layout/components/ChatConnectionLine']) {
       expect(codeOf(fileOf(stem))).not.toMatch(/\bprojectName\b|\bactiveProject\b|project\.name|projects\.find|ProjectCrumb|ProjectPill|PhoneProjectList|data-project-selector|projectSwitcher\.switch/)
     }
@@ -253,6 +252,12 @@ describe('the app rail’s material', () => {
 
     expect(phoneBackTarget('/app/projects/p1/files/all', 'p1')).toBeNull()
 
+    shell.pathname = '/app/projects/p1/chat'
+    const chat = renderRail().container.querySelector('header[data-scope="project"]') as HTMLElement
+    expect(chat.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
+    const row = render(createElement(PhoneChatSideRow, { projectId: 'p1', onSide: true, projects: PROJECTS, pathname: shell.pathname }))
+    expect(row.container.querySelector('[data-slot="phone-side-bar"] [data-project-selector]')).toHaveTextContent('Project One')
+
     const doors = railFiles().filter((file) => jsxTagsOf(file).includes('PhoneProjectList'))
     expect(doors).toEqual([fileOf('ui/components/shell/phone-more-sheet')])
     expect(productionSources().some((path) => path.startsWith('ui/components/shell/project-crumb.'))).toBe(false)
@@ -260,9 +265,9 @@ describe('the app rail’s material', () => {
 
   it('sets a row at 13px, muted at 440 at rest and ink at 500 where the reader is: never 14px or 600', () => {
     shell.pathname = '/app/projects/p1/files'
-    const { container } = renderRail({}, CHATS)
+    const { container } = renderRail({}, { ...CHATS, items: CHATS.items.map((chat) => ({ ...chat, current: false })) })
     const labels = [...container.querySelectorAll('[data-slot="rail-nav-label"]')]
-    const rest = labels.find((el) => el.textContent === 'Overview')!.closest('a') as HTMLElement
+    const rest = labels.find((el) => el.textContent === 'New chat')!.closest('a') as HTMLElement
     expect(classesOf(rest)).toEqual(expect.arrayContaining(['text-muted-foreground', 'h-9', 'text-[13px]', 'font-normal']))
     const active = container.querySelector('nav a[aria-current="page"]') as HTMLElement
     expect(classesOf(active)).toEqual(expect.arrayContaining(['font-medium', 'data-[active=true]:font-medium']))
@@ -273,7 +278,7 @@ describe('the app rail’s material', () => {
     const title = render(createElement(ProjectSwitcher, { projects: PROJECTS, activeProjectId: 'p1' })).container.querySelector('[title="Project One"]') as HTMLElement
     expect(classesOf(title)).toEqual(expect.arrayContaining(['text-[13px]', 'font-medium']))
 
-    const { container: list } = render(createElement(RailChatList, { chats: CHATS, pillId: 'rail-pill' }))
+    const { container: list } = render(createElement(RailChatList, { chats: CHATS }))
     expect(allClasses(list).filter((cls) => /^text-(sm|name)$/.test(cls))).toEqual([])
   })
 
@@ -284,7 +289,11 @@ describe('the app rail’s material', () => {
     const sectionNav = chatSection.previousElementSibling as HTMLElement
     expect(sectionNav.tagName).toBe('NAV')
     expect(sectionNav.compareDocumentPosition(chatSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(classesOf(sectionNav.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['mt-3', 'min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
+    expect(classesOf(sectionNav)).toContain('mt-3')
+    const side = sectionNav.parentElement as HTMLElement
+    expect(side.getAttribute('data-slot')).toBe('rail-side')
+    expect(classesOf(side)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'flex-col']))
+    expect(classesOf(side.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
 
     expect(classesOf(chatList)).toEqual(expect.arrayContaining(['overflow-y-auto', '-mx-px', 'p-px']))
     expect(RAIL_CHAT_LIMIT).toBeGreaterThan(0)

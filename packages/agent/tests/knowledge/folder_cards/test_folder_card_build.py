@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from agent_testing.folder_cards import FakeModel
 from knowledge_layer.browse import file_rows
+from openai import LengthFinishReasonError
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent.knowledge.folder_cards import build
@@ -25,6 +28,27 @@ def _reply(abstract="Gutachten zum Wohnhaus.", facts=()):
 
 def _fact(statement, *documents, pages=None):
     return {"statement": statement, "documents": list(documents), "pages": pages}
+
+
+def _cut_off(total_tokens):
+    usage = SimpleNamespace(prompt_tokens=1000, completion_tokens=total_tokens - 1000, total_tokens=total_tokens)
+    message = SimpleNamespace(content='{"abstract": "Gut')
+    return LengthFinishReasonError(completion=SimpleNamespace(usage=usage, choices=[SimpleNamespace(message=message)]))
+
+
+class _CutOff(FakeModel):
+    def __init__(self, fits_at: int | None, then=None) -> None:
+        super().__init__(lambda prompt: {"abstract": "Gutachten.", "key_facts": []})
+        self.fits_at = fits_at
+        self.then = then
+
+    async def ainvoke(self, messages):
+        cap = self.bound[-1]["max_tokens"]
+        if self.fits_at is None or cap < self.fits_at:
+            raise _cut_off(1000 + cap)
+        if self.then is not None:
+            raise self.then
+        return await super().ainvoke(messages)
 
 
 class TestValidate:
@@ -132,3 +156,49 @@ class TestGenerate:
         direct_trace._provider.force_flush()
         (span,) = exporter.get_finished_spans()
         assert span.attributes["langfuse.observation.level"] == "ERROR"
+
+    async def test_a_reply_cut_off_at_the_output_cap_is_asked_again_with_twice_the_room(self, exporter):
+        model = _CutOff(fits_at=build.MAX_OUTPUT_TOKENS * 2)
+
+        generation = await build.generate(INPUTS, model)
+
+        assert [bound["max_tokens"] for bound in model.bound] == list(build.OUTPUT_TOKEN_STEPS)
+        assert generation.reply.abstract == "Gutachten."
+        assert generation.tokens == (1000 + build.MAX_OUTPUT_TOKENS) + 1100
+        direct_trace._provider.force_flush()
+        cut, kept = exporter.get_finished_spans()
+        assert cut.attributes["langfuse.trace.metadata.finish_reason"] == "length"
+        assert cut.attributes["langfuse.trace.metadata.max_output_tokens"] == build.MAX_OUTPUT_TOKENS
+        assert cut.attributes["gen_ai.usage.output_tokens"] == build.MAX_OUTPUT_TOKENS
+        assert kept.attributes["langfuse.trace.metadata.max_output_tokens"] == build.MAX_OUTPUT_TOKENS * 2
+
+    async def test_a_reply_cut_off_at_every_cap_is_rejected_with_what_it_cost(self, exporter):
+        model = _CutOff(fits_at=None)
+
+        with pytest.raises(build.GenerationRejected) as rejected:
+            await build.generate(INPUTS, model)
+
+        assert rejected.value.tokens == sum(1000 + cap for cap in build.OUTPUT_TOKEN_STEPS)
+        assert isinstance(rejected.value.__cause__, LengthFinishReasonError)
+        direct_trace._provider.force_flush()
+        spans = exporter.get_finished_spans()
+        assert [span.attributes["langfuse.trace.metadata.finish_reason"] for span in spans] == ["length", "length"]
+
+    async def test_a_cut_off_reply_without_usage_costs_an_estimate(self, exporter):
+        class Bare(FakeModel):
+            async def ainvoke(self, messages):
+                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+
+        with pytest.raises(build.GenerationRejected) as rejected:
+            await build.generate(INPUTS, Bare())
+
+        assert rejected.value.tokens > sum(build.OUTPUT_TOKEN_STEPS)
+
+    async def test_a_failure_after_a_cut_off_reply_still_carries_the_cut_off_cost(self, exporter):
+        model = _CutOff(fits_at=build.MAX_OUTPUT_TOKENS * 2, then=TimeoutError())
+
+        with pytest.raises(build.GenerationRejected) as rejected:
+            await build.generate(INPUTS, model)
+
+        assert rejected.value.tokens == 1000 + build.MAX_OUTPUT_TOKENS
+        assert isinstance(rejected.value.__cause__, TimeoutError)

@@ -128,10 +128,10 @@ export const SourcePreviewChip: FC<SourcePreviewChipProps> = ({
       <SourceSignalChipLink
         signal={doc.tint}
         href={target.url}
-        className={cn('max-w-56 rounded-control', className)}
+        className={cn('max-w-full rounded-control', className)}
       >
         <CitationIndex index={index} />
-        {doc.authority && <AuthorityTag>{doc.authority}</AuthorityTag>}
+        <AuthorityTag authority={doc.authority} label={label} />
         {label}
       </SourceSignalChipLink>
     )
@@ -191,9 +191,9 @@ export const SourcePreviewChip: FC<SourcePreviewChipProps> = ({
   }
 
   return (
-    <SourceSignalChip signal={doc.tint} className={cn('max-w-56', className)}>
+    <SourceSignalChip signal={doc.tint} className={cn('max-w-full', className)}>
       <CitationIndex index={index} />
-      {doc.authority && <AuthorityTag>{doc.authority}</AuthorityTag>}
+      <AuthorityTag authority={doc.authority} label={label} />
       {label}
     </SourceSignalChip>
   )

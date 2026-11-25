@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    When you start a chat on a computer, it joins „Recent chats“ by fading in
+    at the top, and the other chats slide down instead of jumping.

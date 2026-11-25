@@ -1,0 +1,118 @@
+'use client'
+
+import type { JSX } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect } from 'react'
+import { openProjectOverview } from '@/components/shell/project-overview-entry'
+import { ProjectOverviewWindow } from '@/components/shell/project-overview-window'
+import { I18nProvider } from '@/i18n'
+import type { Project } from '@/lib/db/schema/projects'
+import { toOverviewProject } from '@/lib/projects/overview-project'
+
+const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000)
+
+const PHASES: Record<string, string> = { p1: 'Einreichplanung', p2: 'Ausführungsplanung', p3: 'Entwurf', p5: 'Einreichplanung', p7: 'Vorentwurf' }
+
+function siteAddressProfile(id: string, address: string | null, at: Date): Project['profile'] {
+  const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: at.toISOString() })
+  const facts: Project['profile']['facts'] = {
+    ...(address ? { site_address: fact(address) } : {}),
+    ...(PHASES[id] ? { project_phase: fact(PHASES[id]) } : {}),
+  }
+  return { facts, goals: {}, unknowns: [], assumptions: {} }
+}
+
+function makeProject(
+  id: string,
+  name: string,
+  summary: string | null,
+  createdMinutesAgo: number,
+  address: string | null = null,
+): Project {
+  return {
+    id,
+    organizationId: 'org_1',
+    name,
+    createdBy: 'user_me',
+    collectionName: `proj_${id}`,
+    workosResourceId: null,
+    profile: siteAddressProfile(id, address, minutesAgo(createdMinutesAgo)),
+    profileVersion: 1,
+    profilePromptView: null,
+    profileDisplay: summary ? { title: name, summary, keyFacts: [], missingInfo: [] } : null,
+    profileUpdatedAt: summary ? minutesAgo(createdMinutesAgo) : null,
+    status: 'active',
+    pausedAt: null,
+    closedAt: null,
+    closedBy: null,
+    closedOutcome: null,
+    startedOn: null,
+    endedOn: null,
+    deletedAt: null,
+    createdAt: minutesAgo(createdMinutesAgo),
+  }
+}
+
+const PROJECTS: Project[] = [
+  makeProject('p1', 'Wohnbau Seestadt Baufeld D12', 'Wohnbau · 214 Wohneinheiten · GK 5 · Wien', 40, 'Janis-Joplin-Promenade 12, 1220 Wien'),
+  makeProject('p2', 'Sanierung Volksschule Grinzing', 'Bildungsbau · Bestandssanierung · Wien', 60 * 26, 'Managettagasse 1, 1190 Wien'),
+  makeProject('p3', 'Bürohaus Lände 3', 'Büro- und Geschäftsgebäude · GK 5 · Wien', 60 * 50, 'Erdberger Lände 3, 1030 Wien'),
+  makeProject('p4', 'Hotel Semmering — Neubau Gästetrakt', 'Beherbergung · GK 4 · Niederösterreich', 60 * 72, 'Hochstraße 267, 2680 Semmering'),
+  makeProject('p5', 'Kindergarten Floridsdorf', 'Bildungsbau · GK 2 · Wien', 60 * 96),
+  makeProject('p6', 'Turnsaal-Zubau BG Wien 19', null, 60 * 24 * 7),
+  makeProject('p7', 'Wohnhausanlage Linz-Urfahr', 'Wohnbau · 96 Wohneinheiten · GK 5 · Oberösterreich', 60 * 24 * 14, 'Hauptstraße 40, 4040 Linz'),
+  makeProject('p8', 'Betriebsgebäude Graz-Süd', 'Gewerbe- und Lagergebäude · GK 4 · Steiermark', 60 * 24 * 21, 'Puchstraße 85, 8020 Graz'),
+  makeProject('p9', 'Pfarrzentrum Klosterneuburg', 'Versammlungsstätte · GK 3 · Niederösterreich', 60 * 24 * 40, 'Stiftsplatz 1, 3400 Klosterneuburg'),
+]
+
+const VIEWER_ACTIVITY: Record<string, string> = {
+  p1: minutesAgo(12).toISOString(),
+  p2: minutesAgo(60 * 3).toISOString(),
+  p3: minutesAgo(60 * 27).toISOString(),
+}
+
+const WITH_LIFECYCLE: Project[] = PROJECTS.map((project) => {
+  if (project.id === 'p4') return { ...project, status: 'paused', pausedAt: minutesAgo(60 * 24 * 30) }
+  if (project.id === 'p6' || project.id === 'p8' || project.id === 'p9') {
+    return {
+      ...project,
+      status: 'closed',
+      closedAt: minutesAgo(60 * 24 * 60),
+      closedBy: 'user_me',
+      closedOutcome: project.id === 'p6' ? 'cancelled' : 'completed',
+      endedOn: '2026-08-01',
+    }
+  }
+  return project
+})
+
+// ?variant=many: an office with a long tail of projects, so the window scrolls and fades its last rows.
+const MANY: Project[] = [
+  ...WITH_LIFECYCLE,
+  ...Array.from({ length: 12 }, (_, index) =>
+    makeProject(`s${index}`, `Scorecard Wohnbau ${String.fromCharCode(65 + index)}`, 'Wohnbau · Wien', 60 * 24 * (45 + index * 6), `Teststraße ${index + 1}, 1100 Wien`)
+  ),
+]
+
+function ProjectOverviewPreview(): JSX.Element {
+  const variant = useSearchParams()?.get('variant')
+  useEffect(() => openProjectOverview({ summon: 'keyboard' }), [])
+  return (
+    <div data-testid="project-overview-preview" className="bg-background text-foreground min-h-dvh">
+      <ProjectOverviewWindow
+        projects={(variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE).map(toOverviewProject)}
+        viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
+      />
+    </div>
+  )
+}
+
+export default function ProjectOverviewDevPage(): JSX.Element {
+  return (
+    <I18nProvider initialLocale="de" fixedLocale>
+      <Suspense>
+        <ProjectOverviewPreview />
+      </Suspense>
+    </I18nProvider>
+  )
+}

@@ -61,10 +61,10 @@ describe('a filesystem row names a place, never a path', () => {
         target: 'Vorlagen/Bescheide',
         counts: { files: 3, folders: 0 },
       })
-    ).toBe(`Öffnet die Büroablage ›${NB}Vorlagen › Bescheide: 3${NB}Dateien`)
+    ).toBe(`Öffnet die Bürobibliothek ›${NB}Vorlagen › Bescheide: 3${NB}Dateien`)
     expect(
       sentence({ verb: 'search', mode: 'exact', status: 'ok', query: 'x', mount: 'office', target: 'Vorlagen' })
-    ).toBe(`Durchsucht die Büroablage ›${NB}Vorlagen wörtlich nach „x“`)
+    ).toBe(`Durchsucht die Bürobibliothek ›${NB}Vorlagen wörtlich nach „x“`)
     expect(
       sentence({ verb: 'list', status: 'ok', query: '*.pdf', mount: 'chat', target: 'Pläne' })
     ).toBe(`Sucht im Chat ›${NB}Pläne nach PDF-Dateien`)
@@ -171,7 +171,7 @@ describe('a filesystem row names a place, never a path', () => {
       'Looks for PDF files in the project'
     )
     expect(sentence({ verb: 'list', status: 'ok', mount: 'office', target: 'Vorlagen' }, tEn)).toBe(
-      `Lists the office filing ›${NB}Vorlagen`
+      `Lists the office library ›${NB}Vorlagen`
     )
   })
 })
@@ -319,7 +319,7 @@ describe('„Offen“ for the filesystem', () => {
       'Nicht beurteilbar, weil die wörtliche Suche in allen Ablagen nach „Sprinkler“ keine Fundstelle ergab.'
     )
     expect(points).toContain(
-      `Nicht beurteilbar, weil die Suche in der Büroablage ›${NB}Vorlagen nach dem Muster „EI\\s?90“ nicht alles durchsuchen konnte.`
+      `Nicht beurteilbar, weil die Suche in der Bürobibliothek ›${NB}Vorlagen nach dem Muster „EI\\s?90“ nicht alles durchsuchen konnte.`
     )
     expect(points).toContain('Nicht beurteilbar, weil der Ordner „Personal“ nicht gefunden wurde.')
     expect(points).toContain('Nicht beurteilbar, weil die Datei „Vertrag.pdf“ nicht gefunden wurde.')
@@ -342,11 +342,11 @@ describe('„Offen“ for the filesystem', () => {
     ])
   })
 
-  test('a missing folder of the Büroablage is named as one, without an article inside the quotes', () => {
+  test('a missing folder of the Bürobibliothek is named as one, without an article inside the quotes', () => {
     expect(
       open({ verb: 'list', status: 'empty', missing: true, mount: 'office', target: 'Vorlagen/Alt' })
     ).toEqual([
-      `Nicht beurteilbar, weil der Ordner „Büroablage ›${NB}Vorlagen › Alt“ nicht gefunden wurde.`,
+      `Nicht beurteilbar, weil der Ordner „Bürobibliothek ›${NB}Vorlagen › Alt“ nicht gefunden wurde.`,
     ])
   })
 
@@ -419,7 +419,7 @@ describe('a row stored before the wire carried `mount`', () => {
       },
     ])!
     expect(sentence(listing.action!)).toBe(`Öffnet 03 Einreichung: 2${NB}Dateien`)
-    expect(sentence(card.action!)).toBe(`Öffnet die Büroablage ›${NB}Vorlagen`)
+    expect(sentence(card.action!)).toBe(`Öffnet die Bürobibliothek ›${NB}Vorlagen`)
   })
 })
 

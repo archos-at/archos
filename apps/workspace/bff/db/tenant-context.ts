@@ -3,6 +3,21 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 export const ORGANIZATION_SETTING = 'app.organization_id'
 export const USER_SETTING = 'app.user_id'
+export const SYSTEM_READER_SETTING = 'app.system_reader'
+
+export const SYSTEM_READERS = {
+  ingestion: 'the backend reads, renders and settles a document it is ingesting, for no reader',
+  rendition: 'a document is rendered or extracted for its preview, for no reader',
+  'search-projection': 'what a document is, projected into its search row, for no reader',
+  'document-notices': 'a new Fassung, a check or a due mark is told to the people who may read the document',
+  'ingestion-recovery': 'a document or upload batch left mid-ingestion is failed, re-sent or settled, for no reader',
+  'agent-host': 'the agent host writes the answer, steps, stages, admissions and outcome of the turn it runs into that turn’s chat, for no reader',
+  'conversation-erasure': 'a chat marked for deletion is erased with its attachments and grants, for no reader',
+  'run-ledger': 'a background run writes and reads its ledger and report in the message it owns in its chat, for no reader',
+  'conversation-memory': 'whether a chat keeps memory, and what it drew on, is read before a memory is written from it, for no reader',
+} as const
+
+export type SystemReader = keyof typeof SYSTEM_READERS
 
 export const PLATFORM_ROLE = 'app_platform'
 
@@ -10,6 +25,7 @@ export interface TenantScope {
   readonly kind: 'tenant'
   readonly organizationId: string
   readonly userId: string | null
+  readonly systemReader?: SystemReader
 }
 
 export interface PlatformScope {
@@ -79,14 +95,43 @@ export function clearTenantContext(): void {
   enterTenantContext({ organizationId: null, userId: '' })
 }
 
+function tenantOf(organizationId: string): TenantScope | null {
+  const current = getTenantContext()
+  return current?.kind === 'tenant' && current.organizationId === organizationId ? current : null
+}
+
+function personOfTenant(organizationId: string): string | null {
+  return tenantOf(organizationId)?.userId ?? null
+}
+
 export function withTenant<T>(
   scope: { organizationId: string; userId?: string | null },
   fn: () => PromiseLike<T> | T
 ): Promise<T> {
-  return storage.run(
-    { scope: { kind: 'tenant', organizationId: scope.organizationId, userId: scope.userId ?? null } },
-    async () => await fn()
-  )
+  const enclosing = scope.userId ? null : tenantOf(scope.organizationId)
+  const next: TenantScope = enclosing ?? { kind: 'tenant', organizationId: scope.organizationId, userId: scope.userId ?? null }
+  return storage.run({ scope: next }, async () => await fn())
+}
+
+export function withSystemReader<T>(
+  organizationId: string,
+  reader: SystemReader,
+  fn: () => PromiseLike<T> | T
+): Promise<T> {
+  const userId = personOfTenant(organizationId)
+  const scope: TenantScope = userId
+    ? { kind: 'tenant', organizationId, userId }
+    : { kind: 'tenant', organizationId, userId: null, systemReader: reader }
+  return storage.run({ scope }, async () => await fn())
+}
+
+export function withOptionalSystemReader<T>(
+  organizationId: string | null | undefined,
+  reader: SystemReader,
+  reasonWhenAbsent: string,
+  fn: () => PromiseLike<T> | T
+): Promise<T> {
+  return organizationId ? withSystemReader(organizationId, reader, fn) : withPlatformAccess(reasonWhenAbsent, fn)
 }
 
 export function withPlatformAccess<T>(reason: string, fn: () => PromiseLike<T> | T): Promise<T> {

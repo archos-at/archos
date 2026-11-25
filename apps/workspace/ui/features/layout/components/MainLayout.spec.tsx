@@ -2,6 +2,13 @@ import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { MainLayout } from './MainLayout'
+
+const route = vi.hoisted(() => ({ pathname: '/' }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => route.pathname,
+  useSearchParams: () => new URLSearchParams(),
+}))
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { LayoutStore } from '../types'
 import type { ChatStoreWithHydration } from '@/features/chat/store'
@@ -150,6 +157,19 @@ describe('MainLayout', () => {
     expect(screen.queryByTestId('no-sources-banner')).toBeNull()
   })
 
+  test('a chat the reader joined later shows its readable part and why it ends, with no composer (ADR-0194)', () => {
+    chatStoreOverrides = {
+      currentConversation: { id: 'session-1', title: '', messages: [], contentLocked: true, withheldFrom: 'a_2' },
+    }
+
+    render(<MainLayout isAuthenticated={true} />)
+
+    expect(screen.getByTestId('chat-area')).toBeInTheDocument()
+    expect(screen.getByTestId('withheld-from-here')).toHaveTextContent('From here on, the chat draws on a source you may not open.')
+    expect(screen.queryByTestId('input-area')).toBeNull()
+    expect(screen.queryByTestId('rights-lost')).toBeNull()
+  })
+
   test('an ordinary chat shows its thread and no rights notice', () => {
     render(<MainLayout isAuthenticated={true} />)
 
@@ -222,7 +242,7 @@ describe('MainLayout', () => {
     expect(screen.getByRole('button', { name: /header new session/i })).not.toBeDisabled()
   })
 
-  test('sessions panel only lists the active project\'s sessions (legacy unscoped fail open)', () => {
+  test('sessions panel lists only the active project\'s sessions; a chat without a project is personal (ADR-0193)', () => {
     const makeConv = (id: string, projectId?: string | null) => ({
       id,
       userId: 'user-1',
@@ -241,7 +261,7 @@ describe('MainLayout', () => {
         conversations: [
           makeConv('in-project', 'proj-a'),
           makeConv('other-project', 'proj-b'),
-          makeConv('legacy', null),
+          makeConv('personal', null),
           { ...makeConv('other-user', 'proj-a'), userId: 'user-2' },
         ],
         turns: {},
@@ -261,9 +281,50 @@ describe('MainLayout', () => {
     render(<MainLayout isAuthenticated={true} />)
 
     expect(screen.getByTestId('session-item-in-project')).toBeInTheDocument()
-    expect(screen.getByTestId('session-item-legacy')).toBeInTheDocument()
+    expect(screen.queryByTestId('session-item-personal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-project')).not.toBeInTheDocument()
     expect(screen.queryByTestId('session-item-other-user')).not.toBeInTheDocument()
+  })
+
+  test.each([
+    ['/app/projects/proj-a/chat', null, 'in-project', 'personal'],
+    ['/app/personal/chat', 'proj-a', 'personal', 'in-project'],
+  ])('on %s the panel lists that side even while the store still holds %s („Alle Chats“, ADR-0193)', (pathname, storeProject, shown, hidden) => {
+    route.pathname = pathname
+    const makeConv = (id: string, projectId: string | null) => ({
+      id,
+      userId: 'user-1',
+      projectId,
+      title: id,
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(useChatStore).mockImplementation((selector?: StoreSelector<ChatStoreWithHydration>) => {
+      const state: DeepPartial<ChatStoreWithHydration> = {
+        currentConversation: null,
+        currentUserId: 'user-1',
+        projectId: storeProject,
+        conversations: [makeConv('in-project', 'proj-a'), makeConv('personal', null)],
+        turns: {},
+        unseenAnswers: {},
+        getUserConversations: vi.fn(() => []),
+        selectConversation: vi.fn(),
+        startNewSessionDraft: vi.fn(),
+        deleteConversation: vi.fn(),
+        deleteAllConversations: vi.fn(),
+        updateConversationTitle: vi.fn(),
+        isStreaming: false,
+        pendingInteraction: null,
+      }
+      return selector ? selector(asStoreState<ChatStoreWithHydration>(state)) : state
+    })
+
+    render(<MainLayout isAuthenticated={true} />)
+
+    expect(screen.getByTestId(`session-item-${shown}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`session-item-${hidden}`)).not.toBeInTheDocument()
+    route.pathname = '/'
   })
 
   test('keeps full width while a file is peeked — the split already made the room', () => {

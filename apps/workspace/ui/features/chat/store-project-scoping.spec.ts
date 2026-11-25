@@ -26,6 +26,7 @@ const mockConversationsClient = vi.hoisted(() => ({
   create: vi.fn().mockResolvedValue(undefined),
   updateTitle: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
+  deleteOwn: vi.fn().mockResolvedValue({ deleted: [], held: [] }),
   listMessages: vi.fn().mockResolvedValue([]),
   createMessage: vi.fn().mockResolvedValue(undefined),
   createMessages: vi.fn().mockResolvedValue(undefined),
@@ -57,6 +58,7 @@ describe('useChatStore', () => {
       composerPrefill: null,
       composerSubject: null,
       composerDrafts: {},
+      lastChatBySide: {},
     })
   })
 
@@ -77,7 +79,7 @@ describe('useChatStore', () => {
     })
 
     describe('getUserConversations', () => {
-      test("inside a project, lists that project's sessions plus unscoped legacy sessions (fail-open)", () => {
+      test("inside a project, lists only that project's sessions: a chat without a project is personal (ADR-0193)", () => {
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: 'proj-a',
@@ -95,10 +97,10 @@ describe('useChatStore', () => {
           .getUserConversations()
           .map((c) => c.id)
 
-        expect(ids).toEqual(['a-1', 'legacy-null', 'legacy-undef'])
+        expect(ids).toEqual(['a-1'])
       })
 
-      test("without a project context, lists all of the user's sessions", () => {
+      test("under Persönlich, lists only the user's chats without a project", () => {
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: null,
@@ -109,7 +111,7 @@ describe('useChatStore', () => {
           ],
         })
 
-        expect(useChatStore.getState().getUserConversations()).toHaveLength(3)
+        expect(useChatStore.getState().getUserConversations().map((c) => c.id)).toEqual(['legacy'])
       })
     })
 
@@ -151,7 +153,7 @@ describe('useChatStore', () => {
         expect(useChatStore.getState().currentConversation).toBeNull()
       })
 
-      test('allows selecting an unscoped legacy session in any project (fail-open)', () => {
+      test('refuses to activate a personal chat under a project (ADR-0193)', () => {
         const legacy = makeConv('legacy', 'user-1', null)
         useChatStore.setState({
           currentUserId: 'user-1',
@@ -162,84 +164,94 @@ describe('useChatStore', () => {
 
         useChatStore.getState().selectConversation('legacy')
 
-        expect(useChatStore.getState().currentConversation?.id).toBe('legacy')
+        expect(useChatStore.getState().currentConversation).toBeNull()
       })
     })
 
-    describe('deleteAllConversations scoping', () => {
-      test("deletes only the current project's sessions and unscoped legacy sessions", () => {
+    describe('deleteAllConversations asks the server for one side', () => {
+      test('a project sends that project, and only the ids the server deleted leave the store', async () => {
+        mockConversationsClient.deleteOwn.mockResolvedValueOnce({ deleted: ['a-1', 'a-2'], held: [] })
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: 'proj-a',
           conversations: [
             makeConv('a-1', 'user-1', 'proj-a'),
             makeConv('a-2', 'user-1', 'proj-a'),
-            makeConv('legacy', 'user-1', null),
+            makeConv('personal', 'user-1', null),
             makeConv('b-1', 'user-1', 'proj-b'),
-            makeConv('other-user', 'user-2', 'proj-a'),
           ],
           currentConversation: makeConv('a-1', 'user-1', 'proj-a'),
         })
 
-        useChatStore.getState().deleteAllConversations()
+        await useChatStore.getState().deleteAllConversations({ projectId: 'proj-a' })
 
+        expect(mockConversationsClient.deleteOwn).toHaveBeenCalledWith({ projectId: 'proj-a' })
         const state = useChatStore.getState()
-        expect(state.conversations.map((c) => c.id).sort()).toEqual(['b-1', 'other-user'])
+        expect(state.conversations.map((c) => c.id).sort()).toEqual(['b-1', 'personal'])
         expect(state.currentConversation).toBeNull()
       })
 
-      test('keeps a foreign-project current conversation untouched', () => {
+      test('Persönlich sends no project and keeps every project chat', async () => {
+        mockConversationsClient.deleteOwn.mockResolvedValueOnce({ deleted: ['personal'], held: [] })
         const foreignCurrent = makeConv('b-1', 'user-1', 'proj-b')
         useChatStore.setState({
           currentUserId: 'user-1',
-          projectId: 'proj-a',
-          conversations: [makeConv('a-1', 'user-1', 'proj-a'), foreignCurrent],
+          projectId: null,
+          conversations: [makeConv('personal', 'user-1', null), makeConv('a-1', 'user-1', 'proj-a'), foreignCurrent],
           currentConversation: foreignCurrent,
         })
 
-        useChatStore.getState().deleteAllConversations()
+        await useChatStore.getState().deleteAllConversations({ projectId: null })
 
+        expect(mockConversationsClient.deleteOwn).toHaveBeenCalledWith({ projectId: null })
         const state = useChatStore.getState()
-        expect(state.conversations.map((c) => c.id)).toEqual(['b-1'])
+        expect(state.conversations.map((c) => c.id).sort()).toEqual(['a-1', 'b-1'])
         expect(state.currentConversation?.id).toBe('b-1')
       })
 
-      test("without a project context, deletes all of the user's sessions (org-wide view)", () => {
+      test('a held chat the server kept stays listed', async () => {
+        mockConversationsClient.deleteOwn.mockResolvedValueOnce({
+          deleted: ['p-1'],
+          held: [{ id: 'p-held', title: 'Held' }],
+        })
         useChatStore.setState({
           currentUserId: 'user-1',
-          projectId: null,
-          conversations: [
-            makeConv('a-1', 'user-1', 'proj-a'),
-            makeConv('b-1', 'user-1', 'proj-b'),
-            makeConv('other-user', 'user-2', 'proj-a'),
-          ],
-          currentConversation: null,
+          conversations: [makeConv('p-1', 'user-1', null), makeConv('p-held', 'user-1', null)],
         })
 
-        useChatStore.getState().deleteAllConversations()
+        const result = await useChatStore.getState().deleteAllConversations({ projectId: null })
 
-        expect(useChatStore.getState().conversations.map((c) => c.id)).toEqual(['other-user'])
+        expect(result.held).toEqual([{ id: 'p-held', title: 'Held' }])
+        expect(useChatStore.getState().conversations.map((c) => c.id)).toEqual(['p-held'])
       })
 
-      test("drops drafts for exactly the removed sessions, keeping other projects' drafts", () => {
+      test('a refused delete-all keeps every row and rejects with the reason', async () => {
+        const refusal = Object.assign(new Error('Internal server error'), { status: 500 })
+        mockConversationsClient.deleteOwn.mockRejectedValueOnce(refusal)
+        useChatStore.setState({
+          currentUserId: 'user-1',
+          conversations: [makeConv('p-1', 'user-1', null), makeConv('p-2', 'user-1', null)],
+        })
+
+        await expect(useChatStore.getState().deleteAllConversations({ projectId: null })).rejects.toBe(refusal)
+
+        expect(useChatStore.getState().conversations.map((c) => c.id)).toEqual(['p-1', 'p-2'])
+      })
+
+      test("drops drafts for exactly the deleted chats, keeping other chats' drafts", async () => {
+        mockConversationsClient.deleteOwn.mockResolvedValueOnce({ deleted: ['a-1'], held: [] })
         useChatStore.setState({
           currentUserId: 'user-1',
           projectId: 'proj-a',
-          conversations: [
-            makeConv('a-1', 'user-1', 'proj-a'),
-            makeConv('legacy', 'user-1', null),
-            makeConv('b-1', 'user-1', 'proj-b'),
-          ],
+          conversations: [makeConv('a-1', 'user-1', 'proj-a'), makeConv('b-1', 'user-1', 'proj-b')],
           currentConversation: null,
         })
         useChatStore.getState().setComposerDraft('a-1', 'in scope')
-        useChatStore.getState().setComposerDraft('legacy', 'legacy in scope')
         useChatStore.getState().setComposerDraft('b-1', 'other project')
 
-        useChatStore.getState().deleteAllConversations()
+        await useChatStore.getState().deleteAllConversations({ projectId: 'proj-a' })
 
         expect('a-1' in useChatStore.getState().composerDrafts).toBe(false)
-        expect('legacy' in useChatStore.getState().composerDrafts).toBe(false)
         expect(useChatStore.getState().getComposerDraft('b-1')).toBe('other project')
       })
     })
@@ -278,6 +290,97 @@ describe('useChatStore', () => {
 
         useChatStore.getState().setProjectId('proj-a')
         expect(useChatStore.getState().currentConversation?.id).toBe('legacy')
+      })
+
+      test('switching to Persönlich drops the project’s open chat, so its thread never shows on the personal side', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: project, conversations: [project] })
+
+        useChatStore.getState().enterSide(null)
+
+        const state = useChatStore.getState()
+        expect(state.projectId).toBeNull()
+        expect(state.currentConversation).toBeNull()
+        expect(state.conversations.map((c) => c.id)).toEqual(['a-1'])
+      })
+
+      test('switching to a project drops the open personal chat, and each side keeps a chat of its own', () => {
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({ currentUserId: 'user-1', projectId: null, currentConversation: personal, conversations: [personal] })
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+
+        const own = makeConv('a-1', 'user-1', 'proj-a')
+        useChatStore.setState({ currentConversation: own, conversations: [personal, own] })
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation?.id).toBe('a-1')
+      })
+
+      test('switching back to a side reopens the chat left open there', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: project, conversations: [project, personal] })
+
+        useChatStore.getState().enterSide(null)
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        useChatStore.getState().selectConversation('me-1')
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation?.id).toBe('a-1')
+
+        useChatStore.getState().enterSide(null)
+        expect(useChatStore.getState().currentConversation?.id).toBe('me-1')
+      })
+
+      test('each project remembers its own chat, and a chat no longer there opens a new one', () => {
+        const a = makeConv('a-1', 'user-1', 'proj-a')
+        const b = makeConv('b-1', 'user-1', 'proj-b')
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: a, conversations: [a, b] })
+
+        useChatStore.getState().enterSide('proj-b')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        useChatStore.getState().selectConversation('b-1')
+
+        useChatStore.setState({ conversations: [b] })
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+        expect(useChatStore.getState().lastChatBySide).toEqual({ 'proj-a': 'a-1', 'proj-b': 'b-1' })
+      })
+
+      test('a side switch keeps what the store holds: both chats, and the draft typed in the one left', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({
+          currentUserId: 'user-1',
+          projectId: 'proj-a',
+          currentConversation: project,
+          conversations: [project, personal],
+          composerDrafts: { 'a-1': 'Stellplatznachweis prüfen' },
+        })
+
+        useChatStore.getState().enterSide(null)
+        useChatStore.getState().enterSide('proj-a')
+
+        const state = useChatStore.getState()
+        expect(state.conversations.map((c) => c.id)).toEqual(['a-1', 'me-1'])
+        expect(state.composerDrafts).toEqual({ 'a-1': 'Stellplatznachweis prüfen' })
+        expect(state.currentConversation?.id).toBe('a-1')
+      })
+
+      test('another person’s remembered chat is never reopened', () => {
+        const theirs = makeConv('a-1', 'user-2', 'proj-a')
+        const mine = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({
+          currentUserId: 'user-1',
+          projectId: null,
+          currentConversation: mine,
+          conversations: [theirs, mine],
+          lastChatBySide: { 'proj-a': 'a-1' },
+        })
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
       })
 
       test('leaving the project context (null) never clears the current conversation', () => {

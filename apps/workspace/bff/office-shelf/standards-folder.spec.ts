@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/projects/folder-bin', () => ({ moveFolderToBin: vi.fn() }))
 vi.mock('@/lib/documents/shelf-folders', () => ({
   createShelfFolder: vi.fn(),
   deleteShelfFolder: vi.fn(async () => ({ ok: true, result: { documentsMoved: 0, foldersMoved: 0 } })),
@@ -18,7 +19,7 @@ import { STANDARDS_FOLDER_NAME, STANDARDS_ROOT_FIXED, isUnderStandardsRoot } fro
 const SESSION = { organizationId: 'org-1' } as AuthorizedSession
 type Row = NonNullable<Awaited<ReturnType<typeof findShelfFolder>>>
 const ROOT = { id: 'root', parentId: null, name: STANDARDS_FOLDER_NAME } as Row
-const CHILD = { id: 'fire', parentId: 'root', name: 'Brandschutz' } as Row
+const CHILD = { id: 'fire', parentId: 'root', name: 'Brandschutz', path: `${STANDARDS_FOLDER_NAME}/Brandschutz` } as Row
 
 beforeEach(() => vi.clearAllMocks())
 

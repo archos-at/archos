@@ -23,9 +23,9 @@
             "score": 0.710099, "shelf": "base", "title": "oib-rl-6-2025-text-bc35d3dee230.pdf", "clause": "Anforderungen an wärmeübertragende Bauteile › U-Wert Bauteil [W/m²K]", "number": 1, "origin": "kb",
             "content": "[KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.9",
             "snippet": "| Bauteil |  | U-Wert [W/m²K] |\n|---|---|---|\n| 1 | WÄNDE gegen Außenluft (1) | 0,35 |",
-            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "base_corpus",
             "edition_id": "edition:oib-rl-6-2025", "lane_label": "Basisdokument", "role_since": "2026-07-15", "designation": "OIB-Richtlinie 6",
-            "document_id": "doc:oib_knowledge:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "document_id": "doc:base_corpus:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
             "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-6-2025-text-bc35d3dee230.pdf, p.9",
             "edition_label": "Ausgabe 2025", "binding_status": "declared_binding"
           },
@@ -35,9 +35,9 @@
             "score": 0.6156906, "shelf": "base", "title": "oib-rl-6-2025-text-bc35d3dee230.pdf", "clause": "OIB-330.6-138/25 SEPTEMBER 2025", "number": 2, "origin": "kb",
             "content": "[KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.1",
             "snippet": "OIB-330.6-138/25 SEPTEMBER 2025\n\nOIB-Richtlinie 6 Ausgabe September 2025",
-            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "base_corpus",
             "edition_id": "edition:oib-rl-6-2025", "lane_label": "Basisdokument", "role_since": "2026-07-15", "designation": "OIB-Richtlinie 6",
-            "document_id": "doc:oib_knowledge:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "document_id": "doc:base_corpus:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
             "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-6-2025-text-bc35d3dee230.pdf, p.1",
             "edition_label": "Ausgabe 2025", "binding_status": "declared_binding"
           }

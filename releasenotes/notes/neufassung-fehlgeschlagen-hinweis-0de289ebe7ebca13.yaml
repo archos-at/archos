@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     If a new version of a document cannot be processed, the preview now says

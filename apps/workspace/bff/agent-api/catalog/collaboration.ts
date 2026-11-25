@@ -5,9 +5,11 @@ import {
   assignmentDeleteQuerySchema,
 } from '@/lib/assignments/assignment-wire'
 import {
+  archiveAllSchema,
   inboxListQuerySchema,
   markReadSchema,
   markUnreadSchema,
+  unarchiveAllSchema,
   unreadAnchorsQuerySchema,
 } from '@/lib/inbox/inbox-wire'
 import { pushPreferencesPatchSchema } from '@/lib/inbox/push-categories'
@@ -130,6 +132,31 @@ export const collaborationOperations = [
     params: inboxItemParams,
     destructive: false,
     load: () => import('@/app/api/inbox/[id]/archive/route'),
+  },
+  {
+    name: 'inbox-archive-all',
+    domain: 'collaboration',
+    summary: 'Empty the inbox',
+    description:
+      'Marks every inbox item read and archives it, open requests included; the annotations, reviews and threads ' +
+      'they point to stay as they are, and new activity on one brings its item back. Send `{ all: true }`. ' +
+      'Returns the badge count and `archivedAt`, which inbox-restore-all takes to undo exactly this.',
+    method: 'POST',
+    path: '/api/inbox/archive',
+    body: archiveAllSchema,
+    idempotent: true,
+    load: () => import('@/app/api/inbox/archive/route'),
+  },
+  {
+    name: 'inbox-restore-all',
+    domain: 'collaboration',
+    summary: 'Undo emptying the inbox',
+    description: 'Brings back every item that the inbox-archive-all answering this `archivedAt` put away.',
+    method: 'DELETE',
+    path: '/api/inbox/archive',
+    body: unarchiveAllSchema,
+    destructive: false,
+    load: () => import('@/app/api/inbox/archive/route'),
   },
 
   {

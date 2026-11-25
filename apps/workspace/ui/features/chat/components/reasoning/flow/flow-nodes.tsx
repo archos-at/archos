@@ -1,7 +1,6 @@
 import { type FC, useId } from 'react'
 import { ChevronDown, ChevronUp, Circle } from 'lucide-react'
 import { FOCUS_RING, FOCUS_RING_INSET } from '@/components/ui/focus-ring'
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
@@ -12,7 +11,6 @@ import { BareSourceCard, FOLDER_TAB, RECEDED, SourceCard } from '../SourceCard'
 import { CitationMarkers } from '../../CitationMarker'
 import { SectionLabel } from '@/components/ui/section-label'
 import {
-  H,
   EDGE_STROKE,
   FramingData,
   SourceColumnData,
@@ -25,7 +23,7 @@ const Eyebrow: FC<{ children: React.ReactNode }> = ({ children }) => (
   <SectionLabel as="div">{children}</SectionLabel>
 )
 
-const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
+const FramingFlowNode: FC<{ data: FramingData }> = ({ data }) => (
   <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs">
     <Eyebrow>
       <span className="inline-flex items-center gap-1.5">{data.label}</span>
@@ -34,29 +32,11 @@ const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
     {data.escalation && (
       <p className="text-warning mt-1.5 text-xs leading-relaxed">{data.escalation}</p>
     )}
-    {data.sources.map((h) => (
-      <Handle
-        key={h.id}
-        id={h.id}
-        type="source"
-        position={Position.Bottom}
-        style={{ ...H, left: h.left }}
-      />
-    ))}
   </div>
 )
 
-const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
+const RoundFlowNode: FC<{ data: RoundData }> = ({ data }) => (
   <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface px-4 pt-3 pb-2 text-left shadow-xs">
-    {data.targets.map((h) => (
-      <Handle
-        key={h.id}
-        id={h.id}
-        type="target"
-        position={Position.Top}
-        style={{ ...H, left: h.left }}
-      />
-    ))}
     {data.foldable && (
       <button data-attr="reasoning-round-toggle"
         type="button"
@@ -116,19 +96,10 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
         {data.foldSummary}
       </p>
     ) : null}
-    {data.sources.map((h) => (
-      <Handle
-        key={h.id}
-        id={h.id}
-        type="source"
-        position={Position.Bottom}
-        style={{ ...H, left: h.left }}
-      />
-    ))}
   </div>
 )
 
-const SourceColumnFlowNode: FC<NodeProps<Node<SourceColumnData>>> = ({ data }) => {
+const SourceColumnFlowNode: FC<{ data: SourceColumnData }> = ({ data }) => {
   const stack = (
     <div role="list" aria-label={data.groupLabel} className="flex w-full flex-col">
       {data.cards.map((slot, i) => (
@@ -160,21 +131,14 @@ const SourceColumnFlowNode: FC<NodeProps<Node<SourceColumnData>>> = ({ data }) =
       className="max-w-full"
       style={{ width: data.colW !== undefined ? `${data.colW}px` : 'var(--source-w)' }}
     >
-      <Handle
-        id="in"
-        type="target"
-        position={Position.Top}
-        style={{ ...H, left: '50%', top: data.inTop }}
-      />
       {data.grouped ? (
-        <div className="bg-muted rounded-surface border px-3 py-3">
+        <div data-source-group="">
           <Eyebrow>{data.groupLabel}</Eyebrow>
           <div className="mt-2">{stack}</div>
         </div>
       ) : (
         stack
       )}
-      <Handle id="out" type="source" position={Position.Bottom} style={{ ...H, left: '50%' }} />
     </div>
   )
 }
@@ -266,22 +230,13 @@ const UncitedFoldCard: FC<{
   )
 }
 
-const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
+const FindingsFlowNode: FC<{ data: FindingsData }> = ({ data }) => (
   <div
     className={cn(
       'bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs',
       data.pending && 'border border-dashed bg-transparent shadow-none'
     )}
   >
-    {data.targets.map((h) => (
-      <Handle
-        key={h.id}
-        id={h.id}
-        type="target"
-        position={Position.Top}
-        style={{ ...H, left: h.left }}
-      />
-    ))}
     <Eyebrow>{data.label}</Eyebrow>
     {data.pendingNote && (
       <p className="text-muted-foreground mt-1 text-sm leading-relaxed">{data.pendingNote}</p>
@@ -366,12 +321,6 @@ const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
         ))}
       </div>
     )}
-    <Handle
-      id={data.source.id}
-      type="source"
-      position={Position.Bottom}
-      style={{ ...H, left: data.source.left }}
-    />
   </div>
 )
 

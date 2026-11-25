@@ -208,7 +208,7 @@ Consequences, where a reader looks for them.
 | [0136](0136-search-is-one-query-over-a-projection-beside-the-index.md) | Search is one query over a projection beside the index: the dossier's facts are filtered where authorization lives | Proposed |
 | [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Accepted |
 | [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Accepted |
-| [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered | Accepted |
+| [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered (grading narrowed by 0197) | Accepted |
 | [0140](0140-a-turn-that-needs-the-person-pauses-and-a-new-run-resumes-it.md) | A turn that needs the person pauses, and a new run resumes it: LangGraph `interrupt()` with the checkpointer, as AG-UI 1.0's interrupt outcome | Proposed |
 | [0141](0141-a-person-reworks-piloti-drawing-as-an-excalidraw-sketch.md) | A person reworks Piloti's drawing as an Excalidraw sketch; the model still writes mermaid | Accepted |
 | [0142](0142-piloti-cards-render-in-the-persons-own-assistant-as-mcp-apps.md) | Piloti's cards render in the person's own assistant as MCP Apps, starting with the proposal card | Accepted |
@@ -252,9 +252,22 @@ Consequences, where a reader looks for them.
 | [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
 | [0181](0181-a-reviewed-dev-release-may-be-carried-to-production-once-by-the-promotion.md) | A reviewed dev release may be carried to production once by the promotion | Accepted |
 | [0182](0182-the-brand-is-swept-out-of-the-code-now.md) | The brand is swept out of the code now, not renamed on touch; the one agent is `agent/core/`; amends 0149 | Accepted |
+| [0183](0183-a-drawing-scale-is-verified-only-by-a-persons-calibration.md) | A drawing's scale is verified only by a person's calibration, kept as what the person did | Proposed |
 | [0184](0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md) | CI runs on runners in the dev cluster, with no Docker and no credentials | Proposed |
 | [0185](0185-a-project-norm-goes-to-the-office-shelf-as-a-copy-and-leaves-a-reference.md) | A project norm goes to the office shelf as a copy, and the project keeps a reference | Proposed |
 | [0186](0186-the-office-norms-add-on-as-a-bet.md) | The office-norms add-on as a bet | Proposed |
+| [0187](0187-a-model-card-starts-its-3d-view-on-request.md) | A model card starts its 3D view on request | Accepted |
+| [0188](0188-a-model-is-loaded-once-per-page-and-its-load-can-be-stopped.md) | A model is loaded once per page and its load can be stopped; geometry stays in the browser | Proposed |
+| [0189](0189-a-model-view-is-one-description-and-an-isolated-set-is-part-of-it.md) | A model view is one description, and an isolated set is part of it | Proposed |
+| [0190](0190-a-drawing-sheet-is-read-on-demand-in-one-frame.md) | A drawing sheet is read on demand, by one reader, into one frame | Proposed |
+| [0191](0191-runs-are-listed-from-the-ledger-and-the-job-store-lists-nothing.md) | Runs are listed from the run ledger, and the backend's job store lists nothing | Proposed |
+| [0192](0192-archos-design-governs-the-app-as-well-as-the-website.md) | ARCHOS Design governs the app as well as the website | Accepted |
+| [0193](0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md) | A person's own shelf is drawn on only where its owner alone reads the chat | Proposed |
+| [0194](0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) | A conversation's context is decided once, in the BFF, and enforced everywhere | Proposed |
+| [0195](0195-the-buerobibliothek-has-its-own-papierkorb-the-project-bin-over-a-shelf.md) | The Bürobibliothek has its own Papierkorb: the project bin's code over a shelf | Proposed |
+| [0196](0196-one-chrome-stands-on-every-page-of-the-app.md) | One chrome stands on every page of the app | Accepted |
+| [0197](0197-the-answer-check-judges-citations-and-statements-of-law-only.md) | The answer check judges citations and statements of law only; amends 0139 | Accepted |
+| [0198](0198-a-person-may-release-a-draft-drawn-from-confidential-sources-after-checking-it.md) | A person may release a draft drawn from confidential sources after checking it | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

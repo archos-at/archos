@@ -6,6 +6,7 @@ export const collaboration: typeof en.collaboration = {
     title: 'Ihnen fehlen inzwischen die Rechte, um diesen Chat zu sehen',
     description:
       'Der Zugriff auf einen Ordner, aus dem dieser Chat stammt, hat sich seit dem Teilen geändert. Fragen Sie eine Person, die diese Ordner lesen darf, oder Ihre Administration.',
+    withheldFrom: 'Ab hier stützt sich der Chat auf eine Quelle, die Sie nicht öffnen dürfen.',
   },
   sharing: {
     title: 'Teilen',
@@ -100,6 +101,11 @@ export const collaboration: typeof en.collaboration = {
         'Diese Person darf nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt. Deshalb kann er nicht mit ihr geteilt werden.',
       restrictedContentSelf:
         'Sie dürfen nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt, und können ihn deshalb nicht übernehmen.',
+      personalShelfContent:
+        'Dieser Chat hat aus „Meine Ablage“ gelesen. Wer ihn sieht, sieht seine Antworten, nie die Dateien. Danach liest er nicht mehr aus Ihrer Ablage.',
+      personalShelfContentNotOwner:
+        'Dieser Chat hat aus der persönlichen Ablage der Person gelesen, die ihn begonnen hat. Nur sie kann ihn weiter teilen.',
+      personalShelfConfirm: 'Trotzdem teilen',
       restrictedContentProject:
         'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff und kann deshalb nicht für das ganze Projekt sichtbar gemacht werden. Teilen Sie ihn mit einzelnen Personen, die den Ordner lesen dürfen.',
       crossProjectContent:
@@ -214,11 +220,29 @@ export const collaboration: typeof en.collaboration = {
   },
 
   inbox: {
-    title: 'Postfach',
-    dock: {
-      close: 'Postfach schließen',
-      all: 'Alle Einträge, auch archivierte',
+    bell: {
+      late: '{count} überfällig',
+      news: '{count, plural, one {# Neuigkeit} other {# Neuigkeiten}}',
+      open: 'Postfach öffnen',
+      back: 'Postfach verlassen',
     },
+    page: {
+      done: 'Als erledigt markieren',
+      review: 'In der Prüfansicht öffnen',
+      personal: 'Persönlich',
+      back: 'Zurück',
+      opened: 'Geöffneter Eintrag',
+      go: 'Öffnen',
+      sheet: 'Seite {page}',
+      openPlace: '{sheet}, Anmerkung {number} in der Prüfansicht öffnen',
+      onRevision: 'Diese Anmerkung steht auf Fassung {revision}, nicht auf der aktuellen.',
+      earlierRevision: 'Diese Anmerkung steht auf einer früheren Fassung.',
+      thread: 'Verlauf der Anmerkung',
+      markFailed: 'Die Anmerkung konnte nicht geladen werden. Öffnen Sie sie in der Prüfansicht.',
+      archiveKey: 'Archivieren (E)',
+      nextHere: '{count, plural, one {Noch # in diesem Dokument} other {Noch # in diesem Dokument}}',
+    },
+    title: 'Postfach',
     navLabel: 'Postfach',
     badgeAria:
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
@@ -230,10 +254,10 @@ export const collaboration: typeof en.collaboration = {
       archived: 'Archiviert',
       ariaLabel: 'Postfach filtern',
     },
-    markAllRead: 'Alle als gelesen markieren',
+    archiveAll: 'Alle archivieren',
     archive: 'Archivieren',
     undo: 'Rückgängig',
-    markAllReadShort: 'Alle gelesen',
+    archivedAll: 'Postfach geleert',
     archived: 'Archiviert',
     unarchive: 'Wiederherstellen',
     unarchived: 'Wiederhergestellt',
@@ -436,7 +460,7 @@ export const collaboration: typeof en.collaboration = {
       },
       mailImportFailed: {
         title: 'Der Import von „{subject}“ wurde abgebrochen',
-        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste unter Dateien nennt den Grund.',
+        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste in der Ablage nennt den Grund.',
       },
       taskRunFailed: {
         title: '{productName} konnte „{subject}“ nicht abschließen',
@@ -517,8 +541,8 @@ export const collaboration: typeof en.collaboration = {
       agentProposalWaiting: {
         title: '{productName} hat einen Vorschlag für Sie',
         body: 'Der Vorschlag steht im Chat. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyProject: 'Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Büroablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyProject: 'Der Vorschlag steht bei der Datei in der Ablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Bürobibliothek. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
         variants: {
           move: { title: '{productName} schlägt einen neuen Ablageort vor' },
           rename: { title: '{productName} schlägt eine Umbenennung vor' },
@@ -527,7 +551,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
-          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Büroablage vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Bürobibliothek vor' },
         },
       },
       agentIntakeReady: {
@@ -700,10 +724,10 @@ export const collaboration: typeof en.collaboration = {
         body: 'Prüfen Sie, wohin jede Datei soll. Verschoben wird erst, was Sie übernehmen.',
         variants: {
           office: {
-            titleOne: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: 1 Datei',
-            titleMany: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: {count} Dateien',
-            titleNone: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
-            title: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
+            titleOne: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: 1 Datei',
+            titleMany: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: {count} Dateien',
+            titleNone: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
+            title: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
           },
         },
       },
@@ -854,14 +878,14 @@ export const collaboration: typeof en.collaboration = {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',
         body: 'Was bis dahin verschoben wurde, bleibt. Öffnen Sie die Dateien, um den Grund zu sehen.',
         variants: {
-          office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
+          office: { title: 'Die Sortierung der Bürobibliothek wurde abgebrochen' },
         },
       },
       officeShelfNormSuggested: {
-        title: '{actor} schlägt eine Norm für die Büroablage vor',
-        titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
-        titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
-        body: 'Aus „{subject}“. In der Büroablage finden alle Projekte sie.',
+        title: '{actor} schlägt eine Norm für die Bürobibliothek vor',
+        titleNoActor: 'Eine Norm wird für die Bürobibliothek vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Bürobibliothek ist entschieden',
+        body: 'Aus „{subject}“. In der Bürobibliothek finden alle Projekte sie.',
       },
       unknown: {
         title: 'Es gab Aktivität',
@@ -896,11 +920,11 @@ export const collaboration: typeof en.collaboration = {
       viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
     },
     normSuggestion: {
-      accept: 'In die Büroablage übernehmen',
+      accept: 'In die Bürobibliothek übernehmen',
       decline: 'Ablehnen',
       visibility: 'Danach ist sie für alle im Büro sichtbar.',
-      accepted: 'Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.',
-      unconfirmed: 'Liegt in der Büroablage, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
+      accepted: 'Bestätigt und in der Bürobibliothek. Das Projekt behält einen Verweis.',
+      unconfirmed: 'Liegt in der Bürobibliothek, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
       declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
       failed: 'Das hat nicht geklappt: {reason}',
       stale: 'Jemand hat schon entschieden.',

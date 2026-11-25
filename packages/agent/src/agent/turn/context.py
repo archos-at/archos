@@ -14,8 +14,9 @@ from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
 from agent.common.platform_lessons import resolve_platform_lessons
+from agent.common.turn_decision import current_turn_decision
+from agent.common.turn_decision import decision_missing
 from agent.knowledge.project_memory import fetch_memory_digest
-from agent.knowledge.restricted_collections import restricted_collections_in
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.knowledge.restricted_use import current_restricted_use
 from agent.knowledge.restricted_use import drew_on_other_projects
@@ -107,10 +108,11 @@ def user_info_for(request: RequestContext | None) -> dict[str, Any] | None:
 
 
 def signed_restricted_collections(request: RequestContext) -> list[str]:
-    if not request.envelope_header:
+    decision = current_turn_decision()
+    if decision is None:
         return []
     use = current_restricted_use()
-    signed = restricted_collections_in(request.collection_scope)
+    signed = sorted(decision.restricted_collections)
     return signed if use is None else [name for name in signed if use.allows(name)]
 
 
@@ -168,14 +170,32 @@ async def _context_blocks(request: RequestContext, query_text: str) -> ContextBl
     return ContextBlocks(request.project_context, memory_digest, request.org_instructions)
 
 
+def _flags_without_organization() -> TurnFlags:
+    decision = current_turn_decision()
+    if decision is not None:
+        return TurnFlags(
+            enabled_stages=frozenset(), deep_research_allowed=decision.deep_research, tasks_allowed=decision.tasks
+        )
+    if decision_missing():
+        return TurnFlags(enabled_stages=frozenset(), deep_research_allowed=False, tasks_allowed=False)
+    return TurnFlags(enabled_stages=frozenset())
+
+
 async def _turn_flags(request: RequestContext, resolve_stages: bool) -> TurnFlags:
     if not request.organization_id:
-        return TurnFlags(enabled_stages=frozenset())
+        return _flags_without_organization()
     flags = await resolve_turn_flags(
         organization_id=request.organization_id,
         memory_reflection_enabled=request.memory_reflection_enabled,
         project_id=request.project_id,
     )
+    decision = current_turn_decision()
+    if decision is not None:
+        flags = replace(
+            flags,
+            deep_research_allowed=flags.deep_research_allowed and decision.deep_research,
+            tasks_allowed=flags.tasks_allowed and decision.tasks,
+        )
     if resolve_stages:
         return flags
     return TurnFlags(

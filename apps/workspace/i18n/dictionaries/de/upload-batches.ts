@@ -6,12 +6,12 @@ export const uploadBatches: typeof en.uploadBatches = {
     loading: 'Übersicht wird geladen…',
     place: {
       project: 'Projekt',
-      office_shelf: 'Büroablage',
+      office_shelf: 'Bürobibliothek',
       session: 'Chat',
     },
     open: {
       project: 'Dateien öffnen',
-      office_shelf: 'Büroablage öffnen',
+      office_shelf: 'Bürobibliothek öffnen',
       session: 'Chat öffnen',
     },
     state: {
@@ -42,13 +42,13 @@ export const uploadBatches: typeof en.uploadBatches = {
       title: 'Dateien',
       root: {
         project: 'Projektordner',
-        office_shelf: 'Büroablage',
+        office_shelf: 'Bürobibliothek',
         session: 'Chat',
       },
       empty: 'Keine Datei dieses Uploads ist bei {productName} angekommen.',
       pages: '{count, plural, one {# Seite} other {# Seiten}}',
-      openInFiles: 'In Dateien öffnen',
-      openInOfficeShelf: 'In der Büroablage öffnen',
+      openInFiles: 'In der Ablage öffnen',
+      openInOfficeShelf: 'In der Bürobibliothek öffnen',
       changedHint: 'Neue Fassung eines Dokuments, das schon hier lag. Die bisherige bleibt unter „Fassungen und Freigabe“ lesbar.',
       protectedHint: 'Liegt in einem Ordner mit eigenem Zugriff. Wer ihn öffnen und ändern darf, zeigt das Schloss am Ordner.',
       requestRelease: 'Prüfung anfragen',

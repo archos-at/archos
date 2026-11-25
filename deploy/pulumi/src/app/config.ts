@@ -144,7 +144,6 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "HOST", value: "0.0.0.0" },
     { name: "PORT", value: String(PORT.backend) },
     { name: "CONFIG_FILE", value: cfg.backend.configFile },
-    { name: "COLLECTION_NAME", value: "oib_knowledge" },
     sref("JOB_PAYLOAD_KEK"),
     { name: "NORMS_DIR", value: "configs/norms" },
     sref("NAT_JOB_STORE_DB_URL"),

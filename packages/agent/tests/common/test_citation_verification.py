@@ -39,7 +39,7 @@ def _knowledge_entry(file_name: str, page: int, title: str) -> SourceEntry:
         source_type="knowledge",
         tool_name="knowledge_search",
         citation_key=f"{file_name}, p.{page}",
-        collection="oib_knowledge",
+        collection="base_corpus",
         shelf="base",
     )
 
@@ -1771,7 +1771,7 @@ class TestKnowledgeLayerDocClassParsing:
         content = (
             "--- Result 1 ---\n"
             "Source: randomname.pdf\n"
-            "Collection: oib_knowledge\n"
+            "Collection: base_corpus\n"
             "Dokumentart: gesetz — Gesetz / Bauordnung\n"
             "Citation: randomname.pdf, p.1\n"
         )
@@ -1805,7 +1805,7 @@ class TestAgentAuthoredProvenanceParsing:
 
     @pytest.mark.parametrize(
         "herkunft",
-        [None, "Büroablage", "von Hand erstellt", ""],
+        [None, "Bürobibliothek", "von Hand erstellt", ""],
         ids=["absent", "other-label", "prose", "empty"],
     )
     def test_anything_else_leaves_the_author_unknown(self, herkunft: str | None):
@@ -2179,7 +2179,7 @@ class TestKnowledgeLayerFieldsAreBlockScoped:
         "\n"
         "--- Result 2 ---\n"
         "Source: OIB-Richtlinie 2 – Brandschutz\n"
-        "Collection: oib_knowledge\n"
+        "Collection: base_corpus\n"
         "Dokumentart: oib_guideline — OIB-Richtlinie\n"
         "Page: 12\n"
         "Citation: oib-rl_2_ausgabe_mai_2023.pdf, p.12\n"
@@ -2209,7 +2209,7 @@ class TestKnowledgeLayerFieldsAreBlockScoped:
     def test_every_field_stays_with_its_own_hit(self):
         first, second = self._entries()
         assert (first.title, first.collection) == ("Einreichplan Obergeschoss", "proj_abc")
-        assert (second.title, second.collection) == ("OIB-Richtlinie 2 – Brandschutz", "oib_knowledge")
+        assert (second.title, second.collection) == ("OIB-Richtlinie 2 – Brandschutz", "base_corpus")
         assert "Fluchtwege" in (first.chunk_text or "")
         assert "Brandabschnitte" in (second.chunk_text or "")
 
@@ -2248,11 +2248,11 @@ class TestKnowledgeLayerFieldsAreBlockScoped:
     def test_output_without_block_markers_still_parses(self):
         from agent.citations.extraction import extract_sources_from_tool_result
 
-        content = "Source: legacy.pdf\nCollection: oib_knowledge\nCitation: legacy.pdf, p.2\n"
+        content = "Source: legacy.pdf\nCollection: base_corpus\nCitation: legacy.pdf, p.2\n"
         entries = extract_sources_from_tool_result("knowledge_search", content)
         assert len(entries) == 1
         assert entries[0].citation_key == "legacy.pdf, p.2"
-        assert entries[0].collection == "oib_knowledge"
+        assert entries[0].collection == "base_corpus"
 
 
 class TestVerifyQuotedSpans:
@@ -2511,7 +2511,7 @@ class TestKnowledgeLayerChunkTextCapture:
             "Found 2 relevant document(s):\n\n"
             "--- Result 1 ---\n"
             "Source: OIB-330.pdf\n"
-            "Collection: oib_knowledge\n"
+            "Collection: base_corpus\n"
             "Page: 12\n"
             "Citation: OIB-330.pdf, p.12\n"
             "Content Type: text\n"
@@ -2521,7 +2521,7 @@ class TestKnowledgeLayerChunkTextCapture:
             "\n"
             "--- Result 2 ---\n"
             "Source: OIB-330.pdf\n"
-            "Collection: oib_knowledge\n"
+            "Collection: base_corpus\n"
             "Page: 13\n"
             "Citation: OIB-330.pdf, p.13\n"
             "Content Type: text\n"
@@ -2596,7 +2596,7 @@ class TestKnowledgeLayerChunkTextCapture:
             title="OIB-Richtlinie 2",
             source_type="knowledge_layer",
             tool_name="knowledge_search",
-            collection="oib_knowledge",
+            collection="base_corpus",
             shelf="base",
             doc_class="oib_guideline",
             authored_by="agent",
@@ -2627,7 +2627,7 @@ class TestDocumentIdentityIsCollectionAndFilename:
                 citation_key=office_shelf_key,
                 source_type="knowledge_layer",
                 collection="archiv_org1",
-                chunk_text="Aus der Büroablage.",
+                chunk_text="Aus der Bürobibliothek.",
             )
         )
         return registry
@@ -2637,7 +2637,7 @@ class TestDocumentIdentityIsCollectionAndFilename:
         assert len(registry._citation_keys) == 2
         assert {entry.chunk_text for entry in registry._citation_keys} == {
             "Aus dem Projekt.",
-            "Aus der Büroablage.",
+            "Aus der Bürobibliothek.",
         }
 
     def test_chunks_of_one_document_still_merge(self):
@@ -2658,15 +2658,15 @@ class TestDocumentIdentityIsCollectionAndFilename:
     def test_a_qualified_key_resolves_to_the_shelf_it_names(self):
         registry = self._two_shelves(
             project_key="Plan.pdf (Projektwissen), p.3",
-            office_shelf_key="Plan.pdf (Büroablage), p.3",
+            office_shelf_key="Plan.pdf (Bürobibliothek), p.3",
         )
-        assert registry.entry_for_citation_key("Plan.pdf (Büroablage), p.3").collection == "archiv_org1"
+        assert registry.entry_for_citation_key("Plan.pdf (Bürobibliothek), p.3").collection == "archiv_org1"
         assert registry.entry_for_citation_key("Plan.pdf (Projektwissen), p.3").collection == "proj_alpha"
 
     def test_an_unqualified_key_still_validates(self):
         registry = self._two_shelves(
             project_key="Plan.pdf (Projektwissen), p.3",
-            office_shelf_key="Plan.pdf (Büroablage), p.3",
+            office_shelf_key="Plan.pdf (Bürobibliothek), p.3",
         )
         assert registry.has_citation_key("Plan.pdf, p.3") is True
         assert registry.entry_for_citation_key("Plan.pdf, p.3") is not None
@@ -2704,7 +2704,7 @@ class TestQualifiedKeysSurviveVerification:
         )
         registry.add(
             SourceEntry(
-                citation_key="Plan.pdf (Büroablage), p.3",
+                citation_key="Plan.pdf (Bürobibliothek), p.3",
                 source_type="knowledge_layer",
                 collection="archiv_org1",
             )
@@ -2716,17 +2716,17 @@ class TestQualifiedKeysSurviveVerification:
             "Im Projekt so geplant [1], im Büro so detailliert [2].\n\n"
             "**Quellen:**\n"
             "- [1] Plan.pdf (Projektwissen), p.3\n"
-            "- [2] Plan.pdf (Büroablage), p.3\n"
+            "- [2] Plan.pdf (Bürobibliothek), p.3\n"
         )
         result = verify_citations(report, self._registry())
         assert result.removed_citations == []
         assert "Plan.pdf (Projektwissen), p.3" in result.verified_report
-        assert "Plan.pdf (Büroablage), p.3" in result.verified_report
+        assert "Plan.pdf (Bürobibliothek), p.3" in result.verified_report
 
     def test_the_line_scanner_keeps_the_qualifier_it_finds(self):
         is_kl, key = is_knowledge_citation("Bestandsplan – Plan.pdf (BÜROARCHIV), p.3", self._registry())
         assert is_kl is True
-        assert key == "Plan.pdf (Büroablage), p.3"
+        assert key == "Plan.pdf (Bürobibliothek), p.3"
 
     def test_a_title_in_front_of_the_filename_is_dropped_without_a_registry(self):
         for line in (
@@ -2762,7 +2762,7 @@ class TestCitedDocumentsKeepTheirShelf:
         return registry
 
     def test_the_qualified_shelf_is_the_one_marked_cited(self):
-        report = "Wie im Archivplan [1].\n\n**Quellen:**\n- [1] Plan.pdf (Büroablage), p.3\n"
+        report = "Wie im Archivplan [1].\n\n**Quellen:**\n- [1] Plan.pdf (Bürobibliothek), p.3\n"
         entries = cited_document_entries(report, self._registry())
         assert [entry.collection for entry in entries] == ["archiv_org1"]
 
@@ -2771,7 +2771,7 @@ class TestCitedDocumentsKeepTheirShelf:
             "Projekt [1] gegen Archiv [2].\n\n"
             "**Quellen:**\n"
             "- [1] Plan.pdf (Projektwissen), p.3\n"
-            "- [2] Plan.pdf (Büroablage), p.3\n"
+            "- [2] Plan.pdf (Bürobibliothek), p.3\n"
         )
         entries = cited_document_entries(report, self._registry())
         assert {entry.collection for entry in entries} == {"proj_alpha", "archiv_org1"}
@@ -2914,7 +2914,7 @@ class TestClauseAndScoreReachTheWire:
     BLOCK = (
         "--- Result 1 ---\n"
         "Source: OIB-RL 2 Brandschutz\n"
-        "Collection: oib_knowledge\n"
+        "Collection: base_corpus\n"
         "Shelf: base\n"
         "Dokumentart: oib_guideline\n"
         "Page: 7\n"

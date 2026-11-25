@@ -17,7 +17,7 @@ export const GET = tenantSlotRoute(async function GET(req: Request): Promise<Res
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    return NextResponse.json(await resolveTurnContext(session, { projectId, conversationId }), { status: 200 })
+    return NextResponse.json(await resolveTurnContext(session, { projectId, conversationId, shelves: false }), { status: 200 })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) {
       return NextResponse.json({ error: 'Budget exhausted', reason: error.message }, { status: 403 })

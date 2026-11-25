@@ -1,0 +1,6 @@
+# area: documents
+fixes:
+  - >
+    „Ansehen“ on the line saying that documents could not be read seemed to do
+    nothing once their list was open; the line now steps aside while that list
+    is shown and returns when you go back to the folder.

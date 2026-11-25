@@ -51,15 +51,51 @@ describe('ConversationPrivacyLineView', () => {
 
   test('a private chat says only the reader sees it until they share it', () => {
     render(<ConversationPrivacyLineView temporary={false} privateToReader />)
+    expect(screen.getByTestId('conversation-privacy-line')).toHaveClass('sm:hidden')
     expect(screen.getByTestId('conversation-private-line')).toHaveTextContent('Only you see this chat until you share it.')
   })
 })
 
+describe('ConversationPrivacyLineView in a started chat', () => {
+  test('keeps its row while the chat is not temporary, so switching it on does not lift the composer', () => {
+    render(<ConversationPrivacyLineView temporary={false} privateToReader={false} reserved />)
+    const line = screen.getByTestId('conversation-privacy-line')
+    expect(line).not.toHaveClass('sm:hidden')
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('')
+  })
+
+  test('every statement stands in the one cell and only the current one is shown, so the row is as tall in each', () => {
+    const { rerender } = render(<ConversationPrivacyLineView temporary="turningOn" privateToReader reserved />)
+    const layers = () => Array.from(screen.getByTestId('conversation-privacy-line').querySelectorAll('[data-slot="fact-line"]'))
+    expect(layers()).toHaveLength(4)
+    for (const layer of layers()) expect(layer.parentElement).toHaveClass('col-start-1', 'row-start-1')
+    expect(screen.getByTestId('conversation-temporary-line').parentElement).toHaveClass('opacity-100')
+    expect(screen.getByTestId('conversation-private-line').parentElement).toHaveClass('opacity-0')
+    expect(screen.getByRole('status')).toHaveTextContent('Turning on temporary chat …')
+
+    rerender(<ConversationPrivacyLineView temporary={false} privateToReader reserved />)
+    expect(layers()).toHaveLength(4)
+    expect(screen.getByTestId('conversation-private-line').parentElement).toHaveClass('opacity-100')
+  })
+})
+
 describe('ConversationPrivacyLine', () => {
-  test('says nothing about access before the server has answered', () => {
+  test('on a new chat, before the server has answered, the row is kept but claims nothing, so starting the chat never grows the composer', () => {
+    open(conversation())
+    render(<ConversationPrivacyLine conversationId="c-1" canCollaborate statesTemporary={false} />)
+    expect(screen.getByTestId('conversation-privacy-line')).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-privacy-line')).not.toHaveClass('sm:hidden')
+    expect(screen.queryByTestId('conversation-private-line')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
+  })
+
+  test('in a started chat, before the server has answered, the row is kept but claims nothing about access', () => {
     open(conversation())
     render(<ConversationPrivacyLine conversationId="c-1" canCollaborate />)
-    expect(screen.queryByTestId('conversation-privacy-line')).not.toBeInTheDocument()
+    expect(screen.getByTestId('conversation-privacy-line')).toBeInTheDocument()
+    expect(screen.queryByTestId('conversation-private-line')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
   })
 
   test('shows the private line once the server says the thread is private', () => {
@@ -88,6 +124,12 @@ describe('ConversationPrivacyLine', () => {
     act(() => publishThreadSharing('c-1', true))
     render(<ConversationPrivacyLine conversationId="c-1" canCollaborate />)
     expect(screen.getByTestId('conversation-temporary-line')).toBeInTheDocument()
+  })
+
+  test('on a new chat the welcome says it, so the line under the composer stays out and the composer never moves', () => {
+    open(conversation({ temporary: true }))
+    render(<ConversationPrivacyLine conversationId="c-1" canCollaborate={false} statesTemporary={false} />)
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
   })
 
   test('the temporary line goes when the conversation is switched back', () => {

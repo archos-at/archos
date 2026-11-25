@@ -8,7 +8,7 @@ import {
   createProjectIntakeClient,
   type ProjectIntakeClient,
 } from '@/lib/project-intake/client'
-import type { IntakeDecision, IntakeView } from '@/lib/project-intake/types'
+import type { BuildingOperation, IntakeDecision, IntakeView } from '@/lib/project-intake/types'
 
 export const INTAKE_POLL_MS = 5000
 export const INTAKE_WATCH_MS = 3 * 60 * 1000
@@ -24,6 +24,7 @@ export interface UseIntake {
   busy: boolean
   stale: boolean
   decide: (decisions: IntakeDecision[]) => Promise<boolean>
+  changeBuilding: (operation: BuildingOperation) => Promise<string | null>
   reread: () => Promise<void>
   complete: () => Promise<boolean>
   refresh: () => Promise<void>
@@ -86,6 +87,16 @@ export function useIntake({ projectId, initial, client }: UseIntakeOptions): Use
     [guarded, projectId, t]
   )
 
+  const changeBuilding = useCallback(
+    async (operation: BuildingOperation): Promise<string | null> => {
+      const answer = await guarded(() => api.current.changeBuilding(projectId, operation), t('errors.building'))
+      if (!answer) return null
+      setView(answer.intake)
+      return answer.buildingId
+    },
+    [guarded, projectId, t]
+  )
+
   const reread = useCallback(async () => {
     const next = await guarded(() => api.current.start(projectId, { scope: 'new' }), t('errors.start'))
     if (next) setView(next)
@@ -104,5 +115,5 @@ export function useIntake({ projectId, initial, client }: UseIntakeOptions): Use
     setWatchUntil(at + INTAKE_WATCH_MS)
   }, [])
 
-  return { view, busy, stale, decide, reread, complete, refresh, watch }
+  return { view, busy, stale, decide, changeBuilding, reread, complete, refresh, watch }
 }

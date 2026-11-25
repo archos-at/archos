@@ -3,6 +3,7 @@ import { NotFoundError, TemporaryConversationError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import { requireResourceAccess } from '@/lib/sharing/access'
+import { personalConversationHidden } from './repository'
 import { readConversationTemporary, updateConversationTemporaryInOrg } from './temporary-repository'
 
 export async function isTemporaryConversation(
@@ -10,14 +11,17 @@ export async function isTemporaryConversation(
   organizationId: string | null | undefined
 ): Promise<boolean> {
   if (!conversationId || !organizationId) return false
-  return readConversationTemporary(conversationId, organizationId)
+  return (await readConversationTemporary(conversationId, organizationId)) ?? false
 }
 
 export async function requireConversationKeepsMemory(
   conversationId: string | null | undefined,
   organizationId: string | null | undefined
 ): Promise<void> {
-  if (await isTemporaryConversation(conversationId, organizationId)) throw new TemporaryConversationError()
+  if (!conversationId || !organizationId) return
+  const temporary = await readConversationTemporary(conversationId, organizationId)
+  if (temporary === null && (await personalConversationHidden(conversationId))) throw new NotFoundError()
+  if (temporary) throw new TemporaryConversationError()
 }
 
 export async function setConversationTemporary(

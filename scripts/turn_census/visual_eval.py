@@ -7,6 +7,8 @@ from typing import Any
 from files_eval import _basename
 from files_eval import files_checks
 from fixture_bff import ROOT
+from measure_answers import measure_check
+from measure_answers import validate as validate_measure
 from render_fixture_drawings import load_spec
 from workspace_eval import Judge
 from workspace_eval import load_questions as load_rows
@@ -15,7 +17,7 @@ QUESTIONS = ROOT / "tests" / "fixtures" / "visual" / "visual_questions.yaml"
 LOOK_TOOLS = frozenset({"look", "canvas__look", "view_knowledge_image"})
 COVERAGE_MIN = 0.8
 BOXES = ("found", "given")
-CATEGORIES = ("dimension", "count", "plankopf", "legend", "fassung", "skip")
+CATEGORIES = ("dimension", "count", "plankopf", "legend", "fassung", "skip", "measure")
 CARD_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "cards" / "look_card.py"
 WIRE_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "common" / "wire_v2.py"
 
@@ -54,6 +56,8 @@ def load_questions(path: Path = QUESTIONS, spec: dict[str, Any] | None = None) -
                 f"{row['id']}: box: given sends a drawn region on the turn, "
                 "which only the north-star set does (`turn_input.py`)"
             )
+        if (measure := (row.get("expect") or {}).get("measure")) is not None:
+            validate_measure(row["id"], measure)
         rows.append({**row, "set": "visual", "gold": resolve_gold(row, elements)})
     return rows
 
@@ -173,6 +177,8 @@ def visual_checks(
     if not look_on:
         tools["must"] = [item for item in tools.get("must") or [] if item != "look"]
     checks = files_checks({**expect, "tools": tools}, named, answer, question, judge, signals, research_calls)
+    if expect.get("measure"):
+        checks["measure"] = measure_check(expect["measure"], answer)
     if gold and look_on:
         checks["gold_covered"] = all(s["coverage"] >= COVERAGE_MIN for s in gold_scores(looks_of(calls), gold))
     return checks

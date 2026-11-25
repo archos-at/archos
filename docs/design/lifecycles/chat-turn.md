@@ -60,7 +60,7 @@ shoving another's content.
 | # | Phase | Entered by (data) | Visible | Loop | Owner |
 |---|---|---|---|---|---|
 | P0 | idle | no running view | The composer shows Send. | none | InputArea |
-| P1 | sent | `user_message` sent, `beginTurn` | The question row rises in. An anchor glide brings the question to the top. The Herleitung header mounts in the same row with "Denkt nach…". Send becomes Stop at once. The field stays live: for typing ahead, or, when the hello offers `steer`, for steering the turn („Den Agenten lenken …“, a „lenkt“ chip by the field). | header shimmer | ChatArea, ChatThinking, InputArea |
+| P1 | sent | `user_message` sent, `beginTurn` | The question row rises in. An anchor glide brings the question to the top. The Herleitung header mounts in the same row with "Denkt nach…". Send becomes Stop at once. The field stays live: for typing ahead, or, when the hello offers `steer`, for steering the turn („Den Agenten lenken …“, a „lenkt“ chip on the composer card's top edge, out of the flow, so the composer keeps its height). | header shimmer | ChatArea, ChatThinking, InputArea |
 | P2 | working, no steps | `RUN_STARTED` | The same header. The timer fades in once it passes 2 s, counted from the question's timestamp. | shimmer | ChatThinking |
 | P3 | steps | first `STEP_*` | The panel opens with an opacity fade and shows the whole graph, the executed-step chips under it. The live line cross-fades on each step. | spinner, shimmer, frontier edges | ChatThinking, ReasoningFlow |
 | P4 | masthead | `CUSTOM masthead` before the first word | The answer has begun: the panel folds and the answer card mounts under the bar with its masthead as one entrance. | shimmer | ChatArea, AgentResponse |
@@ -141,11 +141,11 @@ shoving another's content.
 | E01 | send (no frame) | Header "Denkt nach…" | Under the question, same row | Rises with the row. The timer appears after 2 s with a fade. | one row mount |
 | E02 | `STEP_FINISHED status`, live channel | Live line phrase | Header label | Cross-fade (`motionQuick` in, `motionQuickExit` out). The screen reader hears the phase, at most once per 3 s. | header re-render |
 | E03 | `status`, technical channel | Nothing live; a row in the opt-in technical steps | Panel | — | steps array identity |
-| E04 | `retrieval` round 0 | Live line "Sucht … nach '…'" and the framing node | Graph top | The pane height glides. | ReactFlow measure |
-| E05 | `retrieval` round ≥ 1 | A checkpoint layer "Schritt N" with its reason; the fan becomes the spine at round 2 | Graph | Lands below with a fade. Height glides and holds its maximum while live. Edges into the frontier march. | one layout pass per round |
+| E04 | `retrieval` round 0 | Live line "Sucht … nach '…'" and the framing node | Graph top | Stands at its height from the first frame; the blocks under the graph slide down by `translate` and the panel's edge is revealed by `clip-path` (`useSlideBelow`). | one CSS layout |
+| E05 | `retrieval` round ≥ 1 | A checkpoint layer "Schritt N" with its reason; the fan becomes the spine at round 2 | Graph | Fades in and is revealed from its top while what stands below it slides down (`useSlideBelow`); the graph holds its maximum height while live. Edges into the frontier march. | one layout pass per round |
 | E06 | `STEP_STARTED tool` | Executed-step chip | Chip row under the graph | Its dot pulses while it runs. | chip list derive |
 | E07 | `STEP_FINISHED tool` | Chip settles; an error shows detail | Same | Glyph swap only. | — |
-| E08 | `sources` | Source cards under their round; one grouped column on a phone | Graph | Height glide. The header's source count updates. | layout pass |
+| E08 | `sources` | Source cards under their round; one grouped column on a phone | Graph | Fades in; what stands below slides down (`useSlideBelow`). The header's source count updates. | layout pass |
 | E09 | `skill` activated | Live line "Wendet … an" and a skill chip | Header and chip row | Static dot. At the settle it moves to the skills disclosure in the footer without shrinking an open panel. | — |
 | E10 | `skill` offered, loaded, hidden | Nothing | — | — | — |
 | E11 | `clarification` | Nothing (detail only) | — | Precedes E12. | — |

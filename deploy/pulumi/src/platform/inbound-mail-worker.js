@@ -105,7 +105,7 @@
  * Dependency-free on purpose: `inbound-mail.ts` uploads this file verbatim as
  * the Worker's only module. It is still type-checked: `// @ts-check` above,
  * the handler typed as `ExportedHandler<Env>` from `@cloudflare/workers-types`,
- * and `tsconfig.worker.json` runs it through `tsc` in `npm run typecheck`. It
+ * and `tsconfig.worker.json` runs it through `bun check` in `bun run typecheck`. It
  * exports only the handler and plain strings and numbers: a module Worker's
  * named exports are read as entrypoints.
  */

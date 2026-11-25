@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    Cards in an answer no longer jump when they finish drawing. While a card
+    loads, its place already has the size of the finished card, so the text
+    below it stays where you are reading.

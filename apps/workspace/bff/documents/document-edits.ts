@@ -10,10 +10,10 @@ import { purgeResourceCollaboration } from '@/lib/collaboration/cleanup'
 import { assertNoActiveHold } from '@/lib/compliance/holds'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
-import { documentShelf, projectShelf } from './shelf'
+import { documentShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 import { collectionFileRef, collectionFileUrl, purgeIngestedChunks } from './collection-file-ref'
-import { deleteProjectDocument, setDocumentDisplayName } from './repository'
+import { deleteShelfDocumentRow, setDocumentDisplayName } from './repository'
 import { documentDisplayName, validateDocumentName } from './display-name'
 import { findDocumentForSession, getAccessibleDocument } from './access'
 import { eraseDocumentObjectsOrKeepRow } from './object-cleanup'
@@ -105,6 +105,19 @@ export async function renameDocument(
     }
   }
 
+  if (doc.scope === 'personal') {
+    await recordAuditEvent({
+      organizationId: session.organizationId,
+      actor: { userId: session.userId, email: session.email },
+      action: 'personal_shelf.document.renamed',
+      targetType: 'document',
+      targetId: documentId,
+      metadata: {},
+      request,
+    })
+    return { id: documentId, filename: doc.filename, displayName }
+  }
+
   await recordAuditEvent({
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email },
@@ -127,9 +140,9 @@ export async function renameDocument(
   return { id: documentId, filename: doc.filename, displayName }
 }
 
-export async function eraseProjectDocument(doc: Document, organizationId: string): Promise<boolean | null> {
-  const projectId = doc.projectId
-  if (projectId === null) throw new NotFoundError()
+export async function eraseShelfDocument(doc: Document, organizationId: string): Promise<boolean | null> {
+  const shelf = documentShelf(doc)
+  if (!shelf || shelf.kind === 'personal') throw new NotFoundError()
   const purgeRef = collectionFileRef(doc)
   const chunksPurged = purgeRef
     ? // Permanent: the document is gone, and its Fassung links with it (ADR-0099).
@@ -145,8 +158,8 @@ export async function eraseProjectDocument(doc: Document, organizationId: string
     ),
   ])
 
-  await deleteProjectDocument(doc.id, organizationId, projectId)
-  publishShelfChanged(organizationId, projectShelf(projectId))
+  await deleteShelfDocumentRow(doc.id, organizationId, shelf)
+  publishShelfChanged(organizationId, shelf)
 
   if (purgeRef) await purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true })
 
@@ -164,12 +177,17 @@ export async function deleteDocument(
     await deleteOfficeShelfDocument(session, documentId, request)
     return
   }
+  if (doc?.scope === 'personal') {
+    const { deletePersonalShelfDocument } = await import('@/lib/personal-shelf/service')
+    await deletePersonalShelfDocument(session, documentId, request)
+    return
+  }
   if (!doc || doc.scope !== 'project' || doc.projectId === null) throw new NotFoundError()
 
   await requireFolderWrite(session, doc.projectId, [doc.folderId])
   await assertNoActiveHold(session.organizationId, 'document', documentId)
 
-  const chunksPurged = await eraseProjectDocument(doc, session.organizationId)
+  const chunksPurged = await eraseShelfDocument(doc, session.organizationId)
 
   await recordAuditEvent({
     organizationId: session.organizationId,

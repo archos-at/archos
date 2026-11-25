@@ -18,7 +18,7 @@ from agent.common.knowledge_context import KnowledgeContext
 from agent.common.knowledge_context import binding_editions
 from agent.common.knowledge_context import set_turn_knowledge_context
 
-CORPUS = "oib_knowledge"
+CORPUS = "base_corpus"
 OLD, NEW = "edition:rl4-2019", "edition:rl4-2023"
 TEXT = "Fluchtwege Mindestbreite Stiegenhaus 1,20 m"
 

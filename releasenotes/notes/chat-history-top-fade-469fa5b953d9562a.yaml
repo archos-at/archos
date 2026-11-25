@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    In the chat history, chats now fade out under the pinned date as you
+    scroll, the same way they fade at the bottom, instead of being cut off.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import { documentFilesHref } from '@/features/documents/chat-card-parts'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -28,6 +29,12 @@ export interface DraftFilingInput {
 export interface DraftConflict {
   documentId: string
   displayName: string
+}
+
+export interface ConfidentialSource {
+  kind: 'folder' | 'project'
+  name: string
+  project?: string
 }
 
 export interface ProjectChange {
@@ -72,6 +79,15 @@ function projectChangeOf(error: unknown): ProjectChange | null {
   return { versionNumber: typeof details.versionNumber === 'number' ? details.versionNumber : null }
 }
 
+function confidentialSourcesOf(error: unknown): ConfidentialSource[] | null {
+  const details = errorDetails(error, 409)
+  if (details?.reason !== 'confidential-release' || !Array.isArray(details.sources)) return null
+  return details.sources.filter(
+    (source): source is ConfidentialSource =>
+      typeof source === 'object' && source !== null && typeof (source as ConfidentialSource).name === 'string',
+  )
+}
+
 function isNotFileable(error: unknown): boolean {
   return errorDetails(error, 422)?.reason === 'not-fileable'
 }
@@ -106,12 +122,20 @@ export function useDraftFiling({
   const destination = useRef<DraftDestination | undefined>(undefined)
   const [restoreFailed, setRestoreFailed] = useState(false)
   const [conflict, setConflict] = useState<DraftConflict | null>(null)
+  const [releaseSources, setReleaseSources] = useState<ConfidentialSource[] | null>(null)
+  const [releaseRequest, setReleaseRequest] = useState(0)
+  const lastForce = useRef(false)
 
   const filed = Boolean(documentId && versionId && versionState)
   const shownDocumentId = filedDoc?.documentId ?? documentId ?? null
   const filedAtVersion = filedDoc?.draftVersion ?? filedDraftVersion ?? null
   const shownFiled = filed || filedDoc !== null
-  const href = shownDocumentId && projectId ? documentFilesHref(projectId, shownDocumentId) : null
+  const personal = !projectId
+  const href = !shownDocumentId
+    ? null
+    : projectId
+      ? documentFilesHref(projectId, shownDocumentId)
+      : `${PERSONAL_SHELF_PATH}?doc=${encodeURIComponent(shownDocumentId)}`
   const filedDecision = decision === 'filed'
   const filedKnown = shownFiled || filedDecision
   const changedSinceFiling =
@@ -154,8 +178,12 @@ export function useDraftFiling({
   const file = async (force: boolean, chosen?: DraftDestination): Promise<DraftFileOutcome> => {
     if (!conversationId || isFiling) return 'failed'
     if (chosen) destination.current = chosen
+    lastForce.current = force
+    const sent = destination.current
+    if (sent?.release) destination.current = { ...sent, release: undefined }
     setError(null)
     setProjectChange(null)
+    setReleaseSources(null)
     if (!force) setConflict(null)
     setIsFiling(true)
     try {
@@ -163,7 +191,7 @@ export function useDraftFiling({
         path,
         title,
         force,
-        destination: destination.current,
+        destination: sent,
       })
       setFiledDoc(result)
       setConflict(null)
@@ -173,6 +201,12 @@ export function useDraftFiling({
       const row = conflictRow(fileError)
       if (row && !force) {
         setConflict(row)
+        return 'conflict'
+      }
+      const confidential = confidentialSourcesOf(fileError)
+      if (confidential) {
+        setReleaseSources(confidential)
+        setReleaseRequest((request) => request + 1)
         return 'conflict'
       }
       const changed = projectChangeOf(fileError)
@@ -190,13 +224,23 @@ export function useDraftFiling({
   const update = (): Promise<DraftFileOutcome> => file(false, {})
   const fileOverChanges = (): Promise<DraftFileOutcome> => file(false, { overChanges: true })
   const fileAsOwn = (): Promise<DraftFileOutcome> => file(false, { as: 'own' })
+  const release = (): Promise<DraftFileOutcome> => file(lastForce.current, { ...destination.current, release: true })
+  const keepConfidential = (): void => setReleaseSources(null)
 
   const revised = filedDoc?.outcome === 'revised' && filedDoc.revisionOf ? filedDoc.revisionOf : null
   const folderName =
     filedDoc && filedDoc.folderName !== undefined ? (filedDoc.folderName ?? tFiles('folders.allFiles')) : null
+  const personalLabel =
+    filedDoc?.outcome === 'updated'
+      ? t('cards.documentDraft.personal.updated')
+      : filedDoc?.folderName
+        ? t('cards.documentDraft.personal.filedIn', { folder: filedDoc.folderName })
+        : t('cards.documentDraft.personal.filed')
   const stateLabel = changedSinceFiling
     ? t('cards.fileDraft.changedSinceFiling')
-    : revised
+    : personal && filedKnown
+      ? personalLabel
+      : revised
       ? filedDoc?.versionNumber
         ? t('cards.fileDraft.revisedFiledNumbered', { name: revised.name, number: String(filedDoc.versionNumber) })
         : t('cards.fileDraft.revisedFiled', { name: revised.name })
@@ -210,6 +254,7 @@ export function useDraftFiling({
 
   return {
     projectId,
+    personal,
     conversationId,
     canDecide,
     filed,
@@ -222,6 +267,8 @@ export function useDraftFiling({
     canUpdate: changedSinceFiling && canDecide && Boolean(conversationId) && projectChange === null,
     changedSinceFiling,
     projectChange,
+    releaseSources,
+    releaseRequest,
     isFiling,
     error,
     conflict,
@@ -230,6 +277,8 @@ export function useDraftFiling({
     update,
     fileOverChanges,
     fileAsOwn,
+    release,
+    keepConfidential,
   }
 }
 

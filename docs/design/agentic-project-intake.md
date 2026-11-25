@@ -22,7 +22,7 @@ this design says so and builds the version that fits.
 | A new Determinanten-Register with rule, threshold, Ampel effect, where found, question | The intake definition **is** the register: its questions already carry conditions, rationale (`why`) and the profile key. This adds where a value is usually found (`foundIn`) and which derivation it feeds. The one derivation built is the Gebäudeklasse, as data with its Fundstelle | `compliance-derivation-graph.md` §2 counts five encodings of one rulebook already. A sixth table beside the wizard's would drift from it the first time someone edits a question |
 | „Nur fragen, was die Einstufung ändert" (C8 logic) | Computed, not listed: a gap is asked only when filling it with each band it could fall in gives different Gebäudeklassen | A hand-kept list of decisive questions is the C8 condition again, written once more. The computation is the rule itself |
 | Regelwerks-Ampel | Since ADR-0175 the Steckbrief's „Was für dieses Projekt gilt“ shows the law the platform's records resolve at the site (`projectLawFor`, `bff/base-knowledge/context/project-law.ts`): each edition with its role, or why none is named. The OIB verdict list (`applicable-standards.ts`) is gone | No Ampel exists anywhere in the code. Inventing one is a product decision of its own; the panel is the shipped answer to "which rules apply" |
-| Geocoder for AT and DE, address autocomplete | Built for Austria only, behind one BFF route, with Photon (OSM) as the adapter; off unless `GEOCODER_URL` is set. The address is one text field either way: a chosen hit adds Gemeinde, Bundesland and position, a typed line is kept as the person's `site_address`, an unconfirmed assumption until someone confirms it (no register confirmed it). Its Postleitzahl and the place after it suggest the Bundesland, as an unconfirmed assumption with a `postal_code` derivation (`bff/project-profile/postal-place.ts`, a table from GeoNames' postal codes, https://www.geonames.org, CC BY 4.0, written by `scripts/generate_austrian_postal_codes.py`; no request leaves the cell). The code alone places nothing, because Swiss and Liechtenstein codes have four digits too, and a code serving two Länder answers only through a place in one. Beside the address the create form asks for the country first and then, in Austria, the Bundesland, both optional; a country other than Austria writes `federal_state=outside_austria`. Otherwise the Bundesland is the reading's to find or the review's to ask. `country=at` is written only for an Austrian site: never for `outside_austria`. (Until 2026-10 the field turned into a Bundesland select when no geocoder answered, which threw away what was typed in every deployment without one.) | The app supports Austria only. Buy, don't build. The provider is komoot's public Photon, no account and no workload of ours (ADR-0151, superseding the self-hosted Photon of ADR-0120); since ADR-0159 a deployment opts in by setting `GEOCODER_URL`, because every keystroke goes to it. A second country is a filter and a state mapping in the adapter |
+| Geocoder for AT and DE, address autocomplete | Built for Austria only, behind one BFF route, with Photon (OSM) as the adapter; off unless `GEOCODER_URL` is set. The address is one text field either way: a chosen hit adds Gemeinde, Bundesland and position, a typed line is kept as the person's `site_address`, an unconfirmed assumption until someone confirms it (no register confirmed it). Its Postleitzahl and the place after it suggest the Bundesland, as an unconfirmed assumption with a `postal_code` derivation (`bff/project-profile/postal-place.ts`, a table from GeoNames' postal codes, https://www.geonames.org, CC BY 4.0, written by `scripts/import_austrian_postal_codes.py`; no request leaves the cell). The code alone places nothing, because Swiss and Liechtenstein codes have four digits too, and a code serving two Länder answers only through a place in one. Beside the address the create form asks for the country first and then, in Austria, the Bundesland, both optional; a country other than Austria writes `federal_state=outside_austria`. Otherwise the Bundesland is the reading's to find or the review's to ask. `country=at` is written only for an Austrian site: never for `outside_austria`. (Until 2026-10 the field turned into a Bundesland select when no geocoder answered, which threw away what was typed in every deployment without one.) | The app supports Austria only. Buy, don't build. The provider is komoot's public Photon, no account and no workload of ours (ADR-0151, superseding the self-hosted Photon of ADR-0120); since ADR-0159 a deployment opts in by setting `GEOCODER_URL`, because every keystroke goes to it. A second country is a filter and a state mapping in the adapter |
 | A point on a map when there is no address (competitions) | The place or Gemeinde name through the same search | A map needs a map library and tiles; what the address decides (Land, Gemeinde) a place name decides too |
 | Projektbeteiligte with roles at creation | Not at creation. The Steckbrief already holds people (ADR-0091, ADR-0101) | People are kept apart from the profile and the prompt on purpose, and a step at creation breaks the one-minute target |
 | Ablage-Onboarding: folder tree, blacklist, role permissions | Upload, folder access per role and the content check stay as they are. Each folder says what belongs in it, and on every upload the agent proposes the folder a file belongs in, learned from the office's other projects, confirmed folder by folder (see „Ablage" below) | Upload and access are built (ADR-0078, ADR-0087, ADR-0088, ADR-0086). What was missing is the sorting, and a folder that says what it holds |
@@ -69,6 +69,7 @@ project_intakes: status, documents read, dismissed, counts, job
                     ▼
 /app/projects/{id}/setup: Widersprüche · Rückfragen · Prüfen · Ablage · Ableitungen · Abschließen
   decisions ─▶ POST /api/projects/{id}/intake/decisions ─▶ patchProjectProfile
+  Bauwerke  ─▶ POST /api/projects/{id}/intake/buildings ─▶ patchProjectProfile
   Ablage    ─▶ the project's open filing suggestions, applied or dismissed through /api/proposals
 ```
 
@@ -268,6 +269,49 @@ Fluchtniveau above 22 m is no Gebäudeklasse: the derivation says Hochhaus
 (OIB-RL 2.3) and writes nothing; the applicability panel reads `escape_level_m`
 itself.
 
+## Bauwerke: several buildings on one site
+
+A customer set up a site with high-rise and low buildings and found one
+„Bauwerk 1" (2026-11-20): the highest Fluchtniveau then decided for all of them.
+The profile always held facts per Bauwerk (`key@bldgN`), and the wizard can add
+one, but nothing on the setup page could, and the reading may not record a key
+on a Bauwerk the profile does not describe (`recordableKey`).
+
+The product decision: a Bauwerk is never created without a person's yes. A wrong
+split (Stiege 1 and Stiege 2 as two Bauwerke) gives each a Gebäudeklasse from
+half the facts, so the reading may propose a Bauwerk and never create one.
+
+**Built: the person manages the Bauwerke.** The Steckbrief step (step 5) opens
+with a „Bauwerke" card, above the Gebäudeklasse and the findings, because those
+two are what a Bauwerk changes: one row per Bauwerk with its name, its
+Fluchtniveau and its class, „Bauwerk hinzufügen", rename, and remove behind a
+confirmation. A reader without profile write sees the card only when there is
+more than one Bauwerk. The card's operations are `planBuildingOperation`
+(`bff/project-intake/buildings.ts`), pure, written through the same
+`patchForKeys` and `patchProjectProfile` as a decision:
+
+| Operation | Writes |
+|---|---|
+| `add` | `building_name@bldgN` as a confirmed fact with `person` evidence. N is one above the highest number among the profile's Bauwerke and the intake's `dismissed` keys, so an id is never handed out twice while a dismissal still names it. A Bauwerk the profile describes only by default (no key carries its id) gets its name written in the same patch: `answersFromProfile` lists a Bauwerk only through a key, and the first key of a second one would otherwise drop the first |
+| `rename` | that fact, replaced |
+| `remove` | a `remove` for every fact and assumption whose key carries the id, and the id's entries out of `unknowns`. Refused for the last Bauwerk (`last-building`). `patchProjectProfile` drops the removed Bauwerk's document-role bindings in the same transaction, as a wizard save does |
+
+What follows without more code, and what `buildings.spec.ts` holds: once the
+name fact exists, `computeNeeds` lists the new Bauwerk's questions (decisive
+ones in step 4), `recordableKey` takes the reading's findings for it, and the
+derivation gives it a class of its own.
+
+**Not built yet: the reading proposes.** A tool for the Erfassungs-Agent will
+propose a Bauwerk with a name and a quote; the server assigns the id with the
+same rule as `add` and stores the name as an `agent_suggested` assumption on
+`building_name@bldgN`. Confirming it is the existing `confirm` decision on that
+key, dismissing it is `remove` (which is why remove takes everything under the
+id) plus an entry in `dismissed`, and removing a confirmed one is `remove` as
+today. Open for that slice: `answersFromProfile` counts a Bauwerk from any key
+that carries its id, so a proposed one must not count before its yes; and the
+chat is told a Fluchtniveau per Bauwerk, but which Richtlinie applies is still
+decided for the project as a whole ([ADR-0178](../adr/0178-an-edition-states-which-buildings-it-applies-to.md), proposed).
+
 ## Data
 
 ### `project_intakes` (migration 0144)
@@ -322,6 +366,7 @@ All zod lives in `apps/workspace/bff/project-intake/types.ts` (no
 | `GET /api/projects/[id]/intake` | — | `IntakeView`: status, counts, needs, suggestions grouped by the wizard's modules (each with evidence and alternatives), contradictions, derivations, closing intent | `project:view` |
 | `POST /api/projects/[id]/intake` | `{ scope: 'new' \| 'all' }` | start a reading now (`all` forgets `documents_read`) | profile write (`project:memory:write` or `project:edit`) |
 | `POST /api/projects/[id]/intake/decisions` | `{ decisions: [{ key, action: 'confirm' \| 'dismiss' \| 'answer' \| 'unknown', value?, alternativeIndex? }] }`, 1..60 | confirm writes the suggestion (or the chosen alternative) as a fact with its evidence; answer writes the person's value as a fact with `person` evidence; dismiss removes the suggestion and remembers it; unknown records the key as „nicht bekannt" | profile write |
+| `POST /api/projects/[id]/intake/buildings` | `{ operation: { action: 'add', name? } \| { action: 'rename', buildingId, name } \| { action: 'remove', buildingId } }` | one building operation, answered with `{ buildingId, intake }` (see „Bauwerke" below); 409 `last-building` for the last one, 404 for a building the profile does not describe | profile write |
 | `POST /api/projects/[id]/intake/complete` | — | finish the review; for a closing intent, `setProjectStatus(closed)` with its outcome and period | `project:manage` when closing, else profile write |
 
 `IntakeView` (sketch):
@@ -335,6 +380,7 @@ All zod lives in `apps/workspace/bff/project-intake/types.ts` (no
   questions: Need[],                         // decisive, open
   groups: [{ stage: 'A'..'G', title, items: Suggestion[] }],
   derivations: [{ buildingId, rule: 'building_class', value: 1..5 | null, hochhaus: boolean, inputs, missing: string[] }],
+  buildings: [{ id, name }],                 // every Bauwerk the profile describes, at least one
 }
 Suggestion = { key, baseKey, buildingId, label, value, display, state: 'suggested' | 'confirmed' | 'contested',
                evidence: ProfileEvidence[], alternatives: ProfileAlternative[], decisive }
@@ -398,14 +444,14 @@ the quote states the value, as ADR-0096 does.
 
 Product decision (2026-10-14), revised the same day: filing belongs to the
 Files workspace, for every upload on either shelf (Dateien and the
-Büroablage), whether or not a project has an intake. The intake is one reader
+Bürobibliothek), whether or not a project has an intake. The intake is one reader
 of the result, not its home. The design is in
 [`proposed-changes.md`](../architecture/proposed-changes.md#filing-suggestions);
 what it means for the intake:
 
 - **A folder has a description.** `project_folders.description` (≤ 500
   characters, migration 0145), on both shelves, written in Dateien and the
-  Büroablage, and handed to the agents with the folder tree
+  Bürobibliothek, and handed to the agents with the folder tree
   (`FOLDER_DESCRIPTIONS v1`).
 - **The agent proposes, folder by folder.** Every upload batch is judged twice as
   its uploader (`filing_review`): from the names at the seal, from what

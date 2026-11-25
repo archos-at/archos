@@ -12,7 +12,7 @@ none of the code below sends anything.
 
 | Runtime | Settings that switch it on | Where the exception is captured |
 |---|---|---|
-| Browser | `NEXT_PUBLIC_POSTHOG_HOST` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, handed to the page through `AppConfig` | posthog-js autocapture (unhandled errors and rejections), and `capturePosthogException` from the two error boundaries |
+| Browser | `NEXT_PUBLIC_POSTHOG_HOST` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, handed to the page through `AppConfig` | posthog-js autocapture (unhandled errors and rejections), and `capturePosthogException` from the two error boundaries and the IFC viewer |
 | BFF server | the same two variables, read by `posthog-server.ts` | `onRequestError` in `src/instrumentation.ts`, and `captureUpstreamError` for a 502 the BFF answers itself |
 | Python (agent and API) | `POSTHOG_HOST` + `POSTHOG_PROJECT_TOKEN` | a logging handler on the root logger, `observability/posthog_exceptions.py` |
 
@@ -30,6 +30,11 @@ while disabled):
   `locale` cookie (no provider exists) and reuses `errors.appError` for its
   copy, German and English. The prop is `retry` (stable since Next 16.3).
 
+The IFC viewer catches its own errors, so it reports them too: a failed load as
+`ifc-viewer-load` (`ui/features/bim/hooks/use-ifc-model-load.ts`) and a
+geometry kernel whose free throws as `ifc-viewer-dispose` (`guardedKernel()` in
+`ui/features/bim/components/ifc-viewer-canvas-helpers.ts`).
+
 Next's control flow (`redirect()`, `notFound()`, `forbidden()`: a throw the
 framework catches and turns into navigation) is never an exception.
 `lib/analytics/control-flow-error.ts` recognises it by `digest` or by the bare
@@ -37,6 +42,20 @@ framework catches and turns into navigation) is never an exception.
 places drop it: `capturePosthogException`, the browser `before_send`
 (`scrubEvent`, for the unhandled-rejection autocapture) and the server
 `beforeCapture`.
+
+A page that reaches a project it cannot see (gone, another office's, not shared
+with the visitor) gets `NotFoundError` from `requireProjectAccess`.
+`withPageSession` (`bff/auth/require-auth.ts`) turns it into Next's `notFound()`,
+so the visitor sees the 404 page and the filter above keeps it out of error
+tracking (KAN-99).
+
+A bare `Script error.` with no stack is what a browser reports for an error in a
+script from another origin served without CORS headers: it names neither the
+script nor the line, so nobody can act on it. `bff/analytics/opaque-script-error.ts`
+recognises it and the browser `before_send` drops it (KAN-101). The public site
+loads its own posthog-js and drops it the same way, in
+`apps/website/runtime/web-analytics.mjs` (`dropOpaqueScriptError`); the one prod
+event came from there. The same message with a stack is ours and is kept.
 
 Neither boundary reports an authorization denial (an expected outcome, told by
 its message, since a server-thrown class does not survive the RSC boundary) or an error with a `digest` (thrown on the server, where
@@ -118,6 +137,12 @@ because `str(httpx.HTTPStatusError)` embeds the request URL.
 
 Records from the `posthog` logger and from `agent.observability.posthog*` are
 skipped, so a failure of the reporter cannot report itself.
+
+A Hatchet task that will be tried again is not an error yet.
+`orchestrator_client.sanitized(..., final=False)` logs a retryable failure as a
+warning, so only the last attempt reaches PostHog. The ingest settle steps pass
+`final` from `ctx.attempt_number >= ctx.max_attempts` (KAN-100); every other
+caller keeps `final=True`.
 
 ## Staying inside the free tier
 

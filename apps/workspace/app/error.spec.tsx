@@ -54,7 +54,7 @@ describe('RouteError', () => {
 
     expect(screen.getByText(/something went wrong/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /try again/i })).toBeDefined()
-    expect(screen.getByRole('link', { name: /back to projects/i })).toBeDefined()
+    expect(screen.getByRole('link', { name: /back to start/i })).toHaveAttribute('href', '/app/personal/chat?new=1')
   })
 
   describe('error tracking', () => {

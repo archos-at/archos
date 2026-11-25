@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { taskDefinitions } from './task-model'
 import { projects } from './projects'
 import { type ResourceVisibility, type ShareableResourceType } from './resource-shares'
@@ -14,6 +14,7 @@ export const conversations = pgTable(
     createdBy: text('created_by').notNull(),
     title: text('title'),
     visibility: text('visibility').$type<ResourceVisibility>().notNull().default('private'),
+    audienceVersion: integer('audience_version').notNull().default(0),
     engagement: text('engagement').$type<ConversationEngagement>(),
     tags: text('tags').array().notNull().default([]),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
@@ -21,6 +22,8 @@ export const conversations = pgTable(
     subjectResourceType: text('subject_resource_type').$type<ShareableResourceType>(),
     subjectResourceId: text('subject_resource_id'),
     temporary: boolean('temporary').notNull().default(false),
+    personalShelfUsedAt: timestamp('personal_shelf_used_at', { withTimezone: true }),
+    startedInPersonal: boolean('started_in_personal').notNull().default(false),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

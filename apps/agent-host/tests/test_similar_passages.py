@@ -271,16 +271,16 @@ async def test_a_superseded_revision_and_another_copy_of_the_source_document_sta
 async def test_a_corpus_passage_is_looked_up_in_the_corpus_and_searched_in_the_office(stack):
     app, store, embedder = stack
     _seed(store)
-    corpus_ids = _put(store, "oib_knowledge", "OIB-RL-4.pdf", (1.0, 12))
+    corpus_ids = _put(store, "base_corpus", "OIB-RL-4.pdf", (1.0, 12))
 
     async with _client(app) as client:
         res = await client.post(
             "/v1/collections/similar",
             json={
-                "source": {"collection": "oib_knowledge", "file_name": "OIB-RL-4.pdf", "chunk_id": corpus_ids[0]},
+                "source": {"collection": "base_corpus", "file_name": "OIB-RL-4.pdf", "chunk_id": corpus_ids[0]},
                 "collections": SEARCHED,
             },
-            headers=_scope_headers(["oib_knowledge", *SEARCHED]),
+            headers=_scope_headers(["base_corpus", *SEARCHED]),
         )
 
     assert res.status_code == 200, res.text
@@ -325,8 +325,8 @@ async def test_the_legal_corpus_is_no_collection_to_search_for_office_experience
     async with _client(app) as client:
         res = await client.post(
             "/v1/collections/similar",
-            json={**_body(text=SOURCE_TEXT, kind="cited"), "collections": ["proj_b", "oib_knowledge"]},
-            headers=_scope_headers(["proj_a", "proj_b", "oib_knowledge"]),
+            json={**_body(text=SOURCE_TEXT, kind="cited"), "collections": ["proj_b", "base_corpus"]},
+            headers=_scope_headers(["proj_a", "proj_b", "base_corpus"]),
         )
     assert res.status_code == 400
 

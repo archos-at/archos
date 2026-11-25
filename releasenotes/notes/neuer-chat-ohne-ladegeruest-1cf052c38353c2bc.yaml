@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A new chat now opens with its greeting and input box already in place,
+    instead of first showing the outline of a conversation that is loading.
+    The outline appears only when a chat is actually being picked up again.

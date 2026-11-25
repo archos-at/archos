@@ -64,3 +64,22 @@ describe('getAccessibleDocument and read-only folders (ADR-0088)', () => {
     expect(requireFolderWrite).toHaveBeenCalledWith(session, 'p', ['f-vertraege'])
   })
 })
+
+describe('getAccessibleDocument and a personal shelf (ADR-0193)', () => {
+  const own = makeDocument({ id: 'd', scope: 'personal', projectId: null, ownerUserId: 'u-1' })
+
+  it('returns a document on the caller’s own shelf, to read and to change', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue(own)
+
+    await expect(getAccessibleDocument(session, 'd')).resolves.toBe(own)
+    await expect(getAccessibleDocument(session, 'd', 'write')).resolves.toBe(own)
+  })
+
+  it('finds no document on someone else’s, not even for an administrator', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue({ ...own, ownerUserId: 'u-2' })
+    const admin = { ...session, permissions: ['org:projects:administer'] } as AuthorizedSession
+
+    await expect(getAccessibleDocument(session, 'd')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(getAccessibleDocument(admin, 'd')).rejects.toBeInstanceOf(NotFoundError)
+  })
+})

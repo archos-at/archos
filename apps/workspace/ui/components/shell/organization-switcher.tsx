@@ -15,20 +15,22 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { isFrameworkControlFlow } from '@/lib/analytics/control-flow-error'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
+import { FIRST_PLACE } from './landing'
 
-const AFTER_SWITCH = '/app/projects'
+const AFTER_SWITCH = FIRST_PLACE
 
 export function isNavigatingAway(error: unknown): boolean {
   return isFrameworkControlFlow(error)
 }
 
-export function OrganizationSwitcherMenu({
-  organizations,
-}: {
-  organizations: readonly SwitchableOrganization[]
-}): JSX.Element {
+export interface OrganizationSwitch {
+  pending: string | null
+  failed: boolean
+  switchTo: (organizationId: string) => Promise<void>
+}
+
+export function useOrganizationSwitch(): OrganizationSwitch {
   const { switchToOrganization } = useAuth()
-  const t = useTranslations(navCopy)
   const [pending, setPending] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -48,6 +50,16 @@ export function OrganizationSwitcherMenu({
     },
     [switchToOrganization],
   )
+  return { pending, failed, switchTo }
+}
+
+export function OrganizationSwitcherMenu({
+  organizations,
+}: {
+  organizations: readonly SwitchableOrganization[]
+}): JSX.Element {
+  const t = useTranslations(navCopy)
+  const { pending, failed, switchTo } = useOrganizationSwitch()
 
   return (
     <DropdownMenuSub>

@@ -6,6 +6,7 @@ import { projectIdFromPathname } from './command-palette'
 import { SHORTCUTS_PREFERENCE_KEY } from '@/hooks/use-shortcuts-preference'
 import { ShellSearchButton } from './shell-search-button'
 import { useShellOverlays } from './shell-overlays'
+import { useProjectOverview } from './project-overview-entry'
 
 const push = vi.fn()
 let pathname = '/app/projects'
@@ -35,7 +36,8 @@ describe('KeyboardShortcuts', () => {
   beforeEach(() => {
     push.mockClear()
     window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
-    useShellOverlays.setState({ paletteOpen: false })
+    useShellOverlays.setState({ paletteOpen: false, paletteSummon: 'keyboard' })
+    useProjectOverview.setState({ open: false })
     pathname = '/app/projects'
     vi.stubGlobal(
       'fetch',
@@ -43,36 +45,19 @@ describe('KeyboardShortcuts', () => {
     )
   })
 
-  test('⌘K opens the palette with project + general groups', async () => {
-    render(<KeyboardShortcuts authRequired canViewOrganization />)
-
-    pressCmdK()
-
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
-    expect(await screen.findByText('Alpine Tower')).toBeInTheDocument()
-    expect(screen.getByText('Donau Loft')).toBeInTheDocument()
-    expect(screen.getByText('Projects')).toBeInTheDocument()
-    expect(screen.getByText('General')).toBeInTheDocument()
-    expect(screen.getByText('New project')).toBeInTheDocument()
-    expect(screen.getByText('Organization')).toBeInTheDocument()
-    expect(screen.getByText('Profile')).toBeInTheDocument()
-    expect(screen.getByText('Toggle theme')).toBeInTheDocument()
-    expect(screen.getByText('Sign out')).toBeInTheDocument()
-    expect(screen.queryByText('Current project')).toBeNull()
-  })
-
-  test('inside a project the palette lists the section commands', async () => {
+  test('⌘K opens the search with the general entries, and lists no project and no section', async () => {
     pathname = '/app/projects/p1/chat'
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     pressCmdK()
 
-    expect(await screen.findByText('Current project')).toBeInTheDocument()
-    for (const section of ['Chat', 'Files', 'Overview', 'Setup']) {
-      expect(screen.getByText(section)).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
+    for (const entry of ['General', 'New project', 'Organization', 'Profile', 'Toggle theme', 'Sign out']) {
+      expect(screen.getByText(entry)).toBeInTheDocument()
     }
-    expect(screen.queryByText('Members')).toBeNull()
-    expect(screen.queryByText('Research')).toBeNull()
+    for (const gone of ['Current project', 'Alpine Tower', 'Setup']) {
+      expect(screen.queryByText(gone)).toBeNull()
+    }
   })
 
   test('org and sign-out entries follow their capability props', async () => {
@@ -94,7 +79,7 @@ describe('KeyboardShortcuts', () => {
     for (const group of ['General', 'Jump to', 'Chat']) {
       expect(screen.getByRole('heading', { level: 3, name: group })).toBeInTheDocument()
     }
-    expect(screen.getByText('Open the command palette')).toBeInTheDocument()
+    expect(screen.getByText('Open the search')).toBeInTheDocument()
     expect(screen.getByText('Close a dialog or menu')).toBeInTheDocument()
     expect(screen.getByText('Send message')).toBeInTheDocument()
     expect(screen.getByText('New line')).toBeInTheDocument()
@@ -108,7 +93,7 @@ describe('KeyboardShortcuts', () => {
 
     await screen.findByText('Keyboard shortcuts')
     const jumps = within(document.querySelector<HTMLElement>('[data-shortcut-group="navigation"]')!)
-    for (const label of ['All projects', 'Organization', 'Chat', 'Files', 'Office filing', 'Overview']) {
+    for (const label of ['All projects', 'Organization', 'Chat', 'Documents', 'Office library', 'Project settings']) {
       expect(jumps.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText('Skills')).toBeNull()
@@ -128,13 +113,15 @@ describe('KeyboardShortcuts', () => {
     expect(screen.queryByText('Mention a colleague')).toBeNull()
   })
 
-  test('g then p navigates to the projects list', async () => {
+  test('g then p opens the project overview where you are, at once', async () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState()).toMatchObject({ open: true, summon: 'keyboard' }))
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
   })
 
   test('g then a section key jumps within the project the user is in', async () => {
@@ -182,7 +169,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'CapsLock' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState().open).toBe(true))
   })
 
   test('Escape cancels a pending leader sequence', () => {
@@ -193,6 +180,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'p' })
 
     expect(push).not.toHaveBeenCalled()
+    expect(useProjectOverview.getState().open).toBe(false)
   })
 
   test('an unbound second key disarms the leader instead of navigating', () => {
@@ -204,6 +192,7 @@ describe('KeyboardShortcuts', () => {
 
     fireEvent.keyDown(window, { key: 'p' })
     expect(push).not.toHaveBeenCalled()
+    expect(useProjectOverview.getState().open).toBe(false)
   })
 
   test('a bare modifier keypress does not spend the armed leader', async () => {
@@ -213,7 +202,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
     fireEvent.keyDown(window, { key: 'p' })
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/projects'))
+    await waitFor(() => expect(useProjectOverview.getState().open).toBe(true))
   })
 
   test('plain-key shortcuts do not fire while typing in an input', async () => {
@@ -248,7 +237,7 @@ describe('KeyboardShortcuts', () => {
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
 
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
     expect(screen.queryByText('Keyboard shortcuts')).toBeNull()
     expect(push).not.toHaveBeenCalled()
 
@@ -262,14 +251,36 @@ describe('KeyboardShortcuts', () => {
         <KeyboardShortcuts authRequired canViewOrganization />
       </>,
     )
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
 
     fireEvent.click(screen.getByTestId('shell-search'))
 
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull())
+    await waitFor(() => expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull())
     expect(useShellOverlays.getState().paletteOpen).toBe(false)
+  })
+
+  test('a click on the search button gives the palette its entrance; ⌘K opens it in one frame', async () => {
+    render(
+      <>
+        <ShellSearchButton />
+        <KeyboardShortcuts authRequired canViewOrganization />
+      </>,
+    )
+
+    fireEvent.click(screen.getByTestId('shell-search'))
+    const clicked = await screen.findByRole('dialog')
+    expect(clicked).not.toHaveAttribute('data-instant')
+    expect(clicked.className).toContain('data-[state=open]:animate-in')
+
+    act(() => useShellOverlays.getState().setPaletteOpen(false))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    pressCmdK()
+    const keyed = await screen.findByRole('dialog')
+    expect(keyed).toHaveAttribute('data-instant', 'true')
+    expect(keyed.className).not.toMatch(/animate-in|zoom-in-95/)
   })
 
   test('with shortcuts off the keys are inert, but the search button still opens the palette', async () => {
@@ -277,10 +288,10 @@ describe('KeyboardShortcuts', () => {
     render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     pressCmdK()
-    expect(screen.queryByPlaceholderText('Type a command or search…')).toBeNull()
+    expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
 
     act(() => useShellOverlays.getState().setPaletteOpen(true))
-    expect(await screen.findByPlaceholderText('Type a command or search…')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
   })
 
   test('keydown listener is removed on unmount', () => {

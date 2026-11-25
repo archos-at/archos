@@ -16,14 +16,14 @@ import {
 const LABELS = {
   projectName: 'Projektwissen',
   projectDescription: 'Ihre Projektunterlagen.',
-  officeName: 'Büroablage',
+  officeName: 'Bürobibliothek',
   officeDescription: 'Unterlagen Ihres Büros.',
   signInRequired: 'Melden Sie sich an, um diese Quelle zu nutzen.',
 }
 
 const RIS = { id: 'ris', name: 'RIS – Österreichisches Recht', description: 'Rechtsinformationssystem' }
 const WEB = { id: 'web_search', name: 'Web Search', description: 'Offenes Web' }
-const OFFICE_SHELF = { id: 'office_archive', name: 'Büroablage Connector', description: 'Archiv' }
+const OFFICE_SHELF = { id: 'office_archive', name: 'Bürobibliothek Connector', description: 'Archiv' }
 
 const build = (over: Partial<BuildSourceBasisInput> = {}) =>
   buildSourceBasis({
@@ -78,7 +78,7 @@ describe('summariseBasis', () => {
     expect(summary.consultedCount).toBe(4)
   })
 
-  test('the Büroablage preset says "Büroablage" — never zero', () => {
+  test('the Bürobibliothek preset says "Bürobibliothek" — never zero', () => {
     const summary = summariseBasis(build({ enabledIds: [] }), 'office')
 
     expect(summary.kind).toBe('preset')

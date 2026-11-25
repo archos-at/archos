@@ -3,7 +3,7 @@ export const organization = {
   subtitle: 'Manage your organization, its members, and access.',
   loading: 'Loading organization…',
   memberSubtitle: 'Your usage and your organization at a glance.',
-  backToApp: 'Back to projects',
+  backToApp: 'Back to chat',
   nav: {
     label: 'Organization sections',
     overview: 'Overview',
@@ -96,7 +96,7 @@ export const organization = {
     access: { download: 'Download', open: 'Opened' },
     columns: { when: 'When', person: 'Person', action: 'What', document: 'Document', place: 'Where' },
     place: {
-      officeShelf: 'Office filing',
+      officeShelf: 'Office library',
       session: 'Chat attachment',
       project: 'Project',
       root: 'Project root',
@@ -238,8 +238,8 @@ export const organization = {
         hint: 'Who downloaded which document. Reading it is itself recorded.',
       },
       office_shelf_manage: {
-        name: 'Manage Office filing',
-        hint: 'Upload, delete and re-read documents in Office filing. Everyone can read it.',
+        name: 'Manage Office library',
+        hint: 'Upload, delete and re-read documents in Office library. Everyone can read it.',
       },
       skills_manage: {
         name: 'Manage skills',
@@ -503,7 +503,7 @@ export const organization = {
     overQuota: 'Quota reached — new uploads are refused until space is freed',
     nearQuota: 'Almost full — new uploads will soon be refused',
     projectDocuments: 'Project documents',
-    officeShelfDocuments: 'Office filing',
+    officeShelfDocuments: 'Office library',
     documentCount: 'Documents: {count}',
     maxFileSize: 'Largest file per upload',
     setByPlatform:
@@ -588,6 +588,17 @@ export const organization = {
     open: 'View audit logs',
     error: 'Could not open the audit log viewer.',
   },
+  confidentialRelease: {
+    title: 'Releasing confidential content',
+    description:
+      'A draft drawn from restricted folders or other projects can be filed where not everyone may read those sources: whoever files it sees the sources and confirms the draft holds nothing confidential. Every release is in the audit log.',
+    label: 'Forbid releasing confidential content',
+    hint: 'On, such a draft stays where its sources allow, and nobody can release it.',
+    saved: 'Saved.',
+    saveError: 'The setting could not be saved. Please try again.',
+    loadError: 'The setting could not be loaded.',
+    readOnly: 'Only organization admins can change this.',
+  },
   deletedFolderContent: {
     title: 'Content from deleted folders',
     description:
@@ -660,7 +671,7 @@ export const organization = {
     emptyHint: 'When the content check holds a file back, it appears here. You see the files you may review.',
     whereProject: 'Project {name}',
     whereProjectUnknown: 'A project',
-    whereOfficeShelf: 'Office filing',
+    whereOfficeShelf: 'Office library',
     whereSession: 'Chat attachment',
     noReason: 'No reason stored. Open the file to check it yourself.',
     unscreened: 'Not checked: the file could not be read to the end. It stays held back until someone reviews it.',
@@ -716,7 +727,7 @@ export const organization = {
   },
   baseKnowledge: {
     title: 'Standards & guidelines',
-    description: 'Your office’s standards, commentaries and directives live in Office filing under Standards & guidelines. Upload them there, sort them into topics, confirm and check them. {productName} answers from them for your office only.',
+    description: 'Your office’s standards, commentaries and directives live in Office library under Standards & guidelines. Upload them there, sort them into topics, confirm and check them. {productName} answers from them for your office only.',
     open: 'Open Standards & guidelines',
   },
   officeConventions: {

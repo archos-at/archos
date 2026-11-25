@@ -88,6 +88,7 @@ import {
 } from './repository'
 import { submitIntakeRun } from './run'
 import {
+  applyBuildingOperation,
   applyIntakeDecisions,
   completeIntake,
   finishIntakeReading,
@@ -880,6 +881,64 @@ describe('applyIntakeDecisions', () => {
   it('needs profile write', async () => {
     vi.mocked(requireProjectAccess).mockRejectedValue(new NotFoundError())
     await expect(applyIntakeDecisions(SESSION, PROJECT, [{ key: 'x', action: 'unknown' }])).rejects.toBeInstanceOf(NotFoundError)
+    expect(patchProjectProfile).not.toHaveBeenCalled()
+  })
+})
+
+describe('applyBuildingOperation', () => {
+  const confirmed = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'user_confirmed' as const, updatedAt: NOW })
+
+  beforeEach(() => {
+    vi.mocked(findProjectIntake).mockResolvedValue(intake({ status: 'ready' }))
+  })
+
+  it('adds a building through the profile’s patch door and answers its id and the review that lists it', async () => {
+    useProfile({ ...emptyProfile(), facts: { 'building_type@bldg1': confirmed('building') } })
+    vi.mocked(patchProjectProfile).mockImplementation(async () => {
+      profile = { ...profile, facts: { ...profile.facts, 'building_name@bldg1': confirmed('Bauwerk 1'), 'building_name@bldg2': confirmed('Haus B') } }
+      return {} as Partial<PatchedProjectProfile> as PatchedProjectProfile
+    })
+
+    const answer = await applyBuildingOperation(SESSION, PROJECT, { action: 'add', name: 'Haus B' })
+
+    expect(answer.buildingId).toBe('bldg2')
+    expect(op('/facts/building_name@bldg2')?.value).toMatchObject({ value: 'Haus B', confidence: 'confirmed' })
+    expect(answer.intake.buildings).toEqual([
+      { id: 'bldg1', name: 'Bauwerk 1' },
+      { id: 'bldg2', name: 'Haus B' },
+    ])
+  })
+
+  it('removes a building as remove operations on each of its keys', async () => {
+    useProfile({
+      ...emptyProfile(),
+      facts: { 'building_type@bldg1': confirmed('building'), 'building_name@bldg2': confirmed('Haus B') },
+      unknowns: ['escape_level_m@bldg2'],
+    })
+
+    await applyBuildingOperation(SESSION, PROJECT, { action: 'remove', buildingId: 'bldg2' })
+
+    expect(written()).toEqual([
+      { op: 'remove', path: '/facts/building_name@bldg2' },
+      { op: 'replace', path: '/unknowns', value: [] },
+    ])
+  })
+
+  it('answers 409 last-building for the last one and 404 for a building the profile does not describe, writing nothing', async () => {
+    useProfile({ ...emptyProfile(), facts: { 'building_type@bldg1': confirmed('building') } })
+
+    const last = applyBuildingOperation(SESSION, PROJECT, { action: 'remove', buildingId: 'bldg1' })
+    await expect(last).rejects.toBeInstanceOf(ConflictError)
+    await expect(last).rejects.toMatchObject({ details: { reason: 'last-building' } })
+    await expect(
+      applyBuildingOperation(SESSION, PROJECT, { action: 'rename', buildingId: 'bldg4', name: 'Turm' })
+    ).rejects.toBeInstanceOf(NotFoundError)
+    expect(patchProjectProfile).not.toHaveBeenCalled()
+  })
+
+  it('needs profile write', async () => {
+    vi.mocked(requireProjectAccess).mockRejectedValue(new NotFoundError())
+    await expect(applyBuildingOperation(SESSION, PROJECT, { action: 'add' })).rejects.toBeInstanceOf(NotFoundError)
     expect(patchProjectProfile).not.toHaveBeenCalled()
   })
 })

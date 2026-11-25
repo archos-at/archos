@@ -27,7 +27,7 @@ export default function AtomsDevPage(): JSX.Element {
         <button
           type="button"
           onClick={toggleTheme}
-          className="inline-flex h-9 items-center border border-border px-3 text-sm font-medium"
+          className="inline-flex h-9 items-center border border-border px-3 text-sm font-medium pointer-coarse:h-11"
         >
           {dark ? 'Light theme' : 'Dark theme'}
         </button>

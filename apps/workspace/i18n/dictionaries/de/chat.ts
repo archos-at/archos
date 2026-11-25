@@ -42,7 +42,7 @@ export const chat: typeof en.chat = {
     openBesideChat: 'Neben dem Chat öffnen',
     kinds: {
       building_law: 'Baurecht & Richtlinien',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       project: 'Projektwissen',
       praezedenz: 'Präzedenzfall',
       web: 'Webquelle',
@@ -62,7 +62,7 @@ export const chat: typeof en.chat = {
       office: 'Büro',
     },
     unresolvedHint: 'Der Assistent hat diese Datei referenziert.',
-    openInOfficeShelf: 'In der Büroablage öffnen',
+    openInOfficeShelf: 'In der Bürobibliothek öffnen',
     openInSearch: 'In der Suche öffnen',
     openInFiles: 'In den Projektdateien öffnen',
     loadError: 'Dokumente konnten nicht geladen werden.',
@@ -81,7 +81,7 @@ export const chat: typeof en.chat = {
     writtenAs: 'Im Text: {name}',
     shelf: {
       project: 'Projektdateien',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       session: 'Beilage in diesem Chat',
     },
     notIndexed:
@@ -93,6 +93,7 @@ export const chat: typeof en.chat = {
     noProjectChatPermission:
       '{productName} steht Ihnen in diesem Projekt derzeit nicht zur Verfügung. Wenn Sie nur Lesezugriff haben, kann Ihnen eine Projektadministratorin oder ein Projektadministrator die Rolle „Mitwirkender“ erteilen.',
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
+    placeholderPersonal: 'Fragen Sie {productName} etwas …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',
@@ -127,14 +128,15 @@ export const chat: typeof en.chat = {
   sourceTabs: {
     law: 'Baurecht',
     project: 'Projektwissen',
-    office: 'Büroablage',
+    office: 'Bürobibliothek',
     auto: 'Web',
     model: 'Modellmessung',
     shelves: {
-      office_shelf: 'Büroablage',
+      office_shelf: 'Bürobibliothek',
       project: 'Projektwissen',
       session: 'Private Sitzung',
       base: 'Basiswissen',
+      personal: 'Meine Ablage',
     },
     lanes: {
       building_law_oib: 'OIB-Richtlinie',
@@ -161,7 +163,7 @@ export const chat: typeof en.chat = {
     presets: {
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
     },
   },
   greeting: {
@@ -169,8 +171,6 @@ export const chat: typeof en.chat = {
     afternoon: 'Guten Tag',
     evening: 'Guten Abend',
     withName: '{greeting}, {name}.',
-    projectWrites:
-      '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
   roles: {
     input: 'Eingabe',
@@ -216,6 +216,7 @@ export const chat: typeof en.chat = {
     precedentProject: '{name} · {status}',
     projectStatus: { active: 'laufend', paused: 'ruhend', closed: 'abgeschlossen' },
     more: '+{count} weitere',
+    showAll: 'Alle {count} Quellen zeigen',
     less: 'Weniger anzeigen',
     clause: 'Pkt. {clause}',
     clausePage: 'Pkt. {clause} · S. {page}',
@@ -269,6 +270,9 @@ export const chat: typeof en.chat = {
   answerActions: {
     copy: 'Antwort kopieren',
     copyWithSources: 'Antwort mit ausgeschriebenen Quellenangaben kopieren',
+    copyMenu: 'Kopieren',
+    copyMenuWithSources: 'Mit Quellen',
+    copyMenuPlain: 'Nur Antwort',
     copied: 'Kopiert',
     copyFailed: 'Die Antwort konnte nicht kopiert werden.',
     sourcesHeading: 'Quellen',
@@ -525,6 +529,16 @@ export const chat: typeof en.chat = {
       },
     },
     documentDraft: {
+      release: {
+        title: 'Beruht auf vertraulichen Unterlagen',
+        body: 'Nicht alle, die den gewählten Ort sehen, dürfen diese Quellen lesen. Prüfen Sie den Entwurf, bevor Sie ihn dort ablegen:',
+        folder: 'Ordner „{name}“',
+        folderIn: 'Ordner „{name}“ in {project}',
+        project: 'Projekt „{name}“',
+        confirm: 'Ich habe den Entwurf geprüft. Er enthält nichts Vertrauliches aus diesen Quellen.',
+        file: 'Freigeben und ablegen',
+        keep: 'Nicht ablegen',
+      },
       eyebrow: 'Entwurf',
       version: 'v{version}',
       draftState: 'Entwurf',
@@ -533,13 +547,24 @@ export const chat: typeof en.chat = {
       fileError: 'Das Ablegen hat nicht geklappt. Bitte erneut versuchen.',
       fileConflict: 'Ein Dokument mit diesem Namen liegt bereits im Projekt.',
       fileAnyway: 'Trotzdem ablegen',
-      fileSubmitted: 'Dieser Entwurf ist bereits abgelegt. Weiter unter Dateien.',
+      fileSubmitted: 'Dieser Entwurf ist bereits abgelegt. Weiter in der Ablage.',
       preview: 'Entwurf ansehen',
       previewLoading: 'Entwurf wird geladen …',
       previewError: 'Der Entwurf konnte nicht geladen werden.',
       previewRetry: 'Erneut versuchen',
       filed: 'Liegt im Projekt',
       open: 'Im Projekt öffnen',
+      personal: {
+        file: 'In Meine Ablage legen',
+        fileConflict: 'Eine Datei mit diesem Namen liegt bereits in Meine Ablage.',
+        fileAnyway: 'Unter neuem Namen ablegen',
+        filed: 'Liegt in Meine Ablage',
+        filedIn: 'Liegt in Meine Ablage, Ordner „{folder}“',
+        updated: 'Aktualisiert, liegt in Meine Ablage',
+        update: 'In Meine Ablage aktualisieren',
+        eyebrowFiled: 'In Meine Ablage',
+        open: 'In Meine Ablage öffnen',
+      },
     },
     fileDraft: {
       revisedFiledNumbered: 'Liegt als Fassung {number} von „{name}“ im Projekt',
@@ -639,7 +664,7 @@ export const chat: typeof en.chat = {
         assign: '{count, plural, one {Datei zugewiesen.} other {# Dateien zugewiesen.}}',
       },
       partial:
-        'Teilweise übernommen. Einige Einträge konnten nicht ausgeführt werden – sehen Sie unter Dateien nach.',
+        'Teilweise übernommen. Einige Einträge konnten nicht ausgeführt werden – sehen Sie in der Ablage nach.',
       partialCount: '{applied} von {total} übernommen.',
       dismissed: 'Verworfen. Es wurde nichts geändert.',
       notStored:
@@ -682,6 +707,32 @@ export const chat: typeof en.chat = {
         applied: 'Projektkontext aktualisiert.',
         dismissed: 'Verworfen. Der Projektkontext blieb unverändert.',
       },
+    },
+    calibrationProposal: {
+      eyebrow: 'Maßstab bestätigen',
+      question: 'Ist die markierte Strecke {length} lang?',
+      meaning: 'Dann rechnet {productName} alle Messungen in diesem Bereich mit Maßstab {ratio}. Bisher ist er geschätzt.',
+      dismissMeaning: 'Verwerfen: Der Maßstab bleibt geschätzt.',
+      caption: '{document} · Seite {page}',
+      captionPage: 'Seite {page}',
+      captionTail: 'Seite {page}',
+      receipt: '{length} · {place}',
+      picture: 'Seite {page}, Ausschnitt mit der markierten Strecke',
+      drawing: 'Ausschnitt wird geladen',
+      waiting: 'Der Ausschnitt wird noch geladen.',
+      accept: 'Bestätigen',
+      accepting: 'Wird bestätigt …',
+      refused: {
+        denied:
+          'Sie können diese Zeichnung nicht öffnen und den Maßstab deshalb nicht prüfen. Bitten Sie jemanden mit Zugriff, ihn zu bestätigen.',
+        unavailable:
+          'Die Zeichnung lässt sich gerade nicht anzeigen, deshalb können Sie den Maßstab hier nicht prüfen. Laden Sie die Seite später neu oder bitten Sie {productName}, den Maßstab noch einmal vorzuschlagen.',
+        incomplete:
+          'Diesem Vorschlag fehlt, wo die Strecke liegt oder wie lang sie ist. Bitten Sie {productName}, den Maßstab noch einmal vorzuschlagen.',
+      },
+      applied: 'Maßstab bestätigt. Messungen in diesem Bereich gelten jetzt als bestätigt.',
+      appliedRatio: 'Maßstab {ratio} bestätigt. Messungen in diesem Bereich gelten jetzt als bestätigt.',
+      dismissed: 'Maßstab nicht bestätigt. Er bleibt geschätzt.',
     },
     operationProposal: {
       eyebrow: 'Aktion',
@@ -995,6 +1046,13 @@ export const chat: typeof en.chat = {
       more: '+{count} weitere',
       less: 'Weniger anzeigen',
     },
+    trail: {
+      label: 'Gelesen in',
+      withheldProject: 'Ein Projekt, das Sie nicht öffnen dürfen',
+      withheldFolder: 'Ein Ordner, den Sie nicht öffnen dürfen',
+      personalShelf: 'Meine Ablage',
+      personalMemory: 'Persönliches Gedächtnis',
+    },
   },
   profilePatchCard: {
     accept: 'Übernehmen',
@@ -1023,6 +1081,17 @@ export const chat: typeof en.chat = {
       'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
   },
   thinking: {
+    measure: {
+      basis: {
+        confirmed: 'Maßstab 1:{ratio}, bestätigt',
+        estimated: 'Maßstab 1:{ratio}, geschätzt, noch nicht bestätigt',
+        confirmedPlain: 'Maßstab bestätigt',
+        estimatedPlain: 'Maßstab geschätzt, noch nicht bestätigt',
+        printed: 'abgelesen, nicht gemessen',
+      },
+      open: 'In der Zeichnung zeigen: {document}, S.\u00A0{page}',
+      show: 'In der Zeichnung zeigen',
+    },
     look: {
       place: 'S.\u00A0{page}, {where}',
       placeWhole: 'S.\u00A0{page}',
@@ -1062,6 +1131,9 @@ export const chat: typeof en.chat = {
       times: '×{count}',
       innerQuote: '‚{text}‘',
       readOff: 'abgelesen, nicht gemessen',
+      noNumber: 'keine Zahl',
+      noNumberNote:
+        'Meist ist der Maßstab dieser Seite unbekannt. Legen Sie ihn in der Zeichnung fest: „Messen“, dann „Maßstab festlegen“.',
       kind: {
         search: 'Suchen',
         read: 'Lesen',
@@ -1069,23 +1141,25 @@ export const chat: typeof en.chat = {
         look: 'Betrachten',
         model: 'Modell abfragen',
         workspace: 'Arbeitsbereich',
+        measure: 'Messen',
+        readMeasure: 'Lesen und Messen',
       },
       shelf: {
         project: 'im Projekt',
-        office: 'in der Büroablage',
+        office: 'in der Bürobibliothek',
         base: 'im Basiswissen',
         web: 'im Web',
         session: 'in diesem Chat',
       },
       place: {
         project: 'das Projekt',
-        office: 'die Büroablage',
+        office: 'die Bürobibliothek',
         chat: 'die Dateien dieses Chats',
         law: 'die OIB-Richtlinien',
         estate: 'alle Ablagen',
         folderIn: '{place} ›\u00A0{folder}',
         crumb: {
-          office: 'Büroablage',
+          office: 'Bürobibliothek',
           chat: 'Chat',
           law: 'OIB-Richtlinien',
         },
@@ -1097,7 +1171,7 @@ export const chat: typeof en.chat = {
       },
       placeIn: {
         project: 'im Projekt',
-        office: 'in der Büroablage',
+        office: 'in der Bürobibliothek',
         chat: 'in den Dateien dieses Chats',
         law: 'in den OIB-Richtlinien',
         estate: 'in allen Ablagen',
@@ -1120,6 +1194,8 @@ export const chat: typeof en.chat = {
         web: 'Sucht im Web:',
         model: 'Fragt das Gebäudemodell ab:',
         workspace: 'Arbeitsbereich:',
+        measure: 'Misst',
+        measurePrinted: 'Liest Maßzahl in',
       },
       done: {
         search: 'Gesucht: {name}',
@@ -1133,6 +1209,7 @@ export const chat: typeof en.chat = {
         web: 'Im Web gesucht: {name}',
         model: 'Gebäudemodell abgefragt: {name}',
         workspace: 'Im Arbeitsbereich: {name}',
+        measure: 'Gemessen: {name}',
       },
       doneFallback: {
         search: 'In den Dokumenten gesucht',
@@ -1144,6 +1221,7 @@ export const chat: typeof en.chat = {
         web: 'Im Web gesucht',
         model: 'Gebäudemodell abgefragt',
         workspace: 'Im Arbeitsbereich gearbeitet',
+        measure: 'In einer Zeichnung gemessen',
       },
       object: {
         query: '„{query}“',
@@ -1179,6 +1257,7 @@ export const chat: typeof en.chat = {
           '{count, plural, one {#\u00A0Abfrage am Gebäudemodell} other {#\u00A0Abfragen am Gebäudemodell}}',
         workspaceCalls:
           '{count, plural, one {#\u00A0Aufruf im Arbeitsbereich} other {#\u00A0Aufrufe im Arbeitsbereich}}',
+        measures: '{count, plural, one {#\u00A0Messung} other {#\u00A0Messungen}}',
       },
       fallback: {
         search: 'Sucht in den Dokumenten',
@@ -1190,6 +1269,7 @@ export const chat: typeof en.chat = {
         web: 'Sucht im Web',
         model: 'Fragt das Gebäudemodell ab',
         workspace: 'Arbeitet im Arbeitsbereich',
+        measure: 'Misst in einer Zeichnung',
       },
       found: {
         hits: '{count, plural, one {#\u00A0Treffer} other {#\u00A0Treffer}}',
@@ -1224,7 +1304,7 @@ export const chat: typeof en.chat = {
       corpusJoin: ' und ',
       status: {
         documents: {
-          officeShelf: 'Unterlagen aus der Büroablage werden gesichtet …',
+          officeShelf: 'Unterlagen aus der Bürobibliothek werden gesichtet …',
           project: 'Unterlagen aus dem Projekt werden gesichtet …',
           session: 'Unterlagen aus diesem Chat werden gesichtet …',
           several: 'Ihre Unterlagen werden gesichtet …',
@@ -1381,9 +1461,8 @@ export const chat: typeof en.chat = {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       files: '{count, plural, one {#\u00A0Datei nicht fertig} other {#\u00A0Dateien nicht fertig}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
-      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
       contradicted:
-        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
+        '{count, plural, one {#\u00A0Aussage widerspricht ihrer Quelle} other {#\u00A0Aussagen widersprechen ihrer Quelle}}',
     },
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
@@ -1473,6 +1552,7 @@ export const chat: typeof en.chat = {
           web: 'die Suche im Web',
           model: 'die Abfrage des Gebäudemodells',
           workspace: 'ein Aufruf im Arbeitsbereich',
+          measure: 'das Messen in der Zeichnung',
         },
       },
       cardLink: 'Aufrufe zu {name} hervorheben',
@@ -1744,9 +1824,13 @@ export const chat: typeof en.chat = {
     turningOff: 'Temporärer Chat wird ausgeschaltet …',
     ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
     switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
+    welcomeTitle: 'Temporärer Chat',
+    welcomeBody: 'Nur Sie sehen diesen Chat, und {productName} merkt sich aus ihm nichts.',
   },
   privacy: {
     onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
+    onlyYouShort: 'Nur Sie',
+    newChat: 'Nur Sie sehen diesen Chat.',
   },
   confidence: {
     label: 'Einschätzung: {level}',
@@ -1781,6 +1865,28 @@ export const chat: typeof en.chat = {
       citationFallback:
         'Mittlere Sicherheit: die angeführte Quelle wurde ergänzt, nicht von der Antwort selbst zitiert.',
     },
+    cited: {
+      ariaLabel: 'Quellenprüfung der Antwort: {level}',
+      tooltip:
+        'Ein Prüfmodell liest jede zitierte Stelle gegen ihre Quelle und sucht Rechtsaussagen ohne Fundstelle. Angaben über Sie, Ihr Büro oder das Projekt prüft es nicht. Es kann irren.',
+      sourcesChecked:
+        '{count, plural, one {#\u00A0zitierte Quelle geprüft.} other {#\u00A0zitierte Quellen geprüft.}}',
+      nothingCited: 'Keine Quelle zitiert.',
+      ownLevel: 'Die Antwort zitiert keine Quelle. Die Stufe ist die eigene Einschätzung des Assistenten.',
+      levelMeanings: {
+        high: 'Hoch: jede zitierte Stelle ist durch ihre Quelle gedeckt, und jede Rechtsaussage hat eine Fundstelle.',
+        medium:
+          'Mittel: eine Quelle sagt zu einer zitierten Stelle nichts, eine Rechtsaussage hat keine Fundstelle, oder die Antwort nennt selbst einen offenen Punkt.',
+        low: 'Niedrig: eine Quelle sagt etwas anderes als die Antwort.',
+      },
+      findingsLabel: 'Bitte prüfen',
+      problems: {
+        contradicted: 'Die Quelle sagt etwas anderes',
+        sourceSilent: 'Die Quelle sagt dazu nichts',
+        lawUncited: 'Rechtsaussage ohne Fundstelle',
+      },
+      checkedAgainst: 'Geprüft gegen {source}',
+    },
     checked: {
       ariaLabel: 'Belegprüfung der Antwort: {level}',
       tooltip:
@@ -1790,10 +1896,6 @@ export const chat: typeof en.chat = {
         medium: 'Mittel: die Kernaussage ist belegt, Nebenaussagen sind es nicht.',
         low: 'Niedrig: die Kernaussage ist nicht belegt, oder eine Quelle widerspricht der Antwort.',
       },
-      findingsLabel: 'Nicht belegt',
-      problems: { unbacked: 'nicht belegt', contradicted: 'widerspricht der Quelle' },
-      checkedAgainst: 'geprüft gegen {source}',
-      noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
       lawUnsettled:
@@ -1867,7 +1969,7 @@ export const chat: typeof en.chat = {
     chip: '{count, plural, one {Ein anderes Projekt} other {# andere Projekte}}',
     title: 'Dieser Chat stützt sich auf andere Projekte: {projects}.',
     gone: 'ein Projekt, das es nicht mehr gibt',
-    body: 'Er lässt sich nur mit Personen teilen, die diese Projekte öffnen dürfen. Aus ihm geht nichts ins Projektgedächtnis, in Aufgaben, in eine Tiefenrecherche oder in die Projektablage.',
+    body: 'Er lässt sich nur mit Personen teilen, die diese Projekte öffnen dürfen. Aus ihm geht nichts ins Projektgedächtnis, in Aufgaben oder in eine Tiefenrecherche. In die Projektablage kommt ein Entwurf nur, wenn Sie ihn geprüft und freigegeben haben, sofern Ihr Büro das nicht verbietet.',
   },
   screening: {
     title: 'Enthält {items} (Sensible Daten).',

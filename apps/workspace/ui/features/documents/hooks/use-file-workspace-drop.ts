@@ -33,6 +33,7 @@ export function useFileWorkspaceDrop({
     disabled: !canManage,
     refusal: writableHere ? null : t('workspace.dropRefusedHere'),
     acceptZip: true,
+    acceptMailArchives: Boolean(shelf.takeMailArchives),
   })
   useEffect(() => {
     fileDraggingRef.current = isDragging

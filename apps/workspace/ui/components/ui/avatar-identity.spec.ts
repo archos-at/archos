@@ -67,11 +67,15 @@ const themeScope = (css: Root, theme: 'light' | 'dark'): Container =>
   theme === 'dark' ? rulesSelecting(css, '.dark')[0] : css
 
 function backgroundToken(theme: 'light' | 'dark'): string {
-  const value = valuesOf(themeScope(read('../../styles/tokens.css'), theme), '--background')[0]
-  const brand = value && /^var\(--(ds-[a-z-]+)\)$/.exec(value)?.[1]
-  const resolved = brand
-    ? valuesOf(themeScope(read('../../../../../packages/brand/dist/tokens.vars.css'), theme), `--${brand}`)[0]
-    : value
+  const scopes = rulesSelecting(read('../../styles/tokens.css'), theme === 'dark' ? '.dark' : ':root')
+  const last = (name: string): string | undefined => scopes.flatMap((scope) => valuesOf(scope, name)).at(-1)
+  const value = last('--background')
+  const reference = value && /^var\(--([a-z-]+)\)$/.exec(value)?.[1]
+  const resolved = !reference
+    ? value
+    : reference.startsWith('ds-')
+      ? valuesOf(themeScope(read('../../../../../packages/brand/dist/tokens.vars.css'), theme), `--${reference}`)[0]
+      : last(`--${reference}`)
   if (!resolved) throw new Error(`no --background for ${theme} in tokens.css`)
   return resolved
 }

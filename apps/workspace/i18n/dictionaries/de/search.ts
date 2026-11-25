@@ -6,13 +6,14 @@ export const search: typeof en.search = {
     office: 'Ganzes Büro',
     project: 'Dieses Projekt',
     projectFolder: 'Dieser Ordner',
-    officeShelf: 'Büroablage',
+    officeShelf: 'Bürobibliothek',
   },
   field: {
     placeholder: {
       office: 'Im ganzen Büro suchen…',
       project: 'In diesem Projekt suchen…',
-      office_shelf: 'In der Büroablage suchen…',
+      office_shelf: 'In der Bürobibliothek suchen…',
+      personal: 'In Meine Ablage suchen…',
     },
     placeholderShort: 'Suchen…',
     label: 'Suchen',
@@ -73,7 +74,7 @@ export const search: typeof en.search = {
     page: 'S. {page}',
   },
   where: {
-    officeShelf: 'Büroablage',
+    officeShelf: 'Bürobibliothek',
     folder: 'Ordner',
     separator: ' · ',
   },
@@ -276,7 +277,7 @@ export const search: typeof en.search = {
     summaryEverything: 'Ohne Begriffe und Filter',
   },
   mode: {
-    backToFiles: 'Zurück zu den Dateien',
+    backToFiles: 'Zurück zur Ablage',
     backToShelf: 'Zurück zur Ablage',
   },
   hitActions: {
@@ -300,21 +301,31 @@ export const search: typeof en.search = {
     hints: { move: 'bewegen', open: 'einfügen', close: 'schließen' },
   },
   palette: {
-    allResults: 'Alle Treffer für „{text}“',
-    open: 'Suche öffnen',
+    allResults: 'Alle Treffer mit Filtern öffnen',
+    allResultsCount: 'Alle {count} Treffer mit Filtern öffnen',
+    continueInSearch: 'Suche mit Filtern öffnen',
     noHits: 'Nichts gefunden',
     noHitsFor: 'Nichts gefunden für „{text}“',
-    continueInSearch: 'Suche mit Filtern öffnen',
     noHitsHint: 'Andere Schreibweise oder weniger Wörter versuchen, oder die Suche mit Filtern öffnen.',
     retry: 'Erneut versuchen',
     retryHint: 'Meist reicht ein zweiter Versuch; sonst die Verbindung prüfen.',
     ofTotal: '{shown} von {total}',
     allIn: 'In {project}',
-    recent: 'Zuletzt gesucht',
-    hint: {
-      office:
-        'Dokumente nach Name, Plankopf, Art und Inhalt, dazu Anmerkungen, Ordner, Projekte und Chats im ganzen Büro.',
-      project: 'Dokumente nach Name, Plankopf, Art und Inhalt, dazu Anmerkungen, Ordner und Chats in diesem Projekt.',
+    recentOpened: 'Zuletzt geöffnet',
+    opened: {
+      annotation: 'Anmerkung',
+      folder: 'Ordner',
+      project: 'Projekt',
+      conversation: 'Chat',
+    },
+    kinds: {
+      all: 'Alles',
+      files: 'Dateien',
+      chats: 'Chats',
+      projects: 'Projekte',
+    },
+    scope: {
+      office: 'im ganzen Büro',
     },
   },
 }

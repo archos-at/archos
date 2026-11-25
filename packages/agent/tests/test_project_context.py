@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 
 import pytest
+from agent_testing.envelope import SECRET
+from agent_testing.envelope import signed_envelope
+from agent_testing.envelope import signed_headers
 
 from agent import project_context as pc
 from agent_host.legacy_headers import with_legacy_names
@@ -31,6 +34,22 @@ _INPUT_FIELD_MAP = {
 }
 
 
+def _b64(text: str) -> str:
+    return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+@pytest.fixture
+def signed_context(monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+
+    def bind(payload: dict) -> pc.RequestContext:
+        headers = signed_headers(SECRET, **payload)
+        monkeypatch.setattr(pc, "_read_header", lambda name: headers.get(name))
+        return pc.RequestContext.from_context()
+
+    return bind
+
+
 class TestUserMessageId:
     class _Ctx:
         def __init__(self, user_message_id):
@@ -55,32 +74,17 @@ class TestUserMessageId:
 
 
 class TestMemoryReflectionFlag:
-    def test_true_header_enables(self, monkeypatch):
+    def test_the_signed_envelope_enables_it(self, signed_context):
+        signed_context({"memoryReflectionEnabled": True})
+        assert pc.get_memory_reflection_enabled_from_context() is True
+
+    def test_absent_from_the_envelope_fails_closed(self, signed_context):
+        signed_context({"organizationId": "org_1"})
+        assert pc.get_memory_reflection_enabled_from_context() is False
+
+    def test_a_plain_header_never_enables_it(self, monkeypatch):
         monkeypatch.setattr(pc, "_read_header", lambda name: "true")
-        assert pc.get_memory_reflection_enabled_from_context() is True
-
-    def test_case_insensitive(self, monkeypatch):
-        monkeypatch.setattr(pc, "_read_header", lambda name: "TRUE")
-        assert pc.get_memory_reflection_enabled_from_context() is True
-
-    def test_false_header_disables(self, monkeypatch):
-        monkeypatch.setattr(pc, "_read_header", lambda name: "false")
         assert pc.get_memory_reflection_enabled_from_context() is False
-
-    def test_absent_header_fails_closed(self, monkeypatch):
-        monkeypatch.setattr(pc, "_read_header", lambda name: None)
-        assert pc.get_memory_reflection_enabled_from_context() is False
-
-    def test_reads_the_expected_header(self, monkeypatch):
-        seen = []
-
-        def fake(name):
-            seen.append(name)
-            return "true"
-
-        monkeypatch.setattr(pc, "_read_header", fake)
-        pc.get_memory_reflection_enabled_from_context()
-        assert pc.MEMORY_REFLECTION_FEATURE_HEADER in seen
 
 
 class TestComposeProjectContext:
@@ -98,61 +102,25 @@ class TestComposeProjectContext:
 
 
 class TestRequestContextFromContext:
-    def test_full_context(self, monkeypatch):
+    def test_plain_headers_alone_read_as_an_empty_context(self, monkeypatch):
         headers = {
             pc.ORGANIZATION_ID_HEADER: "org_1",
             pc.USER_ID_HEADER: "user_1",
             pc.PROJECT_ID_HEADER: "proj_1",
-            pc.COLLECTION_SCOPE_HEADER: base64.urlsafe_b64encode(
-                json.dumps(["oib_knowledge", "proj_proj_1"]).encode("utf-8")
-            )
-            .decode("ascii")
-            .rstrip("="),
-            pc.PROJECT_CONTEXT_HEADER: base64.urlsafe_b64encode(b"ctx text").decode("ascii").rstrip("="),
-            pc.PROJECT_MEMORY_HEADER: base64.urlsafe_b64encode(b"memory text").decode("ascii").rstrip("="),
-            pc.MODEL_OVERRIDES_HEADER: base64.urlsafe_b64encode(
-                json.dumps({"deep_research": "vendor/model"}).encode("utf-8")
-            )
-            .decode("ascii")
-            .rstrip("="),
-            pc.BUDGET_HEADER: base64.urlsafe_b64encode(json.dumps({"remainingOrgUsd": 1.5}).encode("utf-8"))
-            .decode("ascii")
-            .rstrip("="),
-            pc.DISABLED_SOURCES_HEADER: base64.urlsafe_b64encode(json.dumps(["web_search"]).encode("utf-8"))
-            .decode("ascii")
-            .rstrip("="),
+            pc.PROJECT_CONTEXT_HEADER: _b64("ctx text"),
             pc.MEMORY_REFLECTION_FEATURE_HEADER: "true",
         }
         monkeypatch.setattr(pc, "_read_header", lambda name: headers.get(name))
-
-        ctx = pc.RequestContext.from_context()
-
-        assert ctx.organization_id == "org_1"
-        assert ctx.user_id == "user_1"
-        assert ctx.project_id == "proj_1"
-        assert ctx.collection_scope == ["oib_knowledge", "proj_proj_1"]
-        assert ctx.project_context == "ctx text"
-        assert ctx.project_memory == "memory text"
-        assert ctx.model_overrides == {"deep_research": "vendor/model"}
-        assert ctx.budget == {"remainingOrgUsd": 1.5}
-        assert ctx.disabled_sources == ["web_search"]
-        assert ctx.memory_reflection_enabled is True
+        assert pc.RequestContext.from_context() == pc.RequestContext()
+        assert pc.RequestContext.from_headers(headers) == pc.RequestContext()
 
     def test_empty_context(self, monkeypatch):
         monkeypatch.setattr(pc, "_read_header", lambda name: None)
         assert pc.RequestContext.from_context() == pc.RequestContext()
 
-    def test_a_blank_collection_name_is_dropped_not_projected(self, monkeypatch):
+    def test_a_blank_collection_name_is_dropped_not_projected(self, signed_context):
         scope = [{"collection": "proj_proj_1", "shelf": "project"}, {"collection": "  "}, ""]
-        headers = {
-            pc.COLLECTION_SCOPE_HEADER: base64.urlsafe_b64encode(json.dumps(scope).encode("utf-8"))
-            .decode("ascii")
-            .rstrip("=")
-        }
-        monkeypatch.setattr(pc, "_read_header", lambda name: headers.get(name))
-
-        ctx = pc.RequestContext.from_context()
-
+        ctx = signed_context({"collectionScope": scope})
         assert ctx.collection_scope == ["proj_proj_1"]
         assert ctx.collection_scope_entries == scope
 
@@ -164,17 +132,16 @@ class TestRequestContextFromContext:
         assert ctx.budget is None
         assert ctx.disabled_sources is None
 
-    def test_accessors_delegate_to_from_context(self, monkeypatch):
-        headers = {
-            pc.ORGANIZATION_ID_HEADER: "org_9",
-            pc.PROJECT_ID_HEADER: "proj_9",
-            pc.PROJECT_CONTEXT_HEADER: base64.urlsafe_b64encode(b"profile blob").decode("ascii").rstrip("="),
-            pc.PROJECT_MEMORY_HEADER: base64.urlsafe_b64encode(b"memory blob").decode("ascii").rstrip("="),
-            pc.MEMORY_REFLECTION_FEATURE_HEADER: "true",
-        }
-        monkeypatch.setattr(pc, "_read_header", lambda name: headers.get(name))
-
-        ctx = pc.RequestContext.from_context()
+    def test_accessors_delegate_to_from_context(self, signed_context):
+        ctx = signed_context(
+            {
+                "organizationId": "org_9",
+                "projectId": "proj_9",
+                "projectContext": "profile blob",
+                "projectMemory": "memory blob",
+                "memoryReflectionEnabled": True,
+            }
+        )
         assert pc.get_organization_id_from_context() == ctx.organization_id == "org_9"
         assert pc.get_project_id_from_context() == ctx.project_id == "proj_9"
         assert pc.get_profile_context_from_context() == ctx.project_context == "profile blob"
@@ -198,18 +165,10 @@ class TestRequestContextContractFixture:
         pairs = [(name.lower().encode("ascii"), value.encode("utf-8")) for name, value in headers.items()]
         return {name.decode("ascii"): value.decode("utf-8") for name, value in with_legacy_names(pairs)}
 
-    def test_each_case_round_trips(self):
-        fixture = self._load_fixture()
-        for case in fixture["cases"]:
-            ctx = pc.RequestContext.from_headers(self._as_received(case["headers"]))
-            expected_input = case["input"]
-
-            for json_field, attr_name in _INPUT_FIELD_MAP.items():
-                expected = expected_input.get(json_field)
-                actual = getattr(ctx, attr_name)
-                assert actual == expected, (
-                    f"case {case['name']!r}: field {json_field!r} -> expected {expected!r}, got {actual!r}"
-                )
+    def test_the_plain_header_cases_are_no_longer_read(self):
+        for case in self._load_fixture()["cases"]:
+            ctx = pc.RequestContext.from_headers(self._as_received(case["headers"]), secret="any-secret")
+            assert ctx == pc.RequestContext(), case["name"]
 
 
 class TestRequestContextEnvelopeContractFixture:
@@ -293,15 +252,10 @@ class TestRequestContextFromEnvelope:
             pc.RequestContext.from_envelope(header, tampered_sig, self.SECRET)
         assert any("signature" in record.message.lower() for record in caplog.records)
 
-    def test_no_secret_configured_skips_signature_check_but_still_requires_header(self):
-        header, _sig = self._envelope({"organizationId": "org_1"})
-        ctx = pc.RequestContext.from_envelope(header, "garbage-signature", None)
-        assert ctx is not None
-        assert ctx.organization_id == "org_1"
-
-        ctx_no_sig = pc.RequestContext.from_envelope(header, None, None)
-        assert ctx_no_sig is not None
-        assert ctx_no_sig.organization_id == "org_1"
+    def test_no_secret_configured_refuses_every_envelope(self):
+        header, sig = self._envelope({"organizationId": "org_1"})
+        assert pc.RequestContext.from_envelope(header, sig, None) is None
+        assert pc.RequestContext.from_envelope(header, None, None) is None
 
     def test_malformed_base64_is_absent_not_an_exception(self):
         assert pc.RequestContext.from_envelope("not-valid-base64!!!", "sig", None) is None
@@ -365,7 +319,7 @@ class TestRequestContextEnvelopePrecedence:
         ctx = pc.RequestContext.from_context()
         assert ctx.organization_id == "org_from_envelope"
 
-    def test_from_context_falls_back_to_individual_headers_when_envelope_invalid(self, monkeypatch):
+    def test_from_context_reads_nothing_when_the_envelope_is_invalid(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", self.SECRET)
         envelope_headers = self._envelope_headers({"organizationId": "org_from_envelope"})
         sig = envelope_headers[pc.REQUEST_CONTEXT_ENVELOPE_SIG_HEADER]
@@ -374,8 +328,7 @@ class TestRequestContextEnvelopePrecedence:
         merged = {**individual_headers, **envelope_headers}
         monkeypatch.setattr(pc, "_read_header", lambda name: merged.get(name))
 
-        ctx = pc.RequestContext.from_context()
-        assert ctx.organization_id == "org_from_individual_header"
+        assert pc.RequestContext.from_context() == pc.RequestContext()
 
     def test_from_headers_prefers_valid_envelope(self):
         envelope_headers = self._envelope_headers({"organizationId": "org_from_envelope"})
@@ -384,12 +337,11 @@ class TestRequestContextEnvelopePrecedence:
         ctx = pc.RequestContext.from_headers(headers, secret=self.SECRET)
         assert ctx.organization_id == "org_from_envelope"
 
-    def test_from_headers_without_secret_ignores_signature_and_still_prefers_envelope(self):
+    def test_from_headers_without_secret_reads_nothing(self):
         envelope_headers = self._envelope_headers({"organizationId": "org_from_envelope"})
         headers = {pc.ORGANIZATION_ID_HEADER: "org_from_individual_header", **envelope_headers}
 
-        ctx = pc.RequestContext.from_headers(headers)
-        assert ctx.organization_id == "org_from_envelope"
+        assert pc.RequestContext.from_headers(headers) == pc.RequestContext()
 
     def test_compact_context_is_parsed_by_both_header_entry_points(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", self.SECRET)
@@ -400,7 +352,7 @@ class TestRequestContextEnvelopePrecedence:
                 "projectId": "513",
                 "conversationId": "conv_text",
                 "contextTransport": "bff",
-                "collectionScope": ["oib_knowledge"],
+                "collectionScope": ["base_corpus"],
                 "modelOverrides": {"chat": "vendor/model"},
                 "budget": {"remainingOrgUsd": 1.5},
                 "disabledSources": ["web_search"],
@@ -416,7 +368,7 @@ class TestRequestContextEnvelopePrecedence:
         assert context.context_transport == "bff"
         assert (context.organization_id, context.user_id, context.project_id) == ("org_1", "user_1", "513")
         assert context.conversation_id == "conv_text"
-        assert context.collection_scope == ["oib_knowledge"]
+        assert context.collection_scope == ["base_corpus"]
         assert context.model_overrides == {"chat": "vendor/model"}
         assert context.budget == {"remainingOrgUsd": 1.5}
         assert context.disabled_sources == ["web_search"]
@@ -501,29 +453,24 @@ class TestFederalStateField:
 
 
 class TestOrgInstructions:
-    @staticmethod
-    def _encoded(text: str) -> str:
-        return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii").rstrip("=")
-
-    def _read(self, monkeypatch, raw: str | None) -> pc.RequestContext:
-        monkeypatch.setattr(pc, "_read_header", lambda name: raw if name == pc.ORG_INSTRUCTIONS_HEADER else None)
-        return pc.RequestContext.from_context()
+    def _read(self, signed_context, text: str | None) -> pc.RequestContext:
+        return signed_context({} if text is None else {"orgInstructions": text})
 
     def test_the_header_name_is_the_one_the_bff_sends(self):
         assert pc.ORG_INSTRUCTIONS_HEADER == "x-grid-org-instructions"
 
-    def test_a_multi_line_block_decodes_verbatim(self, monkeypatch):
+    def test_a_multi_line_block_decodes_verbatim(self, signed_context):
         text = "Antworten kurz halten.\nImmer die Wiener Bauordnung zuerst prüfen."
-        ctx = self._read(monkeypatch, self._encoded(text))
+        ctx = self._read(signed_context, text)
         assert ctx.org_instructions == text
 
-    def test_an_absent_or_blank_header_is_no_instruction_at_all(self, monkeypatch):
-        assert self._read(monkeypatch, None).org_instructions is None
-        assert self._read(monkeypatch, self._encoded("   \n  ")).org_instructions is None
+    def test_an_absent_or_blank_block_is_no_instruction_at_all(self, signed_context):
+        assert self._read(signed_context, None).org_instructions is None
+        assert self._read(signed_context, "   \n  ").org_instructions is None
 
-    def test_a_block_past_the_cap_is_cut_and_says_so(self, monkeypatch):
+    def test_a_block_past_the_cap_is_cut_and_says_so(self, signed_context):
         text = "A" * (pc.ORG_INSTRUCTIONS_MAX_CHARS + 500)
-        value = self._read(monkeypatch, self._encoded(text)).org_instructions
+        value = self._read(signed_context, text).org_instructions
 
         assert value is not None
         head, marker = value.rsplit("\n", 1)
@@ -531,40 +478,36 @@ class TestOrgInstructions:
         assert marker == pc.ORG_INSTRUCTIONS_TRUNCATED_MARKER
         assert str(pc.ORG_INSTRUCTIONS_MAX_CHARS) in marker
 
-    def test_a_block_at_the_cap_is_left_alone(self, monkeypatch):
+    def test_a_block_at_the_cap_is_left_alone(self, signed_context):
         text = "A" * pc.ORG_INSTRUCTIONS_MAX_CHARS
-        assert self._read(monkeypatch, self._encoded(text)).org_instructions == text
+        assert self._read(signed_context, text).org_instructions == text
 
     def test_the_cap_is_the_number_the_prompt_budget_was_written_for(self):
         assert pc.ORG_INSTRUCTIONS_MAX_CHARS == 1500
 
-    def test_the_signed_envelope_carries_it_too(self):
-        payload = {"organizationId": "org_1", "orgInstructions": "Kurz antworten."}
-        header = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("ascii").rstrip("=")
+    def test_from_headers_reads_the_envelope_case_insensitively(self):
+        header, sig = signed_envelope(SECRET, orgInstructions="Kurz antworten.")
+        headers = {pc.REQUEST_CONTEXT_ENVELOPE_HEADER: header, pc.REQUEST_CONTEXT_ENVELOPE_SIG_HEADER: sig}
+        assert pc.RequestContext.from_headers(headers, secret=SECRET).org_instructions == "Kurz antworten."
 
-        ctx = pc.RequestContext.from_envelope(header, None, None)
-
-        assert ctx is not None
-        assert ctx.org_instructions == "Kurz antworten."
-
-    def test_the_envelope_applies_the_same_cap(self):
-        payload = {"orgInstructions": "A" * (pc.ORG_INSTRUCTIONS_MAX_CHARS + 10)}
-        header = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("ascii").rstrip("=")
-
-        ctx = pc.RequestContext.from_envelope(header, None, None)
-
-        assert ctx is not None
-        assert ctx.org_instructions is not None
-        assert ctx.org_instructions.endswith(pc.ORG_INSTRUCTIONS_TRUNCATED_MARKER)
-
-    def test_from_headers_reads_it_case_insensitively(self):
-        ctx = pc.RequestContext.from_headers({"X-Grid-Org-Instructions": self._encoded("Kurz antworten.")})
-        assert ctx.org_instructions == "Kurz antworten."
-
-    def test_the_accessor_returns_what_the_parse_bounded(self, monkeypatch):
-        monkeypatch.setattr(
-            pc,
-            "_read_header",
-            lambda name: self._encoded("Kurz antworten.") if name == pc.ORG_INSTRUCTIONS_HEADER else None,
-        )
+    def test_the_accessor_returns_what_the_parse_bounded(self, signed_context):
+        signed_context({"orgInstructions": "Kurz antworten."})
         assert pc.get_org_instructions_from_context() == "Kurz antworten."
+
+
+def test_an_envelope_less_job_still_names_its_organization_from_the_identity_its_worker_binds():
+    import contextvars
+
+    from agent.common import residency
+    from agent.project_context import bind_worker_identity
+
+    def run():
+        assert pc.RequestContext.from_context().organization_id is None
+        bind_worker_identity(organization_id="org_1", user_id=" user_1 ", project_id="")
+        bound = pc.RequestContext.from_context()
+        assert (bound.organization_id, bound.user_id, bound.project_id) == ("org_1", "user_1", None)
+        assert bound.collection_scope is None
+        assert residency._current_organization() == "org_1"
+
+    contextvars.copy_context().run(run)
+    assert pc.RequestContext.from_context().organization_id is None

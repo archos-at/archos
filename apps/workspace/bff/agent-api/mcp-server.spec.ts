@@ -12,6 +12,9 @@ import { OFFICE_SERVER_NAME } from './server-name'
 import { BACKEND_OPERATIONS } from './backend-operations'
 import { visibleBackendOperations, visibleOperations } from './policy'
 import type { AgentPrincipal } from './principal'
+
+/** Backend operations whose exposure entry keeps them from an outside agent. */
+const DARK = new Set(['drawing-measure'])
 import { APP_TOOLS } from './catalog/app-views'
 
 const principal: AgentPrincipal = {
@@ -83,10 +86,17 @@ describe('tools mode over the real catalog', () => {
 describe('backend read tools in tools mode', () => {
   it('are listed as reads, open-world only for the law lookup', async () => {
     const tools = await listTools('tools')
-    for (const op of BACKEND_OPERATIONS) {
+    for (const op of BACKEND_OPERATIONS.filter((candidate) => !DARK.has(candidate.name))) {
       const tool = tools.find((candidate) => candidate.name === op.name)
       expect(tool?.annotations).toEqual({ readOnlyHint: true, openWorldHint: op.name === 'law-lookup' })
     }
+  })
+
+  it('does not list a tool that is dark behind an entitlement to an outside agent', async () => {
+    // `drawing-measure` (ADR-0190): a backend operation carries no flag, so its exposure keeps it from the door.
+    const names = (await listTools('tools')).map((tool) => tool.name)
+    for (const name of DARK) expect(names).not.toContain(name)
+    expect(BACKEND_OPERATIONS.map((op) => op.name)).toEqual(expect.arrayContaining([...DARK]))
   })
 
   it('never reuse a catalog name', () => {
@@ -193,7 +203,7 @@ describe('what a client loads up front', () => {
 })
 
 describe('what tools mode costs a client', () => {
-  const MAX_AVERAGE_CHARS = 1_090
+  const MAX_AVERAGE_CHARS = 1_094
   const MAX_OPERATION_CHARS = 10_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {

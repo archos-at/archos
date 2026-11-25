@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import postcss, { type Declaration, type Root, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
+import { ROW_GLYPH_PRESS } from '@/components/ui/row-hairline'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { calleeName, exportedNames, nodesOf, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
@@ -225,6 +226,7 @@ const ratio = (a: string, b: string): number => {
 
 const DATEIEN_MODULES = modulesOf(
   'ProjectSectionFrame',
+  'ShelfHead',
   'SectionNav',
   'FileBrowserPane',
   'FileWorkspace',
@@ -484,11 +486,14 @@ describe('five neutrals, three elevations', () => {
     expect(layer.get('--elevation-lg')).toBe('var(--elevation-3)')
   })
 
-  it('the radius ladder is 6 / 10 / 16 / full, with no stray --radius', () => {
-    const tokens = sheet(TOKENS)
-    expect(valuesOf(tokens, '--radius-overlay')).toContain('16px')
-    expect(valuesOf(tokens, '--radius-inline')).toContain('6px')
-    expect(valuesOf(tokens, '--radius')).toEqual([])
+  it('the radius ladder is 4 / 8 / 14 / full, with no stray --radius (#1929)', () => {
+    const brand = sheet('shared/brand/tokens.vars.css')
+    expect(valuesOf(brand, '--ds-radius-control')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-inline')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-surface')).toContain('8px')
+    expect(valuesOf(brand, '--ds-radius-overlay')).toContain('14px')
+    expect(valuesOf(sheet(TOKENS), '--radius-overlay')).toEqual(['var(--ds-radius-overlay)'])
+    expect(valuesOf(sheet(TOKENS), '--radius')).toEqual([])
   })
 
   it('the neutral ladder steps at least 1.07:1 in both themes, and the dark desk is lighter than its paper', () => {
@@ -499,9 +504,32 @@ describe('five neutrals, three elevations', () => {
       }
       if (selector === '.dark') expect(luminance(hex('desk'))).toBeGreaterThan(luminance(hex('paper')))
       if (selector === '.dark') expect(luminance(hex('sheet'))).toBeGreaterThan(luminance(hex('selected')))
-      expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
+      if (selector === ':root') expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
       expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.04)
     }
+  })
+
+  it('in dark a sheet is one small step off the paper and a menu one off the sheet: an edge separates them, never a grey slab', () => {
+    const layer = dark()
+    const hex = (name: string): string => layer.get(`--${name}`) ?? ''
+    expect(ratio(hex('paper'), hex('sheet')), 'paper → sheet').toBeLessThanOrEqual(1.25)
+    expect(ratio(hex('sheet'), hex('popover')), 'sheet → menu').toBeLessThanOrEqual(1.15)
+    expect(hex('paper')).not.toBe('#000000')
+  })
+
+  it('the open mail row is the flat selected grey, held under the pointer, and its muted text holds 4.5:1 on it in both themes', () => {
+    expect(literalHasRun(moduleOf('InboundMailRow'), ['data-current:bg-selected', 'data-current:hover:bg-selected'])).toBe(true)
+    expect(classesOf(moduleOf('InboundMailRow')).some((token) => token.startsWith('data-current:shadow') || token.includes('data-current:bg-sheet'))).toBe(false)
+    expect(ratio('#5e5b57', light().get('--selected') ?? '')).toBeGreaterThanOrEqual(4.5) // --ds-ink-muted, which the paper layer names through a var
+    expect(ratio(dark().get('--muted-foreground') ?? '', dark().get('--selected') ?? '')).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('in dark text, muted text and the ring hold their contrast on the lightest step a row reaches, the pressed grey', () => {
+    const layer = dark()
+    const pressed = layer.get('--pressed') ?? ''
+    expect(ratio(layer.get('--ink') ?? '', pressed)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(layer.get('--muted-foreground') ?? '', pressed)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(layer.get('--ring') ?? '', pressed)).toBeGreaterThanOrEqual(3)
   })
 
   it('a sheet carries the 12% edge in both themes (elevation 1 opens with it)', () => {
@@ -634,7 +662,7 @@ describe('press, thumb and sheet', () => {
     expect(ratio(layer.get('--field-border') ?? '', layer.get('--desk') ?? '')).toBeGreaterThanOrEqual(3)
   })
 
-  it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
+  it('a folder is a sheet that opens: 56px, radius 4 inside its frame, elevation 1, a chevron at its end', () => {
     expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
     const tile = parseSource(moduleOf('FolderCard'))
     expect(elementsNamed(tile, ['FileTileBody']).some((element) => stringAttribute(element, 'className')?.startsWith('flex h-14 '))).toBe(true)
@@ -679,7 +707,7 @@ describe('lines for lists, space for sections', () => {
   })
 
   it('the header band ends in one rule', () => {
-    const band = stringConst(parseSource(moduleOf('ProjectSectionFrame')), 'SECTION_HEADER_CLASS') ?? ''
+    const band = stringConst(parseSource(moduleOf('SECTION_HEADER_CLASS')), 'SECTION_HEADER_CLASS') ?? ''
     expect(hasRun(classesOfText(band), ['border-b', 'border-border'])).toBe(true)
   })
 
@@ -788,14 +816,14 @@ describe('a press looks pressable', () => {
 describe('a choice sits on its track', () => {
   it('the kit draws the track and has no trackless form', () => {
     const kit = moduleOf('ToggleGroup')
-    expect(literalHasRun(kit, ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(kit, ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
     expect(classesOf(kit).includes('bare') || summaryOf(kit).identifiers.includes('bare')).toBe(false)
-    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
   })
 
-  it('Dateien’s tabs sit on the same track, so grey alone means a press and never „chosen“', () => {
+  it('the Ablage’s places are words with a rule under the open one, never a second track beside the presses (KAN-86)', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'track') !== undefined || classesOfAttributes(element).includes('track'))).toEqual([true])
+    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'words') !== undefined)).toEqual([true])
   })
 
   it('every single choice on Dateien, the preview and the brief is segmented', () => {
@@ -982,7 +1010,8 @@ describe('colour is a verdict', () => {
 describe('one primary per area', () => {
   it('the reader’s primary yields while a batch is picked, to „Melden und verwerfen …“ for a forgery, and to „Verwerfen“ for a mail with nothing to file', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
-    expect(hasShape(bar, "dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
+    expect(hasShape(bar, "direct || dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
+    expect(hasShape(bar, "yieldPrimary ? 'secondary' : 'default'")).toBe(true)
     expect(hasShape(bar, "dismissFirst && ! yieldPrimary && ! reportOffered ? 'default' : 'secondary'")).toBe(true)
     const report = elementsNamed(parseSource(moduleOf('FraudReport')), ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'fraud-report-open')
     expect(report.map((element) => stringAttribute(element, 'variant'))).toEqual([undefined])
@@ -994,7 +1023,10 @@ describe('one primary per area', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
     const opens = elementsNamed(bar, ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-open')
     expect(opens).toHaveLength(1)
-    expect(childShapes(elementOf(opens[0]) as ts.JsxElement)).toContain("t ( 'filing.open' )")
+    expect(childShapes(elementOf(opens[0]) as ts.JsxElement)).toContain("t ( direct ? 'filing.change' : 'filing.open' )")
+    const fileNow = elementsNamed(bar, ['BusyButton']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-file')
+    expect(fileNow).toHaveLength(1)
+    expect(childShapes(elementOf(fileNow[0]) as ts.JsxElement)).toContain("t ( 'filing.fileNow' )")
     const dialog = parseSource(moduleOf('FilingDialog'))
     const files = elementsNamed(dialog, ['BusyButton']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-file')
     expect(files).toHaveLength(1)
@@ -1032,10 +1064,10 @@ describe('rows, weights and the phone', () => {
     expect(descriptions.filter((classes) => !classes.includes('sm:hidden'))).toHaveLength(1)
     expect(
       elementsNamed(bin, ['Button', 'BusyButton']).some(
-        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'RESTORE_PRESS',
+        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'ROW_GLYPH_PRESS',
       ),
     ).toBe(true)
-    expect((stringConst(bin, 'RESTORE_PRESS') ?? '').startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
+    expect(ROW_GLYPH_PRESS.startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
     expect(
       elementsNamed(bin, ['span']).some((element) => {
         const parent = elementOf(element)
@@ -1056,18 +1088,21 @@ describe('rows, weights and the phone', () => {
       )
     expect(phoneLines).toBe(true)
     expect(literalHasRun(moduleOf('FolderBinPanel'), ['group/row', 'items-center', 'gap-3', 'rounded-surface', 'py-2.5'])).toBe(true)
-    expect(summaryOf(moduleOf('InboundMailRow')).literals.some((text) => text.startsWith('group/row items-start rounded-control px-3 py-2.5 '))).toBe(true)
+    expect(summaryOf(moduleOf('InboundMailRow')).literals.some((text) => text.startsWith('group/row items-start rounded-control px-3 py-2 '))).toBe(true)
     expect(summaryOf(moduleOf('MarkRowContent')).literals.some((text) => text.startsWith('flex w-full gap-3 rounded-control px-2.5 py-2.5 '))).toBe(true)
   })
 
-  it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
+  it('a mail subject’s weight is its state: 500 waits, 440 is handled; never bold, or a section of bold rows says nothing', () => {
     const subject = parseSource(moduleOf('InboundMailRow'))
-    expect(hasShape(subject, "needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
-    expect(literalHasRun(moduleOf('InboundMailRow'), ['line-clamp-2', 'text-name', 'text-pretty'])).toBe(true)
+    expect(hasShape(subject, "waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
+    expect(classesOf(moduleOf('InboundMailRow'))).not.toContain('font-semibold')
+    expect(literalHasRun(moduleOf('InboundMailRow'), ['min-w-0', 'flex-1', 'truncate', 'text-name'])).toBe(true)
   })
 
-  it('a thread’s press sits in a 40px line with 8px under it, so it never touches the open row’s sheet', () => {
-    expect(hasClassAttribute(parseSource(moduleOf('InboundMailList')), 'box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11')).toBe(true)
+  it('a thread is a heading in ink over its rows, with no press of its own: the section files, or the selection does', () => {
+    const list = parseSource(moduleOf('InboundMailList'))
+    expect(hasClassAttribute(list, 'min-w-0 truncate text-sm font-medium')).toBe(true)
+    expect(elementsNamed(list, ['BusyButton', 'Button']).map((element) => stringAttribute(element, 'data-testid'))).not.toContain('thread-group-file')
   })
 
   it('the reader’s foot on a phone is one note over two presses: the hint for „Einordnen“ stands on a desk only', () => {
@@ -1122,13 +1157,13 @@ describe('rows, weights and the phone', () => {
     expect(literalHasRun(row, ['text-muted-foreground', 'ml-auto', 'hidden', 'shrink-0', 'items-start', 'gap-4'])).toBe(true)
   })
 
-  it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
-    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-2 mt-6 min-w-0 phone:mt-4')).toBe(true)
+  it('the places stand under the tool row, their rule on the band’s rule (KAN-86)', () => {
+    expect(summaryOf(moduleOf('ShelfHead')).literals.includes('-mb-4 mt-4 min-w-0 phone:mt-4')).toBe(true)
   })
 
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'track') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
+    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'words') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
     for (const name of ['InboundMailWorkspace', 'OpenPointsPanel']) {
       expect(elementsNamed(parseSource(moduleOf(name)), ['ProjectSectionActions']).some((element) => attributeOf(element, 'onTitleLine') !== undefined), name).toBe(true)
     }

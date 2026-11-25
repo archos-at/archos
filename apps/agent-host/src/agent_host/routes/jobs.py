@@ -25,7 +25,6 @@ from .job_models import InternalJobOutcomeResponse
 from .job_models import JobReportResponse
 from .job_models import JobStateResponse
 from .job_models import JobStatusResponse
-from .job_models import ResearchRunsResponse
 from .job_reaper import checkpoint_retention_seconds
 from .job_reaper import job_info_delete_grace_seconds
 from .job_reaper import reap_stale_jobs_once
@@ -222,22 +221,6 @@ _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
             },
         ),
     ),
-    (
-        "GET",
-        "/v1/jobs/async/jobs",
-        "list_research_runs",
-        dict(
-            response_model=ResearchRunsResponse,
-            tags=["async jobs"],
-            summary="List research runs",
-            description=(
-                "List async job runs (research runs), optionally filtered by project collection, "
-                "conversation, and/or status. Scoped to the runs a single-job read would open: the "
-                "caller's own, and those in the project or conversation its signed envelope names "
-                "(ADR-0084)."
-            ),
-        ),
-    ),
 )
 
 
@@ -324,10 +307,13 @@ def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_second
         from agent import oib_sync
 
         from ..jobs.corpus_payloads import mark_corpus_chunks
+        from ..jobs.corpus_payloads import move_legacy_corpus_scope
 
         _require_internal_token(request)
+        moved = await asyncio.to_thread(move_legacy_corpus_scope)
         result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
         return {
+            "scope_moved": moved,
             "enqueued": result.enqueued,
             "ingested_recorded": result.ingested_recorded,
             "failed": result.failed,

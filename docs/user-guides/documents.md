@@ -13,23 +13,26 @@ mail, confirmed by their domain, is filed directly), and its text becomes an
 
 A file goes to one of two places, and the place decides who can use it:
 
-- **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).
+- **The project's Ablage** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). The Ablage's header is one row under its title: the search, **„Auswählen“**, the bin (the Papierkorb opens as a window over the page), **„Hochladen“** and **⋯**, and under it the places „Dateien“, „E-Mail-Eingang“ and „Offene Punkte“. The head stays put when you switch places: the title is „Ablage“ on each of them, the place you are in is the underlined word, and a place's own tools take the same row (on the E-Mail-Eingang „Adresse kopieren“ and „Mehr zur Adresse“, on Offene Punkte „Protokoll exportieren“), so only the content under the places changes. Every place starts that row with its search, in the same place and as wide: „In der Projektablage suchen …“ on Dateien, „Im E-Mail-Eingang suchen …“ and „In den offenen Punkten suchen …“ on the other two; each searches what its own place lists, and Escape clears it. Upload with **„Hochladen“** (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**, and in a project, under „E-Mails“, **„Per E-Mail senden …“** and **„Outlook-Archiv importieren …“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Bürobibliothek has the same controls for the whole office (see [The Bürobibliothek](#the-bürobibliothek-adr-0024)).
+- **Meine Ablage** — your own files (`personal_{org}__{user}` collection). Only you see them: not your colleagues, not an administrator. Open it from the rail's **„Persönlich“** side, with the same head and controls as a project's Ablage (folders, upload, preview, search, delete): over the title **„Meine Ablage“** stands „Persönlich · Nur Sie“, and when you open a folder the head stays where it is and the way to the folder is the line under it, ← one level up at its start. Your own connected agent can work in it with your rights; a project chat never draws on it. Deleting a file here deletes it at once: Meine Ablage has no Papierkorb (ADR-0193), and the dialog says so („Meine Ablage hat keinen Papierkorb …“, **„Endgültig löschen“**) before you confirm.
 - **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
-In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Dateien, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in Dateien („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
+In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Ablage, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in the Ablage („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
 
 Every way of uploading takes several files at once.
 
-In Dateien, folders are the drill-down inside the listing, on the **„Ordner“** tab: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. At the top level the title is „Dateien“ under the project's name; inside a folder the title is the folder's name with what it holds beside it („240 Elemente“), and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up. The „Ordner“ tab takes you back to the top level from any folder. On a phone the line above the title names the parent folder (the levels above it behind „…“) and the arrow before the title goes up one level. The level's tools stand in one row under the tabs: the search, „Filter“ and the view on the left, „Auswählen“, „Ordner anlegen“, „Hochladen“ and `⋯` on the right; on a narrower window „Ordner anlegen“ moves into the „Hochladen“ menu (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
+In the Ablage, folders are the drill-down inside the listing, on the **„Dateien“** place: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. The title stays „Ablage“ at every depth, under the project's name and who sees it („Projekt · Projektteam“). Inside a folder a line under the places names the way there („← Ablage › Abgabepläne › … › Index C“, the open folder in ink with what it holds beside it, „240 Elemente“): each step is a click back up and a drop target, ← goes up one level, and past two levels the middle folds into „…“. „Dateien“ takes you back to the top level from any folder. On a phone the folder's name is the title and the line above it names the parent folder (the levels above it behind „…“); the arrow before the title goes up one level. The level's tools stand in one row over the places: the search, then „Auswählen“, the bin, „Hochladen“ and `⋯` with the view, „Filtern und sortieren“ and „Ordner anlegen“ (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
 The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — **„Ordner anlegen“** in the row under the tabs (or in the „Hochladen“ menu on a narrower window) opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Create** — **„Ordner anlegen“** behind the header's **⋯** (beside the view, Kacheln or Liste, and **„Filtern und sortieren“**) opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
 - **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
-- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin in the Ablage's header, which opens the Papierkorb as a window; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+
+A single document follows the same road: **„Dokument löschen“** asks *"Delete 'Einreichplan_EG.pdf'?"*, its text says that the document goes to the project's bin and can be restored from there, the button reads **„Löschen“**, the toast says until when it can be restored, and the Papierkorb lists it by its own name and puts it back into the folder it came from. A document in the Bürobibliothek goes the same way into the Bürobibliothek's own bin (below). A file the content check holds back is deleted for good, when a reviewer deletes it: its dialog says that it does not go to the bin.
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
@@ -48,8 +51,11 @@ never filed simply have no folder, and the assistant says nothing about one.
 
 ### What ARCHOS knows about a folder
 
-Above every folder's files sits one quiet line, for example „35 von 44
-Dokumenten gelesen in diesem Projekt“. It covers the folder and everything
+Under every folder's files sits one quiet line, for example „35 von 44
+Dokumenten gelesen in diesem Projekt“. When ARCHOS could not read something, a
+line in ochre above the files says so too („2 Dokumente konnten nicht gelesen
+werden. Ansehen“), so a long list does not hide it; „Ansehen“ lists those
+files, and the line steps aside while they are listed. It covers the folder and everything
 inside it, subfolders included, so you can see what has been read without
 opening each folder. Click the line and the full overview opens around it; click
 it again to fold it. The choice is remembered in this browser.
@@ -107,9 +113,9 @@ Right-click a file, a folder, or the empty listing — the same operations as th
 
 The **detail view** (the list toggle) is a dense sortable table for a corpus past what a card grid can hold. It is fully keyboard-navigable: one tab stop into the list, then arrows to walk it and Home/End to jump to either end — and the tab stop stays on the row you walked to, so tabbing away and back does not return you to the top. Enter opens the row.
 
-A folder opens on its first hundred documents, and more load as you scroll to the end of the grid or list (a **Weitere laden** button does the same from the keyboard). A folder with thousands of documents, such as a large Büroablage root, therefore opens right away instead of waiting for the whole shelf. The folder tiles, the count in the header and the folder brief are counted by the server for the whole shelf, so they stay right however little of a folder has loaded.
+A folder opens on its first hundred documents, and more load as you scroll to the end of the grid or list (a **Weitere laden** button does the same from the keyboard). A folder with thousands of documents, such as a large Bürobibliothek root, therefore opens right away instead of waiting for the whole shelf. The folder tiles, the count in the header and the folder brief are counted by the server for the whole shelf, so they stay right however little of a folder has loaded.
 
-A **search field** above the grid searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter for the semantic search. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
+A **search field** in the header, which says where it searches („In der Projektablage suchen …“, „In der Bürobibliothek suchen …“), searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter: the hits replace the list on the page, no window opens. The search over everything stays behind the magnifier in the sidebar. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
 
 Most filters and the sort order are answered by the server per folder. A few still need every document of the shelf in the browser and load them when you turn them on: the kind and tag (Kategorie) filters, the assignment filter, „Freigabe ausstehend", sorting by status, and in the folder brief the „Worum es hier geht" details and the lists its chips open. For a very large shelf these take a moment the first time.
 
@@ -118,7 +124,7 @@ Semantic results arrive in whichever view you are in. In the detail view the ran
 ### Offene Punkte: what is open across the project
 
 A Jour fixe goes through the project, not one sheet at a time. **Offene
-Punkte** in the Dateien header (on a phone, in the header's ⋯) opens one page
+Punkte** in the Ablage header (on a phone, in the header's ⋯) opens one page
 with every open Anmerkung on the project's documents, grouped by document. Each
 row reads like a row of the Prüfansicht's list: the number, what the mark says,
 its kind and page, who set it, who is responsible, how many answers it has and
@@ -133,6 +139,17 @@ Two filters answer the meeting's questions:
 - **Zuständig: Für Sie** keeps the marks you are responsible for, as **Für Sie** does in the Prüfansicht.
 - **Frist: Überfällig** keeps the marks whose Frist has passed; **Bald** those
   due today or in the next seven days.
+
+**In den offenen Punkten suchen …**, at the start of the tool row, narrows the
+list as you type to the marks whose text, document name or responsible person
+holds every word you typed („berger brandschutz“). It searches the marks loaded
+so far (a project with many opens on its first 50; **Weitere laden** under the
+list brings more, and they are searched too), together with the filters. The
+search stays in the page's address (`?q=`) as the filters do, so a reload or
+the way back from the Prüfansicht keeps it. When nothing matches the page says
+so („Kein offener Punkt passt zu „statik““) with **Suche leeren**; Escape in
+the field clears it too. The Protokoll follows the filters, not the search. On
+a phone there is no search on this page.
 
 **Protokoll exportieren** downloads what the list shows, with the filters you
 set, as one PDF, Word or Markdown file: each document under its own heading,
@@ -149,7 +166,7 @@ instead.
 
 You see the marks of the documents you can open: a file in a folder you may
 not read, and an upload still held back from you, are left out here as they
-are in Dateien.
+are in the Ablage.
 
 ### When an upload is refused
 
@@ -180,13 +197,13 @@ Spreadsheets index one chunk per worksheet (labelled by sheet name), so a citati
 
 ### File Size Limits
 
-The maximum upload size applies to **each file**, not to a batch: a folder of fifty 80 MB drawings uploads into Dateien under a 100 MB limit. It is your organization's own limit when ARCHOS has set one, otherwise the deployment default from `FILE_UPLOAD_MAX_SIZE_MB` (default: **100 MB**, decimal). The upload area shows the limit in force ("max. 100 MB per file"), and Organization → Storage lists it beside the storage quota. Only ARCHOS's platform staff can change it, between 1 MB and the largest request the deployment accepts. A file over the limit is refused with a message naming it. IFC models (`.ifc`, `.ifczip`) have their own, larger limit (`BIM_MAX_IFC_BYTES`, default 250 MB) that the organization limit does not change.
+The maximum upload size applies to **each file**, not to a batch: a folder of fifty 80 MB drawings uploads into the Ablage under a 100 MB limit. It is your organization's own limit when ARCHOS has set one, otherwise the deployment default from `FILE_UPLOAD_MAX_SIZE_MB` (default: **100 MB**, decimal). The upload area shows the limit in force ("max. 100 MB per file"), and Organization → Storage lists it beside the storage quota. Only ARCHOS's platform staff can change it, between 1 MB and the largest request the deployment accepts. A file over the limit is refused with a message naming it. IFC models (`.ifc`, `.ifczip`) have their own, larger limit (`BIM_MAX_IFC_BYTES`, default 250 MB) that the organization limit does not change.
 
 The total stored per organization is bounded separately by the storage quota.
 
 Additional limits:
 - **Chat-session attachments** also have a total: all files on one chat together may not exceed the deployment default (100 MB), or the organization's per-file limit when that is higher, so one admissible file always fits.
-- **Chat-session attachments**: `FILE_UPLOAD_MAX_FILE_COUNT` (default: **10 files**) caps how many files one chat session can hold. A project's Dateien and the Büroablage are **not** under this cap — they are bounded by the organization's storage quota.
+- **Chat-session attachments**: `FILE_UPLOAD_MAX_FILE_COUNT` (default: **10 files**) caps how many files one chat session can hold. A project's Ablage and the Bürobibliothek are **not** under this cap — they are bounded by the organization's storage quota.
 - **Duplicate filenames** within a session are rejected
 - Files already tracked in the current session are skipped on re-upload
 - **A question asked while an attachment is still being read waits for it.**
@@ -198,7 +215,7 @@ Additional limits:
 
 ## Moving a file into a folder
 
-Drag it onto the folder — a card, a row, or „Dateien“ or any folder in the
+Drag it onto the folder — a card, a row, or „Ablage“ or any folder in the
 line above the title to move it up. The folder lights up as the target while you are over
 it. Folders move the same way.
 
@@ -217,7 +234,7 @@ your desktop and a drag carrying a document already here are different things to
 the browser, and only the first raises the upload overlay.
 
 Files from your desktop go where you drop them, too: onto a folder card or row
-to upload into that folder, onto „Dateien“ or a folder in the line above the title to
+to upload into that folder, onto „Ablage“ or a folder in the line above the title to
 upload there, anywhere else in the file area to upload into the folder you are
 looking at. The overlay names the folder before you let go.
 
@@ -230,7 +247,7 @@ turn, and ARCHOS says that it will follow, rather than dropping it.
 
 **Alle Dateien in Ordner einsortieren…** (the file area's menu, under
 „Erweitert“) asks ARCHOS to propose a folder for every file lying in the root
-folder of a project or of the Büroablage. It is offered to people who manage the
+folder of a project or of the Bürobibliothek. It is offered to people who manage the
 files and may write at the root. ARCHOS first matches each file to an existing
 folder, then proposes new folders for the rest; you need at least one folder
 before it can start. Files ARCHOS has not read yet stay out. Nothing moves until
@@ -244,7 +261,7 @@ the inbox when the proposal is ready to review
 A büro onboarding a project moves a directory tree, not a hand-picked list. Two
 ways to give ARCHOS one:
 
-- **„Ordner hochladen“**, beside the upload button in a project's Dateien.
+- **„Ordner hochladen“**, beside the upload button in a project's Ablage.
 - **Dragging the folder** onto the file area. A dropped folder used to do
   nothing at all — the browser reports directories through a different API than
   loose files, and the old handler read only the loose ones — so the overlay
@@ -268,7 +285,7 @@ reached you are told the upload is incomplete rather than left with a silently
 partial one — a bulk upload that quietly took the first half is worse than one
 that refuses, because the missing files look exactly like files nobody chose.
 
-Project and Büroablage uploads are bounded by the organization's **storage
+Project and Bürobibliothek uploads are bounded by the organization's **storage
 quota** and by the **per-file** size limit. The batch total-size limit applies
 only to chat-session attachments: it exists for a conversation, which has no
 quota behind it.
@@ -317,7 +334,7 @@ document (a folder you can only read is not offered as a target).
 ## Uploading a ZIP
 
 A `.zip` can be dropped on the file area, or picked with the upload button, in a
-project's Dateien and in the Büroablage alike. ARCHOS treats it as the
+project's Ablage and in the Bürobibliothek alike. ARCHOS treats it as the
 folder it contains: the ZIP is unpacked in your browser and then goes through
 exactly what a dropped folder goes through — the „Wollen Sie aktualisieren?“
 plan, the folders it names created in one step, a file that is already here
@@ -342,11 +359,21 @@ offered as its next Fassung, an unchanged one left alone.
   attachment in an Outlook import, an agent's upload) is refused as a type
   ARCHOS does not read; unpack it and upload its content.
 
+## Uploading an Outlook archive
+
+Where your organisation has the Outlook import, a `.pst` or `.ost` file you
+upload to a project's Ablage (with „Hochladen“ › „Outlook-Archiv importieren …“, with
+„Dateien auswählen“, or dropped on the page) is not stored as one file: ARCHOS imports it, each e-mail's text into the project's
+E-Mail-Verläufe and its attachments into folders under „E-Mail-Import“. The
+import window opens and shows the send; other files you picked with it upload as
+usual. While an import runs, a line above the files says so; „Ansehen“ reopens
+the window. If a send broke off, upload the same file again and it carries on.
+
 File names in ZIPs made by very old Windows versions, which did not mark their
 names as UTF-8, can show garbled umlauts; renaming the folder in ARCHOS fixes it.
 
 **Re-uploading a file that is already there makes it the next Fassung.** Dropping a corrected
-document under the same name into the same project, the Büroablage, or the same chat
+document under the same name into the same project, the Bürobibliothek, or the same chat
 points the existing document at the new bytes and re-indexes it: the document
 keeps its identity, so citations, chat subjects and folder placement all
 survive, and the organization is charged for one copy rather than two. The
@@ -611,7 +638,7 @@ for Fassungen that need a second pair of eyes. The steps are in
 [Fassungen und Freigabe](agent-authored-reports.md#fassungen-und-freigabe): the
 buttons sit under the header, which is about the Fassung they decide.
 
-Where there are no review rights (the Büroablage, a citation preview) the
+Where there are no review rights (the Bürobibliothek, a citation preview) the
 same section shows the timeline and the suggestion, without decision buttons.
 
 How it works underneath, from upload to answer:
@@ -741,29 +768,32 @@ Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-
 
 | Scope | Collection Pattern | Visibility | TTL Cleanup |
 |-------|--------------------|------------|-------------|
-| **Büroablage (org-wide)** | `archiv_{orgId}` | Every project in the organization | Never (persistent) |
+| **Bürobibliothek (org-wide)** | `archiv_{orgId}` | Every project in the organization | Never (persistent) |
 | **Project** | `proj_{projectId}` | All project members | Never (persistent) |
 | **Session** | `s_{conversationId}` | Only within that conversation | Deleted after 24 hours (configurable via `COLLECTION_TTL_HOURS`) |
 
 Session-scoped collections are prefixed with `s_` and are automatically reaped by the `TTLCleanupMixin` background thread that runs periodically (every `TTL_CLEANUP_INTERVAL_SECONDS`, default 3600s).
 
-### The Büroablage (ADR-0024)
+### The Bürobibliothek (ADR-0024)
 
-The **Büroablage** (English UI: *Office filing*) is a top-level document store
-that lives above projects, reachable from the navigation (Büroablage). Until
+The **Bürobibliothek** (English UI: *Office library*) is a top-level document store
+that lives above projects, reachable from the navigation (Bürobibliothek). It is a page
+like the Ablage, beside the sidebar, with the same head: the office's name over the
+title, the search („In der Bürobibliothek suchen …“), „Auswählen“, the bin, „Hochladen“ and ⋯,
+and the places **Dateien** and, where your office has them, **Normen & Richtlinien**. Until
 October 2026 it was called „Archiv“; the URL `/app/office-shelf`, the permission
 `org:office_shelf:manage` and the collection `archiv_{orgId}` keep that name. It is a
 different thing from the „Stilllegen“ action on a project document. Anything uploaded there is shared with **every
 project in your organization** — every project's chat automatically searches the
-Büroablage alongside its own documents and the base corpus, with no per-project
-re-upload. Any member can browse, preview, and download Büroablage documents;
+Bürobibliothek alongside its own documents and the base corpus, with no per-project
+re-upload. Any member can browse, preview, and download Bürobibliothek documents;
 uploading and deleting require the **`org:office_shelf:manage`** permission (org admins
 have it). It is the same workspace as the project Files tab — upload, ingestion, preview and folders. Every organization has one.
 
-The Büroablage is the project Files workspace over the office's shelf: **one
+The Bürobibliothek is the project Files workspace over the office's shelf: **one
 component, two shelves** (`FileWorkspace`; see
 [`docs/ux/file-upload-and-explorer.md`](../ux/file-upload-and-explorer.md#one-workspace-two-shelves)).
-Everything described for a project's Dateien above — folders, moving files by
+Everything described for a project's Ablage above — folders, moving files by
 menu or drag, uploading a whole folder, the cards/list toggle, filters and sort,
 search, the preview and its `?doc=` link — works the same here, with the same
 words, and it looks the same: the header of a project section, the same cards and
@@ -771,23 +801,35 @@ rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
-  documents; deleting a folder never deletes documents, it re-files them into the
-  parent. Everyone else can open folders, search, filter, preview and download
+  documents. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
-- **Cards as in a project** — a Büroablage card is a project's card: no kind
+- **The Papierkorb** (ADR-0195) — deleting a folder or a document in the
+  Bürobibliothek moves it, with its subfolders and documents, to the Bürobibliothek's
+  own bin, exactly as in a project: *"Move the folder 'Leitfäden' to the bin? …"*,
+  the toast says until when it can be restored, and it is gone from every listing,
+  search and answer at once. The bin glyph in the head opens the bin as a window
+  (`?bin=1`), listing what was deleted, by whom and until when it stays; for 14 days
+  it can be restored to where it was, and read again, then it is deleted for good.
+  Every member sees the bin; restoring and „Endgültig löschen“ need
+  `org:office_shelf:manage`. A folder or document under a legal hold cannot be
+  deleted. Normen & Richtlinien keep their own way out: deleting a topic moves its
+  norms up a level as before, and a norm is removed with its own „Entfernen“ there,
+  not through the bin (a deleted norm's project reference reads „entfernt“ while it
+  lies in the bin).
+- **Cards as in a project** — a Bürobibliothek card is a project's card: no kind
   chip and no provenance line of its own. There is no "verified" marker — the
-  Büroablage has no review workflow.
+  Bürobibliothek has no review workflow.
 - **Category filter** — the filter menu offers „Kategorie“, derived from the
   controlled ingestion tags actually present on the loaded documents (document
   type + OIB discipline). Categories come from the documents themselves;
   creating custom categories is not (yet) supported. This filter is on every
-  shelf, not only the Büroablage.
+  shelf, not only the Bürobibliothek.
 - **Search** — as in a project: typing filters the listing by file name, ingestion
   tags and the AI description, across every folder; Enter runs the semantic
-  search over the whole Büroablage. A semantic search that cannot RUN says so and
+  search over the whole Bürobibliothek. A semantic search that cannot RUN says so and
   offers to run the same query again — it is never reported as "no matches".
 - **No assignments and no „Frage zur Datei“** — collaboration is project-scoped
-  and the Büroablage has no project chat to ask in.
+  and the Bürobibliothek has no project chat to ask in.
 - **A document that failed to index** carries the reason on its card, and the
   card's ⋯ menu offers „Erneut lesen“ for it, the same retry the preview
   has, where the failure is actually read. An indexed document gets the same

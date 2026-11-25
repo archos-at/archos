@@ -23,6 +23,7 @@ const doc = (id: string, overrides: Partial<{ collectionName: string; authoredBy
   publishedVersionId: null,
   projectId: PROJECT,
   scope: 'project',
+  ownerUserId: null,
   ...overrides,
 })
 

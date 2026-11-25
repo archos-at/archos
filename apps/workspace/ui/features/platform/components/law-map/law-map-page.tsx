@@ -146,7 +146,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
               : null
           } today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
       )}
-      <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground text-sm underline underline-offset-2">
+      <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground self-start text-sm underline underline-offset-2 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         {t('openRequest')}
       </Link>
     </div>

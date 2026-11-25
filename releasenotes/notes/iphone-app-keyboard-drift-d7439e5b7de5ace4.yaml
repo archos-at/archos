@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    In the app installed on an iPhone, the chat no longer drifts down after
+    you tap into the input: the top row stays in view and the input stands
+    right above the keyboard.

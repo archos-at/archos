@@ -30,36 +30,41 @@ function renderAt(currentFolderId: string | null, onNavigate = vi.fn(), itemCoun
   return onNavigate
 }
 
-describe('a folder in the header', () => {
-  it('titles the page with the folder, „Files“ only at the top level', () => {
+describe('a folder in the Ablage (KAN-86)', () => {
+  it('keeps the head standing: the title stays „Documents“ and the crumb says whose Ablage it is', () => {
     renderAt('b')
-    expect(screen.getByRole('heading', { level: 1, name: /^Gutachten/ })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { level: 1, name: 'Files' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Documents' })).toBeInTheDocument()
+    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Holzbau Wien·Project team$/)
   })
 
-  it('says beside the title what the folder holds, and keeps it in the title’s tooltip when the title is cut', () => {
+  it('draws the way there in a line under the places, the open folder in ink with what it holds', () => {
     renderAt('b', vi.fn(), 240)
-    const title = screen.getByRole('heading', { level: 1 })
-    expect(within(title).getByTestId('page-header-count')).toHaveTextContent('240 items')
-    expect(title).toHaveAttribute('title', 'Gutachten\u00A0· 240 items')
-    expect(title.className).toMatch(/\bline-clamp-2\b/)
+    const line = screen.getByTestId('section-place-line')
+    expect(within(line).getByTestId('section-place-current')).toHaveTextContent('Gutachten')
+    expect(within(line).getByTestId('section-place-current')).toHaveAttribute('title', 'Gutachten')
+    expect(within(line).getByTestId('page-header-count')).toHaveTextContent('240 items')
   })
 
-  it('carries the way there in the crumb, each step a way up, and draws no path row under the tabs', async () => {
+  it('makes every step of the line a way up, the ← one level, and draws no path row in the pane', async () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1100, height: 32, top: 0, left: 0, right: 1100, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
     const onNavigate = renderAt('b')
-    const crumb = screen.getByTestId('page-header-crumb')
-    expect(crumb).toHaveTextContent('Holzbau Wien')
-    const trail = within(crumb).getByTestId('folder-trail')
-    expect(trail).toHaveTextContent('Files')
+    const trail = within(screen.getByTestId('section-place-line')).getByTestId('folder-trail')
+    expect(trail).toHaveTextContent('Documents')
     expect(trail).toHaveTextContent('Grundlagen')
     expect(trail).not.toHaveTextContent('Gutachten')
     await userEvent.click(within(trail).getByRole('button', { name: 'Grundlagen' }))
     expect(onNavigate).toHaveBeenCalledWith('a')
+    await userEvent.click(screen.getByTestId('page-header-up'))
+    expect(onNavigate).toHaveBeenLastCalledWith('a')
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-back')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('files-tool-row')).getByRole('button', { name: /Create folder/ })).toBeInTheDocument()
+    expect(within(screen.getByTestId('files-tool-row')).queryByRole('button', { name: /Create folder/ })).not.toBeInTheDocument()
     vi.restoreAllMocks()
+  })
+
+  it('draws no line at the top level', () => {
+    renderAt(null)
+    expect(screen.queryByTestId('section-place-line')).not.toBeInTheDocument()
   })
 
   it('keeps a step whole as its title when the crumb cuts it', () => {
@@ -67,13 +72,6 @@ describe('a folder in the header', () => {
     const step = within(screen.getByTestId('folder-trail')).getByRole('button', { name: 'Brandschutzsachverständigengutachten' })
     expect(step).toHaveAttribute('title', 'Brandschutzsachverständigengutachten')
     expect(step.className).toMatch(/\btruncate\b/)
-  })
-
-  it('lets a long folder title wrap after its underscores, never after a hyphen, and reads it whole', () => {
-    renderAt('e')
-    const title = screen.getByRole('heading', { level: 1, name: /^Rauchabschnittsbildung_Bauteil_C_Index-D/ })
-    expect(title.querySelectorAll('wbr')).toHaveLength(3)
-    expect(title.textContent).toContain('Index-\u2060D')
   })
 
   it('collapses the middle of a deep path into „…“, keeping the first level and the parent', () => {

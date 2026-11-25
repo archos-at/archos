@@ -1,0 +1,5 @@
+---
+# area: documents
+improvements:
+  - >
+    „Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.

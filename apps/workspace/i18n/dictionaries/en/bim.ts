@@ -19,7 +19,7 @@ export const bim = {
   empty: {
     title: 'No IFC model yet',
     description:
-      'Upload an .ifc file under Files. {productName} reads its structure, makes the building queryable in chat, and shows it here in 3D.',
+      'Upload an .ifc file under Documents. {productName} reads its structure, makes the building queryable in chat, and shows it here in 3D.',
     action: 'Go to files',
   },
   status: {
@@ -420,7 +420,7 @@ export const bim = {
       horizontal: 'horizontal',
       vertical: 'vertical',
       first: 'Click the first point',
-      second: 'Click the second point — Esc cancels',
+      second: 'Click the second point · Esc cancels',
       firstTouch: 'Tap the first point',
       secondTouch: 'Tap the second point — Measure ends the measurement',
       clear: 'Clear measurements',
@@ -431,7 +431,13 @@ export const bim = {
       title: 'The 3D view could not be loaded',
       description:
         'Only the picture is missing — the model is unaffected, and everything read from it is unchanged. A browser whose GPU is blocked, a remote desktop session, or an interrupted download all end here.',
-      reason: 'Reason: {message}',
+      cause: {
+        expired: 'The download link has expired. Load again fetches a new one.',
+        download: 'The model file could not be downloaded.',
+        gpu: "This device's graphics card could not be started.",
+        'device-lost': 'The graphics card stopped drawing, for example because the tab was in the background.',
+        unknown: 'Something went wrong while building the model.',
+      },
     },
     unsupported: {
       title: '3D view not available in this browser',
@@ -458,6 +464,11 @@ export const bim = {
     open: 'Open in model workspace',
   },
   card: {
+    load: {
+      title: 'Large model',
+      description: '{size} · {count} elements. The 3D view loads only when you open it.',
+      action: 'Load 3D view',
+    },
     openModel: 'Open model',
     openElement: 'Open in the model',
     openStorey: 'Open storey {name} in the model',

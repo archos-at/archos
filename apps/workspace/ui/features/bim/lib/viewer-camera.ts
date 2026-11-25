@@ -255,3 +255,11 @@ export async function downloadWithProgress(
   }
   return buffer
 }
+
+export function wheelZooms(
+  event: Pick<WheelEvent, 'ctrlKey' | 'metaKey'>,
+  compact: boolean,
+  focused: boolean
+): boolean {
+  return !compact || focused || event.ctrlKey || event.metaKey
+}

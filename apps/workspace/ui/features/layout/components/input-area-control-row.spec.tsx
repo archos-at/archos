@@ -273,14 +273,14 @@ describe('InputArea', () => {
       ).toBeInTheDocument()
     })
 
-    test.skip('the office preset reads "Büroablage" on the trigger, never "0"', () => {
+    test.skip('the office preset reads "Bürobibliothek" on the trigger, never "0"', () => {
       mockActiveSourcePreset = 'office'
       mockEnabledDataSourceIds = []
 
       render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
       const trigger = screen.getByRole('button', { name: /data basis/i })
-      expect(trigger).toHaveTextContent('Office filing')
+      expect(trigger).toHaveTextContent('Office library')
       expect(trigger).not.toHaveTextContent('0')
     })
 
@@ -302,7 +302,7 @@ describe('InputArea', () => {
 
       const alwaysOn = screen.getByRole('list', { name: /always included/i })
       expect(within(alwaysOn).getByText('Project knowledge')).toBeInTheDocument()
-      expect(within(alwaysOn).getByText('Office filing')).toBeInTheDocument()
+      expect(within(alwaysOn).getByText('Office library')).toBeInTheDocument()
       expect(within(alwaysOn).getAllByText('Always on')).toHaveLength(2)
       expect(within(alwaysOn).queryAllByRole('switch')).toHaveLength(0)
     })

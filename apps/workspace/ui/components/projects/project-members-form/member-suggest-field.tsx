@@ -110,7 +110,7 @@ export function MemberSuggestField({
         <PopoverContent
           align="start"
           sideOffset={4}
-          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
+          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-surface p-1"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >

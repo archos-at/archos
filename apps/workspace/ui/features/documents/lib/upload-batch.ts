@@ -1,6 +1,6 @@
 import type { NameStopTally } from '@/lib/upload-screening/name-stop'
 
-export type UploadBatchShelf = 'project' | 'office_shelf' | 'session'
+export type UploadBatchShelf = 'project' | 'office_shelf' | 'personal' | 'session'
 
 export type UploadBatchExclusion = NameStopTally
 

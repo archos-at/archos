@@ -36,17 +36,9 @@
    Dark mode is driven by the .dark root class (set before the first paint by
    app/theme-boot.ts, then kept in step by app/providers.tsx).
    The `dark:` Tailwind variant is bound to it in globals.css via
-   @custom-variant. Dark mode is a derived warm-charcoal equivalent of the
-   paper system (the dummy ships light-only): same warm hues, no cold
-   blue-grays, paper-white action on ink.
-
-   Dark is a DERIVED theme, not a mirrored one. The two blocks below deliberately
-   differ in how they build depth, because the physics differ: on paper a card
-   separates mainly through its drop shadow and needs only a small surface step,
-   whereas on charcoal a black shadow contributes nothing, so the dark block
-   widens the surface steps and adds a lit top edge to raised planes instead.
-   Mirroring light's ratios into dark is exactly what flattened it. See the
-   long note above the dark shadcn vars before re-tuning any surface value.
+   @custom-variant. Dark is near black with warm neutrals: its neutrals are the
+   paper layer's `.dark` block at the end of the palettes, its signal colours
+   the `.dark` block right after `:root`.
    ============================================================================= */
 
 :root {
@@ -82,7 +74,7 @@
   --source-project: oklch(0.578 0.144 152.3); /* #17914d — Projektwissen, doc icon */
   --source-project-tint: oklch(0.942 0.023 157.6); /* #e0f1e6 */
   --source-project-text: oklch(0.509 0.13 151.5); /* #0f7a3d */
-  --source-office: oklch(0.674 0.127 79); /* #c08c28 — Büroablage, archive-box icon */
+  --source-office: oklch(0.674 0.127 79); /* #c08c28 — Bürobibliothek, archive-box icon */
   --source-office-tint: oklch(0.951 0.033 88.1); /* #f8eed6 */
   --source-office-text: oklch(0.51 0.105 77.9); /* darkened a step so text on its tint clears AA (axe, /dev/settings) */
   --source-auto: oklch(0.609 0.006 106.6); /* #83837f — Automatisch / Lücke (knowledge gap) */
@@ -183,39 +175,35 @@
 .dark {
   color-scheme: dark;
 
-  /* ---- ink ramp (dark) — paper-white acts as "ink" on warm charcoal ---- */
-  --ink: var(--ds-ink); /* #f5f4f2 — warm paper white */
-  --ink-hover: var(--ds-ink-hover);
-  --ink-active: color-mix(in oklch, var(--ds-ink), black 15%);
-  --ink-border: var(--ds-ink); /* hairlines are alpha paper on charcoal */
+  /* Only the signal colours live here. Every neutral of the dark theme (ink,
+     text, surfaces, lines, elevation) is the paper layer's `.dark` block below,
+     declared once: a second set here was overridden by it and drifted. */
 
   /* ---- legacy alias: lifted law blue for dark surfaces ---- */
   --law-blue: oklch(0.711 0.125 266); /* lifted #2359d3 */
   --law-blue-hover: oklch(0.75 0.11 266.5);
   --blue-active: oklch(0.68 0.13 266);
 
-  /* ---- provenance signal system (dark) — same hues, lifted for charcoal.
-     Tints sit ~0.07L above --card (not ~0.04) and carry ~30% more chroma than
-     the first pass: a tint one hair off the card reads as a smudge rather than
-     as "this chip belongs to the law family", and desaturating it to stay calm
-     is what turned all four families into the same brown-gray. ---- */
+  /* ---- provenance signal system (dark) — same hues, lifted for the near-black
+     paper. A tint sits low (L 0.26) and keeps its chroma, so a chip reads as its
+     family's colour and not as a lit slab; its text stands 9:1 or more on it. ---- */
   --source-law: oklch(0.719 0.132 266);
-  --source-law-tint: oklch(0.317 0.055 266.8); /* deep blue-tinted chip surface */
+  --source-law-tint: oklch(0.26 0.05 266.8);
   --source-law-text: oklch(0.834 0.088 266.9);
   --source-oib: oklch(0.719 0.126 297); /* indigo sibling of law — see light block */
-  --source-oib-tint: oklch(0.317 0.058 297);
+  --source-oib-tint: oklch(0.26 0.052 297);
   --source-oib-text: oklch(0.834 0.084 297);
   --source-project: oklch(0.746 0.152 154.6);
-  --source-project-tint: oklch(0.319 0.049 160.3);
+  --source-project-tint: oklch(0.26 0.045 160.3);
   --source-project-text: oklch(0.857 0.109 158.3);
   --source-office: oklch(0.769 0.13 80.1);
-  --source-office-tint: oklch(0.327 0.046 80.6);
+  --source-office-tint: oklch(0.265 0.042 80.6);
   --source-office-text: oklch(0.868 0.096 83.7);
   --source-auto: oklch(0.72 0.008 97.4);
-  --source-auto-tint: oklch(0.315 0.007 91.6);
+  --source-auto-tint: oklch(0.25 0.004 91.6);
   --source-auto-text: oklch(0.833 0.008 97.4);
   --source-model: oklch(0.735 0.096 203); /* teal, lifted for charcoal — see light block */
-  --source-model-tint: oklch(0.32 0.045 203);
+  --source-model-tint: oklch(0.26 0.04 203);
   --source-model-text: oklch(0.851 0.069 203);
   --status-active: var(--source-project);
   --status-active-tint: var(--source-project-tint);
@@ -223,100 +211,19 @@
   --status-done: var(--source-auto-text);
   --status-done-tint: var(--source-auto-tint);
   --signal-error: oklch(0.672 0.144 31.6); /* lifted #c14a38 */
-  --signal-error-tint: oklch(0.316 0.062 31.6);
+  --signal-error-tint: oklch(0.26 0.055 31.6);
 
-  /* ---- shadcn vars (dark) — warm charcoal paper.
-
-     ELEVATION IS CARRIED BY LIGHTNESS HERE, NOT BY SHADOW. This is the single
-     structural difference from the light block and the reason the first pass
-     read as mud: on paper, a white card separates from the background mostly
-     through its DROP SHADOW (dark-on-light, high contrast), and the surface
-     step itself only has to do ~0.03L of work. Re-use that ratio on charcoal
-     and the shadow contributes nothing — black on near-black is invisible — so
-     the 0.03L step was left carrying the entire hierarchy alone, and every
-     nested surface flattened into one plane.
-
-     So the dark ramp does three things the light ramp does not need:
-       1. WIDER STEPS. bg→card is 0.048L (was 0.034), and each plane above it
-          steps again, so depth survives with the shadows removed entirely.
-       2. A LIT TOP EDGE. Raised planes get an inset 1px paper highlight
-          (see --elevation-*): light comes from above, so the top edge of a
-          raised surface catches it. This is what actually reads as "raised" on
-          a dark UI, and it works where a drop shadow cannot.
-       3. DEEPER, TIGHTER SHADOWS that anchor rather than lift — they still
-          separate a floating plane from what it covers.
-
-     Direction is preserved from light: sunken < background < card < popover,
-     and warmth is deliberately a touch stronger than the first pass (chroma
-     ~0.006 vs ~0.004) so "warm charcoal" is actually perceptible instead of
-     resolving to a neutral gray. ---- */
-  --background: var(--ds-surface); /* #0f0e0d — warm charcoal plane */
-  --foreground: var(--ds-ink); /* #f5f4f2 */
-  --card: var(--ds-surface-raised); /* #1a1918 — raised content plane */
-  --card-foreground: oklch(0.967 0.003 84.6);
-  --popover: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 5%); /* floats above cards */
-  --popover-foreground: oklch(0.967 0.003 84.6);
-  --primary: var(--ink); /* paper-white action on ink */
-  --primary-foreground: var(--ds-on-ink);
-  --secondary: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 10%); /* chip / quiet fill */
-  --secondary-foreground: oklch(0.967 0.003 84.6);
-  --muted: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 10%);
-  --muted-foreground: var(--ds-ink-muted); /* #a6a39e */
-  --accent: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 13%); /* inset fill (the hover is --hover) */
-  --accent-foreground: oklch(0.967 0.003 84.6);
   --destructive: var(--signal-error);
   --destructive-foreground: oklch(0.175 0.005 80);
-  --border: color-mix(in oklch, var(--foreground) 12%, transparent); /* hairline */
-  --input: color-mix(in oklch, var(--foreground) 17%, transparent);
-  /* A RECESSED WELL, one step BELOW --card — an input is cut into its surface,
-     it is not raised off it. Previously this was
-     `color-mix(--input 30%, transparent)`, i.e. a mix of an ALREADY transparent
-     token: 14% × 30% ≈ 4% paper alpha, so every input, textarea and select in
-     dark mode rendered as an all-but-invisible wash instead of a field. */
-  --input-background: oklch(0.214 0.002 67.7);
-  --ring: #8f8b86; /* the same mid grey, on charcoal: paper 5.7, desk 4.9, sheet 3.7, a menu 3.3 */
-  /* A real scrim. Previously `--background` at 92% — the app's own plane at
-     near-full opacity, which (with the dialog's backdrop-blur) erased the page
-     behind a modal instead of dimming it, so a dialog lost all sense of
-     sitting ON something. Near-black at 66% dims and keeps context. */
-  --overlay: color-mix(in oklch, oklch(0.12 0.004 84) 66%, transparent);
 
-  /* ---- elevation (dark): nothing to repeat; the brand's --ds-shadow-* switch
-     under .dark on their own. ---- */
-  --shadow-hairline: 0 0 0 1px color-mix(in oklch, var(--foreground) 8%, transparent);
-
-  /* ---- legacy semantic vars (dark) — same ramp as the shadcn block above ---- */
-  --text-color-primary: oklch(0.967 0.003 84.6);
-  --text-color-secondary: oklch(0.868 0.006 75.4); /* warm mid paper */
-  --text-color-subtle: oklch(0.716 0.008 80.7); /* #a6a39e */
-  --text-color-base: oklch(0.926 0.005 78.3);
-  --text-color-placeholder: oklch(0.622 0.008 67.7); /* lifted: it sits on the darker input well */
-  --text-color-inverse: oklch(0.165 0.003 67.6);
-  --text-color-brand: oklch(0.967 0.003 84.6); /* active accent is paper, not blue */
   --text-color-feedback-success: var(--source-project);
   --text-color-feedback-danger: oklch(0.72 0.13 31.5);
   --text-color-feedback-warning: var(--source-office);
   --text-color-feedback-info: var(--source-law-text);
-
-  --background-color-surface-base: oklch(0.165 0.003 67.6);
-  --background-color-surface-raised: oklch(0.286 0.006 78.2);
-  --background-color-surface-sunken: var(--ds-surface-sunken); /* sidebar sits below content */
-  --background-color-surface-overlay: oklch(0.253 0.005 67.6);
-  --background-color-interaction-base: oklch(0.315 0.007 67.6);
-  --background-color-interaction-primary-base: var(--ink);
-  --background-color-interaction-primary-hover: var(--ink-hover);
-  --background-color-interaction-primary-selected: var(--ink-active);
-  --background-color-accent-gray: color-mix(in oklch, var(--foreground) 18%, transparent);
-  --background-color-accent-gray-hover: color-mix(in oklch, var(--foreground) 28%, transparent);
   --background-color-feedback-success-subtle: var(--source-project-tint);
   --background-color-feedback-danger-subtle: var(--signal-error-tint);
   --background-color-feedback-warning-subtle: var(--source-office-tint);
   --background-color-feedback-info-subtle: var(--source-law-tint);
-
-  --border-color-base: color-mix(in oklch, var(--foreground) 12%, transparent);
-  --border-color-brand: color-mix(in oklch, var(--foreground) 38%, transparent);
-  --border-color-interaction-selected: color-mix(in oklch, var(--foreground) 38%, transparent);
-  --border-color-interaction-primary-base: var(--ink);
   --border-color-feedback-success: oklch(0.739 0.147 154.6 / 60%);
   --border-color-feedback-danger: oklch(0.672 0.144 31.6 / 60%);
   --border-color-feedback-warning: oklch(0.761 0.125 80.1 / 60%);
@@ -410,7 +317,7 @@
    Tailwind v4's easing namespace, so the usual `--ease-entrance:
    var(--ease-entrance)` mapping would be a self-reference. `static` gets both
    halves at once — it generates the `ease-entrance` / `ease-exit` /
-   `ease-cycle` utilities AND emits the custom properties on :root, so
+   `ease-cycle` / `ease-move` utilities AND emits the custom properties on :root, so
    hand-written CSS (keyframes, @utility blocks below in globals.css) can say
    `var(--ease-entrance)` too. Theme variables are otherwise tree-shaken unless
    some utility happens to pull them in, which is not a dependency a keyframe
@@ -439,12 +346,18 @@
              its own name so exits can be retuned without touching every hover.
    cycle     symmetric in/out, for loops and shuttles where neither end is an
              arrival (shimmer sweeps, indeterminate progress).
+   move      for something already on screen that moves or resizes: the
+             docked split's width, the phone tab bar's pill. A strong
+             ease-in-out: an ease-out on a 560px split at 320ms covers about
+             160px in its first frame and reads as a jump; this starts at
+             about 1px, travels in the middle and settles.
    ============================================================================= */
 @theme static {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-cycle: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 /* The lightest weight in the app, and the only one below content weight (500).
@@ -558,19 +471,19 @@
   /* Radius follows size and shape: the brand's ladder (packages/brand/README.md
      "Layout and shape", tokens.json radius-*). Pick the semantic step for the job;
      the same kind of element always takes the same step. */
-  --radius-inline: 6px; /* paper on a desk: the ladder is 6 / 10 / 16 / full, so the 4px step is gone (design-language.md) */
-  --radius-control: var(--ds-radius-control); /* 6px: buttons, inputs, selects, tabs, toggles, menu and list items */
-  --radius-surface: var(--ds-radius-surface); /* 10px: cards, panels, list containers, toasts, tables, code blocks */
-  --radius-overlay: 16px; /* dialogs, popovers, menus, floating bars, the command palette */
-  --radius-bubble: 16px; /* chat messages and the composer: the overlay step */
+  --radius-inline: var(--ds-radius-inline); /* the ladder is 4 / 8 / 14 / full (design-language.md) */
+  --radius-control: var(--ds-radius-control); /* 4px: buttons, inputs, selects, tabs, toggles, list items */
+  --radius-surface: var(--ds-radius-surface); /* 8px: cards, panels, list containers, toasts, tables, code blocks, menus */
+  --radius-overlay: var(--ds-radius-overlay); /* 14px: dialogs, popovers, floating bars, the command palette */
+  --radius-bubble: var(--ds-radius-bubble); /* 14px: chat messages and the composer: the overlay step */
   /* rounded-full stays Tailwind's: chips, badges, counts, avatars, dots, switches. */
   /* Tailwind's own steps, for code not yet on a semantic name; mapped onto the ladder. */
-  --radius-sm: 6px;
+  --radius-sm: var(--ds-radius-control);
   --radius-md: var(--ds-radius-control);
   --radius-lg: var(--ds-radius-surface);
-  --radius-xl: 16px;
-  --radius-2xl: 16px;
-  --radius-3xl: 16px;
+  --radius-xl: var(--ds-radius-overlay);
+  --radius-2xl: var(--ds-radius-overlay);
+  --radius-3xl: var(--ds-radius-overlay);
 
   /* Bare `shadow` (Tailwind v3's name for today's `shadow-sm`) resolved to
      Tailwind's own deprecated `--shadow`, a cold black drop shadow on no
@@ -688,7 +601,7 @@
   --sheet: #ffffff; /* a document, card, menu, floating bar */
   --paper: #fafaf9; /* the working page: the brand's surface; a white sheet stands 1.04:1 off it and reads by its 12% edge and its shadow */
   --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
-  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
+  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1); the mail list's open row too */
   --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
   /* The pointer's fill: one step down the ladder from whatever plane it lies on. The ladder's steps are each 5.5% ink
      over the one above (sheet to desk, desk to selected, selected to pressed, each within 2 of 255), so one wash is the
@@ -722,38 +635,81 @@
   --elevation-lg: var(--elevation-3); /* dialog */
 }
 
-/* Dark is derived, not mirrored: nearness is lightness. The paper is the darkest plane, the desk (the rail, a list
-   column, the hover) one step lighter, as macOS's sidebar sits lighter than its content, and a sheet lighter still,
-   with its edge; selected and pressed keep lightening. A darker desk (#0a0908) was 1.03:1 against the paper: the
-   E-Mail-Eingang's list column vanished and every hover read as a hole. `brand-literals.spec.ts` holds the ladder. */
+/* Dark is near black, and every plane one small step above the one it lies on (1.07:1 to 1.15:1, as light's
+   1.04:1 to 1.11:1): paper, then the desk (the rail, a list column, the hover) one step lighter, as macOS's sidebar
+   sits lighter than its content, the picked grey and the sheet above it. A sheet is told from its plane by its edge,
+   never by a lift: the sheet was #363330, 1.54:1 off the paper, so every card, field and pane read as a grey slab
+   (owner review, 2026-11-24). Text is #ebebea, not paper white: white on near black blooms.
+   `brand-literals.spec.ts` holds the ladder. */
 .dark {
-  --sheet: #363330; /* the lightest plane a list holds: the open mail's row 1.23:1 above a picked one (#2c2a27 was 1.08:1, one grey) */
-  --paper: #0f0e0d;
-  --desk: #1f1e1c;
-  --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
-  --pressed: #3a3734;
-  --hover: rgb(245 244 242 / 0.06); /* dark: a white wash one step up under the pointer */
-  --sheet-hover: color-mix(in srgb, var(--sheet) 94%, rgb(245 244 242)); /* lighter than the sheet: the desk would be a hole in it */
-  --hairline: rgb(245 244 242 / 0.1);
-  --edge: rgb(245 244 242 / 0.16);
-  --field-border: #77736e; /* 3.5:1 on the dark paper, 3.2:1 on the desk */
+  --sheet: #222120; /* a card, a field, the composer: one step above the picked grey, told by its edge */
+  --paper: #0e0e0d; /* near black, never #000: below it there is no step left for depth */
+  --desk: #171716;
+  --selected: #1f1e1d; /* a picked row and the mail list's open row: one step up from the desk */
+  --pressed: #2a2928;
+  --hover: rgb(245 244 242 / 0.04); /* the white wash one step up under the pointer: the picked grey on the desk */
+  --sheet-hover: color-mix(in srgb, var(--sheet) 96%, rgb(245 244 242)); /* lighter than the sheet: the desk would be a hole in it */
+  --hairline: rgb(245 244 242 / 0.08);
+  --edge: rgb(245 244 242 / 0.12);
+  --field-border: #73716e; /* 3.7:1 on the desk, 3.3:1 on a sheet */
 
+  /* ink and text: one ramp, every step 4.5:1 or more on the pressed grey */
+  --ink: #ebebea;
+  --ink-hover: #d6d5d3;
+  --ink-active: color-mix(in oklch, var(--ink), black 15%);
+  --ink-border: var(--ink);
+  --background: var(--paper);
+  --foreground: var(--ink);
   --card: var(--sheet);
-  --popover: #3d3a37; /* a menu sits above a sheet: the lightest plane */
+  --card-foreground: var(--ink);
+  --popover: #2a2928; /* a menu or dialog sits one step above a sheet */
+  --popover-foreground: var(--ink);
+  --primary: var(--ink); /* paper-white action on ink */
+  --primary-foreground: var(--paper);
   --secondary: var(--desk);
+  --secondary-foreground: var(--ink);
+  --muted: var(--desk);
+  --muted-foreground: #a3a19e; /* 5.6:1 on the pressed grey */
   --accent: var(--selected);
-  --background-color-surface-overlay: var(--sheet);
-  --overlay: rgb(0 0 0 / 0.6);
+  --accent-foreground: var(--ink);
+  --border: rgb(245 244 242 / 0.1);
+  --input: rgb(245 244 242 / 0.16);
+  --input-background: var(--sheet);
+  --ring: #959390; /* the mid grey, on near black: 4.7:1 on the pressed grey, 6.3:1 on the paper */
+  --overlay: rgb(0 0 0 / 0.65);
+  --shadow-hairline: 0 0 0 1px var(--hairline);
 
-  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
-  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
-  /* A shadow is invisible on charcoal: a floating bar lifts by its edge at 14% and a lit top edge. */
-  --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.14), inset 0 1px 0 rgb(245 244 242 / 0.06), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
-  --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);
+  --text-color-primary: var(--ink);
+  --text-color-base: #e1e0de;
+  --text-color-secondary: #c8c6c3;
+  --text-color-subtle: var(--muted-foreground);
+  --text-color-placeholder: #959390; /* 4.7:1 on a field in a menu */
+  --text-color-inverse: var(--paper);
+  --text-color-brand: var(--ink);
+  --background-color-surface-base: var(--paper);
+  --background-color-surface-raised: var(--desk);
+  --background-color-surface-sunken: var(--desk);
+  --background-color-surface-overlay: var(--sheet);
+  --background-color-interaction-base: var(--selected);
+  --background-color-interaction-primary-base: var(--ink);
+  --background-color-interaction-primary-hover: var(--ink-hover);
+  --background-color-interaction-primary-selected: var(--ink-active);
+  --background-color-accent-gray: rgb(245 244 242 / 0.14);
+  --background-color-accent-gray-hover: rgb(245 244 242 / 0.22);
+  --border-color-base: var(--border);
+  --border-color-brand: rgb(245 244 242 / 0.38);
+  --border-color-interaction-selected: rgb(245 244 242 / 0.38);
+  --border-color-interaction-primary-base: var(--ink);
+
+  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.5);
+  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.5);
+  /* A shadow is invisible on near black: a floating plane lifts by its edge at 13% and a lit top edge. */
+  --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.13), inset 0 1px 0 rgb(245 244 242 / 0.05), 0 8px 24px rgb(0 0 0 / 0.55);
+  --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.13), inset 0 1px 0 rgb(245 244 242 / 0.05), 0 24px 64px rgb(0 0 0 / 0.7);
   --elevation-press: 0 0 0 1px var(--edge);
   --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4);
-  /* The thumb is 1.2:1 above its track in dark: the field's border (3.2:1 on the desk) is its edge, so the current tab
-     and view read as chosen (review of 2026-11-10, finding 25). */
+  /* The thumb is barely lighter than its track in dark: the field's border (3.7:1 on the desk) is its edge, so the
+     current tab and view read as chosen (review of 2026-11-10, finding 25). */
   --elevation-thumb: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-sm: var(--elevation-1);
   --elevation-md: var(--elevation-2);

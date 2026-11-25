@@ -1,0 +1,21 @@
+---
+# area: agents
+fixes:
+  - >
+    When a chat has read from Meine Ablage, the refusal now names each step it
+    blocks instead of saying nothing leaves the chat.
+  - >
+    A source from Meine Ablage cited without a file name is now labelled Meine
+    Ablage instead of a building regulation.
+  - >
+    A refused share no longer carries over to the next chat you open in the
+    sharing dialog.
+operators:
+  - >
+    Another chat reads a chat that read its owner's shelf only as that owner in
+    a solo chat, recorded as a shelf read. Annotation labels from such a chat
+    are refused outside the shelf.
+  - >
+    A shelf admission is tied to the answer its decision names and admits
+    nothing when that answer's record cannot be written; a context resolved
+    without shelves leaves the owner's shelf out.

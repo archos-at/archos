@@ -4,10 +4,6 @@ export const research = {
   detailsHelp:
     'These details appear during active research and may not be available for completed reports.',
 
-  runsList: {
-    untitledRun: 'Deep research run',
-  },
-
   chatArea: {
     ariaMessages: 'Chat messages',
     loading: 'Loading conversation',
@@ -27,7 +23,7 @@ export const research = {
     },
     loggedOutTitle: '{productName} opens after your organization is verified.',
     loggedOutBody:
-      'Sign in to open the project workspace: its files, Office filing, tasks and research.',
+      'Sign in to open the project workspace: its files, Office library, tasks and research.',
     signInSso: 'Sign in with SSO',
     welcomeTitle: 'How can {productName} help with your project?',
   },
@@ -46,6 +42,9 @@ export const research = {
     research: 'Research',
     moreActions: 'More actions',
     renameSession: 'Rename chat',
+    rename: 'Rename',
+    delete: 'Delete',
+    changedOn: 'Changed {date}',
     researching: 'Researching',
   },
 
@@ -77,7 +76,7 @@ export const research = {
     toggleAria: 'Allow {name}',
     strata: {
       law: 'Building law',
-      office: 'Office filing',
+      office: 'Office library',
       project: 'Project knowledge',
       auto: 'Web',
     },
@@ -85,26 +84,38 @@ export const research = {
       all: 'All sources',
       law: 'Building law & guidelines',
       project: 'Project documents',
-      office: 'Office filing',
+      office: 'Office library',
     },
     knowledge: {
       projectName: 'Project knowledge',
       projectDescription: 'Your project documents in this project.',
-      officeName: 'Office filing',
+      officeName: 'Office library',
       officeDescription: 'Shared documents from your office.',
     },
   },
 
+  deleteFeedback: {
+    oneFailed: 'The chat was not deleted.',
+    allFailed: 'The chats were not deleted.',
+    legalHold: 'A legal hold forbids deleting it.',
+    attachments: 'Its attachments could not be removed. The deletion is retried later.',
+    tooMany: 'Too many requests in a short time. Please try again in a moment.',
+    server: 'The server answered with error {status}. Please try again.',
+    offline: 'The server could not be reached. Please check your connection.',
+    held: '{count, plural, one {One chat was} other {# chats were}} not deleted because of a legal hold.',
+  },
   deleteModals: {
     cannotReverse: 'This action cannot be reversed. Are you sure you want to do this?',
     aboutToDelete: 'You are about to delete',
     lossSuffix: '. You will lose all progress and any files you have attached will be removed.',
     all: {
-      title: 'Delete all chats in this project?',
-      countSessions:
-        '{count, plural, one {the one chat in this project} other {all # chats in this project}}',
-      allSessions: 'EVERY chat in this project',
-      scopeNote: 'Only chats in this project are deleted. Your chats in other projects are not affected.',
+      titlePersonal: 'Delete all your personal chats?',
+      titleProject: 'Delete all your chats in this project?',
+      whatPersonal: 'all your personal chats, every chat without a project that you started',
+      whatProject: 'all your chats in this project, every chat in this project that you started',
+      scopeNotePersonal: 'Your chats in projects are kept, and so are chats others shared with you.',
+      scopeNoteProject:
+        'Your personal chats and your chats in other projects are kept, and so are other members’ chats.',
       confirm: 'Delete all chats',
     },
     file: {
@@ -233,16 +244,10 @@ export const research = {
     countLabelOne: '1 chat',
     syncedNote:
       'Chats are saved to your workspace and available on any device. Research reports may expire on the server.',
-    deleteAllDisabled: 'Delete all chats in this project (disabled)',
-    deleteAll: 'Delete all chats in this project',
+    deleteAllPersonal: 'Delete all your personal chats',
+    deleteAllProject: 'Delete all your chats in this project',
     cannotDeleteBusy: 'Cannot delete while operations are in progress',
     deleteAllButton: 'Delete all chats',
-    stopResearch: 'Stop research',
-    stopResearchTitle: 'Stop this research run',
-    stopConfirmTitle: 'Stop research?',
-    stopConfirmBody:
-      'The running research will be cancelled and cannot be resumed. Partial progress so far stays visible in the research panel.',
-    stopConfirmConfirm: 'Stop research',
     startNewSession: 'Start a new chat',
     newSessionButton: 'New chat',
     searchPlaceholder: 'Search chats',
@@ -268,27 +273,19 @@ export const research = {
     sessionWaiting: 'Waiting for your answer',
     answerReady: 'Answer ready',
     answerFailed: 'Answer failed',
+    researchFailed: 'Research failed',
     chatSession: 'Chat',
     sessionLabel: 'Chat: {title}',
     sessionLabelWithStatus: 'Chat: {title} — {status}',
     temporaryMark: 'Temporary chat: nothing from it is kept.',
     sessionLabelTemporary: '{label} (temporary chat, nothing from it is kept)',
-    deepResearchHeading: 'Deep Research',
     deepResearchChip: 'Deep Research',
-    deepResearchRunLabel: 'Open deep research run: {label} — {status}',
     filterAria: 'Filter history',
     filterAll: 'All',
     filterChats: 'Chats',
     filterResearch: 'Deep Research',
-    researchLoadFailed: 'Deep-research runs could not be loaded.',
     noRuns: 'No deep research runs yet',
     noRunsDescription: 'Deep research runs from this project will be listed here.',
-    runStatus: {
-      running: 'Running',
-      completed: 'Report ready',
-      failed: 'Failed',
-      cancelled: 'Cancelled',
-    },
   },
 
 

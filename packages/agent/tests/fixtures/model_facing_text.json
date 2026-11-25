@@ -1,4 +1,199 @@
 {
+  "backend_tool:drawing_measure": {
+    "description": "Read and measure a page of a PDF drawing of this project (a floor plan, a section, a site plan plotted from CAD) from the file itself: its printed figures as text, its linework as geometry. Use it for what is printed on a sheet and for a width, a distance, a path or an area on it. Places are shares of the page as shown, 0 to 1, origin top left, as in look's `region`: look first to see where things are, then pass points.\n\noperation:\n  'sheet'       - size, format, whether it is a scan, each region's scale with its state, the unit convention. Start here once per page.\n  'figures'     - printed figures in `region` ([x, y, w, h]), filtered by `query` (a substring) or `kind` (dimension, level_mark, opening_size, scale_note, room_stamp, other).\n  'rooms'       - the room stamps: name, printed area and further lines, as printed.\n  'scale_check' - whether the page's own dimension figures corroborate the scale hinted for `region`.\n  'clearance'   - the clear width between two lines: `from` and `to` ([x, y]) placed NEAR the two faces. The engine moves each to the one line within reach; with two lines in reach it returns the crossings and no number, and you call again with `between`: [i, j].\n  'distance'    - between two points, each moved to the one line end or corner within reach.\n  'path', 'area' - along or inside `points` ([[x, y], ...]), each moved the same way.\n\n`threshold_min` / `threshold_max` (metres, or m² for an area): a value to compare with, which YOU pass from the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. `snap` false takes points as given. To keep a measurement, set a canvas `mark` (`line`, `path`, `polygon`) on the same points; the server re-measures it. 'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a length out yourself from a printed scale. State every number with its interval and provenance; never recompute, round or convert one.",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "between": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Two crossing indices a refused 'clearance' returned.",
+          "title": "Between"
+        },
+        "document": {
+          "default": "",
+          "description": "The PDF's file name; empty for the open document or the subject.",
+          "title": "Document",
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y]: the first point.",
+          "title": "From"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "dimension",
+                "level_mark",
+                "opening_size",
+                "scale_note",
+                "room_stamp",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The kind of figure to list, for 'figures'.",
+          "title": "Kind"
+        },
+        "limit": {
+          "default": 50,
+          "description": "Rows at most, for 'figures' and 'rooms'.",
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "operation": {
+          "description": "What to read or measure; start with 'sheet'.",
+          "enum": [
+            "sheet",
+            "figures",
+            "rooms",
+            "scale_check",
+            "clearance",
+            "distance",
+            "path",
+            "area"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "page": {
+          "default": 1,
+          "description": "The page, starting at 1.",
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "points": {
+          "description": "[[x, y], ...] for 'path' and 'area', in order.",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "maxItems": 60,
+          "title": "Points",
+          "type": "array"
+        },
+        "query": {
+          "default": "",
+          "description": "Text a figure must contain, for 'figures'.",
+          "maxLength": 120,
+          "title": "Query",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y, w, h] in shares of the page, origin top left.",
+          "title": "Region"
+        },
+        "snap": {
+          "default": true,
+          "description": "False: the points as given, off any linework.",
+          "title": "Snap",
+          "type": "boolean"
+        },
+        "threshold_max": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A maximum to compare with, in m or m².",
+          "title": "Threshold Max"
+        },
+        "threshold_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A minimum to compare with, in m or m².",
+          "title": "Threshold Min"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y]: the second point.",
+          "title": "To"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "DrawingMeasureInput",
+      "type": "object"
+    }
+  },
   "backend_tool:dxf_measure": {
     "description": "Measure a DXF drawing of this project, above all a Katasterauszug (BEV Katastralmappe): the site as geometry, not as a picture. Use it for questions about parcels and what stands on them: a parcel's area and shape, which parcels border it and along how much boundary, the buildings on it with their footprint and coverage, how far each building stands from each boundary, what remains buildable after setbacks you give, and what a coverage or density limit allows. For any other DXF it finds labels and says what each layer holds.\n\noperation:\n  'overview'  — what the drawing is (Katastralmappe or not, KG, coordinate system, unit), how many parcels and buildings, its layers. Start here once per file.\n  'parcels'   — every parcel as a row (KG, cadastre, area, built-up area and coverage, neighbours); `parcels` names some.\n  'parcel'    — one parcel (`parcel`): area, perimeter, enclosing rectangle, boundary length per neighbour and to the edge of the extract, the buildings on it.\n  'setbacks'  — for each building on the parcel, its shortest distance to each neighbour's boundary.\n  'buildable' — the parcel minus a band along each boundary: `setback_m` for every side, `setbacks` ({neighbour parcel: metres}) per side; `coverage_limit` (0.4 or 40 for 40 %) and `density_limit` (a floor-area ratio such as 1.2) as allowances. The values are the ones YOU pass, from the Bebauungsplan or the building code (look them up first); the drawing holds none.\n  'distance'  — the shortest distance between two things in `between`: parcel numbers or 'building N'.\n  'texts'     — labels containing `query`, with their layer, position and parcel.\n  'layers'    — what each layer holds: entity kinds, line length, closed outlines and their area.\n\n`document` is the file name as the inventory lists it; empty means the document open on the canvas or the conversation's subject. Name parcels as the drawing does ('123/4', '.57'). Every answer says how far it can be trusted: Grundsteuerkataster boundaries are graphic and not legally binding, so quote that caveat with the number. 'Undecidable' is an answer about the file: report what is missing and the remedy. Never recompute, round or convert a returned number.",
     "schema": {
@@ -611,7 +806,7 @@
     }
   },
   "backend_tool:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -2775,7 +2970,7 @@
                 }
               ],
               "default": null,
-              "description": "Which corpus it came from: 'project' or 'office' (Büroablage)",
+              "description": "Which corpus it came from: 'project' or 'office' (Bürobibliothek)",
               "title": "Source"
             },
             "summary": {
@@ -2799,7 +2994,7 @@
           "type": "object"
         }
       },
-      "description": "Project/Büroablage files the user asked to see.\n\nSystem-emitted by ``surface_documents``. One file or a short browse\nchoice — same card, the list length is the difference. Never a\ncatalogue. Citations of exactly one project/Büro file peek without\nthis card (``useCitationPeek``).",
+      "description": "Project/Bürobibliothek files the user asked to see.\n\nSystem-emitted by ``surface_documents``. One file or a short browse\nchoice — same card, the list length is the difference. Never a\ncatalogue. Citations of exactly one project/Büro file peek without\nthis card (``useCitationPeek``).",
       "properties": {
         "documents": {
           "description": "The surfaced files, best match first",
@@ -7523,7 +7718,7 @@
           },
           {
             "constraints": [],
-            "description": "Which corpus it came from: 'project' or 'office' (Büroablage)",
+            "description": "Which corpus it came from: 'project' or 'office' (Bürobibliothek)",
             "name": "source",
             "required": false,
             "type": "\"project\" | \"office\""
@@ -8585,7 +8780,7 @@
           ],
           "interaction": "presentational",
           "model": "DocumentAnswerCard",
-          "summary": "Project/Büroablage files the user asked to see.",
+          "summary": "Project/Bürobibliothek files the user asked to see.",
           "type": "document_grid"
         },
         {
@@ -9365,6 +9560,11 @@
           "$defs": {
             "_Finding": {
               "properties": {
+                "citation": {
+                  "description": "The [N] marker the statement carries, or 'none'.",
+                  "title": "Citation",
+                  "type": "string"
+                },
                 "problem": {
                   "enum": [
                     "unbacked",
@@ -9376,6 +9576,11 @@
                 "reason": {
                   "description": "One line: what the evidence says instead, or that it says nothing about it.",
                   "title": "Reason",
+                  "type": "string"
+                },
+                "regulation": {
+                  "description": "For a statement of law without a marker, the regulation it states; else 'none'.",
+                  "title": "Regulation",
                   "type": "string"
                 },
                 "source": {
@@ -9392,6 +9597,8 @@
               "required": [
                 "statement",
                 "problem",
+                "citation",
+                "regulation",
                 "reason",
                 "source"
               ],
@@ -9408,15 +9615,6 @@
               "title": "Findings",
               "type": "array"
             },
-            "level": {
-              "enum": [
-                "low",
-                "medium",
-                "high"
-              ],
-              "title": "Level",
-              "type": "string"
-            },
             "open_points": {
               "description": "Each point the answer itself names as open, unchecked or unresolved, its main point resting on it.",
               "items": {
@@ -9427,7 +9625,6 @@
             }
           },
           "required": [
-            "level",
             "findings",
             "open_points"
           ],
@@ -12172,7 +12369,7 @@
     }
   },
   "tool:chat.files.drafts+skills:ls": {
-    "description": "Lists the drafts of this conversation. The working directory is at `/drafts/` and contains only what was written in this conversation — no project files, no office shelf (Büroablage). Call it before a revision when the path of the draft is not known.",
+    "description": "Lists the drafts of this conversation. The working directory is at `/drafts/` and contains only what was written in this conversation — no project files, no office shelf (Bürobibliothek). Call it before a revision when the path of the draft is not known.",
     "schema": {
       "properties": {
         "path": {
@@ -12262,7 +12459,7 @@
     }
   },
   "tool:chat.files.drafts:ls": {
-    "description": "Lists the drafts of this conversation. The working directory is at `/drafts/` and contains only what was written in this conversation — no project files, no office shelf (Büroablage). Call it before a revision when the path of the draft is not known.",
+    "description": "Lists the drafts of this conversation. The working directory is at `/drafts/` and contains only what was written in this conversation — no project files, no office shelf (Bürobibliothek). Call it before a revision when the path of the draft is not known.",
     "schema": {
       "properties": {
         "path": {
@@ -12453,7 +12650,7 @@
     }
   },
   "tool:chat.files.estate+drafts+skills:ls": {
-    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Büroablage), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
+    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Bürobibliothek), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
     "schema": {
       "properties": {
         "depth": {
@@ -12674,7 +12871,7 @@
     }
   },
   "tool:chat.files.estate+drafts:ls": {
-    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Büroablage), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
+    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Bürobibliothek), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
     "schema": {
       "properties": {
         "depth": {
@@ -12869,7 +13066,7 @@
     }
   },
   "tool:chat.files.estate+skills:ls": {
-    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Büroablage), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
+    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Bürobibliothek), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
     "schema": {
       "properties": {
         "depth": {
@@ -13046,7 +13243,7 @@
     }
   },
   "tool:chat.files.estate:ls": {
-    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Büroablage), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
+    "description": "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), /office/ (the Bürobibliothek), /chat/ (files dropped into this conversation), /law/oib/ (the OIB-Richtlinien), /drafts/ (this conversation's drafts), /skills/ (procedures); `ls(\"/\")` lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's `README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use it to see what a project or folder holds; to find a file by part of its name, glob is quicker.",
     "schema": {
       "properties": {
         "depth": {
@@ -13230,7 +13427,7 @@
     }
   },
   "tool:chat:canvas__mark": {
-    "description": "Sets `proposals` as PROPOSALS from you; none of them counts until a person takes the proposal over in the document or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation to be set (then it is open at once, in their name; if the office lets you only propose, this is refused, then retry without `open`); your own findings, even in a requested review, stay proposals. First look at the page with `look` and estimate the spot there. Per proposal: `page` (from 1); `shape` `region` (preferred: a tight frame around the component) or `point`; `x`/`y` the top left corner, for `region` also `w`/`h` (x+w and y+h at most 1); `kind` `hint`, `question` or `defect`; `body` in the office's German, concrete and short (at most 2000 characters); `basis` with the source reference when the finding rests on a norm. At most 20 per call, the most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
+    "description": "Sets `proposals` as PROPOSALS: none counts until a person takes it over or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation (open at once, in their name; if the office lets you only propose, retry without it); your own findings always stay proposals. Estimate the spot with `look` first. Per proposal: `page` (from 1); `shape` `region` (preferred, tight) with top left `x`/`y` and `w`/`h`, or `point` with `x`/`y`; a measurement on a PDF drawing: `line`, `path` or `polygon` with ordered `points`, no number; `body` in the office's German, concrete and short; `basis` the norm it rests on. At most 20 per call, most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
     "schema": {
       "properties": {
         "document": {
@@ -13245,7 +13442,6 @@
           "anyOf": [
             {
               "items": {
-                "description": "One finding: where on which page, what kind, what is wrong, what it rests on.",
                 "properties": {
                   "basis": {
                     "anyOf": [
@@ -13288,11 +13484,25 @@
                     "title": "Page",
                     "type": "integer"
                   },
+                  "points": {
+                    "default": [],
+                    "items": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "type": "array"
+                    },
+                    "title": "Points",
+                    "type": "array"
+                  },
                   "shape": {
                     "default": "region",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ],
                     "title": "Shape",
                     "type": "string"
@@ -13310,18 +13520,18 @@
                     "title": "W"
                   },
                   "x": {
+                    "default": 0,
                     "title": "X",
                     "type": "number"
                   },
                   "y": {
+                    "default": 0,
                     "title": "Y",
                     "type": "number"
                   }
                 },
                 "required": [
                   "page",
-                  "x",
-                  "y",
                   "kind",
                   "body"
                 ],
@@ -13480,6 +13690,185 @@
       "required": [
         "kind",
         "goal"
+      ],
+      "type": "object"
+    }
+  },
+  "tool:chat:drawing_measure": {
+    "description": "Read and measure a page of a PDF drawing of this project (a floor plan, a section, a site plan plotted from CAD) from the file itself: its printed figures as text, its linework as geometry. Use it for what is printed on a sheet and for a width, a distance, a path or an area on it. Places are shares of the page as shown, 0 to 1, origin top left, as in look's `region`: look first to see where things are, then pass points.\n\noperation:\n  'sheet'       - size, format, whether it is a scan, each region's scale with its state, the unit convention. Start here once per page.\n  'figures'     - printed figures in `region` ([x, y, w, h]), filtered by `query` (a substring) or `kind` (dimension, level_mark, opening_size, scale_note, room_stamp, other).\n  'rooms'       - the room stamps: name, printed area and further lines, as printed.\n  'scale_check' - whether the page's own dimension figures corroborate the scale hinted for `region`.\n  'clearance'   - the clear width between two lines: `from` and `to` ([x, y]) placed NEAR the two faces. The engine moves each to the one line within reach; with two lines in reach it returns the crossings and no number, and you call again with `between`: [i, j].\n  'distance'    - between two points, each moved to the one line end or corner within reach.\n  'path', 'area' - along or inside `points` ([[x, y], ...]), each moved the same way.\n\n`threshold_min` / `threshold_max` (metres, or m² for an area): a value to compare with, which YOU pass from the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. `snap` false takes points as given. To keep a measurement, set a canvas `mark` (`line`, `path`, `polygon`) on the same points; the server re-measures it. 'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a length out yourself from a printed scale. State every number with its interval and provenance; never recompute, round or convert one.",
+    "schema": {
+      "properties": {
+        "between": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Two crossing indices a refused 'clearance' returned."
+        },
+        "document": {
+          "default": "",
+          "description": "The PDF's file name; empty for the open document or the subject.",
+          "type": "string"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y]: the second point."
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "dimension",
+                "level_mark",
+                "opening_size",
+                "scale_note",
+                "room_stamp",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The kind of figure to list, for 'figures'."
+        },
+        "limit": {
+          "default": 50,
+          "description": "Rows at most, for 'figures' and 'rooms'.",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "operation": {
+          "description": "What to read or measure; start with 'sheet'.",
+          "enum": [
+            "sheet",
+            "figures",
+            "rooms",
+            "scale_check",
+            "clearance",
+            "distance",
+            "path",
+            "area"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "default": 1,
+          "description": "The page, starting at 1.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "points": {
+          "description": "[[x, y], ...] for 'path' and 'area', in order.",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "maxItems": 60,
+          "type": "array"
+        },
+        "query": {
+          "default": "",
+          "description": "Text a figure must contain, for 'figures'.",
+          "maxLength": 120,
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y, w, h] in shares of the page, origin top left."
+        },
+        "snap": {
+          "default": true,
+          "description": "False: the points as given, off any linework.",
+          "type": "boolean"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[x, y]: the first point."
+        },
+        "threshold_max": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A maximum to compare with, in m or m²."
+        },
+        "threshold_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A minimum to compare with, in m or m²."
+        }
+      },
+      "required": [
+        "operation"
       ],
       "type": "object"
     }
@@ -14135,7 +14524,7 @@
     }
   },
   "tool:chat:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -14633,7 +15022,7 @@
     }
   },
   "tool:chat:surface_documents": {
-    "description": "Show the user a REAL project or Büroablage FILE in the UI (preview card). This is not a citation tool — it does not return quotable passages.\nWHEN TO CALL — the user asked to SEE or BROWSE their own files, with no legal question to answer. Examples: 'zeig mir den Brandschutzplan', 'öffne Schnitt.pdf', 'welche Unterlagen habe ich zu Fluchtwegen'.\n- `filename=` the exact indexed name (inventory or the user) when they named a file. Opens that one file.\n- `mode=one` (default) + `query=` when they asked to see the best matching file and you do not have the name. Opens one file. Not a follow-up to a citation.\n- `mode=many` + `query=` only when they are choosing among two or three NEARLY EQUALLY relevant files of the same kind. Never a catalogue, never the inventory.\n- `shelf=office_shelf` / `shelf=project` when they asked to see files on ONE shelf (Büroablage vs this project). Do not mix the two.\nAsking for files of a KIND ('hab ich sonst noch Grundrisse', 'welche Fotos vom Bestand') is a browse: `mode=many` on that shelf, so they can open them.\nWHEN NOT TO CALL — to say what is on a shelf ('welche Dateien hast du im Büroablage'), answer from the knowledge-base inventory, or from a listing where the inventory is incomplete or the question filters by folder, name or date; file names written in the answer already open on click. To read, quote, or cite a passage, use `knowledge_search`. The UI already peeks the cited file; do not also call this tool after citing. Do not use this for OIB / RIS / web questions.\nNever invent filenames. After a successful call, talk about the file in prose; do not dump a filename list.",
+    "description": "Show the user a REAL project or Bürobibliothek FILE in the UI (preview card). This is not a citation tool — it does not return quotable passages.\nWHEN TO CALL — the user asked to SEE or BROWSE their own files, with no legal question to answer. Examples: 'zeig mir den Brandschutzplan', 'öffne Schnitt.pdf', 'welche Unterlagen habe ich zu Fluchtwegen'.\n- `filename=` the exact indexed name (inventory or the user) when they named a file. Opens that one file.\n- `mode=one` (default) + `query=` when they asked to see the best matching file and you do not have the name. Opens one file. Not a follow-up to a citation.\n- `mode=many` + `query=` only when they are choosing among two or three NEARLY EQUALLY relevant files of the same kind. Never a catalogue, never the inventory.\n- `shelf=office_shelf` / `shelf=project` when they asked to see files on ONE shelf (Bürobibliothek vs this project). Do not mix the two.\nAsking for files of a KIND ('hab ich sonst noch Grundrisse', 'welche Fotos vom Bestand') is a browse: `mode=many` on that shelf, so they can open them.\nWHEN NOT TO CALL — to say what is on a shelf ('welche Dateien hast du im Bürobibliothek'), answer from the knowledge-base inventory, or from a listing where the inventory is incomplete or the question filters by folder, name or date; file names written in the answer already open on click. To read, quote, or cite a passage, use `knowledge_search`. The UI already peeks the cited file; do not also call this tool after citing. Do not use this for OIB / RIS / web questions.\nNever invent filenames. After a successful call, talk about the file in prose; do not dump a filename list.",
     "schema": {
       "properties": {
         "filename": {
@@ -14979,7 +15368,7 @@
     }
   },
   "tool:clarifier:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16204,7 +16593,7 @@
     }
   },
   "tool:deep_research.researcher:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16623,7 +17012,7 @@
     }
   },
   "tool:deep_research.researcher:surface_documents": {
-    "description": "Show the user a REAL project or Büroablage FILE in the UI (preview card). This is not a citation tool — it does not return quotable passages.\nWHEN TO CALL — the user asked to SEE or BROWSE their own files, with no legal question to answer. Examples: 'zeig mir den Brandschutzplan', 'öffne Schnitt.pdf', 'welche Unterlagen habe ich zu Fluchtwegen'.\n- `filename=` the exact indexed name (inventory or the user) when they named a file. Opens that one file.\n- `mode=one` (default) + `query=` when they asked to see the best matching file and you do not have the name. Opens one file. Not a follow-up to a citation.\n- `mode=many` + `query=` only when they are choosing among two or three NEARLY EQUALLY relevant files of the same kind. Never a catalogue, never the inventory.\n- `shelf=office_shelf` / `shelf=project` when they asked to see files on ONE shelf (Büroablage vs this project). Do not mix the two.\nAsking for files of a KIND ('hab ich sonst noch Grundrisse', 'welche Fotos vom Bestand') is a browse: `mode=many` on that shelf, so they can open them.\nWHEN NOT TO CALL — to say what is on a shelf ('welche Dateien hast du im Büroablage'), answer from the knowledge-base inventory, or from a listing where the inventory is incomplete or the question filters by folder, name or date; file names written in the answer already open on click. To read, quote, or cite a passage, use `knowledge_search`. The UI already peeks the cited file; do not also call this tool after citing. Do not use this for OIB / RIS / web questions.\nNever invent filenames. After a successful call, talk about the file in prose; do not dump a filename list.",
+    "description": "Show the user a REAL project or Bürobibliothek FILE in the UI (preview card). This is not a citation tool — it does not return quotable passages.\nWHEN TO CALL — the user asked to SEE or BROWSE their own files, with no legal question to answer. Examples: 'zeig mir den Brandschutzplan', 'öffne Schnitt.pdf', 'welche Unterlagen habe ich zu Fluchtwegen'.\n- `filename=` the exact indexed name (inventory or the user) when they named a file. Opens that one file.\n- `mode=one` (default) + `query=` when they asked to see the best matching file and you do not have the name. Opens one file. Not a follow-up to a citation.\n- `mode=many` + `query=` only when they are choosing among two or three NEARLY EQUALLY relevant files of the same kind. Never a catalogue, never the inventory.\n- `shelf=office_shelf` / `shelf=project` when they asked to see files on ONE shelf (Bürobibliothek vs this project). Do not mix the two.\nAsking for files of a KIND ('hab ich sonst noch Grundrisse', 'welche Fotos vom Bestand') is a browse: `mode=many` on that shelf, so they can open them.\nWHEN NOT TO CALL — to say what is on a shelf ('welche Dateien hast du im Bürobibliothek'), answer from the knowledge-base inventory, or from a listing where the inventory is incomplete or the question filters by folder, name or date; file names written in the answer already open on click. To read, quote, or cite a passage, use `knowledge_search`. The UI already peeks the cited file; do not also call this tool after citing. Do not use this for OIB / RIS / web questions.\nNever invent filenames. After a successful call, talk about the file in prose; do not dump a filename list.",
     "schema": {
       "properties": {
         "filename": {
@@ -16918,7 +17307,7 @@
     }
   },
   "tool:intake:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Bürobibliothek and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {

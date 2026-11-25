@@ -5,11 +5,11 @@ import { useDocumentsStore } from '@/features/documents/store'
 import { discardSessionDocumentsResources } from '@/features/documents/discard-session-resources'
 import { isAwaitingServerMessages } from './chat-storage'
 import { hasLiveRun, hasNoUserChatMessages } from '../lib/session-activity'
-import { conversationMatchesProject, isHiddenJobConversation } from '../lib/project-scope'
+import { conversationMatchesProject, conversationsOnSide, isHiddenJobConversation } from '../lib/project-scope'
 import { turnStateFor } from './messages-store'
 import { withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createNewConversation } from './new-conversation'
-import { hydratingConversationIds } from './session-server-sync'
+import { hydratingConversationIds, sideLoadsChangeHands } from './session-server-sync'
 import type { SessionsSlice } from './sessions-store'
 
 const getDefaultEnabledDataSourceIds = (): string[] => {
@@ -55,7 +55,11 @@ const maybeDiscardAbandonedUploadOnlySession = (
   if (docsInFlight) return
 
   discardSessionDocumentsResources(sessionId)
-  get().deleteConversation(sessionId)
+  get()
+    .deleteConversation(sessionId)
+    .catch((err: unknown) => {
+      console.warn('[sessions] discarding an empty chat failed; it stays listed:', sessionId, err)
+    })
 }
 
 export const createSessionNavigationSlice: StateCreator<
@@ -82,6 +86,7 @@ export const createSessionNavigationSlice: StateCreator<
 
   setCurrentUser: (userId: string | null) => {
     const { conversations, currentConversation, projectId } = get()
+    if (sideLoadsChangeHands(userId)) set({ serverSides: {}, serverConversationsLoaded: false }, false, 'forgetServerSides')
 
     const shouldClearCurrent =
       currentConversation && (userId === null || currentConversation.userId !== userId)
@@ -123,13 +128,7 @@ export const createSessionNavigationSlice: StateCreator<
 
   getUserConversations: () => {
     const { conversations, currentUserId, projectId } = get()
-    if (!currentUserId) return []
-    return conversations.filter(
-      (c) =>
-        c.userId === currentUserId &&
-        conversationMatchesProject(c, projectId) &&
-        !isHiddenJobConversation(c)
-    )
+    return conversationsOnSide(conversations, currentUserId, projectId)
   },
 
   createConversation: () => {
@@ -141,13 +140,14 @@ export const createSessionNavigationSlice: StateCreator<
     const defaultEnabledDataSourceIds = getDefaultEnabledDataSourceIds()
     layoutState.setEnabledDataSources(defaultEnabledDataSourceIds)
     const newConversation: Conversation = {
-      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject),
+      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject, get().composerTemporary),
       enabledDataSourceIds: defaultEnabledDataSourceIds,
     }
     set(
       (state) => ({
         conversations: [newConversation, ...state.conversations],
         currentConversation: newConversation,
+        composerTemporary: false,
         pendingInteraction: null,
       }),
       false,
@@ -172,6 +172,7 @@ export const createSessionNavigationSlice: StateCreator<
       {
         currentConversation: null,
         composerSubject: null,
+        composerTemporary: false,
         isStreaming: false,
         isLoading: false,
         currentUserMessageId: null,
@@ -197,13 +198,14 @@ export const createSessionNavigationSlice: StateCreator<
     const defaultEnabledDataSourceIds = getDefaultEnabledDataSourceIds()
     layoutState.setEnabledDataSources(defaultEnabledDataSourceIds)
     const newConversation: Conversation = {
-      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject),
+      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject, get().composerTemporary),
       enabledDataSourceIds: defaultEnabledDataSourceIds,
     }
     set(
       (state) => ({
         conversations: [newConversation, ...state.conversations],
         currentConversation: newConversation,
+        composerTemporary: false,
         pendingInteraction: null,
       }),
       false,
@@ -233,6 +235,7 @@ export const createSessionNavigationSlice: StateCreator<
           currentConversation: conversation,
           unseenAnswers: withoutUnseenAnswer(get().unseenAnswers, conversation.id),
           pendingMessagesFor: null,
+          composerTemporary: false,
           composerSubject: conversation.subjectResourceId
             ? {
                 resourceType: 'document' as const,

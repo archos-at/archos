@@ -15,7 +15,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LoadMore } from '@/components/ui/load-more'
+import { DesktopLayoutOnly, MobileLayoutOnly } from '@/components/ui/layout-only'
 import { useIsMobile } from '@/hooks/use-is-mobile'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
 import { useTranslations } from '@/i18n'
 import { searchCopy } from '@/i18n/namespaces/search'
 import { documentReadFamily } from '@/lib/documents/document-status'
@@ -141,7 +143,6 @@ export function SearchRegisterBar({
   hideProject?: boolean
 }): JSX.Element {
   const t = useTranslations(searchCopy)
-  const isMobile = useIsMobile()
   return (
     <RegisterBar
       start={
@@ -155,7 +156,9 @@ export function SearchRegisterBar({
       }
       end={
         <>
-          {isMobile ? <SortMenu state={state} onStateChange={onStateChange} hideProject={hideProject} /> : null}
+          <MobileLayoutOnly>
+            <SortMenu state={state} onStateChange={onStateChange} hideProject={hideProject} />
+          </MobileLayoutOnly>
           <ColumnMenu state={state} onStateChange={onStateChange} hideProject={hideProject} />
         </>
       }
@@ -165,19 +168,20 @@ export function SearchRegisterBar({
 
 function ColumnMenu({ state, onStateChange, hideProject }: { state: SearchUrlState; onStateChange: (next: SearchUrlState) => void; hideProject: boolean }): JSX.Element {
   const t = useTranslations(searchCopy)
-  const isMobile = useIsMobile()
+  const menuTitle = useIsMobile() ? t('register.fieldsMenuTitle') : t('register.columnsMenuTitle')
   const visible = new Set(visibleRegisterColumns(state.columns))
   const offered = REGISTER_COLUMNS.filter((column) => !(hideProject && column === 'project'))
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" aria-label={isMobile ? t('register.fieldsMenuTitle') : t('register.columnsMenuTitle')} data-testid="search-register-columns">
+        <Button type="button" variant="ghost" size="sm" aria-label={menuTitle} data-testid="search-register-columns">
           <Columns3 aria-hidden />
-          {isMobile ? t('register.fieldsMenu') : t('register.columnsMenu')}
+          <MobileLayoutOnly as="span">{t('register.fieldsMenu')}</MobileLayoutOnly>
+          <DesktopLayoutOnly as="span">{t('register.columnsMenu')}</DesktopLayoutOnly>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>{isMobile ? t('register.fieldsMenuTitle') : t('register.columnsMenuTitle')}</DropdownMenuLabel>
+        <DropdownMenuLabel>{menuTitle}</DropdownMenuLabel>
         {offered.map((column) => (
           <DropdownMenuCheckboxItem
             key={column}
@@ -245,24 +249,25 @@ function SortMenu({ state, onStateChange, hideProject }: { state: SearchUrlState
 
 export function SearchRegister({ state, section, onStateChange, onLoadMore, hideProject = false, activeKey, listId, optionId }: SearchRegisterProps): JSX.Element {
   const t = useTranslations(searchCopy)
-  const isMobile = useIsMobile()
+  const marked = useIsMobileOnceKnown() !== null
   const columns = visibleRegisterColumns(state.columns, { hideProject })
   const menus = useHitMenus()
   const hits = section?.hits ?? []
   const fits = useColumnFits(columns, hits)
   return (
     <>
-      {isMobile ? (
-        <RegisterStack id={listId} label={t('register.caption')} testId="search-register">
+      <MobileLayoutOnly>
+        <RegisterStack id={marked ? listId : undefined} label={t('register.caption')} testId={marked ? 'search-register' : undefined}>
           {hits.map((hit) => (
-            <RegisterStackLine key={hit.id} hit={hit} columns={columns} active={activeKey === `document:${hit.id}`} id={optionId?.(hit)} />
+            <RegisterStackLine key={hit.id} hit={hit} columns={columns} active={activeKey === `document:${hit.id}`} id={optionId?.(hit)} marked={marked} />
           ))}
         </RegisterStack>
-      ) : (
+      </MobileLayoutOnly>
+      <DesktopLayoutOnly>
         <RegisterTable
-          id={listId}
+          id={marked ? listId : undefined}
           caption={t('register.caption')}
-          testId="search-register"
+          testId={marked ? 'search-register' : undefined}
           columns={fits}
           actionsRem={menus ? REGISTER_ACTIONS_WIDTH : 0}
           scrollLabel={t('register.scrollLabel')}
@@ -287,11 +292,11 @@ export function SearchRegister({ state, section, onStateChange, onLoadMore, hide
           </RegisterHead>
           <RegisterBody>
             {hits.map((hit) => (
-              <RegisterLine key={hit.id} hit={hit} columns={columns} active={activeKey === `document:${hit.id}`} id={optionId?.(hit)} />
+              <RegisterLine key={hit.id} hit={hit} columns={columns} active={activeKey === `document:${hit.id}`} id={optionId?.(hit)} marked={marked} />
             ))}
           </RegisterBody>
         </RegisterTable>
-      )}
+      </DesktopLayoutOnly>
       {section ? (
         <LoadMore
           hasMore={section.nextCursor !== null}
@@ -313,7 +318,9 @@ function useReadException(hit: DocumentHit): string | null {
   return family === 'readable' ? null : labels.readState(family)
 }
 
-function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns: readonly RegisterColumn[]; active: boolean; id?: string }): JSX.Element {
+type LineProps = { hit: DocumentHit; columns: readonly RegisterColumn[]; active: boolean; id?: string; marked: boolean }
+
+function RegisterLine({ hit, columns, active, id, marked }: LineProps): JSX.Element {
   const from = useSearchReturn()
   const t = useTranslations(searchCopy)
   const menus = useHitMenus()
@@ -371,7 +378,7 @@ function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns:
     }
   }
   return (
-    <RegisterRow active={active} id={id} testId={`search-register-row-${hit.id}`}>
+    <RegisterRow active={active} id={marked ? id : undefined} testId={marked ? `search-register-row-${hit.id}` : undefined}>
       {shown.map(cell)}
       {menus ? (
         <RegisterActionsCell>
@@ -382,7 +389,7 @@ function RegisterLine({ hit, columns, active, id }: { hit: DocumentHit; columns:
   )
 }
 
-function RegisterStackLine({ hit, columns, active, id }: { hit: DocumentHit; columns: readonly RegisterColumn[]; active: boolean; id?: string }): JSX.Element {
+function RegisterStackLine({ hit, columns, active, id, marked }: LineProps): JSX.Element {
   const from = useSearchReturn()
   const t = useTranslations(searchCopy)
   const labels = useSearchLabels()
@@ -414,7 +421,7 @@ function RegisterStackLine({ hit, columns, active, id }: { hit: DocumentHit; col
   }
   return (
     <RegisterStackRow
-      id={id}
+      id={marked ? id : undefined}
       href={documentHitHref(hit, from)}
       code={code || undefined}
       title={hit.title ?? hit.name}
@@ -428,7 +435,7 @@ function RegisterStackLine({ hit, columns, active, id }: { hit: DocumentHit; col
       }
       aside={hit.superseded ? <SupersededMark /> : shown.has('status') && exception ? <HitBadge>{exception}</HitBadge> : undefined}
       active={active}
-      testId={`search-register-row-${hit.id}`}
+      testId={marked ? `search-register-row-${hit.id}` : undefined}
       actions={menus ? <DocumentHitMenu hit={hit} /> : undefined}
     />
   )

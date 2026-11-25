@@ -63,45 +63,57 @@ export const onboarding = {
     stops: {
       welcome: {
         title: 'Welcome to {productName}',
-        body: 'Your organization is ready. Here is a quick look at where things live — it takes about a minute.',
+        body: 'Your organization is ready. Here is a quick look at where things live.',
       },
       welcomeJoined: {
         title: 'Welcome to {productName}',
-        body: 'This is where your team works on its building projects. Here is a quick look at where things live — it takes about a minute.',
+        body: 'This is where your office works on its projects, with {productName} as a colleague. Here is a quick look at where things live.',
       },
-      createProjectJoined: {
+      sides: {
+        title: 'Personal or project',
+        body: 'One switch, two sides. Personal: your own chats and “Meine Ablage”, for you alone. Project: everything about one building, with everyone working on it.',
+      },
+      sidesPhone: {
+        title: 'Personal or project',
+        body: 'One switch at the top of the chat, two sides. Personal: your own chats and “Meine Ablage”, for you alone. Project: everything about one building. There, the project name beside it opens your projects.',
+      },
+      projects: {
         title: 'Your projects',
-        body: 'Projects appear here as colleagues add you to them. You can also start one yourself: a project holds one building, its documents, the people on it, its tasks and research, and a chat in which {productName} works and cites every source.',
+        body: 'Click {productName} to open the project overview. Start a project there: one building with its files, its people and its chats.',
       },
-      createProject: {
-        title: 'Start with a project',
-        body: 'A project holds one building: its documents, the people working on it, its tasks and research, and a chat where {productName} works with you. Every source is cited, whether building law or your own files. A short setup asks about the building, then we show you around inside.',
+      projectsJoined: {
+        title: 'Your projects',
+        body: 'Click {productName} to open the project overview. Projects appear there as colleagues add you; you can start your own there too.',
+      },
+      morePhone: {
+        title: 'Everything else under “More”',
+        body: 'Your projects and “New project”, search, your office’s Office library, and your account, including switching to another office.',
+      },
+      morePhoneShelfless: {
+        title: 'Everything else under “More”',
+        body: 'Your projects and “New project”, search, and your account, including switching to another office.',
       },
       officeShelf: {
-        title: 'Office filing',
-        body: 'Your office’s shared documents — standard details, specifications, templates. File something here once and every project can draw on it.',
+        title: 'Office library',
+        body: 'Your office’s shared documents: standard details, specifications, templates. File something here once and every project draws on it.',
       },
       inbox: {
         title: 'Inbox',
         body: 'Mentions, requests and updates from your colleagues arrive here.',
       },
+      search: {
+        title: 'Search',
+        body: 'The magnifier finds any file, chat and project in the office.',
+        palette: 'Search',
+        cheatsheet: 'All shortcuts',
+      },
       account: {
-        title: 'Your organization',
-        body: 'Invite colleagues and manage roles under Organization. Theme, language and this tour live here too.',
+        title: 'Your account and office',
+        body: 'Profile, theme, language and this tour. Invite colleagues under Organization; if you belong to several offices, switch here.',
       },
       accountMember: {
         title: 'Your account',
-        body: 'Your profile, theme and language, and this tour whenever you want it again. Members and roles are managed by your organization’s admins.',
-      },
-      shortcuts: {
-        title: 'Move faster',
-        body: 'Two keys get you almost anywhere.',
-        palette: 'Jump to anything',
-        cheatsheet: 'All shortcuts',
-      },
-      searchPhone: {
-        title: 'Search and jump',
-        body: 'The magnifier at the top takes you to any project, any section and the office filing. A few letters are enough.',
+        body: 'Profile, theme, language and this tour. If you belong to several offices, switch here. Members and roles are managed by your admins.',
       },
       projectWelcome: {
         title: 'Your project is set up',
@@ -113,35 +125,39 @@ export const onboarding = {
       },
       projectChat: {
         title: 'Work with {productName}',
-        body: 'Talk to {productName} about this building in plain language, or hand it a task. It works from your files, Office filing and building law, and cites each source.',
+        body: 'Ask {productName} about this building, or hand it a task. Your earlier chats are below, under “Recent chats”.',
+      },
+      projectChatPhone: {
+        title: 'Work with {productName}',
+        body: 'Ask {productName} about this building, or hand it a task. “Chat” takes you back to your last chat.',
       },
       projectFiles: {
-        title: 'Files: this project’s documents',
-        body: 'Upload drawings, reports and correspondence for this building. Once a file has been read, {productName} can quote it, but only inside this project.',
-      },
-      projectOfficeShelf: {
-        title: 'Office filing: your office’s documents',
-        body: 'Office filing sits above your projects, and every project searches it automatically. It starts empty: admins add documents, and everyone in the organization can read and cite them.',
-      },
-      projectOfficeShelfPhone: {
-        title: 'Office filing: your office’s documents',
-        body: 'Office filing sits above your projects, and every project searches it automatically. You find it under “More”, with everything that is not in the bar.',
+        title: 'Documents',
+        body: 'Drawings, reports and correspondence for this building. Once a file has been read, {productName} quotes it, only inside this project.',
       },
       filesOrOfficeShelf: {
-        title: 'Files or Office filing?',
+        title: 'Documents or Office library?',
         body: 'Ask who the document belongs to.',
-        filesTerm: 'Files — this building',
+        filesTerm: 'Documents: this building',
         filesDetail: 'Its drawings, reports, correspondence. Cited only in this project.',
-        officeShelfTerm: 'Office filing — the office',
-        officeShelfDetail: 'Standard details, specifications, templates, earlier submissions worth reusing. Cited in every project.',
+        officeShelfTerm: 'Office library: the office',
+        officeShelfDetail: 'Standard details, specifications, templates. Cited in every project.',
+      },
+      filesOrOfficeShelfPhone: {
+        title: 'Documents or Office library?',
+        body: 'Ask who the document belongs to. You find the Office library under “More”.',
       },
       projectSources: {
         title: 'Every answer shows its sources',
-        body: 'Each claim is marked with where it came from — Building law, Project knowledge or Office filing — and opens the passage it rests on. If {productName} has no source for something, it says so.',
+        body: 'Each claim shows where it came from: building law, the project’s files or the Office library, and opens the passage. If {productName} has no source, it says so.',
       },
       projectSettings: {
-        title: 'Settings and members',
-        body: 'Invite the people working on this building, and revisit the project setup whenever the facts change.',
+        title: 'Switch projects, set this one up',
+        body: 'The project name opens the list of your projects. The cog beside a project leads to its settings: invite the people involved, adjust the key facts.',
+      },
+      projectSettingsPhone: {
+        title: 'People and key facts',
+        body: 'The “Project” tab shows where this project stands. Invite the people involved and adjust the key facts there.',
       },
     },
   },

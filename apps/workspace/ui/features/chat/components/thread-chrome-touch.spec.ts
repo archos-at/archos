@@ -142,7 +142,6 @@ describe('thread chrome on a phone', () => {
     'ui/features/runs/components/run-block/run-round-row',
     'ui/features/runs/components/run-block/run-separator',
     'ui/features/layout/components/SessionsPanel',
-    'ui/features/layout/components/sessions-panel/deep-research-section',
     'ui/features/layout/components/sessions-panel/session-item',
     'ui/features/layout/components/sessions-panel/session-status-icon',
   ])('%s sets no text under 12px', (stem) => {
@@ -183,7 +182,7 @@ describe('thread chrome on a phone', () => {
     expect([...status.classList]).toContain('flex')
   })
 
-  it('the scroll-to-latest button is 44px on a finger', async () => {
+  it('the scroll-to-latest button is 44px to a finger and 36px to the eye, low in the list\'s end gap on a phone', async () => {
     setConversation([question, answer])
     const { container } = render(createElement(ChatArea, { isAuthenticated: true, onSignIn: vi.fn() }))
     const region = screen.getByRole('region')
@@ -200,6 +199,8 @@ describe('thread chrome on a phone', () => {
 
     const button = container.querySelector('[data-attr="chat-scroll-to-latest"]') as HTMLElement
     expect(button).not.toBeNull()
-    expect([...button.classList]).toEqual(expect.arrayContaining(['size-9', 'pointer-coarse:size-11']))
+    expect([...button.classList]).toEqual(expect.arrayContaining(['size-9', 'touch-target']))
+    expect([...button.classList]).not.toContain('pointer-coarse:size-11')
+    expect(container.querySelector('[data-testid="chat-scroll-to-latest-dock"]')).toHaveClass('max-sm:bottom-[calc(var(--composer-h,11rem)+0.25rem)]')
   })
 })

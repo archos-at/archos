@@ -1,7 +1,6 @@
 'use client'
 
 import { type FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ReactFlowProvider } from '@xyflow/react'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { useLayoutStore } from '@/features/layout/store'
@@ -16,7 +15,7 @@ import {
 import { deriveTraceLanes } from '../../lib/trace-lanes'
 import { buildCitationModel } from '../../lib/citations'
 import { retrievalRounds } from '../../lib/retrieval-rounds'
-import { FALLBACK_W, measuredFanWidth, planFan } from './flow/flow-layout'
+import { FALLBACK_W, measuredFanWidth, planFan, sheetRoom } from './flow/flow-layout'
 import { defaultFoldedRounds, SpineFolding, GraphInteraction } from './flow/round-kind'
 import { buildGraph } from './flow/build-graph'
 import { FlowInner } from './flow/flow-inner'
@@ -52,7 +51,7 @@ export const ReasoningFlow: FC<ReasoningFlowProps> = (props) => {
     () => sourceCards ?? buildCitationModel({ traceLanes: deriveTraceLanes(steps), citations }),
     [sourceCards, steps, citations]
   )
-  const layout = useMemo(() => planFan(width || FALLBACK_W, cards.length), [width, cards.length])
+  const layout = useMemo(() => planFan(sheetRoom(width || FALLBACK_W), cards.length), [width, cards.length])
 
   const [foldOverrides, setFoldOverrides] = useState<ReadonlyMap<number, boolean>>(new Map())
   const rounds = useMemo(() => withActionRounds(retrievalRounds(steps), steps), [steps])
@@ -139,9 +138,7 @@ export const ReasoningFlow: FC<ReasoningFlowProps> = (props) => {
 
   return (
     <div ref={containerRef} className="flex w-full flex-col gap-3">
-      <ReactFlowProvider>
-        <FlowInner built={built} layout={layout} live={live ?? false} />
-      </ReactFlowProvider>
+      <FlowInner built={built} layout={layout} live={live ?? false} />
 
       {/* Looks the graph's round nodes do not draw (ADR-0128): all of them in a turn
           from before the action step, none in one that has it. */}

@@ -16,6 +16,7 @@ import { UPLOAD_TRAY_SHEET } from '@/features/documents/components/upload-tray-s
 import type { TrackedFile } from '@/features/documents/types'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
 import { UploadFab } from '@/features/documents/components/upload-fab'
+import { UnreadHint } from '@/features/documents/components/unread-hint'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
@@ -37,6 +38,8 @@ const UPLOADING: TrackedFile[] = [
   { id: 'up1', fileName: 'Brandschutzkonzept_Wohnhausanlage_Bauteil_C_Index-D.pdf', fileSize: 4_800_000, status: 'uploading', progress: 0, collectionName: 'dev', uploadStartedAt: 1, bytesUploaded: 3_000_000 },
   { id: 'up2', fileName: 'Fluchtwegplan_EG-2OG.pdf', fileSize: 1_200_000, status: 'uploading', progress: 0, collectionName: 'dev' },
 ]
+
+primeInboundMailWaiting('dev', { count: 3, more: false })
 
 function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const phone = usePhoneLayout()
@@ -63,7 +66,6 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const currentFolderName = FOLDERS.find((folder) => folder.id === folderNav.currentFolderId)?.name ?? null
   const projectName = projectNameFor(real)
 
-  primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
     <div className={inShell ? 'relative h-full' : 'relative h-dvh'}>
       <ProjectSectionFrame projectId="dev" projectName={projectName} pathname="/app/projects/dev/files" inboundMail>
@@ -72,11 +74,12 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
             phone={phone}
             view={view}
             onViewChange={setView}
-            renderFilter={(compact) => (
-              <FileFilterMenu canCollaborate filters={filters} onFiltersChange={setFilters} sort={sort} onSortChange={setSort} compact={compact} />
+            binHref="/dev/files-page?bin=1"
+            renderFilter={(compact, anchored) => (
+              <FileFilterMenu canCollaborate filters={filters} onFiltersChange={setFilters} sort={sort} onSortChange={setSort} compact={compact} anchored={anchored} />
             )}
-            search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
-            upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />}
+            search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear, placeholder: 'In der Projektablage suchen …' }}
+            upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} onImportMailArchive={() => {}} />}
             levelEntries={
               phone
                 ? [
@@ -109,6 +112,7 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
               folderNav={folderNav}
               selection={{ active: picking, selectedIds: picking ? picked : new Set(), onToggle: () => {}, onStart: () => {} }}
               rootToolsInMenu={phone}
+              unreadHint={params?.get('unread') === '1' ? <UnreadHint count={2} onShow={() => {}} /> : undefined}
               brief={
                 <FolderBrief
                   brief={buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)}

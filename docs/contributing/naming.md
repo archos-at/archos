@@ -165,7 +165,7 @@ glossary defines each word; this table settles the ones the repo used two ways.
 | One state of a document in its timeline (Fassung) | `revision` | `version` | |
 | A revision's approval record (Freigabestatus) | `version`, in the existing names only (`document_versions`, `document-version-*`) | `version` for anything else | "Version" for an approval record inverts the usual meaning; the rename to `approval` is [under review](#terms-under-review) |
 | A note on one page of a revision, with its thread (Anmerkung) | `annotation` (W3C Web Annotation) | `mark` | The agent's canvas tools still say `marks`/`mark`, under review |
-| The customer's account in WorkOS (Büro) | `organization` in identifiers (`organization_id`) | `office` | "Büro"/"office" stays in copy. Existing `office*` names that are established domain glosses stay: `officeShelf` (Büroablage) |
+| The customer's account in WorkOS (Büro) | `organization` in identifiers (`organization_id`) | `office` | "Büro"/"office" stays in copy. Existing `office*` names that are established domain glosses stay: `officeShelf` (Bürobibliothek) |
 | A thread with the agent and people in it | `conversation` (A2A `contextId`) | `chat`, `thread` | "Chat" names only the UI surface and the chat socket, never a package or an agent |
 | The source family that drives rendering | `SourceKind` | "provenance signal" | |
 | Request-scoped organization context | tenant context (`withTenant`, `MissingTenantContextError`) | "tenant slot" | |

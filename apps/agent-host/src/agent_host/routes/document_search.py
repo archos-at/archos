@@ -13,6 +13,7 @@ from agent.knowledge.base import LEXICAL_MATCH_KEY
 from agent.knowledge.base import BaseIngestor
 from agent.knowledge.schema import Chunk
 from agent.knowledge.scoping import _normalize_collection_name
+from agent.knowledge.scoping import signed_scope_names
 from agent.observability.direct_trace import observed_retrieval
 from agent.project_context import ORGANIZATION_ID_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
@@ -42,9 +43,7 @@ def _verified_collection_scope(http_request: Request) -> list[str] | None:
         http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
         os.environ.get("INTERNAL_API_TOKEN"),
     )
-    if ctx is None:
-        return None
-    return ctx.collection_scope
+    return signed_scope_names(ctx)
 
 
 def request_office(http_request: Request) -> str | None:

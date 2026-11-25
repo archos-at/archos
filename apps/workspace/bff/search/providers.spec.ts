@@ -26,6 +26,7 @@ vi.mock('./providers-repository', () => ({
 vi.mock('@/lib/conversations/restricted-use', () => ({ lockedConversationIds: vi.fn() }))
 
 import { lockedConversationIds } from '@/lib/conversations/restricted-use'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import {
   conversationReachOf,
   conversationTagsNamedBy,
@@ -144,11 +145,41 @@ describe('conversationReachOf', () => {
 })
 
 describe('searchConversations', () => {
-  const row = (id: string, title: string, projectId: string | null = P1) => ({
+  const row = (id: string, title: string, projectId: string | null = P1, extra: { createdBy?: string; personalShelfUsedAt?: Date | null } = {}) => ({
     id,
     projectId,
     title,
     updatedAt: new Date('2026-10-01T00:00:00Z'),
+    createdBy: 'user_me',
+    personalShelfUsedAt: null,
+    ...extra,
+  })
+
+  describe('a chat that read its owner’s shelf (ADR-0193)', () => {
+    const shelfUsed = new Date('2026-11-01T00:00:00Z')
+    const rows = () => [
+      row('s_own_shelf', 'Brandschutz privat', null, { personalShelfUsedAt: shelfUsed }),
+      row('s_their_shelf', 'Brandschutz Kollegin', null, { createdBy: 'user_ina', personalShelfUsedAt: shelfUsed }),
+      row('s_plain', 'Brandschutz Stiege', null),
+    ]
+    const ids = (found: { hits: { id: string }[] }) => found.hits.map((hit) => hit.id)
+    const search = () => searchConversations(session, reach(), 'Brandschutz', { limit: 10, offset: 0 })
+
+    beforeEach(() => {
+      vi.mocked(searchConversationRows).mockResolvedValue(rows())
+      vi.mocked(lockedConversationIds).mockResolvedValue(new Set())
+    })
+
+    it('stays in the person’s own search', async () => {
+      expect(ids(await search())).toEqual(['s_own_shelf', 's_their_shelf', 's_plain'])
+    })
+
+    it('is left out of an agent’s search, even its owner’s, unless the call may read the owner’s shelf', async () => {
+      const asAgent = await runAsActingSession(session, search, 'agent')
+      expect(ids(asAgent)).toEqual(['s_plain'])
+      const asOwnersShelfTurn = await runAsActingSession(session, search, 'agent', { ownShelfReadable: true })
+      expect(ids(asOwnersShelfTurn)).toEqual(['s_own_shelf', 's_plain'])
+    })
   })
 
   it('drops a withheld conversation before it is counted or shown', async () => {
@@ -204,6 +235,7 @@ describe('searchAnnotations', () => {
     documentId: 'd1',
     filename: 'EG.pdf',
     displayName: null,
+    scope: 'project' as const,
     projectId: P1,
     projectName: 'Wohnbau Hubergasse',
     kind: 'defect',

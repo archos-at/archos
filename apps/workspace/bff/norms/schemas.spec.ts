@@ -109,7 +109,7 @@ describe('normsFileSchema', () => {
 
   it('defaults the CountryProfile override fields when absent', () => {
     const parsed = normsFileSchema.parse({ version: 1, entries: [] })
-    expect(parsed.corpus_collection).toBe('oib_knowledge')
+    expect(parsed.corpus_collection).toBe('base_corpus')
     expect(parsed.language).toBe('')
     expect(parsed.states).toEqual({})
     expect(parsed.corpus_note).toBe('')
@@ -184,7 +184,7 @@ describe('backend null contract (regression: Register konnte nicht geladen werde
       version: 1,
       registry: {
         version: 1,
-        corpus_collection: 'oib_knowledge',
+        corpus_collection: 'base_corpus',
         language: '',
         states: { wien: 'Wien', ausserhalb_oesterreichs: null },
         corpus_note: '',

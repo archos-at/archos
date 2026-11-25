@@ -21,6 +21,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: vi.fn().mockResolvedValue('https://seaweedfs.internal/presigned'),
 }))
 vi.mock('./repository', () => ({
+  folderIsInBin: vi.fn(async () => false),
   findDocumentInOrg: vi.fn(),
   listDocumentLevelPage: vi.fn().mockResolvedValue({ rows: [], nextCursor: null }),
   findProjectDocumentsByFilenames: vi.fn().mockResolvedValue([]),
@@ -245,7 +246,7 @@ describe('a held document re-dispatched with an earlier pass on record', () => {
   })
 })
 
-describe('a quarantined Büroablage document', () => {
+describe('a quarantined Bürobibliothek document', () => {
   beforeEach(() => {
     store(quarantined({ scope: 'office_shelf', projectId: null }))
   })

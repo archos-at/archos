@@ -1059,7 +1059,7 @@ services:
     #   - Healthy only while clamd answers and its signatures are younger than
     #     48 hours: the Kubernetes readiness check, `$` doubled for Compose, and
     #     the age past which the BFF refuses every scan.
-    image: clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d
+    image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
     profiles: [malware-scan]
     environment:
       - FRESHCLAM_CHECKS=12

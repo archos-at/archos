@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     Text in a source document can now be selected and copied, and on request a

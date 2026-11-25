@@ -1,56 +1,173 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useMemo } from 'react'
-import { usePathname } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
+import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
+import { readRecentProjectIds } from '@/components/shell/recent-projects'
+import { shownSide, useRailSide } from '@/components/shell/rail-side'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
-import { useChatStore } from '@/features/chat/store'
+import { serverSideKey, useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { useSessionRows } from '../hooks/use-session-rows'
+import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { useLayoutStore } from '../store'
+import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
+
+export function chatPathOf(projectId: string | null): string {
+  return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : PERSONAL_CHAT_PATH
+}
+
+export function confirmedOnSide<T extends { id: string; createdAt: Date; untouched: boolean }>(
+  rows: readonly T[],
+  listing: { ids: readonly string[]; since: number } | undefined,
+  isOpen: (row: T) => boolean
+): T[] {
+  const confirmed = new Set(listing?.ids ?? [])
+  return rows.filter(
+    (row) => !row.untouched && (isOpen(row) || confirmed.has(row.id) || (listing !== undefined && +new Date(row.createdAt) >= listing.since))
+  )
+}
+
+export function newestWithCurrent<T>(rows: readonly T[], limit: number, isCurrent: (row: T) => boolean): T[] {
+  const newest = rows.slice(0, limit)
+  if (newest.some(isCurrent)) return newest
+  const current = rows.find(isCurrent)
+  return current ? [...rows.slice(0, limit - 1), current] : newest
+}
+
+const under = (pathname: string, base: string): boolean => pathname === base || pathname.startsWith(`${base}/`)
 
 export function RailChatsProvider({ children, pathname: pathnameOverride }: { children: ReactNode; pathname?: string }): JSX.Element {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
-  const projectId = projectIdFromPathname(pathname)
-  const rows = useSessionRows(projectId)
+  const routeMode = railModeOf(pathname)
+  const pending = useRailSide((state) => state.pending)
+  const shown = shownSide(pending, routeMode ? { mode: routeMode, projectId: projectIdFromPathname(pathname) } : null)
+  const mode = shown?.mode ?? null
+  const projectId = shown?.projectId ?? null
+  const side = mode === 'project' ? projectId : null
+  const sideRows = useSessionRows(side)
+  const listing = useChatStore((s) => (mode === null ? undefined : s.serverSides[serverSideKey(mode, side)]))
+  const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
   const selectConversation = useChatStore((s) => s.selectConversation)
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
+  const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
+  const deleteConversation = useChatStore((s) => s.deleteConversation)
+  const deleteFeedback = useChatDeleteFeedback()
+  const router = useRouter()
+  const [deleting, setDeleting] = useState<string | null>(null)
   const t = useTranslations(researchCopy)
   const tCollab = useTranslations(collaborationCopy)
 
-  const chatHref = projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : ''
-  const onChatRoute = chatHref !== '' && (pathname === chatHref || pathname.startsWith(`${chatHref}/`))
+  const allHref = chatPathOf(mode === 'personal' ? null : projectId)
+  const onChatPath = useCallback((rowProjectId: string | null) => under(pathname, chatPathOf(rowProjectId)), [pathname])
+  const rows = useMemo(
+    () => confirmedOnSide(sideRows, listing, (row) => onChatPath(row.projectId) && row.id === openId),
+    [sideRows, listing, onChatPath, openId]
+  )
+  const projectOf = useMemo(() => new Map(rows.map((row) => [row.id, row.projectId])), [rows])
 
   const onOpen = useCallback(
     (id: string) => {
-      if (onChatRoute) selectConversation(id)
+      if (onChatPath(projectOf.get(id) ?? null)) selectConversation(id)
     },
-    [onChatRoute, selectConversation]
+    [onChatPath, projectOf, selectConversation]
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
 
+  const [loadingSides, setLoadingSides] = useState<ReadonlyMap<string, number>>(() => new Map())
+  const loadSide = useCallback(
+    (sideProjectId: string | null): void => {
+      const key = sideProjectId ? serverSideKey('project', sideProjectId) : serverSideKey('personal')
+      const count = (step: 1 | -1) => (was: ReadonlyMap<string, number>) => {
+        const next = new Map(was)
+        const left = (was.get(key) ?? 0) + step
+        if (left > 0) next.set(key, left)
+        else next.delete(key)
+        return next
+      }
+      setLoadingSides(count(1))
+      const settled = (): void => setLoadingSides(count(-1))
+      const load = sideProjectId ? loadServerConversations(sideProjectId, 'project') : loadServerConversations(undefined, 'personal')
+      void Promise.resolve(load).then(settled, settled)
+    },
+    [loadServerConversations]
+  )
+  const loading = mode !== null && listing === undefined && loadingSides.has(serverSideKey(mode, side))
+  const onWarmOtherSide = useCallback((): void => {
+    if (mode === 'project') loadSide(null)
+    const recent = mode === 'personal' ? readRecentProjectIds()[0] : undefined
+    if (recent) loadSide(recent)
+  }, [mode, loadSide])
+
+  const userId = useChatStore((s) => s.currentUserId)
+  useEffect(() => {
+    if (mode === 'personal') loadSide(null)
+    else if (mode === 'project' && projectId) loadSide(projectId)
+  }, [mode, projectId, loadSide, userId])
+  const warmedOnMount = useRef(false)
+  useEffect(() => {
+    if (mode === null || warmedOnMount.current) return
+    warmedOnMount.current = true
+    onWarmOtherSide()
+  }, [mode, onWarmOtherSide])
+
   const value = useMemo<RailChats | null>(() => {
-    if (!projectId) return null
+    if (mode === null) return null
     return {
-      items: rows.slice(0, RAIL_CHAT_LIMIT).map((row) => ({
+      items: newestWithCurrent(rows, RAIL_CHAT_LIMIT, (row) => onChatPath(row.projectId) && row.id === openId).map((row) => ({
         id: row.id,
-        title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || t('sessionsPanel.untitledSession'),
-        href: `${chatHref}?session=${encodeURIComponent(row.id)}`,
-        current: onChatRoute && row.id === openId,
+        title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || (row.titleProvisional ? '' : t('sessionsPanel.untitledSession')),
+        provisional: !row.contentLocked && row.titleProvisional,
+        href: `${chatPathOf(row.projectId)}?session=${encodeURIComponent(row.id)}`,
+        current: onChatPath(row.projectId) && row.id === openId,
         temporary: row.temporary,
+        projectId: row.projectId,
+        shared: row.shared,
+        locked: row.contentLocked,
         activity: row.activity,
       })),
-      allHref: chatHref,
+      chatOpen: rows.some((row) => onChatPath(row.projectId) && row.id === openId),
+      allHref,
       onOpen,
       onOpenAll,
+      onRename: updateConversationTitle,
+      onDelete: setDeleting,
+      onWarmOtherSide,
+      more: rows.length > RAIL_CHAT_LIMIT,
+      loading,
     }
-  }, [projectId, rows, chatHref, onChatRoute, openId, onOpen, onOpenAll, t, tCollab])
+  }, [mode, rows, loading, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, onWarmOtherSide, t, tCollab])
 
-  return <RailChatsSource value={value}>{children}</RailChatsSource>
+  const confirmDelete = async (): Promise<void> => {
+    if (!deleting) return
+    const deletedChatPath = chatPathOf(projectOf.get(deleting) ?? null)
+    const wasOpen = deleting === openId
+    try {
+      await deleteConversation(deleting)
+    } catch (error) {
+      deleteFeedback.failed(error, 'one')
+      throw error
+    }
+    if (under(pathname, deletedChatPath) && wasOpen) router.replace(deletedChatPath)
+    setDeleting(null)
+  }
+
+  return (
+    <RailChatsSource value={value}>
+      {children}
+      <DeleteSessionConfirmationModal
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={confirmDelete}
+        sessionTitle={rows.find((row) => row.id === deleting)?.title || t('sessionsPanel.untitledSession')}
+      />
+    </RailChatsSource>
+  )
 }

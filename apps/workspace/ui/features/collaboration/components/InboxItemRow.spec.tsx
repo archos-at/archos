@@ -921,7 +921,7 @@ describe('InboxItemRow — a colleague’s work on a mark, in the reader’s wor
 
   test('says by when the Zuständige is responsible, when the mark has a date', () => {
     german(onMark({ dueOn: '2026-10-24' }))
-    expect(screen.getByTestId('inbox-item-due')).toHaveTextContent('Frist 24. Okt. 2026')
+    expect(screen.getByTestId('inbox-item-due')).toHaveTextContent('Frist 24.10.2026')
     expectBodyOnlyInPush(
       onMark({ dueOn: '2026-10-24' }),
       'Sie sind dafür zuständig, bis 24. Okt. 2026. Antworten Sie im Verlauf oder erledigen Sie die Anmerkung.',
@@ -1408,7 +1408,7 @@ describe('InboxItemRow — who and what at a glance', () => {
     expect(row).toHaveAttribute('data-focus-inset')
   })
 
-  test('a filing suggestion says it waits on the file under Dateien, not in a chat', () => {
+  test('a filing suggestion says it waits on the file in the Ablage, not in a chat', () => {
     renderPlain(
       <I18nProvider initialLocale="de" fixedLocale>
         <InboxItemRow
@@ -1428,7 +1428,7 @@ describe('InboxItemRow — who and what at a glance', () => {
       </I18nProvider>,
     )
     expect(
-      screen.getByText('Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.'),
+      screen.getByText('Der Vorschlag steht bei der Datei in der Ablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.'),
     ).toBeInTheDocument()
   })
 })

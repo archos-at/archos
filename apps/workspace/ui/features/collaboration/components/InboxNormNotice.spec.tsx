@@ -1,15 +1,13 @@
 import type { ReactNode } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen, within } from '@/test-utils'
+import { render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import type { InboxItemView } from '@/lib/inbox/types'
 import type { ProposalResponse } from '@/lib/proposals/types'
-import { waitingGroups } from '../lib/inbox-queue'
 import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
 import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
 import { InboxItemRow } from './InboxItemRow'
-import { InboxQueueList } from './InboxQueueList'
 import type { InboxNormDecisionClient } from './InboxNormSuggestionDecision'
 
 vi.mock('next/navigation', () => ({
@@ -84,51 +82,23 @@ const row = (item: InboxItemView) =>
     </I18nProvider>,
   )
 
-const queue = (items: InboxItemView[]) =>
-  render(
-    <I18nProvider initialLocale="de" fixedLocale>
-      <NormDialogProvider dialog={NormDialog}>
-        <InboxQueueList
-          groups={waitingGroups(items, '2026-11-19')}
-          news={[]}
-          waitingCount={items.length}
-          lateCount={0}
-          currentId={null}
-          hrefOf={(item) => item.href}
-          onFollow={vi.fn()}
-        />
-      </NormDialogProvider>
-    </I18nProvider>,
-  )
-
-const entryOf = (id: string): HTMLElement =>
-  screen.getAllByTestId('inbox-queue-entry').find((entry) => entry.getAttribute('data-item-id') === id)!
-
 describe('a new edition of a norm the office holds, in the Postfach', () => {
   test('is headed by the norm the office holds, and says which edition binds, under what, and which projects it concerns', () => {
-    queue([edition])
-    const entry = entryOf('i-edition')
-    expect(entry.firstElementChild).toHaveTextContent('ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe')
-    expect(entry).toHaveTextContent(
+    row(edition)
+    expect(screen.getByTestId('inbox-item-link')).toHaveTextContent('ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe')
+    expect(screen.getByTestId('inbox-norm-lines')).toHaveTextContent(
       'Verbindlich ist die Ausgabe 2023-02-01, laut OIB-RL 4 2023. Betrifft: Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
     )
+    expect(screen.queryByTestId('inbox-item-excerpt')).not.toBeInTheDocument()
   })
 
   test('uploads the new edition from the norm’s entry, or opens the edition the office holds', () => {
-    queue([edition])
+    row(edition)
     expect(screen.getByRole('link', { name: 'Neue Ausgabe hochladen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b1600')
     expect(screen.getByRole('link', { name: 'ÖNORM B 1600:2017 in Normen & Richtlinien ansehen' })).toHaveAttribute(
       'href',
       '/app/base-knowledge?file=edition_b1600',
     )
-  })
-
-  test('reads the same in the full list', () => {
-    row(edition)
-    expect(screen.getByTestId('inbox-item-link')).toHaveTextContent('ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe')
-    expect(screen.getByTestId('inbox-norm-lines')).toHaveTextContent('Betrifft: Wohnbau Seestadt Baufeld D12')
-    expect(screen.queryByTestId('inbox-item-excerpt')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Neue Ausgabe hochladen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b1600')
   })
 
   test('offers nothing more once the office holds the edition or no project is affected', () => {
@@ -137,17 +107,16 @@ describe('a new edition of a norm the office holds, in the Postfach', () => {
   })
 })
 
-describe('a norm suggested for the Büroablage, the one norm item that asks for a decision', () => {
-  test('a norm suggested for the Büroablage is accepted or declined right in the queue', () => {
-    queue([suggested])
-    const entry = entryOf('i-suggest')
-    expect(entry.firstElementChild).toHaveTextContent('Anna Berger schlägt eine Norm für die Büroablage vor')
-    expect(within(entry).getByTestId('inbox-norm-names')).toHaveTextContent('ÖNORM B 3691')
-    expect(screen.getByRole('button', { name: 'In die Büroablage übernehmen' })).toBeEnabled()
+describe('a norm suggested for the Bürobibliothek, the one norm item that asks for a decision', () => {
+  test('a norm suggested for the Bürobibliothek is accepted or declined right on its entry', () => {
+    row(suggested)
+    expect(screen.getByTestId('inbox-item-link')).toHaveTextContent('Anna Berger schlägt eine Norm für die Bürobibliothek vor')
+    expect(screen.getByTestId('inbox-norm-names')).toHaveTextContent('ÖNORM B 3691')
+    expect(screen.getByRole('button', { name: 'In die Bürobibliothek übernehmen' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Ablehnen' })).toBeEnabled()
   })
 
-  test('reads as itself in the full list too, with its decision', async () => {
+  test('answers with what was decided', async () => {
     row(suggested)
     await userEvent.click(screen.getByRole('button', { name: 'Ablehnen' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Abgelehnt. Die Norm bleibt im Projekt.')

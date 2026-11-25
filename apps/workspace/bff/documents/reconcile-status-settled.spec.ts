@@ -128,6 +128,29 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     expect(sent.properties.error_category).toBeUndefined()
   })
 
+  it('sends the reason the job reported for a failure whose message has no prefix', async () => {
+    makeDbMock()
+    backend({
+      status: 'failed',
+      error_message: '1/1 file(s) failed',
+      file_details: [
+        {
+          file_name: 'plan.pdf',
+          status: 'failed',
+          error_message: 'No content extracted (file may be password-protected, corrupted, or empty)',
+          failure_category: 'deterministic',
+          failure_reason: 'no_content',
+          retryable: false,
+        },
+      ],
+    })
+
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'sweep')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({ status: 'failed', error_reason: 'no_content', error_category: 'deterministic' })
+  })
+
   it('sends the failure category the job reported, the one the row stores', async () => {
     makeDbMock()
     backend({

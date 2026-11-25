@@ -7,8 +7,10 @@ import { filingBody, fileThroughDialog, openSaveDialog, stubFetch } from './draf
 const setCardDecision = vi.fn()
 const setComposerPrefill = vi.fn()
 
+const store = vi.hoisted(() => ({ projectId: 'proj-1' as string | null }))
+
 const storeState = () => ({
-  projectId: 'proj-1',
+  projectId: store.projectId,
   setCardDecision,
   setComposerPrefill,
   currentConversation: { id: 'conv-1', messages: [{ id: 'msg-1' }] },
@@ -156,8 +158,138 @@ describe('FileDraftCard — filing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     thumbnail.calls = []
+    store.projectId = 'proj-1'
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  it('saves a file of a personal chat into a folder of Meine Ablage it chose, and opens it there', async () => {
+    store.projectId = null
+    stubFetch(filedResponse(null))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save to Meine Ablage' }))
+    await screen.findByRole('heading', { name: 'Save to Meine Ablage' })
+    expect(fetch).toHaveBeenCalledWith('/api/personal-shelf/folders')
+    await user.click(await screen.findByRole('button', { name: 'Open folder “Planung”' }))
+    await user.click(screen.getByTestId('save-to-project-submit'))
+
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Saved in Meine Ablage'))
+    expect(filingBody()).toEqual(expect.objectContaining({ path: XLSX.path, title: XLSX.title, force: false, folderId: 'f-plan' }))
+    expect(screen.getByText('In Meine Ablage')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open in Meine Ablage' })).toHaveAttribute(
+      'href',
+      '/app/personal-shelf?doc=doc-1',
+    )
+    expect(screen.queryByText(/project/i)).not.toBeInTheDocument()
+  })
+
+  it('names the confidential sources, files only once the person confirmed they checked it, and asks again next time', async () => {
+    let calls = 0
+    stubFetch(() => {
+      calls += 1
+      if (calls === 1) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({
+            error: 'release',
+            code: 'CONFIDENTIAL_RELEASE_REQUIRED',
+            details: {
+              reason: 'confidential-release',
+              sources: [
+                { kind: 'folder', name: 'Verträge' },
+                { kind: 'project', name: 'Wohnbau Nord' },
+              ],
+            },
+          }),
+        })
+      }
+      return filedResponse('Planung')()
+    })
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    const notice = await screen.findByTestId('draft-confidential-release')
+    expect(within(notice).getByTestId('draft-confidential-sources')).toHaveTextContent('Folder “Verträge”')
+    expect(within(notice).getByTestId('draft-confidential-sources')).toHaveTextContent('Project “Wohnbau Nord”')
+    expect(filingBody(0)).not.toHaveProperty('release')
+
+    await user.click(within(notice).getByTestId('draft-confidential-file'))
+    expect(calls).toBe(1)
+
+    await user.click(within(notice).getByTestId('draft-confidential-confirm'))
+    await user.click(within(notice).getByTestId('draft-confidential-file'))
+
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Planung”'))
+    expect(filingBody(1)).toEqual(expect.objectContaining({ release: true }))
+    expect(screen.queryByTestId('draft-confidential-release')).not.toBeInTheDocument()
+  })
+
+  it('starts each release request unticked, and keeps the accepted same-name override on the release', async () => {
+    const release = {
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'release',
+        code: 'CONFIDENTIAL_RELEASE_REQUIRED',
+        details: { reason: 'confidential-release', sources: [{ kind: 'folder', name: 'Verträge' }] },
+      }),
+    }
+    const sameName = {
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'taken', code: 'CONFLICT', details: { reason: 'same-name', documentId: 'doc-old', displayName: 'Raumbuch.xlsx' } }),
+    }
+    const answers = [sameName, release, release, release]
+    stubFetch(() => Promise.resolve(answers.shift() ?? filedResponse('Planung')()))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+    await user.click(await screen.findByRole('button', { name: 'File anyway' }))
+    const notice = await screen.findByTestId('draft-confidential-release')
+    expect(filingBody(1)).toEqual(expect.objectContaining({ force: true }))
+
+    await user.click(within(notice).getByTestId('draft-confidential-confirm'))
+    await user.click(within(notice).getByTestId('draft-confidential-file'))
+    await waitFor(() => expect(filingBody(2)).toEqual(expect.objectContaining({ force: true, release: true })))
+
+    const again = await screen.findByTestId('draft-confidential-release')
+    expect(within(again).getByTestId('draft-confidential-confirm')).not.toBeChecked()
+  })
+
+  it('asks for the release on updating a filed draft too', async () => {
+    stubFetch(() =>
+      Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: 'release',
+          code: 'CONFIDENTIAL_RELEASE_REQUIRED',
+          details: { reason: 'confidential-release', sources: [{ kind: 'project', name: 'Schule Nord' }] },
+        }),
+      }),
+    )
+    const user = userEvent.setup()
+    render(
+      <FileDraftCard
+        {...XLSX}
+        version={2}
+        filedDraftVersion={1}
+        documentId="00000000-0000-4000-8000-000000000001"
+        versionId="00000000-0000-4000-8000-0000000000a1"
+        versionState="published"
+      />,
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'Update in the project' }))
+
+    const notice = await screen.findByTestId('draft-confidential-release')
+    expect(notice).toHaveTextContent('Project “Schule Nord”')
+  })
 
   it('files the file through the save dialog, then says where it lies and offers the project', async () => {
     stubFetch(filedResponse('Berichte'))

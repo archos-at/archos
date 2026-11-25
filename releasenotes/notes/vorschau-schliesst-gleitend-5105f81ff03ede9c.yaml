@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    Closing the file preview beside the chat no longer makes the chat jump
+    sideways: the preview glides out and the chat widens with it, just as it
+    narrows when the preview opens.

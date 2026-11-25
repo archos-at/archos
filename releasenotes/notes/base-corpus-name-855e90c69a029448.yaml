@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    The base corpus is now stored as base_corpus instead of oib_knowledge. The
+    backend moves existing data by itself after the next rollout: the vector
+    index, the document metadata and ingest jobs, and the sources stored in
+    answers. Nothing has to be run by hand. The deploy no longer sets
+    COLLECTION_NAME, and the name is no longer configurable.

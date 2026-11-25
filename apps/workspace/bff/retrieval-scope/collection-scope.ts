@@ -1,6 +1,8 @@
 import type { UserSession } from '@/lib/auth/types'
 
-export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
+export const COLLECTION_SHELVES = ['office_shelf', 'project', 'session', 'base', 'personal'] as const
+
+export type CollectionShelf = (typeof COLLECTION_SHELVES)[number]
 
 export interface ScopedCollection {
   collection: string
@@ -22,8 +24,16 @@ export interface ScopeContext {
   restrictedCollections?: readonly string[]
 }
 
+export const BASE_CORPUS_COLLECTION = 'base_corpus'
+// drop after release 2027-W02
+export const LEGACY_BASE_CORPUS_COLLECTION = 'oib_knowledge'
+
+export function isBaseCorpusCollection(name: string): boolean {
+  return name === BASE_CORPUS_COLLECTION || name === LEGACY_BASE_CORPUS_COLLECTION
+}
+
 export function resolveBaseCollectionName(): string {
-  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  return BASE_CORPUS_COLLECTION
 }
 
 export function computeCollectionScope(
@@ -55,4 +65,8 @@ export function computeCollectionScope(
 
 export function buildCollectionScopeHeader(scope: string[]): string {
   return Buffer.from(JSON.stringify(scope)).toString('base64url')
+}
+
+export function encodeCollectionScopeHeader(collections: ScopedCollection[]): string {
+  return Buffer.from(JSON.stringify(collections)).toString('base64url')
 }

@@ -210,6 +210,7 @@ export function summaryView(
     receivedAt: new Date(mail.receivedAt).toISOString(),
     expiresAt: new Date(mail.expiresAt).toISOString(),
     attachments: parts.filter((part) => part.kind === 'attachment').length,
+    attachmentNames: parts.flatMap((part) => (part.kind === 'attachment' && part.filename ? [part.filename] : [])),
     waitingParts: parts.filter((part) => part.state === 'waiting').length,
     outcomes: { filed: count('filed'), dismissed: count('dismissed'), expired: count('expired') },
     restorableUntil: until.at(-1) ?? null,

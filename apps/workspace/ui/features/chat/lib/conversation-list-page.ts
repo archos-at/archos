@@ -1,0 +1,1 @@
+export const CONVERSATION_LIST_PAGE = 200

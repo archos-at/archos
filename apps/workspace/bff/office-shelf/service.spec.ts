@@ -64,6 +64,7 @@ vi.mock('@/lib/documents/revision-links-loader', () => ({ loadRevisionLinks: vi.
 vi.mock('@/lib/annotations/repository', () => ({ tallyLiveMarks: vi.fn(async () => new Map()) }))
 
 vi.mock('@/lib/documents/repository', () => ({
+  folderIsInBin: vi.fn(async () => false),
   findLiveDocumentByFilename: vi.fn().mockResolvedValue(null),
   findFolderPathInOfficeShelf: vi.fn().mockResolvedValue(null),
   findDocumentInOrg: vi.fn(async (id: string) =>
@@ -249,7 +250,7 @@ describe('listOfficeShelf', () => {
     })
   })
 
-  it('lists every quarantined file to a curator of the Büroablage (ADR-0086)', async () => {
+  it('lists every quarantined file to a curator of the Bürobibliothek (ADR-0086)', async () => {
     vi.mocked(listOfficeShelfDocumentLevel).mockResolvedValue({ rows: [], nextCursor: null })
     vi.mocked(reconcileDocumentStatuses).mockResolvedValue([])
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)

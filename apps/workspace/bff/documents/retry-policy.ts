@@ -10,6 +10,7 @@ export interface IngestFailureFacts {
   category: IngestFailureCategory | null
   retryable: boolean | null
   readerVersion: string | null
+  reason?: string | null
 }
 
 export interface RetryFacts {

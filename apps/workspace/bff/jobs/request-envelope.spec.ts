@@ -17,7 +17,7 @@ const session = { organizationId: 'org_1', userId: 'user_1' } as UserSession
 const scope: AuthorizedJobScope = {
   projectId: 'p-1',
   scopedCollections: [
-    { collection: 'oib_knowledge', shelf: 'base' },
+    { collection: 'base_corpus', shelf: 'base' },
     { collection: 'archiv_org_1', shelf: 'office_shelf' },
     { collection: 'proj_p1', shelf: 'project' },
     { collection: 's_conv-1', shelf: 'session' },
@@ -67,7 +67,7 @@ describe('signJobRequestContext', () => {
     const envelope = signed({ ...scope, projectReadOnly: true })
     expect(envelope.projectId).toBeNull()
     expect(envelope.collectionScope).not.toContain('proj_p1')
-    expect(envelope.collectionScope).toEqual(['oib_knowledge', 'archiv_org_1', 's_conv-1'])
+    expect(envelope.collectionScope).toEqual(['base_corpus', 'archiv_org_1', 's_conv-1'])
     expect(envelope.conversationId).toBe('conv-1')
   })
 })

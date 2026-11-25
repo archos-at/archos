@@ -1,5 +1,5 @@
 version: 1
-corpus_collection: oib_knowledge
+corpus_collection: base_corpus
 entries:
 - id: bo-wien
   title: Bauordnung für Wien

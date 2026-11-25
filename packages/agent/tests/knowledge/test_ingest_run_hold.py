@@ -185,3 +185,13 @@ def test_a_cancel_pushes_in_the_background(db, token):
         ingest_settle_push._pusher.submit(lambda: None).result(timeout=5)  # the push before it has run
 
     assert sent.call_count == 1
+
+
+def test_a_job_of_the_old_base_corpus_name_reads_as_base_corpus_once_the_schema_runs(db):
+    ingest_status_store.put(_status().model_copy(update={"collection_name": "oib_knowledge"}))
+    ingest_status_store._initialized.discard(db)
+
+    assert ingest_status_store.get("job-1").collection_name == "base_corpus"
+    with DocumentMetadataStore._get_or_create_sync_engine(db).begin() as conn:
+        column = conn.execute(text("SELECT collection_name FROM ingest_jobs WHERE job_id = 'job-1'")).scalar()
+    assert column == "base_corpus"

@@ -4,7 +4,7 @@ Every project can have its own e-mail address. Put it in Cc when you write to
 the Behörde, the Statik or the Bauherrschaft, or forward a mail to it. A mail
 you send yourself, from your own office address, is **filed directly** when
 your domain confirms it and you may file in the project. Every other mail lands
-in the project's **E-Mail-Eingang** in Dateien and waits until someone files
+in the project's **E-Mail-Eingang** in the Ablage and waits until someone files
 it: its text into the conversation's **E-Mail-Verlauf**, its attachments into
 the project's folders, each as a new document or the next Fassung of one.
 
@@ -13,7 +13,7 @@ people who already write in an E-Mail-Verlauf you filed into: those are filed
 without a click (see below). ARCHOS reads a mail only once it is filed.
 
 Project mail is switched on per office. If you do not see „E-Mail-Eingang“ in
-Dateien, your office does not have it yet.
+the Ablage, your office does not have it yet.
 
 ---
 
@@ -29,7 +29,7 @@ directly (below); everything else waits for a person.
 
 Find it on the project overview (the tile „E-Mail-Adresse des Projekts“, for
 whoever may decide the project's mail), under **Mehr zur Adresse** in the
-E-Mail-Eingang, in Dateien under the upload menu (**Per E-Mail senden …**) and
+E-Mail-Eingang, in the Ablage under the upload menu (**Per E-Mail senden …**) and
 under **Einstellungen › Dokumente**. Each leads with that sentence, the address
 and **Kopieren**, then:
 
@@ -39,7 +39,7 @@ and **Kopieren**, then:
   address and the sentence, for your team or anyone else you choose.
 - The size: up to 25 MB per e-mail, attachments together about 18 MB. A larger
   e-mail goes back to its sender as undeliverable; **Größere Dateien direkt
-  hochladen** leads to Dateien.
+  hochladen** leads to the Ablage.
 - The E-Mail-Eingang is not the Postfach: it holds mail sent to the project,
   the Postfach notices for you.
 - **Für die IT: Einrichtung**, folded: the Outlook redirect for an existing
@@ -185,6 +185,18 @@ below, in a folded group. „Bearbeitet“ lists what was filed, dismissed or ex
 saying which and where a filed mail went („Abgelegt → „Stellplatznachweis““);
 a mail filed without a click says „Ohne Klick abgelegt →“ and the
 E-Mail-Verlauf it went into. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
+
+**Im E-Mail-Eingang suchen …**, the search at the start of the Ablage's tool
+row, where Dateien has its own, narrows the list as you type: to the mails
+whose sender, subject or attachment names hold every word you typed
+(„novak plan“ finds Novak's mail with „Gerüstplan_Süd.pdf“). It searches the
+list on show, „Wartet auf Ablage“ or „Bearbeitet“, and only the mails loaded
+so far: after „Weitere laden“ it searches those too. The search stays in the
+page's address (`?q=`), so opening a mail, the next one after filing, or a
+reload keeps it; switching between „Wartet auf Ablage“ and „Bearbeitet“
+clears it. When nothing matches the list says so („Keine E-Mail passt zu
+„statik““) with **Suche leeren**; Escape in the field clears it too. On a
+phone the search stands at the top of the list, under the two lists' switch.
 
 ## Filing a mail
 
@@ -342,7 +354,7 @@ wie vorgeschlagen ablegen“. Its replies that need a look are a group under
 **After filing** each part says where it went: „Abgelegt in
 Behörde/Bescheide · Fassung 1 · Öffnen“, „In E-Mail-Verlauf
 „Stellplatznachweis“ abgelegt · Öffnen“. Where you may not read
-the folder it says only „In Dateien abgelegt“. A toast lists every part. A
+the folder it says only „In der Ablage abgelegt“. A toast lists every part. A
 filing has no undo; „Öffnen“ takes you to the document.
 
 ## Dismissing, expiring, restoring
@@ -398,7 +410,7 @@ document reads oldest first, like a printed file. Each later e-mail adds a
 Fassung, and the newest Fassung holds the whole conversation. ARCHOS answers
 from it and cites one e-mail: „laut E-Mail von … vom …“.
 
-In Dateien a Verlauf is listed as what it is: an envelope instead of a page,
+In the Ablage a Verlauf is listed as what it is: an envelope instead of a page,
 its name without „.md“, „3 E-Mails · zuletzt 14.10.2026“ under it and
 „E-Mail-Verlauf“ where other files name their format. Its preview header reads
 „E-Mail-Verlauf · 3 E-Mails“. Neither shows a Freigabe state for a Verlauf:
@@ -407,7 +419,7 @@ its Fassungen are its e-mails, which nobody releases.
 A Bescheid that arrived by e-mail is a **copy** („Kopie per E-Mail“), not its
 Zustellung. Fristen run from the Zustellung.
 
-Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
+Open the Verlauf in the Ablage and choose the **E-Mails** tab in its preview:
 
 - one row per e-mail, newest first (the list says so: „Neueste zuerst“): its
   heading as the document prints it (when it was sent, on the office's
@@ -509,7 +521,7 @@ eingegangen“, „eine Prüfung nötig“).
 
 ## Outlook archives
 
-An Outlook archive you import (Dateien › Outlook-Archiv importieren) files its
+An Outlook archive you upload to the Ablage (a `.pst` or `.ost`, with „Hochladen“ or dropped on the page) files its
 e-mails' text into the same E-Mail-Verläufe, and skips any e-mail the project
 already has. Importing is your decision, so an archive does not wait in the
 E-Mail-Eingang. Its sections say „aus dem Outlook-Archiv“, its rows in the

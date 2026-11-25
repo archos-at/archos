@@ -1,6 +1,9 @@
 import {
+  intakeBuildingResponseSchema,
   intakeDecisionsResponseSchema,
   intakeResponseSchema,
+  type BuildingOperation,
+  type IntakeBuildingResponse,
   type IntakeDecision,
   type IntakeDecisionResult,
   type IntakeView,
@@ -29,6 +32,7 @@ export interface ProjectIntakeClient {
   get(projectId: string): Promise<IntakeView>
   start(projectId: string, body: StartIntakeRequest): Promise<IntakeView>
   decide(projectId: string, decisions: IntakeDecision[]): Promise<{ results: IntakeDecisionResult[]; intake: IntakeView }>
+  changeBuilding(projectId: string, operation: BuildingOperation): Promise<IntakeBuildingResponse>
   complete(projectId: string): Promise<IntakeView>
 }
 
@@ -61,6 +65,10 @@ export function createProjectIntakeClient(fetchImpl: ProjectIntakeFetch = defaul
     decide: async (projectId, decisions) =>
       intakeDecisionsResponseSchema.parse(
         await send(fetchImpl, `${projectIntakePath(projectId)}/decisions`, 'POST', { decisions })
+      ),
+    changeBuilding: async (projectId, operation) =>
+      intakeBuildingResponseSchema.parse(
+        await send(fetchImpl, `${projectIntakePath(projectId)}/buildings`, 'POST', { operation })
       ),
     complete: (projectId) => view(`${projectIntakePath(projectId)}/complete`, 'POST'),
   }

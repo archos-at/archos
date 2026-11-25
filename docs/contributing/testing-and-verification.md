@@ -640,23 +640,24 @@ and `apps/workspace/ui/components/ui/touch-target.spec.ts`. Capture a 390x844
 viewport alongside the desktop shot when you ship a surface — the playbook above
 has the command.
 
-**The browser measurement is gone.** `task workspace:touch-audit` loaded the screenshot
-registry at a phone viewport and reported what neither a spec nor a screenshot
-can: regions whose `touch-action` refuses the vertical pan (a finger lands and
-the page does not move), boxes that stick out past the viewport, and interactive
-elements under the 44px floor, measured including any `touch-target` catchment.
-It imported `SCREENSHOT_TARGETS`, so it could not outlive the registry that was
-deleted with the harness.
-
-That is a real loss, recorded here rather than quietly dropped. Both of the
-worst defects it ever found were invisible to review, to the type checker and to
-a desktop screenshot: a reasoning graph that swallowed every swipe because a
-library stylesheet claimed a gesture the graph had turned off, and a file list
-whose `truncate` never fired because auto table layout sized the column to the
-filename. Neither looked wrong; both were measured. Bringing it back means
-writing it again against `src/app/dev/` rather than against a registry — and it
-should not be part of `verify` when it returns, because a browser pass over ~120
-surfaces is a deliberate run rather than a per-commit tax.
+**The browser measurement is a local tool, not a gate.** It ran as CI's
+Workspace phone gate until 2026-11-25: four shards of about 11 minutes on every
+UI change, the slowest job by far, and its findings flapped between runs (17
+`NEW` rows on `/dev/search` that a local run of the same tree did not find). The
+44px floor is now the lint rule `grid/touch-target`
+(`apps/workspace/eslint-rules/touch-target.mjs`), which reads class names; a
+page wider than the phone has no gate. Run the audit by hand when you change a
+phone layout:
+`task workspace:phone-audit` (`apps/workspace/scripts/phone-audit.mjs`) loads every
+`/dev` route at 390x844 and 360x780 with a touch screen and fails on a page wider
+than the phone and on a control under 44x44, counting a `touch-target` catchment
+and a frame's declared `data-tap-reach`. Known exceptions are in
+`ci/phone-audit-baseline.json`, which only shrinks. A local Chromium of another
+version lays some pages out a few pixels differently from the one the baseline was
+seeded with, so read a `NEW` row against the page before you trust it. What the old `workspace:touch-audit` also caught and this
+does not: a region whose `touch-action` refuses the vertical pan (a reasoning
+graph that swallowed every swipe), and a `truncate` that never fires. Walk the
+chain by hand for the first ([gotchas](gotchas.md)).
 
 ## The answer suite
 
@@ -748,7 +749,7 @@ its passage; this asks what the reader waited for and what they got.
   in its own Land. A fixture BFF serves them (`scripts/turn_census/fixture_law.py`)
   from `tests/fixtures/base-knowledge/turn_law_austria.json`, which
   `turn-law.fixture.spec.ts` writes from the packs with the production
-  resolvers (`UPDATE_FIXTURES=1`). A run without them would read no law at all.
+  resolvers (`task generate`). A run without them would read no law at all.
 - **No stack needed:** `--ingest --corpus data/oib` takes the base corpus
   from that directory's PDFs instead of the object store, so the suite runs
   on a machine with no BFF and no SeaweedFS. The table, the ingest queue and
@@ -801,8 +802,7 @@ the scorer of the door's `platform-knowledge-golden-run`
 (`apps/workspace/bff/base-knowledge/golden/score.ts`).
 `tests/fixtures/golden/scoring_parity.json` holds both to one set of verdicts on
 recorded answers of the before-baseline: change one scorer and the other's test
-fails until it follows (`UPDATE_FIXTURES=1 bunx vitest run
-bff/base-knowledge/golden/score.spec.ts` rewrites the verdicts; read the diff).
+fails until it follows (`task generate` rewrites the verdicts; read the diff).
 A run carries the law of the case's `territoryId` from the same fixture the
 other norm sets read; a case with no site, or a site that fixture does not
 hold, runs with none. A suite run has no citation objects, so the source rules
@@ -820,7 +820,7 @@ serves the routes such a turn reads: the turn context, with the reference
 catalog, and the three cross-project lookups. It drops every other connection,
 as the norm set's runs see no BFF at all. The catalog, the project context
 and the briefs are written by the production renderers
-(`reference-brief.fixture.spec.ts`, regenerated with `UPDATE_FIXTURES=1`), so
+(`reference-brief.fixture.spec.ts`, regenerated with `task generate`), so
 the eval cannot drift from what production sends. The questions are in
 `tests/fixtures/precedent/precedent_questions.yaml`, in five groups:
 
@@ -1071,8 +1071,7 @@ ADR-0137) is cut as its own ingest cuts it, by the Markdown chunker, and stamped
 boundary. Its bytes are the BFF renderer's, pinned by
 `apps/workspace/bff/mail-thread/files-eval-fixture.spec.ts` from
 `parking-thread.json`; after a change to the rendition's format, rewrite them
-with `UPDATE_FIXTURES=1 bunx vitest run src/lib/mail-thread/files-eval-fixture.spec.ts`
-in `apps/workspace` and reseed. The rows' judges (`attributes_mail`,
+with `task generate` and reseed. The rows' judges (`attributes_mail`,
 `quoted_as_quote`, `forged_not_authority`, `scripts/turn_census/judge.py`) ask
 whether the answer says whose mail and of when, calls a quote a quote, and never
 presents the unconfirmed sender's claim as the Behörde's.
@@ -1149,7 +1148,10 @@ CLS jump), and prints one JSON line per run from `window.__streamSocket`:
   `shiftsMoved`, the largest moves of elements on screen before and after;
   `shiftsEdge`, sources that entered or left the viewport, whose dy/dh are
   of the visible part only and say nothing about distance
-  ([gotchas](gotchas.md)).
+  ([gotchas](gotchas.md)); `composerHeights`, each height the composer took
+  from the send on, one entry when it never grew or shrank under the thread.
+  The scripted hello offers `steer`, as the product's does, so the „lenkt“
+  chip comes and goes with the turn.
 - The reader: `reading.firstProseMaxDelta` and `reading.lastLineMaxDelta`,
   the largest frame-to-frame jump in px of the answer's first prose block and
   of the last visible line while on screen, the reader's own scrolling
@@ -1158,6 +1160,12 @@ CLS jump), and prints one JSON line per run from `window.__streamSocket`:
   programmatic scrolls of the thread's scroller (`scrollTo`, `scrollBy`,
   `scroll`, `scrollIntoView` inside it, the `scrollTop` setter). The budget is
   one: the top-anchor on send.
+
+`--max-cls <n>` exits 1 when a run's `cls` (the caret's own shifts left out)
+is above n. In 2026-11 the scripted turn scored 0.010 at 1280 (the table's
+column reflow, gone with its fix) and 0.026–0.032 on the throttled phone: a
+Herleitung growth landing while the slide before it still runs, which
+Chromium scores (`useSlideBelow`, design-language.md **Height**).
 
 `--reader scroll` wheels the thread down to the answer 2.5 s after its first
 word, the reader who wants to read it; what the settle then does to that
@@ -1229,7 +1237,7 @@ and `light` modes that replayed it, are gone with the v2 cut.
 | Does the Erfassungs-Agent set a project up right from its documents? | `task be:eval:intake` | key and bun | about a cent and two minutes per run of the boot model |
 | Does a note about a person stay off the shelves other people read? | `task be:eval:memory-shelves` | key | about 420 short calls for the full set at three runs; `--report` re-renders without a model |
 | What shape did the turn take (rounds, locator, checkpoint)? | `task be:eval:loop` | a running backend at `LOOP_EVAL_URL` with the corpus | real model calls per question; `--compare` needs no backend |
-| Does the layout shift while an answer streams? | `/dev/stream-replay?fixture=varianten` (or `oib2`), `&speed=N`, `&ending=recorded` for the recording's own terminal (the retired whole-answer rewrite on `oib2`) | the UI dev server | free: the fixtures are recorded frames in `apps/workspace/app/dev/_fixtures/stream-frames.ts`, replayed as v2 events through `foldTurnEvent`. `window.__replay` holds `shifts` (each source flagged `edge` when it entered or left the viewport), `anchorTops` and `done` for a headless capture. The answer alone: no Herleitung, no thread scroller |
+| Does the layout shift while an answer streams? | `/dev/stream-replay?fixture=varianten` (or `oib2`), `&speed=N`, `&ending=recorded` for the recording's own terminal (the retired whole-answer rewrite on `oib2`) | the UI dev server | free: the fixtures are recorded frames in `apps/workspace/app/dev/_fixtures/stream-frames.ts`, replayed as v2 events through `foldTurnEvent`. `window.__replay` holds `shifts` (each source flagged `edge` when it entered or left the viewport), `anchorTops` and `done` for a headless capture. The answer alone: no Herleitung, no thread scroller. `bun run shift-check --stream --scope='[data-replay-answer]' --budget=0.003 '/dev/stream-replay?fixture=varianten' '/dev/stream-replay?fixture=oib2'` fails a route at 1280 or 390 whose shifts, the caret's left out, score above the budget (0.002 left on a phone in 2026-11: GFM pads a half-written row with empty cells, which a stacked row moves down as the earlier cells fill) |
 | What does a whole turn cost the page as it arrives over the socket (step frames included), and what does the reader see move until 2.5 s after the settle? | `/dev/stream-socket`, `node scripts/measure-stream-socket.mjs` (`--reader scroll`, `--animations`, and `--scenario`, `--error`, `--drop`, `--reload`, `--switch`, `--toggle`, `--stop` for the [other lifecycles](#every-lifecycle-of-a-turn)) | the UI dev server with the WorkOS placeholders | free: a scripted v2 server behind a stubbed `WebSocket`. [The socket-level streaming harness](#the-socket-level-streaming-harness) |
 
 ## Before opening a PR

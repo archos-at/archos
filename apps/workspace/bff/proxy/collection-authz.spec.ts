@@ -23,6 +23,7 @@ import {
   validateCollectionName,
   type CollectionAuthzDeps,
 } from './collection-authz'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 
 const session = { organizationId: 'org-1', userId: 'user-1' } as unknown as UserSession
 
@@ -51,7 +52,6 @@ describe('validateCollectionName', () => {
   })
 
   it('rejects uploads to the base corpus (400 INVALID_COLLECTION)', async () => {
-    vi.stubEnv('BASE_COLLECTION_NAME', 'base_corpus')
     const response = await validateCollectionName(
       ['collections', 'base_corpus'],
       session,
@@ -60,7 +60,7 @@ describe('validateCollectionName', () => {
     expect((await errorBody(response as Response)).error.code).toBe('INVALID_COLLECTION')
   })
 
-  it('rejects the default base corpus name when the env var is unset', async () => {
+  it('rejects the base corpus under the name it had until 2026-11 as well', async () => {
     const response = await validateCollectionName(
       ['collections', 'oib_knowledge'],
       session,
@@ -382,5 +382,26 @@ describe('validateCollectionName — what the proxy never does', () => {
     expect(
       await validateCollectionName(['collections', 'proj_abc'], session, {}, { method: 'GET', deps: deps() })
     ).toBeNull()
+  })
+})
+
+describe('validateCollectionName on a personal shelf (ADR-0193)', () => {
+  const own = personalShelfCollectionName('org-1', 'user-1')
+  const someoneElses = personalShelfCollectionName('org-1', 'user-2')
+
+  it('reads the caller’s own collection', async () => {
+    expect(await validateCollectionName(['collections', own], session, {}, { deps: deps() })).toBeNull()
+  })
+
+  it('finds nobody else’s', async () => {
+    const response = await validateCollectionName(['collections', someoneElses], session, {}, { deps: deps() })
+    expect(response?.status).toBe(404)
+  })
+
+  it('sends uploads and deletions through the shelf’s own routes', async () => {
+    const upload = await validateCollectionName(['collections', own, 'documents'], session, {}, { method: 'POST', deps: deps() })
+    expect(upload?.status).toBe(403)
+    const wipe = await validateCollectionName(['collections', own], session, {}, { method: 'DELETE', deps: deps() })
+    expect(wipe?.status).toBe(403)
   })
 })

@@ -59,7 +59,7 @@ def test_a_session_hit_at_rank_zero_beats_a_corpus_hit_at_rank_five() -> None:
 
 
 def test_the_base_corpus_wins_an_exact_tie_because_it_is_the_first_channel() -> None:
-    corpus = _result([_chunk("corpus-0", 0.70, rank=0, collection="oib_knowledge")])
+    corpus = _result([_chunk("corpus-0", 0.70, rank=0, collection="base_corpus")])
     session = _result([_chunk("session-0", 0.45, rank=0, file_name="mine.pdf", collection="s_abc")])
     merged = merge_results([corpus, session], query="q", top_k=2, backend_name="llamaindex", max_per_document=0)
     assert _ids(merged) == ["corpus-0", "session-0"]

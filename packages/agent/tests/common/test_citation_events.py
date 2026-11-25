@@ -179,12 +179,12 @@ class TestBuildTurnEvents:
             cited_count=2,
             source_origins=["kb", "kb", "ris"],
             source_lanes=["oib", None],
-            source_tools=["oib_knowledge_search", "ris_search_tool", None],
+            source_tools=["base_corpus_search", "ris_search_tool", None],
         )
         detail = events[0].detail
         assert detail["origins"] == {"kb": 2, "ris": 1}
         assert detail["lanes"] == {"oib": 1}
-        assert detail["tools"] == {"oib_knowledge_search": 1, "ris_search_tool": 1}
+        assert detail["tools"] == {"base_corpus_search": 1, "ris_search_tool": 1}
 
 
 class TestPayload:

@@ -68,7 +68,7 @@ Backend agents fetch no arbitrary URLs themselves (only internal BFF call in
 | SeaweedFS | `chrislusf/seaweedfs:3.80` | Raw uploaded documents (`grid-documents`) |
 | Qdrant | `qdrant/qdrant:v1.19.2` (pinned; ADR-0115) | Embeddings + chunk text (OIB corpus + user docs); daily shard snapshots in the in-cluster SeaweedFS bucket `qdrant-snapshots`. Replaced Chroma, whose volume (`data-chroma-0` on Kubernetes, `chroma_data` in Compose) holds the same data until it is deleted after the migration |
 | Dragonfly | `dragonflydb/dragonfly:v1.27.1` (pinned) | Transient cache, rate-limit counters (no persistence) |
-| ClamAV (clamd + freshclam, ADR-0157; off by default) | `clamav/clamav:1.5.4@sha256:…` (digest-pinned, trivy-scanned) | Signatures only. The bytes it scans arrive on a socket and are gone with the reply; nothing is stored and nothing leaves the cluster, so it is no third-party processing |
+| ClamAV (clamd + freshclam, ADR-0157; off by default) | `clamav/clamav:1.5.5@sha256:…` (digest-pinned, trivy-scanned) | Signatures only. The bytes it scans arrive on a socket and are gone with the reply; nothing is stored and nothing leaves the cluster, so it is no third-party processing |
 | Frontend/purger | from `node:22-slim` (floating) | — |
 | Backend | from `debian:bookworm-slim` (floating) | local OIB PDFs, fallback DBs |
 

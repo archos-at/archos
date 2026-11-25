@@ -1,0 +1,6 @@
+---
+# area: projects
+improvements:
+  - >
+    The project overview no longer jumps in size as your projects appear: while
+    it loads, it already shows three rows of cards.

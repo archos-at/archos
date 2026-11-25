@@ -57,6 +57,7 @@
   "apps/agent-host/tests/test_similar_passages.py": 2,
   "apps/agent-host/tests/test_skill_review.py": 1,
   "apps/agent-host/tests/test_sse_stream.py": 2,
+  "apps/code-runner/src/house-style/index.js": 2,
   "apps/workspace/.dependency-cruiser-known-violations.json": 4,
   "apps/workspace/.env.example": 1,
   "apps/workspace/app/api/a2a/route.spec.ts": 1,

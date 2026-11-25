@@ -239,7 +239,7 @@ describe('reviewUploadFiling', () => {
     expect(createProposal).not.toHaveBeenCalled()
   })
 
-  it('files a Büroablage upload on the office shelf, with no project and no conventions', async () => {
+  it('files a Bürobibliothek upload on the office shelf, with no project and no conventions', async () => {
     vi.mocked(findUploadBatch).mockResolvedValue(batch({ scope: 'office_shelf', projectId: null }))
     vi.mocked(listOfficeShelfFolders).mockResolvedValue([{ ...FOLDERS[0], projectId: null }])
     await reviewUploadFiling(SESSION, 'batch-1', 'name')

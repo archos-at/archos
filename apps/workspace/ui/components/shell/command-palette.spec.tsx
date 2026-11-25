@@ -7,9 +7,9 @@ import { render, screen, waitFor, within } from '@/test-utils'
 import { server } from '@/mocks/server'
 import { I18nProvider } from '@/i18n'
 import type { SearchBody } from '@/lib/search/search-wire'
-import { SEARCH_FIXTURE_RESPONSE, SEARCH_FIXTURE_SAVED } from '@/app/dev/_fixtures/search'
-import { RECENT_SEARCHES_KEY } from '@/features/search/lib/recent-searches'
+import { SEARCH_FIXTURE_RESPONSE } from '@/app/dev/_fixtures/search'
 import { CommandPalette } from './command-palette'
+import { useProjectOverview } from './project-overview-entry'
 
 const push = vi.fn()
 let pathname = '/app/projects'
@@ -17,7 +17,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => pathname,
 }))
-vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ signOut: vi.fn() }) }))
+const signOut = vi.hoisted(() => vi.fn())
+vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: 'user_1' }, organizationId: 'org_1', signOut }) }))
 
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
@@ -38,19 +39,24 @@ function palette(): ReactElement {
 
 const field = (): HTMLElement => screen.getByPlaceholderText(/./)
 
+function ofKinds(kinds: SearchBody['kinds']): typeof SEARCH_FIXTURE_RESPONSE {
+  if (!kinds) return SEARCH_FIXTURE_RESPONSE
+  const sections = Object.fromEntries(Object.entries(SEARCH_FIXTURE_RESPONSE.sections).filter(([kind]) => kinds.some((asked) => asked === kind)))
+  return { ...SEARCH_FIXTURE_RESPONSE, sections }
+}
+
 describe('CommandPalette: the workspace search', () => {
   beforeEach(() => {
     asked = []
     push.mockClear()
     pathname = '/app/projects'
-    window.localStorage.removeItem(RECENT_SEARCHES_KEY)
+    window.localStorage.clear()
     server.use(
       http.post('*/api/search', async ({ request }) => {
-        asked.push({ query: new URL(request.url).search, body: (await request.json()) as SearchBody })
-        return HttpResponse.json(SEARCH_FIXTURE_RESPONSE)
+        const body = (await request.json()) as SearchBody
+        asked.push({ query: new URL(request.url).search, body })
+        return HttpResponse.json(ofKinds(body.kinds))
       }),
-      http.get('*/api/search/saved', () => HttpResponse.json({ savedSearches: SEARCH_FIXTURE_SAVED, nextCursor: null })),
-      http.get('*/api/projects', () => HttpResponse.json([{ id: PROJECT, name: 'Wohnhaus Seestadt Baufeld J7' }]))
     )
   })
 
@@ -63,12 +69,31 @@ describe('CommandPalette: the workspace search', () => {
     expect(asked).toHaveLength(1)
   })
 
-  it('scopes the search to the project the reader is in', async () => {
+  it('searches the whole office from inside a project too, and says so', async () => {
     pathname = `/app/projects/${PROJECT}/files`
     render(palette())
+    expect(screen.getByTestId('palette-scope')).toHaveTextContent('im ganzen Büro')
     await userEvent.type(field(), 'EP-03')
     await waitFor(() => expect(asked).toHaveLength(1))
-    expect(asked[0].query).toBe(`?scope=project&projectId=${PROJECT}`)
+    expect(asked[0].query).toBe('')
+  })
+
+  it('narrows to one kind of thing: files, chats or projects', async () => {
+    render(palette())
+    expect(within(screen.getByTestId('palette-kinds')).getAllByRole('radio').map((kind) => kind.textContent)).toEqual([
+      'Alles',
+      'Dateien',
+      'Chats',
+      'Projekte',
+    ])
+    await userEvent.type(field(), 'Fluchtweg')
+    await waitFor(() => expect(asked).toHaveLength(1))
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    await waitFor(() => expect(asked).toHaveLength(2))
+    expect(asked[1].body).toEqual({ text: 'Fluchtweg', limit: 8, facets: false, kinds: ['conversation'] })
+    await userEvent.click(screen.getByTestId('palette-kind-files'))
+    await waitFor(() => expect(asked).toHaveLength(3))
+    expect(asked[2].body).toEqual({ text: 'Fluchtweg', limit: 3, facets: false, kinds: ['document', 'annotation', 'folder'] })
   })
 
   it('groups the hits by kind, draws them as the search page does, and ends with all of them', async () => {
@@ -89,7 +114,7 @@ describe('CommandPalette: the workspace search', () => {
 
     const options = screen.getAllByRole('option')
     const all = screen.getByTestId('palette-workspace-search')
-    expect(all).toHaveTextContent('Alle Treffer für „Fluchtweg“')
+    expect(all).toHaveTextContent(/^Alle \d+ Treffer mit Filtern öffnen$/)
     const lastHit = options.findLastIndex((option) => option.dataset.testid?.startsWith('palette-search-hit-'))
     expect(options.indexOf(all)).toBe(lastHit + 1)
     expect(options[0]).toBe(concept)
@@ -159,14 +184,13 @@ describe('CommandPalette: the workspace search', () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1))
   })
 
-  it('opens the first hit on Enter, and remembers what was searched', async () => {
+  it('opens the first hit on Enter, at the passage that was found', async () => {
     render(palette())
     await userEvent.type(field(), 'Fluchtweg')
     const concept = await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
     await waitFor(() => expect(concept).toHaveAttribute('aria-selected', 'true'))
     await userEvent.keyboard('{Enter}')
     expect(push).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^/app/projects/${PROJECT}/files\\?doc=${CONCEPT}&page=7&highlight=`)))
-    expect(JSON.parse(window.localStorage.getItem(RECENT_SEARCHES_KEY) ?? '[]')).toEqual(['Fluchtweg'])
   })
 
   it('opens every hit on the search page from the last search row', async () => {
@@ -220,35 +244,122 @@ describe('CommandPalette: the workspace search', () => {
     expect(calls).toBe(2)
   })
 
-  it('before anything is typed: what the search reaches, the recent searches and the saved ones, and the commands', async () => {
-    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(['EP-05', 'Fluchtweg']))
+  it('before anything is typed: the general entries, and no line about an empty list', async () => {
     render(palette())
-    expect(screen.getByTestId('palette-search-hint')).toHaveTextContent('Name, Plankopf, Art und Inhalt')
-    const recent = screen.getByTestId('palette-recent')
-    expect(within(recent).getAllByRole('option').map((row) => row.textContent)).toEqual(['EP-05', 'Fluchtweg'])
-    const saved = await screen.findByTestId('palette-saved')
-    expect(saved).toHaveTextContent('Einreichpläne, aktuell')
-    expect(saved).toHaveTextContent('Geteilt von Max Gruber')
-    expect(screen.getByText('Profil')).toBeInTheDocument()
+    expect(screen.queryByTestId('palette-recent-opened')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Noch nichts/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('option').map((row) => row.textContent?.replace(/G\s*dann\s*\w$/, ''))).toEqual([
+      'Neues Projekt',
+      'Alle Projekte',
+      'Organisation',
+      'Profil',
+      'Design umschalten',
+      'Abmelden',
+    ])
     expect(asked).toHaveLength(0)
-
-    await userEvent.click(within(recent).getByText('EP-05'))
-    expect(field()).toHaveValue('EP-05')
-    await waitFor(() => expect(asked.at(-1)?.body.text).toBe('EP-05'))
   })
 
-  it('runs a saved search where it was saved', async () => {
+  it('opens the project overview over the page, navigating nowhere', async () => {
     render(palette())
-    const saved = await screen.findByTestId('palette-saved')
-    await userEvent.click(within(saved).getByText('Einreichpläne, aktuell'))
-    expect(push).toHaveBeenCalledWith(`/app/search?view=register&sort=plan_number&dir=asc&project=${PROJECT}&type=submission_drawing`)
+    await userEvent.click(screen.getByRole('option', { name: /Alle Projekte/ }))
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: false })
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
   })
 
-  it('keeps the commands: typing a command’s name still finds it below the search rows', async () => {
+  it('opens „Neues Projekt“ in the overview with its create dialog', async () => {
     render(palette())
+    await userEvent.click(screen.getByRole('option', { name: /Neues Projekt/ }))
+    expect(useProjectOverview.getState()).toMatchObject({ open: true, create: true })
+    expect(push).not.toHaveBeenCalled()
+    useProjectOverview.getState().setOpen(false)
+  })
+
+  it('lists what was opened from here last, newest first, and opens it again', async () => {
+    const view = render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await userEvent.click(await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`))
+    view.unmount()
+    push.mockClear()
+
+    render(palette())
+    const recent = screen.getByTestId('palette-recent-opened')
+    expect(within(recent).getByText('Zuletzt geöffnet')).toBeInTheDocument()
+    const rows = within(recent).getAllByRole('option')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Brandschutzkonzept Wohnhaus Seestadt J7')
+    expect(rows[0]).toHaveTextContent('Wohnhaus Seestadt Baufeld J7')
+    await userEvent.click(rows[0])
+    expect(push).toHaveBeenCalledWith(`/app/projects/${PROJECT}/files?doc=${CONCEPT}`)
+  })
+
+  it('keeps the general entries findable by name, below the hits, and lists no project and no section of one', async () => {
+    pathname = `/app/projects/${PROJECT}/files`
+    render(palette())
+    for (const gone of ['Aktuelles Projekt', 'Projekte', 'Dateien' + ' ', 'Übersicht', 'Einrichtung']) {
+      expect(screen.queryByRole('option', { name: gone.trim() })).not.toBeInTheDocument()
+    }
     await userEvent.type(field(), 'Profil')
-    expect(await screen.findByText('Profil')).toBeInTheDocument()
-    await userEvent.click(screen.getByText('Profil'))
+    await screen.findByTestId('palette-workspace-search')
+    await userEvent.click(screen.getByRole('option', { name: 'Profil' }))
     expect(push).toHaveBeenCalledWith('/app/profile')
+  })
+
+  it('signs out from the general entries only where signing in is required', async () => {
+    render(palette())
+    await userEvent.click(screen.getByRole('option', { name: 'Abmelden' }))
+    expect(signOut).toHaveBeenCalled()
+  })
+
+  it('reaches the search page from an empty field by Ctrl+Enter, with no entry for it under the general ones', async () => {
+    render(palette())
+    expect(screen.queryByText('Suche mit Filtern öffnen')).not.toBeInTheDocument()
+    field().focus()
+    await userEvent.keyboard('{Control>}{Enter}{/Control}')
+    expect(push).toHaveBeenCalledWith('/app/search')
+  })
+
+  it('after a change of kind shows no hit of the kind before, and Enter waits for the new answer', async () => {
+    let release: (() => void) | null = null
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
+    server.use(
+      http.post('*/api/search', async ({ request }) => {
+        const body = (await request.json()) as SearchBody
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+        return HttpResponse.json(ofKinds(body.kinds))
+      })
+    )
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    expect(field()).toHaveFocus()
+    expect(screen.queryByTestId(`palette-search-hit-document-${CONCEPT}`)).not.toBeInTheDocument()
+    await userEvent.keyboard('{Enter}')
+    expect(push).not.toHaveBeenCalled()
+    await waitFor(() => expect(release).not.toBeNull())
+    release!()
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/\/chat\?session=/)))
+  })
+
+  it('Enter on a kind chooses the kind and opens nothing', async () => {
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
+    screen.getByTestId('palette-kind-chats').focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(asked.at(-1)?.body.kinds).toEqual(['conversation']))
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('carries the chosen kind to the search page, with the count of that kind', async () => {
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    const all = await screen.findByTestId('palette-workspace-search')
+    await waitFor(() => expect(all).toHaveTextContent('Alle 1 Treffer mit Filtern öffnen'))
+    await userEvent.click(all)
+    expect(push).toHaveBeenCalledWith('/app/search?q=Fluchtweg&kind=conversation')
   })
 })

@@ -70,7 +70,7 @@ describe('an unknown shelf renders unattributed', () => {
   })
 
   test('an unrecognised shelf value is dropped, not defaulted to base law', () => {
-    const doc = documentFor(wire({ shelf: 'building_law', collection: 'oib_knowledge' }))
+    const doc = documentFor(wire({ shelf: 'building_law', collection: 'base_corpus' }))
 
     expect(doc.shelf).toBeUndefined()
     expect(documentShelfLabel(doc, t)).toBeUndefined()
@@ -80,7 +80,7 @@ describe('an unknown shelf renders unattributed', () => {
     const doc = documentFor(wire({ collection: 'archiv_org1', kind: 'office' }))
 
     expect(doc.kind).toBe('office')
-    expect(documentTabLabel(doc, t)).toBe('Büroablage')
+    expect(documentTabLabel(doc, t)).toBe('Bürobibliothek')
   })
 
   test('a stored message written before the field existed decodes to no shelf', () => {
@@ -144,7 +144,7 @@ describe('legacy citation keys still parse', () => {
   })
 
   test('a German qualifier in a persisted key names the shelf', () => {
-    const [officeShelf] = buildCitationModel({ citations: [legacy('Plan.pdf (Büroablage), p.3')] })
+    const [officeShelf] = buildCitationModel({ citations: [legacy('Plan.pdf (Bürobibliothek), p.3')] })
     const [projekt] = buildCitationModel({ citations: [legacy('Plan.pdf (Projektwissen), p.3')] })
     const [basis] = buildCitationModel({ citations: [legacy('Plan.pdf (Basiswissen), p.3')] })
 
@@ -154,7 +154,7 @@ describe('legacy citation keys still parse', () => {
   })
 
   test('the qualifier is not part of the filename', () => {
-    const [doc] = buildCitationModel({ citations: [legacy('Plan.pdf (Büroablage), p.3')] })
+    const [doc] = buildCitationModel({ citations: [legacy('Plan.pdf (Bürobibliothek), p.3')] })
 
     expect(doc?.fileName).toBe('Plan.pdf')
     expect(doc?.loci[0]?.page).toBe(3)
@@ -233,8 +233,8 @@ describe('legacy citation keys still parse', () => {
         citations: [
           {
             ...guessed,
-            content: '[KB] Plan.pdf (Büroablage), p.3',
-            citationKey: 'Plan.pdf (Büroablage), p.3',
+            content: '[KB] Plan.pdf (Bürobibliothek), p.3',
+            citationKey: 'Plan.pdf (Bürobibliothek), p.3',
           },
         ],
         entries: [{ number: 1, markdown: 'Plan.pdf (Projektwissen), p.4' }],
@@ -256,10 +256,11 @@ describe('legacy citation keys still parse', () => {
 
 describe('citation-key qualifiers the backend can write', () => {
   const cases: ReadonlyArray<readonly [qualifier: string, shelf: string]> = [
-    ['Büroablage', 'office_shelf'],
+    ['Bürobibliothek', 'office_shelf'],
     ['Projektwissen', 'project'],
     ['Basiswissen', 'base'],
     ['Private Sitzung', 'session'],
+    ['Büroablage', 'office_shelf'],
     ['Büroarchiv', 'office_shelf'],
   ]
 

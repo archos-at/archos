@@ -1,5 +1,6 @@
 import 'server-only'
 import { and, desc, eq, isNull, notInArray, or, sql } from 'drizzle-orm'
+import { outsideTheBin } from '@/lib/documents/shelf'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
@@ -85,7 +86,7 @@ export async function listBimModels(
 ): Promise<BimModelHeader[]> {
   const db = getDb()
   const limit = Math.min(Math.max(1, Math.trunc(options.limit ?? 50)), 200)
-  const officeShelfScope = eq(documents.scope, 'office_shelf')
+  const officeShelfScope = and(eq(documents.scope, 'office_shelf'), outsideTheBin())
   const scope =
     options.projectId === undefined
       ? undefined

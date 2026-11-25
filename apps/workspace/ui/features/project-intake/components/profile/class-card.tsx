@@ -10,17 +10,18 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
 import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
-import type { DerivationReview } from '@/lib/project-intake/types'
+import type { DerivationReview, IntakeBuilding } from '@/lib/project-intake/types'
 import { cn } from '@/lib/utils'
 import { buildingNumber, displayValue, keyLabel } from '../../lib/display'
 import { leadDerivation, REASON_INPUT_IDS, reasonInputs, shortLabel } from './profile-review'
 
 interface ClassCardProps {
   derivations: readonly DerivationReview[]
+  buildings: readonly IntakeBuilding[]
   onAnswer: () => void
 }
 
-export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Element {
+export function ClassCard({ derivations, buildings, onAnswer }: ClassCardProps): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const tIntake = useTranslations(projectIntakeCopy)
   const lead = leadDerivation(derivations)
@@ -29,7 +30,7 @@ export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Elemen
   return (
     <section
       aria-label={t('class.label')}
-      className="bg-card border-border flex min-w-0 flex-col justify-center gap-3 rounded-[14px] border px-4 py-4 md:px-[22px] md:py-5"
+      className="bg-card border-border flex min-w-0 flex-col justify-center gap-3 rounded-[12px] border px-4 py-4 md:px-[22px] md:py-5"
       data-testid="profile-class"
     >
       {derivation ? (
@@ -48,8 +49,13 @@ export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Elemen
                 className="shrink-0"
               >
                 {derivations.map((candidate) => (
-                  <ToggleGroupItem key={candidate.buildingId} value={candidate.buildingId} className="h-7 px-2 text-xs">
-                    {tIntake('derivations.building', { number: buildingNumber(candidate.buildingId) })}
+                  <ToggleGroupItem
+                    key={candidate.buildingId}
+                    value={candidate.buildingId}
+                    className="h-7 max-w-[160px] truncate px-2 text-xs"
+                  >
+                    {buildings.find((building) => building.id === candidate.buildingId)?.name ??
+                      tIntake('derivations.building', { number: buildingNumber(candidate.buildingId) })}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -109,7 +115,7 @@ function ClassResult({
   derivation,
   onAnswer,
   switcher,
-}: Omit<ClassCardProps, 'derivations'> & { derivation: DerivationReview; switcher: ReactNode }): JSX.Element {
+}: Pick<ClassCardProps, 'onAnswer'> & { derivation: DerivationReview; switcher: ReactNode }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const [open, setOpen] = useState(false)
   const reason = useReason(derivation)

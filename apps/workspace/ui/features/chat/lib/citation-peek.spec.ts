@@ -53,7 +53,7 @@ describe('peekableCitedFile', () => {
         cited({
           id: 'oib',
           kind: 'building_law',
-          collection: 'oib_knowledge',
+          collection: 'base_corpus',
           fileName: 'oib-rl_2.pdf',
           content: 'oib-rl_2.pdf, p.5',
         }),
@@ -100,7 +100,7 @@ describe('peekableCitedFile', () => {
         cited({
           id: 'oib',
           kind: 'building_law',
-          collection: 'oib_knowledge',
+          collection: 'base_corpus',
           fileName: 'oib-rl_2.pdf',
           content: 'oib-rl_2.pdf, p.5',
         }),

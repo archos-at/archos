@@ -8,11 +8,23 @@ import { mergeRemoteMessages } from '../lib/remote-message-merge'
 import { withUnseenAnswer } from '../lib/turn-selectors'
 import {
   createNewConversation,
-  generateTitle,
   updateConversationInList,
   withConversation,
 } from '../lib/conversation-records'
 import type { MessagesGet, MessagesSet, MessagesSlice } from './messages-slice-types'
+import { titledByFirstMessage } from '../lib/conversation-title'
+
+const sideKeyOf = (projectId: string | null): string => projectId ?? ''
+
+const withoutOpenConversation = (projectId: string | null) => ({
+  projectId,
+  currentConversation: null,
+  composerTemporary: false,
+  isStreaming: false,
+  isLoading: false,
+  currentUserMessageId: null,
+  pendingInteraction: null,
+})
 
 export const createConversationActions = (
   set: MessagesSet,
@@ -28,6 +40,7 @@ export const createConversationActions = (
   | 'dismissErrorCard'
   | 'dismissConnectionErrors'
   | 'setProjectId'
+  | 'enterSide'
   | 'retryLastUserMessage'
   | 'insertRemoteMessages'
 > => {
@@ -96,12 +109,8 @@ export const createConversationActions = (
         ...(metadata?.answerExcerpt ? { answerExcerpt: metadata.answerExcerpt } : {}),
       }
 
-      const hasUserMessage = conversation.messages.some((m) => m.messageType === 'user')
-      const shouldUpdateTitle = !hasUserMessage
-
       const updatedConversation: Conversation = {
-        ...conversation,
-        title: shouldUpdateTitle ? generateTitle(content) : conversation.title,
+        ...titledByFirstMessage(conversation, content),
         messages: [...conversation.messages, newMessage],
         updatedAt: new Date(),
       }
@@ -330,22 +339,25 @@ export const createConversationActions = (
         currentConversation?.projectId &&
         currentConversation.projectId !== projectId
       ) {
-        set(
-          {
-            projectId,
-            currentConversation: null,
-            isStreaming: false,
-            isLoading: false,
-            currentUserMessageId: null,
-            pendingInteraction: null,
-          },
-          false,
-          'setProjectId:clearCrossProjectConversation'
-        )
+        set(withoutOpenConversation(projectId), false, 'setProjectId:clearCrossProjectConversation')
         return
       }
 
       set({ projectId }, false, 'setProjectId')
+    },
+
+    enterSide: (projectId: string | null) => {
+      const { currentConversation: open, conversations, currentUserId, lastChatBySide } = get()
+      const onSide = (c: Conversation): boolean => (projectId === null ? !c.projectId : c.projectId === projectId)
+      if (open && onSide(open)) {
+        set({ projectId }, false, 'enterSide')
+        return
+      }
+      const left = open ? { ...lastChatBySide, [sideKeyOf(open.projectId ?? null)]: open.id } : lastChatBySide
+      if (open) set({ ...withoutOpenConversation(projectId), lastChatBySide: left }, false, 'enterSide:leaveOtherSide')
+      else set({ projectId }, false, 'enterSide')
+      const last = conversations.find((c) => c.id === left[sideKeyOf(projectId)] && onSide(c) && c.userId === currentUserId)
+      if (last) get().selectConversation(last.id)
     },
 
     retryLastUserMessage: () => {

@@ -24,12 +24,1292 @@
   ],
   "releases": [
     {
+      "id": "2026-W48",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-23",
+      "dateEnd": "2026-11-29",
+      "summary": {
+        "en": "The sidebar now switches between „Persönlich“ and „Projekt“: under Persönlich are your chats without a project and „Meine Ablage“, a shelf of your own that nobody else in the office sees. In the review you can measure distances, paths and areas on a PDF drawing, snapped to its lines and to a scale you set once for all pages, and ARCHOS can measure for you in the chat. A project can now hold several buildings on one site, and the Bürobibliothek has its own Papierkorb.",
+        "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter Persönlich finden Sie Ihre Chats ohne Projekt und „Meine Ablage“, eine eigene Ablage, die sonst niemand im Büro sieht. In der Prüfung messen Sie Strecken, Wege und Flächen auf einem PDF-Plan, eingerastet auf seine Linien und auf einen Maßstab, den Sie einmal für alle Seiten setzen, und ARCHOS misst auf Wunsch im Chat für Sie. Ein Projekt kann jetzt mehrere Gebäude auf einem Grundstück umfassen, und die Bürobibliothek hat einen eigenen Papierkorb."
+      },
+      "notes": [
+        {
+          "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
+            "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the Chat tab takes you back to the chat you were in instead of starting a new one, so a look at the Ablage no longer loses your conversation.",
+            "de": "Auf dem Smartphone bringt Sie der Tab Chat zurück zu Ihrem bisherigen Chat, statt einen neuen zu starten – so verlieren Sie Ihre Unterhaltung beim Blick in die Ablage nicht mehr."
+          }
+        },
+        {
+          "section": "features",
+          "area": "collaboration",
+          "text": {
+            "en": "An answer's details now show where it read: the projects and folders, and whether Meine Ablage or your personal memory was in play.",
+            "de": "Die Details einer Antwort zeigen jetzt, woher sie ihre Informationen hat: aus welchen Projekten und Ordnern und ob Meine Ablage oder Ihr persönlicher Speicher verwendet wurde."
+          }
+        },
+        {
+          "section": "features",
+          "area": "collaboration",
+          "text": {
+            "en": "If you join a chat later and may not open every source it used, you now see it up to the question that led to such a source, instead of nothing.",
+            "de": "Wenn Sie später zu einem Chat dazukommen und möglicherweise nicht jede darin verwendete Quelle öffnen können, sehen Sie jetzt den Chatverlauf bis zu der Frage, die zu einer solchen Quelle geführt hat, statt gar nichts."
+          }
+        },
+        {
+          "section": "features",
+          "area": "collaboration",
+          "text": {
+            "en": "„Alle archivieren“ empties the Postfach in one press, requests that wait on you included, and „Rückgängig“ brings everything back. The annotations and conversations behind the entries stay as they are, and anything new on one of them brings its entry back.",
+            "de": "„Alle archivieren“ leert das Postfach mit einem Klick – einschließlich Anfragen, bei denen Sie am Zug sind. „Rückgängig“ stellt alles wieder her. Anmerkungen und Konversationen zu den Einträgen bleiben unverändert, und neue Aktivitäten zu einem Eintrag holen ihn zurück."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
+            "de": "Sie können den Maßstab einer PDF-Zeichnung jetzt für alle Seiten festlegen, indem Sie „Alle Seiten“ auswählen. Ein für eine einzelne Seite oder einen Rahmen festgelegter Maßstab hat dort weiterhin Vorrang. In der Messleiste wird außerdem der geschätzte Maßstab statt „Kein Maßstab“ angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Distances, paths and areas can now be measured on a PDF drawing in the review: „Messen“ (M) snaps to the drawing's lines, shows the length as you place points and keeps the measurement on the sheet with its tolerance and the drawing's scale, where the whole team and {productName} can see it. {productName} can keep a measurement on a drawing too, and it is always measured again from the drawing.",
+            "de": "Abstände, Wege und Flächen lassen sich jetzt im Review auf einer PDF-Zeichnung messen: „Messen“ (M) rastet an den Linien der Zeichnung ein, zeigt beim Setzen der Punkte die Länge an und hält die Messung samt Toleranz und Maßstab der Zeichnung auf dem Blatt fest, wo das gesamte Team und {productName} sie sehen. Auch {productName} kann eine Messung in einer Zeichnung festhalten; sie wird immer erneut anhand der Zeichnung gemessen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
+            "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "The rail now switches between „Persönlich“ and „Projekt“: under Persönlich you find your chats without a project and your own files in „Meine Ablage“, which only you see.",
+            "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter „Persönlich“ finden Sie Ihre Chats ohne Projekt und Ihre eigenen Dateien in „Meine Ablage“, die nur Sie sehen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "„Meine Ablage“ is a shelf of your own: upload, folders, preview, search and delete as on the office shelf, and nobody else in the office sees it, not even an administrator. Your own connected agent can work in it with your rights; no other agent reaches it.",
+            "de": "„Meine Ablage“ ist Ihr eigenes Regal: Upload, Ordner, Vorschau, Suche und Löschen wie im Büroregal. Niemand sonst im Büro sieht sie, nicht einmal ein Administrator. Ihr eigener verbundener Agent kann darin mit Ihren Rechten arbeiten; kein anderer Agent hat Zugriff darauf."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Measurements on a drawing now add up: the list of kept measurements shows a total for lengths and for areas. A measured area also states its perimeter, and a measured distance tells you whether the dimension printed on the plan agrees with it.",
+            "de": "Messungen in einer Zeichnung werden jetzt aufsummiert: Die Liste gespeicherter Messungen zeigt die Gesamtlängen und -flächen. Bei einer gemessenen Fläche wird auch ihr Umfang angezeigt, und bei einer gemessenen Strecke sehen Sie, ob das auf dem Plan angegebene Maß damit übereinstimmt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Bürobibliothek has its own Papierkorb, opened from its glyph in the header as in a project's Ablage. A folder or a document deleted there goes to the bin with what it holds and can be restored for 14 days before it is deleted for good.",
+            "de": "Die Bürobibliothek hat einen eigenen Papierkorb, der sich wie in der Ablage eines Projekts über sein Symbol im Kopf öffnet. Ein dort gelöschter Ordner oder ein gelöschtes Dokument kommt mit allem, was darin liegt, in den Papierkorb und lässt sich 14 Tage lang wiederherstellen, bevor es endgültig gelöscht wird."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "The sidebar, and on a phone the tab bar with „Mehr“, now stays the same on every page, including the Postfach, the search, your profile and the organisation, instead of switching to a separate bar at the top.",
+            "de": "Die Sidebar und auf dem Smartphone die Tab-Leiste mit „Mehr“ bleiben jetzt auf jeder Seite gleich – auch im Postfach, bei der Suche, in Ihrem Profil und in der Organisation –, statt zu einer eigenen Leiste oben zu wechseln."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "The ARCHOS wordmark at the top of the sidebar opens the project overview, from Persönlich as well as from a project.",
+            "de": "Die ARCHOS-Wortmarke oben in der Seitenleiste öffnet die Projektübersicht, sowohl im Bereich „Persönlich“ als auch in einem Projekt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the „Chats“ list in the chat now starts with „Letzte Chats“, the last five chats of the side you are on, as the sidebar shows them on a computer.",
+            "de": "Auf dem Smartphone beginnt die Liste „Chats“ im Chat jetzt mit „Letzte Chats“ – den letzten fünf Chats der Seite, auf der Sie sich gerade befinden, wie sie am Computer in der Seitenleiste angezeigt werden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the switch between Persönlich and Projekt now sits at the top of the chat, next to the project's name, which opens the list of projects. Changing sides takes one tap and changing projects two.",
+            "de": "Auf dem Smartphone befindet sich der Umschalter zwischen Persönlich und Projekt jetzt oben im Chat neben dem Projektnamen, über den Sie die Projektliste öffnen. Zwischen Persönlich und Projekt wechseln Sie mit einem Tipp, zwischen Projekten mit zwei."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A draft built on restricted folders or other projects can now be filed anywhere you may write, after you check it and confirm it holds nothing confidential; the card names the sources. Admins can forbid this under Organisation › Prüfung.",
+            "de": "Ein Entwurf auf Basis beschränkt zugänglicher Ordner oder anderer Projekte kann jetzt überall abgelegt werden, wo Sie Schreibrechte haben, nachdem Sie geprüft und bestätigt haben, dass er keine vertraulichen Inhalte enthält; die Karte nennt die Quellen. Admins können dies unter Organisation › Prüfung untersagen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage keeps its head when you switch between Dateien, E-Mail-Eingang and Offene Punkte: the title stays „Ablage“, each place's own buttons share the one row of tools, and the places no longer jump. Only the content below changes, and it answers your click at once.",
+            "de": "Die Ablage behält ihren Kopf, wenn Sie zwischen Dateien, E-Mail-Eingang und Offene Punkte wechseln: Der Titel bleibt „Ablage“, die eigenen Schaltflächen jedes Bereichs stehen in derselben Werkzeugzeile, und die Bereiche springen nicht mehr. Nur der Inhalt darunter wechselt, und er reagiert sofort auf Ihren Klick."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The E-Mail-Eingang and Offene Punkte now have a search where Dateien has its own, at the start of the Ablage's row of tools: „Im E-Mail-Eingang suchen …“ finds mails by sender, subject or the name of an attachment, „In den offenen Punkten suchen …“ finds points by their text, their document or who is responsible. The list narrows as you type, Escape clears the search, and it survives a reload.",
+            "de": "Der E-Mail-Eingang und die Offenen Punkte haben jetzt eine Suche an derselben Stelle wie Dateien, am Anfang der Werkzeugzeile der Ablage: „Im E-Mail-Eingang suchen …“ findet E-Mails nach Absender, Betreff oder dem Namen eines Anhangs, „In den offenen Punkten suchen …“ findet Punkte nach ihrem Text, ihrem Dokument oder der zuständigen Person. Die Liste wird schon beim Tippen kürzer, Escape leert die Suche, und sie bleibt auch nach dem Neuladen erhalten."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "A new conversation your connected agent starts with ARCHOS without naming a project now lands under Persönlich, so you find it in your chats, and ARCHOS can draw on your Meine Ablage for it. Your agent can still keep a question out of Persönlich.",
+            "de": "Eine neue Unterhaltung, die Ihr verbundener Agent mit ARCHOS beginnt, ohne ein Projekt zu nennen, wird jetzt unter Persönlich abgelegt. So finden Sie sie in Ihren Chats, und ARCHOS kann dafür auf Meine Ablage zugreifen. Ihr Agent kann eine Frage weiterhin von Persönlich ausnehmen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
+            "de": "Der Assistent kann jetzt in einer PDF-Zeichnung zwischen frei platzierten Punkten messen – wie beim Messen mit gedrückter Strg-Taste – und eine Messung für Sie am Planblatt belassen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
+            "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you type / or @ in the chat, the list of skills or people now appears at once instead of fading in, and questions ARCHOS puts to you leave a little faster once answered.",
+            "de": "Wenn Sie im Chat / oder @ eingeben, erscheint die Liste der Skills oder Personen jetzt sofort statt allmählich einzublenden, und Fragen, die ARCHOS Ihnen stellt, verschwinden nach der Beantwortung etwas schneller."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
+            "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Normen & Richtlinien is one list: the categories with their counts, ochre where something waits for you, filters by topic and kind, and the topic as a column instead of tiles.",
+            "de": "„Normen & Richtlinien“ ist eine einzige Liste: die Kategorien mit ihren Zahlen, in Ocker, wo etwas auf Sie wartet, Filter nach Thema und Art und das Thema als Spalte statt als Kacheln."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Büroablage is now called the Bürobibliothek, and a project's Dateien are now its Ablage, with „Dateien“ as its first place where „Ordner“ stood. The office's shelf and the project's no longer read as one place, and answers name the Bürobibliothek as their source.",
+            "de": "Die Büroablage heißt jetzt Bürobibliothek, und die Dateien eines Projekts heißen jetzt Ablage; ihr erster Bereich heißt „Dateien“ statt „Ordner“. So sind die Unterlagen des Büros und die des Projekts nicht mehr zu verwechseln, und Antworten nennen die Bürobibliothek als Quelle."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "Research runs no longer sit in a list of their own above your chats: the chat that holds a run now carries a Deep Research mark with the run's state, including a failed one, and the Deep Research filter shows just those chats with their count.",
+            "de": "Rechercheläufe werden nicht mehr in einer eigenen Liste über Ihren Chats angezeigt: Der Chat, zu dem ein Lauf gehört, trägt jetzt eine Deep-Research-Markierung mit seinem Status, auch wenn der Lauf fehlgeschlagen ist, und der Deep-Research-Filter zeigt nur diese Chats samt Anzahl an."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+            "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Dark mode is calmer: cards, the chat field, the open e-mail and menus now sit just above the near-black page with a thin edge, no longer as light grey panels.",
+            "de": "Der Dark Mode wirkt ruhiger: Karten, Chatfeld, geöffnete E-Mail und Menüs heben sich jetzt mit einer feinen Kontur leicht von der fast schwarzen Seite ab und erscheinen nicht mehr als hellgraue Flächen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A button you cannot press yet, such as send in an empty chat, now recedes instead of being the brightest thing on the screen.",
+            "de": "Ein Button, den Sie noch nicht drücken können, etwa „Senden“ in einem leeren Chat, tritt jetzt optisch zurück, statt als hellstes Element am Bildschirm hervorzustechen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+            "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When a skill, an upload error or a dictation note appears under what you are typing in the chat, the input box now grows to make room smoothly instead of jumping, and shrinks back the same way.",
+            "de": "Wenn unter Ihrer Eingabe im Chat ein Skill, ein Upload-Fehler oder ein Diktierhinweis erscheint, wächst das Eingabefeld jetzt sanft, um Platz zu schaffen, statt zu springen, und schrumpft ebenso sanft wieder."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "An empty list, such as an empty Dateien or Meine Ablage, now simply stands there when you open it instead of fading and zooming in, and the chat input no longer fades up from dimmed while a page loads. Motion is left for what you change yourself, like emptying a list with a filter.",
+            "de": "Eine leere Liste, etwa in Dateien oder Meine Ablage, bleibt beim Öffnen jetzt einfach stehen, statt auszublenden und heranzuzoomen. Auch die Chateingabe blendet sich beim Laden einer Seite nicht mehr aus einem abgedunkelten Zustand ein. Animationen gibt es nur noch bei Änderungen, die Sie selbst vornehmen, etwa wenn Sie eine Liste mit einem Filter leeren."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When an answer finishes without research or after a single lookup, the \"Herleitung\" above it now settles into its final size smoothly, so the answer underneath no longer jumps down at the end.",
+            "de": "Wenn eine Antwort ohne Recherche oder nach einer einzigen Suche fertig wird, nimmt die Herleitung darüber jetzt fließend ihre endgültige Größe an, sodass die darunterliegende Antwort am Ende nicht mehr nach unten springt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "The model view now looks like the rest of ARCHOS: solid tool bars with the same corners as other menus, a plain background instead of a sky, a view picker you can walk with the arrow keys, and „Fassung“ where it said „Revision“.",
+            "de": "Die Modellansicht sieht jetzt wie der Rest von ARCHOS aus: mit undurchsichtigen Werkzeugleisten und denselben abgerundeten Ecken wie die anderen Menüs, einem schlichten Hintergrund statt eines Himmels, einer Ansichtsauswahl, durch die Sie mit den Pfeiltasten navigieren können, und „Fassung“ statt „Revision“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "A large model in an answer now waits for „3D-Ansicht laden“ instead of loading by itself, and a load can be stopped at any point, not only during the download.",
+            "de": "Ein großes Modell in einer Antwort wird jetzt erst nach Klick auf „3D-Ansicht laden“ geladen und der Ladevorgang kann jederzeit abgebrochen werden, nicht nur während des Downloads."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "The line above an answer no longer warns about „Aussagen ohne Beleg“; it warns only when a source the answer cites says something else. The „Einschätzung“ label under the answer now says what was checked, such as „3 zitierte Quellen geprüft“, and names a source that says nothing or a statement of law without one.",
+            "de": "Die Zeile über einer Antwort warnt nicht mehr vor „Aussagen ohne Beleg“; sie warnt nur noch, wenn eine Quelle, die die Antwort zitiert, etwas anderes sagt. Die Angabe „Einschätzung“ unter der Antwort nennt jetzt, was geprüft wurde, etwa „3 zitierte Quellen geprüft“, und zeigt eine Quelle, die zu einer Aussage nichts sagt, oder eine Rechtsaussage ohne Fundstelle."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
+            "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
+            "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "„Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.",
+            "de": "„Meine Ablage“ behält ihren Kopf, wenn Sie einen Ordner öffnen, wie die Ablage eines Projekts und die Bürobibliothek: Der Titel und die Werkzeugzeile bleiben, wo sie sind, und der Weg zum Ordner steht in der Zeile unter dem Kopf. Auch während Sie in „Meine Ablage“ oder der Bürobibliothek suchen, bleibt der Kopf stehen, mit dem Weg zurück in der Werkzeugzeile."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project switcher and the search lists for colleagues, members and addresses now have the same corners as the other menus.",
+            "de": "Der Projektumschalter und die Suchlisten für Kolleginnen und Kollegen, Mitglieder und Adressen haben jetzt die gleiche Rundung wie die anderen Menüs."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
+            "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "In the chat, the \"thinking\" dots, the note that a colleague's question is being answered and the notice about an interrupted answer now fade in and out instead of appearing and vanishing at once. In \"Letzte Chats\", a chat's working or answered mark changes over smoothly.",
+            "de": "Im Chat blenden die Denk-Punkte, der Hinweis, dass die Frage eines Kollegen beantwortet wird, und die Meldung über eine unterbrochene Antwort nun ein und aus, statt abrupt zu erscheinen und zu verschwinden. In „Letzte Chats“ wechselt die Kennzeichnung eines Chats als in Bearbeitung oder beantwortet nun fließend."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The E-Mail-Eingang is calmer: each mail is two lines that say where it goes or what it still needs, threads stand under their own name, and a mail with nothing left to decide is filed with one press on „Ablegen“. A filing can be undone for a few seconds, and while you pick several mails, the right side shows where they will go.",
+            "de": "Der E-Mail-Eingang ist übersichtlicher: Jede Mail besteht aus zwei Zeilen, die zeigen, wohin sie gehört oder was noch fehlt. Threads erscheinen unter ihrem eigenen Namen, und eine Mail, bei der nichts mehr zu entscheiden ist, legen Sie mit einem Klick auf „Ablegen“ ab. Das Ablegen lässt sich einige Sekunden lang rückgängig machen, und während Sie mehrere Mails auswählen, zeigt die rechte Seite, wohin sie abgelegt werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
+            "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+            "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
+            "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The welcome and project tours show the app as it is today: the Persönlich | Projekt switch, your projects, the Bürobibliothek, the Postfach, search and your account with the switch to another office. On a phone they point at the switch at the top of the chat, the tab bar and „Mehr“.",
+            "de": "Die Willkommens- und Projekttouren zeigen die App, wie sie heute aussieht: den Umschalter Persönlich | Projekt, Ihre Projekte, die Bürobibliothek, das Postfach, die Suche und Ihr Konto mit der Möglichkeit, zu einem anderen Büro zu wechseln. Auf dem Smartphone zeigen sie auf den Umschalter oben im Chat, die Tab-Leiste und „Mehr“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
+            "de": "Die Projektauswahl zeigt die fünf Projekte, an denen Sie zuletzt gearbeitet haben, sowie „Alle Projekte anzeigen“ für die übrigen und eine Suche über alle Projekte. So erreichen Sie die Projekte, mit denen Sie gerade beschäftigt sind, mit einem Klick – unabhängig davon, wie viele Projekte Ihr Büro hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
+            "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
+            "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview now opens at once over the page you are on, as search does, from every way in: the header, the project picker, the search palette, G then P and the phone's project list. The page underneath stays exactly as it was while you look, and Escape brings you back to it.",
+            "de": "Die Projektübersicht öffnet sich jetzt wie die Suche sofort über der Seite, auf der Sie gerade sind – egal, ob Sie sie über den Header, die Projektauswahl, die Suchpalette, mit G und dann P oder über die Projektliste auf dem Smartphone öffnen. Die Seite darunter bleibt beim Ansehen genau so, wie sie ist, und mit Escape kehren Sie zu ihr zurück."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
+            "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "While the sidebar loads your recent chats, grey placeholder rows stand in for them, and the rows are a little taller and easier to read. The list no longer appears late or out of nowhere.",
+            "de": "Während die Seitenleiste Ihre letzten Chats lädt, erscheinen graue Platzhalterzeilen, die etwas höher und besser lesbar sind. Die Liste erscheint nicht mehr verspätet oder plötzlich."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
+            "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "„Letzte Chats“ in the sidebar is shorter and quieter: at most eight chats, under a lighter heading, and the one you have open stays among them once it has a message or a title. „Alle Chats“ appears when there are more.",
+            "de": "„Letzte Chats“ in der Seitenleiste ist kürzer und dezenter: maximal acht Chats unter einer zurückhaltenderen Überschrift. Der geöffnete Chat bleibt dabei, sobald er eine Nachricht oder einen Titel hat. „Alle Chats“ wird angezeigt, wenn es mehr Chats gibt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
+            "de": "Die Ecken in der gesamten App sind etwas enger gerundet; Menüs, Tabs und Schalter stimmen ihre inneren Rundungen auf die umgebenden Ecken ab."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+            "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "Everything under an answer now sits on one slim line: its sources, one copy button that also cites every source, Word, „Antwortdetails“ as an ⓘ, and the thumbs. Many sources scroll sideways, and their number unfolds them all.",
+            "de": "Alles unter einer Antwort steht jetzt in einer schmalen Zeile: ihre Quellen, eine Kopieren-Taste, die auch alle Quellen zitiert, Word, „Antwortdetails“ als ⓘ und die Daumen. Viele Quellen lassen sich seitlich scrollen, und ihre Anzahl klappt alle auf."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
+            "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "After a switch, the typing dots of a reply that is still running simply stand there instead of fading in again.",
+            "de": "Nach einem Wechsel bleiben die Tipp-Punkte einer noch laufenden Antwort einfach stehen, statt wieder einzublenden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
+            "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
+            "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
+            "de": "In einem Ordner bleibt der Kopf der Ablage stehen, und eine Zeile darunter zeigt den Weg dorthin. Die Suche sagt, wo sie sucht, und zeigt ihre Treffer an Ort und Stelle, auch nach Enter, ohne ein Fenster zu öffnen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
+            "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and a project, or from one project to another, no longer replays motion you did not cause: the chat input stays put, the greeting appears in place, and a slow switch no longer flashes the project overview's loading window. The new place simply stands there, so your eye stays on what you came to do.",
+            "de": "Beim Wechsel zwischen Persönlich und einem Projekt oder zwischen Projekten werden Bewegungen, die Sie nicht ausgelöst haben, nicht mehr wiederholt: Das Chat-Eingabefeld bleibt an Ort und Stelle, die Begrüßung erscheint direkt dort und bei langsamen Wechseln wird das Ladefenster der Projektübersicht nicht mehr kurz eingeblendet. Der neue Bereich bleibt einfach ruhig stehen, damit Ihr Blick bei Ihrer Aufgabe bleibt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
+            "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "In a personal chat, „In Meine Ablage legen“ now asks which folder of Meine Ablage the draft goes into.",
+            "de": "In einem persönlichen Chat fragt „In Meine Ablage legen“ jetzt, in welchem Ordner in Meine Ablage der Entwurf abgelegt wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "On a phone, the folders in the Ablage are shorter and closer together, so the files below them come into view sooner; each folder is still easy to tap.",
+            "de": "Auf dem Smartphone sind die Ordner in der Ablage kürzer und liegen näher beieinander, sodass die darunterliegenden Dateien schneller sichtbar werden; jeder Ordner lässt sich weiterhin gut antippen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "On a phone, the Ablage no longer jumps when it opens: the row with the search and the filters keeps its place from the start, so the file list stays where it first appears instead of dropping down a moment later.",
+            "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
+            "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A chat opened from a link or a fresh page load no longer jumps while it loads: the chat bar, the input field and the lines below it stand where they stay from the start.",
+            "de": "Ein über einen Link geöffneter Chat oder ein Chat nach einem neuen Seitenaufruf springt während des Ladens nicht mehr: Chat-Leiste, Eingabefeld und die Zeilen darunter bleiben von Anfang an an ihrem Platz."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+            "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you send the first message of a new chat, the bar at the top now fades in where it will stay: the menu, the date and the sharing buttons no longer jump sideways while the chat's name arrives.",
+            "de": "Wenn Sie die erste Nachricht eines neuen Chats senden, blendet sich die Leiste oben jetzt an der Stelle ein, an der sie bleibt: Menü, Datum und Teilen-Schaltflächen springen nicht mehr seitwärts, während der Chatname erscheint."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
+            "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
+            "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A link to a chat opens that chat without its address briefly losing the chat and reloading the page. On a slow phone the address could stay without the chat, so going back or sharing the link no longer led to it.",
+            "de": "Ein Link zu einem Chat öffnet diesen nun, ohne dass der Chat kurzzeitig aus der URL verschwindet und die Seite neu geladen wird. Auf langsamen Smartphones konnte der Chat aus der URL verschwunden bleiben, sodass Zurückgehen oder Teilen des Links nicht mehr zu diesem Chat führte."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Opening a chat no longer shows „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ and a sign-in button for a few seconds while your sign-in is still loading.",
+            "de": "Beim Öffnen eines Chats werden nicht mehr für einige Sekunden „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ und ein Login-Button angezeigt, während Ihr Login noch geladen wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A link to a chat now always opens it where it belongs: a personal chat never opens inside a project, and a project's chat never on the personal side or in another project.",
+            "de": "Ein Link zu einem Chat öffnet ihn jetzt immer dort, wo er hingehört: Ein persönlicher Chat öffnet sich nie innerhalb eines Projekts, und ein Projekt-Chat nie im persönlichen Bereich oder in einem anderen Projekt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When a chat has loaded, the greeting and the input no longer drop into place: the loading placeholder now lies over the chat instead of above it.",
+            "de": "Wenn ein Chat geladen ist, rutschen Begrüßung und Eingabefeld nicht mehr an ihren Platz: Der Ladeplatzhalter überlagert jetzt den Chat, statt oberhalb davon zu liegen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching to another chat now fades its messages in instead of swapping them in a single frame.",
+            "de": "Beim Wechsel zu einem anderen Chat werden dessen Nachrichten jetzt eingeblendet, statt in einem einzigen Frame zu erscheinen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
+            "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The message field no longer grows when you send a question and shrinks when the answer is done, so the conversation above it stays where it is. The „steering“ label and the note that ARCHOS is an AI fade in without moving anything.",
+            "de": "Das Nachrichtenfeld wird beim Absenden einer Frage nicht mehr größer und nach Abschluss der Antwort wieder kleiner, sodass die Unterhaltung darüber an ihrer Position bleibt. Das Label „Steering“ und der Hinweis, dass ARCHOS eine KI ist, werden eingeblendet, ohne etwas zu verschieben."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
+            "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A file opened beside the chat now slides in and out smoothly, the page beside it easing into its new width instead of jumping in the first moment.",
+            "de": "Eine neben dem Chat geöffnete Datei gleitet jetzt sanft ein und aus, während sich die danebenliegende Seite fließend an die neue Breite anpasst, statt im ersten Moment zu springen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On the phone, the highlight under the bottom tabs glides to the tab you tap in the same calm way.",
+            "de": "Auf dem Handy gleitet die Hervorhebung unter den unteren Tabs ebenso ruhig zu dem Tab, den Sie antippen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+            "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "When the floor area of an element cannot be measured from its geometry, the answer now says why instead of reporting 0 m² as a measurement. A floor area declared in the model is no longer overruled by that zero.",
+            "de": "Wenn sich die Grundfläche eines Bauteils nicht aus seiner Geometrie messen lässt, nennt die Antwort jetzt den Grund, statt 0 m² als Messergebnis auszugeben. Eine im Modell deklarierte Grundfläche wird von dieser Null nicht mehr überstimmt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
+            "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "On a phone, the Herleitung lists an answer's sources straight on its own panel, at the width of the cards above and below, instead of in a box inside the panel.",
+            "de": "Auf dem Smartphone listet die Herleitung die Quellen einer Antwort direkt auf dem eigenen Panel auf – in derselben Breite wie die Karten darüber und darunter, statt in einer Box innerhalb des Panels."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The Herleitung stands at its full size the moment it appears, and while the agent works, new steps and sources slide in instead of pushing the panel around.",
+            "de": "Die Herleitung wird sofort in voller Größe angezeigt, und während der Agent arbeitet, gleiten neue Schritte und Quellen hinein, anstatt das Panel zu verschieben."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
+            "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the app installed on an iPhone, the chat no longer drifts down after you tap into the input: the top row stays in view and the input stands right above the keyboard.",
+            "de": "In der auf einem iPhone installierten App rutscht der Chat nicht mehr nach unten, wenn Sie das Eingabefeld antippen: Die oberste Zeile bleibt sichtbar und das Eingabefeld befindet sich direkt über der Tastatur."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Cards in an answer no longer jump when they finish drawing. While a card loads, its place already has the size of the finished card, so the text below it stays where you are reading.",
+            "de": "Die Karten in einer Antwort springen nicht mehr, sobald sie fertig geladen sind. Während eine Karte lädt, entspricht ihr Platz bereits der Größe der fertigen Karte, sodass der Text darunter beim Lesen an derselben Stelle bleibt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
+            "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+            "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+            "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+            "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a file in Meine Ablage works again. It failed because it tried to move the file to a Papierkorb that Meine Ablage does not have; the file is now deleted for good, and the dialog says so before you confirm.",
+            "de": "Das Löschen einer Datei in Meine Ablage funktioniert wieder. Es schlug fehl, weil die Datei in einen Papierkorb verschoben werden sollte, den Meine Ablage nicht hat; die Datei wird jetzt endgültig gelöscht, und der Dialog sagt das, bevor Sie bestätigen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The rows in the @-mention and /-command lists now round their corners to match the list around them.",
+            "de": "Die Zeilen in den @-Mention- und /-Command-Listen haben jetzt passend zu den Listen abgerundete Ecken."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Measuring on a PDF drawing now works anywhere on the sheet, so you can measure several areas in a row; points still snap to corners and lines when close, and holding Ctrl (Cmd on a Mac) places a point exactly where the pointer is.",
+            "de": "Das Messen auf einer PDF-Zeichnung funktioniert jetzt überall auf dem Blatt, sodass Sie mehrere Bereiche hintereinander messen können. Punkte rasten weiterhin in der Nähe von Ecken und Linien ein. Wenn Sie Strg (Cmd auf einem Mac) gedrückt halten, setzen Sie einen Punkt genau an der Position des Mauszeigers."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When ARCHOS starts an answer over while writing it, the new answer is now shown as it is written. Before, only its heading appeared and the text stayed hidden until the answer was finished.",
+            "de": "Wenn ARCHOS eine Antwort während des Schreibens neu startet, wird die neue Antwort jetzt bereits während des Schreibens angezeigt. Bisher war nur die Überschrift sichtbar; der Text blieb verborgen, bis die Antwort fertig war."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
+            "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A new chat now opens with its greeting and input box already in place, instead of first showing the outline of a conversation that is loading. The outline appears only when a chat is actually being picked up again.",
+            "de": "Ein neuer Chat öffnet sich jetzt direkt mit Begrüßung und Eingabefeld, statt zuerst die Ladeansicht eines Gesprächs zu zeigen. Diese erscheint nur, wenn ein Chat tatsächlich wieder aufgenommen wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Sending the first message in a new chat no longer briefly shows a loading placeholder that pushed the conversation down.",
+            "de": "Beim Senden der ersten Nachricht in einem neuen Chat wird kein Ladeplatzhalter mehr kurz angezeigt, der die Unterhaltung nach unten verschoben hat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+            "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "administration",
+          "text": {
+            "en": "If you belong to more than one office, you can switch offices from the menu under your name in the sidebar and, on a phone, from „Mehr“. Before, the switch was only in the menu of the bar above the project overview.",
+            "de": "Wenn Sie mehreren Büros angehören, können Sie im Menü unter Ihrem Namen in der Seitenleiste und auf dem Smartphone unter „Mehr“ zwischen den Büros wechseln. Bisher war der Wechsel nur über das Menü in der Leiste oberhalb der Projektübersicht möglich."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Folder cards have the rounded corners of a card again, not the small ones they briefly took.",
+            "de": "Ordnerkarten haben wieder die abgerundeten Ecken einer Karte und nicht mehr die kleinen, die sie kurzzeitig hatten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "The activity chart in a project's Übersicht is now drawn in calm ink instead of a loud blue.",
+            "de": "Das Aktivitätsdiagramm in der Projektübersicht wird jetzt in einem dezenten Tintenfarbton statt in auffälligem Blau dargestellt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "In a chat outside a project, ARCHOS searches the OIB guidelines, the office's archive and your own files again. Since a recent change, a question asked in such a chat could come back with no sources at all.",
+            "de": "In einem Chat außerhalb eines Projekts durchsucht ARCHOS erneut die OIB-Richtlinien, das Büroarchiv und Ihre eigenen Dateien. Seit einer kürzlichen Änderung kann es vorkommen, dass eine in einem solchen Chat gestellte Frage ganz ohne Quellen beantwortet wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file ARCHOS makes in a Persönlich chat can now be kept: the card offers „In Meine Ablage legen“ and saves it to your own shelf. Until now the card offered „Ins Projekt ablegen“ there and it always failed, because a Persönlich chat has no project.",
+            "de": "Eine Datei, die ARCHOS in einem Persönlich-Chat erstellt, können Sie jetzt behalten: Die Karte bietet „In Meine Ablage legen“ an und speichert sie in Ihrer eigenen Ablage. Bisher schlägt „Ins Projekt ablegen“ dort immer fehl, weil ein Persönlich-Chat kein Projekt hat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file uploaded to Meine Ablage is read again instead of failing at once as if it had been deleted.",
+            "de": "Eine in Meine Ablage hochgeladene Datei wird erneut eingelesen, statt sofort mit einem Fehler abzubrechen, als wäre sie gelöscht worden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",
+            "de": "„Letzte Chats“ in der Seitenleiste zeigt jetzt nur noch die Chats des Bereichs, in dem Sie sich befinden: Unter „Persönlich“ Ihre Chats ohne Projekt, unter „Projekt“ die Chats des jeweiligen Projekts. „Alle Chats“ öffnet den Verlauf desselben Bereichs."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A chat without a project no longer offers to mention a colleague with @, and no longer speaks of a project in its input field. To bring someone in, share the chat through Teilen.",
+            "de": "Ein Chat ohne Projekt bietet keine Möglichkeit mehr, Kolleg:innen mit @ zu erwähnen, und zeigt im Eingabefeld kein Projekt mehr an. Um jemanden dazuzuholen, teilen Sie den Chat über Teilen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "„Alle Chats“ opened from a project's Ablage or settings now lists only that project's chats, as „Letzte Chats“ does.",
+            "de": "„Alle Chats“ zeigt beim Öffnen über die Ablage oder die Einstellungen eines Projekts jetzt wie „Letzte Chats“ nur die Chats dieses Projekts an."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A message started from a suggestion in a chat without a project no longer fails because it named a colleague; it goes to ARCHOS as written.",
+            "de": "Eine Nachricht, die Sie über einen Vorschlag in einem Chat ohne Projekt starten, schlägt nicht mehr fehl, wenn sie einen Kollegen erwähnt, sondern wird unverändert an ARCHOS gesendet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Persönlich now lists only the chats you start there, so it starts empty instead of showing every older chat that had no project.",
+            "de": "Persönlich zeigt jetzt nur noch die Chats an, die Sie dort starten. Daher ist die Liste zunächst leer, statt alle älteren Chats ohne Projekt anzuzeigen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+            "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+            "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+            "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the page no longer jumps when you go from the chat to another tab and back: the Persönlich | Projekt switch now comes and goes with the chat, and the project's name beside it fades in when you switch sides.",
+            "de": "Auf dem Smartphone springt die Seite nicht mehr, wenn Sie vom Chat zu einem anderen Tab und zurück wechseln: Der Persönlich | Projekt-Schalter wird jetzt gemeinsam mit dem Chat ein- und ausgeblendet, und beim Wechsel zwischen Persönlich und Projekt blendet sich der Projektname daneben ein."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, an empty chat's input now waits at the bottom of the screen, as in a chat that has started, so tapping into it no longer makes the page drift or jitter in the app installed on an iPhone.",
+            "de": "Bei einem leeren Chat befindet sich das Eingabefeld auf dem Smartphone jetzt am unteren Bildschirmrand, wie in einem gestarteten Chat. Dadurch verrutscht oder springt die Seite beim Antippen in der auf einem iPhone installierten App nicht mehr."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
+            "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
+            "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
+            "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, switching between Persönlich and a project no longer makes the tabs at the bottom jump: they slide to their new places and the new tabs fade in.",
+            "de": "Am Smartphone springen die Tabs unten beim Wechsel zwischen Persönlich und einem Projekt nicht mehr: Sie gleiten an ihre neuen Positionen und neue Tabs werden eingeblendet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "In the Postfach a Frist always looks the same, a small pill with a clock, ochre when it is overdue or due soon and with the date written as 24.10.2026.",
+            "de": "Im Postfach sieht eine Frist immer gleich aus: als kleines pillenförmiges Element mit einer Uhr, ockerfarben, wenn sie überfällig oder bald fällig ist, und mit dem Datum im Format 24.10.2026."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The welcome tour no longer breaks at its second step, where it ran over the project overview window and closed it at the first click. Cards beside the top or the foot of the sidebar now stay on screen, so the tour no longer gets stuck at the Postfach.",
+            "de": "Die Einführungstour bleibt nicht mehr beim zweiten Schritt hängen, bei dem sie das Projektübersichtsfenster überlagerte und beim ersten Klick schloss. Karten neben dem oberen oder unteren Ende der Seitenleiste bleiben jetzt sichtbar, sodass die Tour nicht mehr beim Postfach hängen bleibt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+            "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Opening the project overview at an address ending in a slash (/app/projects/) shows the overview instead of an empty page.",
+            "de": "Wenn Sie die Projektübersicht über eine Adresse öffnen, die mit einem Schrägstrich endet (/app/projects/), wird die Übersicht statt einer leeren Seite angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the questions while setting up a project no longer show the desktop buttons under each question for a moment before the page settles.",
+            "de": "Beim Einrichten eines Projekts werden auf dem Smartphone unter jeder Frage nicht mehr kurz die Desktop-Buttons angezeigt, bevor sich die Seite eingependelt hat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
+            "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
+            "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A new chat's provisional title in „Letzte Chats“ no longer stays grey after a failed answer or a reload, and a name you give a chat while ARCHOS is naming it is kept.",
+            "de": "Der vorläufige Titel eines neuen Chats wird in „Letzte Chats“ nach einer fehlgeschlagenen Antwort oder einem Neuladen nicht mehr grau angezeigt, und ein von Ihnen vergebener Name bleibt erhalten, wenn ARCHOS den Chat gerade benennt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The highlight on the current entry in the sidebar, such as the Bürobibliothek, now stays on its row while you widen or narrow the sidebar, instead of trailing behind it.",
+            "de": "Die Hervorhebung des aktuellen Eintrags in der Seitenleiste, etwa der Bürobibliothek, bleibt nun beim Verbreitern oder Verschmälern der Seitenleiste in derselben Zeile, statt zurückzubleiben."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
+            "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you start a chat on a computer, it joins „Recent chats“ by fading in at the top, and the other chats slide down instead of jumping.",
+            "de": "Wenn Sie am Computer einen Chat starten, wird er oben in „Letzte Chats“ sanft eingeblendet, während die anderen Chats nach unten gleiten, statt zu springen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "search",
+          "text": {
+            "en": "On a phone, a document's title in the search register is a full finger-sized target, so tapping it opens the document instead of missing.",
+            "de": "Auf dem Smartphone ist der Dokumenttitel im Suchregister jetzt groß genug, um ihn sicher anzutippen und das Dokument zu öffnen, statt daneben zu tippen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
+            "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, the line that folds a background check in a chat open and shut is as tall as a fingertip, so it no longer takes a second try.",
+            "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, „Details“ under a file that could not be read is as tall as a fingertip.",
+            "de": "Auf dem Smartphone ist „Details“ unter einer nicht lesbaren Datei etwa so hoch wie eine Fingerspitze."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the way to its edge.",
+            "de": "Auf dem Smartphone reicht der Bereich „Antwortdetails“ unter einer Antwort bis zum Rand und ist so hoch wie eine Fingerspitze."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "search",
+          "text": {
+            "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+            "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+            "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A source under an answer now says its name once, „OIB-Richtlinie 2.1\" rather than „OIB OIB-Richtlinie 2.1\", and shows the whole name wherever the row has room for it.",
+            "de": "Eine Quelle unter einer Antwort nennt ihren Namen jetzt nur einmal: „OIB-Richtlinie 2.1“ statt „OIB OIB-Richtlinie 2.1“ und zeigt den vollständigen Namen überall dort an, wo in der Zeile genug Platz ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
+            "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A table in an answer keeps its columns while its rows arrive, so the rows you are reading no longer jump as later ones come in.",
+            "de": "Eine Tabelle in einer Antwort behält ihre Spalten bei, während die Zeilen eintreffen, sodass die gerade gelesenen Zeilen nicht mehr springen, wenn weitere dazukommen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "tasks",
+          "text": {
+            "en": "A task card no longer redraws itself a moment after the Aufgaben page opens. It first shows the date and time a task was started, then says how long ago that was, without anything else on the card moving.",
+            "de": "Eine Aufgabenkarte wird kurz nach dem Öffnen der Aufgaben-Seite nicht mehr neu gezeichnet. Zunächst zeigt sie Datum und Uhrzeit des Aufgabenstarts an, danach, wie lange dieser zurückliegt – ohne dass sich sonst etwas auf der Karte bewegt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
+            "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
+            "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
+            "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone or tablet, a few small controls are now big enough to hit with a finger: the way up from a folder, the review's filters and comment kinds, the base knowledge filters, attachment links in a mail thread and the chip that says something waits for you.",
+            "de": "Auf Smartphone oder Tablet sind einige kleine Bedienelemente jetzt groß genug, um sie mit dem Finger anzutippen: die Schaltfläche, mit der Sie aus einem Ordner eine Ebene nach oben gelangen, die Filter und Kommentararten im Review, die Filter im Basiswissen, Links zu Anhängen in einem Mail-Thread und der Chip, der anzeigt, dass etwas auf Sie wartet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Typing the first letters of a new chat no longer flashes the loading placeholder: the greeting and the input stay where they are until you send.",
+            "de": "Wenn Sie die ersten Buchstaben eines neuen Chats eingeben, blinkt der Ladeplatzhalter nicht mehr: Begrüßung und Eingabefeld bleiben an ihrem Platz, bis Sie die Nachricht senden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "„Ansehen“ on the line saying that documents could not be read seemed to do nothing once their list was open; the line now steps aside while that list is shown and returns when you go back to the folder.",
+            "de": "„Ansehen“ in der Zeile mit dem Hinweis, dass Dokumente nicht gelesen werden konnten, schien nichts zu bewirken, sobald deren Liste geöffnet war; jetzt wird die Zeile ausgeblendet, solange die Liste angezeigt wird, und erscheint wieder, wenn Sie zum Ordner zurückkehren."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "The toolbar at the bottom of the model viewer casts its full shadow again; it used to stop in a hard line just below the buttons.",
+            "de": "Die Toolbar am unteren Rand des Modell-Viewers wirft wieder ihren vollständigen Schatten; zuvor endete dieser direkt unter den Schaltflächen abrupt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Closing the file preview beside the chat no longer makes the chat jump sideways: the preview glides out and the chat widens with it, just as it narrows when the preview opens.",
+            "de": "Wenn Sie die Dateivorschau neben dem Chat schließen, verschiebt sich der Chat nicht mehr seitlich: Die Vorschau gleitet heraus und der Chat wird dabei breiter – genauso, wie er beim Öffnen der Vorschau schmaler wird."
+          }
+        },
+        {
+          "section": "upgrade",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a folder in the Bürobibliothek no longer moves its documents into the folder above; they go to the bin with it. A topic of Normen & Richtlinien still moves its norms up a level, and a norm is still removed from there.",
+            "de": "Wer in der Bürobibliothek einen Ordner löscht, verschiebt seine Dokumente nicht mehr in den Ordner darüber; sie kommen mit ihm in den Papierkorb. Ein Thema in Normen & Richtlinien verschiebt seine Normen weiterhin eine Ebene nach oben, und eine Norm wird weiterhin dort entfernt."
+          }
+        },
+        {
+          "section": "other",
+          "area": "general",
+          "text": {
+            "en": "The privacy policy now also names the two cookies the application keeps for its display: the area you last worked in, and whether a chat will be resumed when you open it.",
+            "de": "Die Datenschutzerklärung nennt jetzt auch die beiden Cookies, die die Anwendung für ihre Darstellung speichert: den Bereich, in dem Sie zuletzt gearbeitet haben, und ob ein Chat beim Öffnen fortgesetzt wird."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W47",
       "kind": "week",
       "version": null,
       "date": "2026-11-16",
       "dateEnd": "2026-11-22",
-      "summary": null,
+      "summary": {
+        "en": "ARCHOS now makes real Word, Excel, PowerPoint and PDF files in a calm house style, shows each as a card to open or download, and files it into the project as a draft when you ask. Several chats can answer at the same time, and any two files, such as two room lists, can be compared row by row. In the E-Mail-Eingang, later replies to a filed conversation are filed without a click, and reading uploads no longer uses up your monthly limit.",
+        "de": "ARCHOS erstellt jetzt echte Word-, Excel-, PowerPoint- und PDF-Dateien in einem ruhigen Hausstil, zeigt jede als Karte zum Öffnen oder Herunterladen und legt sie auf Wunsch als Entwurf im Projekt ab. Mehrere Chats können gleichzeitig antworten, und zwei beliebige Dateien, etwa zwei Raumlisten, lassen sich Zeile für Zeile vergleichen. Im E-Mail-Eingang werden spätere Antworten auf einen abgelegten Verlauf ohne Klick abgelegt, und das Einlesen von Uploads verbraucht Ihr Monatslimit nicht mehr."
+      },
       "notes": [
         {
           "section": "features",
@@ -69,6 +1349,14 @@
           "text": {
             "en": "A CSV file from the agent says why it cannot be filed into the project and offers to ask for an Excel workbook instead.",
             "de": "Die CSV-Datei des Agenten erklärt, warum sie nicht im Projekt abgelegt werden kann, und bietet an, stattdessen eine Excel-Arbeitsmappe anzufordern."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Decks, PDFs, Word and Excel files that ARCHOS makes now share one calm look in your office's spirit: white paper, black ink, Hanken Grotesk in PDFs and Aptos in Office files. Your office's own template still takes precedence whenever you name one.",
+            "de": "Präsentationen, PDFs sowie Word- und Excel-Dateien, die ARCHOS erstellt, haben jetzt ein einheitliches, ruhiges Erscheinungsbild, passend zum Stil Ihres Büros: weißes Papier, schwarze Schrift, Hanken Grotesk in PDFs und Aptos in Office-Dateien. Ihre eigene Vorlage hat weiterhin Vorrang, wenn Sie eine festlegen."
           }
         },
         {
@@ -403,6 +1691,14 @@
           "section": "improvements",
           "area": "documents",
           "text": {
+            "en": "An Outlook archive (.pst or .ost) you upload to a project's Dateien, with „Hochladen“ or dropped on the page, is now imported as E-Mail-Verläufe and attachment folders, so the separate „Outlook-Archiv importieren“ button is gone.",
+            "de": "Ein Outlook-Archiv (.pst oder .ost), das Sie über „Hochladen“ in den Bereich „Dateien“ eines Projekts hochladen oder auf der Seite ablegen, wird jetzt als E-Mail-Verläufe und Ordner für Anhänge importiert; der separate Button „Outlook-Archiv importieren“ entfällt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
             "en": "An opened mail says what an unverified sender means for you (\"name and address could be forged\"), and each confirmation names what you confirm instead of one \"File anyway\".",
             "de": "Eine geöffnete E-Mail erklärt, was ein nicht verifizierter Absender für Sie bedeutet („Name und Adresse könnten gefälscht sein“), und jede Bestätigung gibt konkret an, was Sie bestätigen, statt einer allgemeinen Option „Trotzdem ablegen“."
           }
@@ -445,6 +1741,14 @@
           "text": {
             "en": "The list of subprocessors now names Google Workspace and Attio. They handle enquiries sent through the contact and demo forms on our website, and they receive none of your office's project data.",
             "de": "Die Liste der Unterauftragsverarbeiter führt jetzt Google Workspace und Attio auf. Sie bearbeiten Anfragen über die Kontakt- und Demoformulare auf unserer Website und erhalten keine Projektdaten Ihres Büros."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A mail you filed from the E-Mail-Eingang showed under „Bearbeitet“ as „(ohne Betreff)“ with an error where its text was. It is now named after the E-Mail-Verlauf it went into, and its text is where you filed it.",
+            "de": "Eine E-Mail, die Sie aus dem E-Mail-Eingang abgelegt haben, wird unter „Bearbeitet“ als „(ohne Betreff)“ angezeigt, und anstelle ihres Textes erscheint eine Fehlermeldung. Jetzt trägt sie den Namen des E-Mail-Verlaufs, in den Sie sie abgelegt haben, und ihr Text wird dort angezeigt."
           }
         },
         {
@@ -655,7 +1959,10 @@
       "version": null,
       "date": "2026-11-09",
       "dateEnd": "2026-11-15",
-      "summary": null,
+      "summary": {
+        "en": "Answers now use the edition of a law or OIB-Richtlinie that binds at the project's site and say since when it binds there. What ARCHOS keeps about you personally goes into „Mein Gedächtnis“, which only you read, and in a temporary chat nothing goes into any memory. Dateien, the sidebar and project mail have a calmer design, and the app moved to the web address of its new name, with every former link still working.",
+        "de": "Antworten stützen sich jetzt auf die Ausgabe eines Gesetzes oder einer OIB-Richtlinie, die am Standort des Projekts verbindlich ist, und sagen, seit wann sie dort gilt. Was ARCHOS über Sie persönlich behält, kommt in „Mein Gedächtnis“, das nur Sie lesen, und in einem temporären Chat gelangt nichts in ein Gedächtnis. Dateien, Seitenleiste und Projekt-E-Mail sind ruhiger gestaltet, und die App ist unter die Webadresse ihres neuen Namens gezogen, wobei alle bisherigen Links weiter funktionieren."
+      },
       "notes": [
         {
           "section": "features",
@@ -2185,7 +3492,10 @@
       "version": null,
       "date": "2026-11-02",
       "dateEnd": "2026-11-08",
-      "summary": null,
+      "summary": {
+        "en": "Every project now has its own mail address: put it in Cc when you write to the Behörde or the Statik, and mail waits in the project's E-Mail-Eingang until a person files it, with a folder suggested for each attachment. Your own mail to that address is filed directly, and a filed conversation becomes one E-Mail-Verlauf that answers can cite. DXF files such as a Katasterauszug open as a PDF to scale, and in the chat you can measure setbacks, boundaries and what remains buildable.",
+        "de": "Jedes Projekt hat jetzt eine eigene E-Mail-Adresse: Setzen Sie sie in Cc, wenn Sie der Behörde oder der Statik schreiben, und die E-Mails warten im E-Mail-Eingang des Projekts, bis jemand sie ablegt, mit einem Ordnervorschlag für jeden Anhang. Ihre eigenen E-Mails an diese Adresse werden direkt abgelegt, und ein abgelegter Verlauf wird zu einem E-Mail-Verlauf, den Antworten zitieren können. DXF-Dateien wie ein Katasterauszug öffnen sich als maßstäbliches PDF, und im Chat messen Sie Abstände, Grenzen und was nach den Abständen bebaubar bleibt."
+      },
       "notes": [
         {
           "section": "features",

@@ -3,7 +3,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { UploadAnywayButton } from '@/features/documents'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import { AnimatePresence, motion, motionEntrance, motionQuickExit } from '@/components/motion'
+import { AnimatePresence } from '@/components/motion'
+import { HeightArrival } from '@/components/motion/height-arrival'
 import { ChatScreeningNotice } from '@/features/chat/components/ChatScreeningNotice'
 import { OtherProjectsNotice } from '@/features/chat/components/OtherProjectsNotice'
 import { LiveDictationStrip } from '@/features/dictation'
@@ -98,32 +99,20 @@ export function ComposerField({ controller }: { controller: InputAreaController 
                 attached to what I am about to send?". */}
       <AnimatePresence initial={false}>
         {controller.slash.invokedSkill && (
-          <motion.div
-            key={`invoked-skill-${controller.slash.invokedSkill.name}`}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 2, transition: motionQuickExit }}
-            transition={motionEntrance}
-          >
+          <HeightArrival key={`invoked-skill-${controller.slash.invokedSkill.name}`}>
             <InvokedSkillChip
               name={controller.slash.invokedSkill.name}
               description={controller.slash.invokedSkill.description}
               onRemove={controller.cannotContribute ? undefined : controller.slash.clearInvocation}
             />
-          </motion.div>
+          </HeightArrival>
         )}
       </AnimatePresence>
 
       {/* Upload failures: the composer's one alert. */}
       <AnimatePresence initial={false}>
         {controller.uploadError && (
-          <motion.div
-            key="upload-error"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4, transition: motionQuickExit }}
-            transition={motionEntrance}
-          >
+          <HeightArrival key="upload-error">
             <Alert variant="destructive" className="mt-2">
               <AlertDescription className="flex w-full items-start justify-between gap-2">
                 <span>
@@ -140,7 +129,7 @@ export function ComposerField({ controller }: { controller: InputAreaController 
                 </button>
               </AlertDescription>
             </Alert>
-          </motion.div>
+          </HeightArrival>
         )}
       </AnimatePresence>
 
@@ -153,14 +142,10 @@ export function ComposerField({ controller }: { controller: InputAreaController 
                 reason a microphone cannot be used is a status, said on a press. */}
       <AnimatePresence initial={false}>
         {controller.composerNote && (
-          <motion.p
-            key="composer-note"
+          <HeightArrival key="composer-note">
+          <p
             role={controller.composerNote.tone === 'error' ? 'alert' : 'status'}
             data-testid="composer-note"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 2, transition: motionQuickExit }}
-            transition={motionEntrance}
             className={cn(
               'mt-2 flex items-center gap-1 text-xs leading-snug',
               controller.composerNote.tone === 'error'
@@ -177,7 +162,8 @@ export function ComposerField({ controller }: { controller: InputAreaController 
             >
               <X className="size-3.5" aria-hidden="true" />
             </button>
-          </motion.p>
+          </p>
+          </HeightArrival>
         )}
       </AnimatePresence>
 

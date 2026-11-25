@@ -238,3 +238,55 @@ describe('useMentionCandidates — before the conversation exists', () => {
     expect(result.current.data).toBeNull()
   })
 })
+
+describe('useSharing — a share the owner must confirm (ADR-0193)', () => {
+  test('retries the refused grant with the confirmation, and only that grant', async () => {
+    const refused = {
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'CONFLICT', details: { reason: 'personal-shelf-content', confirmable: true } }),
+    } as unknown as Response
+    fetchMock.mockResolvedValueOnce(ok()).mockResolvedValueOnce(refused).mockResolvedValue(ok())
+    const { result } = renderHook(() => useSharing('conversation', RESOURCE_ID, true))
+    await tick(0)
+
+    await act(async () => {
+      expect(await result.current.grant('user_ina', 'viewer')).toBe(false)
+    })
+    expect(result.current.failure).toMatchObject({ reason: 'personal-shelf-content', confirmable: true })
+
+    await act(async () => {
+      expect(await result.current.confirmPersonalShelf()).toBe(true)
+    })
+    const [, init] = fetchMock.mock.calls.at(-1) as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ subjectUserId: 'user_ina', role: 'viewer', confirmPersonalShelf: true })
+    expect(result.current.failure).toBeNull()
+  })
+
+  test('switching resource drops the refusal and never confirms the earlier grant on the new resource', async () => {
+    const refused = {
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'CONFLICT', details: { reason: 'personal-shelf-content', confirmable: true } }),
+    } as unknown as Response
+    fetchMock.mockResolvedValueOnce(ok()).mockResolvedValueOnce(refused).mockResolvedValue(ok())
+    const { result, rerender } = renderHook(({ id }: { id: string }) => useSharing('conversation', id, true), {
+      initialProps: { id: RESOURCE_ID },
+    })
+    await tick(0)
+    await act(async () => {
+      await result.current.grant('user_ina', 'viewer')
+    })
+    expect(result.current.failure).not.toBeNull()
+
+    rerender({ id: 's_conv_other' })
+    await tick(0)
+    fetchMock.mockClear()
+
+    expect(result.current.failure).toBeNull()
+    await act(async () => {
+      expect(await result.current.confirmPersonalShelf()).toBe(false)
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

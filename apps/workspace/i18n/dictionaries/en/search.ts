@@ -4,13 +4,14 @@ export const search = {
     office: 'Whole office',
     project: 'This project',
     projectFolder: 'This folder',
-    officeShelf: 'Office filing',
+    officeShelf: 'Office library',
   },
   field: {
     placeholder: {
       office: 'Search the whole office…',
       project: 'Search this project…',
-      office_shelf: 'Search the office filing…',
+      office_shelf: 'Search the office library…',
+      personal: 'Search Meine Ablage…',
     },
     placeholderShort: 'Search…',
     label: 'Search',
@@ -71,7 +72,7 @@ export const search = {
     page: 'p. {page}',
   },
   where: {
-    officeShelf: 'Office filing',
+    officeShelf: 'Office library',
     folder: 'Folder',
     separator: ' · ',
   },
@@ -274,7 +275,7 @@ export const search = {
     summaryEverything: 'No words or filters',
   },
   mode: {
-    backToFiles: 'Back to files',
+    backToFiles: 'Back to documents',
     backToShelf: 'Back to the filing',
   },
   hitActions: {
@@ -298,21 +299,31 @@ export const search = {
     hints: { move: 'move', open: 'insert', close: 'close' },
   },
   palette: {
-    allResults: 'All results for “{text}”',
-    open: 'Open search',
+    allResults: 'Open all results with filters',
+    allResultsCount: 'Open all {count} results with filters',
+    continueInSearch: 'Open search with filters',
     noHits: 'Nothing found',
     noHitsFor: 'Nothing found for “{text}”',
-    continueInSearch: 'Open search with filters',
     noHitsHint: 'Try another spelling or fewer words, or open the search with filters.',
     retry: 'Try again',
     retryHint: 'A second try is usually enough; otherwise check the connection.',
     ofTotal: '{shown} of {total}',
     allIn: 'In {project}',
-    recent: 'Recent searches',
-    hint: {
-      office:
-        'Documents by name, title block, type and content, plus annotations, folders, projects and chats across the office.',
-      project: 'Documents by name, title block, type and content, plus annotations, folders and chats in this project.',
+    recentOpened: 'Opened last',
+    opened: {
+      annotation: 'Annotation',
+      folder: 'Folder',
+      project: 'Project',
+      conversation: 'Chat',
+    },
+    kinds: {
+      all: 'Everything',
+      files: 'Files',
+      chats: 'Chats',
+      projects: 'Projects',
+    },
+    scope: {
+      office: 'across the office',
     },
   },
 }

@@ -14,12 +14,16 @@ from pydantic import WithJsonSchema
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_action import ActionCounts
+from agent.common.wire_action import ActionVerb
+from agent.common.wire_action import MeasuredShape
 from agent.common.wire_model import OpenWireModel as _OpenModel
 from agent.common.wire_model import WireModel as _Model
 
 WIRE_VERSION: Literal[2] = 2
 
 CLOSE_CLIENT_OUTDATED = 4426
+_UNKNOWN_AS_NULL = {"x-unknown-as-null": True}
 
 Scalar = str | int | float | bool
 
@@ -147,17 +151,6 @@ class LookStep(_StepBase):
     reading: str | None = Field(default=None, max_length=300, description="The first reading, when one was made.")
 
 
-ActionVerb = Literal["search", "list", "read", "look", "lookup", "law", "web", "model", "workspace"]
-
-
-class ActionCounts(_Model):
-    hits: int | None = Field(default=None, ge=0, description="Passages or matches returned.")
-    documents: int | None = Field(default=None, ge=0, description="Distinct documents the hits are in.")
-    searched: int | None = Field(default=None, ge=0, description="Documents searched, the denominator.")
-    files: int | None = Field(default=None, ge=0, description="Files a listing showed.")
-    folders: int | None = Field(default=None, ge=0, description="Folders a listing showed.")
-
-
 class ActionStep(_StepBase):
     kind: Literal["action"] = "action"
     call_id: str = Field(min_length=1, max_length=64, description="Shared with the sources step this call returned.")
@@ -196,6 +189,7 @@ class ActionStep(_StepBase):
         ),
     )
     counts: ActionCounts | None = None
+    measure: MeasuredShape | None = Field(default=None, description="What a measuring call measured, to draw.")
     elapsed_ms: int | None = Field(default=None, ge=0)
 
 
@@ -253,9 +247,8 @@ class ConfidenceCheck(_Model):
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
-    unavailable_reason: ConfidenceUnavailable | None = Field(
-        default=None, json_schema_extra={"x-unknown-as-null": True}
-    )
+    unavailable_reason: ConfidenceUnavailable | None = Field(default=None, json_schema_extra=_UNKNOWN_AS_NULL)
+    sources_checked: int | None = Field(default=None, ge=0)
 
 
 class TurnResult(_Model):
@@ -268,7 +261,7 @@ class TurnResult(_Model):
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
     answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
-        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+        Field(default=None, json_schema_extra=_UNKNOWN_AS_NULL)
     )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None

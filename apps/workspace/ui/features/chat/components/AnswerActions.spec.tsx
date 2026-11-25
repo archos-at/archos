@@ -18,7 +18,7 @@ const documents = buildCitationModel({
       timestamp: new Date('2026-08-18T09:00:00Z'),
       title: 'OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023',
       fileName: 'oib-rl_2_ausgabe_mai_2023.pdf',
-      collection: 'oib_knowledge',
+      collection: 'base_corpus',
       kind: 'building_law',
       origin: 'kb',
       page: 18,
@@ -74,14 +74,13 @@ describe('AnswerActions', () => {
     expect(copied()).not.toContain('[[card:')
   })
 
-  test('the second action appends the sources written out in full', async () => {
+  test('the copy menu copies the answer with its sources written out in full', async () => {
     const user = userEvent.setup()
     render(<AnswerActions content={ANSWER} body={ANSWER} documents={documents} />)
     installClipboard()
 
-    await user.click(
-      screen.getByRole('button', { name: 'Copy answer with full source references' })
-    )
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'With sources' }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     expect(copied()).toContain('## Sources')
@@ -160,13 +159,16 @@ describe('AnswerActions', () => {
     })
   })
 
-  test('hides the plain copy once the with-sources copy is available', () => {
+  test('with sources, one copy button holds every way to copy: with sources, plain, and as citations', async () => {
+    const user = userEvent.setup()
     render(<AnswerActions content={ANSWER} body={ANSWER} documents={documents} />)
 
-    expect(
-      screen.getByRole('button', { name: 'Copy answer with full source references' })
-    ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy answer' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+
+    expect(await screen.findByRole('menuitem', { name: 'With sources' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Answer only' })).toBeInTheDocument()
+    expect(screen.getByText('BibTeX (.bib)')).toBeInTheDocument()
   })
 
   test('confirms with the Check swap, on the pressed button only', async () => {
@@ -174,9 +176,8 @@ describe('AnswerActions', () => {
     render(<AnswerActions content={ANSWER} body={ANSWER} documents={documents} />)
     installClipboard()
 
-    await user.click(
-      screen.getByRole('button', { name: 'Copy answer with full source references' })
-    )
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Answer only' }))
 
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
@@ -199,9 +200,9 @@ describe('AnswerActions', () => {
     installClipboard()
 
     await user.tab()
-    expect(
-      screen.getByRole('button', { name: 'Copy answer with full source references' })
-    ).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Copy' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    await screen.findByRole('menuitem', { name: 'With sources' })
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))

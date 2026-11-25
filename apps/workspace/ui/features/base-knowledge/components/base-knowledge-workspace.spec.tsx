@@ -157,11 +157,13 @@ describe('BaseKnowledgeWorkspace', () => {
     await waitFor(() => expect(calls.some((call) => call.url.includes('attention=check_due'))).toBe(true))
   })
 
-  it('drills into a folder as Dateien does, and keeps it in the URL', async () => {
+  it('filters by topic over the list and keeps the topic in the URL (KAN-86)', async () => {
     stubFetch(listOf())
     renderWorkspace()
-    const card = await screen.findByTestId('folder-card-00000000-0000-4000-8000-000000000002')
-    await userEvent.click(card.querySelector<HTMLButtonElement>('[data-attr="files-open"]')!)
+    await screen.findAllByTestId('base-knowledge-row')
+    const topic = BASE_KNOWLEDGE_FOLDERS.folders.find((folder) => folder.id === '00000000-0000-4000-8000-000000000002')!
+    await userEvent.click(screen.getByTestId('base-knowledge-topic-filter'))
+    await userEvent.click(await screen.findByRole('option', { name: topic.name }))
     expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge?folder=00000000-0000-4000-8000-000000000002', { scroll: false })
   })
 
@@ -173,7 +175,7 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(calls.some((call) => call.url.includes('folderId=00000000-0000-4000-8000-000000000002'))).toBe(true)
   })
 
-  it('uploads into the Büroablage and opens one dialog for the norms it recognised', async () => {
+  it('uploads into the Bürobibliothek and opens one dialog for the norms it recognised', async () => {
     shelfUpload.stored = [
       { documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' },
       { documentId: 'doc-edition', fileName: 'OENORM_B_1600_2023-02-01_de.pdf' },
@@ -224,7 +226,7 @@ describe('BaseKnowledgeWorkspace', () => {
     })
   })
 
-  it('leaves the norms proposed on Später, and Jetzt prüfen opens them again', async () => {
+  it('leaves the norms proposed on Später, and „Zu bestätigende prüfen“ behind ⋯ opens them again', async () => {
     const pending = BASE_KNOWLEDGE_ENTRIES.filter((entry) => entry.status === 'proposed')
     shelfUpload.stored = [{ documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' }]
     const calls = stubFetch(listOf())
@@ -243,9 +245,9 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: RECOGNITION.proposals.length, source: 'office_shelf_upload' })
     expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: RECOGNITION.proposals.length, confirmed: 0, source: 'office_shelf_upload' }))
 
-    const line = screen.getByTestId('base-knowledge-pending')
-    expect(line.textContent).toContain(`${pending.length} Normen warten auf Bestätigung.`)
-    await userEvent.click(within(line).getByRole('button', { name: 'Jetzt prüfen' }))
+    expect(screen.queryByTestId('base-knowledge-pending')).toBeNull()
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    await userEvent.click(await screen.findByTestId('base-knowledge-review-pending'))
     await screen.findByTestId('norm-dialog')
     const reopened = fetchMock.mock.calls.filter(([url]) => url === '/api/base-knowledge/recognize')
     expect(reopened).toHaveLength(2)
@@ -337,7 +339,7 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/base-knowledge' && init?.method === 'POST')).toBe(false)
   })
 
-  it('reads like the Ordner tab: the shelf’s header, then one tool row of search, kind, Thema anlegen, Hochladen and ⋯', async () => {
+  it('reads like the Dateien place: the shelf’s header, then one tool row of search, Hochladen and ⋯; kind and topic filter the list', async () => {
     stubFetch(listOf())
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
@@ -346,16 +348,16 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(row.getAttribute('data-tier')).toBe('wide')
     const order = [
       within(row).getByRole('textbox', { name: 'Normen & Richtlinien durchsuchen' }),
-      within(row).getByRole('combobox', { name: 'Art' }),
-      within(row).getByRole('button', { name: 'Thema anlegen' }),
       within(row).getByRole('button', { name: 'Hochladen' }),
       within(row).getByTestId('base-knowledge-more'),
     ]
     for (const [index, control] of order.slice(1).entries()) {
       expect(order[index].compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
-    expect(within(header).queryByTestId('base-knowledge-pending')).toBeNull()
-    expect(within(screen.getByTestId('base-knowledge-scroll')).getByTestId('base-knowledge-pending')).toBeTruthy()
+    expect(within(row).queryByRole('combobox', { name: 'Art' })).toBeNull()
+    expect(within(screen.getByTestId('base-knowledge-list')).getByRole('combobox', { name: 'Art' })).toBeTruthy()
+    expect(within(screen.getByTestId('base-knowledge-list')).getByRole('combobox', { name: 'Thema' })).toBeTruthy()
+    expect(screen.queryByTestId('base-knowledge-pending')).toBeNull()
   })
 
   it('keeps So funktioniert es in the ⋯, not in a row of its own above the list', async () => {
@@ -371,21 +373,33 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(screen.queryByTestId('base-knowledge-guide')).toBeNull()
   })
 
-  it('shows its topics as the Ordner tab’s folder cards, each with its whole name', async () => {
-    stubFetch(listOf())
-    renderWorkspace()
-    const topics = await screen.findByTestId('base-knowledge-topics')
-    const cards = within(topics).getAllByTestId(/^folder-card-/)
-    const names = BASE_KNOWLEDGE_FOLDERS.folders.filter((folder) => folder.parentId === BASE_KNOWLEDGE_FOLDERS.rootId).map((folder) => folder.name)
-    expect(cards).toHaveLength(names.length)
-    for (const name of names) expect(within(topics).getAllByTitle(name).length).toBeGreaterThan(0)
-  })
-
-  it('names the folder action of the norms tab a topic', async () => {
+  it('shows no topic tiles: the topics are a column and a filter (KAN-86)', async () => {
     stubFetch(listOf())
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
-    expect(screen.getByRole('button', { name: 'Thema anlegen' })).toBeTruthy()
+    expect(screen.queryByTestId('base-knowledge-topics')).toBeNull()
+    expect(screen.queryAllByTestId(/^folder-card-/)).toHaveLength(0)
+    await userEvent.click(screen.getByTestId('base-knowledge-topic-filter'))
+    for (const folder of BASE_KNOWLEDGE_FOLDERS.folders) expect(await screen.findByRole('option', { name: folder.name })).toBeTruthy()
+  })
+
+  it('renames and deletes the chosen topic behind ⋯, as its tile’s menu did', async () => {
+    navigation.search = 'folder=00000000-0000-4000-8000-000000000002'
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    expect(await screen.findByTestId('base-knowledge-rename-topic')).toBeTruthy()
+    expect(screen.getByTestId('base-knowledge-delete-topic')).toBeTruthy()
+  })
+
+  it('names the folder action of the norms tab a topic, behind its ⋯', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    expect(screen.queryByRole('button', { name: 'Thema anlegen' })).toBeNull()
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    expect(await screen.findByTestId('base-knowledge-new-topic')).toHaveTextContent('Thema anlegen')
   })
 
   it('holds the place under a scrim while the file loads, and a further press replaces rather than stacks', async () => {

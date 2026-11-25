@@ -1,0 +1,5 @@
+---
+# area: documents
+improvements:
+  - >
+    The Ablage keeps its head when you switch between Dateien, E-Mail-Eingang and Offene Punkte: the title stays „Ablage“, each place's own buttons share the one row of tools, and the places no longer jump. Only the content below changes, and it answers your click at once.

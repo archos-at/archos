@@ -27,7 +27,7 @@ export function IfcElementChip({ link, children }: IfcElementChipProps): JSX.Ele
     <Link
       href={elementLinkHref(link)}
       title={target}
-      className="mx-0.5 inline-flex max-w-full items-baseline gap-1 rounded-md border border-transparent bg-info-subtle px-1.5 py-0.5 align-baseline text-[0.9em] text-info no-underline transition-opacity duration-snap ease-out hover:opacity-80"
+      className="mx-0.5 inline-flex max-w-full items-baseline gap-1 rounded-inline bg-desk px-1.5 py-0.5 align-baseline text-[0.9em] text-foreground no-underline transition-colors duration-snap ease-out hover:bg-selected"
     >
       <Box className="size-3 shrink-0 self-center" aria-hidden="true" />
       <span className="truncate">{children}</span>

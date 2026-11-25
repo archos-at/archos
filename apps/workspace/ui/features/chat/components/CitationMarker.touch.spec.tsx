@@ -50,7 +50,7 @@ const citation = (page: number, number: number, passage?: string): CitationSourc
   content: passage ? `[KB] ${OIB}, p.${page}\n${passage}` : `[KB] ${OIB}, p.${page}`,
   citationKey: `${OIB}, p.${page}`,
   fileName: OIB,
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   title: 'OIB-Richtlinie 2.1, Ausgabe Mai 2023',
   origin: 'kb',
   kind: 'building_law',
@@ -157,6 +157,18 @@ describe('a citation marker under a finger', () => {
     const prose = screen.getByText(/Zwei Fluchtwege sind erforderlich/)
 
     fireEvent.click(prose, { clientX: 130, clientY: 60 })
+    expect(await screen.findByText('Source 1')).toBeInTheDocument()
+  })
+
+  test('declares its reach on the frame, and with it the narrowest marker is a 44px target', async () => {
+    renderAnswer()
+    const first = screen.getByRole('button', { name: /Source 1: OIB/i })
+    const frame = first.closest('[data-tap-reach]')
+    const reach = Number(frame?.getAttribute('data-tap-reach'))
+    expect(18 + 2 * reach).toBeGreaterThanOrEqual(44)
+
+    first.getBoundingClientRect = () => ({ left: 100, right: 118, top: 50, bottom: 76 }) as DOMRect
+    fireEvent.click(screen.getByText(/Zwei Fluchtwege sind erforderlich/), { clientX: 118 + reach, clientY: 63 })
     expect(await screen.findByText('Source 1')).toBeInTheDocument()
   })
 

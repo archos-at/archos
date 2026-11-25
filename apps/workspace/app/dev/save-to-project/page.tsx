@@ -91,7 +91,7 @@ export default function SaveToProjectPreview() {
           <SaveToProjectDialog
             open={open}
             onOpenChange={setOpen}
-            projectId={PROJECT}
+            shelf={{ kind: 'project', projectId: PROJECT }}
             fileName="Flächenaufstellung Top 4.xlsx"
             extension="xlsx"
             initialFolderId="f-02"

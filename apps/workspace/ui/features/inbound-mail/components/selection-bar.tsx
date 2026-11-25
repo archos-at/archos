@@ -14,6 +14,7 @@ export type BulkBlock = { reason: IncompleteReason | 'too_many'; count: number }
 
 export interface SelectionBarProps {
   count: number
+  fileCount?: number
   block: BulkBlock
   max: number
   filing: boolean
@@ -24,7 +25,7 @@ export interface SelectionBarProps {
   className?: string
 }
 
-export function SelectionBar({ count, block, max, filing, dismissing, onFile, onDismiss, onClear, className }: SelectionBarProps): JSX.Element {
+export function SelectionBar({ count, fileCount = count, block, max, filing, dismissing, onFile, onDismiss, onClear, className }: SelectionBarProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const whyId = useId()
   const reason = block ? t(`bulk.blocked.${block.reason}`, { count: block.count, max }) : null
@@ -62,6 +63,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           busy={dismissing}
           busyLabel={t('bar.dismissBusy')}
           blocked={filing}
+          disabled={count === 0}
           onClick={onDismiss}
           data-testid="selection-dismiss"
         >
@@ -73,13 +75,13 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           busy={filing}
           busyLabel={t('bulk.fileSuggestedBusy')}
           blocked={dismissing}
-          disabled={block !== null}
+          disabled={count === 0 || block !== null}
           aria-describedby={reason ? whyId : undefined}
           onClick={onFile}
           className="min-w-0 flex-1"
           data-testid="selection-file"
         >
-          {t('bulk.fileSuggested')}
+          {fileCount < count ? t('bulk.fileSome', { count: fileCount }) : t('bulk.fileSuggested')}
         </BusyButton>
       </div>
     </div>

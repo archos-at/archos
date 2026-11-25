@@ -3,9 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/agent-api/telemetry', () => ({ recordOperationCalled: vi.fn(), recordCapabilityMissing: vi.fn() }))
@@ -101,7 +101,7 @@ function render(): string {
   const fixture = {
     comment:
       'Written by app/api/mcp/workspace-eval.fixture.spec.ts from the real catalog; served by ' +
-      'scripts/turn_census/fixture_workspace.py. Regenerate with UPDATE_FIXTURES=1.',
+      'scripts/turn_census/fixture_workspace.py. Regenerate with `task generate`.',
     limit: LIMIT,
     operations,
     search,
@@ -112,8 +112,7 @@ function render(): string {
 describe('the workspace eval catalog', () => {
   it('is what the production door shows for the in-product agent', () => {
     const rendered = render()
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FILE, rendered)
-    expect(readFileSync(FILE, 'utf8')).toBe(rendered)
+    expectGenerated(FILE, rendered)
   })
 
   it('finds for a German request what the English one finds', () => {

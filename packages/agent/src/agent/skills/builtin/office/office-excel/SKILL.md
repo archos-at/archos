@@ -33,9 +33,11 @@ have not this conversation.
   `INDEX`/`MATCH`. Not `XLOOKUP`, `FILTER`, `SORT`, `UNIQUE` or `SEQUENCE`:
   sort and filter in the run before writing. A sheet name with a space is
   quoted in a reference: `='Flächen EG'!C5`.
-- `sheet.columns` sets header, key and width at once; style the header row,
-  freeze it with `sheet.views = [{ state: "frozen", ySplit: 1 }]`, and give it an
-  `autoFilter` over the data rows.
+- `sheet.columns` sets header, key and width at once. After the rows are
+  written, `styleSheet(sheet, { numeric: [3], total: true })` from
+  `house-style` styles the header row, the number columns and the total row
+  and freezes the header (`office-design`); give it an `autoFilter` over the
+  data rows.
 - Page setup for printing: `paperSize: 9` is A4, `fitToWidth: 1` with
   `fitToHeight: 0` fits the columns on one page width.
 - One sheet per storey or per group when the person will read them separately;
@@ -48,6 +50,7 @@ have not this conversation.
 import { writeFile } from "node:fs/promises";
 import Decimal from "decimal.js";
 import ExcelJS from "exceljs";
+import { styleSheet } from "house-style";
 
 export default async function () {
   const rooms = [
@@ -68,17 +71,9 @@ export default async function () {
   ];
   sheet.addRows(rooms);
 
-  const header = sheet.getRow(1);
-  header.font = { bold: true };
-  header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
-  header.getCell(3).alignment = { horizontal: "right" };
-
   const last = rooms.length + 1;
-  const sum = sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
-  sum.font = { bold: true };
-  sum.getCell(3).border = { top: { style: "thin" } };
-
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
+  styleSheet(sheet, { numeric: [3], numFmt: '#,##0.00 "m²"', total: true });
   sheet.autoFilter = { from: "A1", to: { row: last, column: 3 } };
 
   await writeFile("/workspace/Flaechenaufstellung.xlsx", new Uint8Array(await workbook.xlsx.writeBuffer()));

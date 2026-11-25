@@ -115,7 +115,7 @@ beforeEach(() => {
   )
   vi.mocked(ensureDocumentThread).mockResolvedValue(THREAD)
   vi.mocked(resolveTurnContext).mockResolvedValue({
-    scope: ['oib_knowledge', 'proj_1'],
+    scope: ['base_corpus', 'proj_1'],
     scopedCollections: [],
     header: 'c2NvcGU',
     conversationId: THREAD,
@@ -195,6 +195,16 @@ describe('a wake that runs', () => {
         }),
       }),
     ])
+  })
+
+  it('opens the thread, writes into it and decides its context as the person, as a thread without a project is theirs alone (0269)', async () => {
+    const { withTenant } = await import('@/lib/db/tenant-context')
+    vi.mocked(withTenant).mockClear()
+    await runAgentWake('org_1', PAYLOAD, NOT_LAST)
+
+    const asAnna = vi.mocked(withTenant).mock.calls.filter(([scope]) => (scope as { userId?: string }).userId === 'user_anna')
+    expect(asAnna).toHaveLength(3)
+    expect(asAnna.map(([scope]) => scope)).toEqual(Array(3).fill({ organizationId: 'org_1', userId: 'user_anna' }))
   })
 
   it('asks a delegated mark with what the mark says', async () => {

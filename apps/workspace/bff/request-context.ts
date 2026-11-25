@@ -28,6 +28,18 @@ export interface RequestContextInput {
   issuedAt?: number | null
   contextTransport?: 'bff'
   requester?: RequestPerson | null
+  contextKind?: SignedContextKind | null
+}
+
+export const SIGNED_CONTEXT_KINDS = ['run', 'headless', 'external'] as const
+
+export type SignedContextKind = (typeof SIGNED_CONTEXT_KINDS)[number]
+
+export type EnvelopeContextKind = 'chat' | SignedContextKind
+
+function contextKindOf(value: unknown): EnvelopeContextKind | null {
+  if (value === undefined) return 'chat'
+  return (SIGNED_CONTEXT_KINDS as readonly unknown[]).includes(value) ? (value as SignedContextKind) : null
 }
 
 export interface RequestPerson {
@@ -90,9 +102,6 @@ export function buildRequestContextHeaders(input: RequestContextInput): Record<s
   }
   if (input.projectId) {
     headers[REQUEST_CONTEXT_HEADER_NAMES.PROJECT_ID] = input.projectId
-  }
-  if (input.collectionScope && input.collectionScope.length > 0) {
-    headers[REQUEST_CONTEXT_HEADER_NAMES.COLLECTION_SCOPE] = encodeJsonHeader(input.collectionScope)
   }
   if (input.contextTransport !== 'bff' && input.projectContext) {
     headers[REQUEST_CONTEXT_HEADER_NAMES.PROJECT_CONTEXT] = encodeTextHeader(input.projectContext)
@@ -176,6 +185,9 @@ export function buildRequestContextEnvelopePayload(input: RequestContextInput): 
   if (requester) {
     payload.requester = requester
   }
+  if (input.contextKind) {
+    payload.contextKind = input.contextKind
+  }
 
   return payload
 }
@@ -227,6 +239,7 @@ export interface VerifiedRequestContext {
   conversationId: string | null
   issuedAt: number
   collectionScope: readonly string[]
+  contextKind: EnvelopeContextKind
 }
 
 function scopeNames(raw: unknown): string[] {
@@ -276,6 +289,8 @@ export function verifyRequestContextEnvelope(
   if (!organizationId || !userId || issuedAt === null) return null
   if (!Number.isFinite(issuedAt)) return null
   if (Math.abs(now - issuedAt) > REQUEST_CONTEXT_MAX_AGE_MS) return null
+  const contextKind = contextKindOf(fields.contextKind)
+  if (!contextKind) return null
 
   return {
     organizationId,
@@ -284,6 +299,7 @@ export function verifyRequestContextEnvelope(
     conversationId: typeof fields.conversationId === 'string' ? fields.conversationId : null,
     issuedAt,
     collectionScope: scopeNames(fields.collectionScope),
+    contextKind,
   }
 }
 

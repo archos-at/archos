@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db'
 import { conversations } from '@/lib/db/schema/conversations'
 import { documentAnnotationReplies, documentAnnotations } from '@/lib/db/schema/document-annotations'
 import { documentSearchFacets } from '@/lib/db/schema/document-search'
-import { documents } from '@/lib/db/schema/documents'
+import { documents, type DocumentScope } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { projects } from '@/lib/db/schema/projects'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -13,7 +13,7 @@ import { likeContains } from '@/lib/text/like-pattern'
 import type { AnnotationKind, AnnotationStatus } from '@/lib/annotations/types'
 import { documentSearchWhere, type DocumentQuery } from './document-repository'
 import { reachHiddenFolderIds, type SearchReach } from './reach'
-import { SEARCH_LIMIT_MAX } from './search-wire'
+import { SEARCH_LIMIT_MAX, searchShelfOf, type SearchShelf } from './search-wire'
 
 export const SEARCH_TOTAL_CAP = 1000
 
@@ -41,6 +41,7 @@ export interface AnnotationSearchRow {
   documentId: string
   filename: string
   displayName: string | null
+  scope: DocumentScope
   projectId: string | null
   projectName: string | null
   kind: string
@@ -114,6 +115,7 @@ export async function searchAnnotationRows(
           documentId: documentAnnotations.documentId,
           filename: documents.filename,
           displayName: documents.displayName,
+          scope: documents.scope,
           projectId: documents.projectId,
           projectName: projects.name,
           kind: documentAnnotations.kind,
@@ -150,7 +152,7 @@ export interface FolderSearchRow {
   id: string
   name: string
   description: string | null
-  scope: 'project' | 'office_shelf'
+  scope: SearchShelf
   projectId: string | null
   projectName: string | null
 }
@@ -162,7 +164,10 @@ export function folderReachWhere(reach: SearchReach): SQL {
     projectIds.length > 0
       ? and(eq(projectFolders.scope, 'project'), inArray(projectFolders.projectId, projectIds))
       : undefined,
-    reach.officeShelf ? eq(projectFolders.scope, 'office_shelf') : undefined
+    reach.officeShelf ? eq(projectFolders.scope, 'office_shelf') : undefined,
+    reach.personal
+      ? and(eq(projectFolders.scope, 'personal'), eq(projectFolders.ownerUserId, reach.personal.userId))
+      : undefined
   )
   return and(
     eq(projectFolders.organizationId, reach.organizationId),
@@ -221,7 +226,7 @@ export async function searchFolderRows(
   return {
     rows: rows.map((row) => ({
       ...row,
-      scope: row.scope === 'office_shelf' ? 'office_shelf' : 'project',
+      scope: searchShelfOf(row.scope),
     })),
     total: Number(total),
   }
@@ -237,6 +242,8 @@ export interface ConversationSearchRow {
   projectId: string | null
   title: string | null
   updatedAt: Date
+  createdBy: string
+  personalShelfUsedAt: Date | null
 }
 
 export async function searchConversationRows(
@@ -247,13 +254,15 @@ export async function searchConversationRows(
   tagKeys: readonly string[]
 ): Promise<ConversationSearchRow[]> {
   if (where.projectIds.length === 0 && !where.withoutContainer) return []
-  const rows = await withTenant({ organizationId }, () =>
+  const rows = await withTenant({ organizationId, userId }, () =>
     getDb()
       .select({
         id: conversations.id,
         projectId: conversations.projectId,
         title: conversations.title,
         updatedAt: conversations.updatedAt,
+        createdBy: conversations.createdBy,
+        personalShelfUsedAt: conversations.personalShelfUsedAt,
       })
       .from(conversations)
       .where(

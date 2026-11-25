@@ -139,9 +139,7 @@ def inventory_ready(path: Path | None) -> bool:
 
     try:
         with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
-            (count,) = db.execute(
-                "SELECT count(*) FROM document_metadata WHERE collection = 'oib_knowledge'"
-            ).fetchone()
+            (count,) = db.execute("SELECT count(*) FROM document_metadata WHERE collection = 'base_corpus'").fetchone()
     except sqlite3.Error:
         return False
     return count > 0

@@ -217,19 +217,21 @@ async def test_an_ingest_job_with_an_unknown_class_is_refused(ingest_app):
     assert await _ingest(app, licence_class="free_for_all") == 422
 
 
-async def test_a_withdrawal_lands_on_the_corpus_row_and_keeps_its_country_so_a_reingest_keeps_it(store, monkeypatch):
+@pytest.mark.parametrize("collection", ["base_corpus", "oib_knowledge"])
+async def test_a_withdrawal_lands_on_the_corpus_row_and_keeps_its_country_so_a_reingest_keeps_it(
+    store, monkeypatch, collection
+):
     from agent import corpus_store
-    from agent.oib_sync import COLLECTION_NAME
 
     marks: dict[str, object] = {"OIB-RL_2.pdf": corpus_store.FileMark(country_id="AT", edition_id="edition:rl2")}
     monkeypatch.setattr(corpus_store, "get_mark", lambda name: marks.get(name))
     monkeypatch.setattr(corpus_store, "set_mark", lambda name, mark: marks.__setitem__(name, mark))
 
     response = await _put(
-        {"file_name": "OIB-RL_2.pdf", "released": False}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
+        {"file_name": "OIB-RL_2.pdf", "released": False}, path=f"/v1/collections/{collection}/knowledge-mark"
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, "a BFF still on the old name during a rollout reaches the corpus row too"
     withdrawn = corpus_store.FileMark(country_id="AT", edition_id="edition:rl2", released=False)
     assert marks["OIB-RL_2.pdf"] == withdrawn
     assert withdrawn.job_config() == {"country_id": "AT", "knowledge_edition_id": "edition:rl2", "released": False}

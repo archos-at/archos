@@ -26,6 +26,7 @@ describe('CreateProjectDialog', () => {
   })
 
   test('auto-opens when defaultOpen and strips ?new=1 on close', async () => {
+    window.history.replaceState(null, '', '/app/projects?new=1')
     render(<CreateProjectDialog defaultOpen />)
 
     expect(await screen.findByTestId('create-project-form')).toBeDefined()
@@ -33,6 +34,15 @@ describe('CreateProjectDialog', () => {
     await userEvent.keyboard('{Escape}')
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/projects', { scroll: false }))
+  })
+
+  test('leaves the URL alone when the overview opened create without ?new=1 in it', async () => {
+    window.history.replaceState(null, '', '/app/projects/p1/files')
+    render(<CreateProjectDialog defaultOpen />)
+    expect(await screen.findByTestId('create-project-form')).toBeDefined()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('create-project-form')).toBeNull())
+    expect(replace).not.toHaveBeenCalled()
   })
 
   test('does not rewrite the URL when it was not auto-opened', async () => {

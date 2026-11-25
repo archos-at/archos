@@ -22,6 +22,10 @@ vi.mock('./backend-operations', async (importOriginal) => ({
   callBackendOperation: vi.fn(),
 }))
 vi.mock('./operation-proposals', () => ({ proposeOperation: vi.fn() }))
+vi.mock('./operation-origin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./operation-origin')>()
+  return { withConversationOrigin: vi.fn(actual.withConversationOrigin) }
+})
 vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordOperationMissing: vi.fn() }))
 
 import { z } from 'zod'
@@ -44,6 +48,7 @@ import {
 import type { AgentOperation } from './operation'
 import { FAKE_OPERATIONS } from './test-operations'
 import { proposeOperation } from './operation-proposals'
+import { withConversationOrigin } from './operation-origin'
 import type { AgentPrincipal } from './principal'
 import { recordOperationCalled, recordOperationMissing } from './telemetry'
 
@@ -219,7 +224,7 @@ describe('call-operation', () => {
       { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp', ownShelfReadable: true },
     )
     expect(result.isError).toBeUndefined()
     expect(structured(result)).toEqual({ projects: [] })
@@ -277,6 +282,19 @@ describe('call-operation', () => {
       expect.anything(),
       expect.objectContaining({ decision: 'propose', status: 202 }),
     )
+  })
+
+  it('runs what withConversationOrigin stamps with the turn’s conversation, on both direct paths', async () => {
+    const inChat: AgentPrincipal = { ...person, conversationId: 's_turn' }
+    const stamped = { params: {}, query: { stamped: true } }
+    vi.mocked(withConversationOrigin).mockReturnValueOnce(stamped).mockReturnValueOnce(stamped)
+
+    await callOperationTool(ctx(inChat), { name: 'project-list', input: { query: {} } })
+    await readOperationBody(ctx(inChat), 'project-list', { query: {} })
+
+    expect(withConversationOrigin).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: 'project-list' }), { query: {} }, 's_turn')
+    expect(withConversationOrigin).toHaveBeenNthCalledWith(2, expect.objectContaining({ name: 'project-list' }), { query: {} }, 's_turn')
+    expect(vi.mocked(callOperation).mock.calls.map((call) => call[1])).toEqual([stamped, stamped])
   })
 
   it('lets the in-product agent read directly', async () => {
@@ -347,7 +365,7 @@ describe('call-operation', () => {
       expect.objectContaining({ ifMatch: '"3"' }),
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp', ownShelfReadable: true },
     )
   })
 
@@ -552,6 +570,16 @@ describe('the Python agent’s read tools', () => {
     expect(described.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false })
   })
 
+  it('decide their envelope with the caller’s kind, from its door: external for an MCP client and a script', async () => {
+    vi.mocked(callBackendOperation).mockResolvedValue({ status: 200, ok: true, body: { tool: 'knowledge_search', result: 'a passage' } })
+    const script: AgentPrincipal = { actor: 'external_agent', session, clientId: null, scopes: [] }
+    for (const [caller, kind] of [[person, 'external'], [script, 'external']] as const) {
+      vi.mocked(callBackendOperation).mockClear()
+      await callOperationTool(ctx(caller), { name: 'knowledge-search', input: { projectId: PROJECT, query: 'Stellplätze' } })
+      expect(vi.mocked(callBackendOperation).mock.calls[0]?.[3], caller.actor + String(caller.clientId)).toEqual({ projectId: PROJECT, kind })
+    }
+  })
+
   it('are called through callBackendOperation as the person, with the project', async () => {
     vi.mocked(callBackendOperation).mockResolvedValue({ status: 200, ok: true, body: { tool: 'knowledge_search', result: 'a passage' } })
     const result = await callOperationTool(ctx(person), {
@@ -562,7 +590,7 @@ describe('the Python agent’s read tools', () => {
       'knowledge-search',
       { projectId: PROJECT, query: 'Stellplätze' },
       session,
-      { projectId: PROJECT },
+      { projectId: PROJECT, kind: 'external' },
     )
     expect(callOperation).not.toHaveBeenCalled()
     expect(result.structuredContent).toEqual({ result: 'a passage' })

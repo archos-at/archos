@@ -23,7 +23,7 @@ SOURCE_KINDS: dict[str, SourceKind] = {
     ),
     "office": SourceKind(
         key="office",
-        label="Büroablage",
+        label="Bürobibliothek",
         description="Standards, Details und Erfahrung deines Büros.",
         css_token="office",
     ),
@@ -90,6 +90,15 @@ class Shelf(StrEnum):
     PROJECT = "project"
     SESSION = "session"
     BASE = "base"
+    PERSONAL = "personal"
+
+
+USERS_SHELF_LANES: dict[Shelf, tuple[str, str]] = {
+    Shelf.OFFICE_SHELF: ("office", "Bürobibliothek"),
+    Shelf.PROJECT: ("project", "Projektwissen"),
+    Shelf.SESSION: ("project", "Private Sitzung"),
+    Shelf.PERSONAL: ("project", "Meine Ablage"),
+}
 
 
 LEGACY_SHELF_VALUES: dict[str, str] = {"archiv": Shelf.OFFICE_SHELF.value}
@@ -98,6 +107,15 @@ LEGACY_SHELF_VALUES: dict[str, str] = {"archiv": Shelf.OFFICE_SHELF.value}
 def canonical_shelf_value(value: str) -> str:
     key = value.strip().lower()
     return LEGACY_SHELF_VALUES.get(key, key)
+
+
+BASE_CORPUS_COLLECTION = "base_corpus"
+# drop after release 2027-W02
+LEGACY_BASE_CORPUS_COLLECTION = "oib_knowledge"
+
+
+def current_collection(collection: str) -> str:
+    return BASE_CORPUS_COLLECTION if collection == LEGACY_BASE_CORPUS_COLLECTION else collection
 
 
 OFFICE_SHELF_COLLECTION_PREFIX = "archiv_"
@@ -132,10 +150,11 @@ def parse_shelf(value: object) -> Shelf | None:
 
 
 SHELF_QUALIFIERS: dict[Shelf, str] = {
-    Shelf.OFFICE_SHELF: "Büroablage",
+    Shelf.OFFICE_SHELF: "Bürobibliothek",
     Shelf.PROJECT: "Projektwissen",
     Shelf.SESSION: "Private Sitzung",
     Shelf.BASE: "Basiswissen",
+    Shelf.PERSONAL: "Meine Ablage",
 }
 
 SCOPE_QUALIFIERS: dict[str, str] = {
@@ -146,6 +165,7 @@ SCOPE_QUALIFIERS: dict[str, str] = {
 }
 
 RETIRED_SHELF_QUALIFIERS: dict[str, Shelf] = {
+    "Büroablage": Shelf.OFFICE_SHELF,
     "Büroarchiv": Shelf.OFFICE_SHELF,
 }
 
@@ -175,6 +195,8 @@ def shelf_qualifier(shelf: Shelf | str | None) -> str | None:
             return SHELF_QUALIFIERS[Shelf.SESSION]
         case Shelf.BASE:
             return SHELF_QUALIFIERS[Shelf.BASE]
+        case Shelf.PERSONAL:
+            return SHELF_QUALIFIERS[Shelf.PERSONAL]
         case None:
             return None
         case other:  # pragma: no cover — unreachable until a member is added
@@ -197,4 +219,6 @@ def legacy_shelf_for_collection_name(collection: str | None) -> Shelf | None:
         return Shelf.PROJECT
     if key.startswith("s_"):
         return Shelf.SESSION
+    if key.startswith("personal_"):
+        return Shelf.PERSONAL
     return None

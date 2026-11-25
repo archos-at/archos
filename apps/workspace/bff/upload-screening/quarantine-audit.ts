@@ -29,7 +29,7 @@ export async function auditQuarantineDecision(
       targetId: decision.documentId,
       metadata: {
         projectId: decision.projectId ?? '',
-        filename: decision.filename.slice(0, 200),
+        filename: decision.scope === 'personal' ? '' : decision.filename.slice(0, 200),
         scope: modernizeDocumentScope(decision.scope),
         reasons: decision.reasons,
         reasonsOmitted: decision.reasonsOmitted,

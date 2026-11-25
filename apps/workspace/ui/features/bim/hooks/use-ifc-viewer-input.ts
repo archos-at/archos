@@ -1,6 +1,8 @@
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { useCallback, useEffect, useRef } from 'react'
+import { cameraMoveDuration, prefersReducedMotion } from '../lib/reduced-motion'
 import type { BimViewerElement } from '../lib/model-index'
-import { dragSlopFor, isDoubleTap, keyboardCameraStep, pointerDragged, wheelZoomDelta } from '../lib/viewer-camera'
+import { dragSlopFor, isDoubleTap, keyboardCameraStep, pointerDragged, wheelZoomDelta, wheelZooms } from '../lib/viewer-camera'
 import { completeMeasurement } from '../lib/viewer-measure'
 import { HOVER_BUDGET_MS, KEY_ORBIT_PX, KEY_PAN_PX } from '../components/ifc-viewer-canvas-helpers'
 import type { IfcViewerState } from './use-ifc-viewer-state'
@@ -216,9 +218,9 @@ export function useIfcViewerInput(viewer: IfcViewerState & IfcViewerFrame & IfcV
     drag.y = event.clientY
     if (drag.pointerType !== 'mouse' && !wasMoved) return
     if (drag.button === 1 || drag.button === 2 || event.shiftKey) {
-      renderer.getCamera().pan(dx, dy, true)
+      renderer.getCamera().pan(dx, dy, !prefersReducedMotion())
     } else {
-      renderer.getCamera().orbit(dx, dy, true)
+      renderer.getCamera().orbit(dx, dy, !prefersReducedMotion())
     }
     runCameraLoop()
   }
@@ -285,13 +287,13 @@ export function useIfcViewerInput(viewer: IfcViewerState & IfcViewerFrame & IfcV
       const camera = renderer.getCamera()
       runCameraLoop()
       void (camera.frameBounds
-        ? camera.frameBounds(box.min, box.max)
-        : camera.zoomExtent(box.min, box.max)
+        ? camera.frameBounds(box.min, box.max, cameraMoveDuration())
+        : camera.zoomExtent(box.min, box.max, cameraMoveDuration())
       )
         .then(() => requestFrame())
-        .catch(() => {})
-    } catch {
-      // A pick that failed is a double-click that did nothing, which is a
+        .catch((error: unknown) => capturePosthogException(error, { source: 'ifc-viewer-frame-pick' }))
+    } catch (error) {
+      capturePosthogException(error, { source: 'ifc-viewer-pick' })
     }
   }
 
@@ -306,13 +308,14 @@ export function useIfcViewerInput(viewer: IfcViewerState & IfcViewerFrame & IfcV
     const onWheel = (event: WheelEvent) => {
       const renderer = rendererRef.current
       if (!renderer) return
+      if (!wheelZooms(event, compact, document.activeElement === canvas)) return
       event.preventDefault()
       const rect = canvas.getBoundingClientRect()
       renderer
         .getCamera()
         .zoom(
           wheelZoomDelta(event.deltaY, event.deltaMode, rect.height),
-          true,
+          !prefersReducedMotion(),
           event.clientX - rect.left,
           event.clientY - rect.top,
           rect.width,
@@ -323,7 +326,7 @@ export function useIfcViewerInput(viewer: IfcViewerState & IfcViewerFrame & IfcV
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
     return () => canvas.removeEventListener('wheel', onWheel)
-  }, [runCameraLoop])
+  }, [runCameraLoop, compact])
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const renderer = rendererRef.current
@@ -369,11 +372,11 @@ export function useIfcViewerInput(viewer: IfcViewerState & IfcViewerFrame & IfcV
     const camera = renderer.getCamera()
     if (step.kind === 'zoom') {
       const rect = event.currentTarget.getBoundingClientRect()
-      camera.zoom(step.amount, true, rect.width / 2, rect.height / 2, rect.width, rect.height)
+      camera.zoom(step.amount, !prefersReducedMotion(), rect.width / 2, rect.height / 2, rect.width, rect.height)
     } else if (event.shiftKey) {
-      camera.pan(step.x * KEY_PAN_PX, step.y * KEY_PAN_PX, true)
+      camera.pan(step.x * KEY_PAN_PX, step.y * KEY_PAN_PX, !prefersReducedMotion())
     } else {
-      camera.orbit(step.x * KEY_ORBIT_PX, step.y * KEY_ORBIT_PX, true)
+      camera.orbit(step.x * KEY_ORBIT_PX, step.y * KEY_ORBIT_PX, !prefersReducedMotion())
     }
     runCameraLoop()
   }

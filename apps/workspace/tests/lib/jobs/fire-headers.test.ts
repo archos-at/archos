@@ -46,6 +46,10 @@ vi.mock('@/lib/jobs/background-run', async (importOriginal) => {
   return { ...actual, submitBackgroundRun: vi.fn(actual.submitBackgroundRun) }
 })
 
+vi.mock('@/lib/auth/pinned-session', () => ({
+  resolvePinnedRequesterSession: vi.fn(async (who: { userId: string; organizationId: string }) => ({ ...who })),
+}))
+
 vi.mock('@/lib/jobs/run-context', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/jobs/run-context')>()
   return { ...actual, resolveRunContext: vi.fn(async () => runContext) }
@@ -79,7 +83,7 @@ const { runContext } = vi.hoisted(() => ({
   runContext: {
     budget: { remainingOrgUsd: 42.5, remainingUserUsd: 10, remainingProjectUsd: 5.25 },
     modelOverrides: { deep_research: 'openrouter/anthropic/claude-3.7-sonnet' },
-    collectionScope: ['oib_knowledge', 'proj_proj_789'],
+    collectionScope: ['base_corpus', 'proj_proj_789'],
     projectContext: 'Projekt: Wohnbau Simmering',
     projectMemory: '- Bevorzugt knappe Zitate',
     orgInstructions: null,
@@ -93,7 +97,7 @@ const CONTEXT_INPUT: RequestContextInput = {
   organizationId: 'org_123',
   userId: 'user_456',
   projectId: 'proj_789',
-  collectionScope: ['oib_knowledge', 'proj_proj_789'],
+  collectionScope: ['base_corpus', 'proj_proj_789'],
   projectContext: 'Projekt: Wohnbau Simmering',
   projectMemory: '- Bevorzugt knappe Zitate',
   modelOverrides: { deep_research: 'openrouter/anthropic/claude-3.7-sonnet' },
@@ -107,7 +111,6 @@ const PAYLOAD: JobSubmitPayload = {
   skills: [],
   output: 'deep-research',
   data_sources: ['knowledge_layer'],
-  collection_scope: ['oib_knowledge', 'proj_proj_789'],
   project_context: CONTEXT_INPUT.projectContext ?? null,
   project_memory: CONTEXT_INPUT.projectMemory ?? null,
   memory_reflection_enabled: true,
@@ -213,7 +216,7 @@ describe('the headers the BFF puts on a job fire', () => {
       organizationId: 'org_new',
       userId: 'user_new',
       projectId: 'proj_new',
-      collectionScope: ['oib_knowledge'],
+      collectionScope: ['base_corpus'],
       memoryReflectionEnabled: false,
     })
 

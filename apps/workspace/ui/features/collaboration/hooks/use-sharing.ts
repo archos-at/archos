@@ -43,6 +43,7 @@ export interface UseSharingResult {
   changeRole: (subjectUserId: string, role: ResourceRole) => Promise<boolean>
   revoke: (subjectUserId: string) => Promise<boolean>
   escalate: () => Promise<boolean>
+  confirmPersonalShelf: () => Promise<boolean>
 }
 
 export function useSharing(
@@ -55,6 +56,7 @@ export function useSharing(
   const [loadError, setLoadError] = useState(false)
   const [failure, setFailure] = useState<SharingFailure | null>(null)
   const [saving, setSaving] = useState(false)
+  const widening = useRef<((confirmPersonalShelf: boolean) => Promise<ResourceSharingState>) | null>(null)
   const seq = useRef(0)
   const retryRef = useRef<RetryLadder | null>(null)
   retryRef.current ??= createRetryLadder({ delaysMs: RETRY_DELAYS_MS })
@@ -103,6 +105,13 @@ export function useSharing(
     void refresh()
   }, [refresh, retry, enabled, base])
 
+  const baseRef = useRef(base)
+  useEffect(() => {
+    baseRef.current = base
+    widening.current = null
+    setFailure(null)
+  }, [base])
+
   useEffect(() => {
     retry.reset()
     setLoadError(false)
@@ -123,8 +132,10 @@ export function useSharing(
     async (request: () => Promise<ResourceSharingState>): Promise<boolean> => {
       setFailure(null)
       setSaving(true)
+      const target = baseRef.current
       try {
         const data = await request()
+        if (baseRef.current !== target) return false
         seq.current += 1
         retry.reset()
         setState(data)
@@ -132,6 +143,7 @@ export function useSharing(
         setLoading(false)
         return true
       } catch (error) {
+        if (baseRef.current !== target) return false
         setFailure(error instanceof SharingRequestError ? error.failure : NO_FAILURE_DETAIL)
         return false
       } finally {
@@ -149,15 +161,25 @@ export function useSharing(
     dismissFailure: () => setFailure(null),
     saving,
     refresh: restart,
-    setVisibility: async (visibility) =>
-      resourceId ? mutate(() => setResourceVisibility(resourceType, resourceId, visibility)) : false,
-    grant: async (subjectUserId, role = 'collaborator') =>
-      resourceId ? mutate(() => grantResourceAccess(resourceType, resourceId, subjectUserId, role)) : false,
+    setVisibility: async (visibility) => {
+      if (!resourceId) return false
+      widening.current = (confirmed) => setResourceVisibility(resourceType, resourceId, visibility, confirmed)
+      return mutate(() => setResourceVisibility(resourceType, resourceId, visibility))
+    },
+    grant: async (subjectUserId, role = 'collaborator') => {
+      if (!resourceId) return false
+      widening.current = (confirmed) => grantResourceAccess(resourceType, resourceId, subjectUserId, role, confirmed)
+      return mutate(() => grantResourceAccess(resourceType, resourceId, subjectUserId, role))
+    },
     changeRole: async (subjectUserId, role) =>
       resourceId ? mutate(() => changeResourceRole(resourceType, resourceId, subjectUserId, role)) : false,
     revoke: async (subjectUserId) =>
       resourceId ? mutate(() => revokeResourceAccess(resourceType, resourceId, subjectUserId)) : false,
     escalate: async () => (resourceId ? mutate(() => escalateResourceAccess(resourceType, resourceId)) : false),
+    confirmPersonalShelf: async () => {
+      const retry = widening.current
+      return retry ? mutate(() => retry(true)) : false
+    },
   }
 }
 

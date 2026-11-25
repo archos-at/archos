@@ -73,7 +73,7 @@ KB_HITS = [
         file_name="oib-rl_2_ausgabe_mai_2023.pdf",
         page=12,
         shelf=Shelf.BASE,
-        collection="oib_knowledge",
+        collection="base_corpus",
         doc_class="oib_guideline",
         display_title="OIB-Richtlinie 2, Ausgabe Mai 2023",
         clause="3.5.2",
@@ -106,7 +106,7 @@ KB_HITS = [
         body="Fluchtwege im Obergeschoss.",
     ),
     _hit(
-        citation_key="einreichplan_og.pdf (Büroablage), p.9",
+        citation_key="einreichplan_og.pdf (Bürobibliothek), p.9",
         file_name="einreichplan_og.pdf",
         page=9,
         shelf=Shelf.OFFICE_SHELF,

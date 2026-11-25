@@ -710,6 +710,21 @@ anything else or with a different content type.
   working directory kept as text is filed as a file too. The card, its preview
   (`/draft/rendition`, Gotenberg for Office) and its download (`/draft/download`):
   [agent-made-files-ux.md](../design/agent-made-files-ux.md).
+- **In a chat without a project** the same card reads „In Meine Ablage legen“,
+  and `fileDraftToPersonalShelf`
+  (`apps/workspace/bff/conversations/personal-draft-filing.ts`) saves the draft
+  to the person's own shelf, in the folder they pick in the same save dialog a
+  project uses (`SaveToProjectDialog` with `shelf: { kind: 'personal' }`, its
+  folders from `/api/personal-shelf/folders`), through `uploadToPersonalShelf`: the
+  bytes are stamped with the AI marking as above, but the row is the person's
+  own upload, not an agent-authored document, because Meine Ablage has no review
+  or Fassungen. `requireMayFileFrom` decides with the person's shelf as the
+  destination, so a chat that drew on someone else's shelf is refused, and one
+  that drew on a project or a restricted folder files only once the person
+  releases it on the card (ADR-0198, „Beruht auf vertraulichen Unterlagen“). A name already taken answers `409
+  same-name`; „Unter neuem Namen ablegen“ saves as „Name (2)“. Saving a changed
+  draft again replaces the file it saved before as a new version, wherever the
+  person moved it.
 
 ## Open questions
 

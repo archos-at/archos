@@ -8,9 +8,6 @@ import {
   viewerEnvironment,
 } from './viewer-scene'
 
-const luminance = (channels?: readonly number[]): number =>
-  (channels ?? []).reduce((sum, value) => sum + value, 0)
-
 describe('viewerEnvironment', () => {
   it('lights from above and in front, the way an elevation drawing assumes', () => {
     const [x, y, z] = viewerEnvironment('light').sunDirection ?? [0, 0, 0]
@@ -24,22 +21,6 @@ describe('viewerEnvironment', () => {
     expect(y).toBeLessThan(0.95)
   })
 
-  it.each(['light', 'dark'] as const)(
-    'puts the ground darker than the horizon in %s, so the model stands on something',
-    (theme) => {
-      const sky = viewerEnvironment(theme).sky
-      expect(luminance(sky?.ground)).toBeLessThan(luminance(sky?.horizon))
-    }
-  )
-
-  it('brightens upward on paper and toward the horizon on charcoal', () => {
-    const light = viewerEnvironment('light').sky
-    expect(luminance(light?.horizon)).toBeLessThan(luminance(light?.zenith))
-
-    const dark = viewerEnvironment('dark').sky
-    expect(luminance(dark?.zenith)).toBeLessThan(luminance(dark?.horizon))
-  })
-
   it('keeps enough ambient that a north facade is still readable', () => {
     expect(viewerEnvironment('light').ambientIntensity ?? 0).toBeGreaterThan(0.3)
     expect(viewerEnvironment('dark').ambientIntensity ?? 0).toBeGreaterThan(0.3)
@@ -51,8 +32,9 @@ describe('viewerEnvironment', () => {
     expect(dark).toBeGreaterThan(light)
   })
 
-  it('draws the sky, rather than clearing to a flat fill', () => {
-    expect(viewerEnvironment('light').skyEnabled).toBe(true)
+  it('clears to the desk instead of drawing a sky gradient, which the design system has no place for', () => {
+    expect(viewerEnvironment('light').skyEnabled).toBe(false)
+    expect(viewerEnvironment('dark').skyEnabled).toBe(false)
   })
 })
 

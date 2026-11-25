@@ -1,0 +1,9 @@
+---
+# area: collaboration
+security:
+  - >
+    A chat without a project, such as one under Persönlich, can now be read
+    only by you, the people you share it with, and the background work that
+    writes its answers or deletes it. The database holds this for the chat,
+    its messages, its attachments and what it drew on, whatever the
+    application asks.

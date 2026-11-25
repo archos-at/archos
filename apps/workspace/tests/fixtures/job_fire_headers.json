@@ -9,7 +9,6 @@
     "x-organization-id",
     "x-user-id",
     "x-project-id",
-    "x-collection-scope",
     "x-project-context",
     "x-project-memory",
     "x-model-overrides",

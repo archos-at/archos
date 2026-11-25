@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { moreDestinations, type MoreFlags } from './phone-more'
-import { orgPhoneTabs, projectPhoneTabs } from './phone-tabs'
+import { personalPhoneTabs, projectPhoneTabs } from './phone-tabs'
 
 const ALL: MoreFlags = {
   canAccessOfficeShelf: true,
@@ -36,11 +36,12 @@ describe('moreDestinations: what "Mehr" lists', () => {
     for (const href of listed) expect(barHrefs).not.toContain(href)
   })
 
-  test.each(FLAG_SETS)('above a project it never lists an org tab-bar destination (%j)', (flags) => {
-    const barHrefs = orgPhoneTabs('/app/projects', flags)
+  test.each(FLAG_SETS)('under Persönlich it never lists a destination the tab bar carries (%j)', (flags) => {
+    const barHrefs = personalPhoneTabs('/app/profile', flags)
       .map((tab) => tab.href)
       .filter((href): href is string => href !== null)
-    for (const destination of moreDestinations(null, '/app/projects', flags)) {
+      .map((href) => href.split('?')[0])
+    for (const destination of moreDestinations(null, '/app/profile', flags)) {
       expect(barHrefs).not.toContain(destination.href)
     }
   })
@@ -60,10 +61,35 @@ describe('moreDestinations: what "Mehr" lists', () => {
   })
 
   test('the account links are gated as the avatar menu gates them', () => {
-    const keys = (flags: Partial<MoreFlags>) => moreDestinations(null, '/app/projects', { ...NONE, ...flags }).map((d) => d.key)
+    const keys = (flags: Partial<MoreFlags>) =>
+      moreDestinations(null, '/app/projects', { ...NONE, ...flags })
+        .filter((d) => d.group === 'account' || d.group === 'help')
+        .map((d) => d.key)
     expect(keys({})).toEqual(['profile', 'memory', 'whats-new'])
     expect(keys({ canViewOrganization: true })).toEqual(['profile', 'memory', 'organization', 'whats-new'])
     expect(keys({ canManageOrganization: true })).toEqual(['profile', 'memory', 'organization', 'whats-new'])
     expect(keys({ canManagePlatform: true })).toEqual(['profile', 'memory', 'platform', 'whats-new'])
+  })
+})
+
+describe('moreDestinations under Persönlich (ADR-0193)', () => {
+  test('lists the office’s places and the account, never a project’s', () => {
+    const keys = moreDestinations(null, '/app/personal/chat', ALL).map((destination) => destination.key)
+    expect(keys).toContain('officeShelf')
+    expect(keys).toContain('profile')
+    expect(keys).not.toContain('files')
+    expect(keys).not.toContain('automation')
+    expect(keys).not.toContain('knowledge')
+  })
+
+  test('never lists what the personal tab bar carries', () => {
+    const keys = moreDestinations(null, '/app/personal-shelf', ALL).map((destination) => destination.key)
+    expect(keys).not.toContain('inbox')
+    expect(keys).not.toContain('personalShelf')
+  })
+
+  test('on a page with no side it lists what the side it keeps lists (ADR-0196)', () => {
+    expect(moreDestinations(null, '/app/inbox', ALL).map((d) => d.key)).toEqual(moreDestinations(null, '/app/personal/chat', ALL).map((d) => d.key))
+    expect(moreDestinations('p1', '/app/profile', ALL).map((d) => d.key)).toEqual(moreDestinations('p1', '/app/projects/p1/chat', ALL).map((d) => d.key))
   })
 })

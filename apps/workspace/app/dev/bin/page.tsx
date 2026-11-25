@@ -7,7 +7,7 @@ import type { FolderBinListing } from '@/adapters/api/folder-bin-client'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
-import { FolderBinPanel } from '@/features/documents/components/folder-bin-panel'
+import { FolderBinDialog } from '@/features/documents/components/folder-bin-dialog'
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 
 const PROJECT = 'dev-project'
@@ -99,7 +99,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const pause = () => new Promise((resolve) => window.setTimeout(resolve, 350))
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      if (url === `/api/projects/${PROJECT}/bin`) return Response.json({ ...LISTING, entries: state.entries })
+      if (url.split("?")[0] === `/api/projects/${PROJECT}/bin`) return Response.json({ ...LISTING, entries: state.entries })
       const restore = /\/bin\/([^/]+)\/restore$/.exec(url)
       if (restore) {
         await pause()
@@ -131,20 +131,20 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
+primeInboundMailWaiting(PROJECT, { count: 3, more: false })
+
 export default function BinDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
-  primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
     <main className="flex flex-col gap-10 pb-12" data-testid="bin-preview">
-      {/* In the section frame, as the project's Papierkorb tab draws it: its head, its tabs, its container. */}
+      {/* Over the Ablage, as its bin glyph opens it (`?bin=1`): a window, not a tab. */}
       <div className="h-dvh">
-        <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files/bin`} inboundMail>
-          <div className="h-full overflow-y-auto">
-            <FolderBinPanel projectId={PROJECT} initial={{ ...LISTING, entries: state.entries }} />
-          </div>
+        <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files`} inboundMail>
+          <div className="h-full" />
         </ProjectSectionFrame>
+        <FolderBinDialog shelf={{ kind: 'project', projectId: PROJECT }} open onOpenChange={() => {}} />
       </div>
       <section className="flex flex-col gap-3 px-4 sm:px-6">
         <h2 className="text-sm font-semibold">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>

@@ -1,4 +1,4 @@
-import type { ConfidenceCheck, ConfidenceFinding } from '@/lib/conversations/confidence-check'
+import { checksCitationsOnly, type ConfidenceCheck } from '@/lib/conversations/confidence-check'
 
 export type HeaderStatus =
   | 'live'
@@ -45,27 +45,20 @@ export function headerStatus(input: HeaderStatusInput): HeaderStatus {
 export const isSettledAnswer = (status: HeaderStatus): boolean =>
   status === 'done' || status === 'flagged' || status === 'askedBack'
 
-export type FindingProblem = ConfidenceFinding['problem']
-
 export interface WorstFinding {
-  problem: FindingProblem
+  problem: 'contradicted'
   count: number
-  sinks: boolean
+  sinks: true
 }
 
-const SEVERITY: readonly FindingProblem[] = ['contradicted', 'unbacked']
-
 export function worstFinding(check: ConfidenceCheck | undefined): WorstFinding | null {
-  if (check?.status !== 'judged') return null
-  for (const problem of SEVERITY) {
-    const count = check.findings.filter((finding) => finding.problem === problem).length
-    if (count > 0) return { problem, count, sinks: problem === 'contradicted' || check.level === 'low' }
-  }
-  return null
+  if (check?.status !== 'judged' || !checksCitationsOnly(check)) return null
+  const count = check.findings.filter((finding) => finding.problem === 'contradicted').length
+  return count > 0 ? { problem: 'contradicted', count, sinks: true } : null
 }
 
 export interface HeaderWarning {
-  kind: FindingProblem | 'failed' | 'files' | 'open'
+  kind: WorstFinding['problem'] | 'failed' | 'files' | 'open'
   count: number
 }
 

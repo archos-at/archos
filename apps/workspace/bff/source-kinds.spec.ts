@@ -139,8 +139,8 @@ describe('the mail lanes', () => {
 })
 
 describe('Shelf (ADR-0047)', () => {
-  test('is exactly the four wire shelves', () => {
-    expect([...SHELVES]).toEqual(['office_shelf', 'project', 'session', 'base'])
+  test('is exactly the five wire shelves', () => {
+    expect([...SHELVES]).toEqual(['office_shelf', 'project', 'session', 'base', 'personal'])
   })
 
   test('accepts a shelf the wire states, case- and whitespace-tolerantly', () => {
@@ -184,19 +184,22 @@ describe('scopeForQualifier (citation keys — the versioned fallback)', () => {
       'project',
       'base',
       'session',
+      'personal',
+      'office_shelf',
       'office_shelf',
     ])
   })
 
-  test('the archiv shelf is written „Büroablage" and still read under its old name', () => {
-    expect(CITATION_KEY_QUALIFIERS[0]).toEqual(['Büroablage', 'office_shelf'])
+  test('the archiv shelf is written „Bürobibliothek" and still read under its old name', () => {
+    expect(CITATION_KEY_QUALIFIERS[0]).toEqual(['Bürobibliothek', 'office_shelf'])
+    expect(scopeForQualifier('Bürobibliothek')).toBe('office_shelf')
     expect(scopeForQualifier('Büroablage')).toBe('office_shelf')
     expect(scopeForQualifier('Büroarchiv')).toBe('office_shelf')
   })
 
   test('the shelf label the reader sees is the qualifier the backend writes', () => {
     expect(chatCopy.messages.de.sourceTabs.shelves.office_shelf).toBe(CITATION_KEY_QUALIFIERS[0][0])
-    expect(chatCopy.messages.en.sourceTabs.shelves.office_shelf).toBe('Office filing')
+    expect(chatCopy.messages.en.sourceTabs.shelves.office_shelf).toBe('Office library')
   })
 
   test('every shelf is reachable from a key, so no key can go unread', () => {

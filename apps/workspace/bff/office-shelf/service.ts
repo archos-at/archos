@@ -116,7 +116,7 @@ async function nameBesideStandards(
     }
   }
   throw new ConflictError(
-    `"${filename}" and its numbered names are all taken in the Büroablage. Rename the file to upload it.`,
+    `"${filename}" and its numbered names are all taken in the Bürobibliothek. Rename the file to upload it.`,
     NAME_TAKEN_DETAILS,
   )
 }
@@ -165,13 +165,13 @@ export async function uploadOfficeShelfDocument(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch }: OfficeShelfUploadInput = {},
+  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, originConversationId }: OfficeShelfUploadInput = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
   const named = await standardsAwareFile(session, file, { folderId, revisionOf })
   return uploadToShelf(
     session,
     OFFICE_SHELF,
-    { file: named, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch },
+    { file: named, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, ...(originConversationId ? { originConversationId } : {}) },
     request,
   )
 }

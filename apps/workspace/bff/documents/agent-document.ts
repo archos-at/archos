@@ -7,7 +7,7 @@ import { AGENT_DOCUMENT_MEDIA_TYPE, renderAgentDocumentMarkdown } from './agent-
 import { resolveDocumentBranding } from './branding'
 import { contentDigest } from './content-digest'
 import { fileGeneratedDocument, type FiledGeneratedDocument } from './generated'
-import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
+import { AGENT_REFUSAL_LOCALE, type FilingRelease } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import { createDocumentVersion } from './lifecycle'
 import { findDocumentInOrg } from './repository'
@@ -28,6 +28,7 @@ export interface FileAgentDocumentDraftInput {
   actingHuman?: boolean
   originConversationId?: string | null
   locale?: Locale
+  release?: FilingRelease
 }
 
 export interface FiledAgentDocumentDraft {
@@ -59,6 +60,7 @@ export async function fileAgentDocumentDraft(
     origin: {
       conversationId: input.originConversationId ?? null,
       locale: input.locale ?? AGENT_REFUSAL_LOCALE,
+      release: input.release,
     },
   })
 

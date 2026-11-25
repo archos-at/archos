@@ -32,7 +32,7 @@ const mockEnsureConversationExists = vi.fn(async () => {})
 function mockChatState() {
   return {
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: 'project-1', messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]
@@ -70,6 +70,18 @@ function mockChatState() {
     },
   }
 }
+
+const mockTemporary = vi.hoisted(() => ({ pressed: false }))
+let mockPathname: string | null = null
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  usePathname: () => mockPathname,
+}))
+
+vi.mock('@/features/chat/conversation-privacy', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/chat/conversation-privacy')>()),
+  useTemporarySwitch: () => ({ pressed: mockTemporary.pressed, pending: false, statement: null, sendBlocked: false }),
+}))
 
 vi.mock('@/features/chat', () => ({
   useWebSocketChat: vi.fn(() => ({
@@ -131,8 +143,9 @@ vi.mock('../store', () => ({
   ),
 }))
 
+const authState = { isLoading: false }
 vi.mock('@/adapters/auth', () => ({
-  useAuth: () => ({ idToken: 'test-token', authRequired: true }),
+  useAuth: () => ({ idToken: 'test-token', authRequired: true, isLoading: authState.isLoading }),
 }))
 
 vi.mock('@/shared/context', () => ({
@@ -226,6 +239,7 @@ describe('InputArea', () => {
     mockRestartMentionCandidates.mockClear()
     mockAwaitingPending = []
     resetThreadSharing()
+    mockTemporary.pressed = false
     vi.mocked(useFileDragDrop).mockReturnValue({
       isDragging: false,
       isUnsupportedDrag: false,
@@ -258,6 +272,35 @@ describe('InputArea', () => {
     } as unknown as ReturnType<typeof useWebSocketChat>)
   })
 
+  test('lands its controls without easing until the session is confirmed, so a load does not fade them up', () => {
+    const { rerender } = render(<InputArea isAuthenticated={false} />)
+    const root = screen.getByTestId('composer-root')
+    expect(root).toHaveAttribute('data-arriving')
+    expect(root.className).toContain('data-arriving:**:transition-none')
+
+    rerender(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a composer that mounts signed in, as after a switch, has nothing to land', () => {
+    render(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a temporary chat swaps the card’s shadow for a dashed ink line, on colour alone and with no change of size', () => {
+    const { unmount } = render(<InputArea isAuthenticated={true} />)
+    const card = (): HTMLElement => screen.getByTestId('composer-root').querySelector('.\\@container') as HTMLElement
+    expect(card()).not.toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-transparent', 'shadow-md')
+    unmount()
+
+    mockTemporary.pressed = true
+    render(<InputArea isAuthenticated={true} />)
+    expect(card()).toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-foreground', 'shadow-none')
+    expect(card()).toHaveClass('transition-[outline-color,box-shadow]', 'duration-quick', 'motion-reduce:transition-none')
+  })
+
   test('does not render the Auto mode selector button', () => {
     render(<InputArea isAuthenticated={true} />)
 
@@ -283,6 +326,32 @@ describe('InputArea', () => {
     render(<InputArea isAuthenticated={false} />)
 
     expect(screen.getByPlaceholderText('Sign in to start working')).toBeInTheDocument()
+  })
+
+  test('keeps the signed-in placeholder while the sign-in is still loading, so the field does not change size when it settles', () => {
+    authState.isLoading = true
+    try {
+      render(<InputArea isAuthenticated={false} />)
+      expect(screen.queryByPlaceholderText('Sign in to start working')).not.toBeInTheDocument()
+    } finally {
+      authState.isLoading = false
+    }
+  })
+
+  test.each([
+    ['/app/projects/p-1/chat', `Ask ${PRODUCT_NAME} about this project …`],
+    ['/app/personal/chat', `Ask ${PRODUCT_NAME} anything …`],
+  ])('a new chat on %s words its placeholder for its side from the first paint, before the store knows the side', (path, wording) => {
+    const before = mockCurrentSessionId
+    mockCurrentSessionId = null
+    mockPathname = path
+    try {
+      render(<InputArea isAuthenticated={true} />)
+      expect(screen.getByPlaceholderText(wording)).toBeInTheDocument()
+    } finally {
+      mockCurrentSessionId = before
+      mockPathname = null
+    }
   })
 
   test('disables input when not authenticated', () => {
@@ -444,4 +513,21 @@ describe('InputArea', () => {
     expect(mockSendMessage).not.toHaveBeenCalled()
   })
 
+
+  test('the AI notice shows under the composer of a running chat; an empty one keeps its row unseen, so the composer never grows', () => {
+    const { unmount } = render(<InputArea isAuthenticated />)
+    const reserved = screen.getByTestId('ai-disclosure')
+    expect(reserved).toHaveClass('opacity-0')
+    expect(reserved).toHaveAttribute('aria-hidden', 'true')
+    unmount()
+
+    mockConversationMessages = [{ id: 'm1', role: 'user', content: 'Wie viele Stellplätze?' }]
+    render(<InputArea isAuthenticated />)
+
+    const shown = screen.getByTestId('ai-disclosure')
+    expect(shown).toHaveTextContent(new RegExp(`^${PRODUCT_NAME} is an AI`))
+    expect(shown).not.toHaveClass('opacity-0')
+    expect(shown).not.toHaveAttribute('aria-hidden')
+    expect(shown.className).not.toMatch(/bg-/)
+  })
 })

@@ -1,0 +1,6 @@
+---
+# area: documents
+fixes:
+  - >
+    Folder cards have the rounded corners of a card again, not the small ones
+    they briefly took.

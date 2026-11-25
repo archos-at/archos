@@ -41,7 +41,7 @@ export const chat = {
     openBesideChat: 'Open beside the chat',
     kinds: {
       building_law: 'Building law & guidelines',
-      office: 'Office filing',
+      office: 'Office library',
       project: 'Project knowledge',
       praezedenz: 'Precedent',
       web: 'Web source',
@@ -61,7 +61,7 @@ export const chat = {
       office: 'Office',
     },
     unresolvedHint: 'The assistant referenced this file.',
-    openInOfficeShelf: 'Open in Office filing',
+    openInOfficeShelf: 'Open in Office library',
     openInSearch: 'Open in search',
     openInFiles: 'Open in project files',
     loadError: 'Documents couldn’t be loaded.',
@@ -80,7 +80,7 @@ export const chat = {
     writtenAs: 'In the text: {name}',
     shelf: {
       project: 'Project files',
-      office: 'Office filing',
+      office: 'Office library',
       session: 'Attachment in this chat',
     },
     notIndexed: 'Filed, not read. You can open it, but {productName} does not cite it.',
@@ -91,6 +91,7 @@ export const chat = {
     noProjectChatPermission:
       '{productName} is unavailable in this project for you right now. If you have read-only access, a project admin can grant you the Contributor role.',
     placeholder: 'Ask {productName} about this project …',
+    placeholderPersonal: 'Ask {productName} anything …',
     sources: 'Data basis',
     sourcesAria: 'Data basis — {enabled} of {total} sources enabled. Opens the data sources panel.',
     sourcesActiveMobile: '{count, plural, one {# source} other {# sources}} active',
@@ -122,14 +123,15 @@ export const chat = {
   sourceTabs: {
     law: 'Building law',
     project: 'Project knowledge',
-    office: 'Office filing',
+    office: 'Office library',
     auto: 'Web',
     model: 'Model measurement',
     shelves: {
-      office_shelf: 'Office filing',
+      office_shelf: 'Office library',
       project: 'Project knowledge',
       session: 'Private session',
       base: 'Base knowledge',
+      personal: 'My files',
     },
     lanes: {
       building_law_oib: 'OIB guideline',
@@ -156,7 +158,7 @@ export const chat = {
     presets: {
       law: 'Building law & guidelines',
       project: 'Project documents',
-      office: 'Office filing',
+      office: 'Office library',
     },
   },
   greeting: {
@@ -164,8 +166,6 @@ export const chat = {
     afternoon: 'Good afternoon',
     evening: 'Good evening',
     withName: '{greeting}, {name}.',
-    projectWrites:
-      '{productName} does more than answer — ask, and it writes file notes, memos and drafts straight into the project files.',
   },
   roles: {
     input: 'Input',
@@ -211,6 +211,7 @@ export const chat = {
     precedentProject: '{name} · {status}',
     projectStatus: { active: 'active', paused: 'paused', closed: 'closed' },
     more: '+{count} more',
+    showAll: 'Show all {count} sources',
     less: 'Show fewer',
     clause: 'Sec.\u00A0{clause}',
     clausePage: 'Sec.\u00A0{clause} · p.\u00A0{page}',
@@ -263,6 +264,9 @@ export const chat = {
   answerActions: {
     copy: 'Copy answer',
     copyWithSources: 'Copy answer with full source references',
+    copyMenu: 'Copy',
+    copyMenuWithSources: 'With sources',
+    copyMenuPlain: 'Answer only',
     copied: 'Copied',
     copyFailed: 'The answer could not be copied.',
     sourcesHeading: 'Sources',
@@ -518,6 +522,16 @@ export const chat = {
       },
     },
     documentDraft: {
+      release: {
+        title: 'Based on confidential sources',
+        body: 'Not everyone who sees the chosen place may read these sources. Check the draft before you file it there:',
+        folder: 'Folder “{name}”',
+        folderIn: 'Folder “{name}” in {project}',
+        project: 'Project “{name}”',
+        confirm: 'I checked the draft. It holds nothing confidential from these sources.',
+        file: 'Release and file',
+        keep: 'Don’t file',
+      },
       eyebrow: 'Draft',
       version: 'v{version}',
       draftState: 'Draft',
@@ -533,6 +547,17 @@ export const chat = {
       previewRetry: 'Try again',
       filed: 'Filed in the project',
       open: 'Open in the project',
+      personal: {
+        file: 'Save to Meine Ablage',
+        fileConflict: 'A file with this name is already in Meine Ablage.',
+        fileAnyway: 'Save under a new name',
+        filed: 'Saved in Meine Ablage',
+        filedIn: 'Saved in Meine Ablage, folder “{folder}”',
+        updated: 'Updated, saved in Meine Ablage',
+        update: 'Update in Meine Ablage',
+        eyebrowFiled: 'In Meine Ablage',
+        open: 'Open in Meine Ablage',
+      },
     },
     fileDraft: {
       revisedFiledNumbered: 'In the project as revision {number} of “{name}”',
@@ -673,6 +698,32 @@ export const chat = {
         applied: 'Project context updated.',
         dismissed: 'Discarded. The project context is unchanged.',
       },
+    },
+    calibrationProposal: {
+      eyebrow: 'Confirm the scale',
+      question: 'Is the marked length {length}?',
+      meaning: 'Then {productName} works out every measurement in this area at scale {ratio}. So far it is estimated.',
+      dismissMeaning: 'Dismiss: the scale stays estimated.',
+      caption: '{document} · page {page}',
+      captionPage: 'Page {page}',
+      captionTail: 'page {page}',
+      receipt: '{length} · {place}',
+      picture: 'Page {page}, clip with the marked length',
+      drawing: 'Loading the clip',
+      waiting: 'The clip is still loading.',
+      accept: 'Confirm',
+      accepting: 'Confirming…',
+      refused: {
+        denied:
+          'You cannot open this drawing, so you cannot check the scale. Ask someone with access to confirm it.',
+        unavailable:
+          'The drawing cannot be shown right now, so you cannot check the scale here. Reload the page later, or ask {productName} to propose the scale again.',
+        incomplete:
+          'This proposal does not say where the length lies or how long it is. Ask {productName} to propose the scale again.',
+      },
+      applied: 'Scale confirmed. Measurements in this area now count as confirmed.',
+      appliedRatio: 'Scale {ratio} confirmed. Measurements in this area now count as confirmed.',
+      dismissed: 'Scale not confirmed. It stays estimated.',
     },
     operationProposal: {
       eyebrow: 'Action',
@@ -984,6 +1035,13 @@ export const chat = {
       more: '+{count} more',
       less: 'Show less',
     },
+    trail: {
+      label: 'Read in',
+      withheldProject: 'A project you may not open',
+      withheldFolder: 'A folder you may not open',
+      personalShelf: 'Meine Ablage',
+      personalMemory: 'Personal memory',
+    },
   },
   profilePatchCard: {
     accept: 'Accept',
@@ -1012,6 +1070,17 @@ export const chat = {
       'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
   },
   thinking: {
+    measure: {
+      basis: {
+        confirmed: 'scale 1:{ratio}, confirmed',
+        estimated: 'scale 1:{ratio}, estimated, not yet confirmed',
+        confirmedPlain: 'scale confirmed',
+        estimatedPlain: 'scale estimated, not yet confirmed',
+        printed: 'read off, not measured',
+      },
+      open: 'Show in the drawing: {document}, p.\u00A0{page}',
+      show: 'Show in the drawing',
+    },
     look: {
       place: 'p.\u00A0{page}, {where}',
       placeWhole: 'p.\u00A0{page}',
@@ -1051,6 +1120,9 @@ export const chat = {
       times: '×{count}',
       innerQuote: '‘{text}’',
       readOff: 'read off, not measured',
+      noNumber: 'no number',
+      noNumberNote:
+        'Usually the scale of this page is unknown. Set it in the drawing: “Measure”, then “Set scale”.',
       kind: {
         search: 'Search',
         read: 'Reading',
@@ -1058,23 +1130,25 @@ export const chat = {
         look: 'Look',
         model: 'Query the model',
         workspace: 'Workspace',
+        measure: 'Measure',
+        readMeasure: 'Read and measure',
       },
       shelf: {
         project: 'in the project',
-        office: 'in the office filing',
+        office: 'in the office library',
         base: 'in the knowledge base',
         web: 'on the web',
         session: 'in this chat',
       },
       place: {
         project: 'the project',
-        office: 'the office filing',
+        office: 'the office library',
         chat: "this chat's files",
         law: 'the OIB guidelines',
         estate: 'every place',
         folderIn: '{place} ›\u00A0{folder}',
         crumb: {
-          office: 'office filing',
+          office: 'office library',
           chat: 'chat',
           law: 'OIB guidelines',
         },
@@ -1086,7 +1160,7 @@ export const chat = {
       },
       placeIn: {
         project: 'in the project',
-        office: 'in the office filing',
+        office: 'in the office library',
         chat: "in this chat's files",
         law: 'in the OIB guidelines',
         estate: 'in every place',
@@ -1109,6 +1183,8 @@ export const chat = {
         web: 'Searches the web for',
         model: 'Queries the building model for',
         workspace: 'Workspace:',
+        measure: 'Measures',
+        measurePrinted: 'Reads a dimension figure in',
       },
       done: {
         search: 'Searched: {name}',
@@ -1122,6 +1198,7 @@ export const chat = {
         web: 'Searched the web: {name}',
         model: 'Queried the building model: {name}',
         workspace: 'In the workspace: {name}',
+        measure: 'Measured: {name}',
       },
       doneFallback: {
         search: 'Searched the documents',
@@ -1133,6 +1210,7 @@ export const chat = {
         web: 'Searched the web',
         model: 'Queried the building model',
         workspace: 'Worked in the workspace',
+        measure: 'Measured on a drawing',
       },
       object: {
         query: '“{query}”',
@@ -1168,6 +1246,7 @@ export const chat = {
           '{count, plural, one {#\u00A0building model query} other {#\u00A0building model queries}}',
         workspaceCalls:
           '{count, plural, one {#\u00A0workspace call} other {#\u00A0workspace calls}}',
+        measures: '{count, plural, one {#\u00A0measurement} other {#\u00A0measurements}}',
       },
       fallback: {
         search: 'Searches the documents',
@@ -1179,6 +1258,7 @@ export const chat = {
         web: 'Searches the web',
         model: 'Queries the building model',
         workspace: 'Works in the workspace',
+        measure: 'Measures on a drawing',
       },
       found: {
         hits: '{count, plural, one {#\u00A0hit} other {#\u00A0hits}}',
@@ -1222,7 +1302,7 @@ export const chat = {
       corpusJoin: ' and ',
       status: {
         documents: {
-          officeShelf: 'Reviewing documents from Office filing …',
+          officeShelf: 'Reviewing documents from Office library …',
           project: 'Reviewing documents from the project …',
           session: 'Reviewing documents from this conversation …',
           several: 'Reviewing your documents …',
@@ -1370,7 +1450,6 @@ export const chat = {
       failed: '{count, plural, one {#\u00A0call failed} other {#\u00A0calls failed}}',
       files: '{count, plural, one {#\u00A0file not finished} other {#\u00A0files not finished}}',
       open: '{count, plural, one {#\u00A0open point} other {#\u00A0open points}}',
-      unbacked: '{count, plural, one {#\u00A0statement not backed} other {#\u00A0statements not backed}}',
       contradicted:
         '{count, plural, one {#\u00A0statement contradicts its source} other {#\u00A0statements contradict their source}}',
     },
@@ -1462,6 +1541,7 @@ export const chat = {
           web: 'the web search',
           model: 'the building model query',
           workspace: 'a workspace call',
+          measure: 'measuring on the drawing',
         },
       },
       cardLink: 'Highlight the calls for {name}',
@@ -1730,9 +1810,13 @@ export const chat = {
     turningOff: 'Turning off temporary chat …',
     ownerOnly: 'Only the owner of the chat can change this.',
     switchFailed: 'The setting was not saved. Try again.',
+    welcomeTitle: 'Temporary chat',
+    welcomeBody: 'Only you see this chat, and {productName} keeps nothing from it.',
   },
   privacy: {
     onlyYou: 'Only you see this chat until you share it.',
+    onlyYouShort: 'Only you',
+    newChat: 'Only you see this chat.',
   },
   confidence: {
     label: 'Confidence: {level}',
@@ -1766,6 +1850,28 @@ export const chat = {
       citationFallback:
         'Medium confidence: the source shown was attached by the assistant, not cited by the answer itself.',
     },
+    cited: {
+      ariaLabel: 'Source check of the answer: {level}',
+      tooltip:
+        'A checking model reads each cited statement against its source and looks for statements of law without a citation. It does not check what is said about you, your office or the project. It can be wrong.',
+      sourcesChecked:
+        '{count, plural, one {#\u00A0cited source checked.} other {#\u00A0cited sources checked.}}',
+      nothingCited: 'No source cited.',
+      ownLevel: "The answer cites no source. The level is the assistant's own assessment.",
+      levelMeanings: {
+        high: 'High: every cited statement is borne out by its source, and every statement of law has a citation.',
+        medium:
+          'Medium: a source says nothing about a cited statement, a statement of law has no citation, or the answer itself names an open point.',
+        low: 'Low: a source says something other than the answer.',
+      },
+      findingsLabel: 'Please check',
+      problems: {
+        contradicted: 'The source says something else',
+        sourceSilent: 'The source says nothing about it',
+        lawUncited: 'Statement of law without a citation',
+      },
+      checkedAgainst: 'Checked against {source}',
+    },
     checked: {
       ariaLabel: 'Evidence check of the answer: {level}',
       tooltip:
@@ -1775,11 +1881,8 @@ export const chat = {
         medium: 'Medium: the main point is backed, secondary statements are not.',
         low: 'Low: the main point is not backed, or a source contradicts the answer.',
       },
-      findingsLabel: 'Not backed',
-      problems: { unbacked: 'not backed', contradicted: 'contradicts the source' },
-      checkedAgainst: 'checked against {source}',
-      noSource: 'no source',
-      quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
+      quoteUnverified:
+        'A quotation could not be confirmed word for word in its source, so the level is capped.',
       lawUnsettled:
         'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
       openPoint:
@@ -1850,7 +1953,7 @@ export const chat = {
     chip: '{count, plural, one {One other project} other {# other projects}}',
     title: 'This chat draws on other projects: {projects}.',
     gone: 'a project that no longer exists',
-    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks, deep research or the project’s files.',
+    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks or deep research. A draft reaches the project’s files only once you have checked and released it, unless your office forbids that.',
   },
   screening: {
     title: 'Contains {items} (Sensitive data).',

@@ -21,7 +21,7 @@ export default async function () {
         theme: "neutral",
         htmlLabels: false,
         flowchart: { htmlLabels: false },
-        themeVariables: { fontFamily: '"Source Sans 3", sans-serif' },
+        themeVariables: { fontFamily: '"Hanken Grotesk", sans-serif' },
       });
       return (await mermaid.render("ablauf", source)).svg;
     }, diagram);

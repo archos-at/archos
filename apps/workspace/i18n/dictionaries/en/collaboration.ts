@@ -4,6 +4,7 @@ export const collaboration = {
     title: 'You no longer have the rights to view this chat',
     description:
       'Access to a folder this chat draws on has changed since it was shared. Ask someone who can read those folders, or your administrator.',
+    withheldFrom: 'From here on, the chat draws on a source you may not open.',
   },
   sharing: {
     title: 'Share',
@@ -94,6 +95,11 @@ export const collaboration = {
         'This person may not read every folder with restricted access this conversation draws on, so it cannot be shared with them.',
       restrictedContentSelf:
         'You may not read every folder with restricted access this conversation draws on, so you cannot take it over.',
+      personalShelfContent:
+        'This chat read from your own files. Whoever sees it sees its answers, never the files. After that it no longer reads from them.',
+      personalShelfContentNotOwner:
+        'This chat read from the own files of the person who started it. Only they can share it further.',
+      personalShelfConfirm: 'Share anyway',
       restrictedContentProject:
         'This conversation draws on a folder with restricted access, so it cannot be made visible to the whole project. Share it with individual people who may read that folder instead.',
       crossProjectContent:
@@ -207,11 +213,29 @@ export const collaboration = {
   },
 
   inbox: {
-    title: 'Inbox',
-    dock: {
-      close: 'Close the inbox',
-      all: 'All entries and the archive',
+    bell: {
+      late: '{count} overdue',
+      news: '{count, plural, one {# news item} other {# news items}}',
+      open: 'Open inbox',
+      back: 'Leave the inbox',
     },
+    page: {
+      done: 'Mark as done',
+      review: 'Open in the review view',
+      personal: 'Personal',
+      back: 'Back',
+      opened: 'Opened entry',
+      go: 'Open',
+      sheet: 'Page {page}',
+      openPlace: 'Open {sheet}, annotation {number} in the review',
+      onRevision: 'This annotation is on revision {revision}, not on the current one.',
+      earlierRevision: 'This annotation is on an earlier revision.',
+      thread: 'Annotation thread',
+      markFailed: 'The annotation could not be loaded. Open it in the review.',
+      archiveKey: 'Archive (E)',
+      nextHere: '{count, plural, one {# more in this document} other {# more in this document}}',
+    },
+    title: 'Inbox',
     navLabel: 'Inbox',
     badgeAria:
       '{count, plural, one {# item needs} other {# items need}} your attention',
@@ -223,10 +247,10 @@ export const collaboration = {
       archived: 'Archived',
       ariaLabel: 'Filter inbox',
     },
-    markAllRead: 'Mark all as read',
+    archiveAll: 'Archive all',
     archive: 'Archive',
     undo: 'Undo',
-    markAllReadShort: 'All read',
+    archivedAll: 'Inbox cleared',
     archived: 'Archived',
     unarchive: 'Restore',
     unarchived: 'Restored',
@@ -429,7 +453,7 @@ export const collaboration = {
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
-        body: 'What was imported until then stays in the project. The import list under Files gives the reason.',
+        body: 'What was imported until then stays in the project. The import list under Documents gives the reason.',
       },
       taskRunFailed: {
         title: '{productName} could not finish “{subject}”',
@@ -510,8 +534,8 @@ export const collaboration = {
       agentProposalWaiting: {
         title: '{productName} has a proposal for you',
         body: 'The proposal is in the chat. Apply or dismiss it there; nothing changes until then.',
-        bodyProject: 'The proposal waits on the file under Files. Apply or dismiss it there; nothing changes until then.',
-        bodyOrganization: 'The proposal waits on the file in the office filing. Apply or dismiss it there; nothing changes until then.',
+        bodyProject: 'The proposal waits on the file under Documents. Apply or dismiss it there; nothing changes until then.',
+        bodyOrganization: 'The proposal waits on the file in the office library. Apply or dismiss it there; nothing changes until then.',
         variants: {
           move: { title: '{productName} suggests a new place for files' },
           rename: { title: '{productName} suggests a rename' },
@@ -520,7 +544,7 @@ export const collaboration = {
           memory: { title: '{productName} would like to remember a note' },
           project_profile: { title: '{productName} suggests a change to the project context' },
           operation: { title: '{productName} suggests an action' },
-          office_shelf_norm: { title: '{productName} suggests a norm for the office filing' },
+          office_shelf_norm: { title: '{productName} suggests a norm for the office library' },
         },
       },
       agentIntakeReady: {
@@ -693,10 +717,10 @@ export const collaboration = {
         body: 'Look at where each file should go. Nothing moves until you apply it.',
         variants: {
           office: {
-            titleOne: 'The sort of the office filing is ready to review: 1 file',
-            titleMany: 'The sort of the office filing is ready to review: {count} files',
-            titleNone: 'The sort of the office filing is ready to review',
-            title: 'The sort of the office filing is ready to review',
+            titleOne: 'The sort of the office library is ready to review: 1 file',
+            titleMany: 'The sort of the office library is ready to review: {count} files',
+            titleNone: 'The sort of the office library is ready to review',
+            title: 'The sort of the office library is ready to review',
           },
         },
       },
@@ -841,14 +865,14 @@ export const collaboration = {
         title: 'The sort of “{subject}” stopped',
         body: 'What was moved until then stays. Open the files to see the reason.',
         variants: {
-          office: { title: 'The sort of the office filing stopped' },
+          office: { title: 'The sort of the office library stopped' },
         },
       },
       officeShelfNormSuggested: {
-        title: '{actor} suggests a norm for the office filing',
-        titleNoActor: 'A norm is suggested for the office filing',
-        titleResolved: 'The suggestion for the office filing is decided',
-        body: 'From “{subject}”. In the office filing every project finds it.',
+        title: '{actor} suggests a norm for the office library',
+        titleNoActor: 'A norm is suggested for the office library',
+        titleResolved: 'The suggestion for the office library is decided',
+        body: 'From “{subject}”. In the office library every project finds it.',
       },
       unknown: {
         title: 'Something happened',
@@ -882,11 +906,11 @@ export const collaboration = {
       viewEditionLabel: 'View {subject} in Standards & guidelines',
     },
     normSuggestion: {
-      accept: 'Take into the office filing',
+      accept: 'Take into the office library',
       decline: 'Decline',
       visibility: 'Everyone in the office can see it then.',
-      accepted: 'Confirmed and in the office filing. The project keeps a reference.',
-      unconfirmed: 'In the office filing, but waiting for confirmation under Standards & guidelines: {reason}',
+      accepted: 'Confirmed and in the office library. The project keeps a reference.',
+      unconfirmed: 'In the office library, but waiting for confirmation under Standards & guidelines: {reason}',
       declined: 'Declined. The norm stays in the project.',
       failed: 'That did not go through: {reason}',
       stale: 'Someone has already decided.',

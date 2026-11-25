@@ -54,7 +54,7 @@ describe('PhoneTabBar — inside a project', () => {
     expect(links.map((link) => link.textContent)).toEqual([
       'Chat',
       'Files',
-      'Overview',
+      'Project',
       expect.stringContaining('Inbox'),
     ])
     expect(within(bar()).getByRole('link', { name: 'Files' })).toHaveAttribute(
@@ -116,20 +116,48 @@ describe('PhoneTabBar — inside a project', () => {
   })
 })
 
-describe('PhoneTabBar — above a project', () => {
-  test('Projekte, the Büroablage and the Postfach, no "Mehr"', () => {
-    pathname = '/app/projects'
-    render(<PhoneTabBar projectId={null} canAccessOfficeShelf canAccessInbox />)
+describe('PhoneTabBar — under Persönlich (ADR-0193)', () => {
+  test('its own places: a new personal chat, Meine Ablage, the Postfach and "Mehr"', () => {
+    render(<PhoneTabBar projectId={null} pathname="/app/personal-shelf" canAccessOfficeShelf canAccessInbox />)
+    expect(bar()).toHaveAttribute('data-scope', 'personal')
     const links = within(bar()).getAllByRole('link')
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/app/projects',
-      '/app/office-shelf',
-      '/app/inbox',
-    ])
-    expect(within(bar()).getByRole('link', { name: 'Projects' })).toHaveAttribute(
-      'aria-current',
-      'page'
-    )
-    expect(within(bar()).queryByRole('button')).toBeNull()
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/app/personal/chat', '/app/personal-shelf', '/app/inbox'])
+    expect(within(bar()).getByRole('link', { name: 'Meine Ablage' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
+    expect(within(bar()).queryByRole('link', { name: 'Projects' })).toBeNull()
+  })
+
+  test('on a page with no side it keeps Persönlich’s tabs, and lights the Postfach on the Postfach (ADR-0196)', () => {
+    render(<PhoneTabBar projectId={null} pathname="/app/inbox" canAccessOfficeShelf canAccessInbox />)
+    expect(bar()).toHaveAttribute('data-scope', 'personal')
+    expect(within(bar()).getByRole('link', { name: /Inbox/ })).toHaveAttribute('aria-current', 'page')
+  })
+})
+
+describe('PhoneTabBar — between Persönlich’s four tabs and a project’s five', () => {
+  const item = (name: RegExp): HTMLElement =>
+    within(bar()).getByRole(name.source === 'More' ? 'button' : 'link', { name }).closest('li') as HTMLElement
+  const flags = { canAccessOfficeShelf: true, canAccessInbox: true }
+
+  test('the tabs both sides have stay the same tabs, each gliding to its new place as one layout box', () => {
+    const { rerender } = render(<PhoneTabBar projectId={null} pathname="/app/personal/chat" {...flags} />)
+    const kept = [item(/Chat/), item(/Inbox/), item(/More/)]
+    rerender(<PhoneTabBar projectId="p1" pathname="/app/projects/p1/chat" {...flags} />)
+    expect([item(/Chat/), item(/Inbox/), item(/More/)]).toEqual(kept)
+    for (const li of kept) expect(li.querySelector('[data-slot="phone-tab-body"]')).not.toBeNull()
+  })
+
+  test('a tab that joins fades in, and one that leaves fades out of the row', () => {
+    const { rerender } = render(<PhoneTabBar projectId={null} pathname="/app/personal/chat" {...flags} />)
+    expect(item(/Meine Ablage/).style.opacity).not.toBe('0')
+    rerender(<PhoneTabBar projectId="p1" pathname="/app/projects/p1/chat" {...flags} />)
+    expect(item(/Files/).style.opacity).toBe('0')
+    expect(item(/Project/).style.opacity).toBe('0')
+    expect(within(bar()).queryByRole('link', { name: 'Meine Ablage' })).not.toBeNull()
+  })
+
+  test('the first paint stands as it is: nothing fades in', () => {
+    render(<PhoneTabBar projectId="p1" pathname="/app/projects/p1/chat" {...flags} />)
+    for (const li of bar().querySelectorAll('li')) expect((li as HTMLElement).style.opacity).not.toBe('0')
   })
 })

@@ -26,7 +26,7 @@ class TestSourceForCollection:
     def test_project_and_office_shelf_and_base(self):
         assert _source_for_collection("proj_abc") == "project"
         assert _source_for_collection("archiv_org1") == "office"
-        assert _source_for_collection("oib_knowledge") is None
+        assert _source_for_collection("base_corpus") is None
         assert _source_for_collection("s_conversation") is None
 
     def test_signed_shelf_map_does_not_fall_back_to_prefix(self):
@@ -41,7 +41,7 @@ class TestSourceForCollection:
 
 class TestTargetCollections:
     def test_keeps_only_project_and_office_shelf_dedup_order(self):
-        scope = ["oib_knowledge", "proj_a", "archiv_o", "proj_a", "s_x"]
+        scope = ["base_corpus", "proj_a", "archiv_o", "proj_a", "s_x"]
         assert _target_collections(scope) == ["proj_a", "archiv_o"]
 
     def test_none_scope(self):
@@ -57,10 +57,10 @@ class TestTargetCollections:
         assert _target_collections(None, scoped=scoped) == ["proj_a"]
 
     def test_base_only_scope_yields_nothing(self):
-        assert _target_collections(["oib_knowledge"]) == []
+        assert _target_collections(["base_corpus"]) == []
 
     def test_shelf_office_shelf_drops_project(self):
-        scope = ["proj_a", "archiv_o", "oib_knowledge"]
+        scope = ["proj_a", "archiv_o", "base_corpus"]
         assert _target_collections(scope, shelf="office_shelf") == ["archiv_o"]
 
     def test_shelf_project_drops_office_shelf(self):
@@ -74,7 +74,7 @@ class TestTargetCollections:
         scoped = [
             ScopedCollection("custom_project_store", Shelf.PROJECT),
             ScopedCollection("custom_office_store", Shelf.OFFICE_SHELF),
-            ScopedCollection("oib_knowledge", Shelf.BASE),
+            ScopedCollection("base_corpus", Shelf.BASE),
         ]
         assert _target_collections([], shelf="office_shelf", scoped=scoped) == ["custom_office_store"]
         assert _target_collections([], shelf="project", scoped=scoped) == ["custom_project_store"]
@@ -389,7 +389,7 @@ class TestBriefingNamesTheFolder:
             "many",
         )
         assert '- "a.pdf" (Projekt, Ordner Brandschutz)' in text
-        assert '- "b.pdf" (Büroablage)' in text
+        assert '- "b.pdf" (Bürobibliothek)' in text
 
 
 class TestBriefing:

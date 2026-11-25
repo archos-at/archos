@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import type { ResourceSharingState } from '@/lib/sharing/types'
 import { ChatToolbar } from './ChatToolbar'
+import { TOOLBAR_BREATH_PX, TOOLBAR_CLEAR_PADDING } from '../lib/toolbar-clearance'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import type { ChatMessage } from '@/features/chat/types'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
@@ -161,12 +162,11 @@ describe('ChatToolbar', () => {
   })
 
   describe('thread row on a phone', () => {
-    test('New chat is the first entry of the ⋯ menu there, and still a button in the open on a desktop', async () => {
+    test('New chat is the first entry of the ⋯ menu there; on a desktop the rail has it', async () => {
       const user = userEvent.setup()
       const onNewSession = vi.fn()
       render(<ChatToolbar sessionTitle="My Session" onNewSession={onNewSession} />)
 
-      expect(screen.getByRole('button', { name: 'Create new session' })).toHaveClass('max-sm:hidden')
       await openThreadMenu(user)
       const item = screen.getByTestId('new-chat-menu-item')
       expect(item).toHaveClass('sm:hidden')
@@ -176,7 +176,7 @@ describe('ChatToolbar', () => {
       expect(onNewSession).toHaveBeenCalledTimes(1)
     })
 
-    test('beside a title the door’s word stands under its glyph, so the title keeps its room', () => {
+    test('the door’s word stands under its glyph, so the title keeps its room', () => {
       render(<ChatToolbar sessionTitle="Brandschutz Stiegenhaus" />)
 
       expect(screen.getByTestId('chat-history-door')).toHaveClass('max-sm:flex-col', 'max-sm:text-meta')
@@ -184,7 +184,7 @@ describe('ChatToolbar', () => {
   })
 
   describe('thread row on a phone — a run and a rule together', () => {
-    test('the title hyphenates at syllables, and the chip steps aside for the spinner', () => {
+    test('the title hyphenates at syllables, and the spinner stands beside the faces', () => {
       mockIsDeepResearchStreaming = true
       mockSharingState = { ...SHARED_STATE, visibility: 'project' }
 
@@ -196,7 +196,7 @@ describe('ChatToolbar', () => {
       const phone = document.querySelector('[data-status-surface="phone"]')
       expect(phone?.querySelector('[data-testid="research-running"]')).not.toBeNull()
       expect(phone?.querySelector('[data-testid="access-chip"]')).toBeNull()
-      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="access-chip"]')).not.toBeNull()
+      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="participant-strip"]')).not.toBeNull()
     })
   })
 
@@ -238,6 +238,74 @@ describe('ChatToolbar', () => {
     })
   })
 
+  describe('the header holds still while the chat starts and its title arrives', () => {
+    test('the door has one shape in an empty chat and in a started one, so it never jumps', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const door = screen.getByTestId('chat-history-door')
+      const empty = door.className
+
+      rerender(<ChatToolbar isChatStarted />)
+
+      expect(screen.getByTestId('chat-history-door')).toBe(door)
+      expect(door.className).toBe(empty)
+    })
+
+    test('the pill draws its glass on a layer of its own, so its padding and the door stay put', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      const empty = pill.className.split(' ').filter((name) => name !== 'sm:invisible')
+
+      rerender(<ChatToolbar isChatStarted />)
+
+      expect(pill.className.split(' ')).toEqual(empty)
+    })
+
+    test('the title slot and the ⋯ stand before the title arrives; the title only fills the slot', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted />)
+      const slot = screen.getByRole('navigation')
+      const menu = screen.getByTestId('thread-menu')
+      const slotClass = slot.className
+      expect(menu.previousElementSibling).toBe(slot)
+
+      rerender(<ChatToolbar isChatStarted sessionTitle="Was ist eine Abstandsfläche?" />)
+      rerender(<ChatToolbar isChatStarted sessionTitle="Abstandsflächen nach § 79 der Bauordnung für Wien" />)
+
+      expect(screen.getByRole('navigation')).toBe(slot)
+      expect(screen.getByTestId('thread-menu')).toBe(menu)
+      expect(slot.className).toBe(slotClass)
+      expect(slot).toContainElement(screen.getByText('Abstandsflächen nach § 79 der Bauordnung für Wien'))
+    })
+
+    test('from `sm` the slot is as wide and as tall as a title, whatever the title says', () => {
+      render(<ChatToolbar isChatStarted />)
+      const slot = screen.getByRole('navigation')
+
+      expect(slot.className).toMatch(/(^| )sm:w-\[[^\]]+\]( |$)/)
+      expect(slot).toHaveClass('min-h-9', 'pointer-coarse:min-h-11', 'sm:justify-start')
+    })
+
+    test('from `sm` the pill keeps its height in an empty chat, and the thread clears exactly that header', () => {
+      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      expect(pill).toHaveClass('sm:invisible')
+      expect(pill).not.toHaveClass('sm:hidden')
+      const height = Number(/(?:^| )sm:min-h-\[([\d.]+)rem\]/.exec(pill.className)?.[1])
+
+      rerender(<ChatToolbar isChatStarted />)
+      expect(pill).toHaveClass(`sm:min-h-[${height}rem]`)
+
+      const fallback = Number(/sm:pt-\[var\(--chat-toolbar-clear,calc\(max\(0\.5rem,[^)]*\)\)\)\+([\d.]+)rem\)\)\]/.exec(TOOLBAR_CLEAR_PADDING)?.[1])
+      expect(fallback).toBe(0.5 + height + TOOLBAR_BREATH_PX / 16)
+    })
+
+    test('the pill leaves the room of who-can-read, so their arrival does not narrow the title', () => {
+      render(<ChatToolbar isChatStarted />)
+      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+
+      expect(pill.className).toMatch(/(^| )sm:max-w-\[calc\(100%-\d+rem\)\]( |$)/)
+    })
+  })
+
   describe('chat-started gating', () => {
     test('hides New chat, the thread menu and the breadcrumb before a chat has started', () => {
       render(
@@ -256,7 +324,7 @@ describe('ChatToolbar', () => {
       expect(screen.queryByText('My Session')).not.toBeInTheDocument()
     })
 
-    test('shows New chat, the thread menu and the breadcrumb once a chat has started', async () => {
+    test('shows the thread menu and the breadcrumb once a chat has started, and no New chat button', async () => {
       const user = userEvent.setup()
       render(
         <ChatToolbar
@@ -265,7 +333,7 @@ describe('ChatToolbar', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Create new session' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Create new session' })).not.toBeInTheDocument()
       expect(screen.getByText('My Session')).toBeInTheDocument()
 
       await openThreadMenu(user)
@@ -280,7 +348,8 @@ describe('ChatToolbar', () => {
 
       render(<ChatToolbar onNewSession={onNewSession} />)
 
-      await user.click(screen.getByRole('button', { name: 'Create new session' }))
+      await openThreadMenu(user)
+      await selectMenuItem(user, 'new-chat-menu-item')
 
       expect(onNewSession).toHaveBeenCalledOnce()
     })
@@ -293,7 +362,7 @@ describe('ChatToolbar', () => {
       ['an empty chat', { isChatStarted: false }],
       ['a chat with a title', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
       ['a chat whose title is not in yet', { isChatStarted: true }],
-    ])('%s: the door says „Chats“ in words, and no breakpoint hides them', (_, props) => {
+    ])('%s: the door says „Chats“ in words, and stands on a phone only, where there is no rail', (_, props) => {
       render(<ChatToolbar {...props} />)
 
       const door = screen.getByTestId('chat-history-door')
@@ -301,9 +370,8 @@ describe('ChatToolbar', () => {
       expect(label?.textContent).toBe('Chats')
       expect(door).not.toHaveAttribute('aria-label')
       expect(door).toHaveAccessibleName('Chats')
-      for (const node of [door, label]) {
-        expect([...(node?.classList ?? [])].filter((c) => HIDING.test(c)), node?.outerHTML.slice(0, 80)).toEqual([])
-      }
+      expect([...(label?.classList ?? [])].filter((c) => HIDING.test(c))).toEqual([])
+      expect([...door.classList].filter((c) => HIDING.test(c))).toEqual(['sm:hidden'])
     })
   })
 
@@ -336,7 +404,7 @@ describe('ChatToolbar', () => {
       expect(title.closest('div[class*="max-w-[64%]"]')).toBeNull()
     })
 
-    test('from `sm` the title yields to New chat: it shrinks and clamps, the actions keep their width', () => {
+    test('from `sm` the title yields: it shrinks and clamps, the menu keeps its width', () => {
       render(<ChatToolbar sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung" />)
 
       const title = screen.getByText('Wiener Garagengesetz — Stellplatzverpflichtung')
@@ -346,8 +414,7 @@ describe('ChatToolbar', () => {
         expect(box?.className).toContain('sm:flex-initial')
         expect(box?.className).not.toContain('sm:flex-none')
       }
-      const newChat = screen.getByRole('button', { name: 'Create new session' })
-      expect(newChat.parentElement?.className).toContain('shrink-0')
+      expect(screen.getByTestId('thread-menu').className).toContain('shrink-0')
     })
 
     test('the header is an opaque band in the page surface, and takes its own clicks', () => {
@@ -391,15 +458,32 @@ describe('ChatToolbar', () => {
       )
 
       const phone = document.querySelector('[data-status-surface="phone"]')
-      expect(phone?.querySelector('[data-testid="access-chip"]')).not.toBeNull()
+      expect(phone?.querySelector('[data-testid="participant-strip"]')).not.toBeNull()
     })
 
-    test('New chat is a 44px square on a phone, like the menu beside it', () => {
+    test('on a phone one face and the count stand for the readers, so a long title keeps its room', () => {
+      const third = { ...SHARED_STATE.entries[1], person: { ...SHARED_STATE.entries[1].person, userId: 'u-bernd', name: 'Bernd Huber' } }
+      mockSharingState = { ...SHARED_STATE, entries: [...SHARED_STATE.entries, third] }
+
+      render(
+        <ChatToolbar
+          sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung"
+          isCollaborationEnabled
+          conversationId="session-1"
+          currentUserId="u-me"
+        />,
+      )
+
+      const phone = document.querySelector('[data-status-surface="phone"]')
+      expect(phone?.querySelectorAll('[data-testid="person-avatar"]')).toHaveLength(1)
+      expect(phone?.querySelector('[data-testid="avatar-stack-overflow"]')).toHaveTextContent('+2')
+      expect(document.querySelectorAll('[data-status-surface="desktop"] [data-testid="person-avatar"]')).toHaveLength(3)
+    })
+
+    test('the menu is a 44px square on a phone', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 
-      expect(screen.getByRole('button', { name: 'Create new session' }).className).toContain(
-        'size-11',
-      )
+      expect(screen.getByTestId('thread-menu').className).toContain('size-11')
     })
   })
 
@@ -410,12 +494,10 @@ describe('ChatToolbar', () => {
       expect(screen.getByText('My Session')).toBeInTheDocument()
     })
 
-    test('the title is the size of the New chat label beside it, from `sm` on', () => {
+    test('the title is small from `sm` on', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 
-      const newChatLabel = screen.getByText('New chat')
       const title = screen.getByRole('button', { name: /rename session/i })
-      expect(newChatLabel.className).toContain('text-xs')
       expect(title.className).toContain('sm:text-xs')
       expect(title.className).toContain('sm:leading-4')
     })
@@ -600,7 +682,7 @@ describe('ChatToolbar — sharing surfaces', () => {
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
   })
 
-  test('the faces are STATUS — they say who is here, they do not act', () => {
+  test('the faces open the sharing surface, where everyone the chat is shared with is listed', () => {
     mockSharingState = SHARED_STATE
     render(
       <ChatToolbar
@@ -612,11 +694,11 @@ describe('ChatToolbar — sharing surfaces', () => {
     )
 
     for (const strip of screen.getAllByTestId('participant-strip')) {
-      expect(strip.tagName).not.toBe('BUTTON')
+      expect(strip.tagName).toBe('BUTTON')
     }
   })
 
-  test('a blanket rule REPLACES the faces — the rule is the audience, not the roster', () => {
+  test('a chat shared with the whole project shows faces too, three and a plus for the rest', () => {
     mockSharingState = { ...SHARED_STATE, visibility: 'project' }
     render(
       <ChatToolbar
@@ -627,8 +709,8 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    expect(screen.getAllByTestId('access-chip')[0]).toHaveTextContent('Project')
-    expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('participant-strip').length).toBeGreaterThan(0)
   })
 
   test('a solo private thread carries no collaboration furniture at all', async () => {

@@ -1,0 +1,7 @@
+---
+# area: answers
+improvements:
+  - >
+    When an answer finishes without research or after a single lookup, the
+    "Herleitung" above it now settles into its final size smoothly, so the
+    answer underneath no longer jumps down at the end.

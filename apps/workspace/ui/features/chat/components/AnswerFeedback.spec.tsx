@@ -41,10 +41,10 @@ const downThumb = () => screen.getByRole('button', { name: 'Mark this answer as 
 
 describe('AnswerFeedback', () => {
   describe('resting state', () => {
-    test('is the question and two thumbs — nothing else', () => {
+    test('is two thumbs — nothing else, the question only in their tooltip', () => {
       render(<AnswerFeedback messageId="msg_1" />)
 
-      expect(screen.getByText('Was this helpful?')).toBeInTheDocument()
+      expect(screen.queryByText('Was this helpful?')).not.toBeInTheDocument()
       expect(upThumb()).toHaveAttribute('aria-pressed', 'false')
       expect(downThumb()).toHaveAttribute('aria-pressed', 'false')
 
@@ -89,10 +89,6 @@ describe('AnswerFeedback', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Rating saved.')
       expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-      expect(screen.getByText('Was this helpful?')).toHaveAttribute('aria-hidden', 'true')
-      expect(screen.getByText('Was this helpful?').parentElement).toBe(
-        screen.getByRole('status').parentElement
-      )
 
       await waitFor(() => expect(postCalls()).toHaveLength(1))
       const [url, init] = postCalls()[0] as [string, RequestInit]
@@ -295,7 +291,6 @@ describe('AnswerFeedback', () => {
 
       await waitFor(() => expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument())
       expect(screen.getByRole('status')).toHaveTextContent('')
-      expect(screen.getByText('Was this helpful?')).toBeInTheDocument()
     })
   })
 

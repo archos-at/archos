@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
-import { projectSiteAddress } from './site-address'
+import { projectCity, projectSiteAddress } from './site-address'
 
 const LEGACY_ADDRESS_KEY = 'standort_adresse'
 
@@ -55,5 +55,21 @@ describe('projectSiteAddress', () => {
     expect(projectSiteAddress(withFacts({ site_address: '   ' }))).toBeNull()
     expect(projectSiteAddress(withFacts({ site_address: 42 }))).toBeNull()
     expect(projectSiteAddress({ profile: null as unknown as Project['profile'] })).toBeNull()
+  })
+})
+
+describe('the city a project card names', () => {
+  test.each([
+    ['Janis-Joplin-Promenade 12, 1220 Wien', 'Wien'],
+    ['Hauptstraße 40, 4040 Linz', 'Linz'],
+    ['Seestadtstraße 1, Wien', 'Wien'],
+    ['Graz', 'Graz'],
+    ['Marktplatz 3, D-80331 München', 'München'],
+  ])('reads %s as %s', (address, city) => {
+    expect(projectCity(withFacts({ site_address: address }))).toBe(city)
+  })
+
+  test('names none without an address', () => {
+    expect(projectCity(withFacts({}))).toBeNull()
   })
 })

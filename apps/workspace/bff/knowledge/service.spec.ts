@@ -21,7 +21,7 @@ import {
 const fetchMock = vi.fn()
 
 const backendPayload = {
-  collection_name: 'oib_knowledge',
+  collection_name: 'base_corpus',
   collection_exists: true,
   collection_updated_at: '2026-07-01T00:00:00Z',
   summary: {
@@ -78,7 +78,7 @@ describe('getKnowledgeBaseStatus', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(String(fetchMock.mock.calls[0][0])).toContain('/v1/oib/status')
-    expect(status.collectionName).toBe('oib_knowledge')
+    expect(status.collectionName).toBe('base_corpus')
     expect(status.collectionExists).toBe(true)
     expect(status.summary).toEqual({
       totalFiles: 2,

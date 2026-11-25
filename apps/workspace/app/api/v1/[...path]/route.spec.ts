@@ -13,8 +13,8 @@ vi.mock('@/lib/proxy/collection-authz', () => ({
   validateCollectionName: vi.fn().mockResolvedValue(null),
 }))
 
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: vi.fn().mockResolvedValue({ headerValue: 'scope' }),
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationScope: vi.fn().mockResolvedValue({ shelves: [{ collection: 'base_corpus', shelf: 'base' }] }),
 }))
 
 vi.mock('@/lib/proxy/proxy-request', () => ({

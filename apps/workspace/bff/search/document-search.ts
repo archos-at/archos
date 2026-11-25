@@ -34,6 +34,7 @@ import {
   type SearchScopeQuery,
   type SearchSection,
   type SearchSort,
+  searchShelfOf,
 } from './search-wire'
 import { searchAnnotations, searchConversations, searchFolders, searchProjects } from './providers'
 import { refreshStaleShelves } from './shelf-projection'
@@ -162,7 +163,7 @@ function toDocumentHit(row: DocumentSearchRow, passage: BackendSearchHit | undef
     id: row.id,
     name: row.displayName ?? row.filename,
     filename: row.filename,
-    shelf: row.scope === 'office_shelf' ? 'office_shelf' : 'project',
+    shelf: searchShelfOf(row.scope),
     projectId: row.projectId,
     projectName: row.projectName,
     folderId: row.folderId,

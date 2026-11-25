@@ -31,7 +31,7 @@ def _bind(*countries: str) -> None:
 
 def _config() -> KnowledgeRetrievalConfig:
     return KnowledgeRetrievalConfig(
-        collection_name="oib_knowledge",
+        collection_name="base_corpus",
         include_base_collection=True,
         include_session_collection=True,
         project_collections=["proj_1"],
@@ -58,26 +58,26 @@ def _reads(*countries: str) -> models.Filter:
 
 
 def test_without_a_context_no_read_is_narrowed():
-    assert _country(scope_filter(["oib_knowledge"])) is None
+    assert _country(scope_filter(["base_corpus"])) is None
     assert base_collection_filters(_config(), None) == NO_PAGE_CHUNKS
 
 
 def test_a_turn_reads_only_the_countries_its_gate_names_and_no_unmarked_chunk():
     _bind("AT", "EU")
-    country = _country(scope_filter(["oib_knowledge"]))
+    country = _country(scope_filter(["base_corpus"]))
     assert country == models.Filter(should=[_reads("AT", "EU")])
 
 
 def test_an_office_scope_beside_the_corpus_is_never_narrowed():
     _bind("DE")
-    country = _country(scope_filter(["oib_knowledge", "proj_1"]))
+    country = _country(scope_filter(["base_corpus", "proj_1"]))
     assert country is not None and len(country.should) == 2
     assert _country(scope_filter(["proj_1"])) is None
 
 
 def test_a_gate_that_reads_no_country_reads_no_corpus_chunk():
     set_turn_knowledge_context(KnowledgeContext(gate="not_entitled"))
-    country = _country(scope_filter(["oib_knowledge"]))
+    country = _country(scope_filter(["base_corpus"]))
     assert country == models.Filter(should=[_reads("__none__")])
 
 
@@ -85,10 +85,10 @@ def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(mon
     from agent.project_context import RequestContext
 
     signed = RequestContext(
-        collection_scope_entries=[{"collection": "oib_knowledge", "shelf": "base", "countries": ["AT"]}]
+        collection_scope_entries=[{"collection": "base_corpus", "shelf": "base", "countries": ["AT"]}]
     )
     monkeypatch.setattr(RequestContext, "from_context", classmethod(lambda cls: signed))
-    country = _country(scope_filter(["oib_knowledge"]))
+    country = _country(scope_filter(["base_corpus"]))
     assert country == models.Filter(should=[_reads("AT")])
 
 
@@ -97,7 +97,7 @@ def test_a_base_entry_with_no_countries_or_an_empty_list_reads_nothing(monkeypat
     from agent.common.knowledge_context import base_corpus_readable
     from agent.project_context import RequestContext
 
-    signed = RequestContext(collection_scope_entries=[{"collection": "oib_knowledge", "shelf": "base", **entry}])
+    signed = RequestContext(collection_scope_entries=[{"collection": "base_corpus", "shelf": "base", **entry}])
     monkeypatch.setattr(RequestContext, "from_context", classmethod(lambda cls: signed))
     assert base_corpus_readable() is readable
 
@@ -109,7 +109,7 @@ def test_a_gate_that_reads_no_country_drops_the_base_corpus_even_for_an_austrian
 
 def test_a_gate_that_reads_a_country_keeps_the_base_corpus_for_its_filter():
     _bind("DE")
-    assert _scope("PROJECT_CONTEXT v1\n\nconfirmed:\n- country=de\n")[0] == "oib_knowledge"
+    assert _scope("PROJECT_CONTEXT v1\n\nconfirmed:\n- country=de\n")[0] == "base_corpus"
 
 
 def test_exists_translates_to_qdrant_is_empty():
@@ -123,15 +123,15 @@ def test_exists_translates_to_qdrant_is_empty():
 
 
 def test_an_ingest_job_stamps_its_country_and_an_unmarked_corpus_text_is_nobodys():
-    stamped = enrichment("oib_knowledge", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"})
+    stamped = enrichment("base_corpus", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"})
     assert stamped["country_id"] == "DE"
     assert stamped["knowledge_edition_id"] == "edition:baybo-2025"
     assert "released" not in stamped  # a job from before the flag: read by its country, as before
     for unmarked in ({"country_id": "Germany"}, {}):
-        mark = enrichment("oib_knowledge", unmarked)
+        mark = enrichment("base_corpus", unmarked)
         assert "country_id" not in mark and mark["released"] is False
-    assert enrichment("oib_knowledge", {"country_id": "DE", "released": True})["released"] is True
-    withdrawn = enrichment("oib_knowledge", {"country_id": "DE", "released": False})
+    assert enrichment("base_corpus", {"country_id": "DE", "released": True})["released"] is True
+    withdrawn = enrichment("base_corpus", {"country_id": "DE", "released": False})
     assert withdrawn["country_id"] == "DE" and withdrawn["released"] is False
     office = enrichment("proj_1", {"organization_id": "org_1"})
     assert "country_id" not in office and "released" not in office

@@ -76,7 +76,12 @@ async def test_the_level_is_the_checks_and_the_findings_ride_on_the_state():
     final, state = await _finalize(messages, judge=stub_judge("low", [finding]))
 
     assert state.answer_confidence == "low" and state.answer_confidence_version == 2
-    assert final.confidence_check == {"status": "judged", "level": "low", "findings": [finding.to_wire()]}
+    assert final.confidence_check == {
+        "status": "judged",
+        "level": "low",
+        "findings": [finding.to_wire()],
+        "sources_checked": 0,
+    }
     assert state.confidence_check == final.confidence_check
 
 
@@ -202,6 +207,7 @@ async def test_a_judged_level_and_the_dropped_labels_are_scored(monkeypatch):
     by_name = {score.name: score.value for score in written}
     assert by_name["confidence-judged-level"] == "medium"
     assert by_name["confidence-judge-unavailable"] == 0.0
+    assert by_name["confidence-findings-contradicted"] == 0.0
     assert by_name["citations-dropped-labelled"] == 1.0
 
 

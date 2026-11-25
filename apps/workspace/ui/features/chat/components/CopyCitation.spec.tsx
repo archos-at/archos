@@ -1,7 +1,13 @@
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
-import { CopyCitationsMenu, CopySourceCitationButton } from './CopyCitation'
+import { type FC } from 'react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { CitationFormatItems, CopySourceCitationButton, useCopyCitations } from './CopyCitation'
 import { buildCitationModel, type CitationRef } from '../lib/citations'
 
 vi.mock('../store', () => ({
@@ -20,7 +26,7 @@ const [document] = buildCitationModel({
       title: 'OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023',
       fileName: 'oib-rl_2_ausgabe_mai_2023.pdf',
       citationKey: 'oib-rl_2_ausgabe_mai_2023.pdf, p.18',
-      collection: 'oib_knowledge',
+      collection: 'base_corpus',
       kind: 'building_law',
       lane: 'building_law_oib',
       origin: 'kb',
@@ -31,6 +37,20 @@ const [document] = buildCitationModel({
   ],
 })
 const citation: CitationRef = { document: document!, locus: document!.loci[0] }
+
+const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations }) => {
+  const { copy } = useCopyCitations(citations)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button">Cite</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <CitationFormatItems onPick={(format) => void copy(format)} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 describe('citation copy', () => {
   let writeText: ReturnType<typeof vi.fn>

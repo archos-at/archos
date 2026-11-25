@@ -18,6 +18,7 @@ import { countFiltersAcross, countPendingAcross, inLane, lanesFor } from './inbo
 import { markAnswersFor } from './inbox-answer-places'
 import { toItemView } from './inbox-item-view'
 import { resolveTargets, rowsWithUnreadableRuns } from './inbox-target-access'
+import { rowsAboutShelfChatsHiddenFromAgent } from './inbox-shelf-chats'
 import type { InboxTargetAccess } from './targets'
 
 export interface ListInboxParams {
@@ -61,7 +62,7 @@ export async function listInbox(
 
   const [targets, withheld, people, pending, counts] = await Promise.all([
     resolveTargets(session, rows),
-    rowsWithUnreadableRuns(session, rows),
+    withheldRows(session, rows),
     resolvePeople(session.organizationId, actorIds),
     countPendingAcross(session, lanes),
     countFiltersAcross(session, lanes),
@@ -80,6 +81,14 @@ export async function listInbox(
   }
 }
 
+async function withheldRows(session: AuthorizedSession, rows: readonly InboxItem[]): Promise<Set<string>> {
+  const [unreadableRuns, shelfChats] = await Promise.all([
+    rowsWithUnreadableRuns(session, rows),
+    rowsAboutShelfChatsHiddenFromAgent(session, rows),
+  ])
+  return new Set([...unreadableRuns, ...shelfChats])
+}
+
 function projectIdsOf(targets: ReadonlyMap<string, InboxTargetAccess | null>): string[] {
   const ids = new Set<string>()
   for (const access of targets.values()) if (access?.projectId) ids.add(access.projectId)
@@ -92,7 +101,7 @@ export async function viewInboxItemAs(session: AuthorizedSession, row: InboxItem
   if (!lanes.some((lane) => lane.organizationId === row.organizationId && lane.types.includes(itemType))) return null
   const [targets, withheld, people] = await Promise.all([
     resolveTargets(session, [row]),
-    rowsWithUnreadableRuns(session, [row]),
+    withheldRows(session, [row]),
     resolvePeople(session.organizationId, row.actorUserId ? [row.actorUserId] : []),
   ])
   const actorNames = new Map([...people].map(([userId, person]) => [userId, person.name]))

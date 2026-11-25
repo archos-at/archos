@@ -43,7 +43,7 @@ const entry: NormEntry = {
 
 const registry: NormsFile = {
   version: 1,
-  corpus_collection: 'oib_knowledge',
+  corpus_collection: 'base_corpus',
   language: '',
   states: {},
   corpus_note: '',

@@ -164,6 +164,24 @@ describe('IfcViewerCard — which of three situations it is in', () => {
 
     await waitFor(() => expect(sourceRequests()).toBe(2))
   })
+
+  it('waits for a press before loading a large model, and fetches nothing until then', async () => {
+    const large = {
+      models: [{ ...MODELS.models[0], elementCount: 42_000, summary: { fileSizeBytes: 180_000_000 } }],
+    }
+    stubFetch({ models: large, query: ELEMENTS, source: { url: 'https://example.test/m.ifc' } })
+    card()
+    const load = await screen.findByRole('button', { name: /3D-Ansicht laden|Load 3D view/ })
+    const sourceRequests = () =>
+      vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes('/source')).length
+    expect(sourceRequests()).toBe(0)
+    expect(screen.queryByTestId('ifc-viewport')).not.toBeInTheDocument()
+
+    load.click()
+
+    expect(await screen.findByTestId('ifc-viewport')).toBeInTheDocument()
+    expect(sourceRequests()).toBe(1)
+  })
 })
 
 describe('IfcViewerCard — what it says about the answer it illustrates', () => {

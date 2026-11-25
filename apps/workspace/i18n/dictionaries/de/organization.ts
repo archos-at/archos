@@ -5,7 +5,7 @@ export const organization: typeof en.organization = {
   subtitle: 'Verwalten Sie Ihre Organisation, ihre Mitglieder und Zugriffe.',
   loading: 'Organisation wird geladen…',
   memberSubtitle: 'Ihr Verbrauch und Ihre Organisation auf einen Blick.',
-  backToApp: 'Zurück zu den Projekten',
+  backToApp: 'Zurück zum Chat',
   nav: {
     label: 'Organisationsbereiche',
     overview: 'Übersicht',
@@ -99,7 +99,7 @@ export const organization: typeof en.organization = {
     access: { download: 'Download', open: 'Geöffnet' },
     columns: { when: 'Wann', person: 'Person', action: 'Was', document: 'Dokument', place: 'Wo' },
     place: {
-      officeShelf: 'Büroablage',
+      officeShelf: 'Bürobibliothek',
       session: 'Chat-Anhang',
       project: 'Projekt',
       root: 'Projektebene',
@@ -247,8 +247,8 @@ export const organization: typeof en.organization = {
         hint: 'Wer welches Dokument heruntergeladen hat. Das Lesen wird selbst protokolliert.',
       },
       office_shelf_manage: {
-        name: 'Büroablage verwalten',
-        hint: 'Dokumente in der Büroablage hochladen, löschen und neu einlesen. Lesen dürfen alle.',
+        name: 'Bürobibliothek verwalten',
+        hint: 'Dokumente in der Bürobibliothek hochladen, löschen und neu einlesen. Lesen dürfen alle.',
       },
       skills_manage: {
         name: 'Skills verwalten',
@@ -515,7 +515,7 @@ export const organization: typeof en.organization = {
     overQuota: 'Kontingent erreicht — neue Uploads werden abgelehnt, bis Platz frei wird',
     nearQuota: 'Fast voll — neue Uploads werden bald abgelehnt',
     projectDocuments: 'Projektdokumente',
-    officeShelfDocuments: 'Büroablage',
+    officeShelfDocuments: 'Bürobibliothek',
     documentCount: 'Dokumente: {count}',
     maxFileSize: 'Max. Dateigröße je Upload',
     setByPlatform:
@@ -600,6 +600,17 @@ export const organization: typeof en.organization = {
     open: 'Audit-Logs ansehen',
     error: 'Der Audit-Log-Viewer konnte nicht geöffnet werden.',
   },
+  confidentialRelease: {
+    title: 'Freigabe vertraulicher Inhalte',
+    description:
+      'Ein Entwurf, der auf eingeschränkten Ordnern oder anderen Projekten beruht, lässt sich auch dort ablegen, wo nicht alle diese Quellen lesen dürfen: Wer ablegt, sieht die Quellen und bestätigt, dass der Entwurf nichts Vertrauliches enthält. Jede Freigabe steht im Audit-Log.',
+    label: 'Freigabe vertraulicher Inhalte verbieten',
+    hint: 'Eingeschaltet bleibt so ein Entwurf dort, wo seine Quellen es erlauben, und niemand kann ihn freigeben.',
+    saved: 'Gespeichert.',
+    saveError: 'Die Einstellung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    loadError: 'Die Einstellung konnte nicht geladen werden.',
+    readOnly: 'Nur Organisations-Admins können das ändern.',
+  },
   deletedFolderContent: {
     title: 'Inhalte aus gelöschten Ordnern',
     description:
@@ -674,7 +685,7 @@ export const organization: typeof en.organization = {
       'Hält die Inhaltsprüfung eine Datei zurück, erscheint sie hier. Sie sehen die Dateien, die Sie prüfen dürfen.',
     whereProject: 'Projekt {name}',
     whereProjectUnknown: 'Ein Projekt',
-    whereOfficeShelf: 'Büroablage',
+    whereOfficeShelf: 'Bürobibliothek',
     whereSession: 'Chat-Anhang',
     noReason: 'Kein Grund gespeichert. Öffnen Sie die Datei, um selbst zu prüfen.',
     unscreened:
@@ -731,7 +742,7 @@ export const organization: typeof en.organization = {
   },
   baseKnowledge: {
     title: 'Normen & Richtlinien',
-    description: 'Die Normen, Kommentare und Weisungen Ihres Büros liegen in der Büroablage unter Normen & Richtlinien. Dort laden Sie sie hoch, ordnen sie in Themen, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
+    description: 'Die Normen, Kommentare und Weisungen Ihres Büros liegen in der Bürobibliothek unter Normen & Richtlinien. Dort laden Sie sie hoch, ordnen sie in Themen, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
     open: 'Normen & Richtlinien öffnen',
   },
   officeConventions: {

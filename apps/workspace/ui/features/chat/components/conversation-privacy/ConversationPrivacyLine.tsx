@@ -16,29 +16,56 @@ export type TemporaryStatement = TemporarySwitchView['statement']
 export interface ConversationPrivacyLineViewProps {
   temporary: boolean | TemporaryStatement
   privateToReader: boolean
+  reserved?: boolean
   className?: string
 }
+
+const STATEMENTS = ['temporary', 'turningOn', 'turningOff'] as const
+
+const LAYER = 'col-start-1 row-start-1 transition-opacity duration-quick ease-out motion-reduce:transition-none'
 
 export function ConversationPrivacyLineView({
   temporary,
   privateToReader,
+  reserved = false,
   className,
 }: ConversationPrivacyLineViewProps): JSX.Element | null {
   const t = useTranslations(chatCopy)
   const statement = temporary === true ? 'temporary' : temporary || null
-  if (!statement && !privateToReader) return null
+  if (!statement && !privateToReader && !reserved) return null
+  const sentence = (of: (typeof STATEMENTS)[number]): string =>
+    t(of === 'temporary' ? 'temporary.statement' : `temporary.${of}`)
+  const shown = reserved ? STATEMENTS : statement ? [statement] : []
   return (
-    <div className={cn(THREAD_GUTTER, className)} data-testid="conversation-privacy-line">
-      <div className={cn(THREAD_COLUMN_INNER, 'flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2')}>
-        {statement && (
-          <FactLine icon={MessageCircleDashed} tone="default" role="status" testId="conversation-temporary-line">
-            {t(statement === 'temporary' ? 'temporary.statement' : `temporary.${statement}`)}
-          </FactLine>
-        )}
+    <div
+      className={cn(THREAD_GUTTER, !statement && !reserved && 'sm:hidden', className)}
+      data-testid="conversation-privacy-line"
+    >
+      <div className={cn(THREAD_COLUMN_INNER, 'grid justify-items-center pt-2')}>
+        {shown.map((of) => (
+          <div key={of} aria-hidden="true" className={cn(LAYER, of === statement ? 'opacity-100' : 'opacity-0')}>
+            <FactLine
+              icon={MessageCircleDashed}
+              tone="default"
+              testId={of === statement ? 'conversation-temporary-line' : undefined}
+            >
+              {sentence(of)}
+            </FactLine>
+          </div>
+        ))}
+        <p role="status" className="sr-only">
+          {statement ? sentence(statement) : ''}
+        </p>
         {privateToReader && (
-          <FactLine icon={Lock} testId="conversation-private-line">
-            {t('privacy.onlyYou')}
-          </FactLine>
+          <div
+            className={cn(LAYER, 'sm:hidden', statement ? 'opacity-0' : 'opacity-100')}
+            aria-hidden={statement ? true : undefined}
+            data-slot="phone-only"
+          >
+            <FactLine icon={Lock} testId="conversation-private-line">
+              {t('privacy.onlyYou')}
+            </FactLine>
+          </div>
         )}
       </div>
     </div>
@@ -48,19 +75,23 @@ export function ConversationPrivacyLineView({
 export interface ConversationPrivacyLineProps {
   conversationId: string | null | undefined
   canCollaborate: boolean
+  statesTemporary?: boolean
   className?: string
 }
 
 export function ConversationPrivacyLine({
   conversationId,
   canCollaborate,
+  statesTemporary = true,
   className,
 }: ConversationPrivacyLineProps): JSX.Element | null {
-  const temporary = useTemporarySwitch(conversationId).statement
+  const statement = useTemporarySwitch(conversationId).statement
+  const temporary = statesTemporary ? statement : null
   const sharing = useThreadSharing(canCollaborate ? conversationId : null)
   return (
     <ConversationPrivacyLineView
       temporary={temporary}
+      reserved
       privateToReader={sharing === 'private'}
       className={className}
     />

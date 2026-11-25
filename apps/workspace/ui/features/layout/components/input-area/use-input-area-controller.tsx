@@ -1,3 +1,6 @@
+import { useAuth } from '@/adapters/auth'
+import { usePathname } from 'next/navigation'
+import { chatSideOf } from '@/components/shell/rail-mode'
 import {
   useState,
   useCallback,
@@ -105,6 +108,15 @@ export function useInputAreaController({
   })
 
   const currentConversationId = useChatStore((state) => state.currentConversation?.id)
+  const routeSide = chatSideOf(usePathname() ?? '')
+  const chatHasProject = useChatStore((state) =>
+    state.currentConversation
+      ? state.currentConversation.projectId != null
+      : routeSide !== undefined
+        ? routeSide !== null
+        : state.projectId != null
+  )
+  const canMention = canCollaborate && chatHasProject
   const ensureSession = useChatStore((state) => state.ensureSession)
 
   const composerPrefill = useChatStore((state) => state.composerPrefill)
@@ -215,6 +227,7 @@ export function useInputAreaController({
   })
 
   const isDisabledByAuth = !isAuthenticated
+  const { isLoading: authLoading } = useAuth()
   const isViewerInSharedThread = capabilities.deniedBy === 'read-only-role'
   const cannotChatInProject = capabilities.deniedBy === 'no-project-chat-permission'
   const cannotContribute = !capabilities.canContribute
@@ -225,7 +238,7 @@ export function useInputAreaController({
   const typeAheadHintId = useId()
 
   const {
-    mentions,
+    mentions, sendableMentions,
     setMentions,
     mentionQuery,
     setMentionQuery,
@@ -237,7 +250,7 @@ export function useInputAreaController({
     mentionsLoading,
     syncMentionQuery,
     mentionPickerOpen,
-  } = useComposerMentions({ currentSessionId, canCollaborate, draftLocked })
+  } = useComposerMentions({ currentSessionId, canMention, draftLocked })
 
   useLayoutEffect(() => {
     if (FIELD_SIZING_CONTENT) return
@@ -284,7 +297,7 @@ export function useInputAreaController({
   ])
 
   const getPlaceholder = (): string => {
-    if (!isAuthenticated) return t('inputArea.signInToStart')
+    if (!isAuthenticated && !authLoading) return t('inputArea.signInToStart')
     if (isResponseMode) return t('inputArea.typeResponse')
     if (steering) return t('inputArea.steer')
     if (typingAhead) return t('inputArea.typeAhead')
@@ -294,7 +307,7 @@ export function useInputAreaController({
         name: composerSubject.title?.trim() || tFiles('assignment.thisFile'),
       })
     }
-    return placeholder ?? tChat('composer.placeholder')
+    return placeholder ?? tChat(chatHasProject ? 'composer.placeholder' : 'composer.placeholderPersonal')
   }
 
   const handleValueChange = useCallback(
@@ -328,7 +341,7 @@ export function useInputAreaController({
   )
 
   const handleMentionSomeone = useCallback(() => {
-    if (cannotContribute) return
+    if (cannotContribute || !canMention) return
     const el = textareaRef.current
     const base = message.length > 0 && !message.endsWith(' ') ? `${message} ` : message
     const next = `${base}@`
@@ -338,7 +351,7 @@ export function useInputAreaController({
       el?.focus()
       el?.setSelectionRange(next.length, next.length)
     })
-  }, [message, handleValueChange, cannotContribute])
+  }, [message, handleValueChange, cannotContribute, canMention])
 
   const syncMentionQueryFromElement = useCallback(
     (element: HTMLTextAreaElement) => {
@@ -371,6 +384,7 @@ export function useInputAreaController({
   )
   const pickReference = useCallback(
     (hit: DocumentHit) =>
+      hit.shelf !== 'personal' &&
       setComposerSubject({
         resourceType: 'document',
         resourceId: hit.id,
@@ -432,9 +446,9 @@ export function useInputAreaController({
         text: message,
         mentions,
         awaitingHuman: threadAwaitsHuman,
-        canCollaborate,
+        canCollaborate: canMention,
       }),
-    [message, mentions, threadAwaitsHuman, canCollaborate]
+    [message, mentions, threadAwaitsHuman, canMention]
   )
   const activeMentions = addressee.mentions
   const taggedHumans = addressee.humans
@@ -451,7 +465,7 @@ export function useInputAreaController({
     wsChat,
     message,
     setMessage,
-    mentions,
+    mentions: sendableMentions,
     setMentions,
     setMentionQuery,
     canCollaborate,
@@ -527,6 +541,7 @@ export function useInputAreaController({
 
   return {
     canCollaborate,
+    canMention,
     t,
     tChat,
     locale,

@@ -147,7 +147,9 @@ position in one argument.
 - **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
   vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked,
   Forme, and Typst 0.14.2 as WebAssembly with its fonts and diagram packages (fletcher, timeliney,
-  chronos, cetz under LGPL-3.0, shipped unmodified as source).
+  chronos, cetz under LGPL-3.0, shipped unmodified as source), and the first-party `house-style`:
+  the house look of every file (colours from `packages/brand`, a PowerPoint master, CSS for HTML to
+  PDF, a Typst preamble, Word and Excel styles, a Vega-Lite config, German formats).
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 250m CPU
@@ -282,7 +284,9 @@ the office's number and date formats, exact calculation, reading the file back, 
 `office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
 `office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the
 browser), one per file type with its
-pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
+pitfalls and worked examples, and `office-design`, the house style: the rules that make a file look
+like a good office made it, and the `house-style` module every example builds on. The office's own
+template or what the person asked for wins over it; nothing forces it. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
 Apache-2.0 document skills were source material, rewritten for this runtime (`NOTICE`).

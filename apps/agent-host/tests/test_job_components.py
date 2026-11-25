@@ -1670,7 +1670,7 @@ class TestCitedSourceEmission:
                 citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12",
                 title="OIB-Richtlinie 2",
                 source_type="knowledge_layer",
-                collection="oib_knowledge",
+                collection="base_corpus",
                 tool_name="knowledge_search",
             )
         )
@@ -1802,7 +1802,7 @@ def _kb_registry():
             citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12",
             title="OIB-Richtlinie 2",
             source_type="knowledge_layer",
-            collection="oib_knowledge",
+            collection="base_corpus",
             tool_name="knowledge_search",
         )
     )
@@ -1895,7 +1895,7 @@ class TestCitedSourceRegistryResolution:
             "Source: oib-rl_2_ausgabe_mai_2023.pdf\n"
             "Page: 12\n"
             "Citation: oib-rl_2_ausgabe_mai_2023.pdf, p.12\n"
-            "Collection: oib_knowledge\n\n"
+            "Collection: base_corpus\n\n"
             "Brandabschnitte sind zu begrenzen."
         )
         emitted, patcher = _capture_artifacts(callback)
@@ -1943,7 +1943,7 @@ class TestVerifiedCitedSourceStream:
         draft = (
             "Brandabschnitte sind zu begrenzen [1]. Weiters [2].\n\n"
             "## Quellen\n"
-            "- [1] oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3 | Turn 1\n"
+            "- [1] oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3 | Turn 1\n"
             "- [2] [Web] Beispiel: https://example.com/a\n"
         )
         verification = verify_citations(draft, registry)

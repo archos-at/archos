@@ -23,6 +23,7 @@ import type {
   SimilarPassagesRequest,
   SimilarPassagesResponse,
 } from './types'
+import { BASE_CORPUS_COLLECTION } from '@/lib/retrieval-scope/collection-scope'
 
 export const SIMILAR_MAX_PROJECTS = CROSS_PROJECT_PAGE_PROJECTS
 export const SIMILAR_DOCUMENTS = 12
@@ -31,7 +32,7 @@ const PLAN_CONCURRENCY = 4
 const BACKEND_TIMEOUT_MS = 15_000
 
 function baseCollectionName(): string {
-  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  return BASE_CORPUS_COLLECTION
 }
 
 interface ResolvedSource {

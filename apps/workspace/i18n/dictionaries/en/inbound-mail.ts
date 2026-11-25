@@ -1,13 +1,13 @@
 export const inboundMail = {
   title: 'Project mail',
   subtitle: 'Mail sent to the project mail address waits here until someone files it.',
-  back: 'Files',
+  back: 'Documents',
   addressButton: 'Address',
   noSelection: 'Choose a mail to see what it contains.',
 
   filters: {
     label: 'Show',
-    waiting: 'Waiting to be filed',
+    waiting: 'Waiting',
     handled: 'Handled',
   },
 
@@ -29,13 +29,13 @@ export const inboundMail = {
   loadMore: 'Load more',
 
   search: {
-    label: 'Filter mail by sender or subject',
-    placeholder: 'Sender or subject',
+    label: 'Filter mail by sender, subject or attachment',
+    placeholder: 'Search the project mail …',
     clear: 'Clear search',
     results: '{count, plural, one {# match} other {# matches}}',
     noResults: 'No matches',
     noneTitle: 'No mail matches “{query}”',
-    noneHint: 'Searches the sender and subject of the mail loaded so far.',
+    noneHint: 'Searches the sender, subject and attachment names of the mail loaded so far.',
   },
 
   closed: {
@@ -45,6 +45,12 @@ export const inboundMail = {
   },
 
   row: {
+    dest: '→ {place}',
+    yesterday: 'yesterday',
+    quoted: '“{name}”',
+    destMore: '→ {place} +{count}',
+    destNewThread: '→ new mail thread',
+    expiresShort: 'until {date}',
     noSubject: '(no subject)',
     attachments: '{count, plural, one {# attachment} other {# attachments}}',
     automatic: 'Automatic',
@@ -100,6 +106,7 @@ export const inboundMail = {
   },
 
   group: {
+    threadMeta: 'Mail thread\u00A0· {count, plural, one {# mail} other {# mails}}',
     thread: 'Mail thread “{name}”\u00A0· {count, plural, one {# new mail} other {# new mails}}',
     threadLine: '“{name}”',
     threadAction: '{count, plural, one {File} other {File these #}}',
@@ -174,6 +181,7 @@ export const inboundMail = {
   },
 
   header: {
+    addressButton: 'Mail address',
     addressMenu: "The project's email address",
     addressMore: 'About the address',
     addressCopy: 'Copy address',
@@ -317,7 +325,7 @@ export const inboundMail = {
       scan_infected: 'Malware found\u00A0· cannot be filed',
       not_offered: 'This office does not file this file type\u00A0· in the original',
       filing: 'Being filed …',
-      filed: 'Filed in Files',
+      filed: 'Filed in Documents',
       filedTo: 'Filed in {folder}',
       version: 'revision {version}',
       dismissed: 'Dismissed',
@@ -450,6 +458,11 @@ export const inboundMail = {
   },
 
   filing: {
+    change: 'Change …',
+    fileNow: 'File',
+    directHint: 'Files everything as shown above.',
+    where: 'Where it goes',
+    textLabel: 'Mail text',
     open: 'Review and file …',
     openHint: 'Shows what goes where first. Nothing is filed until you confirm.',
     openHintQuestions: '{count, plural, one {One question, then the overview.} other {# questions, then the overview.}} Nothing is filed until you confirm.',
@@ -563,7 +576,6 @@ export const inboundMail = {
 
   state: {
     filing: 'Being filed …',
-    filingSlow: 'This takes longer than usual. Filing goes on; you can leave the mail.',
     decidedByOther: 'Someone else has handled this mail in the meantime.',
     partialFailure: '{failed} of {total} files could not be filed.',
     partialFailureAll: '{failed, plural, one {The file could not be filed.} other {None of the # files could be filed.}}',
@@ -580,6 +592,7 @@ export const inboundMail = {
   },
 
   toast: {
+    held: '{count, plural, one {Filing the mail} other {Filing # mails}}',
     filed: '{count, plural, one {# file filed} other {# files filed}}',
     filedBoth: '{count, plural, one {Filed # file and the mail text} other {Filed # files and the mail text}}',
     textFiled: 'Mail text filed',
@@ -602,8 +615,18 @@ export const inboundMail = {
   },
 
   bulk: {
+    preview: {
+      empty: 'Tap mails in the list. This side then says what the bar below does with them.',
+      title: '{count, plural, one {File # mail} other {File # mails}}',
+      titleSome: 'File {count} of {total}',
+      where: 'Where it goes',
+      thread: 'Mail thread “{name}”',
+      newThread: 'New mail thread',
+      held: '{count, plural, one {{names} stays in Project mail: not ready to file yet. Open it on its own.} other {{names} stay in Project mail: not ready to file yet. Open them one by one.}}',
+    },
+    fileSome: 'File {count}',
+    start: 'Select',
     selected: '{count} selected',
-    paneHint: 'The bar under the list acts on every selected mail.',
     clear: 'Clear selection',
     fileSuggested: 'File as suggested',
     fileSuggestedBusy: 'Filing …',
@@ -622,7 +645,7 @@ export const inboundMail = {
     confirmSummary: '{files, plural, one {# file} other {# files}} and {texts, plural, one {# mail text} other {# mail texts}}',
     destination: {
       folder: 'In “{label}”: {count}',
-      root: 'In Files (top level): {count}',
+      root: 'In Documents (top level): {count}',
       new_folder: 'In the new folder “{label}”: {count}',
       thread: 'In mail thread “{label}”: {count}',
       new_thread: 'As the new mail thread “{label}”',
@@ -680,7 +703,7 @@ export const inboundMail = {
 
   address: {
     dialogTitle: 'Project mail address',
-    lead: 'Put this address in Cc when you write about the project. The replies then land in Project mail under Files.',
+    lead: 'Put this address in Cc when you write about the project. The replies then land in Project mail under Documents.',
     label: 'Project mail address',
     copy: 'Copy',
     copied: 'Copied',

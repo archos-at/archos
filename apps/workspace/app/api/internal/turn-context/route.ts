@@ -3,6 +3,7 @@ import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
 import { withTenant } from '@/lib/db/tenant-context'
 import { loadTurnContext } from '@/lib/turn-context/service'
+import { decisionFromRequest } from '@/lib/conversation-context'
 import { TurnContextTiming } from '@/lib/turn-context/timing'
 import { turnContextRequestSchema } from '@/lib/turn-context/wire'
 
@@ -10,11 +11,12 @@ export const POST = internalApiRoute(
   'Internal Turn Context',
   async ({ request }) => {
     const context = requireVerifiedContext(request)
+    const decision = decisionFromRequest(request)
     const input = await parseJsonBody(request, turnContextRequestSchema)
     const timing = new TurnContextTiming()
     const session = await timing.time('session', () => requirePinnedSession(context))
     const data = await withTenant({ organizationId: context.organizationId, userId: context.userId }, () =>
-      loadTurnContext(session, context, input, timing),
+      loadTurnContext(session, context, input, timing, decision),
     )
     return NextResponse.json({ data }, { headers: { 'Server-Timing': timing.header() } })
   },

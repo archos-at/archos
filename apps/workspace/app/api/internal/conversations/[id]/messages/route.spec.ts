@@ -13,6 +13,7 @@ vi.mock('@/lib/conversations/service', () => ({
 
 import { NotFoundError } from '@/lib/api/errors'
 import { persistInternalConversationMessages } from '@/lib/conversations/service'
+import { getTenantContext } from '@/lib/db/tenant-context'
 import { POST } from './route'
 
 const DEV_DEFAULT_TOKEN = 'grid-internal-dev-token'
@@ -85,13 +86,16 @@ describe('POST /api/internal/conversations/[id]/messages', () => {
 
   it('persists the assistant message with a valid token, org-scoped (201)', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
-    vi.mocked(persistInternalConversationMessages).mockResolvedValue([
-      { id: validPayload.id } as never,
-    ])
+    let scope: unknown
+    vi.mocked(persistInternalConversationMessages).mockImplementation(async () => {
+      scope = getTenantContext()
+      return [{ id: validPayload.id } as never]
+    })
 
     const response = await POST(makeRequest(validPayload, REAL_TOKEN), routeContext)
 
     expect(response.status).toBe(201)
+    expect(scope).toEqual({ kind: 'tenant', organizationId: 'org-1', userId: null, systemReader: 'agent-host' })
     const body = await response.json()
     expect(body.messages).toHaveLength(1)
     expect(persistInternalConversationMessages).toHaveBeenCalledWith('org-1', CONVERSATION_ID, [

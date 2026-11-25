@@ -1,4 +1,5 @@
 ---
+# area: documents
 operators:
   - >
     Migration 0135 rewrites legacy values in documents.status (ready, ingested,

@@ -95,8 +95,8 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
     conversationId = `conv_quarantine_${Date.now()}`
     await inTenant(() =>
       db.execute(sql`
-        INSERT INTO conversations (id, organization_id, created_by)
-        VALUES (${conversationId}, ${ORG}, ${UPLOADER})
+        INSERT INTO conversations (id, organization_id, created_by, project_id, visibility)
+        VALUES (${conversationId}, ${ORG}, ${UPLOADER}, ${projectId}::uuid, 'project')
       `)
     )
     await seed('project')
@@ -190,7 +190,7 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
     expect(await count([projectId])).toEqual({ [projectId]: 4 })
   })
 
-  it('narrows the Büroablage listing the same way', async () => {
+  it('narrows the Bürobibliothek listing the same way', async () => {
     const page = await repo.listDocumentPage({ kind: 'office_shelf' }, ORG, { reader: member })
     expect(names(page.rows)).toEqual(['office_shelf-ready.pdf'])
   })

@@ -26,7 +26,10 @@
  *                           `@keyframes`/`animation` shorthand rather than as a
  *                           transition timing function.
  *
- *   `transition-[width]`  — and height/margin/padding/top/left/right/bottom.
+ *   `transition-[width]`  — and height/margin/padding/top/left/right/bottom,
+ *                           and grid-template-columns: a `0fr → 1fr` column is
+ *                           a width that pushes every neighbour in its row (the
+ *                           temporary switch's „Temporär“, 2026-11).
  *   and friends             These are LAYOUT properties: the browser cannot
  *                           composite them, so every frame re-runs layout for
  *                           the whole subtree. On a sidebar or a list that is
@@ -54,8 +57,8 @@
  *                           `--motion-ambient` and `--ease-cycle`; for a live
  *                           mark that is `animate-caret-breathe` (globals.css).
  *
- *   `ease-in-out`,        — `ease-in-out` is a loop curve spelled outside the
- *   `ease-in`               vocabulary (`ease-cycle` is the loop curve), and
+ *   `ease-in-out`,        — `ease-in-out` is Tailwind's weak curve (`ease-move`
+ *   `ease-in`               moves on screen, `ease-cycle` loops), and
  *                           `ease-in` starts slow and stops hard, which is the
  *                           shape of nothing this app does: arrivals decelerate
  *                           (`ease-entrance`), departures use `ease-exit`.
@@ -113,7 +116,7 @@
  */
 
 /** Layout properties whose transition costs a re-layout per frame. */
-const LAYOUT_PROPERTIES = ['width', 'height', 'margin', 'padding', 'top', 'left', 'right', 'bottom']
+const LAYOUT_PROPERTIES = ['width', 'height', 'margin', 'padding', 'top', 'left', 'right', 'bottom', 'grid-template-columns']
 
 const LAYOUT_TRANSITION = new RegExp(
   `^transition-\\[[^\\]]*\\b(?:${LAYOUT_PROPERTIES.join('|')})\\b`
@@ -352,7 +355,7 @@ export default {
       animatePulse:
         "`{{utility}}` is Tailwind's 2s pulse, a loop off the motion scale. Loops run on `--motion-ambient` and `--ease-cycle`: use `animate-caret-breathe` for a live mark, or the skeleton shimmer for loading.",
       offVocabularyEasing:
-        '`{{utility}}` is outside the easing vocabulary. Use `ease-out` for responses, `ease-entrance` for arrivals, `ease-exit` for dismissals, or `ease-cycle` for a loop.',
+        '`{{utility}}` is outside the easing vocabulary. Use `ease-out` for responses, `ease-entrance` for arrivals, `ease-exit` for dismissals, `ease-move` for something on screen that moves or resizes, or `ease-cycle` for a loop.',
       motionLayoutKey:
         '{{keys}} in a motion `initial`/`animate`/`exit` animates a LAYOUT property from JS, re-running layout every frame. Animate opacity/transform. A height arrival or fold at or below the reading point, through the shared arrival primitive, is the one sanctioned case: mark the element with `// eslint-disable-next-line grid/motion-vocabulary -- <why>` above its opening tag.',
       transformList:

@@ -1,4 +1,4 @@
-// @disk-inputs: app/app/(shell)/projects/**, app/app/onboarding/**, app/dev/create-project/**, app/dev/intake/**, app/dev/onboarding/**, app/dev/project-memory-restricted/**, app/dev/project-setup/**, app/dev/projects-home/**, ui/components/projects/**, ui/features/onboarding/**, ui/features/project-intake/**, ui/features/projects/**
+// @disk-inputs: app/app/(shell)/projects/**, app/app/onboarding/**, app/dev/create-project/**, app/dev/intake/**, app/dev/onboarding/**, app/dev/project-memory-restricted/**, app/dev/project-setup/**, app/dev/project-overview/**, ui/components/projects/**, ui/features/onboarding/**, ui/features/project-intake/**, ui/features/projects/**
 import { describe, expect, it } from 'vitest'
 import { nodesOf, parseSource, ts } from '@/test-utils/source-ast'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
@@ -10,7 +10,7 @@ const ROOTS = [
   'components/projects',
   'app/app/onboarding',
   'app/app/(shell)/projects',
-  'app/dev/projects-home',
+  'app/dev/project-overview',
   'app/dev/create-project',
   'app/dev/project-setup',
   'app/dev/intake',

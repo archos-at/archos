@@ -1,0 +1,8 @@
+---
+# area: general
+improvements:
+  - >
+    Switching a chat to temporary is calmer: the glasses button fills and says
+    „Temporär“, the composer's edge turns into a dashed line, and an empty
+    chat says „Temporärer Chat“ in place of the greeting, all in one quiet
+    change without anything jumping.

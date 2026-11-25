@@ -191,7 +191,7 @@ export function FilePreviewHost({
     <>
       {chromeVisible && overlay && (
         <div
-          className="bg-overlay animate-in fade-in-0 fixed inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] z-50 backdrop-blur-sm duration-quick ease-out motion-reduce:animate-none"
+          className="bg-overlay animate-in fade-in-0 fixed inset-0 z-50 backdrop-blur-sm duration-quick ease-out motion-reduce:animate-none"
           onClick={mode === 'expanded' ? peek : close}
           aria-hidden
         />
@@ -227,7 +227,7 @@ export function FilePreviewHost({
           !parked && !peeking && 'group z-40',
           !parked &&
             !peeking &&
-            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
+            'bg-popover text-popover-foreground fixed left-1/2 top-1/2 z-50 h-[85dvh] w-[min(960px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
           !parked &&
             !peeking &&
             'phone:inset-0 phone:h-dvh phone:w-full phone:translate-x-0 phone:translate-y-0 phone:rounded-none phone:border-0 phone:shadow-none',
@@ -462,7 +462,7 @@ function PeekToolbar({
             type="button"
             onClick={() => showDetails(true)}
             className={cn(
-              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium pointer-coarse:h-11 underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

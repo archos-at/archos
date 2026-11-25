@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
+from agent.knowledge.scoping import signed_scope_names
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
@@ -121,7 +122,7 @@ def _accept_renewal(fresh: RunEnvelope, *, carried: RequestContext, job_id: str)
     if context.user_id != carried.user_id or context.organization_id != carried.organization_id:
         logger.warning("Job %s: the renewed request envelope names another person; running without one", job_id)
         return {}
-    if carried.collection_scope is not None and context.collection_scope is None:
+    if signed_scope_names(carried) is not None and signed_scope_names(context) is None:
         logger.warning("Job %s: the renewed request envelope carries no collection scope; running without one", job_id)
         return {}
     return fresh.to_headers()

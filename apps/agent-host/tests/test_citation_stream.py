@@ -21,7 +21,7 @@ KB_TOOL_OUTPUT = (
     "Source: OIB-Richtlinie 2\n"
     "Page: 12\n"
     f"Citation: {OIB_KEY}\n"
-    "Collection: oib_knowledge\n"
+    "Collection: base_corpus\n"
     "Relevance Score: 0.91\n\n"
     "Brandabschnitte sind auf 1.200 m2 zu begrenzen.\n"
 )
@@ -50,7 +50,7 @@ def _run_registry() -> SourceRegistry:
             citation_key=OIB_KEY,
             title="OIB-Richtlinie 2",
             source_type="knowledge_layer",
-            collection="oib_knowledge",
+            collection="base_corpus",
             tool_name="knowledge_retrieval",
         )
     )

@@ -214,3 +214,15 @@ So this amendment **reintroduces the self-report, as a ceiling**: the surfaced l
 The wire value `open_point` is new to `answer_confidence_capped_reason`, and a new value of a known field is a break an older bundle's enum refuses (`docs/design/chat-wire-v2.md`, „Compatibility"); `law_unsettled` had the same gap. The field is now generated lenient on the client (`x-unknown-as-null`, `.catch(null)`), so a value added later reads as no reason there; a tab loaded before this release still refuses `open_point` once and asks to reload.
 
 Observable as `confidence-capped` `open_point` and `confidence-open-points` (numeric, the points in the comment) in `SCORE_DEFINITIONS`. Confirmation: `test_answer_check_pipeline.py` (the reason reaches the check; an open point holds a checked `high` at `medium`; a self-reported `medium` or `low` is a ceiling; no open point keeps `high`; the score), `test_markers.py`, `test_claim_judge.py` (the reason block, the open points parsed, bounded and coerced), `test_wire_v2_open_tabs.py` and `generate-wire-schemas.spec.mjs` (a later reason still settles the turn). Whether the grader lists the open point on the live case is the golden run's to show.
+
+## Amendment, 2026-11-25: the check judges citations and statements of law only
+
+The grading this record chose, „every statement the answer relies on" against
+evidence that never holds the person's memory, the earlier turns or most tool
+results, flagged correct answers by construction („2 Aussagen ohne Beleg" on an
+answer drawn from memory). [ADR-0197](0197-the-answer-check-judges-citations-and-statements-of-law-only.md)
+narrows it: the grader judges a statement with `[N]` against passage N and a
+statement of law without a citation, nothing else; code keeps only findings it
+can tie to the answer and derives the level from them; the header names only a
+source that says something else. The call, its input, the delimiting, „no check,
+no level" and the gates of the amendments above stand.

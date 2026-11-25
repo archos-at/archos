@@ -39,7 +39,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   })
 
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
-    render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
     const desk = screen.getByTestId('bin-meta-f-vertraege')
     expect(desk).toHaveTextContent(/14 documents · 2 folders · deleted by Gerda Fischer on .* · kept until/)
@@ -47,14 +47,26 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     expect(phone).toEqual(['14 documents · 2 folders', expect.stringMatching(/^kept until .* · Gerda Fischer$/)])
   })
 
+  test('in the Ablage’s window it reads the bin itself, and a blocked row gives its short reason', async () => {
+    const fetch = vi.fn(async (_url: string) =>
+      answer(200, listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])),
+    )
+    vi.stubGlobal('fetch', fetch)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} inDialog />)
+    expect(screen.getByTestId('folder-bin-loading')).toBeDefined()
+    expect(await screen.findByText('Verträge')).toBeDefined()
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('/api/projects/p1/bin')
+    expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('read only')
+  })
+
   test('says the bin is empty', () => {
-    render(<FolderBinPanel projectId="p1" initial={listing([])} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([])} />)
     expect(screen.getByText('The bin is empty.')).toBeDefined()
   })
 
   test('offers restore only where the reader may restore, and purge only to a project admin', () => {
     render(
-      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])} />
+      <FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])} />
     )
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-restore-f-ro')).toBeNull()
@@ -68,7 +80,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       .mockResolvedValueOnce(answer(200, { restoredTo: 'root', folders: 1, documents: 3 }))
       .mockResolvedValueOnce(answer(200, listing([])))
     vi.stubGlobal('fetch', fetchSpy)
-    render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry()])} />)
 
     await userEvent.click(screen.getByTestId('bin-restore-f-vertraege'))
 
@@ -88,7 +100,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       .mockResolvedValueOnce(answer(200, listing([])))
     vi.stubGlobal('fetch', fetchSpy)
     const binned = entry({ folderId: 'f-holder', name: 'Plan.pdf', document: { id: 'd1', name: 'Plan.pdf' } })
-    render(<FolderBinPanel projectId="p1" initial={listing([binned])} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([binned])} />)
 
     expect(screen.getByText('Plan.pdf')).toBeDefined()
     await userEvent.click(screen.getByTestId('bin-restore-f-holder'))
@@ -100,7 +112,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('a further page is read when the server says there is one', async () => {
     const fetchSpy = vi.fn().mockResolvedValueOnce(answer(200, listing([entry({ folderId: 'f-older', name: 'Older' })])))
     vi.stubGlobal('fetch', fetchSpy)
-    render(<FolderBinPanel projectId="p1" initial={listing([entry()], { nextCursor: 'next-page' })} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry()], { nextCursor: 'next-page' })} />)
 
     await userEvent.click(screen.getByText('Load more'))
 
@@ -114,7 +126,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       'fetch',
       vi.fn().mockResolvedValue(answer(409, { error: 'taken', details: { reason: 'folder-name-taken' } }))
     )
-    render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry()])} />)
     await userEvent.click(screen.getByTestId('bin-restore-f-vertraege'))
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('A folder named “Verträge” already exists there. Rename it, then restore again.')
@@ -126,7 +138,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       'fetch',
       vi.fn().mockResolvedValue(answer(409, { error: 'held', details: { reason: 'legal_hold' } }))
     )
-    render(<FolderBinPanel projectId="p1" initial={listing([entry()], { canPurge: true })} />)
+    render(<FolderBinPanel shelf={{ kind: 'project', projectId: 'p1' }} initial={listing([entry()], { canPurge: true })} />)
     await userEvent.click(screen.getByTestId('bin-actions-f-vertraege'))
     await userEvent.click(await screen.findByTestId('bin-purge-f-vertraege'))
     await userEvent.click(await screen.findByTestId('bin-purge-confirm'))

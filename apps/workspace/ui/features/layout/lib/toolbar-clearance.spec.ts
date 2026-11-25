@@ -230,9 +230,12 @@ describe('toolbar clearance', () => {
     expect(toolbarClearance(112.4)).toBe('121px')
   })
 
-  it('falls back to the one-row values until the toolbar has been measured', () => {
-    expect(TOOLBAR_CLEAR_PADDING).toContain('var(--chat-toolbar-clear,max(5rem,')
-    expect(TOOLBAR_CLEAR_PADDING).toContain('sm:pt-[var(--chat-toolbar-clear,max(3.5rem,')
+  it('falls back to the clearance the toolbar measures, so hydrating it moves no turn', () => {
+    const phonePillPx = 44 + 4 + 2
+    const smPillPx = 36 + 4 + 2
+    const fallback = (belowTopPaddingPx: number) => `+${parseInt(toolbarClearance(belowTopPaddingPx), 10) / 16}rem`
+    expect(TOOLBAR_CLEAR_PADDING).toContain(`pt-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))${fallback(phonePillPx + 8)})`)
+    expect(TOOLBAR_CLEAR_PADDING).toContain(`sm:pt-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))${fallback(smPillPx + 8)})`)
     expect(TOOLBAR_CLEAR_SCROLL_MARGIN).toContain('var(--chat-toolbar-clear,')
   })
 

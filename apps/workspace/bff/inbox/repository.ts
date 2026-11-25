@@ -31,6 +31,7 @@ export { EVERY_INBOX_TYPE } from './inbox-item-predicates'
 export type { InboxTypeScope } from './inbox-item-predicates'
 
 export {
+  archiveAllInboxItems,
   archiveInboxItem,
   archiveInboxItemsOfType,
   markAllInboxItemsRead,
@@ -39,6 +40,7 @@ export {
   markInboxItemsUnread,
   markResourceItemsRead,
   unarchiveInboxItem,
+  unarchiveInboxItemsArchivedAt,
 } from './inbox-item-state-changes'
 
 export {

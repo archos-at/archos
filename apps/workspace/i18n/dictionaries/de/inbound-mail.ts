@@ -3,13 +3,13 @@ import type { en } from '../en'
 export const inboundMail: typeof en.inboundMail = {
   title: 'E-Mail-Eingang',
   subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
-  back: 'Dateien',
+  back: 'Ablage',
   addressButton: 'Adresse',
   noSelection: 'Wählen Sie eine E-Mail, um zu sehen, was sie enthält.',
 
   filters: {
     label: 'Anzeigen',
-    waiting: 'Wartet auf Ablage',
+    waiting: 'Wartet',
     handled: 'Bearbeitet',
   },
 
@@ -32,13 +32,13 @@ export const inboundMail: typeof en.inboundMail = {
   loadMore: 'Weitere laden',
 
   search: {
-    label: 'E-Mails nach Absender oder Betreff filtern',
-    placeholder: 'Absender oder Betreff',
+    label: 'E-Mails nach Absender, Betreff oder Anhang filtern',
+    placeholder: 'Im E-Mail-Eingang suchen …',
     clear: 'Suche leeren',
     results: '{count, plural, one {# Treffer} other {# Treffer}}',
     noResults: 'Keine Treffer',
     noneTitle: 'Keine E-Mail passt zu „{query}“',
-    noneHint: 'Gesucht wird in Absender und Betreff der geladenen E-Mails.',
+    noneHint: 'Gesucht wird in Absender, Betreff und den Namen der Anhänge der geladenen E-Mails.',
   },
 
   closed: {
@@ -48,6 +48,12 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   row: {
+    dest: '→ {place}',
+    yesterday: 'gestern',
+    quoted: '„{name}“',
+    destMore: '→ {place} +{count}',
+    destNewThread: '→ neuer E-Mail-Verlauf',
+    expiresShort: 'bis {date}',
     noSubject: '(ohne Betreff)',
     attachments: '{count, plural, one {# Anhang} other {# Anhänge}}',
     automatic: 'Automatisch',
@@ -103,6 +109,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   group: {
+    threadMeta: 'E-Mail-Verlauf\u00A0· {count, plural, one {# E-Mail} other {# E-Mails}}',
     thread: 'E-Mail-Verlauf „{name}“\u00A0· {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
     threadLine: '„{name}“',
     threadAction: '{count, plural, one {Ablegen} other {Diese # ablegen}}',
@@ -177,6 +184,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   header: {
+    addressButton: 'Eingangsadresse',
     addressMenu: 'E-Mail-Adresse des Projekts',
     addressMore: 'Mehr zur Adresse',
     addressCopy: 'Adresse kopieren',
@@ -321,7 +329,7 @@ export const inboundMail: typeof en.inboundMail = {
       scan_infected: 'Schadsoftware gefunden\u00A0· lässt sich nicht ablegen',
       not_offered: 'Dateityp wird in diesem Büro nicht abgelegt\u00A0· im Original enthalten',
       filing: 'Wird abgelegt …',
-      filed: 'In Dateien abgelegt',
+      filed: 'In der Ablage abgelegt',
       filedTo: 'Abgelegt in {folder}',
       version: 'Fassung {version}',
       dismissed: 'Verworfen',
@@ -454,6 +462,11 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   filing: {
+    change: 'Ändern …',
+    fileNow: 'Ablegen',
+    directHint: 'Legt alles so ab, wie oben steht.',
+    where: 'Wohin abgelegt wird',
+    textLabel: 'E-Mail-Text',
     open: 'Einordnen …',
     openHint: 'Zeigt zuerst, was wohin kommt. Abgelegt wird erst, wenn Sie es bestätigen.',
     openHintQuestions: '{count, plural, one {Eine Frage, dann die Übersicht.} other {# Fragen, dann die Übersicht.}} Abgelegt wird erst, wenn Sie es bestätigen.',
@@ -567,7 +580,6 @@ export const inboundMail: typeof en.inboundMail = {
 
   state: {
     filing: 'Wird abgelegt …',
-    filingSlow: 'Das dauert länger als üblich. Die Ablage läuft weiter; Sie können die E-Mail verlassen.',
     decidedByOther: 'Jemand anderes hat diese E-Mail inzwischen bearbeitet.',
     partialFailure: '{failed} von {total} Dateien konnten nicht abgelegt werden.',
     partialFailureAll: '{failed, plural, one {Die Datei konnte nicht abgelegt werden.} other {Keine der # Dateien konnte abgelegt werden.}}',
@@ -584,6 +596,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   toast: {
+    held: '{count, plural, one {E-Mail wird abgelegt} other {# E-Mails werden abgelegt}}',
     filed: '{count, plural, one {# Datei abgelegt} other {# Dateien abgelegt}}',
     filedBoth: '{count, plural, one {# Datei und der E-Mail-Text abgelegt} other {# Dateien und der E-Mail-Text abgelegt}}',
     textFiled: 'E-Mail-Text abgelegt',
@@ -606,8 +619,18 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   bulk: {
+    preview: {
+      empty: 'Tippen Sie E-Mails in der Liste an. Hier steht dann, was die Leiste unten mit ihnen macht.',
+      title: '{count, plural, one {# E-Mail ablegen} other {# E-Mails ablegen}}',
+      titleSome: '{count} von {total} ablegen',
+      where: 'Wohin abgelegt wird',
+      thread: 'E-Mail-Verlauf „{name}“',
+      newThread: 'Neuer E-Mail-Verlauf',
+      held: '{count, plural, one {{names} bleibt im E-Mail-Eingang: noch nicht ablagebereit. Öffnen Sie sie einzeln.} other {{names} bleiben im E-Mail-Eingang: noch nicht ablagebereit. Öffnen Sie sie einzeln.}}',
+    },
+    fileSome: '{count} ablegen',
+    start: 'Auswählen',
     selected: '{count} ausgewählt',
-    paneHint: 'Die Leiste unter der Liste gilt für alle ausgewählten E-Mails.',
     clear: 'Auswahl aufheben',
     fileSuggested: 'Wie vorgeschlagen ablegen',
     fileSuggestedBusy: 'Wird abgelegt …',
@@ -630,7 +653,7 @@ export const inboundMail: typeof en.inboundMail = {
     confirmSummary: '{files, plural, one {# Datei} other {# Dateien}} und {texts, plural, one {# E-Mail-Text} other {# E-Mail-Texte}}',
     destination: {
       folder: 'In „{label}“: {count}',
-      root: 'In Dateien (oberste Ebene): {count}',
+      root: 'In der Ablage (oberste Ebene): {count}',
       new_folder: 'In den neuen Ordner „{label}“: {count}',
       thread: 'In E-Mail-Verlauf „{label}“: {count}',
       new_thread: 'Als neuer E-Mail-Verlauf „{label}“',
@@ -690,7 +713,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   address: {
     dialogTitle: 'E-Mail-Adresse des Projekts',
-    lead: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann im E-Mail-Eingang unter Dateien.',
+    lead: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann im E-Mail-Eingang der Ablage.',
     label: 'E-Mail-Adresse des Projekts',
     copy: 'Kopieren',
     copied: 'Kopiert',

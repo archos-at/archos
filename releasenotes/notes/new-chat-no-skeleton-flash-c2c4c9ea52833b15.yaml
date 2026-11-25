@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Sending the first message in a new chat no longer briefly shows a loading
+    placeholder that pushed the conversation down.

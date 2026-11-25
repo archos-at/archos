@@ -30,7 +30,7 @@ from agent.knowledge.scoping import ScopedCollection
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_prefilter"
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 TOP_K = 5
 REPORT, PERMIT, DRAWING = "other", "law", "external_standard"
 

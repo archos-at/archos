@@ -3,13 +3,13 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { conversations, type Conversation } from '@/lib/db/schema/conversations'
 
-export async function readConversationTemporary(conversationId: string, organizationId: string): Promise<boolean> {
+export async function readConversationTemporary(conversationId: string, organizationId: string): Promise<boolean | null> {
   const [row] = await getDb()
     .select({ temporary: conversations.temporary })
     .from(conversations)
     .where(and(eq(conversations.id, conversationId), eq(conversations.organizationId, organizationId)))
     .limit(1)
-  return row?.temporary ?? false
+  return row ? row.temporary : null
 }
 
 export async function updateConversationTemporaryInOrg(

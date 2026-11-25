@@ -6,15 +6,15 @@ export const errors: typeof en.errors = {
     title: 'Das konnten wir nicht finden',
     description:
       'Die gesuchte Seite oder das gesuchte Projekt existiert nicht, oder Sie haben keinen Zugriff mehr darauf.',
-    action: 'Zurück zu den Projekten',
+    action: 'Zur Startseite',
   },
   appError: {
     code: 'Fehler',
     title: 'Etwas ist schiefgelaufen',
     description:
-      'Ein unerwarteter Fehler ist aufgetreten. Sie können es erneut versuchen oder zu Ihren Projekten zurückkehren.',
+      'Ein unerwarteter Fehler ist aufgetreten. Sie können es erneut versuchen oder zur Startseite zurückkehren.',
     action: 'Erneut versuchen',
-    backAction: 'Zurück zu den Projekten',
+    backAction: 'Zur Startseite',
     report: 'Fehler melden',
     reference: 'Referenz: {reference}',
     reportSubject: 'Fehler in {productName}',
@@ -46,7 +46,11 @@ export const errors: typeof en.errors = {
       Default: 'Bei der Authentifizierung ist ein Fehler aufgetreten.',
     },
   },
+  confidentialRelease:
+    'Dieser Entwurf beruht auf vertraulichen Unterlagen, die nicht alle lesen dürfen, die den gewählten Ordner sehen. Prüfen Sie, ob er davon etwas Vertrauliches enthält, und bestätigen Sie es, um ihn dort abzulegen.',
   confinement: {
+    personalShelf:
+      'Dieser Chat hat aus „Meine Ablage“ gelesen. Deshalb sind in ihm gesperrt: Ablegen außerhalb Ihrer Ablage, Aufgaben, Tiefenrecherchen, Gedächtnis, Änderungen am Projektprofil und Anmerkungen an Dokumenten außerhalb Ihrer Ablage. Eine Datei aus Ihrer Ablage kommt nur durch einen eigenen Schritt in ein Projekt.',
     deepResearch:
       'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff oder auf ein anderes Projekt, deshalb lässt sich aus ihm keine Tiefenrecherche starten: Recherche, Titel und Bericht wären für alle im Projekt sichtbar, auch für Personen, die diesen Ordner oder dieses Projekt nicht lesen dürfen.',
     task: 'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff oder auf ein anderes Projekt, deshalb lässt sich aus ihm keine Aufgabe anlegen: Aufgaben sind für alle im Projekt sichtbar, auch für Personen, die diesen Ordner oder dieses Projekt nicht lesen dürfen.',

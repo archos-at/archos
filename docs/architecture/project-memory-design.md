@@ -137,7 +137,7 @@ The agent already has four knowledge layers. Memory is the missing fifth.
 | **Intake profile** | Structured facts/goals/unknowns | Project | Yes | Hard project facts (Gebäudeklasse, Nutzung…) |
 | **Conversation history** | Raw messages | Conversation | **No** (siloed per chat) | The current dialog |
 | **Uploaded documents (RAG)** | Chunked text, embedded | Project (`proj_*`) | Yes | The user's own files |
-| **OIB corpus (RAG)** | Chunked Richtlinien | Global (`oib_knowledge`) | Yes | The law |
+| **OIB corpus (RAG)** | Chunked Richtlinien | Global (`base_corpus`) | Yes | The law |
 | **→ Project Memory (NEW)** | Curated, evolving findings | Project | **Yes** | What the agent has *learned/decided* about the project |
 
 The gap memory fills: today, anything the agent figures out in conversation #3
@@ -310,7 +310,7 @@ same text can both be live.
   and the job worker, which fetches the digest over HTTP and writes it into
   its own request state.
 - **Per-query recall (RAG)**: designed as a dedicated vector namespace
-  (`mem_<project>`) reached through `X-Grid-Collection-Scope`. Not built.
+  (`mem_<project>`) reached through the turn's signed scope. Not built.
   Recall runs inside the digest query over the row's own vector (§3.6).
 
 Injection format tags each item so the model treats it correctly, e.g.:

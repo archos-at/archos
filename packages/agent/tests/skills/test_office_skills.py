@@ -23,6 +23,7 @@ OFFICE_SKILLS = {
     "office-pdf",
     "office-pdf-charts",
     "office-html-pdf",
+    "office-design",
 }
 
 JS_FENCE = re.compile(r"^```js\n(.*?)\n```$", re.DOTALL | re.MULTILINE)
