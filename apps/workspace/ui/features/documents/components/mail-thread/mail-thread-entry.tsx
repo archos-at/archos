@@ -232,7 +232,7 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     line.kind !== 'not_filed' && line.documentId ? (
       <Link
         href={documentFilesHref(projectId, line.documentId)}
-        className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline flex min-h-6 min-w-0 max-w-full items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
+        className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline flex min-h-6 pointer-coarse:min-h-11 min-w-0 max-w-full items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
         data-testid="mail-thread-attachment-link"
       >
         <FileText className="size-3.5 shrink-0" aria-hidden />

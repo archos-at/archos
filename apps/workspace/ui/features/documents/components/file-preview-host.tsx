@@ -462,7 +462,7 @@ function PeekToolbar({
             type="button"
             onClick={() => showDetails(true)}
             className={cn(
-              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium pointer-coarse:h-11 underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

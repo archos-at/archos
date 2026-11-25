@@ -13,6 +13,7 @@ import motionVocabulary from './motion-vocabulary.mjs'
 import noRestrictedSyntax from './no-restricted-syntax.mjs'
 import requireTenantCacheKey from './require-tenant-cache-key.mjs'
 import requireTenantScope from './require-tenant-scope.mjs'
+import touchTarget from './touch-target.mjs'
 
 export default {
   meta: { name: 'grid' },
@@ -23,5 +24,6 @@ export default {
     'card-type-scale': cardTypeScale,
     'field-focus-inside': fieldFocusInside,
     'no-restricted-syntax': noRestrictedSyntax,
+    'touch-target': touchTarget,
   },
 }
