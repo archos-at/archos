@@ -169,6 +169,7 @@ const SENSITIVE: Record<string, Sensitivity> = {
   'POST /api/holds/[id]/release': 'control',
   'PUT /api/organization/download-log/retention': 'control',
   'PUT /api/organization/deleted-folder-content': 'control',
+  'PUT /api/organization/confidential-release': 'control',
   'PUT /api/organization/web-search': 'control',
   'POST /api/projects/[id]/mail-threads/[threadId]/follow': 'control',
 }
@@ -184,6 +185,7 @@ const CONFIG_PATH_PREFIXES = [
   '/api/organization/upload-screening',
   '/api/projects/[id]/upload-screening',
   '/api/organization/deleted-folder-content',
+  '/api/organization/confidential-release',
   '/api/organization/download-log/retention',
   '/api/organization/audit-portal',
   '/api/skills/curated',

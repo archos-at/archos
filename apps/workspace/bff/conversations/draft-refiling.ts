@@ -8,7 +8,7 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { findDocumentAuthoredByRef } from '@/lib/documents/repository'
 import { findOpenVersion, findPublishedVersion, listDocumentVersions } from '@/lib/documents/version-repository'
-import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
+import { AGENT_REFUSAL_LOCALE, type FilingRelease } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import { recordDraftFilingInBackend } from './draft-backend'
 import { readConversationDraftBytes } from './draft-file'
@@ -24,6 +24,7 @@ export interface RefilingContext {
   facts: DraftFacts
   request?: Request
   locale?: Locale
+  release?: FilingRelease
 }
 
 export interface RefilingInput {
@@ -128,7 +129,11 @@ async function revise(
     agentFiledOnly: input.agentFiledOnly,
     options: {
       request: context.request,
-      origin: { conversationId: context.conversationId, locale: context.locale ?? AGENT_REFUSAL_LOCALE },
+      origin: {
+        conversationId: context.conversationId,
+        locale: context.locale ?? AGENT_REFUSAL_LOCALE,
+        release: context.release,
+      },
     },
   })
   await recordFiling(context, documentId, revised.version, kind)

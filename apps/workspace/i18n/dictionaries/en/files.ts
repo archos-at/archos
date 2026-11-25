@@ -2116,6 +2116,8 @@ export const files = {
     changeNoteHint: 'What changed against the previous revision, in one sentence.',
     title: 'File into the project',
     description: 'Choose the folder and the name the file will have in the project.',
+    personalTitle: 'Save to Meine Ablage',
+    personalDescription: 'Choose the folder and the name the file will have in Meine Ablage.',
     name: 'Name',
     nameHint: 'The extension {extension} belongs to the file and stays.',
     nameEmpty: 'Please enter a name.',

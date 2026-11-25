@@ -522,6 +522,16 @@ export const chat = {
       },
     },
     documentDraft: {
+      release: {
+        title: 'Based on confidential sources',
+        body: 'Not everyone who sees the chosen place may read these sources. Check the draft before you file it there:',
+        folder: 'Folder “{name}”',
+        folderIn: 'Folder “{name}” in {project}',
+        project: 'Project “{name}”',
+        confirm: 'I checked the draft. It holds nothing confidential from these sources.',
+        file: 'Release and file',
+        keep: 'Don’t file',
+      },
       eyebrow: 'Draft',
       version: 'v{version}',
       draftState: 'Draft',
@@ -1943,7 +1953,7 @@ export const chat = {
     chip: '{count, plural, one {One other project} other {# other projects}}',
     title: 'This chat draws on other projects: {projects}.',
     gone: 'a project that no longer exists',
-    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks, deep research or the project’s files.',
+    body: 'It can be shared only with people who may open those projects. Nothing from it goes into project memory, tasks or deep research. A draft reaches the project’s files only once you have checked and released it, unless your office forbids that.',
   },
   screening: {
     title: 'Contains {items} (Sensitive data).',

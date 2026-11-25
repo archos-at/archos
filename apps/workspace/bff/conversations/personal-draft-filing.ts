@@ -103,21 +103,23 @@ export async function fileDraftToPersonalShelf(
     })
   }
 
-  await requireMayFileFrom(
-    { conversationId, locale: context.locale ?? AGENT_REFUSAL_LOCALE },
-    {
-      organizationId: session.organizationId,
-      projectId: null,
-      projectCollection: personalShelfCollectionName(session.organizationId, session.userId),
-      folderId: null,
-    },
-  )
-
   const reader = memberReader(session.userId)
   const previous =
     facts.filing && input.as !== 'own'
       ? await findPersonalShelfDocument(facts.filing.documentId, session.organizationId, session.userId, reader)
       : null
+  const folderId = previous ? (previous.folderId ?? null) : (input.folderId ?? null)
+
+  await requireMayFileFrom(
+    { conversationId, locale: context.locale ?? AGENT_REFUSAL_LOCALE, release: context.release },
+    {
+      organizationId: session.organizationId,
+      projectId: null,
+      projectCollection: personalShelfCollectionName(session.organizationId, session.userId),
+      folderId,
+    },
+  )
+
   if (previous && facts.filing && facts.filing.filedAtVersion > 0 && facts.filing.filedAtVersion >= facts.version) {
     return filedAnswer(context, previous.id, previous.folderId ?? null, 'unchanged')
   }
@@ -125,8 +127,6 @@ export async function fileDraftToPersonalShelf(
   const extension = filedExtension(context.type)
   const wanted = filingName(input.name ?? (input.title?.trim() || draftFileName(context.path)), extension)
   const filename = previous ? previous.filename : input.force ? await freeName(session, wanted) : wanted
-  const folderId = previous ? (previous.folderId ?? null) : (input.folderId ?? null)
-
   if (!previous && !input.force) {
     const [clash] = await probePersonalShelfDocumentNames(session, [filename])
     if (clash) {

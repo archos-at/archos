@@ -207,6 +207,8 @@ export const fileDraftBodySchema = z
   })
   .strict()
 
+export const appFileDraftBodySchema = fileDraftBodySchema.extend({ release: z.boolean().optional() })
+
 export const draftPreviewQuerySchema = z.object({
   path: z.string().min(1).max(500),
 })

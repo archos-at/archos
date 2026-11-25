@@ -42,6 +42,8 @@ export const errors = {
       Default: 'An error occurred during authentication.',
     },
   },
+  confidentialRelease:
+    'This draft draws on confidential sources that not everyone who sees the chosen folder may read. Check whether it contains anything confidential from them, and confirm to file it there.',
   confinement: {
     personalShelf:
       'This conversation read from „Meine Ablage“, so these steps are blocked in it: filing outside your own shelf, tasks, deep research runs, memory, changes to the project profile, and annotations on documents outside your own shelf. A file from your own shelf enters a project only by a step of its own.',

@@ -25,6 +25,7 @@ import {
   ProjectChangeNotice,
   openFiledInPlace,
 } from './draft-filing-parts'
+import { ConfidentialReleaseNotice } from './confidential-release-notice'
 import { useDraftLife } from '../hooks/use-draft-life'
 
 interface DocumentDraftCardProps {
@@ -131,7 +132,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             aria-disabled={isFiling || undefined}
             aria-busy={isFiling || undefined}
-            onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+            onClick={() => setSaveOpen(true)}
             data-testid="document-draft-file"
           >
             <StackedLabel
@@ -179,6 +180,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
+      <ConfidentialReleaseNotice filing={filing} />
       <ProjectChangeNotice filing={filing} name={title} onFileAsOwn={() => setSaveOpen(true)} />
 
       {(filing.canFile || filing.projectChange) && (

@@ -2143,6 +2143,8 @@ export const files: typeof en.files = {
     changeNoteHint: 'Was sich gegenüber der bisherigen Fassung geändert hat, in einem Satz.',
     title: 'Ins Projekt ablegen',
     description: 'Wählen Sie den Ordner und den Namen, unter dem die Datei im Projekt liegt.',
+    personalTitle: 'In Meine Ablage legen',
+    personalDescription: 'Wählen Sie den Ordner und den Namen, unter dem die Datei in Meine Ablage liegt.',
     name: 'Name',
     nameHint: 'Die Endung {extension} gehört zur Datei und bleibt.',
     nameEmpty: 'Bitte geben Sie einen Namen ein.',

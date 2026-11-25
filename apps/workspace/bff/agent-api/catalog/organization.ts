@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   budgetDeleteSchema,
   budgetPutSchema,
+  confidentialReleaseSchema,
   createOrgMemorySchema,
   deletedFolderContentSchema,
   downloadLogQuerySchema,
@@ -514,6 +515,32 @@ export const organizationOperations = [
     body: uploadScreeningPolicySchema,
     sensitivity: 'control',
     load: () => import('@/app/api/organization/upload-screening/route'),
+  },
+  {
+    name: 'organization-confidential-release-get',
+    domain: 'organization',
+    summary: 'Read whether the office forbids releasing confidential drafts',
+    description:
+      'Whether the office forbids a member to file a chat draft drawn from restricted folders or other projects into a ' +
+      'folder those sources do not restrict, after confirming they checked it. Unset, release is allowed. Any member ' +
+      'may read. Change with organization-confidential-release-set.',
+    method: 'GET',
+    path: '/api/organization/confidential-release',
+    load: () => import('@/app/api/organization/confidential-release/route'),
+  },
+  {
+    name: 'organization-confidential-release-set',
+    domain: 'organization',
+    summary: 'Forbid or allow releasing confidential drafts',
+    description:
+      'Switches whether the office forbids releasing a chat draft drawn from restricted folders or other projects into ' +
+      'a wider folder after the member confirmed they checked it. Forbidden, such drafts file only where their sources ' +
+      'allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.',
+    method: 'PUT',
+    path: '/api/organization/confidential-release',
+    body: confidentialReleaseSchema,
+    sensitivity: 'control',
+    load: () => import('@/app/api/organization/confidential-release/route'),
   },
   {
     name: 'organization-deleted-folder-content-get',

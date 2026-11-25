@@ -600,6 +600,17 @@ export const organization: typeof en.organization = {
     open: 'Audit-Logs ansehen',
     error: 'Der Audit-Log-Viewer konnte nicht geöffnet werden.',
   },
+  confidentialRelease: {
+    title: 'Freigabe vertraulicher Inhalte',
+    description:
+      'Ein Entwurf, der auf eingeschränkten Ordnern oder anderen Projekten beruht, lässt sich auch dort ablegen, wo nicht alle diese Quellen lesen dürfen: Wer ablegt, sieht die Quellen und bestätigt, dass der Entwurf nichts Vertrauliches enthält. Jede Freigabe steht im Audit-Log.',
+    label: 'Freigabe vertraulicher Inhalte verbieten',
+    hint: 'Eingeschaltet bleibt so ein Entwurf dort, wo seine Quellen es erlauben, und niemand kann ihn freigeben.',
+    saved: 'Gespeichert.',
+    saveError: 'Die Einstellung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    loadError: 'Die Einstellung konnte nicht geladen werden.',
+    readOnly: 'Nur Organisations-Admins können das ändern.',
+  },
   deletedFolderContent: {
     title: 'Inhalte aus gelöschten Ordnern',
     description:

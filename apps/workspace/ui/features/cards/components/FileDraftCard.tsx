@@ -30,6 +30,7 @@ import {
   openFiled,
   openFiledInPlace,
 } from './draft-filing-parts'
+import { ConfidentialReleaseNotice } from './confidential-release-notice'
 import { FileDraftThumbnail } from './FileDraftThumbnail'
 import { FileDraftViewer } from './FileDraftViewer'
 
@@ -285,7 +286,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                 className={FILE_WIDE_BUTTON}
                 aria-disabled={isFiling || undefined}
                 aria-busy={isFiling || undefined}
-                onClick={() => (filing.projectId ? openSave(false) : void filing.file(false))}
+                onClick={() => openSave(false)}
                 data-testid="file-draft-file"
               >
                 <StackedLabel
@@ -307,6 +308,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
+      <ConfidentialReleaseNotice filing={filing} />
       <ProjectChangeNotice filing={filing} name={name} onFileAsOwn={() => openSave(true)} />
 
       {(filing.canFile || filing.projectChange) && !refused && (

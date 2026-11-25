@@ -588,6 +588,17 @@ export const organization = {
     open: 'View audit logs',
     error: 'Could not open the audit log viewer.',
   },
+  confidentialRelease: {
+    title: 'Releasing confidential content',
+    description:
+      'A draft drawn from restricted folders or other projects can be filed where not everyone may read those sources: whoever files it sees the sources and confirms the draft holds nothing confidential. Every release is in the audit log.',
+    label: 'Forbid releasing confidential content',
+    hint: 'On, such a draft stays where its sources allow, and nobody can release it.',
+    saved: 'Saved.',
+    saveError: 'The setting could not be saved. Please try again.',
+    loadError: 'The setting could not be loaded.',
+    readOnly: 'Only organization admins can change this.',
+  },
   deletedFolderContent: {
     title: 'Content from deleted folders',
     description:

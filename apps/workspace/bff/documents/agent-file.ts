@@ -2,7 +2,7 @@ import 'server-only'
 import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import { markingIsInBytes } from '@/lib/ai-provenance'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
+import { AGENT_REFUSAL_LOCALE, type FilingRelease } from '@/lib/conversations/restricted-egress'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import type { Locale } from '@/i18n/config'
@@ -39,6 +39,7 @@ export interface FileAgentFileDraftInput extends AgentFileUpload {
   actingHuman?: boolean
   originConversationId?: string | null
   locale?: Locale
+  release?: FilingRelease
 }
 
 const FILENAME_STEM_LENGTH = 120
@@ -98,6 +99,7 @@ export async function fileAgentFileDraft(input: FileAgentFileDraftInput): Promis
     origin: {
       conversationId: input.originConversationId ?? null,
       locale: input.locale ?? AGENT_REFUSAL_LOCALE,
+      release: input.release,
     },
   })
 

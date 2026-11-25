@@ -23,6 +23,7 @@ import {
   requireMayFileFrom,
   requireMayLeaveConversation,
   requirePlanDocumentsOpen,
+  type FilingRelease,
 } from './restricted-egress'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -275,5 +276,41 @@ describe('a conversation that drew on another project (ADR-0094)', () => {
 
     await expect(requireMayLeaveConversation(origin, ORG, 'task')).resolves.toBeUndefined()
     await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+  })
+})
+
+describe('a person releases what the sources would keep in (confidential release)', () => {
+  const lift = vi.fn<FilingRelease['lift']>()
+  const origin = { conversationId: CONV, locale: 'de' as const, release: { lift } }
+
+  beforeEach(() => lift.mockReset().mockResolvedValue(undefined))
+
+  it('hands a refused filing from a restricted folder or another project to the release, and files when it passes', async () => {
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
+    await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([])
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+    expect(lift).toHaveBeenCalledTimes(2)
+  })
+
+  it('refuses as before when the release refuses', async () => {
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    lift.mockImplementationOnce((_conversation, _locale, _destination, refused) => Promise.reject(refused))
+    expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('filing')
+  })
+
+  it('never releases without a person behind the call, nor content of someone’s own shelf', async () => {
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    await refusal(requireMayFileFrom({ conversationId: CONV, locale: 'de' }, destination('open')))
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: 'user_me' })
+    expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('personalShelf')
+    expect(lift).not.toHaveBeenCalled()
+  })
+
+  it('does not ask for a release where the sources already allow the folder', async () => {
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
+    await expect(requireMayFileFrom(origin, destination(FEES))).resolves.toBeUndefined()
+    expect(lift).not.toHaveBeenCalled()
   })
 })

@@ -20,9 +20,14 @@ export function confinementRefusal(action: ConfinedAction, locale: Locale): Conv
   return new ConversationConfinedError(action, errorsCopy.messages[locale].confinement[action])
 }
 
+export interface FilingRelease {
+  lift(conversationId: string, locale: Locale, destination: FilingDestination, refusal: ConversationConfinedError): Promise<void>
+}
+
 export interface ConversationOrigin {
   conversationId: string | null
   locale: Locale
+  release?: FilingRelease
 }
 
 async function originFolders(origin: ConversationOrigin, organizationId: string): Promise<string[]> {
@@ -65,6 +70,16 @@ export interface FilingDestination {
 }
 
 export async function requireMayFileFrom(origin: ConversationOrigin, destination: FilingDestination): Promise<void> {
+  try {
+    await requireFilingWithinSources(origin, destination)
+  } catch (error) {
+    const releasable = error instanceof ConversationConfinedError && error.action === 'filing'
+    if (!releasable || !origin.release || !origin.conversationId) throw error
+    await origin.release.lift(origin.conversationId, origin.locale, destination, error)
+  }
+}
+
+async function requireFilingWithinSources(origin: ConversationOrigin, destination: FilingDestination): Promise<void> {
   const { organizationId, projectId, folderId } = destination
   const personal = await originPersonalShelf(origin, organizationId)
   if (personal) {

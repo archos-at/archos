@@ -27892,6 +27892,107 @@
         }
       }
     },
+    "/api/organization/confidential-release": {
+      "get": {
+        "operationId": "organization-confidential-release-get",
+        "summary": "Read whether the office forbids releasing confidential drafts",
+        "description": "Whether the office forbids a member to file a chat draft drawn from restricted folders or other projects into a folder those sources do not restrict, after confirming they checked it. Unset, release is allowed. Any member may read. Change with organization-confidential-release-set.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read whether the office forbids releasing confidential drafts",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "put": {
+        "operationId": "organization-confidential-release-set",
+        "summary": "Forbid or allow releasing confidential drafts",
+        "description": "Switches whether the office forbids releasing a chat draft drawn from restricted folders or other projects into a wider folder after the member confirmed they checked it. Forbidden, such drafts file only where their sources allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "forbidden": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "forbidden"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-sensitivity": "control",
+        "x-mcp-annotations": {
+          "title": "Forbid or allow releasing confidential drafts",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/organization/countries": {
       "get": {
         "operationId": "organization-countries-get",

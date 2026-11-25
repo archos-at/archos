@@ -353,6 +353,8 @@ export const EXPOSURE = {
   'organization-budget-get': withheld('product-config', 'spend limits on the agent itself; a refused call says when one stops work'),
   'organization-budget-remove': withheld('product-config', 'spend limits on the agent itself; product configuration'),
   'organization-budget-set': withheld('product-config', 'spend limits on the agent itself; product configuration'),
+  'organization-confidential-release-get': withheld('product-config', 'whether a member may release a confidential draft; a policy a person sets'),
+  'organization-confidential-release-set': withheld('product-config', 'whether a member may release a confidential draft; a policy a person sets'),
   'organization-deleted-folder-content-get': withheld('product-config', 'what the agent keeps of a purged folder; a retention policy a person sets'),
   'organization-deleted-folder-content-set': withheld('product-config', 'what the agent keeps of a purged folder; a retention policy a person sets'),
   'organization-download-log-list': OFFERED,
