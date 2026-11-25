@@ -14,6 +14,7 @@ const PHONES = [
   { name: '360', width: 360, height: 780 },
 ]
 const MIN_TARGET_PX = 44
+const EVERY_RUN_STARTS_AT = '2026-11-24T12:00:00Z'
 const PRODUCT_NAME = JSON.parse(readFileSync(join(here, '../../../packages/brand/identity.json'), 'utf8')).name
 const CONCURRENCY = Math.max(1, Number(process.env.PHONE_AUDIT_CONCURRENCY ?? 3))
 
@@ -45,26 +46,49 @@ function measure({ width, min, productName }) {
   }
   const clipped = (rect, el) => {
     const out = { ...rect }
-    for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+    const scrolls = (value) => value === 'auto' || value === 'scroll'
+    let clipsX = true
+    let clipsY = true
+    for (let a = el.parentElement; a && a !== document.documentElement && (clipsX || clipsY); a = a.parentElement) {
       const style = getComputedStyle(a)
       const clip = a.getBoundingClientRect()
-      if (style.overflowX !== 'visible') Object.assign(out, { left: Math.max(out.left, clip.left), right: Math.min(out.right, clip.right) })
-      if (style.overflowY !== 'visible') Object.assign(out, { top: Math.max(out.top, clip.top), bottom: Math.min(out.bottom, clip.bottom) })
+      if (clipsX && scrolls(style.overflowX)) {
+        out.left = Math.max(out.left, clip.left - a.scrollLeft)
+        clipsX = false
+      } else if (clipsX && style.overflowX !== 'visible') Object.assign(out, { left: Math.max(out.left, clip.left), right: Math.min(out.right, clip.right) })
+      if (clipsY && scrolls(style.overflowY)) {
+        out.top = Math.max(out.top, clip.top - a.scrollTop)
+        clipsY = false
+      } else if (clipsY && style.overflowY !== 'visible') Object.assign(out, { top: Math.max(out.top, clip.top), bottom: Math.min(out.bottom, clip.bottom) })
     }
     return { left: out.left, top: out.top, right: Math.max(out.left, out.right), bottom: Math.max(out.top, out.bottom) }
+  }
+  const containingBlock = (el) => {
+    for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
+      if (getComputedStyle(a).position !== 'static') return a
+    }
+    return document.documentElement
+  }
+  const shift = (value, size) => (value.endsWith('%') ? (parseFloat(value) / 100) * size : parseFloat(value) || 0)
+  const pseudoRect = (el, part) => {
+    const block = containingBlock(el)
+    const frame = block.getBoundingClientRect()
+    const blockStyle = getComputedStyle(block)
+    const pw = parseFloat(part.width) || 0
+    const ph = parseFloat(part.height) || 0
+    const [tx = '0px', ty = '0px'] = part.translate === 'none' ? [] : part.translate.split(' ')
+    const left = frame.left + (parseFloat(blockStyle.borderLeftWidth) || 0) + (parseFloat(part.left) || 0) + shift(tx, pw)
+    const top = frame.top + (parseFloat(blockStyle.borderTopWidth) || 0) + (parseFloat(part.top) || 0) + shift(ty, ph)
+    return { left, top, right: left + pw, bottom: top + ph }
   }
   const sizeOf = (el) => {
     const box = el.getBoundingClientRect()
     let w = box.width
     let h = box.height
-    const cx = box.left + box.width / 2
-    const cy = box.top + box.height / 2
     for (const pseudo of ['::after', '::before']) {
       const part = getComputedStyle(el, pseudo)
       if (part.content === 'none' || part.position !== 'absolute' || part.pointerEvents === 'none') continue
-      const pw = parseFloat(part.width) || 0
-      const ph = parseFloat(part.height) || 0
-      const seen = clipped({ left: cx - pw / 2, right: cx + pw / 2, top: cy - ph / 2, bottom: cy + ph / 2 }, el)
+      const seen = clipped(pseudoRect(el, part), el)
       w = Math.max(w, seen.right - seen.left)
       h = Math.max(h, seen.bottom - seen.top)
     }
@@ -118,7 +142,7 @@ async function auditRoute(browser, base, route, found, unrendered) {
       if ('Notification' in window) Object.defineProperty(Notification, 'permission', { get: () => 'denied' })
     })
     const page = await context.newPage()
-    await page.clock.install()
+    await page.clock.install({ time: new Date(process.env.PHONE_AUDIT_NOW ?? EVERY_RUN_STARTS_AT) })
     try {
       const load = () => page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
       const first = await load().catch(() => null)
