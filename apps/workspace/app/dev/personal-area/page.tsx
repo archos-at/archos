@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { Suspense } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
+import { PhoneChatSideRow } from '@/components/shell/phone-side-bar'
 import { PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { PersonalShelfWorkspace } from '@/features/documents/components/personal-shelf-workspace'
@@ -102,6 +103,7 @@ function PersonalAreaPreview(): JSX.Element {
           showSkills
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          <PhoneChatSideRow projectId={project ? 'p-1' : null} onSide projects={PROJECTS} pathname={pathname.split('?')[0]} />
           {!project && <PersonalShelfWorkspace userId="dev-user" />}
         </div>
       </div>

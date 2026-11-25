@@ -33,7 +33,7 @@ import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu } from './sidebar-user-menu'
 import { shellAccount, type ShellAccount } from './shell-account'
-import { PhoneSideBar } from './phone-side-bar'
+import { onSideChat } from './phone-side-bar'
 import {
   railGroups,
   isSectionPathActive,
@@ -146,8 +146,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
 
   const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`
 
-  const routeChatPath = projectId === null ? PERSONAL_CHAT_PATH : `/app/projects/${projectId}/chat`
-  const onChat = onSide && (pathname === routeChatPath || pathname.startsWith(`${routeChatPath}/`))
+  const onChat = onSideChat(pathname, projectId, onSide)
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = projectId === null || !onSide ? null : phoneBackTarget(pathname, projectId)
@@ -209,14 +208,6 @@ function AppSidebarFrame(props: AppSidebarProps) {
         data-scope="project"
         className="bg-background flex w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden"
       >
-        {onChat && (
-          <PhoneSideBar
-            mode={mode}
-            projectId={sideProjectId}
-            projects={projects}
-            navigateSide={navigateSide}
-          />
-        )}
         {/* A bare flow (the Einrichtung) has no page header: its way back and the search keep one 44px line. */}
         {!pageHasHeader && (
         <div data-slot="phone-bare-line" className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">

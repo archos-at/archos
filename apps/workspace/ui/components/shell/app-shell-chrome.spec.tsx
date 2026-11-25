@@ -1,13 +1,14 @@
 import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { AppShellChrome } from './app-shell-chrome'
+import { PhoneChatSideRowSlot } from './phone-side-bar'
 import type { OverviewProject } from '@/lib/projects/overview-project'
 
 let pathname = '/app/projects/p1/chat'
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
   useSearchParams: () => null,
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
 }))
 let railMounts = 0
 vi.mock('./app-sidebar', async () => {
@@ -66,6 +67,38 @@ afterEach(() => {
   pathname = '/app/projects/p1/chat'
   keyboardUp = false
   railMounts = 0
+})
+
+describe('AppShellChrome — the phone chat’s side row stands in the page, so `main` never moves', () => {
+  const page = (): React.JSX.Element => (
+    <main data-testid="main">
+      <PhoneChatSideRowSlot />
+      page
+    </main>
+  )
+
+  test('on a chat the row stands inside `main`, on the route’s side; on any other page there is none', () => {
+    const sideRow = (): HTMLElement | null => document.querySelector('[data-slot="phone-side-bar"]')
+    const { rerender } = render(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
+    const main = screen.getByTestId('main')
+    expect(main.firstElementChild).toContainElement(sideRow())
+    expect(sideRow()).toHaveTextContent('Projekt p1')
+    for (const path of ['/app/projects/p1/files', '/app/personal-shelf', '/app/inbox']) {
+      pathname = path
+      rerender(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
+      expect(sideRow()).toBeNull()
+      expect(screen.getByTestId('main')).toBe(main)
+    }
+    pathname = '/app/personal/chat'
+    rerender(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
+    expect(main.firstElementChild).toContainElement(sideRow())
+    expect(screen.getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'personal')
+  })
+
+  test('outside the shell the slot draws nothing', () => {
+    render(page())
+    expect(document.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
+  })
 })
 
 describe('AppShellChrome — one chrome on every page', () => {
