@@ -103,6 +103,15 @@ beforeEach(() => {
 })
 
 describe('the owner’s path through the law map', () => {
+  test('the way to the change request is a 44px press under a finger', async () => {
+    render(
+      <PlatformAccessProvider permissions={PERMISSIONS}>
+        <LawMapPage countryId="XA" today="2026-11-11" />
+      </PlatformAccessProvider>,
+    )
+    expect(await screen.findByRole('link', { name: 'Open the change request' })).toHaveClass('pointer-coarse:min-h-11')
+  })
+
   test('confirms every unit, approves alone, publishes to preview and to stable, without leaving the page', async () => {
     const user = userEvent.setup()
     render(
