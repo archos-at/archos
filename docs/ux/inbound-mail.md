@@ -209,7 +209,9 @@ summary; i18n group `inboundMail.autoFiled`).
 mail: where it goes or what it needs. The sender's glyph stands only when
 something about the sender is off (a sender the server vouches for has none),
 every waiting subject is one weight (a section of bold rows said nothing), and
-the rows stand apart by their padding, with no hairline. No avatar
+one hairline stands under every row of a section, a thread's last included;
+only the section’s last row has none, and a thread takes 16px over its heading and under its last row, so where it ends shows
+(`ENTRIES` in `inbound-mail-list.tsx`). No avatar
 (a sender is not a member, and the disc was a column of initials), no press of
 its own: a row opens the mail, and the mail files it. „Braucht Sie“ stands
 first, then „Ablagebereit“, then „Wartet auf andere“. Over the rows a field

@@ -69,6 +69,8 @@ export interface InboundMailListProps {
 // A thread's press is the quiet text of the dialog's „Ändern“: under the section's button it read as a second, competing one.
 const GROUP_LINK = 'text-muted-foreground hover:text-foreground touch-target h-auto shrink-0 p-0 text-xs'
 
+const ENTRIES = 'flex flex-col [&>*:last-child_li:last-child]:after:hidden'
+
 type Block = { key: string; head: Extract<ListSection, { kind: 'readiness' | 'quiet' }> | null; entries: Array<Extract<ListSection, { kind: 'mail' | 'thread' }>> }
 
 function blocksOf(sections: readonly ListSection[]): Block[] {
@@ -120,7 +122,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
               </Button>
             )}
         {props.onStartSelection && (
-          <Button type="button" variant="ghost" size="sm" className="gap-1.5 px-2" onClick={props.onStartSelection} data-testid="selection-start">
+          <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={props.onStartSelection} data-testid="selection-start">
             <CheckSquare className="size-4" aria-hidden />
             {t('bulk.start')}
           </Button>
@@ -289,7 +291,6 @@ function ListBody({
     )
   }
 
-  const picking = selecting
   const row = (mail: InboundMailSummaryView, group?: string): JSX.Element => (
     <InboundMailRow
       key={mail.id}
@@ -332,7 +333,7 @@ function ListBody({
   }
 
   const threadGroup = (section: Extract<ListSection, { kind: 'thread' }>): JSX.Element => (
-    <section key={`${section.threadId}:${section.mails[0]?.id ?? ''}`} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
+    <section key={`${section.threadId}:${section.mails[0]?.id ?? ''}`} className="[&:not(:first-child)]:pt-4 [&:not(:last-child)]:pb-4" aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
       <div className="flex min-w-0 items-baseline gap-2 px-4 pb-1" title={t('group.thread', { name: section.name, count: section.mails.length })}>
         <Mails className="text-muted-foreground size-3.5 shrink-0 self-center" aria-hidden />
         <h4 className="min-w-0 truncate text-sm font-medium">{section.name}</h4>
@@ -369,7 +370,7 @@ function ListBody({
             </Collapsible>
           )
         }
-        if (!head) return <div key={block.key} className="flex flex-col gap-3">{entries(block.entries)}</div>
+        if (!head) return <div key={block.key} className={ENTRIES}>{entries(block.entries)}</div>
         const ready = head.readiness === 'ready'
         return (
           <div key={block.key} className="flex flex-col gap-3">
@@ -390,7 +391,7 @@ function ListBody({
               </div>
               {head.readiness === 'others' && <p className="text-muted-foreground text-xs">{t('readiness.othersHint')}</p>}
             </div>
-            {entries(block.entries)}
+            <div className={ENTRIES}>{entries(block.entries)}</div>
           </div>
         )
       })}

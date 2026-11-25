@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Bot, CircleAlert, Hourglass, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Item } from '@/components/ui/item'
+import { ROW_HAIRLINE_LINE } from '@/components/ui/row-hairline'
 import { ListTime } from './list-time'
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -63,7 +64,7 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
   return (
     <Item
       as="li"
-      className={cn('group/row items-start rounded-control px-3 py-2.5 hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1')}
+      className={cn('group/row items-start rounded-control px-3 py-2 hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0 [--row-end:12px] [--row-text:12px]', ROW_HAIRLINE_LINE, checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1')}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}

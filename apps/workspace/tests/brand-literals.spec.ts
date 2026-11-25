@@ -711,10 +711,9 @@ describe('lines for lists, space for sections', () => {
     expect(hasRun(classesOfText(band), ['border-b', 'border-border'])).toBe(true)
   })
 
-  it('the hairline is the token, and the Papierkorb and Offene Punkte wear it; the mail list's two-line rows stand apart by their padding alone', () => {
+  it('the hairline is the token, and the Papierkorb, Offene Punkte and the mail list wear it', () => {
     expect(classesOf(moduleOf('ROW_HAIRLINE')).includes('after:bg-hairline')).toBe(true)
-    expect(summaryOf(moduleOf('InboundMailRow')).identifiers.some((identifier) => identifier.includes('ROW_HAIRLINE'))).toBe(false)
-    for (const name of ['FolderBinPanel', 'OpenPointsPanel']) {
+    for (const name of ['FolderBinPanel', 'OpenPointsPanel', 'InboundMailRow']) {
       expect(summaryOf(moduleOf(name)).identifiers.some((identifier) => identifier.includes('ROW_HAIRLINE')), name).toBe(true)
     }
   })
