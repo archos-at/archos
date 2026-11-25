@@ -257,6 +257,22 @@
         },
         {
           "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "The model view now looks like the rest of ARCHOS: solid tool bars with the same corners as other menus, a plain background instead of a sky, a view picker you can walk with the arrow keys, and „Fassung“ where it said „Revision“.",
+            "de": "Die Modellansicht sieht jetzt wie der Rest von ARCHOS aus: mit undurchsichtigen Werkzeugleisten und denselben abgerundeten Ecken wie die anderen Menüs, einem schlichten Hintergrund statt eines Himmels, einer Ansichtsauswahl, durch die Sie mit den Pfeiltasten navigieren können, und „Fassung“ statt „Revision“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "A large model in an answer now waits for „3D-Ansicht laden“ instead of loading by itself, and a load can be stopped at any point, not only during the download.",
+            "de": "Ein großes Modell in einer Antwort wird jetzt erst nach Klick auf „3D-Ansicht laden“ geladen und der Ladevorgang kann jederzeit abgebrochen werden, nicht nur während des Downloads."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
@@ -277,6 +293,14 @@
           "text": {
             "en": "„Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.",
             "de": "„Meine Ablage“ behält ihren Kopf, wenn Sie einen Ordner öffnen, wie die Ablage eines Projekts und die Bürobibliothek: Der Titel und die Werkzeugzeile bleiben, wo sie sind, und der Weg zum Ordner steht in der Zeile unter dem Kopf. Auch während Sie in „Meine Ablage“ oder der Bürobibliothek suchen, bleibt der Kopf stehen, mit dem Weg zurück in der Werkzeugzeile."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project switcher and the search lists for colleagues, members and addresses now have the same corners as the other menus.",
+            "de": "Der Projektumschalter und die Suchlisten für Kolleginnen und Kollegen, Mitglieder und Adressen haben jetzt die gleiche Rundung wie die anderen Menüs."
           }
         },
         {
@@ -573,6 +597,14 @@
           "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
             "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
+            "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
           }
         },
         {

@@ -564,6 +564,10 @@
     "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
   },
   {
+    "en": "A large model in an answer now waits for „3D-Ansicht laden“ instead of loading by itself, and a load can be stopped at any point, not only during the download.",
+    "de": "Ein großes Modell in einer Antwort wird jetzt erst nach Klick auf „3D-Ansicht laden“ geladen und der Ladevorgang kann jederzeit abgebrochen werden, nicht nur während des Downloads."
+  },
+  {
     "en": "A large upload no longer shows as failed while it is still being read: it stays at Wird gelesen, a notice says reading continues in the background, and the file becomes citable once it is ready.",
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
@@ -4860,6 +4864,10 @@
     "de": "Die Modellauswahl zeigt neben jedem Modell, was eine typische Anfrage ungefähr an Punkten kostet, damit sich ein günstiges von einem teuren Modell auf einen Blick unterscheiden lässt."
   },
   {
+    "en": "The model view now looks like the rest of ARCHOS: solid tool bars with the same corners as other menus, a plain background instead of a sky, a view picker you can walk with the arrow keys, and „Fassung“ where it said „Revision“.",
+    "de": "Die Modellansicht sieht jetzt wie der Rest von ARCHOS aus: mit undurchsichtigen Werkzeugleisten und denselben abgerundeten Ecken wie die anderen Menüs, einem schlichten Hintergrund statt eines Himmels, einer Ansichtsauswahl, durch die Sie mit den Pfeiltasten navigieren können, und „Fassung“ statt „Revision“."
+  },
+  {
     "en": "The navigation rail can be resized by dragging its right edge, and it opens at the width you chose. Dragging it all the way in folds it to the icon column.",
     "de": "Die Navigationsleiste lässt sich an ihrem rechten Rand breiter und schmäler ziehen und öffnet in der gewählten Breite. Ganz zugezogen klappt sie auf die Symbolspalte zusammen."
   },
@@ -4966,6 +4974,10 @@
   {
     "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
     "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
+  },
+  {
+    "en": "The project switcher and the search lists for colleagues, members and addresses now have the same corners as the other menus.",
+    "de": "Der Projektumschalter und die Suchlisten für Kolleginnen und Kollegen, Mitglieder und Adressen haben jetzt die gleiche Rundung wie die anderen Menüs."
   },
   {
     "en": "The project switcher in the sidebar has the search and the order of the one on a phone: the projects you opened last, then the rest. The collapsed sidebar shows the project's initials, so it says which project you are in.",
@@ -5238,6 +5250,10 @@
   {
     "en": "Two identical versions are reported in a sentence instead of an empty list, and the comparison uses marks and strokes rather than red and green, which in Piloti mean where something comes from.",
     "de": "Zwei gleiche Fassungen meldet der Vergleich in einem Satz statt mit einer leeren Liste, und er arbeitet mit Zeichen und Strichen statt mit Rot und Grün, die in Piloti für die Herkunft stehen."
+  },
+  {
+    "en": "Two model views on one page no longer make the second fail, scrolling the conversation no longer zooms a model card, and loading again after a while no longer fails with an expired link.",
+    "de": "Zwei Modellansichten auf einer Seite lassen die zweite nicht mehr fehlschlagen, beim Scrollen durch die Unterhaltung wird eine Modellkarte nicht mehr gezoomt, und erneutes Laden nach einiger Zeit scheitert nicht mehr an einem abgelaufenen Link."
   },
   {
     "en": "Two new skills start switched on for chat: Einreichcheck lists what a building-permit application still lacks in your province, and Bestand lists what still binds after a conversion, a change of use or a larger renovation.",
