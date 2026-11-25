@@ -332,6 +332,10 @@
     "de": "Mit einem Feld oberhalb der Liste finden Sie E-Mails nach Absender oder Betreff."
   },
   {
+    "en": "A file ARCHOS makes in a Persönlich chat can now be kept: the card offers „In Meine Ablage legen“ and saves it to your own shelf. Until now the card offered „Ins Projekt ablegen“ there and it always failed, because a Persönlich chat has no project.",
+    "de": "Eine Datei, die ARCHOS in einem Persönlich-Chat erstellt, können Sie jetzt behalten: Die Karte bietet „In Meine Ablage legen“ an und speichert sie in Ihrer eigenen Ablage. Bisher schlägt „Ins Projekt ablegen“ dort immer fehl, weil ein Persönlich-Chat kein Projekt hat."
+  },
+  {
     "en": "A file Piloti could not start reading now says exactly that, instead of blaming a restart that never happened.",
     "de": "Wenn Piloti das Lesen einer Datei nicht starten konnte, wird jetzt genau das angezeigt, statt fälschlich einen Neustart als Ursache anzugeben, der nie stattgefunden hat."
   },
