@@ -101,6 +101,7 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
       const ring = /0px 0px 0px 1px/.test(cs.boxShadow)
       const r = el.getBoundingClientRect()
       let scrolled = false
+      let shadowEnded = false
       for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
         const acs = getComputedStyle(a)
         const clipsX = acs.overflowX !== 'visible'
@@ -114,15 +115,15 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
         const ringCut = ring && ((clipsX && (r.left - 1 < ar.left || r.right + 1 > ar.right)) ||
           (clipsY && !scrollsY && !scrolled && (r.top - 1 < ar.top || r.bottom + 1 > ar.bottom)))
         const edge = (side) => ({ left: ar.left, right: window.innerWidth - ar.right, top: ar.top, bottom: window.innerHeight - ar.bottom })[side]
-        const shadowCut = !hasOwnFill(acs) && !scrollsY && !scrolled && (
-          (clipsY && (r.bottom + reach.bottom - ar.bottom > 2 && edge('bottom') > 2 || ar.top - (r.top - reach.top) > 2 && edge('top') > 2)) ||
+        const shadowCut = !shadowEnded && !hasOwnFill(acs) && (
+          (clipsY && !scrollsY && !scrolled && (r.bottom + reach.bottom - ar.bottom > 2 && edge('bottom') > 2 || ar.top - (r.top - reach.top) > 2 && edge('top') > 2)) ||
           (clipsX && !scrollsSidewaysWithMore(acs, a) && (r.right + reach.right - ar.right > 2 && edge('right') > 2 || ar.left - (r.left - reach.left) > 2 && edge('left') > 2)))
         if (scrollsY) scrolled = true
         if (ringCut || shadowCut) {
           out.push({ kind: ringCut ? 'clipped-edge' : 'clipped-shadow', el: label(el), by: label(a).slice(0, 60) })
           break
         }
-        if (hasOwnFill(acs)) break
+        if (hasOwnFill(acs)) shadowEnded = true
       }
     }
   }
