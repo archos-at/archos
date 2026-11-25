@@ -134,7 +134,7 @@ person knows who sees a thing.
 | Standing tasks | Aufgaben › Stehende Aufgaben, weekly view „Die Woche“ | Pause, run now, edit | — |
 | Review results | Aufgaben (Läuft, Ungeprüft, Fehlgeschlagen) › detail | — | — |
 | Deep research | Chat, when the question needs it | Plans, researches, checks citations, files a report in „Berichte“ | The plan |
-| Drafts: Aktenvermerk, Protokoll, Checkliste, report | Chat › Entwurf card › Ins Projekt ablegen | Writes it; can run calculations and produce Word, Excel, PDF where the stack turns on the code runner (`grid-oib:codeRunnerEnabled`; dev has it, prod not yet) | Filing |
+| Drafts: Aktenvermerk, Protokoll, Checkliste, report | Chat › Entwurf card › Ins Projekt ablegen (in a Persönlich chat: In Meine Ablage legen) | Writes it; can run calculations and produce Word, Excel, PDF where the stack turns on the code runner (`grid-oib:codeRunnerEnabled`; dev has it, prod not yet) | Filing |
 | Freigabe of a written document | Fassungen und Freigabe: Zur Freigabe einreichen, Freigeben, Änderungen anfordern | ARCHOS überarbeiten lassen | Yes |
 | Office procedures as Skills | Automatisierung › Skills: Neuer Skill, Empfohlene Skills | — | — |
 | Assign responsibility | File › Zuweisen, Mir zuweisen | — | — |

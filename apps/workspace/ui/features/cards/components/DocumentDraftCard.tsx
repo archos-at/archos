@@ -50,6 +50,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
   const filing = useDraftFiling(props)
   const life = useDraftLife(props)
   const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling } = filing
+  const openLabel = filing.personal ? t('cards.documentDraft.personal.open') : t('cards.documentDraft.open')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
@@ -87,7 +88,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
         </p>
         {shownFiled && href && shownDocumentId && (
           <a href={href} className={DRAFT_ACTION} data-testid="document-draft-open">
-            {t('cards.documentDraft.open')}
+            {openLabel}
           </a>
         )}
       </Card>
@@ -133,7 +134,10 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
             data-testid="document-draft-file"
           >
-            <StackedLabel busy={isFiling} idle={t('cards.documentDraft.file')} working={t('cards.documentDraft.filing')} />
+            <StackedLabel
+              busy={isFiling}
+              idle={filing.personal ? t('cards.documentDraft.personal.file') : t('cards.documentDraft.file')}
+              working={t('cards.documentDraft.filing')} />
           </button>
         )}
 
@@ -143,10 +147,10 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             data-testid="document-draft-open"
             onClick={(event) =>
-              openFiledInPlace(event, { documentId: shownDocumentId, projectId: projectId as string, href, isMobile })
+              projectId && openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })
             }
           >
-            {t('cards.documentDraft.open')}
+            {openLabel}
           </a>
         )}
 
@@ -161,7 +165,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
           >
             <StackedLabel
               busy={isFiling}
-              idle={t('cards.fileDraft.updateInProject')}
+              idle={filing.personal ? t('cards.documentDraft.personal.update') : t('cards.fileDraft.updateInProject')}
               working={t('cards.fileDraft.updating')}
             />
           </button>
