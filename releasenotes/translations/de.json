@@ -2676,6 +2676,10 @@
     "de": "Entscheiden zwei Personen gleichzeitig, erfährt die zweite, dass sich der Stand geändert hat, und sieht, was passiert ist."
   },
   {
+    "en": "If you belong to more than one office, you can switch offices from the menu under your name in the sidebar and, on a phone, from „Mehr“. Before, the switch was only in the menu of the bar above the project overview.",
+    "de": "Wenn Sie mehreren Büros angehören, können Sie im Menü unter Ihrem Namen in der Seitenleiste und auf dem Smartphone unter „Mehr“ zwischen den Büros wechseln. Bisher war der Wechsel nur über das Menü in der Leiste oberhalb der Projektübersicht möglich."
+  },
+  {
     "en": "If you connected your own AI assistant to the workspace, that connection keeps working under its old addresses for at least one more release. We will publish the new connection names first, and only then retire the old.",
     "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbunden haben, funktioniert die Verbindung mindestens noch ein weiteres Release unter den bisherigen Adressen. Wir veröffentlichen zuerst die neuen Verbindungsnamen und nehmen erst danach die alten außer Betrieb."
   },
@@ -3158,6 +3162,10 @@
   {
     "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
     "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+  },
+  {
+    "en": "On a phone, the Ablage no longer jumps when it opens: the row with the search and the filters keeps its place from the start, so the file list stays where it first appears instead of dropping down a moment later.",
+    "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
   },
   {
     "en": "On a phone, the Herleitung under an answer used to swallow every swipe: a finger anywhere on it moved nothing, so you could not scroll past it to the answer itself. It now scrolls like the rest of the page.",

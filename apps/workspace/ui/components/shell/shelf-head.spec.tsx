@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/navigation', () => ({
@@ -32,5 +33,21 @@ describe('a shelf head on a phone, its places over its search', () => {
     head(false)
     expect(screen.getByTestId('shelf-head-places')).toHaveClass('-mb-4')
     expect(screen.getByTestId('shelf-head-places')).not.toHaveClass('phone:mb-0')
+  })
+})
+
+describe('a shelf head whose page publishes its tools after it loads', () => {
+  const pending = (tools: JSX.Element | null) =>
+    render(<ShelfHead crumb={[]} title="Ablage" place={null} phone={false} tools={tools} toolsPending places={<nav data-testid="tabs" />} />)
+
+  it('holds the phone’s tool row in CSS before the page and the phone are known, so the list does not drop when they arrive', () => {
+    pending(null)
+    expect(screen.getByTestId('shelf-head-tools-held')).toHaveClass('hidden', 'phone:block', 'h-11', 'mt-3')
+    expect(screen.getByTestId('shelf-head-places')).toHaveClass('phone:mb-0')
+  })
+
+  it('lets the tools take the row once they are there', () => {
+    pending(<input aria-label="Suchen" />)
+    expect(screen.queryByTestId('shelf-head-tools-held')).toBeNull()
   })
 })
