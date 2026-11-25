@@ -417,6 +417,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "On a phone, the Ablage no longer jumps when it opens: the row with the search and the filters keeps its place from the start, so the file list stays where it first appears instead of dropping down a moment later.",
+            "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
@@ -557,6 +565,14 @@
           "text": {
             "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
             "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "administration",
+          "text": {
+            "en": "If you belong to more than one office, you can switch offices from the menu under your name in the sidebar and, on a phone, from „Mehr“. Before, the switch was only in the menu of the bar above the project overview.",
+            "de": "Wenn Sie mehreren Büros angehören, können Sie im Menü unter Ihrem Namen in der Seitenleiste und auf dem Smartphone unter „Mehr“ zwischen den Büros wechseln. Bisher war der Wechsel nur über das Menü in der Leiste oberhalb der Projektübersicht möglich."
           }
         },
         {
