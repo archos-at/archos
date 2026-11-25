@@ -315,6 +315,14 @@
           "section": "improvements",
           "area": "projects",
           "text": {
+            "en": "The E-Mail-Eingang is calmer: each mail is two lines that say where it goes or what it still needs, threads stand under their own name, and a mail with nothing left to decide is filed with one press on „Ablegen“. A filing can be undone for a few seconds, and while you pick several mails, the right side shows where they will go.",
+            "de": "Der E-Mail-Eingang ist übersichtlicher: Jede Mail besteht aus zwei Zeilen, die zeigen, wohin sie gehört oder was noch fehlt. Threads erscheinen unter ihrem eigenen Namen, und eine Mail, bei der nichts mehr zu entscheiden ist, legen Sie mit einem Klick auf „Ablegen“ ab. Das Ablegen lässt sich einige Sekunden lang rückgängig machen, und während Sie mehrere Mails auswählen, zeigt die rechte Seite, wohin sie abgelegt werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
             "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
             "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
           }

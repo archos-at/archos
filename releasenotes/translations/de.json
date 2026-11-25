@@ -4344,6 +4344,10 @@
     "de": "Der E-Mail-Eingang und die Offenen Punkte haben jetzt eine Suche an derselben Stelle wie Dateien, am Anfang der Werkzeugzeile der Ablage: „Im E-Mail-Eingang suchen …“ findet E-Mails nach Absender, Betreff oder dem Namen eines Anhangs, „In den offenen Punkten suchen …“ findet Punkte nach ihrem Text, ihrem Dokument oder der zuständigen Person. Die Liste wird schon beim Tippen kürzer, Escape leert die Suche, und sie bleibt auch nach dem Neuladen erhalten."
   },
   {
+    "en": "The E-Mail-Eingang is calmer: each mail is two lines that say where it goes or what it still needs, threads stand under their own name, and a mail with nothing left to decide is filed with one press on „Ablegen“. A filing can be undone for a few seconds, and while you pick several mails, the right side shows where they will go.",
+    "de": "Der E-Mail-Eingang ist übersichtlicher: Jede Mail besteht aus zwei Zeilen, die zeigen, wohin sie gehört oder was noch fehlt. Threads erscheinen unter ihrem eigenen Namen, und eine Mail, bei der nichts mehr zu entscheiden ist, legen Sie mit einem Klick auf „Ablegen“ ab. Das Ablegen lässt sich einige Sekunden lang rückgängig machen, und während Sie mehrere Mails auswählen, zeigt die rechte Seite, wohin sie abgelegt werden."
+  },
+  {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
     "de": "Der E-Mail-Verlauf kennzeichnet eine direkt abgelegte E-Mail. Beim Ursprung eines weitergeleiteten Dokuments wird angegeben, wer es verfasst und wer es weitergeleitet hat. Die Projekteinstellungen, der Adressdialog und die Anleitung auf der Website beschreiben das direkte Ablegen."
   },
