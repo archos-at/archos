@@ -212,6 +212,14 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you type / or @ in the chat, the list of skills or people now appears at once instead of fading in, and questions ARCHOS puts to you leave a little faster once answered.",
+            "de": "Wenn Sie im Chat / oder @ eingeben, erscheint die Liste der Skills oder Personen jetzt sofort statt allmählich einzublenden, und Fragen, die ARCHOS Ihnen stellt, verschwinden nach der Beantwortung etwas schneller."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "office-knowledge",
           "text": {
             "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
@@ -336,6 +344,14 @@
           "text": {
             "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
             "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "In the chat, the \"thinking\" dots, the note that a colleague's question is being answered and the notice about an interrupted answer now fade in and out instead of appearing and vanishing at once. In \"Letzte Chats\", a chat's working or answered mark changes over smoothly.",
+            "de": "Im Chat blenden die Denk-Punkte, der Hinweis, dass die Frage eines Kollegen beantwortet wird, und die Meldung über eine unterbrochene Antwort nun ein und aus, statt abrupt zu erscheinen und zu verschwinden. In „Letzte Chats“ wechselt die Kennzeichnung eines Chats als in Bearbeitung oder beantwortet nun fließend."
           }
         },
         {
