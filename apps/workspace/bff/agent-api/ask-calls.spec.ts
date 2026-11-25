@@ -304,7 +304,7 @@ describe('listening to a task (notifications/tasks)', () => {
     expect(pushed.map((task) => task.status)).toEqual(['working', 'completed'])
     expect(pushed[1].result?.structuredContent.answer?.text).toBe('Höchstens 1,20 m.')
     expect(last(messages).result).toMatchObject({ resultType: 'complete', _meta: { 'io.modelcontextprotocol/subscriptionId': 1 } })
-    expect(calls('agent-ask-get').map(([, input]) => input.query)).toEqual([{ waitSeconds: 0 }, { waitSeconds: 40 }])
+    expect(calls('agent-ask-get').map(([, input]) => input.query)).toEqual([{ waitSeconds: 0 }, { waitSeconds: 15 }])
   })
 
   it('drops an id that names no ask of this person’s from the acknowledgement and closes', async () => {
@@ -313,6 +313,24 @@ describe('listening to a task (notifications/tasks)', () => {
     expect(messages[0].params).toMatchObject({ notifications: { taskIds: [] } })
     expect(messages.filter((m) => m.method === 'notifications/tasks')).toHaveLength(0)
     expect(last(messages).result).toMatchObject({ resultType: 'complete' })
+  })
+
+  it('ends without a result when a read fails, so the client listens again instead of taking the ask for ended', async () => {
+    let reads = 0
+    vi.mocked(callOperation).mockImplementation(async (op) => {
+      if (op.name !== 'agent-ask-get') return { status: 200, ok: true, body: {} }
+      reads += 1
+      return reads === 1 ? { status: 200, ok: true, body: view('working') } : { status: 500, ok: false, body: { error: 'database unavailable' } }
+    })
+    const { messages } = await listenFor([ASK_ID])
+    expect(messages.filter((m) => m.method === 'notifications/tasks').map((m) => (m.params as { status: string }).status)).toEqual(['working'])
+    expect(messages.some((m) => m.result !== undefined)).toBe(false)
+  })
+
+  it('answers a JSON-RPC error, not a bare 500, when the first read fails', async () => {
+    vi.mocked(callOperation).mockResolvedValue({ status: 500, ok: false, body: { error: 'database unavailable' } })
+    const { messages } = await listenFor([ASK_ID])
+    expect(last(messages).error?.code).toBe(-32603)
   })
 
   it('answers -32021 to a client that does not declare the tasks extension', async () => {

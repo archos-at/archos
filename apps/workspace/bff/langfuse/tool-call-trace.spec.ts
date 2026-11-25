@@ -145,8 +145,10 @@ describe('posting', () => {
 })
 
 describe('a caller’s W3C trace context', () => {
-  it('becomes the trace id, so the caller’s trace and ours are one', () => {
+  it('is kept as client_trace_id, never as our trace id, so a caller cannot rewrite a trace it names', () => {
     expect(traceIdOf('00-daf12afab6900789c3ab89274a2a360f-f1ac1027947a45e6-01')).toBe('daf12afab6900789c3ab89274a2a360f')
+    const [trace] = toolCallBatch({ ...call, traceparent: '00-daf12afab6900789c3ab89274a2a360f-f1ac1027947a45e6-01' }, ids).batch
+    expect(trace!.body).toMatchObject({ id: ids.traceId, metadata: { client_trace_id: 'daf12afab6900789c3ab89274a2a360f' } })
   })
 
   it('is ignored when it is malformed or all zeros', () => {

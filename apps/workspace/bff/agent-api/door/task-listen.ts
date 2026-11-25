@@ -8,7 +8,7 @@ import {
   TRACEPARENT_META_KEY,
 } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { ASK_WAIT_SECONDS, isTerminalAskState, type AskView } from '@/lib/agent-asks/ask-wire'
+import { isTerminalAskState, type AskView } from '@/lib/agent-asks/ask-wire'
 import { TASKS_EXTENSION, askOperationsFor, detailedTaskOf, readTask, type AskOperations } from '../ask-calls'
 import type { AgentPrincipal } from '../principal'
 import type { McpCallContext, McpMode } from '../telemetry'
@@ -16,6 +16,8 @@ import type { McpCallContext, McpMode } from '../telemetry'
 export const MAX_LISTENED_TASKS = 20
 
 export const TASK_LISTEN_KEEP_ALIVE_MS = 15_000
+
+export const TASK_FOLLOW_WAIT_SECONDS = 15
 
 const listenSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -28,8 +30,8 @@ const listenSchema = z.object({
 type ListenMessage = z.infer<typeof listenSchema>
 
 export function asksForTasks(body: unknown): boolean {
-  const notifications = (body as { params?: { notifications?: { taskIds?: unknown } } } | null)?.params?.notifications
-  return Array.isArray(notifications?.taskIds)
+  const message = body as { method?: unknown; params?: { notifications?: { taskIds?: unknown } } } | null
+  return message?.method === 'subscriptions/listen' && Array.isArray(message.params?.notifications?.taskIds)
 }
 
 function jsonRpcError(id: string | number | null, code: number, message: string, data?: unknown): Response {
@@ -88,11 +90,16 @@ export async function serveTaskListen(
 
   const asked = [...new Set(message.params.notifications.taskIds)]
   const first = new Map<string, { view: AskView; task: object }>()
-  if (listener) {
-    for (const taskId of asked) {
-      const read = await readable(listener, taskId, 0)
-      if (read) first.set(taskId, read)
+  try {
+    if (listener) {
+      for (const taskId of asked) {
+        const read = await readable(listener, taskId, 0)
+        if (read) first.set(taskId, read)
+      }
     }
+  } catch (error) {
+    onerror(error instanceof Error ? error : new Error(String(error)))
+    return jsonRpcError(message.id, ProtocolErrorCode.InternalError, 'The asks could not be read; listen again.')
   }
   return streamTasks(message.id, listener, first, signal, onerror)
 }
@@ -133,23 +140,20 @@ function streamTasks(
   }
   const onAbort = () => close(false)
 
-  async function follow(taskId: string, start: { view: AskView }): Promise<void> {
+  async function follow(taskId: string, start: { view: AskView }): Promise<boolean> {
     let last = start.view
     while (!closed && !isTerminalAskState(last.state)) {
-      const next = await readable(listener!, taskId, ASK_WAIT_SECONDS)
-      if (!next || closed) return
+      const next = await readable(listener!, taskId, TASK_FOLLOW_WAIT_SECONDS)
+      if (!next || closed) return false
       if (next.view.state !== last.state || next.view.updatedAt !== last.updatedAt) notify(next.task)
       last = next.view
     }
+    return isTerminalAskState(last.state)
   }
 
   const body = new ReadableStream<Uint8Array>({
     start(streamController) {
       controller = streamController
-      if (closed) {
-        streamController.close()
-        return
-      }
       send({ method: 'notifications/subscriptions/acknowledged', params: { notifications: { taskIds: [...first.keys()] }, _meta: stamp } })
       if (first.size === 0 || !listener) {
         close(true)
@@ -162,7 +166,7 @@ function streamTasks(
         for (const outcome of outcomes) {
           if (outcome.status === 'rejected') onerror(outcome.reason instanceof Error ? outcome.reason : new Error(String(outcome.reason)))
         }
-        close(!signal.aborted)
+        close(outcomes.every((outcome) => outcome.status === 'fulfilled' && outcome.value))
       })
     },
     cancel() {

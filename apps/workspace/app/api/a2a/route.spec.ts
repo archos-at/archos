@@ -336,6 +336,11 @@ describe('A2A 0.3, for clients that send no version', () => {
     expect(getAsk).not.toHaveBeenCalled()
   })
 
+  it('GetTask reads the task as it stands, without the route’s default wait', async () => {
+    await POST(rpc('GetTask', { id: ID }, V1))
+    expect(getAsk).toHaveBeenCalledWith(SESSION, ID, 0)
+  })
+
   it('tasks/get reads the task', async () => {
     const body = (await (await POST(rpc('tasks/get', { id: ID }))).json()) as Envelope
     expect(body.result).toMatchObject({ kind: 'task', id: ID })

@@ -69,6 +69,7 @@ export function toolCallBatch(call: ToolCallRecord, ids: { traceId: string; obse
     duration_ms: call.endedAt - call.startedAt,
     client_id: call.clientId,
     ...call.protocol,
+    ...(traceIdOf(call.traceparent) ? { client_trace_id: traceIdOf(call.traceparent) } : {}),
   }
   const identity = identityOn()
   return {
@@ -137,7 +138,7 @@ export async function recordToolCallTrace(call: ToolCallRecord): Promise<void> {
   if (!config) return
   try {
     const batch = toolCallBatch(call, {
-      traceId: traceIdOf(call.traceparent) ?? hexId(),
+      traceId: hexId(),
       observationId: crypto.randomUUID(),
       eventIds: [crypto.randomUUID(), crypto.randomUUID()],
     })

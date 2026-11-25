@@ -766,9 +766,16 @@ glossary and the onboarding guide for an hour (they change with a deploy). All
 are `private`, never for a shared cache. A tool call has no cache field in the
 spec: a client still runs `project-list` each time it wants the list.
 
-A request whose `_meta` carries a W3C `traceparent` keeps it: the trace id
-becomes the `agent-tool-call` trace's id in Langfuse, so the calls of one
-client turn land in one trace, and `trace_linked` says so on the PostHog event.
+A request whose `_meta` carries a W3C `traceparent` keeps its trace id as
+`client_trace_id` on the `agent-tool-call` trace, so the calls of one client
+turn are found together, and `trace_linked` says so on the PostHog event. The
+trace's own id stays ours: Langfuse upserts by id, so a caller-chosen one would
+let a caller rename or retag any trace whose id it knows.
+
+On the stream for `taskIds`, each ask is followed in 15-second waits, so a
+client that went away stops costing reads within 15 seconds; a read that fails
+ends the stream without its result, so the client listens again rather than
+taking the asks for ended.
 
 ### Listening
 
@@ -1408,8 +1415,8 @@ how to wait, per call, in standard MCP:
   pushes each ask's `notifications/tasks` (the full task, as `tasks/get` would
   answer it, the result inline once completed) at once and again on every
   change, and ends the stream with its result once every ask ended. It follows
-  each ask through `agent-ask-get` waits of 40 seconds, so a change reaches the
-  client within the route's 750 ms poll. A request that does not declare the
+  each ask through `agent-ask-get` waits of 15 seconds; an end reaches the
+  client within the route's 750 ms poll, a start within 15 seconds. A request that does not declare the
   extension is `-32021`. A listen that also names other filters is served for
   its `taskIds` only; the client opens a second listen for the rest. Claude's
   client polls `tasks/get` and does not listen (its docs list
