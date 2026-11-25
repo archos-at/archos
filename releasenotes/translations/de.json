@@ -3296,6 +3296,10 @@
     "de": "Offene Punkte werden nur dann farblich markiert, wenn sie Ihnen zugewiesen oder überfällig sind. Die Filter stehen in einer Zeile aus abgerundeten Chips; „Alle“ setzt sie zurück. Wer für einen Punkt zuständig ist und bis wann, steht rechts jeweils in einer eigenen Spalte."
   },
   {
+    "en": "Opening a chat no longer shows „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ and a sign-in button for a few seconds while your sign-in is still loading.",
+    "de": "Beim Öffnen eines Chats werden nicht mehr für einige Sekunden „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ und ein Login-Button angezeigt, während Ihr Login noch geladen wird."
+  },
+  {
     "en": "Opening a citation of a drawing or photo now marks the drawing it refers to, such as the floor plan or the section, with a labeled box instead of only opening the page. The box shows which drawing on the sheet was read, not the exact object within it.",
     "de": "Beim Öffnen eines Verweises auf eine Zeichnung oder ein Foto wird die zugehörige Zeichnung, etwa der Grundriss oder der Schnitt, mit einem beschrifteten Kasten markiert, statt nur die Seite zu öffnen. Der Kasten zeigt, welche Zeichnung auf dem Blatt gelesen wurde, nicht das genaue Objekt darin."
   },
