@@ -4184,6 +4184,10 @@
     "de": "Die @-Liste zeigt Ihre Kolleginnen und Kollegen wieder an, sobald die Verbindung zur Anmeldung wiederhergestellt ist. Zuvor konnte eine fehlgeschlagene Abfrage sie für mehrere Minuten leer lassen."
   },
   {
+    "en": "The ARCHOS wordmark at the top of the sidebar opens the project overview, from Persönlich as well as from a project.",
+    "de": "Die ARCHOS-Wortmarke oben in der Seitenleiste öffnet die Projektübersicht, sowohl im Bereich „Persönlich“ als auch in einem Projekt."
+  },
+  {
     "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
     "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
   },
@@ -5026,6 +5030,10 @@
   {
     "en": "The sidebar is a little wider, so most project names fit in full.",
     "de": "Die Sidebar ist etwas breiter, sodass die meisten Projektnamen vollständig angezeigt werden."
+  },
+  {
+    "en": "The sidebar, and on a phone the tab bar with „Mehr“, now stays the same on every page, including the Postfach, the search, your profile and the organisation, instead of switching to a separate bar at the top.",
+    "de": "Die Sidebar und auf dem Smartphone die Tab-Leiste mit „Mehr“ bleiben jetzt auf jeder Seite gleich – auch im Postfach, bei der Suche, in Ihrem Profil und in der Organisation –, statt zu einer eigenen Leiste oben zu wechseln."
   },
   {
     "en": "The skill editor no longer has the switch that let Piloti pick skills on its own. Piloti decides which skills to consider, and saved skills are unchanged and available again.",

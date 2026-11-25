@@ -120,6 +120,22 @@
           }
         },
         {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "The sidebar, and on a phone the tab bar with „Mehr“, now stays the same on every page, including the Postfach, the search, your profile and the organisation, instead of switching to a separate bar at the top.",
+            "de": "Die Sidebar und auf dem Smartphone die Tab-Leiste mit „Mehr“ bleiben jetzt auf jeder Seite gleich – auch im Postfach, bei der Suche, in Ihrem Profil und in der Organisation –, statt zu einer eigenen Leiste oben zu wechseln."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "The ARCHOS wordmark at the top of the sidebar opens the project overview, from Persönlich as well as from a project.",
+            "de": "Die ARCHOS-Wortmarke oben in der Seitenleiste öffnet die Projektübersicht, sowohl im Bereich „Persönlich“ als auch in einem Projekt."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {
