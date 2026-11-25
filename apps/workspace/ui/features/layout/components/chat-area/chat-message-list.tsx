@@ -53,7 +53,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     The offset it is bottom-aligned against is frozen for exactly
                     this reason (see `useComposerMetrics`): every number under it
                     changes in the same tick. */}
-          <AnimatePresence initial={false} mode="popLayout">
+          <AnimatePresence initial={controller.listArrivesFromSkeleton} mode="popLayout">
             {controller.isEmpty && (
               <motion.div
                 key="welcome"
@@ -72,7 +72,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
           </AnimatePresence>
           {!controller.isEmpty && (
             <motion.div
-              initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
+              initial={controller.listArrivesFromSkeleton || !controller.readerActed.current ? { opacity: 0 } : false}
               animate={{ opacity: 1, transition: controller.arrivalFade }}
               className={cn(
                 THREAD_COLUMN,

@@ -6,12 +6,20 @@ import { useAuth } from '@/adapters/auth'
 import { MainLayout } from '@/features/layout'
 import { useChatStore } from '@/features/chat/store'
 import { useNewChatParam } from '@/features/chat/hooks/use-new-chat-param'
+import { ChatArrivalProvider, type ChatArrival } from '@/features/layout/hooks/use-thread-phase'
+
+interface PersonalChatClientProps {
+  canCollaborate: boolean
+  arrival?: ChatArrival
+}
+
+const NO_ARRIVAL: ChatArrival = {}
 
 export function opensHere(conversation: { projectId?: string | null; userId: string }, userId: string): boolean {
   return !conversation.projectId && conversation.userId === userId
 }
 
-const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): ReactNode => {
+const PersonalChatContent = ({ canCollaborate, arrival }: PersonalChatClientProps): ReactNode => {
   const { isAuthenticated, signIn } = useAuth()
   const enterSide = useChatStore((s) => s.enterSide)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
@@ -52,11 +60,15 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
     if (opensHere(target, userId)) selectConversation(sessionParam)
   }, [isAuthenticated, sessionParam, newParam, userId, conversationCount, serverLoaded, selectConversation])
 
-  return <MainLayout isAuthenticated={isAuthenticated} onSignIn={signIn} canCollaborate={canCollaborate} canChatInProject />
+  return (
+    <ChatArrivalProvider value={arrival ?? NO_ARRIVAL}>
+      <MainLayout isAuthenticated={isAuthenticated} onSignIn={signIn} canCollaborate={canCollaborate} canChatInProject />
+    </ChatArrivalProvider>
+  )
 }
 
-export const PersonalChatClient = ({ canCollaborate }: { canCollaborate: boolean }): ReactNode => (
+export const PersonalChatClient = ({ canCollaborate, arrival }: PersonalChatClientProps): ReactNode => (
   <Suspense fallback={null}>
-    <PersonalChatContent canCollaborate={canCollaborate} />
+    <PersonalChatContent canCollaborate={canCollaborate} arrival={arrival} />
   </Suspense>
 )
