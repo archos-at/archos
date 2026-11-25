@@ -2,13 +2,8 @@
  * @vitest-environment node
  */
 import { describe, expect, test } from 'vitest'
-import {
-  arrivalResumes,
-  chatResumeCookie,
-  resumeCookieNames,
-  resumeCookieWrites,
-  resumeDeadlines,
-} from './resume-cookie'
+import { arrivalResumes, chatResumeCookie } from '@/lib/conversations/chat-resume-cookie'
+import { resumeCookieNames, resumeCookieWrites, resumeDeadlines } from './resume-cookie'
 import { RESUME_WINDOW_MS, openOnSide, resumableSessionId, resumesUntil, type ArrivalState } from './resume-session'
 import { conversationsOnSide } from './project-scope'
 

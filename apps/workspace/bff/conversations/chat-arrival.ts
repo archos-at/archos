@@ -1,6 +1,6 @@
 import 'server-only'
 import { cookies } from 'next/headers'
-import { arrivalResumes, chatResumeCookie } from '@/features/chat/lib/resume-cookie'
+import { arrivalResumes, chatResumeCookie } from './chat-resume-cookie'
 
 export async function chatArrivalResumes(
   side: string | null,

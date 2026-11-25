@@ -1040,7 +1040,7 @@ times stops being a physical cue and becomes texture.
   knows whether the chat will resume one (the newest of the side's chats
   touched within 12 hours, or the one left open there): the browser keeps a
   `chat_resume.<side>` cookie for each side that will, holding nothing but
-  `1` and living exactly as long as the resume would (`chat/lib/resume-cookie`).
+  `1` and living exactly as long as the resume would (`bff/conversations/chat-resume-cookie`, written by `chat/components/chat-resume-recorder` in the shell layout).
   A chat that resumes paints the message skeleton; one that does not paints
   the greeting and the composer at their rest from the first frame, with the
   name the server read from the session (`layout/hooks/use-thread-phase`).

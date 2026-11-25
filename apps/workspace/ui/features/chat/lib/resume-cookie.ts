@@ -1,23 +1,7 @@
+import { CHAT_RESUME_COOKIE_PREFIX, chatResumeCookie } from '@/lib/conversations/chat-resume-cookie'
 import { resumesUntil, type ArrivalState } from './resume-session'
 
-export const CHAT_RESUME_COOKIE_PREFIX = 'chat_resume.'
-const PERSONAL_SIDE = 'personal'
-const SIDE_ID = /^[\w-]{1,64}$/
 const A_YEAR_S = 60 * 60 * 24 * 365
-
-export function chatResumeCookie(side: string | null): string | null {
-  if (side === null) return `${CHAT_RESUME_COOKIE_PREFIX}${PERSONAL_SIDE}`
-  return SIDE_ID.test(side) && side !== PERSONAL_SIDE ? `${CHAT_RESUME_COOKIE_PREFIX}${side}` : null
-}
-
-export function arrivalResumes(
-  search: { session?: string | null; new?: string | null },
-  sideCookieSet: boolean
-): boolean {
-  if (search.session) return true
-  if (search.new) return false
-  return sideCookieSet
-}
 
 export function resumeDeadlines(state: ArrivalState, now: number = Date.now()): Map<string, number> {
   const sides = new Set<string | null>()
