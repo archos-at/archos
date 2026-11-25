@@ -4,8 +4,6 @@ import { useEffect } from 'react'
 
 export const VISUAL_VIEWPORT_HEIGHT_VAR = '--visual-viewport-height'
 
-export const VISUAL_VIEWPORT_TOP_VAR = '--visual-viewport-top'
-
 const OCCLUSION_THRESHOLD_PX = 1
 
 const ZOOM_EPSILON = 0.01
@@ -34,16 +32,11 @@ export function useVisualViewport(): void {
         layoutHeight - viewport.height > OCCLUSION_THRESHOLD_PX
       if (!occluded) {
         root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
-        root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
         return
       }
       root.style.setProperty(VISUAL_VIEWPORT_HEIGHT_VAR, `${viewport.height}px`)
-      if (!focusIsInShell()) {
-        root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
-        return
-      }
+      if (!focusIsInShell()) return
       if (window.scrollY !== 0 || viewport.offsetTop !== 0) window.scrollTo(0, 0)
-      root.style.setProperty(VISUAL_VIEWPORT_TOP_VAR, `${Math.max(0, viewport.offsetTop)}px`)
     }
 
     const schedule = (): void => {
@@ -58,7 +51,6 @@ export function useVisualViewport(): void {
       viewport.removeEventListener('scroll', schedule)
       if (frame !== 0) cancelAnimationFrame(frame)
       root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
-      root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
     }
   }, [])
 }
