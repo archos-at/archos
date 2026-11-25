@@ -26,24 +26,28 @@ export function useVisualViewport(): void {
     const root = document.documentElement
     let frame = 0
 
+    const occluded = (): boolean =>
+      Math.abs(viewport.scale - 1) < ZOOM_EPSILON &&
+      root.clientHeight - viewport.height > OCCLUSION_THRESHOLD_PX
+
+    const follow = (): void => {
+      if (occluded() && focusIsInShell()) {
+        root.style.setProperty(VISUAL_VIEWPORT_TOP_VAR, `${Math.max(0, viewport.offsetTop)}px`)
+      } else {
+        root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
+      }
+    }
+
     const apply = (): void => {
       frame = 0
-      const layoutHeight = root.clientHeight
-      const occluded =
-        Math.abs(viewport.scale - 1) < ZOOM_EPSILON &&
-        layoutHeight - viewport.height > OCCLUSION_THRESHOLD_PX
-      if (!occluded) {
+      if (!occluded()) {
         root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
         root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
         return
       }
       root.style.setProperty(VISUAL_VIEWPORT_HEIGHT_VAR, `${viewport.height}px`)
-      if (!focusIsInShell()) {
-        root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)
-        return
-      }
-      if (window.scrollY !== 0 || viewport.offsetTop !== 0) window.scrollTo(0, 0)
-      root.style.setProperty(VISUAL_VIEWPORT_TOP_VAR, `${Math.max(0, viewport.offsetTop)}px`)
+      if (focusIsInShell() && (window.scrollY !== 0 || viewport.offsetTop !== 0)) window.scrollTo(0, 0)
+      follow()
     }
 
     const schedule = (): void => {
@@ -52,10 +56,10 @@ export function useVisualViewport(): void {
 
     apply()
     viewport.addEventListener('resize', schedule)
-    viewport.addEventListener('scroll', schedule)
+    viewport.addEventListener('scroll', follow)
     return () => {
       viewport.removeEventListener('resize', schedule)
-      viewport.removeEventListener('scroll', schedule)
+      viewport.removeEventListener('scroll', follow)
       if (frame !== 0) cancelAnimationFrame(frame)
       root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
       root.style.removeProperty(VISUAL_VIEWPORT_TOP_VAR)

@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    In the app installed on an iPhone, the chat holds still while the keyboard
+    opens instead of jittering.

@@ -89,6 +89,17 @@ describe('useVisualViewport', () => {
     expect(publishedTop()).toBe('0px')
   })
 
+  test('a scroll of the pan moves the shell in the event itself and never scrolls the document back', () => {
+    renderHook(() => useVisualViewport())
+    openKeyboard(460, 260)
+    scrollTo.mockClear()
+
+    viewport.offsetTop = 200
+    viewport.dispatchEvent(new Event('scroll'))
+    expect(publishedTop()).toBe('200px')
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
   test('the keyboard going down clears the top as well as the height', () => {
     renderHook(() => useVisualViewport())
     openKeyboard(460, 260)
