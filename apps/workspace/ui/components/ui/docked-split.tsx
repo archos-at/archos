@@ -1,7 +1,8 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { usePanelRef } from 'react-resizable-panels'
 import { PanelLeft, PanelRight } from 'lucide-react'
 
@@ -52,6 +53,8 @@ export function DockedSplit({
   const panelRef = usePanelRef()
   const pageElementRef = useRef<HTMLDivElement | null>(null)
   const panelElementRef = useRef<HTMLDivElement | null>(null)
+  const seamElementRef = useRef<HTMLDivElement | null>(null)
+  const glideRef = useRef<Animation[]>([])
   const reducedMotion = usePrefersReducedMotion()
   const settledRef = useRef(false)
   const lastPanelRef = useRef<ReactNode>(null)
@@ -82,22 +85,54 @@ export function DockedSplit({
   useLayoutEffect(() => {
     const docked = panelRef.current
     if (!docked) return
-    const panelElement = panelElementRef.current
-    const glides = slide && settledRef.current && !reducedMotion
+    const parts = {
+      page: pageElementRef.current,
+      panel: panelElementRef.current,
+      seam: seamElementRef.current,
+    }
+    const glides = slide && settledRef.current && !reducedMotion && canAnimate(parts.page) && canAnimate(parts.panel)
     settledRef.current = true
+    const midGlide = glideRef.current.length > 0
+    const from = glides ? rowOf(parts, open && !midGlide) : null
+    const shown = docked.getSize().inPixels
+    stopGlide(glideRef.current, parts.panel)
+    glideRef.current = []
     if (!open) {
-      const travel = canAnimate(panelElement) ? panelElement.getBoundingClientRect().width : 0
-      const snapshot = glides && panelElement && travel > 0 ? snapshotOf(panelElement) : null
       docked.collapse()
-      setLeaving(false)
-      if (snapshot) slideClosed(snapshot, pageElementRef.current, side, travel)
+      if (!from || shown <= 0) {
+        setLeaving(false)
+        return
+      }
+      const closing = glide(parts, from, side, shown, false, asWebAnimation(motionSheetExit))
+      glideRef.current = closing
+      if (parts.panel) parts.panel.inert = true
+      void Promise.all(closing.map((motion) => motion.finished)).then(
+        () => {
+          flushSync(() => setLeaving(false))
+          stopGlide(closing, parts.panel)
+          if (glideRef.current === closing) glideRef.current = []
+        },
+        () => {},
+      )
       return
     }
     docked.expand()
     docked.resize(widthRef.current)
-    if (glides && canAnimate(panelElement)) slideOpen(panelElement, pageElementRef.current, side, widthRef.current)
+    if (!from) return
+    const target = docked.getSize().inPixels || widthRef.current
+    const opening = glide(parts, from, side, target, true, asWebAnimation(motionDeliberateEntrance))
+    glideRef.current = opening
+    void Promise.all(opening.map((motion) => motion.finished)).then(
+      () => {
+        stopGlide(opening, null)
+        if (glideRef.current === opening) glideRef.current = []
+      },
+      () => {},
+    )
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [open, panelRef])
+
+  useEffect(() => () => stopGlide(glideRef.current, null), [])
 
   const pagePanel = (
     <ResizablePanel
@@ -142,9 +177,10 @@ export function DockedSplit({
     </ResizablePanel>
   )
 
-  const seam = open ? (
+  const seam = open || leaving ? (
     <ResizableHandle
       key={`${id}-handle`}
+      elementRef={seamElementRef}
       withHandle
       aria-label={resizeLabel}
       disableDoubleClick
@@ -198,50 +234,59 @@ export function DockedSplit({
 
 const canAnimate = (element: HTMLElement | null): element is HTMLElement => typeof element?.animate === 'function'
 
-const outward = (side: 'start' | 'end'): number => (side === 'start' ? -1 : 1)
+interface RowParts {
+  page: HTMLElement | null
+  panel: HTMLElement | null
+  seam: HTMLElement | null
+}
 
-function slideOpen(panel: HTMLElement | null, page: HTMLElement | null, side: 'start' | 'end', travel: number): void {
-  const options = asWebAnimation(motionDeliberateEntrance)
-  const from = outward(side) * travel
+interface RowShares {
+  page: string
+  panel: string
+  seam: string
+}
+
+function rowOf(parts: RowParts, seamArrives: boolean): RowShares {
+  const grow = (element: HTMLElement | null): string => (element ? getComputedStyle(element).flexGrow : '0')
+  return {
+    page: grow(parts.page),
+    panel: grow(parts.panel),
+    seam: seamArrives || !parts.seam ? '0px' : getComputedStyle(parts.seam).width,
+  }
+}
+
+function glide(
+  parts: RowParts,
+  from: RowShares,
+  side: 'start' | 'end',
+  travel: number,
+  opening: boolean,
+  timing: KeyframeAnimationOptions,
+): Animation[] {
+  const options: KeyframeAnimationOptions = { ...timing, fill: 'forwards' }
+  const motions: Animation[] = []
+  const { page, panel, seam } = parts
+  if (page) motions.push(page.animate([{ flexGrow: from.page }, {}], options))
   if (panel) {
-    panel.style.zIndex = '1'
-    panel.style.position = 'relative'
-    const move = panel.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], options)
-    move.onfinish = move.oncancel = () => {
-      panel.style.zIndex = ''
-      panel.style.position = ''
+    const anchor = { justifyContent: side === 'end' ? 'flex-start' : 'flex-end' }
+    motions.push(panel.animate([{ flexGrow: from.panel, ...anchor }, anchor], options))
+    const content = panel.firstElementChild
+    if (content instanceof HTMLElement && canAnimate(content)) {
+      const pinned = { minWidth: `${travel}px`, maxWidth: 'none', flexShrink: '0' }
+      motions.push(content.animate([pinned, pinned], options))
     }
   }
-  if (page && side === 'start') page.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], options)
+  if (seam && canAnimate(seam)) motions.push(seam.animate([{ width: from.seam }, opening ? {} : { width: '0px' }], options))
+  for (const motion of motions) motion.pause()
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      for (const motion of motions) if (motion.playState === 'paused') motion.startTime = document.timeline.currentTime
+    }),
+  )
+  return motions
 }
 
-function slideClosed(snapshot: HTMLElement, page: HTMLElement | null, side: 'start' | 'end', travel: number): void {
-  const options = asWebAnimation(motionSheetExit)
-  const to = outward(side) * travel
-  const move = snapshot.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${to}px)` }], options)
-  move.onfinish = move.oncancel = () => snapshot.remove()
-  if (page && side === 'start') page.animate([{ transform: `translateX(${travel}px)` }, { transform: 'translateX(0)' }], options)
-}
-
-function snapshotOf(panel: HTMLElement): HTMLElement {
-  const box = panel.getBoundingClientRect()
-  const snapshot = panel.cloneNode(true) as HTMLElement
-  for (const node of [snapshot, ...snapshot.querySelectorAll<HTMLElement>('[id], [data-testid]')]) {
-    node.removeAttribute('id')
-    node.removeAttribute('data-testid')
-  }
-  snapshot.setAttribute('aria-hidden', 'true')
-  snapshot.inert = true
-  Object.assign(snapshot.style, {
-    position: 'fixed',
-    left: `${box.left}px`,
-    top: `${box.top}px`,
-    width: `${box.width}px`,
-    height: `${box.height}px`,
-    margin: '0',
-    pointerEvents: 'none',
-    zIndex: '30',
-  })
-  document.body.append(snapshot)
-  return snapshot
+function stopGlide(motions: Animation[], panel: HTMLElement | null): void {
+  for (const motion of motions) motion.cancel()
+  if (panel) panel.inert = false
 }
