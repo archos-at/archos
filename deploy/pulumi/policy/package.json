@@ -5,7 +5,7 @@
   "description": "CrossGuard policy pack: rollout-safety guardrails for the Grid OIB stack.",
   "main": "index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
     "@pulumi/kubernetes": "^4.34.2",

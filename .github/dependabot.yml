@@ -168,6 +168,9 @@ updates:
       # Node 22 is the runtime (the image's base).
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @payloadcms/plugin-mcp calls `ts.transpileModule` at runtime; TypeScript 7 has no JS API.
+      - dependency-name: "typescript"
+        versions: [">=7"]
 
   - package-ecosystem: bun
     directory: "/apps/website"
@@ -189,8 +192,7 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
     ignore:
-      # Same reasons as apps/workspace: `astro check` runs on the TypeScript JS
-      # API that TypeScript 7 drops, and the runtime is Node 22.
+      # `astro check` runs on TypeScript's JS API, which 7 drops; the runtime is Node 22.
       - dependency-name: "typescript"
         versions: [">=7"]
       - dependency-name: "@types/node"
@@ -227,10 +229,8 @@ updates:
       # as apps/workspace above.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # `pulumi preview`/`up` load TypeScript through ts-node, which calls the
-      # compiler's JS API (@pulumi/pulumi cmd/run/run.js `require(typescriptRequire)`).
-      # TypeScript 7 ships no JS API, so `tsc --noEmit` stays green while every
-      # deploy breaks. Same rule as apps/website.
+      # `pulumi preview`/`up` run ts-node on TypeScript's JS API (@pulumi/pulumi cmd/run/run.js),
+      # which 7 drops: `typecheck` (`bun check`, TS 7) stays green while every deploy breaks.
       - dependency-name: "typescript"
         versions: [">=7"]
 
