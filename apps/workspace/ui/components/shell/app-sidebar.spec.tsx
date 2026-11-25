@@ -1,10 +1,11 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@/test-utils'
+import { act, fireEvent, render, screen, waitFor, within } from '@/test-utils'
 import { SIDEBAR_PEEK_CLOSE_MS, SIDEBAR_PEEK_OPEN_MS } from '@/components/ui/sidebar-peek'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useShellOverlays } from './shell-overlays'
+import { useRailSide } from './rail-side'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
 import { RECENT_CHATS_COLLAPSED_STORAGE_KEY, RailChatsSource, type RailChats } from './rail-chats'
@@ -360,6 +361,33 @@ describe('AppSidebar - the side row at the top of the phone chat', () => {
     const row = screen.getByRole('banner').querySelector('[data-slot="phone-side-bar"]') as HTMLElement
     expect(within(row).getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'personal')
     expect(row.querySelector('[data-project-selector]')).toBeNull()
+  })
+
+  test('stays while a side switch is under way, so the header keeps its height until the new side’s chat lands', () => {
+    try {
+      pathname = '/app/personal/chat'
+      const { unmount } = render(<AppSidebar {...baseProps} projectId={null} />)
+      act(() => useRailSide.getState().begin({ mode: 'project', projectId: 'p1' }))
+      const toProject = document.querySelector('[data-slot="phone-side-bar"]') as HTMLElement
+      expect(toProject).not.toBeNull()
+      expect(within(toProject).getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'project')
+      unmount()
+      act(() => useRailSide.getState().settle())
+
+      pathname = '/app/projects/p1/chat'
+      render(<AppSidebar {...baseProps} />)
+      act(() => useRailSide.getState().begin({ mode: 'personal', projectId: null }))
+      expect(document.querySelector('[data-slot="phone-side-bar"]')).not.toBeNull()
+    } finally {
+      act(() => useRailSide.getState().settle())
+    }
+  })
+
+  test('a project’s chat has its row alone: the bare flow’s line of way back and search stands on bare flows only', () => {
+    render(<AppSidebar {...baseProps} />)
+    const banner = screen.getByRole('banner')
+    expect(banner.querySelector('[data-slot="phone-side-bar"]')).not.toBeNull()
+    expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
   })
 
   test('stands on no other page, and not on a page with no side', () => {
