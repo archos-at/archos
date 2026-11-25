@@ -1,10 +1,11 @@
 'use client'
 
-import { type ReactNode, Suspense, useEffect, useRef } from 'react'
+import { type ReactNode, Suspense, useCallback, useEffect, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/adapters/auth'
 import { MainLayout } from '@/features/layout'
 import { useChatStore } from '@/features/chat/store'
+import { useNewChatParam } from '@/features/chat/hooks/use-new-chat-param'
 
 export function opensHere(conversation: { projectId?: string | null; userId: string }, userId: string): boolean {
   return !conversation.projectId && conversation.userId === userId
@@ -29,13 +30,11 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
   }, [enterSide, loadServerConversations])
 
   const newParam = searchParams?.get('new') ?? null
-  const consumedNew = useRef(false)
-  useEffect(() => {
-    if (!newParam || !isAuthenticated || consumedNew.current) return
-    consumedNew.current = true
+  const startNewChat = useCallback(() => {
     startNewSessionDraft()
     if (pathname) router.replace(pathname, { scroll: false })
-  }, [newParam, isAuthenticated, pathname, router, startNewSessionDraft])
+  }, [pathname, router, startNewSessionDraft])
+  useNewChatParam(newParam, isAuthenticated, startNewChat)
 
   const sessionParam = searchParams?.get('session') ?? null
   useEffect(() => {
