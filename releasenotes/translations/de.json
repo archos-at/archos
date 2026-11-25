@@ -3120,6 +3120,10 @@
     "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
   },
   {
+    "en": "On a phone or tablet, a few small controls are now big enough to hit with a finger: the way up from a folder, the review's filters and comment kinds, the base knowledge filters, attachment links in a mail thread and the chip that says something waits for you.",
+    "de": "Auf Smartphone oder Tablet sind einige kleine Bedienelemente jetzt groß genug, um sie mit dem Finger anzutippen: die Schaltfläche, mit der Sie aus einem Ordner eine Ebene nach oben gelangen, die Filter und Kommentararten im Review, die Filter im Basiswissen, Links zu Anhängen in einem Mail-Thread und der Chip, der anzeigt, dass etwas auf Sie wartet."
+  },
+  {
     "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
     "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
   },
@@ -3254,6 +3258,10 @@
   {
     "en": "On a wide screen the bell docks the inbox beside your page: what waits on you comes first, grouped by document and most urgent on top, and an entry opens the chat or the review in place while the inbox stays open for the next one.",
     "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
+  },
+  {
+    "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
+    "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
   },
   {
     "en": "On an iPhone, the input field no longer hides behind the keyboard.",
@@ -5250,6 +5258,10 @@
   {
     "en": "Typing into any field on an iPhone or iPad no longer zooms the page in and leaves it there. This affected tablets everywhere and phones when renaming a conversation, a file or a building in the project wizard.",
     "de": "Das Tippen in ein beliebiges Feld auf einem iPhone oder iPad vergrößert die Seite nicht mehr dauerhaft. Das betrifft Tablets generell und Smartphones beim Umbenennen einer Unterhaltung, einer Datei oder eines Gebäudes im Projektassistenten."
+  },
+  {
+    "en": "Typing the first letters of a new chat no longer flashes the loading placeholder: the greeting and the input stay where they are until you send.",
+    "de": "Wenn Sie die ersten Buchstaben eines neuen Chats eingeben, blinkt der Ladeplatzhalter nicht mehr: Begrüßung und Eingabefeld bleiben an ihrem Platz, bis Sie die Nachricht senden."
   },
   {
     "en": "Under \"Bearbeitet\", a mail filed this way says \"Ohne Klick abgelegt\" and names the E-Mail-Verlauf it went into.",

@@ -723,6 +723,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
+            "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
             "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
           }
@@ -853,6 +861,22 @@
           "text": {
             "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
             "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone or tablet, a few small controls are now big enough to hit with a finger: the way up from a folder, the review's filters and comment kinds, the base knowledge filters, attachment links in a mail thread and the chip that says something waits for you.",
+            "de": "Auf Smartphone oder Tablet sind einige kleine Bedienelemente jetzt groß genug, um sie mit dem Finger anzutippen: die Schaltfläche, mit der Sie aus einem Ordner eine Ebene nach oben gelangen, die Filter und Kommentararten im Review, die Filter im Basiswissen, Links zu Anhängen in einem Mail-Thread und der Chip, der anzeigt, dass etwas auf Sie wartet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Typing the first letters of a new chat no longer flashes the loading placeholder: the greeting and the input stay where they are until you send.",
+            "de": "Wenn Sie die ersten Buchstaben eines neuen Chats eingeben, blinkt der Ladeplatzhalter nicht mehr: Begrüßung und Eingabefeld bleiben an ihrem Platz, bis Sie die Nachricht senden."
           }
         },
         {
