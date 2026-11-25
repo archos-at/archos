@@ -21,8 +21,8 @@ export const consultOperations = [
       '(documentId, name, page, a url opening the cited page) and answer.confidence (level, reason); an answer with ' +
       'neither is not grounded in a document. "submitted" or "working": call agent-ask-get after pollAfterSeconds. ' +
       '"rejected" or "failed" say why (spent budget, busy conversation). Pass projectId (from project-list) to ask ' +
-      'about one project: without it ' + PRODUCT_NAME + ' answers for the office as a whole, reads no project’s files, and starts the ' +
-      'conversation on the person’s personal side, where they find it in the app (personal=false starts it on no side). ' +
+      'about one project: without it ' + PRODUCT_NAME + ' answers for the office as a whole, reads no project’s files, ' +
+      'and files the chat on the person’s personal side (personal=false: on none). ' +
       'conversationId follows up an earlier ask. Uses the organization’s model budget.',
     method: 'POST',
     path: '/api/agent-asks',
