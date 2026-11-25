@@ -10,7 +10,10 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
-vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn(async () => null) }))
+vi.mock('@/lib/conversations/repository', () => ({
+  findConversationTenancy: vi.fn(async () => null),
+  personalConversationHidden: vi.fn(async () => false),
+}))
 
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(),
