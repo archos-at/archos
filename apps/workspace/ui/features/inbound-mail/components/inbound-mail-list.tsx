@@ -347,7 +347,7 @@ function ListBody({
       <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
         {/* One line: what the group is on the left, the one press on the right, in the section heading's quiet voice. */}
         {/* A 40px line (44px under touch) with the 32px press centred in it, and 8px under it before the first row:
-            round 2 and 3 drew the line as tall as the press, and the press sat on the open row's sheet edge. */}
+            round 2 and 3 drew the line as tall as the press, and the press sat on the open row's edge. */}
         <div className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11" /* fixed: one height with its press or without, so ticking a box moves nothing */>
           {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
           <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>

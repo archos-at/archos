@@ -94,7 +94,7 @@ export function InboundMailRow({
   return (
     <Item
       as="li"
-      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0 dark:data-current:shadow-sheet-pointer' /* in dark the open sheet stands one small step off the desk, so the field's border (3.7:1) is what marks it, as the thumb's */, ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row's sheet and a picked run: three fills fused into one block */)}
+      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row and a picked run: one grey, they fused into one block */)}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}

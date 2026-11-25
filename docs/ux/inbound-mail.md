@@ -956,8 +956,8 @@ Verlauf: no subject or file name of a mail reaches a row or a push
 warnings as a gold glyph with ink words (`FactLine tone="warning"`,
 `components/ui/fact-line.tsx`) and the default Alert with a gold icon, and what
 makes filing impossible as a red glyph with ink words (`tone="danger"`). The
-open row lifts to `bg-card` with the selected hairline inset all round instead
-of a tint (`bg-accent/70` behind muted 12px text is 4.33:1), and the keyboard's
+open row takes the flat selected grey (`bg-selected`: muted 12px text on it is
+5.4:1, where `bg-accent/70` was 4.33:1), and the keyboard's
 row (J/K) wears the keyboard's ring, inset: `Item`'s `data-current` and
 `data-cursor`. Neither is a bar down the row's edge (design language,
 „Emphasis without a stripe“). Each attachment's „Wird auf Schadsoftware
