@@ -579,6 +579,17 @@ reaches them. A breakpoint question in JavaScript uses the exported queries,
 never a hand-written `(max-width: 767px)`; `breakpoints.spec.ts` holds the CSS
 and the TypeScript to one string and fails on a raw `md` width.
 
+**The stylesheet picks the tree; the hook only picks behaviour.** The server
+cannot see the screen, so `useIsMobile()` answers `false` on the server and in
+the hydration render: a tree it picks is the desktop one on a phone until the
+bundle boots, then swaps, a pop and a layout shift. Where a phone and a desktop
+arrangement differ, render both in `MobileLayoutOnly` and `DesktopLayoutOnly`
+(`components/ui/layout-only.tsx`): each is hidden by `md:` or `max-md:` from the
+first paint, and the one that does not belong is dropped once the hook knows
+the screen. Inside both trees an `id` waits for `useIsMobileOnceKnown()`, so the
+server markup never names an element twice. What a click does, which overlay
+opens, whether to fetch: `useIsMobile()` answers those.
+
 ## Component layers (atomic design)
 
 The UI is built atomically: **atoms** compose into **molecules**, molecules into
@@ -1311,7 +1322,7 @@ More than one ambient loop on screen. `ease-linear`. `transition-all`.
 - Avoid side stripes: a coloured or ruled bar down the left (inline-start) edge of a card, callout, quote, toast, peek, row or chip, for status or for emphasis, is discouraged. And no status tint across a whole card. Status is a 10px rounded swatch on the title line, or an icon and a word — see **Emphasis without a stripe**.
 - No purple/generic-AI aesthetic. **Provenance signals are the only chroma** — no blue active states (actions and focus are ink app-wide), and a source color is never used outside its meaning or without its icon + label. No general accent token: one existed briefly and was withdrawn (see §"Accent pop" above). A control that wants to stand out wants contrast, not chroma.
 - No touch size on a `md:` breakpoint, no reveal that only hover can open, no `touch-action` that takes the page scroll from a surface that does not own the gesture, no `vh`, no meaning carried only by a tooltip. See [Touch](#touch).
-- No hand-written breakpoint width in JavaScript; ask `useIsMobile()` or pass a query from `hooks/use-is-mobile.ts`. See [Breakpoints](#breakpoints-four-axes-four-questions).
+- No hand-written breakpoint width in JavaScript; ask `useIsMobile()` or pass a query from `hooks/use-is-mobile.ts`. No tree chosen by `useIsMobile()`: `MobileLayoutOnly` / `DesktopLayoutOnly` decide before the first paint. See [Breakpoints](#breakpoints-four-axes-four-questions).
 
 ## The app rail
 
