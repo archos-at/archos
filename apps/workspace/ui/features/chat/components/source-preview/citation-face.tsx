@@ -28,7 +28,7 @@ const cardButtonClasses = cn(
 )
 
 export const faceClasses = (variant: CitationVariant): string =>
-  variant === 'card' ? cardButtonClasses : cn(chipButtonClasses, 'max-w-56 pointer-coarse:max-w-full')
+  variant === 'card' ? cardButtonClasses : chipButtonClasses
 
 export const inertCardClasses = 'flex w-full gap-3 rounded-surface border bg-card p-3 text-left'
 
@@ -81,7 +81,7 @@ export const CitationFace: FC<CitationFaceProps> = ({
       <>
         <CitationIndex index={index} />
         <LeadingIcon signal={signal} busy={busy} className="size-3 shrink-0" />
-        {authority && <AuthorityTag>{authority}</AuthorityTag>}
+        <AuthorityTag authority={authority} label={label} />
         <span className="truncate pointer-coarse:line-clamp-2 pointer-coarse:whitespace-normal pointer-coarse:break-words">{label}</span>
       </>
     )
@@ -120,7 +120,7 @@ export const CitationFace: FC<CitationFaceProps> = ({
               <LeadingIcon signal={signal} busy={busy} className="size-4" />
             </span>
           )}
-          {full && authority && <AuthorityTag>{authority}</AuthorityTag>}
+          {full && <AuthorityTag authority={authority} label={headline} />}
           <span
             className="text-foreground line-clamp-2 min-w-0 flex-1 text-sm font-medium leading-snug"
             title={locator && locator !== headline ? `${headline}\n${locator}` : headline}

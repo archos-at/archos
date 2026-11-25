@@ -236,6 +236,13 @@ badge carrying that whole distinction alone. Resolve it with `accentForLane`
 the "Belegt durch" chips cannot drift. The type is `SourceTint = SourceSignal |
 'oib'`; an accent always keeps its stratum's icon.
 
+**A source chip says its name once.** The authority badge (`AuthorityTag`)
+stands only where the label beside it does not already name the authority as a
+word: „OIB-Richtlinie 2.1" and „Rechtsquelle (RIS)" carry no second „OIB" or
+„RIS" (`labelNamesAuthority`). A chip under an answer is as wide as its name,
+up to the width of its row, and truncates only there; it had a fixed 224px cap
+that cut „OIB-Richtlinie 2.1, Ausga…" in a row with room to spare.
+
 **Accent pop — tried, and withdrawn (2026-08-27 to 2026-09-01).** There was
 one carved-out general accent: `--accent-pop`, a moss/lime green (hue ~126)
 taken from the marketing site's chat mock, deliberately a different hue from

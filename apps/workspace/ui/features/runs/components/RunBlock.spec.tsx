@@ -159,10 +159,10 @@ describe('RunBlock — the body', () => {
     )
   })
 
-  it('badges an OIB document and a Bauordnung by their authority, in the law family', () => {
+  it('badges a Bauordnung by its authority, and an OIB-Richtlinie, whose name says OIB, not twice', () => {
     render(<RunBlock ledger={researching()} title={TITLE} />)
     const [first] = screen.getAllByTestId('run-step')
-    expect(within(first!).getByText('OIB')).toBeInTheDocument()
+    expect(within(first!).queryByText('OIB')).toBeNull()
     expect(within(first!).getByText('RIS')).toBeInTheDocument()
   })
 

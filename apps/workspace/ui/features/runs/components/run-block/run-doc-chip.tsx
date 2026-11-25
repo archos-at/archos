@@ -3,7 +3,7 @@
 import type { FC } from 'react'
 
 import { AnimatePresence, motion, motionInstant, motionQuick } from '@/components/motion'
-import { AuthorityTag } from '@/features/chat/components/AuthorityTag'
+import { AuthorityTag, labelNamesAuthority } from '@/features/chat/components/AuthorityTag'
 import { SourceSignalChip } from '@/features/layout/components/SourceSignalChip'
 import { useTranslations } from '@/i18n'
 import { runsCopy } from '@/i18n/namespaces/runs'
@@ -26,9 +26,9 @@ export const DocChip: FC<{ doc: RunLedgerDoc; reduced: boolean }> = ({ doc, redu
       )}
       title={loci ? `${name} · ${loci}` : name}
     >
-      {authority && (
+      {authority && !labelNamesAuthority(name, authority) && (
         <>
-          <AuthorityTag>{authority}</AuthorityTag>{' '}
+          <AuthorityTag authority={authority} label={name} />{' '}
         </>
       )}
       {name}
