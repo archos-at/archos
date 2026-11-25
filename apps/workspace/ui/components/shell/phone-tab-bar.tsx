@@ -5,7 +5,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-import { AnimatePresence, motion, motionQuick, springGlide, useMotionToken } from '@/components/motion'
+import { AnimatePresence, motion, motionMove, motionQuick, springGlide, useMotionToken } from '@/components/motion'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { AttentionDot } from '@/components/ui/attention-dot'
@@ -127,6 +127,7 @@ function PhoneTabItem({
   expanded?: boolean
   onOpenMore: () => void
 }): JSX.Element {
+  const glide = useMotionToken(motionMove)
   const Icon = tab.icon
   const className = cn(
     'relative flex h-[3.25rem] w-full items-center justify-center rounded-control outline-none',
@@ -149,7 +150,7 @@ function PhoneTabItem({
             data-slot="phone-tab-pill"
             aria-hidden
             className="bg-sheet shadow-xs absolute inset-0 rounded-control"
-            transition={springGlide}
+            transition={glide}
           />
         )}
         <Icon aria-hidden className="relative size-[1.125rem]" />

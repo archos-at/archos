@@ -293,6 +293,23 @@ describe('DockedSplit moving the row', () => {
     expect(widthOf('file-ask-panel')).toBe(320)
   })
 
+  it('opens and shuts on the move curve, which starts at about a pixel rather than jumping', async () => {
+    const glides = recordGlides()
+    rootWidths.set('start-dock', 1440)
+    const { rerender } = render(<Shell peekOpen={false} />)
+    deliverResizes()
+    rerender(<Shell peekOpen />)
+    const opening = glides.splice(0)
+    for (const glide of opening) glide.finish()
+    await act(async () => {})
+    rerender(<Shell peekOpen={false} />)
+
+    for (const glide of [...opening, ...glides]) {
+      expect(glide.options.easing).toBe('cubic-bezier(0.77, 0, 0.175, 1)')
+      expect(glide.options.duration).toBe(320)
+    }
+  })
+
   it('changes the row once, unmoving, for a reader who asked for less motion', () => {
     const glides = recordGlides()
     vi.stubGlobal('matchMedia', (query: string) => ({
