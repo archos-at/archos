@@ -1964,6 +1964,10 @@
     "de": "Beim Schließen der Prüfansicht bleibt Ihre Position erhalten: Die Vorschau öffnet sich auf der zuletzt gelesenen Seite, und die Prüfung läuft auch mit vielen Kolleginnen und Kollegen und Hunderten von Anmerkungen reibungslos weiter."
   },
   {
+    "en": "Closing the file preview beside the chat no longer makes the chat jump sideways: the preview glides out and the chat widens with it, just as it narrows when the preview opens.",
+    "de": "Wenn Sie die Dateivorschau neben dem Chat schließen, verschiebt sich der Chat nicht mehr seitlich: Die Vorschau gleitet heraus und der Chat wird dabei breiter – genauso, wie er beim Öffnen der Vorschau schmaler wird."
+  },
+  {
     "en": "Closing the preview is never one-way: with the ✕, Escape or by dragging it shut, a tab stays at the edge and brings the document back at the width you chose.",
     "de": "Das Schließen der Vorschau ist nie endgültig: Nach ✕, Escape oder Zuziehen bleibt am Rand ein Reiter, der das Dokument in der gewählten Breite zurückholt."
   },
@@ -3200,6 +3204,10 @@
     "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
   },
   {
+    "en": "On a phone, switching between Persönlich and a project no longer makes the tabs at the bottom jump: they slide to their new places and the new tabs fade in.",
+    "de": "Am Smartphone springen die Tabs unten beim Wechsel zwischen Persönlich und einem Projekt nicht mehr: Sie gleiten an ihre neuen Positionen und neue Tabs werden eingeblendet."
+  },
+  {
     "en": "On a phone, the Ablage no longer jumps when it opens: the row with the search and the filters keeps its place from the start, so the file list stays where it first appears instead of dropping down a moment later.",
     "de": "Am Smartphone springt die Ablage beim Öffnen nicht mehr: Die Zeile mit Suche und Filtern bleibt von Anfang an an ihrem Platz, sodass die Dateiliste dort bleibt, wo sie zuerst angezeigt wird, statt kurz darauf nach unten zu rutschen."
   },
@@ -3226,6 +3234,10 @@
   {
     "en": "On a phone, the line that folds a background check in a chat open and shut is as tall as a fingertip, so it no longer takes a second try.",
     "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
+  },
+  {
+    "en": "On a phone, the page no longer jumps when you go from the chat to another tab and back: the Persönlich | Projekt switch now comes and goes with the chat, and the project's name beside it fades in when you switch sides.",
+    "de": "Auf dem Smartphone springt die Seite nicht mehr, wenn Sie vom Chat zu einem anderen Tab und zurück wechseln: Der Persönlich | Projekt-Schalter wird jetzt gemeinsam mit dem Chat ein- und ausgeblendet, und beim Wechsel zwischen Persönlich und Projekt blendet sich der Projektname daneben ein."
   },
   {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",

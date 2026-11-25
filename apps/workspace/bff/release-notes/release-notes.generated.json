@@ -835,6 +835,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, the page no longer jumps when you go from the chat to another tab and back: the Persönlich | Projekt switch now comes and goes with the chat, and the project's name beside it fades in when you switch sides.",
+            "de": "Auf dem Smartphone springt die Seite nicht mehr, wenn Sie vom Chat zu einem anderen Tab und zurück wechseln: Der Persönlich | Projekt-Schalter wird jetzt gemeinsam mit dem Chat ein- und ausgeblendet, und beim Wechsel zwischen Persönlich und Projekt blendet sich der Projektname daneben ein."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
             "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
           }
@@ -853,6 +861,14 @@
           "text": {
             "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",
             "de": "Auf dem Smartphone steht in „Mehr“ jetzt der Persönlich | Projekt-Umschalter an erster Stelle, sodass Sie von überall zwischen Ihren eigenen Chats und den Chats eines Projekts wechseln können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, switching between Persönlich and a project no longer makes the tabs at the bottom jump: they slide to their new places and the new tabs fade in.",
+            "de": "Am Smartphone springen die Tabs unten beim Wechsel zwischen Persönlich und einem Projekt nicht mehr: Sie gleiten an ihre neuen Positionen und neue Tabs werden eingeblendet."
           }
         },
         {
@@ -1053,6 +1069,14 @@
           "text": {
             "en": "The toolbar at the bottom of the model viewer casts its full shadow again; it used to stop in a hard line just below the buttons.",
             "de": "Die Toolbar am unteren Rand des Modell-Viewers wirft wieder ihren vollständigen Schatten; zuvor endete dieser direkt unter den Schaltflächen abrupt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Closing the file preview beside the chat no longer makes the chat jump sideways: the preview glides out and the chat widens with it, just as it narrows when the preview opens.",
+            "de": "Wenn Sie die Dateivorschau neben dem Chat schließen, verschiebt sich der Chat nicht mehr seitlich: Die Vorschau gleitet heraus und der Chat wird dabei breiter – genauso, wie er beim Öffnen der Vorschau schmaler wird."
           }
         },
         {
