@@ -19,7 +19,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { RunBlockLine } from '@/features/runs/components/RunBlockLine'
 import { useLocale, useTranslations } from '@/i18n'
 import { tasksCopy } from '@/i18n/namespaces/tasks'
-import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
+import { useHydrated } from '@/hooks/use-hydrated'
+import { OFFICE_TIME_ZONE, formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import type { TaskRunStatus } from '@/lib/tasks/task-vocabulary'
 import { cn } from '@/lib/utils'
 import { isActiveTask, taskResultTarget, type TaskRunView } from '../lib/task-view'
@@ -65,7 +66,7 @@ const ABSOLUTE_AFTER_MS = 24 * 60 * 60 * 1000
 export function cardTimeLabel(iso: string, locale: string, now: number = Date.now()): string {
   const at = new Date(iso).getTime()
   if (Number.isNaN(at) || now - at <= ABSOLUTE_AFTER_MS) return formatRelativeTime(iso, locale, now)
-  return formatAbsoluteTime(iso, locale)
+  return formatAbsoluteTime(iso, locale, OFFICE_TIME_ZONE)
 }
 
 export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Element {
@@ -77,7 +78,8 @@ export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Elem
   const active = isActiveTask(task)
   const unreviewed = task.status === 'succeeded' && task.review === null
 
-  const when = cardTimeLabel(task.createdAt, locale)
+  const hydrated = useHydrated()
+  const when = hydrated ? cardTimeLabel(task.createdAt, locale) : formatAbsoluteTime(task.createdAt, locale, OFFICE_TIME_ZONE)
   const open = (): void => onSelect(task)
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -230,7 +232,7 @@ export function TaskCard({ projectId, task, onSelect }: TaskCardProps): JSX.Elem
         <RaisedCardFooter>
           <span
             className="min-w-0 truncate"
-            title={formatAbsoluteTime(task.createdAt, locale)}
+            title={formatAbsoluteTime(task.createdAt, locale, OFFICE_TIME_ZONE)}
           >
             {task.requesterName
               ? t('meta.byOn', { name: task.requesterName, when })
