@@ -1108,6 +1108,10 @@
     "de": "Eine Aufgabe läuft jetzt einmal zu einem gewählten Termin, wiederkehrend oder nur auf Knopfdruck. Eine einmalige Aufgabe, etwa die Einreichplanung am Tag vor der Abgabe zu prüfen, braucht keinen Wochenplan mehr, den man danach löschen muss."
   },
   {
+    "en": "A task card no longer redraws itself a moment after the Aufgaben page opens. It first shows the date and time a task was started, then says how long ago that was, without anything else on the card moving.",
+    "de": "Eine Aufgabenkarte wird kurz nach dem Öffnen der Aufgaben-Seite nicht mehr neu gezeichnet. Zunächst zeigt sie Datum und Uhrzeit des Aufgabenstarts an, danach, wie lange dieser zurückliegt – ohne dass sich sonst etwas auf der Karte bewegt."
+  },
+  {
     "en": "A task no longer attaches a skill automatically; you name it in the request itself, with the same / menu as in the chat. Existing schedules keep running unchanged.",
     "de": "Eine Aufgabe hängt keinen Skill mehr automatisch an, Sie nennen ihn im Auftrag selbst über dasselbe /-Menü wie im Chat. Bestehende Zeitpläne laufen unverändert weiter."
   },
@@ -6098,10 +6102,6 @@
   {
     "en": "While ARCHOS works on an answer, the timer and status at the end of the „Working on a response…“ line no longer push the line sideways as the seconds count up or the number of sources changes.",
     "de": "Während ARCHOS an einer Antwort arbeitet, verschieben Timer und Status am Ende der Zeile „Working on a response…“ die Zeile nicht mehr seitlich, wenn die Sekunden hochzählen oder sich die Anzahl der Quellen ändert."
-  },
-  {
-    "en": "While ARCHOS writes an answer, new words now fade in gently instead of appearing letter by letter at full strength, so a long answer reads more calmly as it arrives. Nothing on the page moves, and with reduced motion turned on the text appears as before.",
-    "de": "Während ARCHOS eine Antwort schreibt, werden neue Wörter jetzt sanft eingeblendet, statt Buchstabe für Buchstabe mit voller Deckkraft zu erscheinen. Dadurch lässt sich eine lange Antwort ruhiger lesen, während sie entsteht. Auf der Seite bewegt sich nichts, und bei aktivierter Bewegungsreduktion erscheint der Text wie bisher."
   },
   {
     "en": "While Piloti reads a new project's documents, the setup shows how far it has got: the site, how many documents are read, and the values, contradictions and gaps found so far. You can leave and ask the project chat meanwhile; your Postfach tells you when Piloti is done.",

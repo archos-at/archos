@@ -198,14 +198,6 @@
           "section": "improvements",
           "area": "answers",
           "text": {
-            "en": "While ARCHOS writes an answer, new words now fade in gently instead of appearing letter by letter at full strength, so a long answer reads more calmly as it arrives. Nothing on the page moves, and with reduced motion turned on the text appears as before.",
-            "de": "Während ARCHOS eine Antwort schreibt, werden neue Wörter jetzt sanft eingeblendet, statt Buchstabe für Buchstabe mit voller Deckkraft zu erscheinen. Dadurch lässt sich eine lange Antwort ruhiger lesen, während sie entsteht. Auf der Seite bewegt sich nichts, und bei aktivierter Bewegungsreduktion erscheint der Text wie bisher."
-          }
-        },
-        {
-          "section": "improvements",
-          "area": "answers",
-          "text": {
             "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
             "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
           }
@@ -1104,6 +1096,14 @@
           "text": {
             "en": "A table in an answer keeps its columns while its rows arrive, so the rows you are reading no longer jump as later ones come in.",
             "de": "Eine Tabelle in einer Antwort behält ihre Spalten bei, während die Zeilen eintreffen, sodass die gerade gelesenen Zeilen nicht mehr springen, wenn weitere dazukommen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "tasks",
+          "text": {
+            "en": "A task card no longer redraws itself a moment after the Aufgaben page opens. It first shows the date and time a task was started, then says how long ago that was, without anything else on the card moving.",
+            "de": "Eine Aufgabenkarte wird kurz nach dem Öffnen der Aufgaben-Seite nicht mehr neu gezeichnet. Zunächst zeigt sie Datum und Uhrzeit des Aufgabenstarts an, danach, wie lange dieser zurückliegt – ohne dass sich sonst etwas auf der Karte bewegt."
           }
         },
         {
