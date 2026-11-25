@@ -459,6 +459,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "A link to a chat opens that chat without its address briefly losing the chat and reloading the page. On a slow phone the address could stay without the chat, so going back or sharing the link no longer led to it.",
+            "de": "Ein Link zu einem Chat öffnet diesen nun, ohne dass der Chat kurzzeitig aus der URL verschwindet und die Seite neu geladen wird. Auf langsamen Smartphones konnte der Chat aus der URL verschwunden bleiben, sodass Zurückgehen oder Teilen des Links nicht mehr zu diesem Chat führte."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "Opening a chat no longer shows „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ and a sign-in button for a few seconds while your sign-in is still loading.",
             "de": "Beim Öffnen eines Chats werden nicht mehr für einige Sekunden „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ und ein Login-Button angezeigt, während Ihr Login noch geladen wird."
           }

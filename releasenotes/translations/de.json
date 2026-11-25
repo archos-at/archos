@@ -580,6 +580,10 @@
     "de": "Ein Link zu einem Chat öffnet ihn jetzt immer dort, wo er hingehört: Ein persönlicher Chat öffnet sich nie innerhalb eines Projekts, und ein Projekt-Chat nie im persönlichen Bereich oder in einem anderen Projekt."
   },
   {
+    "en": "A link to a chat opens that chat without its address briefly losing the chat and reloading the page. On a slow phone the address could stay without the chat, so going back or sharing the link no longer led to it.",
+    "de": "Ein Link zu einem Chat öffnet diesen nun, ohne dass der Chat kurzzeitig aus der URL verschwindet und die Seite neu geladen wird. Auf langsamen Smartphones konnte der Chat aus der URL verschwunden bleiben, sodass Zurückgehen oder Teilen des Links nicht mehr zu diesem Chat führte."
+  },
+  {
     "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
     "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
   },
