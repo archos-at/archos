@@ -50,7 +50,7 @@ export const de: LegalContent = {
 
   privacy: {
     title: 'Datenschutzerklärung',
-    updated: '2026-11-06',
+    updated: '2026-11-25',
     intro:
       'Diese Erklärung informiert gemäß Verordnung (EU) 2016/679 (DSGVO) darüber, wie personenbezogene Daten bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) verarbeitet werden.',
     sections: [
@@ -113,6 +113,7 @@ export const de: LegalContent = {
         heading: '7. Cookies',
         paragraphs: [
           PRODUCT_NAME + ' verwendet technisch notwendige Cookies: einen verschlüsselten Session-Cookie für die Anmeldung (WorkOS AuthKit), einen Cookie für Ihre Spracheinstellung und, solange Sie angemeldet sind, den Cookie ‚signed_in‘. Er enthält nur den Wert ‚1‘, keine Kennung, gilt für die ganze Domain und sagt unserer Website, dass sie statt „Login“ den Weg in die Anwendung anbieten soll; bei der Abmeldung oder wenn die Sitzung abläuft, wird er gelöscht.',
+          'Innerhalb der Anwendung (Pfad „/app“) merkt sich Ihr Browser außerdem zwei Dinge, damit die Anwendung beim Öffnen gleich richtig aussieht: im Cookie ‚last_place‘ den Bereich, in dem Sie zuletzt gearbeitet haben (Persönlich oder ein Projekt; er läuft nach einem Jahr ab), und je Bereich im Cookie ‚chat_resume.<Bereich>‘, ob dort beim Öffnen ein Chat fortgesetzt wird. Dieses enthält nur den Wert ‚1‘, keinen Chat und keine Kennung, und läuft ab, sobald kein Chat mehr fortgesetzt würde. Beide sind technisch notwendig für die Darstellung und werden nicht ausgewertet.',
           'Zusätzlich speichert unsere Produktanalyse (PostHog) eine pseudonyme Kennung, die Sitzungs-ID und einige Einstellungen in einem Cookie und im lokalen Speicher Ihres Browsers (Schlüssel „ph_…“, konkret „ph_<Projekt-Token>_posthog“; das Cookie läuft nach 365 Tagen ab und gilt auch für die öffentliche Website von ' + PRODUCT_NAME + ' auf derselben Domain). Wird Ihnen eine Umfrage angezeigt, legt PostHog dafür weitere Einträge im lokalen Speicher an (Schlüssel „seenSurvey_…“ und „lastSeenSurveyDate“). Ebenso merkt sich PostHog, welche Hinweise und Ankündigungen Sie schon gesehen, geschlossen oder abgeschlossen haben, damit sie nicht erneut erscheinen (Schlüssel „ph_product_tour_…“, „ph_last_seen_tour_date_…“ und „ph_active_product_tour“). Diese Speicherung ist nicht technisch notwendig; sie dient der Produktverbesserung. Werbe- oder seitenübergreifende Tracking-Cookies setzen wir nicht.',
           `Sie können die Produktanalyse in den Einstellungen Ihres Profils abschalten oder ihr jederzeit unter ${EMAIL} widersprechen; sie erfasst dann nichts mehr, und die genannten Einträge werden nicht mehr fortgeschrieben.`,
         ],

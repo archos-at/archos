@@ -5,6 +5,7 @@ import type { JSX, ReactNode } from 'react'
 import { ShortcutKeys } from '@/components/shell/shortcut-keys'
 import { MOD, type KeySegment } from '@/components/shell/shortcuts'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
+import { DesktopLayoutOnly } from '@/components/ui/layout-only'
 
 export function SearchFrame({ toolbar, rail, children }: { toolbar: ReactNode; rail: ReactNode; children: ReactNode }): JSX.Element {
   return (
@@ -12,12 +13,14 @@ export function SearchFrame({ toolbar, rail, children }: { toolbar: ReactNode; r
       <div className="flex min-w-0 flex-col gap-3">{toolbar}</div>
       <div className="flex min-w-0 flex-col gap-6 md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:items-start md:gap-0">
         {rail ? (
-          <aside
-            className="hidden min-w-0 flex-col gap-1 md:sticky md:top-4 md:flex md:max-h-[calc(100dvh-2rem)] md:overflow-y-auto md:border-r md:pr-3"
-            data-testid="search-rail"
-          >
-            {rail}
-          </aside>
+          <DesktopLayoutOnly>
+            <aside
+              className="hidden min-w-0 flex-col gap-1 md:sticky md:top-4 md:flex md:max-h-[calc(100dvh-2rem)] md:overflow-y-auto md:border-r md:pr-3"
+              data-testid="search-rail"
+            >
+              {rail}
+            </aside>
+          </DesktopLayoutOnly>
         ) : null}
         <div className="flex min-w-0 flex-col gap-3 md:pl-6">{children}</div>
       </div>

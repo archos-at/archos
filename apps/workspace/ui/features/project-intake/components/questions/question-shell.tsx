@@ -2,7 +2,8 @@
 
 import type { JSX, ReactNode } from 'react'
 import { BusyButton } from '@/components/ui/busy-button'
-import { useIsMobile } from '@/hooks/use-is-mobile'
+import { DesktopLayoutOnly } from '@/components/ui/layout-only'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
 import { useTranslations } from '@/i18n'
 import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step'
 import { ASIDE_ACTION_CLASS, PRIMARY_ACTION_CLASS, StepFooter, type StepProgress } from '../setup-frame'
@@ -55,7 +56,7 @@ export function QuestionShell({
   after?: ReactNode
 }): JSX.Element {
   const t = useTranslations(intakeQuestionsStepCopy)
-  const isMobile = useIsMobile()
+  const mobile = useIsMobileOnceKnown()
   const submit = (
     <BusyButton
       type="button"
@@ -69,11 +70,11 @@ export function QuestionShell({
       {t('card.submit')}
     </BusyButton>
   )
-  const skip = (
+  const skip = (className: string): JSX.Element => (
     <BusyButton
       type="button"
       variant="ghost"
-      className={isMobile ? ASIDE_ACTION_CLASS : 'text-muted-foreground h-[42px] px-3.5 font-normal'}
+      className={className}
       disabled={!actions.canDecide}
       busy={actions.skipping}
       blocked={actions.busy}
@@ -112,21 +113,18 @@ export function QuestionShell({
 
       <div className="mt-6">{children}</div>
 
-      {!isMobile && (
+      <DesktopLayoutOnly>
         <div className="mt-7 flex items-center gap-2.5" data-testid="question-actions">
           {submit}
-          {skip}
+          {skip('text-muted-foreground h-[42px] px-3.5 font-normal')}
         </div>
-      )}
+      </DesktopLayoutOnly>
 
       {handIn && <div className="mt-6 md:mt-7">{handIn}</div>}
       {after && <div className="mt-6 flex flex-col items-start gap-1 md:hidden">{after}</div>}
 
-      {isMobile ? (
-        <StepFooter primary={submit} aside={skip} progress={footer.progress} />
-      ) : (
-        <StepFooter primary={footer.desk} progress={footer.progress} />
-      )}
+      {mobile === true && <StepFooter primary={submit} aside={skip(ASIDE_ACTION_CLASS)} progress={footer.progress} />}
+      {mobile === false && <StepFooter primary={footer.desk} progress={footer.progress} />}
     </section>
   )
 }
