@@ -17,4 +17,11 @@ runs:
       env:
         TASK_VERSION: ${{ inputs.version }}
       run: |
-        [ "$(task --version 2>/dev/null)" = "$TASK_VERSION" ] || npm i -g "@go-task/cli@${TASK_VERSION}"
+        [ "$(task --version 2>/dev/null)" = "$TASK_VERSION" ] && exit 0
+        for attempt in 1 2 3 4 5; do
+          npm i -g "@go-task/cli@${TASK_VERSION}" && exit 0
+          echo "::warning::go-task install attempt ${attempt} failed; retrying in $((attempt * 15))s"
+          sleep $((attempt * 15))
+        done
+        echo "::error::go-task ${TASK_VERSION} did not install after 5 attempts"
+        exit 1
