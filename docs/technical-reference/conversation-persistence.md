@@ -108,6 +108,12 @@ chat's local messages are missing, they are repopulated from the server:
   neither side replaces the other. Only then is the awaiting mark cleared; an
   empty server list clears it only for a session that is still empty, which is
   the server confirming it has no messages.
+- It never asks for a chat this tab opened (`wasMintedHere`,
+  `features/chat/lib/conversation-on-server.ts`) while that chat has no message
+  and no awaiting mark: the first keystroke, an `@` or an attachment opens it,
+  and the server cannot hold a message this tab lacks. Asking marked the thread
+  `loading` once the draft's id reached the URL, and the empty chat flipped to a
+  thread and back while the person was still typing.
 
 A conversation the server lists without its messages, or whose stored messages
 are missing or empty, is **awaiting**: its empty list means "not here", not
