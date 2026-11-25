@@ -5148,6 +5148,10 @@
     "de": "Der Titel und die Tabs von Files bleiben auf allen Tabs an derselben Stelle, auch im Posteingang. Auf dem Smartphone wird der aktive Tab vollständig angezeigt."
   },
   {
+    "en": "The toolbar at the bottom of the model viewer casts its full shadow again; it used to stop in a hard line just below the buttons.",
+    "de": "Die Toolbar am unteren Rand des Modell-Viewers wirft wieder ihren vollständigen Schatten; zuvor endete dieser direkt unter den Schaltflächen abrupt."
+  },
+  {
     "en": "The upload area now states the largest file you can upload as a size per file, and the number it shows is the one your organization is held to. It no longer shows 95 MB for a 100 MB limit.",
     "de": "Der Upload-Bereich gibt nun die maximale Dateigröße pro Datei an, die Sie hochladen können. Angezeigt wird der für Ihre Organisation geltende Wert. Bei einem Limit von 100 MB werden nicht mehr 95 MB angezeigt."
   },
