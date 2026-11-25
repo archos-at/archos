@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { AppSidebar } from './app-sidebar'
 import { useRecordLastPlace } from './last-place'
 import { PhoneMoreSheet } from './phone-more-sheet'
+import { ShellSideRowProvider } from './phone-side-bar'
 import { useRailSide, type RailSide } from './rail-side'
 import { sideOffRoute, sideOfPath } from './shell-side'
 import { PhoneTabBar } from './phone-tab-bar'
@@ -73,6 +74,9 @@ export function AppShellChrome({
   useVisualViewport()
   const account = shellAccount(chrome)
 
+  const onSide = routeSide !== null
+  const sideRow = React.useMemo(() => ({ projectId, onSide, projects: chrome.projects }), [projectId, onSide, chrome.projects])
+
   const keyboardUp = useKeyboardUp()
   const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(pathname)
 
@@ -95,7 +99,7 @@ export function AppShellChrome({
     >
       <AppSidebar
         projectId={projectId}
-        onSide={routeSide !== null}
+        onSide={onSide}
         projects={chrome.projects}
         {...account}
         canAccessOfficeShelf={chrome.canAccessOfficeShelf}
@@ -105,7 +109,7 @@ export function AppShellChrome({
         showModels={chrome.showModels}
         inboundMailEnabled={chrome.inboundMail}
       />
-      {children}
+      <ShellSideRowProvider value={sideRow}>{children}</ShellSideRowProvider>
       {tabBarShown && (
         <PhoneTabBar
           projectId={projectId}

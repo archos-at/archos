@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, the page no longer jumps when you go from the chat to another
+    tab and back: the Persönlich | Projekt switch now comes and goes with the
+    chat, and the project's name beside it fades in when you switch sides.

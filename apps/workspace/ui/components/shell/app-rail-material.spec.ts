@@ -4,6 +4,7 @@ import { act, render, screen } from '@/test-utils'
 import { nodesOf, parseSource, productionSources, walk, ts } from '@/test-utils/source-ast'
 import { AppSidebar } from './app-sidebar'
 import { PhoneMoreSheet } from './phone-more-sheet'
+import { PhoneChatSideRow } from './phone-side-bar'
 import { ProjectSectionFrame } from './project-section-frame'
 import { ProjectSwitcher } from './project-switcher'
 import { RAIL_CHAT_LIMIT, RailChatList, RailChatsSource, type RailChats } from './rail-chats'
@@ -253,7 +254,9 @@ describe('the app rail’s material', () => {
 
     shell.pathname = '/app/projects/p1/chat'
     const chat = renderRail().container.querySelector('header[data-scope="project"]') as HTMLElement
-    expect(chat.querySelector('[data-slot="phone-side-bar"] [data-project-selector]')).toHaveTextContent('Project One')
+    expect(chat.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
+    const row = render(createElement(PhoneChatSideRow, { projectId: 'p1', onSide: true, projects: PROJECTS, pathname: shell.pathname }))
+    expect(row.container.querySelector('[data-slot="phone-side-bar"] [data-project-selector]')).toHaveTextContent('Project One')
 
     const doors = railFiles().filter((file) => jsxTagsOf(file).includes('PhoneProjectList'))
     expect(doors).toEqual([fileOf('ui/components/shell/phone-more-sheet')])

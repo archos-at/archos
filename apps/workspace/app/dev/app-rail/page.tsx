@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
+import { PhoneChatSideRow } from '@/components/shell/phone-side-bar'
 import { KeyboardShortcuts } from '@/components/shell/keyboard-shortcuts'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
@@ -106,8 +107,9 @@ export default function AppRailPreview(): JSX.Element {
 
       {/* Content stand-in: the rail is the subject, but it is only honest to
           judge its edge against the surface it actually borders. */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-6">
-        <p className="text-muted-foreground font-mono text-xs">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <PhoneChatSideRow projectId={projectId} onSide projects={PROJECTS} pathname={previewPath} />
+        <p className="text-muted-foreground p-6 font-mono text-xs">
           /dev/app-rail —{' '}
           {variant === 'collapsed'
             ? 'collapsed icon rail (64px)'

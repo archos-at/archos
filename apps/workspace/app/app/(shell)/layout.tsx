@@ -7,6 +7,7 @@ import { ChatResumeRecorder } from '@/features/chat/components/chat-resume-recor
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
+import { PhoneChatSideRowSlot } from '@/components/shell/phone-side-bar'
 import { LAST_PLACE_COOKIE } from '@/components/shell/landing'
 import { sideOfLastPlace } from '@/components/shell/shell-side'
 import { resolveShellChrome } from '@/lib/shell/chrome'
@@ -64,6 +65,9 @@ export default async function AppShellLayout({
       >
         <RouteFocus />
         <MainScrollMemory />
+        {/* The phone chat's side row stands at the top of the page, not above `main`:
+            leaving or reaching the chat swaps it with the page, so `main` never moves. */}
+        <PhoneChatSideRowSlot />
         {children}
       </main>
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
