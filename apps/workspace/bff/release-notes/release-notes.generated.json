@@ -697,6 +697,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
+            "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "A new chat now opens with its greeting and input box already in place, instead of first showing the outline of a conversation that is loading. The outline appears only when a chat is actually being picked up again.",
