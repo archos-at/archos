@@ -376,6 +376,10 @@
     "de": "Eine neben dem Chat geöffnete Datei zeigt jetzt unter ihrem Namen Format, Seitenanzahl und Größe an; bei PDFs werden Seitenzahl und Zoom über den Seiten eingeblendet. So sehen Sie, worauf sich Ihre Frage bezieht, bevor Sie sie stellen."
   },
   {
+    "en": "A file opened beside the chat now slides in and out smoothly, the page beside it easing into its new width instead of jumping in the first moment.",
+    "de": "Eine neben dem Chat geöffnete Datei gleitet jetzt sanft ein und aus, während sich die danebenliegende Seite fließend an die neue Breite anpasst, statt im ersten Moment zu springen."
+  },
+  {
     "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
     "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
   },
@@ -3256,6 +3260,10 @@
     "de": "Auf dem Smartphone bringt Sie der Tab Chat zurück zu Ihrem bisherigen Chat, statt einen neuen zu starten – so verlieren Sie Ihre Unterhaltung beim Blick in die Ablage nicht mehr."
   },
   {
+    "en": "On a phone, the Herleitung lists an answer's sources straight on its own panel, at the width of the cards above and below, instead of in a box inside the panel.",
+    "de": "Auf dem Smartphone listet die Herleitung die Quellen einer Antwort direkt auf dem eigenen Panel auf – in derselben Breite wie die Karten darüber und darunter, statt in einer Box innerhalb des Panels."
+  },
+  {
     "en": "On a phone, the Herleitung under an answer used to swallow every swipe: a finger anywhere on it moved nothing, so you could not scroll past it to the answer itself. It now scrolls like the rest of the page.",
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
@@ -3370,6 +3378,10 @@
   {
     "en": "On the overview the Steckbrief is now a summary with a „Bearbeiten“ dialog, and closing a project asks who was involved, so the record is complete before it becomes read-only.",
     "de": "In der Übersicht ist der Steckbrief jetzt eine Zusammenfassung mit einem „Bearbeiten“-Dialog; beim Schließen eines Projekts wird abgefragt, wer beteiligt war, damit der Datensatz vollständig ist, bevor er schreibgeschützt wird."
+  },
+  {
+    "en": "On the phone, the highlight under the bottom tabs glides to the tab you tap in the same calm way.",
+    "de": "Auf dem Handy gleitet die Hervorhebung unter den unteren Tabs ebenso ruhig zu dem Tab, den Sie antippen."
   },
   {
     "en": "On the website's home page, the feld72 quote is new and stands beside a photo of the whole feld72 team, credited to its photographer, and the founders row now says who the three people are. Large retina screens and phones can now be sent larger images, so screenshots and photos stay sharp there once their full-size originals are in.",
@@ -5760,8 +5772,16 @@
     "de": "Wenn eine Suche keine Quellen findet, zeigt Piloti jetzt die Antwort mit einem Hinweis an, dass sie auf allgemeinem Wissen beruht, statt nur mitzuteilen, dass nichts gefunden wurde. Eine Entscheidung ohne Quelle wird weiterhin nicht angezeigt."
   },
   {
+    "en": "When a skill, an upload error or a dictation note appears under what you are typing in the chat, the input box now grows to make room smoothly instead of jumping, and shrinks back the same way.",
+    "de": "Wenn unter Ihrer Eingabe im Chat ein Skill, ein Upload-Fehler oder ein Diktierhinweis erscheint, wächst das Eingabefeld jetzt sanft, um Platz zu schaffen, statt zu springen, und schrumpft ebenso sanft wieder."
+  },
+  {
     "en": "When an answer fails partway, the words already written stay on screen, dimmed above the error, and Erneut versuchen replaces them with a fresh answer.",
     "de": "Wenn eine Antwort mittendrin fehlschlägt, bleiben die bereits geschriebenen Wörter oberhalb des Fehlers abgeblendet am Bildschirm, und „Erneut versuchen“ ersetzt sie durch eine neue Antwort."
+  },
+  {
+    "en": "When an answer finishes without research or after a single lookup, the \"Herleitung\" above it now settles into its final size smoothly, so the answer underneath no longer jumps down at the end.",
+    "de": "Wenn eine Antwort ohne Recherche oder nach einer einzigen Suche fertig wird, nimmt die Herleitung darüber jetzt fließend ihre endgültige Größe an, sodass die darunterliegende Antwort am Ende nicht mehr nach unten springt."
   },
   {
     "en": "When an answer names a file, such as „Beginnen Sie mit pd8280-2.pdf“, the name is now a link that opens the document beside the answer, in running text and in tables alike.",
