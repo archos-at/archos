@@ -137,6 +137,19 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'project' }],
     metadata: { folderId: 'string', grants: 'string', roles: 'string', documentsMoved: 'number' },
   },
+  'org.confidential_release.updated': {
+    targets: [{ type: 'organization' }],
+    metadata: { enabled: 'string', previous: 'string' },
+  },
+  'conversation.confidential_released': {
+    targets: [{ type: 'conversation' }],
+    metadata: {
+      projectId: 'string',
+      folderId: 'string',
+      sourceFolders: 'string',
+      sourceProjects: 'string',
+    },
+  },
   'org.deleted_folder_content.updated': {
     targets: [{ type: 'organization' }],
     metadata: { policy: 'string' },

@@ -27892,6 +27892,107 @@
         }
       }
     },
+    "/api/organization/confidential-release": {
+      "get": {
+        "operationId": "organization-confidential-release-get",
+        "summary": "Read whether members may release confidential drafts",
+        "description": "Whether a member may file a chat draft drawn from restricted folders or other projects into a folder those sources do not restrict, after confirming they checked it. Any member may read. Change with organization-confidential-release-set.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read whether members may release confidential drafts",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "put": {
+        "operationId": "organization-confidential-release-set",
+        "summary": "Allow or forbid releasing confidential drafts",
+        "description": "Switches whether a member may release a chat draft drawn from restricted folders or other projects into a wider folder after confirming they checked it. Off, such drafts file only where their sources allow. Needs org:settings:manage. Read the current choice with organization-confidential-release-get.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-sensitivity": "control",
+        "x-mcp-annotations": {
+          "title": "Allow or forbid releasing confidential drafts",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/organization/countries": {
       "get": {
         "operationId": "organization-countries-get",

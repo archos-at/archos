@@ -719,8 +719,9 @@ anything else or with a different content type.
   bytes are stamped with the AI marking as above, but the row is the person's
   own upload, not an agent-authored document, because Meine Ablage has no review
   or Fassungen. `requireMayFileFrom` decides with the person's shelf as the
-  destination, so a chat that drew on a project or a restricted folder, or on
-  someone else's shelf, is refused. A name already taken answers `409
+  destination, so a chat that drew on someone else's shelf is refused, and one
+  that drew on a project or a restricted folder files only once the person
+  releases it on the card (ADR-0197, „Beruht auf vertraulichen Unterlagen“). A name already taken answers `409
   same-name`; „Unter neuem Namen ablegen“ saves as „Name (2)“. Saving a changed
   draft again replaces the file it saved before as a new version, wherever the
   person moved it.

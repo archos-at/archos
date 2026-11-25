@@ -522,6 +522,16 @@ export const chat = {
       },
     },
     documentDraft: {
+      release: {
+        title: 'Based on confidential sources',
+        body: 'Not everyone who sees the chosen place may read these sources. Check the draft before you file it there:',
+        folder: 'Folder “{name}”',
+        folderIn: 'Folder “{name}” in {project}',
+        project: 'Project “{name}”',
+        confirm: 'I checked the draft. It holds nothing confidential from these sources.',
+        file: 'Release and file',
+        keep: 'Don’t file',
+      },
       eyebrow: 'Draft',
       version: 'v{version}',
       draftState: 'Draft',

@@ -48,6 +48,18 @@ export class ConversationConfinedError extends ApiError {
   }
 }
 
+export interface ConfidentialSource {
+  kind: 'folder' | 'project'
+  name: string
+  project?: string
+}
+
+export class ConfidentialReleaseRequiredError extends ApiError {
+  constructor(message: string, readonly sources: ConfidentialSource[]) {
+    super(409, 'CONFIDENTIAL_RELEASE_REQUIRED', message, { reason: 'confidential-release', sources })
+  }
+}
+
 export class CrossProjectAudienceChangedError extends ApiError {
   constructor(message: string) {
     super(409, 'CROSS_PROJECT_AUDIENCE_CHANGED', message)

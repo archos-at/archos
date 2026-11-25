@@ -104,7 +104,7 @@ export async function fileDraftToPersonalShelf(
   }
 
   await requireMayFileFrom(
-    { conversationId, locale: context.locale ?? AGENT_REFUSAL_LOCALE },
+    { conversationId, locale: context.locale ?? AGENT_REFUSAL_LOCALE, release: context.release },
     {
       organizationId: session.organizationId,
       projectId: null,

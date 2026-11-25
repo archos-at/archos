@@ -11,6 +11,8 @@ import type { PlanDocument } from '@/lib/runs/plan-documents'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
 import { personalShelfUseOf } from './personal-shelf-use'
 import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import type { AuthorizedSession } from '@/lib/auth/types'
+import { releaseConfidential } from './confidential-release'
 
 export type ConfinedAction = ConversationConfinedError['action']
 
@@ -20,9 +22,16 @@ export function confinementRefusal(action: ConfinedAction, locale: Locale): Conv
   return new ConversationConfinedError(action, errorsCopy.messages[locale].confinement[action])
 }
 
+export interface FilingRelease {
+  session: AuthorizedSession
+  confirmed: boolean
+  request?: Request
+}
+
 export interface ConversationOrigin {
   conversationId: string | null
   locale: Locale
+  release?: FilingRelease
 }
 
 async function originFolders(origin: ConversationOrigin, organizationId: string): Promise<string[]> {
@@ -65,6 +74,16 @@ export interface FilingDestination {
 }
 
 export async function requireMayFileFrom(origin: ConversationOrigin, destination: FilingDestination): Promise<void> {
+  try {
+    await requireFilingWithinSources(origin, destination)
+  } catch (error) {
+    const releasable = error instanceof ConversationConfinedError && error.action === 'filing'
+    if (!releasable || !origin.release || !origin.conversationId) throw error
+    await releaseConfidential({ ...origin, conversationId: origin.conversationId, release: origin.release }, destination, error)
+  }
+}
+
+async function requireFilingWithinSources(origin: ConversationOrigin, destination: FilingDestination): Promise<void> {
   const { organizationId, projectId, folderId } = destination
   const personal = await originPersonalShelf(origin, organizationId)
   if (personal) {

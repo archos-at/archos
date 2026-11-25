@@ -39,6 +39,10 @@ export const usageQuerySchema = z.object({
   projectId: z.string().optional(),
 })
 
+export const confidentialReleaseSchema = z.object({
+  enabled: z.boolean(),
+})
+
 export const deletedFolderContentSchema = z.object({
   policy: z.enum(DELETED_FOLDER_CONTENT_POLICIES),
 })

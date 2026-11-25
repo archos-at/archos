@@ -48,7 +48,11 @@ against the folders' current access; `lib/conversations/restricted-egress.ts`):
 `POST /api/internal/document-versions` (`create` and `update`) and
 `POST /api/projects/{id}/diagrams` when the body names its `conversationId`.
 Filing is allowed only into a living folder whose path carries every folder
-the conversation recorded.
+the conversation recorded, unless a person in the app releases it
+(ADR-0197): `draft/file` with `release: true` files anywhere the person may
+write once the office allows release and the person may still read every
+source; without it the route answers `409 CONFIDENTIAL_RELEASE_REQUIRED` with
+`details.sources`. Agents never release.
 
 **A run's Unterlagen** are refused the same way, with `details.action`
 `planDocument`, whichever conversation they come from: `POST /api/projects/{id}/runs`
@@ -618,6 +622,8 @@ Source: `apps/workspace/app/api/organizations/route.ts`
 | `DELETE` | `/api/organization/roles/{slug}` | `org:members:manage` | Delete a custom role. 409 `role-assigned` while anybody holds it (WorkOS refuses); a platform role is refused (403). Folders do not name roles since ADR-0097, so deleting or renaming one changes no folder's access. Audited as `org.role.deleted`. | — | `{ slug }` |
 | `GET` | `/api/organization/upload-screening` | Required | The office's upload-screening policy (ADR-0086); any member reads it, because every upload screens names against it before anything is sent. The browser reads it afresh for every upload (one shared request while one is in flight) and sends nothing when it fails: there is no fallback to `suggestion` on the upload path. An unreadable settings row is a 500, not the suggestion. | — | `{ policy, suggested, suggestion }` |
 | `PUT` | `/api/organization/upload-screening` | `org:settings:manage` | Save it; the only writer of `settings.uploadScreening` (the generic settings save refuses the key). Invalidates the shared server cache, so the server's repeat of the name gate uses it from the next request; the settings card also drops a policy read already under way in the same tab (`forgetPendingUploadScreeningPolicyRead`); nothing else is kept between reads. | `UploadScreeningPolicy` | `{ policy, suggested: false }` |
+| `GET` | `/api/organization/confidential-release` | Required | „Vertrauliches freigeben“ (ADR-0197): whether a member may release a draft drawn from restricted folders or other projects after checking it. Any member reads it; unset reads as `true`. | — | `{ enabled }` |
+| `PUT` | `/api/organization/confidential-release` | `org:settings:manage` | Set it; the only writer of `settings.confidentialRelease`. Audited as `org.confidential_release.updated`. | `{ enabled }` | `{ enabled }` |
 | `GET` | `/api/organization/deleted-folder-content` | Required | „Inhalte aus gelöschten Ordnern“ (ADR-0088): who sees chats, answers and notes drawn from a purged folder. Any member reads it. | — | `{ policy: 'unchanged' \| 'project' \| 'admins' \| 'remove' }` |
 | `PUT` | `/api/organization/deleted-folder-content` | `org:settings:manage` | Set it; the only writer of `settings.deletedFolderContent` (the generic settings save refuses the key). Applied at read time by the folder rule, so it takes effect at once, for folders purged earlier too. Audited as `org.deleted_folder_content.updated`. | `{ policy }` | `{ policy }` |
 
@@ -625,7 +631,7 @@ Source: `apps/workspace/app/api/organizations/route.ts`
 | `PUT` | `/api/organization/download-log/retention` | `org:settings:manage` | How long the log is kept, in whole days from 30 to 365; 365 is the default and the ceiling, so an organization can only shorten it (400 otherwise). The only writer of `settings.downloadLogRetentionDays`: the generic `PUT /api/organization/settings` refuses the key. Audited as `download_log.retention.updated` with the value before and after. The scheduler purges daily. | `{ days: number }` | `{ days, previous }` |
 | `PUT` | `/api/organization/web-search` | `org:settings:manage` | Whether the agent may search the web for the organization (ADR-0022); the WorkOS `web-search` flag still has the last word. The only writer of `settings.webSearchEnabled`: the generic `PUT /api/organization/settings` refuses the key. Audited as `org.settings.updated` (`settings.webSearchEnabled` when it moved). The agent operation `organization-web-search-set` is withheld from every agent door (product configuration, ADR-0122 amendment). | `{ enabled: boolean }` | `{ webSearchEnabled }` |
 
-Sources: `apps/workspace/app/api/organization/{model-config,budgets,usage,audit-portal,roles,download-log,deleted-folder-content}/…` (roles service: `apps/workspace/bff/authz/custom-roles.ts`; download log: `apps/workspace/bff/download-log/`)
+Sources: `apps/workspace/app/api/organization/{model-config,budgets,usage,audit-portal,roles,download-log,deleted-folder-content,confidential-release}/…` (roles service: `apps/workspace/bff/authz/custom-roles.ts`; download log: `apps/workspace/bff/download-log/`)
 
 ### Platform tier (platform owner only, ADR-0016)
 

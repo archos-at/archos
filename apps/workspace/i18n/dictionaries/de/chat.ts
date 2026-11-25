@@ -529,6 +529,16 @@ export const chat: typeof en.chat = {
       },
     },
     documentDraft: {
+      release: {
+        title: 'Beruht auf vertraulichen Unterlagen',
+        body: 'Nicht alle, die den gewählten Ort sehen, dürfen diese Quellen lesen. Prüfen Sie den Entwurf, bevor Sie ihn dort ablegen:',
+        folder: 'Ordner „{name}“',
+        folderIn: 'Ordner „{name}“ in {project}',
+        project: 'Projekt „{name}“',
+        confirm: 'Ich habe den Entwurf geprüft. Er enthält nichts Vertrauliches aus diesen Quellen.',
+        file: 'Freigeben und ablegen',
+        keep: 'Nicht ablegen',
+      },
       eyebrow: 'Entwurf',
       version: 'v{version}',
       draftState: 'Entwurf',

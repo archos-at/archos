@@ -3311,6 +3311,32 @@
    },
    "reason": null
   },
+  "organization-confidential-release-get": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "product-config",
+    "reason": "whether a member may release a confidential draft; a policy a person sets"
+   },
+   "reason": null
+  },
+  "organization-confidential-release-set": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": "control",
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "product-config",
+    "reason": "whether a member may release a confidential draft; a policy a person sets"
+   },
+   "reason": null
+  },
   "organization-countries-get": {
    "kind": "catalog",
    "domain": "organization",

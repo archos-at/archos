@@ -23,6 +23,23 @@ function stubbedFetch(real: typeof fetch): typeof fetch {
     const url = String(input instanceof Request ? input.url : input)
     if (url.endsWith('/folders')) return answer(200, { folders: FOLDERS, rootAccess: 'write' })
     if (url.startsWith('/api/documents/')) return answer(200, { document: { id: 'doc-raumbuch', folderId: FOLDERS[0].id } })
+    if (url.includes('/draft/file') && String(init?.body ?? '').includes('Mitwirkende')) {
+      if (String(init?.body).includes('"release":true')) {
+        return answer(201, { documentId: 'doc-mit', versionId: 'ver-mit', state: 'published', alreadyFiled: false, folderName: 'Berichte' })
+      }
+      return answer(409, {
+        code: 'CONFIDENTIAL_RELEASE_REQUIRED',
+        error: 'release',
+        details: {
+          reason: 'confidential-release',
+          sources: [
+            { kind: 'folder', name: 'Verträge' },
+            { kind: 'folder', name: 'Honorare', project: 'Wohnbau Seestadt' },
+            { kind: 'project', name: 'Schule Nord' },
+          ],
+        },
+      })
+    }
     if (url.includes('/draft/file')) {
       return answer(409, { code: 'CONFLICT', error: 'changed', details: { reason: 'changed-in-project', versionNumber: 3 } })
     }
@@ -90,6 +107,10 @@ export default function DraftCardStatesPreview() {
             cardKey="state-derived"
             urls={{ rendition: '/dev/no-such-rendition.pdf', download: '/dev/no-such-file' }}
           />
+        </Panel>
+
+        <Panel title="Beruht auf vertraulichen Unterlagen" note="Der Chat las eingeschränkte Ordner und andere Projekte. Nach der Ordnerwahl nennt die Karte die Quellen und legt erst nach der Bestätigung ab.">
+          <FileDraftCard title="Mitwirkende.pdf" path="/drafts/Mitwirkende.pdf" bytes={48_120} version={1} cardKey="state-confidential" />
         </Panel>
 
         <Panel title="Inzwischen überarbeitet" note="Eine Karte aus einer früheren Antwort, deren Entwurf seither neu geschrieben wurde.">

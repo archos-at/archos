@@ -184,6 +184,50 @@ describe('FileDraftCard — filing', () => {
     expect(screen.queryByText(/project/i)).not.toBeInTheDocument()
   })
 
+  it('names the confidential sources, files only once the person confirmed they checked it, and asks again next time', async () => {
+    let calls = 0
+    stubFetch(() => {
+      calls += 1
+      if (calls === 1) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({
+            error: 'release',
+            code: 'CONFIDENTIAL_RELEASE_REQUIRED',
+            details: {
+              reason: 'confidential-release',
+              sources: [
+                { kind: 'folder', name: 'Verträge' },
+                { kind: 'project', name: 'Wohnbau Nord' },
+              ],
+            },
+          }),
+        })
+      }
+      return filedResponse('Planung')()
+    })
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    const notice = await screen.findByTestId('draft-confidential-release')
+    expect(within(notice).getByTestId('draft-confidential-sources')).toHaveTextContent('Folder “Verträge”')
+    expect(within(notice).getByTestId('draft-confidential-sources')).toHaveTextContent('Project “Wohnbau Nord”')
+    expect(filingBody(0)).not.toHaveProperty('release')
+
+    await user.click(within(notice).getByTestId('draft-confidential-file'))
+    expect(calls).toBe(1)
+
+    await user.click(within(notice).getByTestId('draft-confidential-confirm'))
+    await user.click(within(notice).getByTestId('draft-confidential-file'))
+
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Planung”'))
+    expect(filingBody(1)).toEqual(expect.objectContaining({ release: true }))
+    expect(screen.queryByTestId('draft-confidential-release')).not.toBeInTheDocument()
+  })
+
   it('files the file through the save dialog, then says where it lies and offers the project', async () => {
     stubFetch(filedResponse('Berichte'))
     const user = userEvent.setup()

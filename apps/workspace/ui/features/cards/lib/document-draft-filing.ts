@@ -37,6 +37,7 @@ export interface DraftDestination {
   as?: 'own' | 'revision'
   changeNote?: string
   overChanges?: boolean
+  release?: boolean
 }
 
 export interface FileDraftInput {
@@ -48,13 +49,14 @@ export interface FileDraftInput {
 
 function destinationBody(destination: DraftDestination | undefined): Record<string, unknown> {
   if (!destination) return {}
-  const { folderId, name, as, changeNote, overChanges } = destination
+  const { folderId, name, as, changeNote, overChanges, release } = destination
   return {
     ...(folderId !== undefined ? { folderId } : {}),
     ...(name !== undefined ? { name } : {}),
     ...(as ? { as } : {}),
     ...(changeNote ? { changeNote } : {}),
     ...(overChanges ? { overChanges } : {}),
+    ...(release ? { release } : {}),
   }
 }
 
