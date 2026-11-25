@@ -55,7 +55,7 @@ Under every folder's files sits one quiet line, for example „35 von 44
 Dokumenten gelesen in diesem Projekt“. When ARCHOS could not read something, a
 line in ochre above the files says so too („2 Dokumente konnten nicht gelesen
 werden. Ansehen“), so a long list does not hide it; „Ansehen“ lists those
-files. It covers the folder and everything
+files, and the line steps aside while they are listed. It covers the folder and everything
 inside it, subfolders included, so you can see what has been read without
 opening each folder. Click the line and the full overview opens around it; click
 it again to fold it. The choice is remembered in this browser.
