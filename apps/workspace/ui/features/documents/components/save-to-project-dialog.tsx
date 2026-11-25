@@ -301,7 +301,7 @@ function Crumb({ label, current, onOpen }: { label: string; current: boolean; on
           <button
             type="button"
             onClick={onOpen}
-            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 transition-colors focus-visible:outline-none focus-visible:ring-2"
+            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 pointer-coarse:min-h-11 transition-colors focus-visible:outline-none focus-visible:ring-2"
           >
             {label}
           </button>

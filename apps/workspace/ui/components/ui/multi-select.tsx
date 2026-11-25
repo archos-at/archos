@@ -150,7 +150,7 @@ function MultiSelect({
               className={cn(
                 'text-muted-foreground flex min-h-7 flex-1 items-center justify-between gap-2 rounded-control px-1.5 text-left outline-none disabled:cursor-not-allowed',
                 value.length === 0 ? 'min-w-16' : 'min-w-6 justify-end',
-                'pointer-coarse:min-h-9'
+                'pointer-coarse:min-h-11'
               )}
             >
               <span className="truncate">{value.length === 0 ? placeholder : ''}</span>

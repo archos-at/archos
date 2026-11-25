@@ -38,7 +38,7 @@ const FIXTURES = {
     'export default function Page({ flag, id }: { flag: boolean; id: string }) {',
     '  if (flag) { const [x] = useState(0); void x }',
     '  useEffect(() => { void id }, [])',
-    '  return <div className="transition-all"><img src="/x.png" alt="" /><input className="focus-visible:ring-2" /></div>',
+    '  return <div className="transition-all"><img src="/x.png" alt="" /><input className="focus-visible:ring-2" /><button className="size-7" /></div>',
     '}',
   ].join('\n'),
   'bff/canary.ts': [
@@ -76,6 +76,7 @@ const EXPECTED = [
   ['app/canary/page.tsx', 'grid(motion-vocabulary)'],
   ['app/canary/page.tsx', 'next(no-img-element)'],
   ['app/canary/page.tsx', 'grid(field-focus-inside)'],
+  ['app/canary/page.tsx', 'grid(touch-target)'],
   ['bff/canary.ts', 'grid(require-tenant-cache-key)'],
   ['bff/canary.ts', 'grid(no-restricted-syntax)'],
   ['app/api/canary/route.ts', 'eslint(no-restricted-imports)'],

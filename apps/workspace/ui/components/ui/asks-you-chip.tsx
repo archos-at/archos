@@ -18,7 +18,7 @@ export function AsksYouChip({
       type="button"
       onClick={onPress}
       className={cn(
-        'bg-sheet shadow-press text-foreground hover:shadow-xs focus-visible:ring-ring inline-flex h-7 shrink-0 items-center gap-1 rounded-full pl-2.5 pr-1.5 text-xs font-medium tabular-nums transition-shadow duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none relative after:absolute after:inset-x-0 after:-inset-y-2',
+        'bg-sheet shadow-press text-foreground hover:shadow-xs focus-visible:ring-ring inline-flex h-7 shrink-0 items-center gap-1 pointer-coarse:h-11 rounded-full pl-2.5 pr-1.5 text-xs font-medium tabular-nums transition-shadow duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none relative after:absolute after:inset-x-0 after:-inset-y-2',
         className
       )}
       data-slot="asks-you-chip"

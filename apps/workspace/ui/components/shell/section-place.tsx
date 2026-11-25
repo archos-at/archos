@@ -77,7 +77,7 @@ export function SectionPlaceLine({ place }: { place: SectionPlace }): JSX.Elemen
         aria-label={place.up.label}
         title={place.up.label}
         data-testid="page-header-up"
-        className="text-muted-foreground hover:bg-desk hover:text-foreground -ml-1.5 flex size-7 shrink-0 items-center justify-center rounded-control"
+        className="text-muted-foreground hover:bg-desk hover:text-foreground -ml-1.5 flex size-7 shrink-0 items-center justify-center rounded-control pointer-coarse:size-11"
       >
         <ArrowLeft className="size-4" aria-hidden />
       </button>

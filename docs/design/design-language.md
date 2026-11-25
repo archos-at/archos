@@ -545,8 +545,9 @@ insets too.
 
 Held statically by `apps/workspace/ui/components/ui/touch-target.spec.ts`,
 `apps/workspace/ui/components/ui/mobile-affordances.spec.ts` and
-`apps/workspace/ui/components/ui/breakpoints.spec.ts`, and in the browser by
-`task workspace:phone-audit`, CI's phone gate: every `/dev` route at 390 and 360,
+`apps/workspace/ui/components/ui/breakpoints.spec.ts` and the lint rule
+`grid/touch-target` (a control under 44px on a touch screen), and by hand in the
+browser by `task workspace:phone-audit`: every `/dev` route at 390 and 360,
 failing on any new sideways scroll or control under 44x44. What
 `ci/phone-audit-baseline.json` lists is known and still to fix, so a green run does
 not mean every page is clean (`docs/contributing/testing-and-verification.md`).
