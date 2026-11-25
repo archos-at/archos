@@ -915,7 +915,8 @@ cubic-bezier in a component.**
 | `--motion-ambient-slow` | 2600 | Text shimmer |
 
 Exits run **one step shorter** than their entrance. Nobody wants to watch a
-thing they just dismissed.
+thing they just dismissed. A `motionQuick` entrance leaves on `motionSnapExit`
+(120ms), a `motionBase` one on `motionQuickExit` (180ms).
 
 ### Easings
 
@@ -1036,6 +1037,9 @@ times stops being a physical cue and becomes texture.
   keeps its entrance, the palette included: the search button opens it with
   the dialog's fade and scale (`useShellOverlays().paletteSummon`), so a click
   never lands on a panel that simply appears.
+  The composer's typed pickers (`/` skills, `@` mentions, the search picker)
+  follow the same rule: the keystroke summons them, so they stand at once,
+  with no fade and no rise.
 - **A switch of place does not replay travel.** Persönlich ↔ Projekt and
   project → project remount the chat and the project's section, and the chat
   store catches up with the new route a moment later (the other project's

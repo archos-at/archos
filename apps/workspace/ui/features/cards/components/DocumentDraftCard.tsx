@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnapExit } from '@/components/motion'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
 import { StackedLabel } from '@/components/ui/stacked-label'
@@ -112,7 +112,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             data-testid="document-draft-state"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: reduced ? motionInstant : motionQuick }}
-            exit={{ opacity: 0, transition: reduced ? motionInstant : motionQuickExit }}
+            exit={{ opacity: 0, transition: reduced ? motionInstant : motionSnapExit }}
           >
             {filing.stateLabel}
           </motion.span>

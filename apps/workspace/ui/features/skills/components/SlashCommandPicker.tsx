@@ -177,7 +177,6 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         data-testid="slash-command-picker"
         className={cn(
         'bg-popover text-popover-foreground flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl shadow-lg',
-          'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
       >

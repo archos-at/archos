@@ -350,7 +350,6 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
         data-testid="mention-picker"
         className={cn(
           'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl shadow-lg',
-          'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
       >
