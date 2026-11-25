@@ -16,7 +16,7 @@ import { type OperationInput, type OperationResult, OperationInputError, validat
 import type { AgentOperation } from './operation'
 import { callDecision, findVisibleOperation } from './policy'
 import type { AgentPrincipal } from './principal'
-import type { McpCallContext } from './telemetry'
+import type { CallVia, McpCallContext } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 export const TASKS_EXTENSION = 'io.modelcontextprotocol/tasks'
@@ -29,7 +29,7 @@ export const PROGRESS_STEP_SECONDS = 5
 
 const DEFAULT_POLL_MS = 10_000
 
-function askOperations(principal: AgentPrincipal): Record<'create' | 'get' | 'cancel', AgentOperation> | null {
+function askOperations(principal: AgentPrincipal): AskOperations | null {
   const create = findVisibleOperation(principal, ASK_CREATE)
   const get = findVisibleOperation(principal, ASK_GET)
   const cancel = findVisibleOperation(principal, ASK_CANCEL)
@@ -80,15 +80,17 @@ const STATUS_TEXT: Readonly<Record<AskState, string>> = {
 }
 
 export async function runAskCreate(
-  ctx: McpCallContext,
+  callCtx: McpCallContext,
   input: OperationInput,
   call: ServerContext | null,
 ): Promise<CallToolResult> {
-  const ops = askOperations(ctx.principal)
+  const ops = askOperations(callCtx.principal)
   const token = call?.mcpReq._meta?.progressToken
   const tasks = call !== null && declaresTasks(call)
   const budget = waitBudget(input)
-  if (!ops || !call || (!tasks && (token === undefined || budget === 0))) return runOperation(ctx, ASK_CREATE, input)
+  const waits = !ops || !call || (!tasks && (token === undefined || budget === 0))
+  const ctx: McpCallContext = { ...callCtx, askPath: waits ? 'wait' : tasks ? 'task' : 'progress' }
+  if (waits) return runOperation(ctx, ASK_CREATE, input)
   try {
     validateOperationInput(ops.create, input)
   } catch (error) {
@@ -170,9 +172,14 @@ function requireDeclared(call: ServerContext): void {
   }
 }
 
-async function readTask(ctx: McpCallContext, op: AgentOperation, taskId: string): Promise<{ view: AskView; result: OperationResult }> {
+export async function readTask(
+  ctx: McpCallContext,
+  op: AgentOperation,
+  taskId: string,
+  waitSeconds = 0,
+): Promise<{ view: AskView; result: OperationResult }> {
   if (!z.guid().safeParse(taskId).success) throw unknownTask()
-  const read = await callAsk(ctx, op, { params: { id: taskId } })
+  const read = await callAsk(ctx, op, { params: { id: taskId }, query: { waitSeconds } })
   if ('view' in read) return read
   if (read.status === 404) throw unknownTask()
   throw new ProtocolError(ProtocolErrorCode.InternalError, textOf(read.refusal))
@@ -181,26 +188,35 @@ async function readTask(ctx: McpCallContext, op: AgentOperation, taskId: string)
 const textOf = (result: CallToolResult): string =>
   result.content.map((block) => (block.type === 'text' ? block.text : '')).join(' ').trim() || 'The ask could not be read.'
 
+export function detailedTaskOf(ops: Pick<AskOperations, 'create'>, read: { view: AskView; result: OperationResult }) {
+  const task = taskOf(read.view)
+  return task.status === 'completed' ? { ...task, result: fromOperationResult(ops.create, read.result) } : { ...task }
+}
+
+export type AskOperations = Record<'create' | 'get' | 'cancel', AgentOperation>
+
+export const askOperationsFor = (principal: AgentPrincipal): AskOperations | null => askOperations(principal)
+
+const via = (ctx: McpCallContext, how: CallVia): McpCallContext => ({ ...ctx, via: how })
+
 export function registerAskTasks(server: McpServer, ctx: McpCallContext): void {
   const ops = askOperations(ctx.principal)
   if (!ops) return
   server.server.setRequestHandler('tasks/get', { params: taskParams }, async ({ taskId }, call) => {
     requireDeclared(call)
-    const { view, result } = await readTask(ctx, ops.get, taskId)
-    const task = taskOf(view)
-    return task.status === 'completed' ? { ...task, result: fromOperationResult(ops.create, result) } : { ...task }
+    return detailedTaskOf(ops, await readTask(via(ctx, 'tasks/get'), ops.get, taskId))
   })
   server.server.setRequestHandler('tasks/cancel', { params: taskParams }, async ({ taskId }, call) => {
     requireDeclared(call)
     if (!z.guid().safeParse(taskId).success) throw unknownTask()
-    const read = await callAsk(ctx, ops.cancel, { params: { id: taskId } })
+    const read = await callAsk(via(ctx, 'tasks/cancel'), ops.cancel, { params: { id: taskId } })
     if ('view' in read || read.status === 409) return {}
     if (read.status === 404) throw unknownTask()
     throw new ProtocolError(ProtocolErrorCode.InternalError, textOf(read.refusal))
   })
   server.server.setRequestHandler('tasks/update', { params: taskParams }, async ({ taskId }, call) => {
     requireDeclared(call)
-    await readTask(ctx, ops.get, taskId)
+    await readTask(via(ctx, 'tasks/update'), ops.get, taskId)
     return {}
   })
 }

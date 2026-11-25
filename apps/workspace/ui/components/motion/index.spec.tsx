@@ -11,6 +11,7 @@ import {
   motionInstant,
   motionQuick,
   motionQuickExit,
+  motionSnapExit,
   motionSheetEnter,
   motionSnap,
   springDrawer,
@@ -186,6 +187,12 @@ describe('tween scale', () => {
     expect(motionQuickExit.duration).toBeLessThan(motionBase.duration as number)
     const [x1, y1] = motionQuickExit.ease as [number, number, number, number]
     expect(y1).toBeGreaterThan(x1)
+  })
+
+  it('gives a quick entrance its own shorter exit, on the same curve', () => {
+    expect(motionSnapExit.duration).toBe(motionSnap.duration)
+    expect(motionSnapExit.duration).toBeLessThan(motionQuick.duration as number)
+    expect(motionSnapExit.ease).toEqual(motionQuickExit.ease)
   })
 
   it('reduces to nothing at all — no duration and, as importantly, no delay', () => {

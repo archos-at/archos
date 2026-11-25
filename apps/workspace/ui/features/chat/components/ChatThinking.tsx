@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { HeightArrival } from '@/components/motion/height-arrival'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { SlideBelowScope, useSlideBelow } from '@/components/motion/slide-below'
 import { useHeightGlide } from '@/components/motion/height-glide'
@@ -607,25 +608,32 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
           still in flight (FIX 3) show a calm "checking for a finished answer"
           line; only once recovery has settled with nothing found do we prompt
           a resend. */}
-      {isInterrupted && isRecoveryPending ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <Spinner
-            size="xs"
-            className="mt-0.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.recoveringNotice')}
-          </span>
-        </div>
-      ) : isInterrupted ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.interruptedNotice')}
-          </span>
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {isInterrupted && (
+          <HeightArrival key="interrupted" testId="thinking-interrupted">
+            <div className="relative border-t border-border px-4 pb-3 pt-2.5">
+              <AnimatePresence initial={false} mode="popLayout">
+                <motion.div
+                  key={isRecoveryPending ? 'recovering' : 'interrupted'}
+                  className="flex items-start gap-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: enter }}
+                  exit={{ opacity: 0, transition: leave }}
+                >
+                  {isRecoveryPending ? (
+                    <Spinner size="xs" className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
+                  )}
+                  <span className="text-xs leading-relaxed text-muted-foreground" role="status">
+                    {t(isRecoveryPending ? 'thinking.recoveringNotice' : 'thinking.interruptedNotice')}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </HeightArrival>
+        )}
+      </AnimatePresence>
     </div>,
     'panel'
   )

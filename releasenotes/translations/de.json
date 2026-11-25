@@ -332,6 +332,10 @@
     "de": "Mit einem Feld oberhalb der Liste finden Sie E-Mails nach Absender oder Betreff."
   },
   {
+    "en": "A file ARCHOS makes in a Persönlich chat can now be kept: the card offers „In Meine Ablage legen“ and saves it to your own shelf. Until now the card offered „Ins Projekt ablegen“ there and it always failed, because a Persönlich chat has no project.",
+    "de": "Eine Datei, die ARCHOS in einem Persönlich-Chat erstellt, können Sie jetzt behalten: Die Karte bietet „In Meine Ablage legen“ an und speichert sie in Ihrer eigenen Ablage. Bisher schlägt „Ins Projekt ablegen“ dort immer fehl, weil ein Persönlich-Chat kein Projekt hat."
+  },
+  {
     "en": "A file Piloti could not start reading now says exactly that, instead of blaming a restart that never happened.",
     "de": "Wenn Piloti das Lesen einer Datei nicht starten konnte, wird jetzt genau das angezeigt, statt fälschlich einen Neustart als Ursache anzugeben, der nie stattgefunden hat."
   },
@@ -2878,6 +2882,10 @@
   {
     "en": "In the chat you can now measure a DXF drawing: how far a house stands from each boundary, how long the boundary to a neighbour is, and what remains buildable after the setbacks and the coverage you name.",
     "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
+  },
+  {
+    "en": "In the chat, the \"thinking\" dots, the note that a colleague's question is being answered and the notice about an interrupted answer now fade in and out instead of appearing and vanishing at once. In \"Letzte Chats\", a chat's working or answered mark changes over smoothly.",
+    "de": "Im Chat blenden die Denk-Punkte, der Hinweis, dass die Frage eines Kollegen beantwortet wird, und die Meldung über eine unterbrochene Antwort nun ein und aus, statt abrupt zu erscheinen und zu verschwinden. In „Letzte Chats“ wechselt die Kennzeichnung eines Chats als in Bearbeitung oder beantwortet nun fließend."
   },
   {
     "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
@@ -6006,6 +6014,10 @@
   {
     "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
     "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
+  },
+  {
+    "en": "When you type / or @ in the chat, the list of skills or people now appears at once instead of fading in, and questions ARCHOS puts to you leave a little faster once answered.",
+    "de": "Wenn Sie im Chat / oder @ eingeben, erscheint die Liste der Skills oder Personen jetzt sofort statt allmählich einzublenden, und Fragen, die ARCHOS Ihnen stellt, verschwinden nach der Beantwortung etwas schneller."
   },
   {
     "en": "When you upload a file that belongs in another folder, Piloti suggests that folder with a small chip on the file, and a bar above the folder moves several files into one folder together. Nothing moves until you confirm, and the suggestion shows the move and the reason first.",

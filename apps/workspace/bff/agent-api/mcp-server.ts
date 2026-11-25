@@ -4,6 +4,7 @@ import {
   type AuthInfo,
   CLIENT_CAPABILITIES_META_KEY,
   McpServer,
+  TRACEPARENT_META_KEY,
   type ServerEventBus,
   WebStandardStreamableHTTPServerTransport,
   createMcpHandler,
@@ -37,6 +38,8 @@ import { type AgentDoor, doorOfPrincipal, findVisibleOperation, visibleBackendOp
 import type { AgentPrincipal } from './principal'
 import { CATALOG_URI, GLOSSARY_URI, GUIDE_URI, offersDoorGuide, offersProjectResource, readableProjectUris, registerDoorGuide } from './door'
 import { DoorEventBus, listeningAs } from './door/event-bus'
+import { asksForTasks, serveTaskListen } from './door/task-listen'
+import { DOOR_CACHE_HINTS } from './door/cache-hints'
 import { LEGACY_MODE_HEADER, canonicalRequest } from './legacy-names'
 import { OFFICE_SERVER_NAME, PLATFORM_SERVER_NAME } from './server-name'
 import { META_TOOL_ICONS, serverIcons } from './icons'
@@ -46,7 +49,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 import { ASK_CREATE, TASKS_EXTENSION, offersAskTasks, registerAskTasks, runAskCreate } from './ask-calls'
 import { registerAppTool } from '@modelcontextprotocol/ext-apps/server'
 import { UI_EXTENSION, VIEW_TOOL_NOTE, appHostOf, offersAppViews, registerAppViews, viewMetaOf } from './mcp-apps'
-import type { McpCallContext, McpMode } from './telemetry'
+import type { McpCallContext, McpMode, McpProtocol } from './telemetry'
 
 import { IDEMPOTENCY_KEY_DESCRIPTION } from './door-idempotency'
 import { ONBOARDING_GUIDE_URI, offersOnboardingGuide, registerOnboardingGuide } from './door/platform-guide'
@@ -234,13 +237,20 @@ export function buildMcpServer(
   mode: McpMode,
   era: McpEra = 'legacy',
   clientCapabilities?: unknown,
+  traceparent?: string,
 ): McpServer {
   const { name, title, instructions } = SERVER_IDENTITY[doorOfPrincipal(principal)]
   const confirmation = era === 'modern' ? confirmationFor(principal) : null
   const appHost = appHostOf(era, clientCapabilities)
+  const protocol: McpProtocol = {
+    era,
+    tasks: era === 'modern' && declaresExtension(clientCapabilities, TASKS_EXTENSION),
+    ...(traceparent ? { traceparent } : {}),
+  }
   const ctx: McpCallContext = {
     principal,
     mode,
+    protocol,
     ...(confirmation ? { confirmation } : {}),
     ...(appHost ? { appHost } : {}),
   }
@@ -248,7 +258,12 @@ export function buildMcpServer(
   const capabilities = capabilitiesFor(ctx, era)
   const server = new McpServer(
     { name, title, version: '1.0.0', icons: serverIcons(websiteUrl), ...(websiteUrl ? { websiteUrl } : {}) },
-    confirmation ? { instructions, capabilities, requestState: { verify: confirmation.codec.verify } } : { instructions, capabilities },
+    {
+      instructions,
+      capabilities,
+      cacheHints: DOOR_CACHE_HINTS,
+      ...(confirmation ? { requestState: { verify: confirmation.codec.verify } } : {}),
+    },
   )
   if (mode === 'tools') registerOperationTools(server, ctx, era)
   else registerMetaTools(server, ctx, era)
@@ -265,14 +280,26 @@ export interface AgentDoorRequest {
   principal: AgentPrincipal
   mode: McpMode
   clientCapabilities?: unknown
+  traceparent?: string
 }
 
-async function clientCapabilitiesOf(request: Request): Promise<unknown> {
+function declaresExtension(capabilities: unknown, extension: string): boolean {
+  if (typeof capabilities !== 'object' || capabilities === null) return false
+  const extensions = (capabilities as { extensions?: unknown }).extensions
+  return typeof extensions === 'object' && extensions !== null && extension in extensions
+}
+
+async function requestMetaOf(request: Request): Promise<{ clientCapabilities?: unknown; traceparent?: string }> {
   try {
     const body = (await request.clone().json()) as { params?: { _meta?: Record<string, unknown> } }
-    return body?.params?._meta?.[CLIENT_CAPABILITIES_META_KEY]
+    const meta = body?.params?._meta ?? {}
+    const traceparent = meta[TRACEPARENT_META_KEY]
+    return {
+      clientCapabilities: meta[CLIENT_CAPABILITIES_META_KEY],
+      ...(typeof traceparent === 'string' ? { traceparent } : {}),
+    }
   } catch {
-    return undefined
+    return {}
   }
 }
 
@@ -307,8 +334,8 @@ export function createAgentDoorHandler(
 ) {
   const modern = createMcpHandler(
     (context) => {
-      const { principal, mode, clientCapabilities } = context.authInfo?.extra as unknown as AgentDoorRequest
-      return buildMcpServer(principal, mode, 'modern', clientCapabilities)
+      const { principal, mode, clientCapabilities, traceparent } = context.authInfo?.extra as unknown as AgentDoorRequest
+      return buildMcpServer(principal, mode, 'modern', clientCapabilities, traceparent)
     },
     { legacy: 'reject', responseMode: 'auto', onerror, bus },
   )
@@ -319,11 +346,12 @@ export function createAgentDoorHandler(
       const posted = await canonicalRequest(request)
       if (await isLegacyRequest(posted)) return serveLegacyAsJson(posted, options.authInfo, onerror)
       if (posted.headers.get('mcp-method') === 'subscriptions/listen' && options.authInfo) {
+        const body: unknown = await posted.clone().json().catch(() => null)
+        if (asksForTasks(body)) return serveTaskListen(body, options.authInfo.extra as unknown as AgentDoorRequest, posted.signal, onerror)
         return serveListen((r, o) => modern.fetch(r, o), posted, options.authInfo)
       }
       if (!options.authInfo) return modern.fetch(posted, options)
-      const clientCapabilities = await clientCapabilitiesOf(posted)
-      const extra = { ...options.authInfo.extra, clientCapabilities }
+      const extra = { ...options.authInfo.extra, ...(await requestMetaOf(posted)) }
       return modern.fetch(posted, { ...options, authInfo: { ...options.authInfo, extra } })
     },
   }

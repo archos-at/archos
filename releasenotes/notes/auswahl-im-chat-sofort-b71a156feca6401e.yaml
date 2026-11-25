@@ -1,0 +1,7 @@
+---
+# area: answers
+improvements:
+  - >
+    When you type / or @ in the chat, the list of skills or people now appears
+    at once instead of fading in, and questions ARCHOS puts to you leave a
+    little faster once answered.

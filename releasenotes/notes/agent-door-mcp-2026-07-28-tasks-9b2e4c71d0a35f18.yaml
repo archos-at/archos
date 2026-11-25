@@ -1,0 +1,8 @@
+---
+# area: general
+operators:
+  - >
+    A connected agent that asks ARCHOS a question no longer has to poll quickly:
+    agent-ask-get now waits up to 40 seconds for the answer by default. Agents on
+    the 2026-07-28 MCP revision can also subscribe to an ask's status instead of
+    polling, and the connector's tool and guide lists carry cache hints.

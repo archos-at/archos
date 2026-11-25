@@ -7,8 +7,10 @@ import { filingBody, fileThroughDialog, openSaveDialog, stubFetch } from './draf
 const setCardDecision = vi.fn()
 const setComposerPrefill = vi.fn()
 
+const store = vi.hoisted(() => ({ projectId: 'proj-1' as string | null }))
+
 const storeState = () => ({
-  projectId: 'proj-1',
+  projectId: store.projectId,
   setCardDecision,
   setComposerPrefill,
   currentConversation: { id: 'conv-1', messages: [{ id: 'msg-1' }] },
@@ -156,8 +158,27 @@ describe('FileDraftCard — filing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     thumbnail.calls = []
+    store.projectId = 'proj-1'
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  it('saves a file of a personal chat into Meine Ablage and opens it there', async () => {
+    store.projectId = null
+    stubFetch(filedResponse(null))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save to Meine Ablage' }))
+
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Saved in Meine Ablage'))
+    expect(filingBody()).toEqual({ path: XLSX.path, title: XLSX.title, force: false })
+    expect(screen.getByText('In Meine Ablage')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open in Meine Ablage' })).toHaveAttribute(
+      'href',
+      '/app/personal-shelf?doc=doc-1',
+    )
+    expect(screen.queryByText(/project/i)).not.toBeInTheDocument()
+  })
 
   it('files the file through the save dialog, then says where it lies and offers the project', async () => {
     stubFetch(filedResponse('Berichte'))

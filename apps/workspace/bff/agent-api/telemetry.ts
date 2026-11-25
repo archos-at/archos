@@ -19,6 +19,30 @@ export interface McpCallContext {
   confirmation?: Confirmation | null
   decisionSource?: DecisionSource
   appHost?: 'declared' | 'unknown'
+  protocol?: McpProtocol
+  via?: CallVia
+  askPath?: AskPath
+}
+
+export interface McpProtocol {
+  era: 'modern' | 'legacy'
+  tasks: boolean
+  traceparent?: string
+}
+
+export type CallVia = 'tool' | 'tasks/get' | 'tasks/cancel' | 'tasks/update' | 'subscriptions/listen'
+
+export type AskPath = 'task' | 'progress' | 'wait'
+
+function protocolProperties(ctx: McpCallContext): Record<string, string | boolean | null> {
+  if (!ctx.protocol) return {}
+  return {
+    protocol_era: ctx.protocol.era,
+    client_tasks: ctx.protocol.tasks,
+    via: ctx.via ?? 'tool',
+    trace_linked: ctx.protocol.traceparent !== undefined,
+    ...(ctx.askPath ? { ask_path: ctx.askPath } : {}),
+  }
 }
 
 export type DecisionSource = 'elicitation' | 'app' | 'app-unverified'
@@ -51,6 +75,8 @@ export function recordOperationCalled(
     organizationId: principal.session.organizationId,
     userId: principal.session.userId,
     conversationId: principal.conversationId ?? null,
+    protocol: protocolProperties(ctx),
+    ...(ctx.protocol?.traceparent ? { traceparent: ctx.protocol.traceparent } : {}),
   })
   captureServer({
     event: 'agent_operation_called',
@@ -67,6 +93,7 @@ export function recordOperationCalled(
       status: call.status,
       duration_ms: endedAt - call.startedAt,
       client_id: principal.clientId,
+      ...protocolProperties(ctx),
     },
   })
 }
