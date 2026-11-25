@@ -14,6 +14,7 @@ vi.mock('@/lib/documents/document-details', () => ({
 vi.mock('@/lib/base-knowledge/text-guard', () => ({ isTextHeld: vi.fn(async () => false) }))
 
 import { GET } from './route'
+import { getTenantContext } from '@/lib/db/tenant-context'
 import { documentStillExists } from '@/lib/documents/document-details'
 import { isTextHeld } from '@/lib/base-knowledge/text-guard'
 
@@ -71,6 +72,16 @@ describe('GET /api/internal/document-exists', () => {
     vi.mocked(documentStillExists).mockResolvedValue(true)
     await GET(request(`?documentId=${DOC_ID}&collection=archiv_org_1&organizationId=org_1`))
     expect(vi.mocked(documentStillExists).mock.calls[0]).toEqual([DOC_ID, 'archiv_org_1', 'org_1'])
+  })
+
+  it('looks the document up as the ingestion reader, so a personal-shelf document is not answered as deleted', async () => {
+    let seen: unknown = null
+    vi.mocked(documentStillExists).mockImplementation(async () => {
+      seen = getTenantContext()
+      return true
+    })
+    await GET(request(`?documentId=${DOC_ID}&collection=personal_org_1&organizationId=org_1`))
+    expect(seen).toMatchObject({ kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'ingestion' })
   })
 
   it('does not answer "no" when the lookup fails', async () => {
