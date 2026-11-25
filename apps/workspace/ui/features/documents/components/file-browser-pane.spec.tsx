@@ -224,6 +224,14 @@ describe('FileBrowserPane — folder drill-down', () => {
     ])
   })
 
+  it('stacks a phone’s folders tight: one to a row, 48px sheets (past the 44px floor), no row gap beyond the tiles’ 6px insets', () => {
+    renderPane({ folderNav: folderNav(null) })
+    const card = screen.getByTestId('folder-card-root-1')
+    expect((card.closest('.grid')?.className ?? '').split(/\s+/)).toContain('phone:gap-y-0')
+    const sheet = within(card).getByRole('button', { name: /root|Open/i }).querySelector('.h-14')
+    expect(sheet?.className.split(/\s+/)).toContain('phone:h-12')
+  })
+
   it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')

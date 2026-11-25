@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    On a phone, the folders in the Ablage are shorter and closer together, so
+    the files below them come into view sooner; each folder is still easy to
+    tap.

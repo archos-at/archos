@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { FileTileFooter, FileTileMedia, TileShell } from './file-tile'
 
 /** A folder's name is one line, so its tile is never narrower than 240px: 196px cut half a name, and a phone's two 164px columns cut „Brandschutz“. */
-export const FOLDER_GRID = '[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]'
+export const FOLDER_GRID = '[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))] phone:gap-y-0'
 
 export function FileGrid({ children, className }: { children: ReactNode; className?: string }) {
   return (
