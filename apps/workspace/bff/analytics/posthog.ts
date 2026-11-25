@@ -42,6 +42,8 @@ export type PostHogEvent =
   | 'citation_opened'
   | 'document_opened'
   | 'ifc_model_opened'
+  | 'ifc_model_load_failed'
+  | 'ifc_model_load_stopped'
   | 'product_feedback_submitted'
   | 'document_uploaded'
   | 'chat_message_sent'

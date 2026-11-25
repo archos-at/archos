@@ -84,12 +84,12 @@ describe('IfcModelViewer with WebGPU', () => {
       />
     )
     expect(screen.getByText('Fluchtweg > 40 m')).toBeInTheDocument()
-    expect(screen.getByText('(1)')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('gives a new source its own chance, rather than staying broken', async () => {
     setWebGpu(true)
-    canvas.status = { phase: 'error', percent: null, meshCount: 0, message: 'Failed to get GPU adapter' }
+    canvas.status = { phase: 'error', percent: null, meshCount: 0, cause: 'gpu' }
     const { rerender } = render(
       <IfcModelViewer sourceUrl="https://example.test/a.ifc" elements={ELEMENTS} />
     )
@@ -127,8 +127,8 @@ describe('IfcModelViewer with WebGPU', () => {
       expect(warnings.flat().join(' ')).not.toContain('same key')
 
       expect(screen.getAllByText('nicht erfüllt')).toHaveLength(2)
-      expect(screen.getByText('(1)')).toBeInTheDocument()
-      expect(screen.getByText('(2)')).toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument()
 
       rerender(
         <IfcModelViewer
@@ -144,8 +144,8 @@ describe('IfcModelViewer with WebGPU', () => {
           ]}
         />
       )
-      const counts = screen.getAllByText(/^\(\d\)$/).map((node) => node.textContent)
-      expect(counts).toEqual(['(2)', '(1)'])
+      const counts = screen.getAllByText(/^\d$/).map((node) => node.textContent)
+      expect(counts).toEqual(['2', '1'])
     } finally {
       spy.mockRestore()
     }
@@ -157,13 +157,13 @@ describe('IfcModelViewer with WebGPU', () => {
       phase: 'error',
       percent: null,
       meshCount: 0,
-      message: 'Failed to get GPU adapter',
+      cause: 'gpu',
     }
     render(<IfcModelViewer sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />)
 
     expect(await screen.findByText('The 3D view could not be loaded')).toBeInTheDocument()
     expect(screen.getByText(/Only the picture is missing/)).toBeInTheDocument()
-    expect(screen.getByText(/Failed to get GPU adapter/)).toBeInTheDocument()
+    expect(screen.getByText(/graphics card could not be started/)).toBeInTheDocument()
     expect(screen.queryByTestId('ifc-canvas')).not.toBeInTheDocument()
   })
 
@@ -236,6 +236,24 @@ describe('IfcModelViewer — a way out of a bad download, and a way back', () =>
     expect(screen.getByText(/nothing was saved on this device/)).toBeInTheDocument()
   })
 
+  it('can still be stopped while the building is being built, after the download', async () => {
+    setWebGpu(true)
+    canvas.status = { phase: 'parsing', percent: null, meshCount: 1200 }
+    render(<IfcModelViewer sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByTestId('ifc-canvas')).not.toBeInTheDocument()
+  })
+
+  it('asks the surface for a fresh link when loading again after a cancel', async () => {
+    setWebGpu(true)
+    canvas.status = { phase: 'downloading', percent: 31, meshCount: 0 }
+    const onRetry = vi.fn()
+    render(<IfcModelViewer sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} onRetry={onRetry} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Load again' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
   it('loads again from a cancel with one press', async () => {
     setWebGpu(true)
     canvas.status = { phase: 'downloading', percent: 31, meshCount: 0 }
@@ -259,7 +277,7 @@ describe('IfcModelViewer — a way out of a bad download, and a way back', () =>
 
   it('offers a retry on a failed load, and asks the surface for a fresh URL when it can', async () => {
     setWebGpu(true)
-    canvas.status = { phase: 'error', percent: null, meshCount: 0, message: 'download failed (403)' }
+    canvas.status = { phase: 'error', percent: null, meshCount: 0, cause: 'expired' }
     const onRetry = vi.fn()
     render(<IfcModelViewer sourceUrl="https://example.test/a.ifc" elements={ELEMENTS} onRetry={onRetry} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
@@ -268,7 +286,7 @@ describe('IfcModelViewer — a way out of a bad download, and a way back', () =>
 
   it('retries against the same source when nothing can mint a new one', async () => {
     setWebGpu(true)
-    canvas.status = { phase: 'error', percent: null, meshCount: 0, message: 'network' }
+    canvas.status = { phase: 'error', percent: null, meshCount: 0, cause: 'download' }
     render(<IfcModelViewer sourceUrl="https://example.test/a.ifc" elements={ELEMENTS} />)
     expect(await screen.findByText('The 3D view could not be loaded')).toBeInTheDocument()
     canvas.status = null

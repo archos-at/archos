@@ -101,11 +101,11 @@ export function ViewerDock({
       */}
       <div className="flex w-full max-w-full items-center justify-center-safe gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {lead && (
-          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[10px]">
+          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-control">
             {lead}
           </ViewerSurface>
         )}
-        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-[10px]">
+        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-control">
           {children}
           {trail && (
             <>
@@ -120,5 +120,5 @@ export function ViewerDock({
 }
 
 export function ViewerDockSeparator(): JSX.Element {
-  return <span aria-hidden="true" className="mx-0.5 h-6 w-px shrink-0 bg-border" />
+  return <span aria-hidden="true" className="bg-border mx-0.5 h-4 w-px shrink-0" />
 }

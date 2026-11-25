@@ -57,10 +57,10 @@ export function ColleagueForm({
               <ChevronDown className="size-4 opacity-70" aria-hidden />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] p-0" collisionPadding={16}>
-            <Command>
+          <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] rounded-surface p-0" collisionPadding={16}>
+            <Command className="rounded-surface">
               <CommandInput placeholder={t('people.colleagueSearch')} aria-label={t('people.colleagueSearch')} />
-              <CommandList id={`${id}-list`} aria-label={t('people.colleague')}>
+              <CommandList className="p-0" id={`${id}-list`} aria-label={t('people.colleague')}>
                 <CommandEmpty>{t('people.colleagueNoMatch')}</CommandEmpty>
                 <CommandGroup>
                   {candidates.map((candidate) => (
@@ -72,7 +72,7 @@ export function ColleagueForm({
                         setMember(candidate)
                         setPicking(false)
                       }}
-                      className="pointer-coarse:min-h-11"
+                      className="rounded-control pointer-coarse:min-h-11"
                     >
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate">{candidate.name}</span>

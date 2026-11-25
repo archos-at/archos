@@ -162,6 +162,7 @@ export function useModelStageController(props: ModelStageProps) {
 
   const viewport = useModelViewport({
     sourceUrl: source.data,
+    onReload: source.reload,
     elements: elementList,
     highlights,
     isolatedStorey: storey,

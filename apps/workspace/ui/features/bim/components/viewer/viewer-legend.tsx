@@ -31,14 +31,14 @@ export function ViewerLegend({ entries, className }: ViewerLegendProps): JSX.Ele
         <li
           key={`${entry.status}-${position}`}
         >
-          <ViewerSurface className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs">
+          <ViewerSurface className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs">
             <span
               aria-hidden="true"
               className="size-2.5 rounded-full"
               style={{ backgroundColor: HIGHLIGHT_CSS[entry.status] }}
             />
             <span>{entry.label}</span>
-            <span className="text-muted-foreground tabular-nums">({entry.count})</span>
+            <span className="text-muted-foreground tabular-nums">{entry.count}</span>
           </ViewerSurface>
         </li>
       ))}

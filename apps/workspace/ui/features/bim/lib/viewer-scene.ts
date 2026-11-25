@@ -7,19 +7,6 @@ export const VIEWER_CLEAR_COLOR: Record<ViewerTheme, [number, number, number, nu
   dark: [0.086, 0.086, 0.09, 1],
 }
 
-const SKY: Record<ViewerTheme, { zenith: [number, number, number]; horizon: [number, number, number]; ground: [number, number, number] }> = {
-  light: {
-    zenith: [0.965, 0.961, 0.949],
-    horizon: [0.925, 0.919, 0.906],
-    ground: [0.855, 0.847, 0.831],
-  },
-  dark: {
-    zenith: [0.075, 0.075, 0.082],
-    horizon: [0.125, 0.126, 0.133],
-    ground: [0.055, 0.055, 0.06],
-  },
-}
-
 const SUN_DIRECTION: [number, number, number] = [-0.42, 0.82, 0.39]
 
 export function viewerEnvironment(theme: ViewerTheme): LightingEnvironment {
@@ -34,8 +21,7 @@ export function viewerEnvironment(theme: ViewerTheme): LightingEnvironment {
     fillIntensity: dark ? 0.2 : 0.16,
     rimIntensity: dark ? 0.26 : 0.14,
     exposure: dark ? 0.92 : 0.88,
-    skyEnabled: true,
-    sky: SKY[theme],
+    skyEnabled: false,
   }
 }
 

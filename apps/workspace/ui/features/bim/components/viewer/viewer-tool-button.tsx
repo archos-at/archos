@@ -43,10 +43,10 @@ export const ViewerToolButton = forwardRef<HTMLButtonElement, ViewerToolButtonPr
         aria-label={label}
         disabled={disabled}
         onClick={onClick}
-        variant={active ? 'default' : 'ghost'}
+        variant="ghost"
         data-slot="viewer-tool-button"
         className={cn(
-          'pointer-coarse:h-14 pointer-coarse:min-w-0 h-14 min-w-0 flex-1 flex-col gap-0.5 rounded-[10px] px-0 py-1.5 text-[11px] leading-none',
+          'pointer-coarse:h-14 pointer-coarse:min-w-0 h-14 min-w-0 flex-1 flex-col gap-0.5 rounded-control px-0 py-1.5 text-xs text-muted-foreground aria-pressed:bg-accent aria-pressed:text-foreground',
           className
         )}
         {...rest}

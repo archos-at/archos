@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BIM_CAMERA_VIEWS, boundsCentre, DOUBLE_TAP_DISTANCE_PX, DOUBLE_TAP_MS, dragSlopFor, isDoubleTap, pointerDragged, clampCut, defaultCameraState, defaultCutForStorey, downloadWithProgress, encodeCameraState, impliesOrthographic, keyboardCameraStep, parseCameraState, rendererPreset, rendererSectionPlane, wheelZoomDelta, type BimViewerCameraState } from './viewer-camera'
+import { BIM_CAMERA_VIEWS, boundsCentre, DOUBLE_TAP_DISTANCE_PX, DOUBLE_TAP_MS, dragSlopFor, isDoubleTap, pointerDragged, clampCut, defaultCameraState, defaultCutForStorey, downloadWithProgress, encodeCameraState, impliesOrthographic, keyboardCameraStep, parseCameraState, rendererPreset, rendererSectionPlane, wheelZoomDelta, wheelZooms, type BimViewerCameraState } from './viewer-camera'
 
 const roundTrip = (state: BimViewerCameraState): BimViewerCameraState => {
   const params = new URLSearchParams()
@@ -550,5 +550,20 @@ describe('keyboardCameraStep', () => {
     for (const key of ['Tab', 'Escape', 'a', 'Enter', ' ', 'F5']) {
       expect(keyboardCameraStep(key)).toBeNull()
     }
+  })
+})
+
+describe('wheelZooms', () => {
+  const plain = { ctrlKey: false, metaKey: false }
+  it('zooms on the stage, where the model fills the page', () => {
+    expect(wheelZooms(plain, false, false)).toBe(true)
+  })
+  it('lets the conversation scroll past a model card', () => {
+    expect(wheelZooms(plain, true, false)).toBe(false)
+  })
+  it('zooms a card once the canvas has focus or with Ctrl or Cmd held', () => {
+    expect(wheelZooms(plain, true, true)).toBe(true)
+    expect(wheelZooms({ ctrlKey: true, metaKey: false }, true, false)).toBe(true)
+    expect(wheelZooms({ ctrlKey: false, metaKey: true }, true, false)).toBe(true)
   })
 })

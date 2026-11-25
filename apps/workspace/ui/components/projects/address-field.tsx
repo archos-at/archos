@@ -172,7 +172,7 @@ export function AddressField({
         )}
         {listed && (
           <div
-            className="bg-popover text-popover-foreground absolute inset-x-0 top-full z-20 mt-1.5 rounded-overlay p-1 shadow-lg"
+            className="bg-popover text-popover-foreground absolute inset-x-0 top-full z-20 mt-1.5 rounded-surface p-1 shadow-lg"
             data-testid="create-project-address-suggestions"
           >
             <Listbox

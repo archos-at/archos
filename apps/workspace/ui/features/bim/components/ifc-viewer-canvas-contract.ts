@@ -1,6 +1,7 @@
 import type { BimCameraView, BimSection } from '../lib/viewer-camera'
 import type { BimViewerElement, Rgba } from '../lib/model-index'
 import type { Measurement } from '../lib/viewer-measure'
+import type { LoadFailureCause } from '../lib/load-failure'
 
 export interface IfcViewerCanvasProps {
   sourceUrl: string
@@ -33,6 +34,6 @@ export interface IfcViewerStatus {
   phase: 'idle' | 'downloading' | 'parsing' | 'ready' | 'error'
   percent: number | null
   meshCount: number
-  message?: string
+  cause?: LoadFailureCause
   bytes?: { loaded: number; total: number }
 }

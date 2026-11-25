@@ -1,4 +1,6 @@
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { useCallback, useEffect, useRef } from 'react'
+import { cameraMoveDuration } from '../lib/reduced-motion'
 import { boundsCentre, rendererPreset } from '../lib/viewer-camera'
 import { captureFrameOptions } from '../lib/viewer-performance'
 import { modelBoundsMetres } from '../components/ifc-viewer-canvas-helpers'
@@ -78,11 +80,11 @@ export function useIfcViewerCamera(viewer: IfcViewerState & IfcViewerFrame) {
     const camera = renderer.getCamera()
     runCameraLoop()
     const framed = camera.frameBounds
-      ? camera.frameBounds(box.min, box.max)
-      : camera.zoomExtent(box.min, box.max)
-    void framed.then(() => requestFrame()).catch(() => {
-      // A camera that refuses the move leaves the view where it was, which
-    })
+      ? camera.frameBounds(box.min, box.max, cameraMoveDuration())
+      : camera.zoomExtent(box.min, box.max, cameraMoveDuration())
+    void framed
+      .then(() => requestFrame())
+      .catch((error: unknown) => capturePosthogException(error, { source: 'ifc-viewer-zoom-to-selection' }))
   }, [selectedExpressId, zoomToSelection, ready, requestFrame, runCameraLoop])
 
   useEffect(() => {

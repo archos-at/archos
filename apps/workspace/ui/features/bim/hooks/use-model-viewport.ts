@@ -42,6 +42,7 @@ export interface UseModelViewportOptions {
   compact?: boolean
   onCapture?: (dataUrl: string | null) => void
   onVisibilityEdit?: (previous: ViewerVisibility) => void
+  onReload?: () => void
 }
 
 export interface ModelMeasuring {
@@ -101,6 +102,7 @@ export function useModelViewport({
   compact = false,
   onCapture,
   onVisibilityEdit,
+  onReload,
 }: UseModelViewportOptions): ModelViewport {
   const [status, setStatus] = useState<IfcViewerStatus>({
     phase: 'idle',
@@ -121,9 +123,10 @@ export function useModelViewport({
         setCancelledSource(null)
         setStatusSource(sourceUrl)
         setStatus({ phase: 'idle', percent: null, meshCount: 0 })
+        onReload?.()
       },
     }),
-    [cancelled, sourceUrl]
+    [cancelled, sourceUrl, onReload]
   )
 
   const [bounds, setBounds] = useState<{ minMetres: number; maxMetres: number } | null>(null)
