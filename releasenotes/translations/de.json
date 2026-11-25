@@ -652,6 +652,10 @@
     "de": "Ein neuer Chat erscheint jetzt in „Letzte Chats“, sobald Sie die erste Nachricht senden. Bis ARCHOS ihn in derselben Zeile benennt, wird die erste Zeile dieser Nachricht in hellerem Grau als Titel angezeigt. So sehen Sie sofort, in welchem Chat Sie sich befinden – noch bevor die Antwort eintrifft."
   },
   {
+    "en": "A new chat now opens with its greeting and input box already in place, instead of first showing the outline of a conversation that is loading. The outline appears only when a chat is actually being picked up again.",
+    "de": "Ein neuer Chat öffnet sich jetzt direkt mit Begrüßung und Eingabefeld, statt zuerst die Ladeansicht eines Gesprächs zu zeigen. Diese erscheint nur, wenn ein Chat tatsächlich wieder aufgenommen wird."
+  },
+  {
     "en": "A new chat now opens with the greeting and the input box together in the middle of the screen, instead of the greeting floating high and the input pinned to the bottom edge. As soon as you ask something, the input returns to the bottom and the answer gets the full height.",
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
@@ -1826,6 +1830,10 @@
   {
     "en": "Cards below an answer now appear as soon as Piloti has written them. Before, they waited until the whole answer was checked, up to twenty seconds on long answers.",
     "de": "Karten unter einer Antwort erscheinen jetzt, sobald Piloti sie geschrieben hat. Bisher warteten sie, bis die ganze Antwort geprüft war, bei langen Antworten bis zu zwanzig Sekunden."
+  },
+  {
+    "en": "Cards in an answer no longer jump when they finish drawing. While a card loads, its place already has the size of the finished card, so the text below it stays where you are reading.",
+    "de": "Die Karten in einer Antwort springen nicht mehr, sobald sie fertig geladen sind. Während eine Karte lädt, entspricht ihr Platz bereits der Größe der fertigen Karte, sodass der Text darunter beim Lesen an derselben Stelle bleibt."
   },
   {
     "en": "Cards no longer show stray characters, such as a link printed in raw brackets next to the card's own working link. A card offers only the links it builds from the source it names.",
@@ -3334,6 +3342,10 @@
   {
     "en": "Opening a chat no longer shows „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ and a sign-in button for a few seconds while your sign-in is still loading.",
     "de": "Beim Öffnen eines Chats werden nicht mehr für einige Sekunden „ARCHOS wird verfügbar, sobald Ihre Organisation verifiziert ist“ und ein Login-Button angezeigt, während Ihr Login noch geladen wird."
+  },
+  {
+    "en": "Opening a chat, or sending the first message on a computer, no longer nudges the messages down a few pixels once the chat bar has loaded.",
+    "de": "Beim Öffnen eines Chats oder beim Senden der ersten Nachricht am Computer verschieben sich die Nachrichten nach dem Laden der Chat-Leiste nicht mehr um ein paar Pixel nach unten."
   },
   {
     "en": "Opening a citation of a drawing or photo now marks the drawing it refers to, such as the floor plan or the section, with a labeled box instead of only opening the page. The box shows which drawing on the sheet was read, not the exact object within it.",
@@ -6302,6 +6314,10 @@
   {
     "en": "„Mir zugewiesen“ in the Prüfansicht finds your Anmerkungen also while the connection to your colleagues is down.",
     "de": "Unter „Mir zugewiesen“ finden Sie in der Prüfansicht Ihre Anmerkungen auch dann, wenn die Verbindung zu Ihren Kolleginnen und Kollegen unterbrochen ist."
+  },
+  {
+    "en": "„Neuer Chat“ starts a new chat every time. A second press on the same page did nothing and left the address showing the old chat.",
+    "de": "„Neuer Chat“ startet jedes Mal einen neuen Chat. Ein zweiter Klick auf derselben Seite bewirkte nichts; in der Adresszeile wurde weiterhin der alte Chat angezeigt."
   },
   {
     "en": "„Piloti hat sich gemerkt“ now belongs to the answer it appeared under. It used to list everything noted anywhere in the conversation, so an early answer could claim notes taken much later; now each answer shows only what it produced, and an answer that produced nothing shows nothing.",

@@ -17,6 +17,7 @@ import type { AnswerCard } from '@/shared/cards/schemas'
 import { CardPlaceholder } from '@/features/cards/components/CardPlaceholder'
 import { CardRendererProvider, DrawnProvider, preflight, TextBlock, useDrawnReporter, type CardRenderer } from './catalog'
 import { surfaceComponents, surfaceLeaves } from './surface-messages'
+import { SurfaceLayout } from './surface-views'
 
 interface A2uiCardProps {
   card: AnswerCard
@@ -78,13 +79,14 @@ export function A2uiCard({ card, surfaceKey, render }: A2uiCardProps) {
   const loaded = useRenderer()
   const renderer = loaded === 'failed' ? null : loaded
   const content = useMemo(() => JSON.stringify(card), [card])
+  const refusal = useMemo(() => {
+    const reason = preflight(surfaceComponents(card), { surface: card.type === 'surface' })
+    if (reason) console.warn('[A2UI] surface refused; drawing the card directly', card.type, reason)
+    return reason
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `content` stands for `card`
+  }, [content])
   const surface = useMemo(() => {
-    if (!renderer) return null
-    const refusal = preflight(surfaceComponents(card), { surface: card.type === 'surface' })
-    if (refusal) {
-      console.warn('[A2UI] surface refused; drawing the card directly', card.type, refusal)
-      return null
-    }
+    if (!renderer || refusal) return null
     try {
       return renderer.buildSurface(card, surfaceKey)
     } catch (error) {
@@ -92,25 +94,32 @@ export function A2uiCard({ card, surfaceKey, render }: A2uiCardProps) {
       return null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `content` stands for `card`
-  }, [renderer, content, surfaceKey])
+  }, [renderer, refusal, content, surfaceKey])
 
   const [drawnSurface, setDrawnSurface] = useState<object | null>(null)
   const drawn = surface !== null && drawnSurface === surface
   const reportDrawn = useCallback(() => setDrawnSurface(surface), [surface])
-  const refused = loaded !== null && surface === null
+  const refused = refusal !== null || (loaded !== null && surface === null)
   const reportOnScreen = useDrawnReporter()
+  const surfaceId = `${surfaceKey}|${content}`
+  const [failedSurface, setFailedSurface] = useState<string | null>(null)
+  const failed = failedSurface === surfaceId
+  const onFail = useCallback(() => {
+    setFailedSurface(surfaceId)
+    reportOnScreen?.()
+  }, [surfaceId, reportOnScreen])
   const drawnNow = useRef(drawn)
   useLayoutEffect(() => {
     drawnNow.current = drawn
   }, [drawn])
   const [placeholderSeen, setPlaceholderSeen] = useState(false)
   useEffect(() => {
-    if (!surface || drawn || placeholderSeen) return
+    if (refused || drawn || placeholderSeen) return
     const frame = requestAnimationFrame(() => {
       if (!drawnNow.current) setPlaceholderSeen(true)
     })
     return () => cancelAnimationFrame(frame)
-  }, [surface, drawn, placeholderSeen])
+  }, [refused, drawn, placeholderSeen])
   useLayoutEffect(() => {
     if (drawn || refused) reportOnScreen?.()
   }, [drawn, refused, reportOnScreen])
@@ -118,14 +127,27 @@ export function A2uiCard({ card, surfaceKey, render }: A2uiCardProps) {
   const direct = <Direct card={card} render={render} />
   const body = (
     <div className="relative">
-      {!surface && (refused ? direct : <CardPlaceholder />)}
+      {refused && direct}
+      {!refused && !drawn && !failed && (
+        <div aria-hidden inert data-slot="card-layout" className="relative">
+          <div className="invisible">
+            <DrawnProvider value={null}>
+              <Fallback key={content} fallback={direct} onFail={null}>
+                <SurfaceLayout card={card} render={render} />
+              </Fallback>
+            </DrawnProvider>
+          </div>
+          <div className="absolute inset-0">
+            <CardPlaceholder height="100%" />
+          </div>
+        </div>
+      )}
       {surface && (
         <CardRendererProvider value={render}>
           <DrawnProvider value={reportDrawn}>
             {/* Keyed on the content: a surface that failed once is retried
                 when it changes, rather than staying on the fallback for good. */}
-            <Fallback key={`${surfaceKey}|${content}`} fallback={direct} onFail={reportOnScreen}>
-              {!drawn && <CardPlaceholder />}
+            <Fallback key={surfaceId} fallback={direct} onFail={onFail}>
               <div
                 data-a2ui-surface={surfaceKey}
                 data-a2ui-root={card.type}

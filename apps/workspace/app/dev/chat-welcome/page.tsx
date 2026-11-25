@@ -111,7 +111,7 @@ export default function ChatWelcomePreviewPage() {
   return (
     <AppConfigProvider config={config}>
       <main className="bg-background flex h-dvh flex-col">
-        <div className="relative flex min-h-0 flex-1 flex-col" style={columnVars}>
+        <div className="relative flex min-h-0 flex-1 flex-col [container-type:size]" style={columnVars}>
           {chrome && <ChatToolbar onDeleteSession={() => undefined} isChatStarted={!isThreadEmpty} sessionTitle={isThreadEmpty ? '' : 'Stellplatznachweis Tiefgarage'} />}
           {ready && <ChatArea isAuthenticated />}
           <ComposerScrim />
