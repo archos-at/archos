@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Switching to another chat now fades its messages in instead of swapping
+    them in a single frame.
