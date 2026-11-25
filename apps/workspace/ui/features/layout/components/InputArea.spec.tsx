@@ -137,8 +137,9 @@ vi.mock('../store', () => ({
   ),
 }))
 
+const authState = { isLoading: false }
 vi.mock('@/adapters/auth', () => ({
-  useAuth: () => ({ idToken: 'test-token', authRequired: true }),
+  useAuth: () => ({ idToken: 'test-token', authRequired: true, isLoading: authState.isLoading }),
 }))
 
 vi.mock('@/shared/context', () => ({
@@ -319,6 +320,16 @@ describe('InputArea', () => {
     render(<InputArea isAuthenticated={false} />)
 
     expect(screen.getByPlaceholderText('Sign in to start working')).toBeInTheDocument()
+  })
+
+  test('keeps the signed-in placeholder while the sign-in is still loading, so the field does not change size when it settles', () => {
+    authState.isLoading = true
+    try {
+      render(<InputArea isAuthenticated={false} />)
+      expect(screen.queryByPlaceholderText('Sign in to start working')).not.toBeInTheDocument()
+    } finally {
+      authState.isLoading = false
+    }
   })
 
   test('disables input when not authenticated', () => {

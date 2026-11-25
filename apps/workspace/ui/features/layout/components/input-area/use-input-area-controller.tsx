@@ -1,3 +1,4 @@
+import { useAuth } from '@/adapters/auth'
 import {
   useState,
   useCallback,
@@ -219,6 +220,7 @@ export function useInputAreaController({
   })
 
   const isDisabledByAuth = !isAuthenticated
+  const { isLoading: authLoading } = useAuth()
   const isViewerInSharedThread = capabilities.deniedBy === 'read-only-role'
   const cannotChatInProject = capabilities.deniedBy === 'no-project-chat-permission'
   const cannotContribute = !capabilities.canContribute
@@ -288,7 +290,7 @@ export function useInputAreaController({
   ])
 
   const getPlaceholder = (): string => {
-    if (!isAuthenticated) return t('inputArea.signInToStart')
+    if (!isAuthenticated && !authLoading) return t('inputArea.signInToStart')
     if (isResponseMode) return t('inputArea.typeResponse')
     if (steering) return t('inputArea.steer')
     if (typingAhead) return t('inputArea.typeAhead')
