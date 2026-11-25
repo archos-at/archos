@@ -1161,6 +1161,12 @@ CLS jump), and prints one JSON line per run from `window.__streamSocket`:
   `scroll`, `scrollIntoView` inside it, the `scrollTop` setter). The budget is
   one: the top-anchor on send.
 
+`--max-cls <n>` exits 1 when a run's `cls` (the caret's own shifts left out)
+is above n. In 2026-11 the scripted turn scored 0.010 at 1280 (the table's
+column reflow, gone with its fix) and 0.026–0.032 on the throttled phone: a
+Herleitung growth landing while the slide before it still runs, which
+Chromium scores (`useSlideBelow`, design-language.md **Height**).
+
 `--reader scroll` wheels the thread down to the answer 2.5 s after its first
 word, the reader who wants to read it; what the settle then does to that
 reader is invisible to a run whose answer streams below the fold.

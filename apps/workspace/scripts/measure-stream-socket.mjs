@@ -8,7 +8,7 @@
  *        [--scenario <name>] [--error preack|steps|prose|finish]
  *        [--drop <ms>] [--reload <ms>] [--switch <ms>] [--stop <ms>]
  *        [--toggle open@<ms>,close@<ms>]
- *        [--reduced-motion] [--color-scheme dark|light] [--browser chromium|webkit]
+ *        [--reduced-motion] [--color-scheme dark|light] [--browser chromium|webkit] [--max-cls <n>]
  *
  * Opens the page in headless Chromium at 390x844 (CPU throttled 4x over CDP,
  * the phone case) and at 1280x800 (unthrottled), waits for the turn to settle
@@ -91,6 +91,7 @@ const auditAnimations = args.includes('--animations')
 const reducedMotion = args.includes('--reduced-motion')
 const colorScheme = arg('color-scheme', 'light')
 const browserName = arg('browser', 'chromium')
+const maxCls = arg('max-cls', undefined) === undefined ? null : Number(arg('max-cls'))
 /** The page's own parameters, passed through as given. */
 const PAGE_PARAMS = ['scenario', 'error', 'drop', 'reload', 'switch', 'stop', 'toggle']
 const pageQuery = () => {
@@ -435,16 +436,22 @@ const launch = async () => {
 
 const main = async () => {
   const browser = await launch()
+  const over = []
   try {
     for (let run = 0; run < runs; run++) {
       for (const viewportName of viewports) {
         const { result, animations } = await measureWithRetry(browser, viewportName)
         console.log(JSON.stringify({ run: run + 1, ...result }))
         if (animations) printAnimations(animations)
+        if (maxCls !== null && result.cls > maxCls) over.push(`${viewportName} run ${run + 1}: cls ${result.cls}`)
       }
     }
   } finally {
     await browser.close()
+  }
+  if (over.length > 0) {
+    console.error(`layout shift over --max-cls ${maxCls}: ${over.join('; ')}`)
+    process.exit(1)
   }
 }
 
