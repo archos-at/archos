@@ -900,6 +900,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file uploaded to Meine Ablage is read again instead of failing at once as if it had been deleted.",
+            "de": "Eine in Meine Ablage hochgeladene Datei wird erneut eingelesen, statt sofort mit einem Fehler abzubrechen, als wäre sie gelöscht worden."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",

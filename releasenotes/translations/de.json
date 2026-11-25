@@ -416,6 +416,10 @@
     "de": "Eine Datei, die während des Gesprächs hochgeladen wurde, öffnet sich jetzt sofort aus der Quelle der Antwort. Dateien, die Piloti nicht anzeigen kann, etwa Word-Dokumente oder Tabellen, lassen sich von dort herunterladen."
   },
   {
+    "en": "A file uploaded to Meine Ablage is read again instead of failing at once as if it had been deleted.",
+    "de": "Eine in Meine Ablage hochgeladene Datei wird erneut eingelesen, statt sofort mit einem Fehler abzubrechen, als wäre sie gelöscht worden."
+  },
+  {
     "en": "A file waiting in quarantine no longer shows up for colleagues who may not see it: not in the project overview and its counts, the upload history, the IFC model list, the document roles, the name check of a new upload, or a file's status.",
     "de": "Eine Datei in der Quarantäne taucht für Kolleginnen und Kollegen, die sie nicht sehen dürfen, nicht mehr auf: weder in der Projektübersicht und ihren Zählern noch im Upload-Verlauf, in der IFC-Modellliste, bei den Dokumentrollen, bei der Namensprüfung eines neuen Uploads oder im Status einer Datei."
   },
