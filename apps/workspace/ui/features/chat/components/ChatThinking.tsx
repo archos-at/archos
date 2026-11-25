@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { HeightArrival } from '@/components/motion/height-arrival'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { SlideBelowScope, useSlideBelow } from '@/components/motion/slide-below'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -583,25 +584,38 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
           still in flight (FIX 3) show a calm "checking for a finished answer"
           line; only once recovery has settled with nothing found do we prompt
           a resend. */}
-      {isInterrupted && isRecoveryPending ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <Spinner
-            size="xs"
-            className="mt-0.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.recoveringNotice')}
-          </span>
-        </div>
-      ) : isInterrupted ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.interruptedNotice')}
-          </span>
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {isInterrupted && (
+          <HeightArrival key="interrupted" testId="thinking-interrupted">
+            <div className="grid border-t border-border px-4 pb-3 pt-2.5">
+              <div
+                aria-hidden={!isRecoveryPending}
+                className={cn(
+                  'col-start-1 row-start-1 flex items-start gap-2 transition-opacity duration-quick ease-out motion-reduce:transition-none',
+                  !isRecoveryPending && 'invisible opacity-0'
+                )}
+              >
+                <Spinner size="xs" className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs leading-relaxed text-muted-foreground" role={isRecoveryPending ? 'status' : undefined}>
+                  {t('thinking.recoveringNotice')}
+                </span>
+              </div>
+              <div
+                aria-hidden={isRecoveryPending}
+                className={cn(
+                  'col-start-1 row-start-1 flex items-start gap-2 transition-opacity duration-quick ease-out motion-reduce:transition-none',
+                  isRecoveryPending && 'invisible opacity-0'
+                )}
+              >
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
+                <span className="text-xs leading-relaxed text-muted-foreground" role={isRecoveryPending ? undefined : 'status'}>
+                  {t('thinking.interruptedNotice')}
+                </span>
+              </div>
+            </div>
+          </HeightArrival>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -390,7 +390,13 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                 </AnimatePresence>
 
                 {/* Latency-gap typing indicator (before the first token arrives) */}
-                {controller.showTypingPlaceholder && <TypingIndicator arrives={!typingAtMount} />}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {controller.showTypingPlaceholder && (
+                    <motion.div key="typing" exit={{ opacity: 0, transition: controller.rowLeave }}>
+                      <TypingIndicator arrives={!typingAtMount} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* The agent is working for SOMEONE in this thread (spec CC-13). Without
                     this an observer sees a thread where nothing appears to be happening
@@ -405,21 +411,31 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                     first moments before the first token. `spectatingLive` is the switch,
                     and it only turns on once there is something to show, so the banner is
                     never replaced by an empty box. */}
-                {controller.shared &&
-                  controller.turnInFlight &&
-                  !controller.isStreaming &&
-                  !controller.showTypingPlaceholder &&
-                  (controller.spectatingLive && spectatedTurn ? (
-                    <SpectatedTurn
-                      turn={spectatedTurn}
-                      label={controller.turnInFlightLabel}
-                      since={
-                        controller.messages?.find((m) => m.id === spectatedTurn.turnId)?.timestamp
-                      }
-                    />
-                  ) : (
-                    <TurnInFlightBanner label={controller.turnInFlightLabel} />
-                  ))}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {controller.shared &&
+                    controller.turnInFlight &&
+                    !controller.isStreaming &&
+                    !controller.showTypingPlaceholder && (
+                      <motion.div
+                        key={controller.spectatingLive && spectatedTurn ? 'spectated' : 'in-flight'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1, transition: controller.rowEnter }}
+                        exit={{ opacity: 0, transition: controller.rowLeave }}
+                      >
+                        {controller.spectatingLive && spectatedTurn ? (
+                          <SpectatedTurn
+                            turn={spectatedTurn}
+                            label={controller.turnInFlightLabel}
+                            since={
+                              controller.messages?.find((m) => m.id === spectatedTurn.turnId)?.timestamp
+                            }
+                          />
+                        ) : (
+                          <TurnInFlightBanner label={controller.turnInFlightLabel} />
+                        )}
+                      </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* A colleague writing while you are reading is a change you must be able
                     to learn about without eyes. Polite, so it never interrupts. Keyed on
