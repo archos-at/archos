@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react'
 import ReactMarkdown, { type Options } from 'react-markdown'
 import type { PluggableList } from 'unified'
+import { NO_INK, rehypeInk, type InkRun } from './ink'
 import { markdownHeadings } from './headings'
 import type { MarkdownBlock } from './markdown-blocks'
 import { MARKDOWN_COMPONENTS } from './markdown-components'
@@ -18,6 +19,7 @@ interface MarkdownBlockViewProps {
   remarkPlugins: PluggableList
   rehypePlugins: PluggableList
   footnoteOptions: FootnoteOptions
+  ink?: readonly InkRun[]
 }
 
 export const MarkdownBlockView = memo(function MarkdownBlockView({
@@ -28,6 +30,7 @@ export const MarkdownBlockView = memo(function MarkdownBlockView({
   remarkPlugins,
   rehypePlugins,
   footnoteOptions,
+  ink = NO_INK,
 }: MarkdownBlockViewProps) {
   const ids = useMemo(
     (): ReadonlyMap<number, string> =>
@@ -39,11 +42,15 @@ export const MarkdownBlockView = memo(function MarkdownBlockView({
     (): MarkdownRenderState => ({ compact, headingIds: ids, streamingLines }),
     [compact, ids, streamingLines]
   )
+  const plugins = useMemo(
+    (): PluggableList => (ink.length > 0 ? [...rehypePlugins, [rehypeInk, { runs: ink }]] : rehypePlugins),
+    [rehypePlugins, ink]
+  )
   return (
     <MarkdownRenderStateContext.Provider value={renderState}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
-        rehypePlugins={rehypePlugins}
+        rehypePlugins={plugins}
         remarkRehypeOptions={footnoteOptions}
         components={MARKDOWN_COMPONENTS}
       >

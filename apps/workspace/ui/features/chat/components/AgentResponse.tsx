@@ -76,6 +76,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                       <MarkdownRenderer
                         content={controller.body}
                         isStreaming={controller.live}
+                        ink
                         remarkPlugins={controller.markerPlugins}
                         caret={
                           controller.live &&
@@ -229,6 +230,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                           <MarkdownRenderer
                             content={controller.body}
                             isStreaming={controller.live}
+                            ink
                             remarkPlugins={controller.markerPlugins}
                             caret={
                               controller.live &&
