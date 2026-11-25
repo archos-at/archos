@@ -204,7 +204,7 @@ export function OrganizationsCard({
                         onOrg(o.organizationId)
                       }}
                       className={cn(
-                        'focus-visible:ring-ring/60 block max-w-full truncate rounded-sm text-left outline-none focus-visible:ring-2',
+                        'focus-visible:ring-ring/60 block max-w-full truncate rounded-sm text-left outline-none focus-visible:ring-2 pointer-coarse:leading-11',
                         named ? 'font-medium' : 'font-mono text-xs'
                       )}
                       title={named ? o.organizationId : undefined}
