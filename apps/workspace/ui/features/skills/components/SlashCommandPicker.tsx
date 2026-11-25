@@ -50,6 +50,7 @@ export interface SlashCommandPickerProps {
   onSelect: (skill: SlashCommandSkill) => void
   onAriaChange?: (aria: SlashCommandPickerAria) => void
   className?: string
+  instant?: boolean
 }
 
 const optionValue = (skill: SlashCommandSkill): string => `skill:${skill.name}`
@@ -74,7 +75,7 @@ function HighlightedName({ name, query }: { name: string; query: string }): JSX.
 
 export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashCommandPickerProps>(
   function SlashCommandPicker(
-    { query, skills, loading = false, onSelect, onAriaChange, className },
+    { query, skills, loading = false, onSelect, onAriaChange, className, instant = false },
     ref,
   ) {
     const t = useTranslations(skillsCopy)
@@ -177,7 +178,7 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         data-testid="slash-command-picker"
         className={cn(
         'bg-popover text-popover-foreground flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl shadow-lg',
-          'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
+          !instant && 'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
       >

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import { Download } from 'lucide-react'
-import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnapExit } from '@/components/motion'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FittedName } from '@/components/ui/fitted-name'
@@ -229,7 +229,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                   data-testid="document-draft-state"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: reduced ? motionInstant : motionQuick }}
-                  exit={{ opacity: 0, transition: reduced ? motionInstant : motionQuickExit }}
+                  exit={{ opacity: 0, transition: reduced ? motionInstant : motionSnapExit }}
                 >
                   {stateLabel}
                 </motion.span>
