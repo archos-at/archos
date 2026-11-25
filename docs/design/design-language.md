@@ -1164,6 +1164,14 @@ times stops being a physical cue and becomes texture.
   roots carry no CSS entrance of their own.** A root's `animate-in` plays on
   every mount, so a restored thread replayed every bubble's entrance and a new
   message stacked two. A row leaving gives up its height with its opacity.
+- **A round the agent takes back fades out and the next one fades in.** When
+  a live answer's words are withdrawn (the agent starts its answer over), the
+  words fade on `motionQuickExit`, „Arbeitet…“ holds the place, and the next
+  round's prose fades in on `motionBase` once its first words arrive; its
+  cards arrive again, and unplaced ones wait for the round's end. The round's
+  states (writing, fading, quiet, returning) are an XState machine,
+  `features/chat/lib/answer-round-machine.ts`, held by `answer-round-machine.spec.ts`.
+  `node scripts/measure-stream-socket.mjs --scenario retract-with-card` plays it.
 - **State changes inside an arrived turn are transitions, not entrances**:
   `AgentPrompt` dims to `opacity-75`; the answer's meta row is reserved at chip
   height (`min-h-6`) so late chips cannot grow the footer.
