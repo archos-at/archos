@@ -79,7 +79,8 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
             {controller.showSkeleton && (
               <motion.div
                 key="skeleton"
-                className="flex flex-1 flex-col"
+                data-testid="thread-skeleton-overlay"
+                className="pointer-events-none absolute inset-0 flex flex-col"
                 exit={{ opacity: 0, transition: controller.rowLeave }}
               >
                 <MessageListSkeleton />

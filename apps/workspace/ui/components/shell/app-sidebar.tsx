@@ -33,6 +33,7 @@ import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu } from './sidebar-user-menu'
 import { shellAccount, type ShellAccount } from './shell-account'
+import { PhoneSideBar } from './phone-side-bar'
 import {
   railGroups,
   isSectionPathActive,
@@ -145,11 +146,12 @@ function AppSidebarFrame(props: AppSidebarProps) {
 
   const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`
 
-  const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
+  const routeChatPath = projectId === null ? PERSONAL_CHAT_PATH : `/app/projects/${projectId}/chat`
+  const onChat = onSide && (pathname === routeChatPath || pathname.startsWith(`${routeChatPath}/`))
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = projectId === null || !onSide ? null : phoneBackTarget(pathname, projectId)
-  const pageHasHeader = projectId === null || !onSide || framesProjectPage(pathname, projectId)
+  const pageHasHeader = projectId === null || !onSide || onChat || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -203,21 +205,18 @@ function AppSidebarFrame(props: AppSidebarProps) {
 
   return (
     <>
-      {/* The top of a phone page. Hidden on chat, whose toolbar is its own.
-          Where the page has a header (`ProjectSectionFrame`: every page but
-          the bare flows) this draws nothing: the page starts with its title,
-          whose line holds the way back and the search. What is left here is
-          the screen's top inset and the connection's line, which takes room
-          only while the link is not fine. No project name stands above a
-          phone page, as a band or as a crumb: the project is the first row of
-          „Mehr" in the tab bar (`PhoneTabBar`), and nowhere else on a phone. */}
       <header
         data-scope="project"
-        className={cn(
-          'bg-background w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden',
-          isChatRoute ? 'hidden' : 'flex'
-        )}
+        className="bg-background flex w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden"
       >
+        {onChat && (
+          <PhoneSideBar
+            mode={mode}
+            projectId={sideProjectId}
+            projects={projects}
+            navigateSide={navigateSide}
+          />
+        )}
         {/* A bare flow (the Einrichtung) has no page header: its way back and the search keep one 44px line. */}
         {!pageHasHeader && (
         <div data-slot="phone-bare-line" className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">

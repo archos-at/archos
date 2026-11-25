@@ -198,6 +198,16 @@ describe('ChatArea — the live derivation', () => {
   }
   const derivation = () => mockChatThinking.mock.calls.at(-1)![0] as DerivationProps
 
+  test('the loading skeleton lies over the thread’s column, never beside it, so what arrives under it keeps its place (no layout shift)', () => {
+    use({ ...turnState([], false), hasHydrated: false })
+    const { container } = render(<ChatArea isAuthenticated />)
+    const overlay = screen.getByTestId('thread-skeleton-overlay')
+    expect(overlay).toHaveClass('absolute', 'inset-0', 'pointer-events-none')
+    const scroller = container.querySelector('[role="region"]')!
+    expect(scroller.className).not.toMatch(/(^|\s)(relative|absolute|fixed|sticky)(\s|$)/)
+    expect(scroller.parentElement).toHaveClass('relative')
+  })
+
   test('is there from the send, before any step — and no typing bubble stands in for it', () => {
     use(turnState([question({ thinkingSteps: [] })], true))
     render(<ChatArea isAuthenticated={true} />)

@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    When a chat has loaded, the greeting and the input no longer drop into
+    place: the loading placeholder now lies over the chat instead of above it.
