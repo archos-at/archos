@@ -61,7 +61,7 @@ describe('useChatStarted', () => {
     useChatStore.setState({ hasHydrated: false })
     const startedWith = (arrival: ChatArrival): boolean =>
       renderHook(() => useChatStarted(), {
-        wrapper: ({ children }) => createElement(ChatArrivalProvider, { value: arrival, children }),
+        wrapper: ({ children }) => createElement(ChatArrivalProvider, { value: arrival }, children),
       }).result.current
     expect(startedWith({ resumes: true })).toBe(true)
     expect(startedWith({ resumes: false })).toBe(false)
