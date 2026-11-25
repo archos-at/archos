@@ -162,16 +162,20 @@ describe('FileDraftCard — filing', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('saves a file of a personal chat into Meine Ablage and opens it there', async () => {
+  it('saves a file of a personal chat into a folder of Meine Ablage it chose, and opens it there', async () => {
     store.projectId = null
     stubFetch(filedResponse(null))
     const user = userEvent.setup()
     render(<FileDraftCard {...XLSX} />)
 
     await user.click(screen.getByRole('button', { name: 'Save to Meine Ablage' }))
+    await screen.findByRole('heading', { name: 'Save to Meine Ablage' })
+    expect(fetch).toHaveBeenCalledWith('/api/personal-shelf/folders')
+    await user.click(await screen.findByRole('button', { name: 'Open folder “Planung”' }))
+    await user.click(screen.getByTestId('save-to-project-submit'))
 
     await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Saved in Meine Ablage'))
-    expect(filingBody()).toEqual({ path: XLSX.path, title: XLSX.title, force: false })
+    expect(filingBody()).toEqual(expect.objectContaining({ path: XLSX.path, title: XLSX.title, force: false, folderId: 'f-plan' }))
     expect(screen.getByText('In Meine Ablage')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open in Meine Ablage' })).toHaveAttribute(
       'href',

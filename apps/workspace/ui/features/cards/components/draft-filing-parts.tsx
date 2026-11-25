@@ -125,19 +125,19 @@ export const DraftSaveDialog: FC<{
   source?: DraftSource | null
   asOwn?: boolean
 }> = ({ filing, open, onOpenChange, title, path, source, asOwn = false }) => {
-  const sourceFolder = useSourceFolder(source)
-  if (!filing.projectId) return null
+  const sourceFolder = useSourceFolder(filing.projectId ? source : null)
+  const projectSource = filing.projectId ? source : null
   return (
     <SaveToProjectDialog
       open={open}
       onOpenChange={onOpenChange}
-      projectId={filing.projectId}
+      shelf={filing.projectId ? { kind: 'project', projectId: filing.projectId } : { kind: 'personal' }}
       fileName={title}
       extension={filedExtension(draftFileType(path))}
       initialFolderId={sourceFolder.folderId ?? null}
-      initialFolderName={source ? undefined : GENERATED_DOCUMENT_FOLDER_NAME}
+      initialFolderName={filing.projectId && !source ? GENERATED_DOCUMENT_FOLDER_NAME : undefined}
       locating={sourceFolder.loading}
-      revisionOf={source?.name}
+      revisionOf={projectSource?.name}
       pending={filing.isFiling}
       error={open ? filing.error : null}
       onSave={async ({ folderId, name, as, changeNote }) => {

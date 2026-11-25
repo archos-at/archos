@@ -713,7 +713,9 @@ anything else or with a different content type.
 - **In a chat without a project** the same card reads „In Meine Ablage legen“,
   and `fileDraftToPersonalShelf`
   (`apps/workspace/bff/conversations/personal-draft-filing.ts`) saves the draft
-  to the person's own shelf, at its root, through `uploadToPersonalShelf`: the
+  to the person's own shelf, in the folder they pick in the same save dialog a
+  project uses (`SaveToProjectDialog` with `shelf: { kind: 'personal' }`, its
+  folders from `/api/personal-shelf/folders`), through `uploadToPersonalShelf`: the
   bytes are stamped with the AI marking as above, but the row is the person's
   own upload, not an agent-authored document, because Meine Ablage has no review
   or Fassungen. `requireMayFileFrom` decides with the person's shelf as the

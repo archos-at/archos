@@ -285,7 +285,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                 className={FILE_WIDE_BUTTON}
                 aria-disabled={isFiling || undefined}
                 aria-busy={isFiling || undefined}
-                onClick={() => (filing.projectId ? openSave(false) : void filing.file(false))}
+                onClick={() => openSave(false)}
                 data-testid="file-draft-file"
               >
                 <StackedLabel

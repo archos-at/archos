@@ -131,7 +131,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             aria-disabled={isFiling || undefined}
             aria-busy={isFiling || undefined}
-            onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+            onClick={() => setSaveOpen(true)}
             data-testid="document-draft-file"
           >
             <StackedLabel
