@@ -88,9 +88,10 @@ export function useFolderBriefSurface({
   }
 
   const unread = brief ? brief.tally.failed + brief.tally.held : 0
+  const showingUnread = active?.kind === 'state' && (active.state === 'failed' || active.state === 'held')
   return {
     unreadHint:
-      brief && unread > 0 ? (
+      brief && unread > 0 && !showingUnread ? (
         <UnreadHint count={unread} onShow={() => select({ kind: 'state', state: brief.tally.failed > 0 ? 'failed' : 'held' })} />
       ) : null,
     brief: brief ? (
