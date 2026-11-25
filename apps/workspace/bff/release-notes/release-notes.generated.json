@@ -163,6 +163,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A draft built on restricted folders or other projects can now be filed anywhere you may write, after you check it and confirm it holds nothing confidential; the card names the sources. Admins can forbid this under Organisation › Prüfung.",
+            "de": "Ein Entwurf auf Basis beschränkt zugänglicher Ordner oder anderer Projekte kann jetzt überall abgelegt werden, wo Sie Schreibrechte haben, nachdem Sie geprüft und bestätigt haben, dass er keine vertraulichen Inhalte enthält; die Karte nennt die Quellen. Admins können dies unter Organisation › Prüfung untersagen."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {
@@ -560,6 +568,14 @@
           "text": {
             "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
             "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "In a personal chat, „In Meine Ablage legen“ now asks which folder of Meine Ablage the draft goes into.",
+            "de": "In einem persönlichen Chat fragt „In Meine Ablage legen“ jetzt, in welchem Ordner in Meine Ablage der Entwurf abgelegt wird."
           }
         },
         {

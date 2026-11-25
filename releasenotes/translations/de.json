@@ -320,6 +320,10 @@
     "de": "Ein Entwurf, den Piloti geschrieben hat, lässt sich jetzt ins Projekt ablegen. Bitten Sie mit „leg das ins Projekt“ oder „ablegen“ darum, dann erscheint das Dokument unter Dateien, als Entwurf gekennzeichnet, und die Karte neben der Antwort verlinkt direkt darauf."
   },
   {
+    "en": "A draft built on restricted folders or other projects can now be filed anywhere you may write, after you check it and confirm it holds nothing confidential; the card names the sources. Admins can forbid this under Organisation › Prüfung.",
+    "de": "Ein Entwurf auf Basis beschränkt zugänglicher Ordner oder anderer Projekte kann jetzt überall abgelegt werden, wo Sie Schreibrechte haben, nachdem Sie geprüft und bestätigt haben, dass er keine vertraulichen Inhalte enthält; die Karte nennt die Quellen. Admins können dies unter Organisation › Prüfung untersagen."
+  },
+  {
     "en": "A dropped connection is now a quiet line above the input field instead of a card in the conversation, and the Herleitung says Fehlgeschlagen, Gestoppt or Auftrag angelegt instead of a green Fertig when the answer did not simply finish.",
     "de": "Eine unterbrochene Verbindung wird jetzt als unaufdringliche Zeile über dem Eingabefeld statt als Karte im Gespräch angezeigt. Bei der Herleitung steht „Fehlgeschlagen“, „Gestoppt“ oder „Auftrag angelegt“ statt eines grünen „Fertig“, wenn die Antwort nicht einfach abgeschlossen wurde."
   },
@@ -2818,6 +2822,10 @@
   {
     "en": "In a narrow Dateien list, such as beside the chat, file names no longer collapse under their status and long names are no longer cut off mid-letter: the list shows fewer columns and keeps the end of each name readable.",
     "de": "In einer schmalen Dateienliste, etwa neben dem Chat, werden Dateinamen nicht mehr vom Status überlagert und lange Namen nicht mehr mitten in einem Buchstaben abgeschnitten: Die Liste zeigt weniger Spalten an und hält das Ende jedes Namens lesbar."
+  },
+  {
+    "en": "In a personal chat, „In Meine Ablage legen“ now asks which folder of Meine Ablage the draft goes into.",
+    "de": "In einem persönlichen Chat fragt „In Meine Ablage legen“ jetzt, in welchem Ordner in Meine Ablage der Entwurf abgelegt wird."
   },
   {
     "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
