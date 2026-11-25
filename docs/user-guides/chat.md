@@ -449,7 +449,7 @@ Answers that already carry source data show a provenance block: structured citat
 
 ### Citing a source elsewhere
 
-A source's preview popover (or document dialog) carries a copy button that yields a **German Fachtext citation** — the form a Befund, Gutachten or Einreichung uses (e.g. `OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, S. 18 (Österreichisches Institut für Bautechnik, Wien).`). The **Zitieren / Cite** menu at the end of the chip row copies *all* of the answer's sources in one of:
+A source's preview popover (or document dialog) carries a copy button that yields a **German Fachtext citation** — the form a Befund, Gutachten or Einreichung uses (e.g. `OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, S. 18 (Österreichisches Institut für Bautechnik, Wien).`). The copy button under the answer (**Kopieren / Copy**) opens a menu: **Mit Quellen / With sources** copies the answer with its sources written out, **Nur Antwort / Answer only** copies the prose alone, and its last section copies *all* of the answer's sources in one of:
 
 | Format | For |
 |---|---|

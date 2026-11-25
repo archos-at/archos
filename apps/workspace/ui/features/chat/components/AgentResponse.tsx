@@ -161,6 +161,19 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
     )
   }
 
+  const sources = (
+    <div className="flex min-w-48 flex-1 empty:hidden">
+      <AnswerSourcesRow
+        documents={controller.documents}
+        anchorPrefix={controller.anchorPrefix}
+        routingDecision={controller.routingDecision}
+        isStreaming={controller.live || controller.cutShort}
+        withDivider={false}
+        layout="strip"
+      />
+    </div>
+  )
+
   return (
     <AnswerDataProvider value={controller.answerData}>
       <DiagramFilingProvider target={controller.diagramFilingTarget}>
@@ -293,33 +306,21 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                 >
                   <div
                     className={cn(
-                      'duration-base flex flex-col gap-1.5 border-t px-4 py-1 transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
+                      'duration-base flex flex-col gap-1.5 border-t px-4 py-1.5 transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
                       controller.live && controller.mountedLive && 'invisible opacity-0'
                     )}
                     data-testid="answer-footer"
                   >
                     <LookupFoundNothingNote show={controller.lookupFoundNothing === true} />
-                    <AnswerSourcesRow
-                      documents={controller.documents}
-                      anchorPrefix={controller.anchorPrefix}
-                      routingDecision={controller.routingDecision}
-                      isStreaming={controller.live || controller.cutShort}
-                      withDivider={false}
-                    />
-                    {controller.reserveMetaRow && (
+                    {controller.reserveMetaRow ? (
                       <div
-                        className={
-                          controller.hasMetaRow
-                            ? 'flex min-h-6 flex-wrap items-center gap-2'
-                            : 'min-h-6'
-                        }
+                        className={controller.hasMetaRow ? undefined : 'min-h-6'}
                         aria-hidden={controller.hasMetaRow ? undefined : true}
                       >
-                        {/* Copy the answer out — markdown, with or without its sources
-                    written out. Before the disclosure: "take this with you" is
-                    what the reader wants first; the details are the afterthought.
-                    `compact` feedback: the thumbs stay on this line and their
-                    disclosure takes the next one full-width. */}
+                        {/* One line: the sources at the start, then the actions,
+                    the details and the vote. `compact` feedback: the thumbs
+                    stay on this line and their disclosure takes the next one
+                    full-width. */}
                         {controller.hasDetailsContent ? (
                           <AnswerDetails
                             conversationId={controller.conversationId}
@@ -341,21 +342,27 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                             hasAnswerSources={controller.hasAnswerSources}
                             timestamp={controller.timestamp}
                             answerDurationMs={controller.answerDurationMs}
+                            lead={sources}
                             before={controller.answerActions}
                             beside={controller.memoryChip}
                             after={controller.feedback}
                           />
                         ) : (
-                          <>
-                            {controller.answerActions}
+                          <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1.5">
+                            {sources}
                             {controller.memoryChip}
-                            {controller.hasMetaRow && (
-                              <span className="flex-1" aria-hidden="true" />
-                            )}
-                            {controller.feedback}
-                          </>
+                            <div className="-mr-[5px] ml-auto flex flex-wrap items-center justify-end gap-0.5 pointer-coarse:mr-0">
+                              {controller.answerActions}
+                              {controller.answerActions && controller.feedback && (
+                                <span className="bg-border mx-1 h-3.5 w-px" aria-hidden="true" />
+                              )}
+                              {controller.feedback}
+                            </div>
+                          </div>
                         )}
                       </div>
+                    ) : (
+                      sources
                     )}
                   </div>
                 </HeightExpand>

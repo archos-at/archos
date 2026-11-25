@@ -2,6 +2,4 @@
 # area: answers
 improvements:
   - >
-    The bar under an answer, with copy, „Antwortdetails“ and the thumbs, is a
-    third slimmer, so a short answer no longer sits on a band as heavy as itself.
-    „War das hilfreich?“ now shows when you point at a thumb.
+    Everything under an answer now sits on one slim line: its sources, one copy button that also cites every source, Word, „Antwortdetails“ as an ⓘ, and the thumbs. Many sources scroll sideways, and their number unfolds them all.

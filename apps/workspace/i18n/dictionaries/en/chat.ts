@@ -211,6 +211,7 @@ export const chat = {
     precedentProject: '{name} · {status}',
     projectStatus: { active: 'active', paused: 'paused', closed: 'closed' },
     more: '+{count} more',
+    showAll: 'Show all {count} sources',
     less: 'Show fewer',
     clause: 'Sec.\u00A0{clause}',
     clausePage: 'Sec.\u00A0{clause} · p.\u00A0{page}',
@@ -263,6 +264,9 @@ export const chat = {
   answerActions: {
     copy: 'Copy answer',
     copyWithSources: 'Copy answer with full source references',
+    copyMenu: 'Copy',
+    copyMenuWithSources: 'With sources',
+    copyMenuPlain: 'Answer only',
     copied: 'Copied',
     copyFailed: 'The answer could not be copied.',
     sourcesHeading: 'Sources',

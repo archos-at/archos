@@ -75,7 +75,7 @@ describe('AgentResponse', () => {
       const trigger = screen.getByTestId('answer-details-trigger')
       expect(trigger).toHaveAttribute('aria-expanded', 'false')
       expect(chip.closest('.min-h-6')).toContainElement(trigger)
-      expect(chip.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+      expect(chip.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
       await user.click(chip)
       expect(await screen.findByText('Fluchtweg über den Innenhof')).toBeInTheDocument()
@@ -168,13 +168,11 @@ describe('AgentResponse', () => {
         const thumb = screen.getByRole('button', { name: 'Mark this answer as not helpful' })
         await user.click(thumb)
 
-        const metaRow = screen
-          .getByRole('button', { name: 'Copy answer with full source references' })
-          .closest('.min-h-6')
+        const metaRow = screen.getByRole('button', { name: 'Copy' }).closest('.min-h-6')
         const disclosure = (await screen.findByText('What was the problem?')).closest('.w-full')
 
-        expect(disclosure?.parentElement).toBe(metaRow)
-        expect(thumb.closest('.min-h-6')?.parentElement).toBe(metaRow)
+        expect(metaRow).toContainElement(disclosure as HTMLElement)
+        expect(thumb.closest('.min-h-6')?.parentElement).toBe(disclosure?.parentElement)
         expect(disclosure).not.toContainElement(thumb)
       } finally {
         vi.unstubAllGlobals()
@@ -193,7 +191,7 @@ describe('AgentResponse', () => {
         />
       )
 
-      const copy = screen.getByRole('button', { name: 'Copy answer with full source references' })
+      const copy = screen.getByRole('button', { name: 'Copy' })
       const trigger = screen.getByTestId('answer-details-trigger')
       const thumb = screen.getByRole('button', { name: 'Mark this answer as helpful' })
       const metaRow = copy.closest('.min-h-6')

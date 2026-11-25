@@ -117,7 +117,7 @@ describe('AgentResponse', () => {
 
   test('the details trigger is a 44px row to a finger, not a catchment the frame clips', () => {
     render(<AgentResponse content="Response" timestamp="2024-01-15T14:30:00Z" />)
-    expect(screen.getByTestId('answer-details-trigger')).toHaveClass('pointer-coarse:min-h-11')
+    expect(screen.getByTestId('answer-details-trigger')).toHaveClass('pointer-coarse:size-11')
   })
 
   test('a cut-off marks the details trigger instead of opening it under the reader', () => {
