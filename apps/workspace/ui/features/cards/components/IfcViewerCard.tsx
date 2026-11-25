@@ -13,9 +13,9 @@ import { bimCopy } from '@/i18n/namespaces/bim'
 import { IfcModelViewer } from '@/features/bim/components/ifc-model-viewer'
 import { resolveHighlights, storeyKey, supportsWebGpu } from '@/features/bim/lib/model-index'
 import { buildModelHref } from '@/features/bim/lib/model-link'
-import { loadsOnSight } from '@/features/bim/lib/model-load-gate'
 import { CARD_SHELL } from './card-chrome'
 import {
+  loadsOnSight,
   notReadyModelStatus,
   resolveModelByFilename,
   useBimElements,
