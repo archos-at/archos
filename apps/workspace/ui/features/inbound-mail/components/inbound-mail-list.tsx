@@ -103,7 +103,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         <ToggleGroup
           type="single"
           segmented
-          className="@3xl:bg-selected [&>button]:text-sm"
+          className="[&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}

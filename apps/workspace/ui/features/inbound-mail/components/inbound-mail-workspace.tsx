@@ -485,12 +485,13 @@ export function InboundMailWorkspace({
         )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
-      {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
-          apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
-      {/* 24px under the header's rule (16px on a phone): the list's desk and the open mail started on the rule and
+      {/* At the split the list stands on the page itself and the reader is the one sheet, 16px apart and 24px off the
+          foot; a grey panel behind the list made two boxes compete with the mail (owner review, 2026-11-25). The list's
+          text stands on the title's edge, its row fills bleeding out to the left. */}
+      {/* 24px under the header's rule (16px on a phone): the list and the open mail started on the rule and
           read as hung from it (review of 2026-11-11). */}
       <div className={cn('flex min-h-0 flex-1 flex-col pt-4 @3xl:pt-6', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
-        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:-ml-4 @3xl:flex @3xl:px-0', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}

@@ -125,17 +125,17 @@ export function InboundMailRow({
           className="flex min-w-0 flex-1 items-start gap-3 rounded-inline outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
         >
           {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). The one
-              grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
+              desk grey on the page; white on the row's hover, open and picked fill, as anything on a grey surface is. */}
           {who === null ? (
             // A settled mail has no sender left to draw initials from: the same disc, carrying the Verlauf's glyph.
-            <span className="bg-sheet text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
+            <span className="bg-desk text-muted-foreground group-hover/row:bg-sheet group-data-current/row:bg-sheet group-data-checked/row:bg-sheet mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
               <Mails className="size-3.5" />
             </span>
           ) : (
             <PersonAvatar
               person={{ userId: mail.senderDomain ?? who, name: who }}
               size="sm"
-              className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
+              className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-desk [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-sheet group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-sheet group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-sheet"
             />
           )}
           <div className="flex min-w-0 flex-1 flex-col" /* a name and one meta line: 56px with the row's 10px */>
