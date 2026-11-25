@@ -35,7 +35,7 @@ export function DocumentArchiveAction({
           type="button"
           size="sm"
           variant="link"
-          className="text-muted-foreground hover:text-foreground touch-target -ml-1 h-auto px-1 py-0.5 text-xs pointer-coarse:h-auto"
+          className="text-muted-foreground hover:text-foreground touch-target -ml-1 h-auto px-1 py-0.5 text-xs pointer-coarse:min-h-11"
           disabled={pending}
           aria-busy={pending}
           data-testid="document-lifecycle-archive"
