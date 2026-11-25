@@ -22,6 +22,7 @@ import {
   type InboundMailThreadGroupView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { cn } from '@/lib/utils'
+import { isReady } from '../lib/completeness'
 import type { ListSection } from '../lib/list-sections'
 import { INBOUND_MAIL_READY_ANCHOR } from '@/lib/inbound-mail/paths'
 import { InboundMailRow } from './inbound-mail-row'
@@ -37,8 +38,6 @@ export interface InboundMailListProps {
   sections: ListSection[]
   status: InboundMailListStatus
   onFilterChange: (status: InboundMailListStatus, outcome: InboundMailOutcome | null) => void
-  waitingCount: number | null
-  waitingMore?: boolean
   openId: string | null
   focusedId: string | null
   checked: ReadonlySet<string>
@@ -88,13 +87,15 @@ function blocksOf(sections: readonly ListSection[]): Block[] {
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { status, onFilterChange, waitingCount, waitingMore = false, showFilter = true, state, query = '', onQueryChange, searchInList = true, matchCount } = props
+  const { status, onFilterChange, showFilter = true, state, query = '', onQueryChange, searchInList = true, matchCount } = props
+  const readyAll = props.sections.flatMap((section) => (section.kind === 'mail' ? [section.mail] : section.kind === 'thread' ? section.mails : [])).filter(isReady)
+  const readyBatch = readyAll.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
   const searchable = searchInList && onQueryChange !== undefined && state.kind === 'ready' && (state.items.length > 0 || query !== '')
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
       <div className={cn('flex flex-col gap-2 px-4 pb-3 pt-2', !showFilter && 'hidden')} /* 24px under the tabs, as every tab */>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
         <ToggleGroup
           type="single"
           segmented
@@ -106,30 +107,25 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         >
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
-            {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
-            {/* One digit's width and no text to read: the one grey on the white thumb, white on the track. */}
-            {waitingCount === null && (
-              <CountPill tone="muted" aria-hidden className="in-data-[state=off]:bg-background">
-                <span className="invisible before:content-['8']" />
-              </CountPill>
-            )}
-            {waitingCount !== null && waitingCount > 0 &&
-              (waitingMore ? (
-                <CountPill tone="muted" className="in-data-[state=off]:bg-background" data-testid="filter-waiting-count">{`${waitingCount}+`}</CountPill>
-              ) : (
-                <CountPill count={waitingCount} tone="muted" className="in-data-[state=off]:bg-background" data-testid="filter-waiting-count" />
-              ))}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
             {t('filters.handled')}
           </ToggleGroupItem>
         </ToggleGroup>
-        {/* As in Dateien: picking is a mode the reader starts, so the boxes stand only while it lasts. */}
-        {status === 'waiting' && props.onStartSelection && !props.selecting && (
-          <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={props.onStartSelection} data-testid="selection-start">
+        {status === 'waiting' && !props.selecting && (
+          <div className="flex shrink-0 items-center gap-3">
+            {readyBatch.length > 1 && (
+              <Button type="button" variant="inline" className={GROUP_LINK} onClick={() => props.onFileReady(readyBatch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                {t(readyBatch.length < readyAll.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: readyBatch.length })}
+              </Button>
+            )}
+        {props.onStartSelection && (
+          <Button type="button" variant="ghost" size="sm" className="gap-1.5 px-2" onClick={props.onStartSelection} data-testid="selection-start">
             <CheckSquare className="size-4" aria-hidden />
             {t('bulk.start')}
           </Button>
+        )}
+          </div>
         )}
         </div>
         {searchable && (
@@ -181,7 +177,6 @@ function ListBody({
   hrefFor,
   quietOpen,
   onQuietOpenChange,
-  onFileReady,
   onRetry,
   onLoadMore,
   loadingMore,
@@ -376,7 +371,6 @@ function ListBody({
         }
         if (!head) return <div key={block.key} className="flex flex-col gap-3">{entries(block.entries)}</div>
         const ready = head.readiness === 'ready'
-        const batch = head.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
         return (
           <div key={block.key} className="flex flex-col gap-3">
             <div
@@ -393,11 +387,6 @@ function ListBody({
                   {t(`readiness.${head.readiness}`)}
                   <CountPill count={head.mails.length} tone="muted" />
                 </SectionLabel>
-                {ready && batch.length > 1 && !picking && (
-                  <Button type="button" variant="inline" className={GROUP_LINK} onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
-                    {t(batch.length < head.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
-                  </Button>
-                )}
               </div>
               {head.readiness === 'others' && <p className="text-muted-foreground text-xs">{t('readiness.othersHint')}</p>}
             </div>

@@ -204,8 +204,12 @@ abgelegt“ where the reader may not open it (`filedWithoutClick` on the
 summary; i18n group `inboundMail.autoFiled`).
 
 **A row is two lines** (owner review, 2026-11-25): the subject without
-`AW:`/`WG:` and its time, then the sender (with its trust or risk glyph) and
-the one thing that decides the mail: where it goes or what it needs. No avatar
+`AW:`/`WG:` and its time, short as a mail program's („10:48“ today, „gestern“,
+„13.11.“; `ListTime`), then the sender and the one thing that decides the
+mail: where it goes or what it needs. The sender's glyph stands only when
+something about the sender is off (a sender the server vouches for has none),
+every waiting subject is one weight (a section of bold rows said nothing), and
+the rows stand apart by their padding, with no hairline. No avatar
 (a sender is not a member, and the disc was a column of initials), no press of
 its own: a row opens the mail, and the mail files it. „Braucht Sie“ stands
 first, then „Ablagebereit“, then „Wartet auf andere“. Over the rows a field
@@ -215,10 +219,12 @@ count of matches is said once by a status, Escape clears it, and a search that
 finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“. The list's
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
 run of rows inside one. „Ablagebereit“ says on hover „Jede Zeile sagt,
-wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ and, with two or more
-ready mails, offers the text press „Alle {n} ablegen“ (bulk, confirmed and
-grouped by destination; more than 20: „Die ersten 20 ablegen“, since one
-request decides at most 20). A ready row's second line says where it goes,
+wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ With two
+or more ready mails anywhere in the list (a thread under „Braucht Sie“
+included), the toolbar beside „Wartet | Bearbeitet“ offers the text press
+„Alle {n} ablegen“ (bulk, confirmed and grouped by destination; more than 20:
+„Die ersten 20 ablegen“, since one request decides at most 20). The switch
+carries no count: the tab above says it. A ready row's second line says where it goes,
 „→ Behörde/Bescheide“, the first folder, then „+1“ for every other place
 (`destinationLine` in `inbound-mail-row.tsx`); inside a thread the text's
 Verlauf is left out, since the thread's heading names it. The server says it
@@ -241,10 +247,11 @@ under „Wartet auf andere“. A verified writer's mail direct filing left
 it „E-Mail-Verlauf · 2 E-Mails“ in muted text, and its rows under it on the
 column's edge (owner review, 2026-11-25: a muted label line over flush rows
 read as a stray line, the earlier indent and hairline as a second list). Thread
-groups are split by readiness, so a conversation's ready replies stand under
-„Ablagebereit“ and its replies that need a look under „Braucht Sie“; a thread
-has no press of its own, the section's „Alle {n} ablegen“ or a selection files
-it. The rows do not repeat the thread: each subject drops the thread's name in
+stays whole (owner review, 2026-11-25: split by readiness, one conversation
+stood twice): it stands under the first section any of its mails belongs to,
+„Braucht Sie“ while one reply needs a look, and each row says its own state. A
+thread has no press of its own; the toolbar's „Alle {n} ablegen“ or a
+selection files its ready replies. The rows do not repeat the thread: each subject drops the thread's name in
 front (`subjectWithinThread`), so replies read „Nachreichung Statik“, „Index C“
 rather than cut-off „Stellplatznachweis – …“. A row whose text a follow
 already appended shows no thread line; what still waits are the attachments
@@ -713,7 +720,8 @@ where each part went („E-Mail-Text → „Stellplatznachweis““, „Beschei
 → Behörde/Bescheide · Fassung 1“) and „Ansehen“, or the failure
 (`useLandingReport`). **A filing waits five seconds behind „Rückgängig“**
 (`useHeldFilings`, `lib/use-held-filings.ts`): the mail leaves the list and the
-next one opens at once, and one toast says „E-Mail wird abgelegt ·
+next one opens at once, and one toast, at the bottom left over the list's foot (at the right it covered
+the next mail's presses; on a phone over the bar, as every mail toast), says „E-Mail wird abgelegt ·
 Rückgängig“, then, in place, „Wird abgelegt …“ and where it landed. Undoing
 sends nothing and opens the mail again; leaving the page sends what is held at
 once. A selection's and „Alle …“'s filing wait the same way, and a selection's

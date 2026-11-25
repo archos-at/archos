@@ -46,18 +46,12 @@ export function listSections(
   const groupOf = new Map<string, ListSection & { kind: 'thread' }>()
   for (const group of options.groups ?? []) {
     const members = group.mails.map((entry) => byId.get(entry.mailId)).filter((mail): mail is InboundMailSummaryView => !!mail)
-    for (const readiness of READINESS_ORDER) {
-      const half = members.filter((mail) => readinessOf(mail) === readiness)
-      if (half.length < 2) continue
-      const section = {
-        kind: 'thread' as const,
-        threadId: group.threadId,
-        name: group.name,
-        mails: half,
-      }
-      for (const member of half) groupOf.set(member.id, section)
-    }
+    if (members.length < 2) continue
+    const section = { kind: 'thread' as const, threadId: group.threadId, name: group.name, mails: members }
+    for (const member of members) groupOf.set(member.id, section)
   }
+  const placeOf = (entry: ListSection & { kind: 'thread' }): Readiness =>
+    READINESS_ORDER.find((readiness) => entry.mails.some((mail) => readinessOf(mail) === readiness)) ?? 'ready'
 
   const halves: Record<Readiness, ListSection[]> = { ready: [], needs_you: [], others: [] }
   const placed = new Set<ListSection>()
@@ -69,7 +63,7 @@ export function listSections(
     }
     if (placed.has(group)) continue
     placed.add(group)
-    halves[readinessOf(mail)].push(group)
+    halves[placeOf(group)].push(group)
   }
 
   const sections: ListSection[] = []

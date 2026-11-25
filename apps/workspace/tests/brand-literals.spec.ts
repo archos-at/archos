@@ -711,9 +711,10 @@ describe('lines for lists, space for sections', () => {
     expect(hasRun(classesOfText(band), ['border-b', 'border-border'])).toBe(true)
   })
 
-  it('the hairline is the token, and the Papierkorb, Offene Punkte and the mail list wear it', () => {
+  it('the hairline is the token, and the Papierkorb and Offene Punkte wear it; the mail list's two-line rows stand apart by their padding alone', () => {
     expect(classesOf(moduleOf('ROW_HAIRLINE')).includes('after:bg-hairline')).toBe(true)
-    for (const name of ['FolderBinPanel', 'OpenPointsPanel', 'InboundMailRow']) {
+    expect(summaryOf(moduleOf('InboundMailRow')).identifiers.some((identifier) => identifier.includes('ROW_HAIRLINE'))).toBe(false)
+    for (const name of ['FolderBinPanel', 'OpenPointsPanel']) {
       expect(summaryOf(moduleOf(name)).identifiers.some((identifier) => identifier.includes('ROW_HAIRLINE')), name).toBe(true)
     }
   })
@@ -1092,9 +1093,10 @@ describe('rows, weights and the phone', () => {
     expect(summaryOf(moduleOf('MarkRowContent')).literals.some((text) => text.startsWith('flex w-full gap-3 rounded-control px-2.5 py-2.5 '))).toBe(true)
   })
 
-  it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
+  it('a mail subject’s weight is its state: 500 waits, 440 is handled; never bold, or a section of bold rows says nothing', () => {
     const subject = parseSource(moduleOf('InboundMailRow'))
-    expect(hasShape(subject, "needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
+    expect(hasShape(subject, "waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
+    expect(classesOf(moduleOf('InboundMailRow'))).not.toContain('font-semibold')
     expect(literalHasRun(moduleOf('InboundMailRow'), ['min-w-0', 'flex-1', 'truncate', 'text-name'])).toBe(true)
   })
 

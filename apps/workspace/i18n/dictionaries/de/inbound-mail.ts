@@ -9,7 +9,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   filters: {
     label: 'Anzeigen',
-    waiting: 'Wartet auf Ablage',
+    waiting: 'Wartet',
     handled: 'Bearbeitet',
   },
 
@@ -49,6 +49,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   row: {
     dest: '→ {place}',
+    yesterday: 'gestern',
     quoted: '„{name}“',
     destMore: '→ {place} +{count}',
     destNewThread: '→ neuer E-Mail-Verlauf',

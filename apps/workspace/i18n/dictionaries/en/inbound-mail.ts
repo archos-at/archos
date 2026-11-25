@@ -7,7 +7,7 @@ export const inboundMail = {
 
   filters: {
     label: 'Show',
-    waiting: 'Waiting to be filed',
+    waiting: 'Waiting',
     handled: 'Handled',
   },
 
@@ -46,6 +46,7 @@ export const inboundMail = {
 
   row: {
     dest: '→ {place}',
+    yesterday: 'yesterday',
     quoted: '“{name}”',
     destMore: '→ {place} +{count}',
     destNewThread: '→ new mail thread',

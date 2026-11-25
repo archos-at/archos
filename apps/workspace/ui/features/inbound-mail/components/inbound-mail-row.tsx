@@ -5,8 +5,7 @@ import Link from 'next/link'
 import { Bot, CircleAlert, Hourglass, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Item } from '@/components/ui/item'
-import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
-import { TimeAgo } from '@/components/ui/time-ago'
+import { ListTime } from './list-time'
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { cn } from '@/lib/utils'
@@ -58,14 +57,13 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
             : null
   const expiresSoon = waiting && now !== undefined && !filingNow && !impersonating && daysUntilExpiry(mail, now) !== null
   const pickable = selecting && waiting && bulkSelectable(mail)
-  const needsReader = waiting && !filingNow && reason !== null && claim !== 'colleague'
   const status = rowStatus({ mail, waiting, impersonating, filingNow, reasonLine, claim, who, groupThread, t })
   const expiry = expiresSoon ? t('row.expiresShort', { date: dayMonth(mail.expiresAt, locale) }) : null
 
   return (
     <Item
       as="li"
-      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', ROW_HAIRLINE, selecting && waiting ? '[--row-text:40px]' : '[--row-text:12px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1')}
+      className={cn('group/row items-start rounded-control px-3 py-2.5 hover:bg-hover pointer-coarse:min-h-11 data-current:bg-selected data-current:hover:bg-selected data-current:inset-ring-0', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1')}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}
@@ -100,7 +98,7 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
         className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-inline outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
       >
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className={cn('min-w-0 flex-1 truncate text-name', needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined}>
+          <span className={cn('min-w-0 flex-1 truncate text-name', waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined}>
             {subject}
           </span>
           {expiry ? (
@@ -109,11 +107,11 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
               {expiry}
             </span>
           ) : (
-            <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />
+            <ListTime date={mail.receivedAt} locale={locale} />
           )}
         </span>
         <span className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
-          {who !== null && (mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} name={mail.senderName} />)}
+          {who !== null && (mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : !senderVouched(mail) && <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} name={mail.senderName} />)}
           {who !== null && <span className="min-w-0 shrink truncate">{who}</span>}
           {who !== null && status && <span aria-hidden>·</span>}
           {status && (
@@ -129,6 +127,10 @@ export function InboundMailRow({ mail, href, open, focused, checked, onCheckedCh
     </Item>
   )
 }
+
+/** A sender the server vouches for needs no glyph: the glyph speaks only when something about the sender is off. */
+const senderVouched = (mail: InboundMailSummaryView): boolean =>
+  (mail.senderTrust === 'member_verified' || mail.senderTrust === 'external_verified') && mail.riskLevel !== 'impersonation' && mail.impersonation === null && mail.senderFlags.length === 0
 
 type StatusTone = 'quiet' | 'warning' | 'danger' | 'busy'
 const STATUS_TONE: Record<StatusTone, string> = {

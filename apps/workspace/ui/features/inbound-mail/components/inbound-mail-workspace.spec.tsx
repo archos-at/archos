@@ -92,14 +92,13 @@ describe('InboundMailWorkspace', () => {
     expect(screen.getByTestId('inbound-mail-selection-bar')).toBeInTheDocument()
   })
 
-  it('splits a conversation along readiness, „Braucht Sie“ first, each half under one label line', () => {
+  it('keeps a conversation whole under its heading, in „Braucht Sie“ while any reply needs a look, and files its ready replies from the toolbar', () => {
     renderWorkspace('thread-group')
-    const ready = screen.getByRole('region', { name: /3 new mails/ })
-    const waiting = screen.getByRole('region', { name: /2 new mails/ })
-    expect(within(ready).getByRole('heading', { name: 'Stellplatznachweis' })).toBeInTheDocument()
-    expect(screen.getByTestId('readiness-needs_you').compareDocumentPosition(screen.getByTestId('readiness-ready')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByTestId('readiness-ready').compareDocumentPosition(ready) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByTestId('readiness-needs_you').compareDocumentPosition(waiting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const thread = screen.getByRole('region', { name: /5 new mails/ })
+    expect(within(thread).getByRole('heading', { name: 'Stellplatznachweis' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /3 new mails/ })).toBeNull()
+    expect(screen.getByTestId('readiness-needs_you').compareDocumentPosition(thread) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('readiness-file-all')).toHaveTextContent('File all 3')
   })
 
   it('files the first twenty of a longer conversation, the most one request decides, and says so before the press', async () => {
@@ -115,8 +114,8 @@ describe('InboundMailWorkspace', () => {
 
   it('heads the list with „Ablagebereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
     renderWorkspace('many')
-    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready to file3')
-    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you6')
+    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready to file1')
+    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you8')
     const nameStop = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['name-stop'].view.id}`)
     expect(within(nameStop).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Check an attachment')
     const unvouched = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['unverified-thread'].view.id}`)
@@ -476,13 +475,13 @@ describe('InboundMailWorkspace', () => {
     clock.mockRestore()
   })
 
-  it('puts a group’s rows under its label line, and no row of another', () => {
+  it('puts every row of a conversation under its heading, the ready and the waiting alike', () => {
     renderWorkspace('thread-group')
-    const ready = screen.getByRole('region', { name: /3 new mails/ })
-    expect(within(within(ready).getByTestId('thread-group-rows')).getAllByTestId('inbound-mail-row-link')).toHaveLength(3)
-    const loose = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)
-    expect(within(ready).queryByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)).toBeNull()
-    expect(loose).toBeInTheDocument()
+    const thread = screen.getByRole('region', { name: /5 new mails/ })
+    const rows = within(within(thread).getByTestId('thread-group-rows')).getAllByTestId(/^inbound-mail-row-[0-9a-f]/)
+    expect(rows).toHaveLength(5)
+    expect(rows.some((row) => within(row).queryByTestId('inbound-mail-row-places'))).toBe(true)
+    expect(rows.some((row) => within(row).queryByTestId('inbound-mail-row-reason'))).toBe(true)
   })
 
   it('says after „Alle … ablegen“ how many mails went where, once they landed, with a way to look', async () => {

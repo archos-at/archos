@@ -83,6 +83,8 @@ export interface InboundMailWorkspaceProps {
   holdMs?: number
 }
 
+const NEAR_THE_PRESS = { position: 'bottom-left' as const }
+
 type AsSuggestedSurface = 'ready_section' | 'selection'
 
 export function InboundMailWorkspace({
@@ -271,7 +273,7 @@ export function InboundMailWorkspace({
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     const ids = decisions.map((decision) => decision.mailId)
     const description = plan.destinations.map(destinationLine).join(CLAUSE_JOIN)
-    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: { description }, onUndo: () => undefined, run: async (held) => {
+    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: mailToast({ ...NEAR_THE_PRESS, description }), onUndo: () => undefined, run: async (held) => {
       try {
         const result = await client.file(projectId, { mails: decisions })
         capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
@@ -354,7 +356,7 @@ export function InboundMailWorkspace({
 
   const holdOpen = (view: InboundMailView, decision: InboundMailDecision): void => {
     const { rows: before, mailId: open } = keyState.current
-    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId) => {
+    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(NEAR_THE_PRESS), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId) => {
       try {
         const sent = (await client.file(projectId, { mails: [decision] })).mails.find((mail) => mail.id === view.id)
         if (sent) filedOpen(sent, decision, toastId)
@@ -490,8 +492,6 @@ export function InboundMailWorkspace({
               setQueryState('')
               router.replace(paths.list({ status: nextStatus, outcome: nextOutcome }))
             }}
-            waitingCount={waiting.count}
-            waitingMore={waiting.more}
             query={query}
             onQueryChange={setQuery}
             searchInList={phone}

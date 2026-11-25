@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import { mail, messagePart, part, summaryOf } from '@/app/dev/inbound-mail/fixture-builders'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { InboundMailRow } from './inbound-mail-row'
@@ -73,6 +73,12 @@ describe('a ready mail says on its second line where one press files it', () => 
     expect(screen.queryByTestId('inbound-mail-row-places')).toBeNull()
     expect(screen.getByTestId('inbound-mail-row-reason')).toHaveTextContent('No matching mail thread')
     expect(screen.getByTestId('inbound-mail-row-reason')).toHaveClass('text-foreground')
+  })
+
+  it('says the time short, as a mail program does, and draws no trust glyph for a sender the server vouches for', async () => {
+    row(ready({ receivedAt: new Date(Date.now() - 60_000).toISOString(), senderTrust: 'member_verified', senderFlags: [], impersonation: null }))
+    await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toMatch(/^\d{1,2}:\d{2}( [AP]M)?$/))
+    expect(screen.queryByTestId('sender-trust-glyph')).toBeNull()
   })
 
   it('is two lines: no avatar, no press of its own', () => {
