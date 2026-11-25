@@ -18,6 +18,7 @@ from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import JudgeFn
 from agent.common.claim_judge import Passage
 from agent.common.claim_judge import Unavailable
+from agent.common.claim_judge import finding_kind
 from agent.common.workspace_records import records_from_messages
 from agent.observability.langfuse_scores import answer_check_scores
 from agent.observability.langfuse_scores import answer_check_unavailable_scores
@@ -137,8 +138,14 @@ async def check_answer(
         wire: dict[str, Any] = {"status": "unavailable", "unavailable_reason": unavailable}
         open_points: tuple[str, ...] = ()
     else:
-        scores = answer_check_scores(result.level, result.open_points)
-        wire = {"status": "judged", "level": result.level, "findings": [f.to_wire() for f in result.findings]}
+        kinds = [(finding_kind(f), f.statement) for f in result.findings]
+        scores = answer_check_scores(result.level, result.open_points, kinds)
+        wire = {
+            "status": "judged",
+            "level": result.level,
+            "findings": [f.to_wire() for f in result.findings],
+            "sources_checked": result.sources_checked,
+        }
         open_points = result.open_points
     emit_scores(scores, writer="piloti")
     return wire, open_points
