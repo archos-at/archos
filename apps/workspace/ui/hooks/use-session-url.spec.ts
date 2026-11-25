@@ -43,7 +43,9 @@ const mockChatStore = {
   currentUserId: null as string | null,
   conversations: [] as Conversation[],
   serverConversationsLoaded: true as boolean,
-  selectConversation: vi.fn(),
+  selectConversation: vi.fn((id: string) => {
+    mockChatStore.currentConversation = mockChatStore.getUserConversations().find((c) => c.id === id) ?? null
+  }),
   getUserConversations: vi.fn((): Conversation[] => []),
 } satisfies DeepPartial<ChatStoreWithHydration>
 
@@ -146,6 +148,17 @@ describe('useSessionUrl', () => {
       renderHook(() => useSessionUrl({ isAuthenticated: true }))
 
       expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
+    })
+
+    test('a deep link keeps its session while its chat is being opened', () => {
+      mockSearchParams = new URLSearchParams('session=session-123')
+      mockChatStore.currentUserId = 'user-1'
+      mockChatStore.getUserConversations.mockReturnValue([conversation({ id: 'session-123' })])
+
+      renderHook(() => useSessionUrl({ isAuthenticated: true }))
+
+      expect(mockChatStore.selectConversation).toHaveBeenCalledWith('session-123')
+      expect(replacedUrl).not.toHaveBeenCalled()
     })
 
     test('clears invalid session from URL', async () => {

@@ -133,13 +133,13 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
 }) => {
   const t = useTranslations(researchCopy)
   const tChat = useTranslations(chatCopy)
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const composerSubject = useChatStore((s) => s.composerSubject)
   const conversationId = useChatStore((s) => s.currentConversation?.id)
   const temporary = useTemporarySwitch(conversationId).pressed
   const tFiles = useTranslations(filesCopy)
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isLoading) {
     return (
       <div
         className="flex flex-1 items-end justify-center px-4 pt-20 sm:pt-16"
