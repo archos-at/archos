@@ -196,6 +196,14 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
+            "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "office-knowledge",
           "text": {
             "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
