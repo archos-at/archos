@@ -17,7 +17,7 @@ env:
 jobs:
   changes:
     name: Plan
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -142,7 +142,7 @@ jobs:
     name: Repo checks (lint, secrets)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -177,7 +177,7 @@ jobs:
       - name: Backend lint (ruff)
         run: task be:lint -- --output-format=github
       - name: Secret scan (gitleaks)
-        if: ${{ !'dev-cluster' }}
+        if: ${{ !(github.ref && 'dev-cluster') }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -187,7 +187,7 @@ jobs:
             zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
             --log-opts="$range"
       - name: Secret scan (gitleaks, the runner image's binary)
-        if: ${{ 'dev-cluster' }}
+        if: ${{ (github.ref && 'dev-cluster') }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -200,7 +200,7 @@ jobs:
     name: Repo checks (CI machinery tests)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -217,7 +217,7 @@ jobs:
     name: Repo checks (release notes, skills, migrations)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -301,7 +301,7 @@ jobs:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -309,7 +309,7 @@ jobs:
         shard: [1, 2, 3, 4]
     services:
       qdrant:
-        image: ${{ !'dev-cluster' && 'qdrant/qdrant:v1.19.2' || '' }}
+        image: ${{ !(github.ref && 'dev-cluster') && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -322,7 +322,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Start Qdrant from its binary
-        if: ${{ 'dev-cluster' }}
+        if: ${{ (github.ref && 'dev-cluster') }}
         run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
@@ -341,7 +341,7 @@ jobs:
     name: Backend coverage gate
     needs: [changes, backend]
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -367,7 +367,7 @@ jobs:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -375,7 +375,7 @@ jobs:
         suite: [agent_host, sources, claim queues]
     services:
       qdrant:
-        image: ${{ !'dev-cluster' && 'qdrant/qdrant:v1.19.2' || '' }}
+        image: ${{ !(github.ref && 'dev-cluster') && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -388,7 +388,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Start Qdrant from its binary
-        if: ${{ 'dev-cluster' }}
+        if: ${{ (github.ref && 'dev-cluster') }}
         run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
@@ -410,7 +410,7 @@ jobs:
     name: Workspace (cards, lint, types, tenant isolation)
     needs: changes
     if: needs.changes.outputs.workspace == 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -436,7 +436,7 @@ jobs:
     name: Workspace tests (shard ${{ matrix.shard }}/8)
     needs: changes
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -466,7 +466,7 @@ jobs:
     name: Website (Astro check, tests, build, a11y)
     needs: changes
     if: needs.changes.outputs.site == 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -477,7 +477,7 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      - if: ${{ !'dev-cluster' }}
+      - if: ${{ !(github.ref && 'dev-cluster') }}
         run: >-
           npx --yes playwright@1.63.0 install-deps chromium
           || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
@@ -487,7 +487,7 @@ jobs:
     name: CMS (typecheck, lint, tests, Postgres suite)
     needs: changes
     if: needs.changes.outputs.cms == 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -504,7 +504,7 @@ jobs:
     name: Infra (Pulumi typecheck + manifest tests)
     needs: changes
     if: needs.changes.outputs.infra == 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -543,7 +543,7 @@ jobs:
     name: Code runner end to end (execute tool)
     needs: changes
     if: needs.changes.outputs.runner_e2e == 'true'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -568,7 +568,7 @@ jobs:
     if: >-
       needs.changes.outputs.depth != 'light'
       && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.packages == 'true')
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 15
     env:
       UV_LINK_MODE: copy # setup-python-env says why
@@ -602,7 +602,7 @@ jobs:
     name: Image vulns (trivy, changed pins)
     needs: changes
     if: needs.changes.outputs.pins != '[]'
-    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    runs-on: ${{ (github.ref && 'dev-cluster') || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       TRIVY_VERSION: "0.61.1"
@@ -619,7 +619,7 @@ jobs:
           key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
       - run: bash ci/trivy_scan.sh pins.txt
         env:
-          NO_DOCKER: ${{ 'dev-cluster' != '' }}
+          NO_DOCKER: ${{ (github.ref && 'dev-cluster') != '' }}
       - name: Save the layer analysis
         if: always() && hashFiles('.trivy-cache/fanal/**') != ''
         continue-on-error: true
