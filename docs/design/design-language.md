@@ -1057,6 +1057,13 @@ times stops being a physical cue and becomes texture.
   person.
   `bun run shift-check --load --session=<wos-session> <chat routes>` fails on
   any shift of the load at 390 and 360.
+  Switching to another chat that is already loaded fades its turns in on the
+  arrival fade (`--motion-snap`, instant under reduced motion), keyed by the
+  conversation (`thread-turns` in `chat-area/chat-message-list`); the chat the
+  page opened on, and every later render of the same chat, does not fade.
+  In the rail, a new chat joins „Recent chats“ by fading in at the top while
+  the rows below glide down by transform (`layout="position"`); a row that
+  leaves is removed in the same commit, so the glide covers it.
   A line that arrives after its count is fetched (mail waiting, a mail import)
   fades on `duration-snap`, and a thread replacing its skeleton fades on
   `--motion-snap` too. An `EmptyState` stands at once where the reader arrived
