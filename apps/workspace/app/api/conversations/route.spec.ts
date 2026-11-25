@@ -44,7 +44,7 @@ describe('GET /api/conversations', () => {
     requireProjectAccessMock.mockResolvedValue({ role: 'project-editor' })
   })
 
-  it('narrows an unscoped list to the caller — own, granted, or org-visible', async () => {
+  it('narrows an unscoped list to the caller — own or granted, never org-visible (ADR-0193)', async () => {
     const res = await GET(new Request('https://grid.example/api/conversations'))
 
     expect(res.status).toBe(200)
@@ -54,7 +54,7 @@ describe('GET /api/conversations', () => {
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('"conversations"."created_by" = $2')
     expect(sql).toContain('exists (select 1 from "resource_shares"')
-    expect(params).toContain('organization')
+    expect(params).not.toContain('organization')
     expect(params).toContain('user_1')
   })
 
