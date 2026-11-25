@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, useSearchParams } from 'next/navigation'
 import { ChatThinking } from '@/features/chat/components/ChatThinking'
 import type { CitationSource } from '@/features/chat/types'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
@@ -362,10 +361,7 @@ export default function DerivationPreviewPage() {
     notFound()
   }
 
-  const [variant, setVariant] = useState<string | null>(null)
-  useEffect(() => {
-    setVariant(new URLSearchParams(window.location.search).get('variant'))
-  }, [])
+  const variant = useSearchParams().get('variant')
 
   const narrow = variant === 'phone' || variant === 'fs' || variant === 'fs-edges'
   const common =

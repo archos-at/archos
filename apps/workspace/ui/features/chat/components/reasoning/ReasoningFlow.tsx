@@ -1,7 +1,6 @@
 'use client'
 
 import { type FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ReactFlowProvider } from '@xyflow/react'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { useLayoutStore } from '@/features/layout/store'
@@ -139,9 +138,7 @@ export const ReasoningFlow: FC<ReasoningFlowProps> = (props) => {
 
   return (
     <div ref={containerRef} className="flex w-full flex-col gap-3">
-      <ReactFlowProvider>
-        <FlowInner built={built} layout={layout} live={live ?? false} />
-      </ReactFlowProvider>
+      <FlowInner built={built} layout={layout} live={live ?? false} />
 
       {/* Looks the graph's round nodes do not draw (ADR-0128): all of them in a turn
           from before the action step, none in one that has it. */}

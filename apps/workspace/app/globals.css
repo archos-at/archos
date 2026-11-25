@@ -600,6 +600,23 @@ body {
   pointer-events: all;
 }
 
+.reasoning-flow-edge-live {
+  stroke-dasharray: 5;
+  animation: reasoning-flow-dash 0.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-flow-edge-live {
+    animation: none;
+  }
+}
+
+@keyframes reasoning-flow-dash {
+  from {
+    stroke-dashoffset: 10;
+  }
+}
+
 /* =============================================================================
    Theme-aware text color utilities
    Using KUI Foundations theme CSS variables for light/dark theme support
