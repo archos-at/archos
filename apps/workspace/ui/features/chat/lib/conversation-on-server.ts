@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react'
 
 const notOnServer = new Set<string>()
+const mintedHere = new Set<string>()
 const confirmedAt = new Map<string, number>()
 const listeners = new Set<() => void>()
 
@@ -18,6 +19,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 export function markConversationMinted(conversationId: string): void {
+  mintedHere.add(conversationId)
   if (notOnServer.has(conversationId)) return
   notOnServer.add(conversationId)
   emit()
@@ -27,6 +29,11 @@ export function markConversationOnServer(conversationId: string): void {
   if (!notOnServer.delete(conversationId)) return
   confirmedAt.set(conversationId, Date.now())
   emit()
+}
+
+/** This tab opened it, so until a message is sent the server holds nothing this tab lacks. */
+export function wasMintedHere(conversationId: string): boolean {
+  return mintedHere.has(conversationId)
 }
 
 export function wasOnServerBefore(conversationId: string, time: number): boolean {
