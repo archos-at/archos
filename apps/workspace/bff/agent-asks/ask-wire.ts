@@ -54,6 +54,14 @@ export const createAskSchema = z
       .guid()
       .optional()
       .describe('The project ' + PRODUCT_NAME + ' should answer in, from project-list. Omit for the office as a whole.'),
+    personal: z
+      .boolean()
+      .optional()
+      .describe(
+        'Where a new conversation without a project starts: on the person’s personal side (default), where they find it ' +
+          'in the app and the answer may draw on their own shelf, or with false on no side, listed nowhere. ' +
+          'Ignored with a projectId or a conversationId.',
+      ),
     conversationId: conversationIdSchema
       .optional()
       .describe(
