@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useChatStore, type ChatStoreWithHydration } from '@/features/chat/store'
 import { selectThreadPhase } from '../lib/thread-phase'
+import { useChatArrival } from './use-thread-phase'
 
 const linkedChatPending = (state: ChatStoreWithHydration, linked: string | null): boolean =>
   linked !== null &&
@@ -18,9 +19,10 @@ export function useLinkedChatPending(): boolean {
 
 export function useChatStarted(): boolean {
   const linked = useLinkedSession()
+  const { resumes } = useChatArrival()
   return useChatStore((state) => {
     if ((state.currentConversation?.messages?.length ?? 0) > 0) return true
-    if (linked === null) return false
+    if (linked === null) return resumes === true && selectThreadPhase(state) === 'hydrating'
     if (linkedChatPending(state, linked)) return true
     const phase = selectThreadPhase(state)
     return phase === 'hydrating' || phase === 'loading'

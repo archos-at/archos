@@ -4,9 +4,8 @@ import { useEffect, useCallback, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store'
-import { resumableSessionId } from '@/features/chat/lib/resume-session'
+import { openOnSide, resumableSessionId } from '@/features/chat/lib/resume-session'
 import { chatSideOf } from '@/components/shell/rail-mode'
-import { conversationMatchesProject } from '@/features/chat/lib/project-scope'
 
 interface UseSessionUrlOptions {
   isAuthenticated: boolean
@@ -21,13 +20,8 @@ interface UseSessionUrlReturn {
   clearSessionUrl: () => void
 }
 
-function openOnThisSide(state: {
-  currentConversation: { id: string; userId?: string | null; projectId?: string | null } | null
-  currentUserId: string | null
-  projectId?: string | null
-}): string | null {
-  const open = state.currentConversation
-  return open && open.userId === state.currentUserId && conversationMatchesProject(open, state.projectId) ? open.id : null
+function openOnThisSide(state: Parameters<typeof openOnSide>[0] & { projectId?: string | null }): string | null {
+  return openOnSide(state, state.projectId)
 }
 
 export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSessionUrlReturn {

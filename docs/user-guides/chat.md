@@ -32,7 +32,10 @@ the other side reopens the chat you last had open there (a new one if there
 is none), never the one you left. A chat opens only on its own side: a link to a
 project's chat on the personal page, or to a personal chat in a project, takes you to
 where that chat lives (to a new chat, if it is not yours to see). A chat without a project has no `@`: to bring someone in, share it
-through **Teilen**.
+through **Teilen**. Opening a side's chat fresh shows the greeting at once when no
+chat will be picked up there, and the outline of a conversation only when one will:
+your browser keeps a `chat_resume.<side>` cookie (scoped to `/app`, the value `1`, no
+content) for each side that will pick one up, and it expires when that chat would.
 
 ## Starting a conversation
 

@@ -1,4 +1,6 @@
-import { type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode, useSyncExternalStore } from 'react'
+import { OFFICE_TIME_ZONE } from '@/lib/format'
+import { useChatArrival } from '../../hooks/use-thread-phase'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { HatGlasses, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -127,6 +129,13 @@ const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' =
   return 'evening'
 }
 
+const officeHour = (): number =>
+  Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: OFFICE_TIME_ZONE }).format(new Date()))
+const localHour = (): number => new Date().getHours()
+const neverChanges = (): (() => void) => () => undefined
+
+export const useGreetingHour = (): number => useSyncExternalStore(neverChanges, localHour, officeHour)
+
 export const WelcomeState: FC<WelcomeStateProps> = ({
   isAuthenticated = false,
   onSignIn,
@@ -138,6 +147,8 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
   const conversationId = useChatStore((s) => s.currentConversation?.id)
   const temporary = useTemporarySwitch(conversationId).pressed
   const tFiles = useTranslations(filesCopy)
+  const { greetingName } = useChatArrival()
+  const hour = useGreetingHour()
 
   if (!isAuthenticated && !isLoading) {
     return (
@@ -159,8 +170,9 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
     )
   }
 
-  const greeting = tChat(`greeting.${greetingKeyForHour(new Date().getHours())}`)
-  const firstName = user?.name?.trim().split(/\s+/)[0]
+  const greeting = tChat(`greeting.${greetingKeyForHour(hour)}`)
+  const nameKnown = !isLoading || greetingName !== undefined
+  const firstName = (user?.name ?? greetingName)?.trim().split(/\s+/)[0]
   const heading = firstName ? tChat('greeting.withName', { greeting, name: firstName }) : greeting
 
   return (
@@ -175,7 +187,7 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
           than showing static examples. */}
       <div className="grid w-full max-w-md items-end justify-items-center" data-temporary={temporary || undefined}>
         <WelcomeFace shown={!temporary} testId="new-chat-greeting">
-          <h1 className={cn('text-foreground text-center text-[23px] font-medium', isLoading && 'invisible')}>{heading}</h1>
+          <h1 className={cn('text-foreground text-center text-[23px] font-medium', !nameKnown && 'invisible')}>{heading}</h1>
           <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
             <Lock className="size-3.5 shrink-0" aria-hidden="true" />
             {tChat('privacy.newChat')}
