@@ -1088,7 +1088,7 @@ describe('rows, weights and the phone', () => {
       )
     expect(phoneLines).toBe(true)
     expect(literalHasRun(moduleOf('FolderBinPanel'), ['group/row', 'items-center', 'gap-3', 'rounded-surface', 'py-2.5'])).toBe(true)
-    expect(summaryOf(moduleOf('InboundMailRow')).literals.some((text) => text.startsWith('group/row items-start rounded-control px-3 py-2.5 '))).toBe(true)
+    expect(summaryOf(moduleOf('InboundMailRow')).literals.some((text) => text.startsWith('group/row items-start rounded-control px-3 py-2 '))).toBe(true)
     expect(summaryOf(moduleOf('MarkRowContent')).literals.some((text) => text.startsWith('flex w-full gap-3 rounded-control px-2.5 py-2.5 '))).toBe(true)
   })
 
