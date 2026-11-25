@@ -1,0 +1,630 @@
+name: CI cluster trial
+
+on:
+  push:
+    branches: [tb/ci-cluster-trial]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY: ghcr.io/archos-at
+
+jobs:
+  changes:
+    name: Plan
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # the last green run, and a pull request run's green marker
+      packages: read # whether GHCR already has an image with these inputs
+      pull-requests: read # the `ci:full` label as it is now, not when the event fired
+    outputs:
+      depth: 'full'
+      reused: 'false'
+      backend: 'true'
+      workspace: 'true'
+      site: 'true'
+      cms: 'true'
+      infra: 'true'
+      packages: 'true'
+      migrations: 'true'
+      sast: 'true'
+      hatchet: 'true'
+      runner_e2e: 'true'
+      skills: 'true'
+      build: '[]'
+      images: ${{ steps.images.outputs.images }}
+      pins: ${{ steps.pins.outputs.pins || '[]' }}
+      backend_mode: ${{ steps.pysel.outputs.py_mode || 'full' }}
+      py_reference: ${{ steps.pysel.outputs.reference || 'base' }}
+      py_extra: ${{ steps.pysel.outputs.py_extra || '[]' }}
+      ui_mode: ${{ steps.pysel.outputs.ui_mode || 'full' }}
+      ui_files: ${{ steps.pysel.outputs.ui_files || '[]' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+          ref: ${{ github.event.action == 'synchronize' && (github.event.pull_request.head.sha || github.sha) || github.sha }}
+
+      - name: How much this run owes
+        id: depth
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+          LIGHT_RUNS: ${{ vars.CI_LIGHT_RUNS }}
+          BASE_REF: ${{ github.base_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/ci_depth.py
+      - name: Last commit CI passed on this branch
+        id: green
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/last_green.py
+
+      - name: Reuse the pull request's green result for this tree
+        id: reuse
+        if: steps.green.outputs.parent-is-green == 'true'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse_green_run.py ci-green
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: steps.reuse.outputs.hit != 'true'
+        with:
+          filters: .github/filters.yml
+          token: ''
+          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
+
+      - name: Images this run must build
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          . ci/git_auth.sh
+          if [ "$GITHUB_EVENT_NAME" != push ]; then
+            python3 ci/image_inputs.py plan --base "$BASE"
+          else
+            python3 ci/image_inputs.py plan --registry "$GITHUB_REPOSITORY_OWNER"
+          fi
+
+      - name: Tests this change reaches
+        id: pysel
+        if: github.event_name == 'pull_request' && (steps.filter.outputs.backend == 'true' || steps.filter.outputs.workspace == 'true')
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 ci/pr_selection.py "$BASE"
+
+      - name: Image pins this change adds
+        id: pins
+        if: steps.reuse.outputs.hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
+        run: |
+          . ci/git_auth.sh
+          python3 ci/pinned_images.py new "$BASE"
+
+      - name: Summary
+        if: always()
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+          DEPTH: ${{ steps.depth.outputs.depth }}
+          DEPTH_REASON: ${{ steps.depth.outputs.reason }}
+          PY_MODE: ${{ steps.pysel.outputs.py_mode }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
+          BASE_REASON: ${{ steps.green.outputs.reason }}
+          REUSED: ${{ steps.reuse.outputs.hit }}
+          TIERS: ${{ toJSON(steps.filter.outputs) }}
+          BUILD: '[]'
+          IMAGES: ${{ steps.images.outputs.images }}
+          PINS: ${{ steps.pins.outputs.pins }}
+        run: python3 ci/plan_summary.py >> "$GITHUB_STEP_SUMMARY"
+
+  repo:
+    name: Repo checks (lint, secrets)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+      - name: Fetch down to the merge base
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          . ci/git_auth.sh
+          ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
+      - uses: ./.github/actions/setup-python-env
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ env.pythonLocation }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-${{ env.pythonLocation }}-
+      - name: Pre-commit (all hooks, all files)
+        env:
+          SKIP: ruff-check,ruff-format
+        run: |
+          . .venv/bin/activate
+          pre-commit run --all-files
+      - uses: ./.github/actions/setup-task
+      - name: Backend lint (ruff)
+        run: task be:lint -- --output-format=github
+      - name: Secret scan (gitleaks)
+        if: ${{ !'dev-cluster' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
+            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
+            --log-opts="$range"
+      - name: Secret scan (gitleaks, the runner image's binary)
+        if: ${{ 'dev-cluster' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          gitleaks detect --source "$GITHUB_WORKSPACE" --redact -v --log-opts="$range"
+
+
+  repo-tests:
+    name: Repo checks (CI machinery tests)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - uses: ./.github/actions/setup-task
+      - name: Repository machinery tests (CI, release notes)
+        run: task be:test:harness
+
+  release-notes:
+    name: Repo checks (release notes, skills, migrations)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # the no-release-note label, read when the job runs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+      - name: Fetch down to the merge base
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          . ci/git_auth.sh
+          ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          enable-cache: true
+      - uses: ./.github/actions/setup-task
+      - name: Agent-skill lockfile (apm)
+        if: needs.changes.outputs.skills == 'true'
+        run: task agents:audit
+      - name: Release notes (lint)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ] && git diff --quiet "$BASE_SHA...HEAD" -- releasenotes/ Taskfile.yml taskfiles/repo.yml; then
+            echo "No change to the notes, reno's config or its pin: house rules only."
+            task release:lint:house
+          else
+            . ci/git_auth.sh
+            task release:lint
+          fi
+      - name: Release notes (required for user-visible changes)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.labels[].name' | grep -qx 'no-release-note'; then
+            echo "Labelled no-release-note: no note required."
+            exit 0
+          fi
+          python3 ci/require_release_note.py "$BASE_SHA" "$HEAD_SHA"
+      - name: Migrations stay rollback-safe (expand/contract)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.labels[].name' | grep -qx 'migration:contract'; then
+            echo "Labelled migration:contract: a contract migration, on purpose."
+            exit 0
+          fi
+          python3 ci/migration_contract.py "$BASE_SHA" "$HEAD_SHA"
+      - name: A switch merges only once prod runs its expand
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA...$HEAD_SHA" -- deploy/rollout/switches/; then
+            echo "This pull request declares no switch."
+            exit 0
+          fi
+          . ci/git_auth.sh
+          ci/unshallow.sh --filter=blob:none
+          git fetch -q --filter=blob:none origin prod:refs/remotes/origin/prod
+          python3 ci/expand_switch.py pr "$BASE_SHA" "$HEAD_SHA" origin/prod
+
+  backend:
+    name: Backend core (shard ${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    services:
+      qdrant:
+        image: ${{ !'dev-cluster' && 'qdrant/qdrant:v1.19.2' || '' }}
+        options: --tmpfs /qdrant/storage
+        env:
+          QDRANT__LOG_LEVEL: WARN
+        ports:
+          - 6333:6333
+    env:
+      QDRANT_TEST_URL: http://localhost:6333
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ 'dev-cluster' }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-task
+      - name: Core suite, shard ${{ matrix.shard }}/4
+        run: task be:test:shard SHARD=${{ matrix.shard }}/4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-coverage-${{ matrix.shard }}
+          path: .coverage.shard${{ matrix.shard }}
+          include-hidden-files: true
+          retention-days: 1
+
+  backend-coverage:
+    name: Backend coverage gate
+    needs: [changes, backend]
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: backend-coverage-*
+          merge-multiple: true
+      - name: Combine the shards and apply the gate
+        run: |
+          coverage="coverage==$(uv export --frozen --only-group dev --no-hashes --no-emit-workspace | sed -n 's/^coverage==\([^ ;]*\).*/\1/p')"
+          # The shards' interpreter: coverage re-parses every source file, and
+          # the runner's own 3.12 cannot read 3.14 syntax (`except A, B:`).
+          uvx --python 3.14 --from "$coverage" coverage combine --keep .coverage.shard*
+          uvx --python 3.14 --from "$coverage" coverage report --skip-covered --fail-under=65
+          echo "Backend coverage (packages/agent/src/agent): $(uvx --python 3.14 --from "$coverage" coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
+
+  backend-suites:
+    name: Backend suites (${{ matrix.suite }})
+    needs: changes
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [agent_host, sources, claim queues]
+    services:
+      qdrant:
+        image: ${{ !'dev-cluster' && 'qdrant/qdrant:v1.19.2' || '' }}
+        options: --tmpfs /qdrant/storage
+        env:
+          QDRANT__LOG_LEVEL: WARN
+        ports:
+          - 6333:6333
+    env:
+      QDRANT_TEST_URL: http://localhost:6333
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ 'dev-cluster' }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-task
+      - name: agent_host plugin suite
+        if: matrix.suite == 'agent_host'
+        run: task be:test:api
+      - name: Python package suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
+        if: matrix.suite == 'sources'
+        run: task be:test:sources
+      - name: Claim queues on real Postgres
+        if: matrix.suite == 'claim queues'
+        run: task be:test:postgres
+        env:
+          TEST_POSTGRES_REQUIRED: "1"
+
+  workspace:
+    name: Workspace (cards, lint, types, tenant isolation)
+    needs: changes
+    if: needs.changes.outputs.workspace == 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task workspace:install
+      - run: task workspace:cards:check
+      - run: task workspace:lint -- --format=github
+      - run: task workspace:types
+      - run: task workspace:blast-radius
+      - name: Tenant isolation (row-level security, real Postgres)
+        run: task db:test:rls
+        env:
+          RLS_SUITE_REQUIRED: "1"
+          RLS_MIGRATION_CHECKS: ${{ needs.changes.outputs.migrations == 'true' && '1' || '0' }}
+
+  workspace-test:
+    name: Workspace tests (shard ${{ matrix.shard }}/8)
+    needs: changes
+    if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task workspace:install
+      - name: All specs, shard ${{ matrix.shard }}/8
+        if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
+        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
+      - name: The specs this change reaches, shard ${{ matrix.shard }}/8
+        if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
+        env:
+          SHARD: ${{ matrix.shard }}/8
+          FILES_JSON: ${{ needs.changes.outputs.ui_files }}
+        run: task workspace:test:related SHARD="$SHARD" FILES="$(jq -r 'join(" ")' <<<"$FILES_JSON")"
+
+  site:
+    name: Website (Astro check, tests, build, a11y)
+    needs: changes
+    if: needs.changes.outputs.site == 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - if: ${{ !'dev-cluster' }}
+        run: >-
+          npx --yes playwright@1.63.0 install-deps chromium
+          || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
+      - run: task website:verify
+
+  cms:
+    name: CMS (typecheck, lint, tests, Postgres suite)
+    needs: changes
+    if: needs.changes.outputs.cms == 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task cms:verify
+
+  infra:
+    name: Infra (Pulumi typecheck + manifest tests)
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task infra:install
+      - run: task infra:types
+      - name: Install otelcol-contrib (config validation)
+        env:
+          OTELCOL_VERSION: "0.165.0"
+          OTELCOL_SHA256: "bd6e73d94bf3359ad6fac25529a8ee308adb9b0b8a0e8af034ed3891fbe5aa33"
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/otelcol.tar.gz" \
+            "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VERSION}/otelcol-contrib_${OTELCOL_VERSION}_linux_amd64.tar.gz"
+          echo "${OTELCOL_SHA256}  $RUNNER_TEMP/otelcol.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/otelcol.tar.gz" -C "$RUNNER_TEMP" otelcol-contrib
+          echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
+      - name: Fetch agentgateway's config schema (config validation)
+        env:
+          AGENTGATEWAY_VERSION: "v1.7.0"
+          AGENTGATEWAY_SCHEMA_SHA256: "8d757c092bc30a5ed5fd38a07a47d72602941c8344203c2d1f86e02d6dbb2bd3"
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/agentgateway-config.schema.json" \
+            "https://raw.githubusercontent.com/agentgateway/agentgateway/${AGENTGATEWAY_VERSION}/schema/config.json"
+          echo "${AGENTGATEWAY_SCHEMA_SHA256}  $RUNNER_TEMP/agentgateway-config.schema.json" | sha256sum -c -
+          echo "AGENTGATEWAY_SCHEMA=$RUNNER_TEMP/agentgateway-config.schema.json" >> "$GITHUB_ENV"
+          echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
+      - run: task infra:test
+
+  runner-e2e:
+    name: Code runner end to end (execute tool)
+    needs: changes
+    if: needs.changes.outputs.runner_e2e == 'true'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - name: Install the code runner's own toolchain
+        run: task runner:install
+      - name: execute and file_draft against the real runner
+        run: task runner:e2e
+
+  agent-engine:
+    name: Agent to engine tests
+    needs: changes
+    if: >-
+      needs.changes.outputs.depth != 'light'
+      && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.packages == 'true')
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    env:
+      UV_LINK_MODE: copy # setup-python-env says why
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          enable-cache: true
+          cache-suffix: agent-engine
+      - name: Install the root environment and the engine
+        run: |
+          uv venv --python 3.14 .venv
+          uv sync --group dev
+          uv pip install -e './packages/ifc-spatial-py[ids]'
+      - name: Agent on the engine
+        run: >-
+          .venv/bin/python -m pytest -q -rsxX
+          packages/agent/tests/core/test_grounding.py
+          packages/agent/tests/knowledge/test_ifc_spatial_client_concurrency.py
+          packages/agent/tests/tools/bim/test_ifc_measure_tool.py
+          packages/agent/tests/tools/bim/test_question_battery.py
+          --junitxml="$RUNNER_TEMP/agent-engine.xml"
+      - name: Every suite ran, none skipped
+        run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP/agent-engine.xml"
+  trivy:
+    name: Image vulns (trivy, changed pins)
+    needs: changes
+    if: needs.changes.outputs.pins != '[]'
+    runs-on: ${{ 'dev-cluster' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    env:
+      TRIVY_VERSION: "0.61.1"
+      PINS: ${{ needs.changes.outputs.pins }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -c 'import json, os; print("\n".join(json.loads(os.environ["PINS"])))' | tee pins.txt
+      - name: Restore the layer analysis
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .trivy-cache/fanal
+          key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
+      - run: bash ci/trivy_scan.sh pins.txt
+        env:
+          NO_DOCKER: ${{ 'dev-cluster' != '' }}
+      - name: Save the layer analysis
+        if: always() && hashFiles('.trivy-cache/fanal/**') != ''
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .trivy-cache/fanal
+          key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
+
