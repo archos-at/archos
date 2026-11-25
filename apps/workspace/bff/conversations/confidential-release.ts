@@ -10,7 +10,8 @@ import { errorsCopy } from '@/i18n/namespaces/errors'
 import { confidentialReleaseEnabled } from '@/lib/organizations/confidential-release'
 import { ownersOf, recordView, stillRestricting, unreadableSourcesOf } from './restricted-use'
 import { listProjectNames, listRecordedSourceFolders, listRestrictingSourceProjects } from './restricted-use-repository'
-import type { ConversationOrigin, FilingDestination, FilingRelease } from './restricted-egress'
+import type { Locale } from '@/i18n/config'
+import type { FilingDestination, FilingRelease } from './restricted-egress'
 
 interface ConfidentialRecord {
   folders: string[]
@@ -43,25 +44,33 @@ async function confidentialRecordOf(organizationId: string, conversationId: stri
   return { folders, projects, sources }
 }
 
+export interface ReleaseRequest {
+  session: AuthorizedSession
+  confirmed: boolean
+  request?: Request
+}
+
 export async function releaseConfidential(
-  origin: ConversationOrigin & { conversationId: string; release: FilingRelease },
+  by: ReleaseRequest,
+  conversationId: string,
+  locale: Locale,
   destination: FilingDestination,
   refusal: ConversationConfinedError,
 ): Promise<void> {
-  const { session, confirmed, request } = origin.release
+  const { session, confirmed, request } = by
   if (!(await confidentialReleaseEnabled(session.organizationId))) throw refusal
-  const unreadable = await unreadableSourcesOf(session, origin.conversationId)
+  const unreadable = await unreadableSourcesOf(session, conversationId)
   if (unreadable.folders.size > 0 || unreadable.projects.size > 0) throw refusal
-  const record = await confidentialRecordOf(session.organizationId, origin.conversationId)
+  const record = await confidentialRecordOf(session.organizationId, conversationId)
   if (!confirmed) {
-    throw new ConfidentialReleaseRequiredError(errorsCopy.messages[origin.locale].confidentialRelease, record.sources)
+    throw new ConfidentialReleaseRequiredError(errorsCopy.messages[locale].confidentialRelease, record.sources)
   }
   await recordAuditEventOrThrow({
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email },
     action: 'conversation.confidential_released',
     targetType: 'conversation',
-    targetId: origin.conversationId,
+    targetId: conversationId,
     metadata: {
       projectId: destination.projectId ?? '',
       folderId: destination.folderId ?? '',
@@ -74,5 +83,9 @@ export async function releaseConfidential(
 
 export function filingReleaseOf(session: AuthorizedSession, confirmed: boolean, request?: Request): FilingRelease | undefined {
   if (currentActingSession() !== undefined) return undefined
-  return { session, confirmed, ...(request ? { request } : {}) }
+  const by: ReleaseRequest = { session, confirmed, ...(request ? { request } : {}) }
+  return {
+    lift: (conversationId, locale, destination, refusal) =>
+      releaseConfidential(by, conversationId, locale, destination, refusal),
+  }
 }

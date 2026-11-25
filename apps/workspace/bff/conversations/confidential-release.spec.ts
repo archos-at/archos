@@ -40,11 +40,8 @@ const OTHER = 'project_other'
 const session = { userId: 'user_me', email: 'me@office.example', organizationId: ORG } as AuthorizedSession
 const refused = new ConversationConfinedError('filing', 'refused')
 const destination = { organizationId: ORG, projectId: HERE, projectCollection: 'proj_here', folderId: 'open' }
-const origin = (confirmed: boolean) => ({
-  conversationId: 'conv_1',
-  locale: 'de' as const,
-  release: { session, confirmed },
-})
+const release = (confirmed: boolean) =>
+  releaseConfidential({ session, confirmed }, 'conv_1', 'de', destination, refused)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -62,7 +59,7 @@ beforeEach(() => {
 
 describe('releaseConfidential', () => {
   it('asks the person to check, naming every confidential source, before anything is filed', async () => {
-    const error = await releaseConfidential(origin(false), destination, refused).catch((caught: unknown) => caught)
+    const error = await release(false).catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(ConfidentialReleaseRequiredError)
     expect((error as ConfidentialReleaseRequiredError).sources).toEqual([
       { kind: 'folder', name: 'Verträge' },
@@ -72,7 +69,7 @@ describe('releaseConfidential', () => {
   })
 
   it('files once the person confirmed, and records who released what into where', async () => {
-    await expect(releaseConfidential(origin(true), destination, refused)).resolves.toBeUndefined()
+    await expect(release(true)).resolves.toBeUndefined()
     expect(recordAuditEventOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'conversation.confidential_released',
@@ -85,15 +82,15 @@ describe('releaseConfidential', () => {
 
   it('refuses as before when the organization switched release off', async () => {
     vi.mocked(confidentialReleaseEnabled).mockResolvedValue(false)
-    await expect(releaseConfidential(origin(true), destination, refused)).rejects.toBe(refused)
+    await expect(release(true)).rejects.toBe(refused)
     expect(recordAuditEventOrThrow).not.toHaveBeenCalled()
   })
 
   it('refuses a person who may no longer read every source, even confirmed', async () => {
     vi.mocked(unreadableSourcesOf).mockResolvedValue({ folders: new Set(['f_contracts']), projects: new Set() })
-    await expect(releaseConfidential(origin(true), destination, refused)).rejects.toBe(refused)
+    await expect(release(true)).rejects.toBe(refused)
     vi.mocked(unreadableSourcesOf).mockResolvedValue({ folders: new Set(), projects: new Set([OTHER]) })
-    await expect(releaseConfidential(origin(true), destination, refused)).rejects.toBe(refused)
+    await expect(release(true)).rejects.toBe(refused)
     expect(recordAuditEventOrThrow).not.toHaveBeenCalled()
   })
 
@@ -101,15 +98,16 @@ describe('releaseConfidential', () => {
     vi.mocked(recordView).mockResolvedValue({ tree: new Map(), ownerOf: new Map([['f_contracts', OTHER]]) })
     vi.mocked(ownersOf).mockReturnValue([OTHER])
     vi.mocked(listRestrictingSourceProjects).mockResolvedValue([])
-    const error = (await releaseConfidential(origin(false), destination, refused).catch((caught: unknown) => caught)) as ConfidentialReleaseRequiredError
+    const error = (await release(false).catch((caught: unknown) => caught)) as ConfidentialReleaseRequiredError
     expect(error.sources).toEqual([{ kind: 'folder', name: 'Verträge', project: 'Wohnbau Nord' }])
   })
 })
 
 describe('filingReleaseOf', () => {
-  it('gives a person in the app a release, and an agent acting for them none', () => {
+  it('gives a person in the app a release that decides as they confirmed, and an agent acting for them none', async () => {
     vi.mocked(currentActingSession).mockReturnValue(undefined)
-    expect(filingReleaseOf(session, true)).toEqual({ session, confirmed: true })
+    await filingReleaseOf(session, true)?.lift('conv_1', 'de', destination, refused)
+    expect(recordAuditEventOrThrow).toHaveBeenCalledWith(expect.objectContaining({ targetId: 'conv_1' }))
     vi.mocked(currentActingSession).mockReturnValue(session)
     expect(filingReleaseOf(session, true)).toBeUndefined()
   })

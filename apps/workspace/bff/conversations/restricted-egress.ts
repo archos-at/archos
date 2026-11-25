@@ -11,8 +11,6 @@ import type { PlanDocument } from '@/lib/runs/plan-documents'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
 import { personalShelfUseOf } from './personal-shelf-use'
 import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
-import type { AuthorizedSession } from '@/lib/auth/types'
-import { releaseConfidential } from './confidential-release'
 
 export type ConfinedAction = ConversationConfinedError['action']
 
@@ -23,9 +21,7 @@ export function confinementRefusal(action: ConfinedAction, locale: Locale): Conv
 }
 
 export interface FilingRelease {
-  session: AuthorizedSession
-  confirmed: boolean
-  request?: Request
+  lift(conversationId: string, locale: Locale, destination: FilingDestination, refusal: ConversationConfinedError): Promise<void>
 }
 
 export interface ConversationOrigin {
@@ -79,7 +75,7 @@ export async function requireMayFileFrom(origin: ConversationOrigin, destination
   } catch (error) {
     const releasable = error instanceof ConversationConfinedError && error.action === 'filing'
     if (!releasable || !origin.release || !origin.conversationId) throw error
-    await releaseConfidential({ ...origin, conversationId: origin.conversationId, release: origin.release }, destination, error)
+    await origin.release.lift(origin.conversationId, origin.locale, destination, error)
   }
 }
 

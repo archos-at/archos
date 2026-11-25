@@ -9,7 +9,6 @@ vi.mock('./personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => n
 vi.mock('./restricted-use', () => ({ recordedRestrictedFolders: vi.fn(), recordedSourceProjects: vi.fn() }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: vi.fn() }))
-vi.mock('./confidential-release', () => ({ releaseConfidential: vi.fn() }))
 
 import { ConversationConfinedError } from '@/lib/api/errors'
 import type { AccessFolder } from '@/lib/authz/folder-access'
@@ -17,8 +16,6 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { findProjectDocumentsByFilenames, type DocumentListRow } from '@/lib/documents/repository'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
 import { personalShelfUseOf } from './personal-shelf-use'
-import { releaseConfidential } from './confidential-release'
-import type { AuthorizedSession } from '@/lib/auth/types'
 import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import {
   confinementRefusal,
@@ -26,6 +23,7 @@ import {
   requireMayFileFrom,
   requireMayLeaveConversation,
   requirePlanDocumentsOpen,
+  type FilingRelease,
 } from './restricted-egress'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -282,10 +280,10 @@ describe('a conversation that drew on another project (ADR-0094)', () => {
 })
 
 describe('a person releases what the sources would keep in (confidential release)', () => {
-  const release = { session: { userId: 'user_me', organizationId: ORG } as AuthorizedSession, confirmed: true }
-  const origin = { conversationId: CONV, locale: 'de' as const, release }
+  const lift = vi.fn<FilingRelease['lift']>()
+  const origin = { conversationId: CONV, locale: 'de' as const, release: { lift } }
 
-  beforeEach(() => vi.mocked(releaseConfidential).mockResolvedValue(undefined))
+  beforeEach(() => lift.mockReset().mockResolvedValue(undefined))
 
   it('hands a refused filing from a restricted folder or another project to the release, and files when it passes', async () => {
     vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
@@ -293,12 +291,12 @@ describe('a person releases what the sources would keep in (confidential release
     vi.mocked(recordedRestrictedFolders).mockResolvedValue([])
     vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
     await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
-    expect(releaseConfidential).toHaveBeenCalledTimes(2)
+    expect(lift).toHaveBeenCalledTimes(2)
   })
 
   it('refuses as before when the release refuses', async () => {
     vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
-    vi.mocked(releaseConfidential).mockImplementationOnce((_origin, _destination, refused) => Promise.reject(refused))
+    lift.mockImplementationOnce((_conversation, _locale, _destination, refused) => Promise.reject(refused))
     expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('filing')
   })
 
@@ -307,12 +305,12 @@ describe('a person releases what the sources would keep in (confidential release
     await refusal(requireMayFileFrom({ conversationId: CONV, locale: 'de' }, destination('open')))
     vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: 'user_me' })
     expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('personalShelf')
-    expect(releaseConfidential).not.toHaveBeenCalled()
+    expect(lift).not.toHaveBeenCalled()
   })
 
   it('does not ask for a release where the sources already allow the folder', async () => {
     vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
     await expect(requireMayFileFrom(origin, destination(FEES))).resolves.toBeUndefined()
-    expect(releaseConfidential).not.toHaveBeenCalled()
+    expect(lift).not.toHaveBeenCalled()
   })
 })
