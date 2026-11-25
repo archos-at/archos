@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, type ReactNode, memo, useId, useMemo, useState, useTransition } from 'react'
+import { type FC, type ReactNode, memo, useId, useMemo, useRef, useState, useTransition } from 'react'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
@@ -16,6 +16,7 @@ import {
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { SlideBelowScope, useSlideBelow } from '@/components/motion/slide-below'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
@@ -114,6 +115,9 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
 }) => {
   const t = useTranslations(chatCopy)
   const reducedMotion = useReducedMotion()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const blocksRef = useRef<HTMLDivElement>(null)
+  const settleBlocks = useSlideBelow(blocksRef, panelRef)
   const showTechnicalSteps = useLayoutStore((s) => s.showTechnicalReasoning)
 
   const [disclosure, setDisclosure] = useState<Disclosure>(() => ({
@@ -336,7 +340,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   }
 
   return citationScope(
-    <div className="@container w-full rounded-surface bg-muted shadow-xs">
+    <div ref={panelRef} className="@container w-full rounded-surface bg-muted shadow-xs">
       <Collapsible open={open || opening} onOpenChange={handleOpenChange}>
         <CollapsibleTrigger asChild aria-controls={undefined /* no CollapsibleContent to name */}>
           {/* The trigger's name is the PHASE and the panel (`sr-only` below),
@@ -500,7 +504,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
               exit="leave"
               className="overflow-hidden [overflow-anchor:none]"
             >
-              <div>
+              <SlideBelowScope.Provider value={settleBlocks}>
+              <div ref={blocksRef} className="relative">
                   {(!filesOnly || showTechnicalSteps) && (
                     <div className="border-base border-t px-2 pb-3 pt-3 sm:px-4">
                       <ReasoningFlow
@@ -558,6 +563,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                   )}
 
               </div>
+              </SlideBelowScope.Provider>
             </motion.div>
           )}
         </AnimatePresence>

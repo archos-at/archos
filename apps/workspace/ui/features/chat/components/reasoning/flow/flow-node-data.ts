@@ -4,19 +4,18 @@ import { type BasisLine } from '../../../lib/derivation-basis'
 import { type CardLink } from '../SourceCard'
 import { type FanCard } from '../../../lib/retrieval-rounds'
 
-export const H = {
-  opacity: 0,
-  width: 1,
-  height: 1,
-  minWidth: 0,
-  minHeight: 0,
-  border: 'none',
-  background: 'transparent',
-} as const
-
 export const EDGE_STROKE = 'color-mix(in oklch, var(--foreground) 18%, transparent)'
 
 export type HandleSpec = { id: string; left: string }
+
+export type FlowNodeType = 'framing' | 'round' | 'sourceColumn' | 'findings'
+
+export interface FlowNode {
+  id: string
+  type: FlowNodeType
+  position: { x: number; y: number }
+  data: Record<string, unknown>
+}
 
 export const CENTRE_BOTTOM: HandleSpec = { id: 'c-bottom', left: '50%' }
 
