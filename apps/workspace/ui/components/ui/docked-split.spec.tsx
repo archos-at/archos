@@ -187,3 +187,108 @@ describe('DockedSplit with the real panel library', () => {
     expect(widthOf('file-ask-panel')).toBe(320)
   })
 })
+
+interface Glide {
+  target: HTMLElement
+  keyframes: Keyframe[]
+  options: KeyframeAnimationOptions
+  finish: () => void
+  cancelled: boolean
+}
+
+function recordGlides(): Glide[] {
+  const glides: Glide[] = []
+  Object.defineProperty(HTMLElement.prototype, 'animate', {
+    configurable: true,
+    writable: true,
+    value(this: HTMLElement, keyframes: Keyframe[], options: KeyframeAnimationOptions) {
+      let settle: (motion: Animation) => void = () => {}
+      let abort: (reason: unknown) => void = () => {}
+      const finished = new Promise<Animation>((resolve, reject) => {
+        settle = resolve
+        abort = reject
+      })
+      finished.catch(() => {})
+      const glide: Glide = { target: this, keyframes, options, finish: () => {}, cancelled: false }
+      const motion = {
+        finished,
+        cancel: () => {
+          if (glide.cancelled) return
+          glide.cancelled = true
+          abort(new DOMException('cancelled', 'AbortError'))
+        },
+      } as unknown as Animation
+      glide.finish = () => settle(motion)
+      glides.push(glide)
+      return motion
+    },
+  })
+  return glides
+}
+
+const growOf = (glides: Glide[], id: string): string | undefined =>
+  glides.find((glide) => glide.target.id === id)?.keyframes[0]?.flexGrow as string | undefined
+
+describe('DockedSplit moving the row', () => {
+  afterEach(() => {
+    delete (HTMLElement.prototype as { animate?: unknown }).animate
+  })
+
+  it('glides the page wider as the panel shuts, the real panel in the row until it has gone', async () => {
+    const glides = recordGlides()
+    rootWidths.set('start-dock', 1440)
+    const { rerender } = render(<Shell peekOpen={false} />)
+    deliverResizes()
+    rerender(<Shell peekOpen />)
+    for (const glide of glides.splice(0)) glide.finish()
+    await act(async () => {})
+
+    rerender(<Shell peekOpen={false} />)
+
+    expect(Number(growOf(glides, 'file-ask-page'))).toBeCloseTo((1120 / 1440) * 100, 1)
+    expect(Number(growOf(glides, 'file-ask-panel'))).toBeCloseTo((320 / 1440) * 100, 1)
+    expect(glides.every((glide) => glide.options.duration! > 0)).toBe(true)
+    expect(widthOf('file-ask-page')).toBe(1440)
+    expect(document.getElementById('file-ask-panel')?.textContent).toBe('file')
+    expect(document.querySelector('[data-separator]')).not.toBeNull()
+
+    await act(async () => {
+      for (const glide of glides) glide.finish()
+    })
+
+    expect(document.querySelector('[data-separator]')).toBeNull()
+    expect(glides.every((glide) => glide.cancelled)).toBe(true)
+  })
+
+  it('glides the page narrower as the panel opens, from the row it had', () => {
+    const glides = recordGlides()
+    rootWidths.set('start-dock', 1440)
+    const { rerender } = render(<Shell peekOpen={false} />)
+    deliverResizes()
+
+    rerender(<Shell peekOpen />)
+
+    expect(Number(growOf(glides, 'file-ask-page'))).toBe(100)
+    expect(Number(growOf(glides, 'file-ask-panel'))).toBe(0)
+    expect(widthOf('file-ask-panel')).toBe(320)
+  })
+
+  it('changes the row once, unmoving, for a reader who asked for less motion', () => {
+    const glides = recordGlides()
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduce'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    rootWidths.set('start-dock', 1440)
+    const { rerender } = render(<Shell peekOpen={false} />)
+    deliverResizes()
+    rerender(<Shell peekOpen />)
+    rerender(<Shell peekOpen={false} />)
+
+    expect(glides).toEqual([])
+    expect(widthOf('file-ask-page')).toBe(1440)
+    expect(document.querySelector('[data-separator]')).toBeNull()
+  })
+})

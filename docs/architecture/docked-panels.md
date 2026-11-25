@@ -17,7 +17,7 @@ ADR's to say.
 
 | Piece | Where | What it owns |
 |---|---|---|
-| `DockedSplit` | `apps/workspace/ui/components/ui/docked-split.tsx` | A page with a panel docked at its `start` or `end` edge: the same tree open or not, expand then resize, constant bounds, the width committed once per gesture, dragged shut means dismissed, double-click restores the default width, the restore tab |
+| `DockedSplit` | `apps/workspace/ui/components/ui/docked-split.tsx` | A page with a panel docked at its `start` or `end` edge: the same tree open or not, expand then resize, the row glided open and shut, constant bounds, the width committed once per gesture, dragged shut means dismissed, double-click restores the default width, the restore tab |
 | The file peek | `apps/workspace/ui/features/documents/components/file-preview-host.tsx` — `FilePreviewBridge` | The one docked panel: the file preview at the chat's end edge (`side="end"`); read it before docking another |
 
 ## Docking a panel
@@ -25,11 +25,17 @@ ADR's to say.
 1. **Keep the page the split's child, open or not.** `DockedSplit` keeps the
    page the first panel's child either way; a conditional wrapper remounts the
    page and loses its drafts.
-2. **Let it arrive, not jump.** `DockedSplit` already slides the panel in and
-   the page aside, and slides a still snapshot of the panel out on close, as a
-   FLIP on transforms: the layout lands once, never per frame. Pass
-   `slide={false}` for an open the reader did not make. Add no entrance of your
-   own on top.
+2. **Let it arrive, not jump.** `DockedSplit` glides the whole row both ways:
+   the page's and the panel's shares (`flex-grow`) and the seam's width move
+   from the row as it stood to the library's new layout, eased on the motion
+   kit's entrance and exit tokens, while the panel's content keeps its open
+   width and slides in or out under the group's clip. The page column resizes
+   with it frame by frame, so a centred chat never steps sideways; a transform
+   cannot do that, because the composer's own width changes. Closing keeps the
+   real panel in the row, inert, until the glide ends. Under reduced motion, or
+   with `slide={false}` for an open the reader did not make, the row changes
+   once. Add no entrance of your own on top. `docked-split.spec.tsx` holds
+   both directions.
 3. **Mount shut at width 0.** `DockedSplit` declares `defaultSize` 0 when it
    mounts shut; the reason is in [`gotchas.md`](../contributing/gotchas.md)
    (search `file-ask-page`).
