@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    On a phone, the Herleitung lists an answer's sources straight on its own
+    panel, at the width of the cards above and below, instead of in a box
+    inside the panel.
