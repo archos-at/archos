@@ -61,8 +61,9 @@ describe('the draft a first keystroke opens', () => {
   })
 
   // The URL takes the draft's id and the page loads its side for it; asking the server for a
-  // chat it never had marked the thread „loading“, and the empty chat flipped to a thread and back.
-  it('is never asked of the server, so the thread never reads as loading', async () => {
+  // chat it never had marked the thread „loading“, which is what draws the message-list skeleton
+  // (use-chat-area-controller's showSkeleton): one letter typed flashed it.
+  it('is never asked of the server, so the loading skeleton never shows', async () => {
     client.list.mockResolvedValue([listedElsewhere])
     const draftId = useChatStore.getState().ensureSession()!
     const phases: string[] = []

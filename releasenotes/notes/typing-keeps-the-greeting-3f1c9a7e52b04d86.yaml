@@ -2,5 +2,5 @@
 # area: general
 fixes:
   - >
-    Typing the first message of a new chat no longer makes the page flicker:
-    the greeting and the input stay where they are until you send.
+    Typing the first letters of a new chat no longer flashes the loading
+    placeholder: the greeting and the input stay where they are until you send.
