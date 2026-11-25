@@ -57,8 +57,8 @@
  *                           `--motion-ambient` and `--ease-cycle`; for a live
  *                           mark that is `animate-caret-breathe` (globals.css).
  *
- *   `ease-in-out`,        — `ease-in-out` is a loop curve spelled outside the
- *   `ease-in`               vocabulary (`ease-cycle` is the loop curve), and
+ *   `ease-in-out`,        — `ease-in-out` is Tailwind's weak curve (`ease-move`
+ *   `ease-in`               moves on screen, `ease-cycle` loops), and
  *                           `ease-in` starts slow and stops hard, which is the
  *                           shape of nothing this app does: arrivals decelerate
  *                           (`ease-entrance`), departures use `ease-exit`.
@@ -355,7 +355,7 @@ export default {
       animatePulse:
         "`{{utility}}` is Tailwind's 2s pulse, a loop off the motion scale. Loops run on `--motion-ambient` and `--ease-cycle`: use `animate-caret-breathe` for a live mark, or the skeleton shimmer for loading.",
       offVocabularyEasing:
-        '`{{utility}}` is outside the easing vocabulary. Use `ease-out` for responses, `ease-entrance` for arrivals, `ease-exit` for dismissals, or `ease-cycle` for a loop.',
+        '`{{utility}}` is outside the easing vocabulary. Use `ease-out` for responses, `ease-entrance` for arrivals, `ease-exit` for dismissals, `ease-move` for something on screen that moves or resizes, or `ease-cycle` for a loop.',
       motionLayoutKey:
         '{{keys}} in a motion `initial`/`animate`/`exit` animates a LAYOUT property from JS, re-running layout every frame. Animate opacity/transform. A height arrival or fold at or below the reading point, through the shared arrival primitive, is the one sanctioned case: mark the element with `// eslint-disable-next-line grid/motion-vocabulary -- <why>` above its opening tag.',
       transformList:

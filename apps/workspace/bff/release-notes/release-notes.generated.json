@@ -198,14 +198,6 @@
           "section": "improvements",
           "area": "answers",
           "text": {
-            "en": "While ARCHOS writes an answer, new words now fade in gently instead of appearing letter by letter at full strength, so a long answer reads more calmly as it arrives. Nothing on the page moves, and with reduced motion turned on the text appears as before.",
-            "de": "Während ARCHOS eine Antwort schreibt, werden neue Wörter jetzt sanft eingeblendet, statt Buchstabe für Buchstabe mit voller Deckkraft zu erscheinen. Dadurch lässt sich eine lange Antwort ruhiger lesen, während sie entsteht. Auf der Seite bewegt sich nichts, und bei aktivierter Bewegungsreduktion erscheint der Text wie bisher."
-          }
-        },
-        {
-          "section": "improvements",
-          "area": "answers",
-          "text": {
             "en": "What opens under an answer (all its sources, „Antwortdetails“ or why a 👎) now opens in one place below the line, one at a time. Switching from one to the other no longer stacks them or makes the line jump.",
             "de": "Was sich unter einer Antwort öffnet (alle Quellen, „Antwortdetails“ oder der Grund für ein 👎), öffnet sich jetzt an einer Stelle unter der Zeile, immer nur eines. Beim Wechseln stapelt sich nichts mehr, und die Zeile springt nicht."
           }
@@ -284,10 +276,26 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When a skill, an upload error or a dictation note appears under what you are typing in the chat, the input box now grows to make room smoothly instead of jumping, and shrinks back the same way.",
+            "de": "Wenn unter Ihrer Eingabe im Chat ein Skill, ein Upload-Fehler oder ein Diktierhinweis erscheint, wächst das Eingabefeld jetzt sanft, um Platz zu schaffen, statt zu springen, und schrumpft ebenso sanft wieder."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "An empty list, such as an empty Dateien or Meine Ablage, now simply stands there when you open it instead of fading and zooming in, and the chat input no longer fades up from dimmed while a page loads. Motion is left for what you change yourself, like emptying a list with a filter.",
             "de": "Eine leere Liste, etwa in Dateien oder Meine Ablage, bleibt beim Öffnen jetzt einfach stehen, statt auszublenden und heranzuzoomen. Auch die Chateingabe blendet sich beim Laden einer Seite nicht mehr aus einem abgedunkelten Zustand ein. Animationen gibt es nur noch bei Änderungen, die Sie selbst vornehmen, etwa wenn Sie eine Liste mit einem Filter leeren."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When an answer finishes without research or after a single lookup, the \"Herleitung\" above it now settles into its final size smoothly, so the answer underneath no longer jumps down at the end.",
+            "de": "Wenn eine Antwort ohne Recherche oder nach einer einzigen Suche fertig wird, nimmt die Herleitung darüber jetzt fließend ihre endgültige Größe an, sodass die darunterliegende Antwort am Ende nicht mehr nach unten springt."
           }
         },
         {
@@ -670,6 +678,22 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "A file opened beside the chat now slides in and out smoothly, the page beside it easing into its new width instead of jumping in the first moment.",
+            "de": "Eine neben dem Chat geöffnete Datei gleitet jetzt sanft ein und aus, während sich die danebenliegende Seite fließend an die neue Breite anpasst, statt im ersten Moment zu springen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On the phone, the highlight under the bottom tabs glides to the tab you tap in the same calm way.",
+            "de": "Auf dem Handy gleitet die Hervorhebung unter den unteren Tabs ebenso ruhig zu dem Tab, den Sie antippen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
             "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
           }
@@ -688,6 +712,14 @@
           "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
             "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "On a phone, the Herleitung lists an answer's sources straight on its own panel, at the width of the cards above and below, instead of in a box inside the panel.",
+            "de": "Auf dem Smartphone listet die Herleitung die Quellen einer Antwort direkt auf dem eigenen Panel auf – in derselben Breite wie die Karten darüber und darunter, statt in einer Box innerhalb des Panels."
           }
         },
         {
@@ -776,6 +808,14 @@
           "text": {
             "en": "Measuring on a PDF drawing now works anywhere on the sheet, so you can measure several areas in a row; points still snap to corners and lines when close, and holding Ctrl (Cmd on a Mac) places a point exactly where the pointer is.",
             "de": "Das Messen auf einer PDF-Zeichnung funktioniert jetzt überall auf dem Blatt, sodass Sie mehrere Bereiche hintereinander messen können. Punkte rasten weiterhin in der Nähe von Ecken und Linien ein. Wenn Sie Strg (Cmd auf einem Mac) gedrückt halten, setzen Sie einen Punkt genau an der Position des Mauszeigers."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When ARCHOS starts an answer over while writing it, the new answer is now shown as it is written. Before, only its heading appeared and the text stayed hidden until the answer was finished.",
+            "de": "Wenn ARCHOS eine Antwort während des Schreibens neu startet, wird die neue Antwort jetzt bereits während des Schreibens angezeigt. Bisher war nur die Überschrift sichtbar; der Text blieb verborgen, bis die Antwort fertig war."
           }
         },
         {
@@ -1104,6 +1144,14 @@
           "text": {
             "en": "A table in an answer keeps its columns while its rows arrive, so the rows you are reading no longer jump as later ones come in.",
             "de": "Eine Tabelle in einer Antwort behält ihre Spalten bei, während die Zeilen eintreffen, sodass die gerade gelesenen Zeilen nicht mehr springen, wenn weitere dazukommen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "tasks",
+          "text": {
+            "en": "A task card no longer redraws itself a moment after the Aufgaben page opens. It first shows the date and time a task was started, then says how long ago that was, without anything else on the card moving.",
+            "de": "Eine Aufgabenkarte wird kurz nach dem Öffnen der Aufgaben-Seite nicht mehr neu gezeichnet. Zunächst zeigt sie Datum und Uhrzeit des Aufgabenstarts an, danach, wie lange dieser zurückliegt – ohne dass sich sonst etwas auf der Karte bewegt."
           }
         },
         {

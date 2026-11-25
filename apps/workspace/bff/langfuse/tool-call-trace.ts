@@ -21,6 +21,16 @@ export interface ToolCallRecord {
   organizationId: string
   userId: string
   conversationId?: string | null
+  protocol?: Record<string, string | boolean | null>
+  traceparent?: string
+}
+
+const TRACEPARENT = /^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/
+
+export function traceIdOf(traceparent: string | undefined): string | null {
+  const match = traceparent ? TRACEPARENT.exec(traceparent.trim().toLowerCase()) : null
+  if (!match || /^0+$/.test(match[1]!) || /^0+$/.test(match[2]!)) return null
+  return match[1]!
 }
 
 type IngestionBatch = Parameters<LangfuseClient['api']['ingestion']['batch']>[0]
@@ -58,6 +68,8 @@ export function toolCallBatch(call: ToolCallRecord, ids: { traceId: string; obse
     status: call.status,
     duration_ms: call.endedAt - call.startedAt,
     client_id: call.clientId,
+    ...call.protocol,
+    ...(traceIdOf(call.traceparent) ? { client_trace_id: traceIdOf(call.traceparent) } : {}),
   }
   const identity = identityOn()
   return {

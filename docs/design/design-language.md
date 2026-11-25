@@ -926,6 +926,7 @@ thing they just dismissed. A `motionQuick` entrance leaves on `motionSnapExit`
 | `--ease-entrance` / `ease-entrance` | `0.16, 1, 0.3, 1` | Anything that **moves** on arrival |
 | `--ease-exit` / `ease-exit` | `0.23, 1, 0.32, 1` | Anything **leaving**: it starts at once |
 | `--ease-cycle` / `ease-cycle` | `0.65, 0, 0.35, 1` | **Only** looping / indeterminate motion |
+| `--ease-move` / `ease-move` | `0.77, 0, 0.175, 1` | Something **already on screen** that moves or resizes: the docked split's width (`motionDeliberateMove`), the phone tab bar's pill (`motionMove`) |
 
 **Why `--ease-out` is strong.** It was Tailwind's stock `0, 0, 0.2, 1`, which
 spends its first third barely moving. A press or a hover is feedback, and
@@ -944,8 +945,18 @@ one step shorter than their entrance; the tail runs while the surface is
 already nearly gone. The token keeps its own name so exits can be retuned
 without touching every hover.
 
-No `ease-in-out`, no `ease-in`, no bare `ease`, and no `linear` on a
-transition. `linear` is allowed in exactly one place: inside a loop's own
+**Ease-in-out for a move on screen, ease-out to enter and to leave, never
+ease-in.** Something that is already on screen and moves or resizes takes
+`--ease-move` (`motionMove` on the base step, `motionDeliberateMove` on the
+ceiling): it starts at about a pixel, travels in the middle and settles. An
+ease-out there jumps: on a 560px docked split at 320ms the entrance curve
+covers about 160px in the first frame, and the page column reads as stepping
+sideways before it glides. Arrivals and dismissals keep `--ease-entrance` and
+`--ease-exit`: they answer the reader, so they start at once. An ease-in
+starts slow wherever it is used, which is the moment the reader is watching.
+
+No `ease-in-out` utility, no `ease-in`, no bare `ease`, and no `linear` on a
+transition: the move curve is spelled `ease-move`. `linear` is allowed in exactly one place: inside a loop's own
 `@keyframes` / `animation` shorthand where the motion is a constant velocity
 with no arrival in it, a spinner's rotation (`animate-spin`) or a band sweeping
 across a label (`animate-shimmer-*`). A wheel turning at a steady speed is the
@@ -1164,17 +1175,14 @@ times stops being a physical cue and becomes texture.
   roots carry no CSS entrance of their own.** A root's `animate-in` plays on
   every mount, so a restored thread replayed every bubble's entrance and a new
   message stacked two. A row leaving gives up its height with its opacity.
-- **A streamed answer's words land in fresh ink.** The pacer (`use-paced-text`)
-  decides how fast words appear; each stretch it reveals then fades up from
-  transparent on `motionBase` (240ms, `--ease-out`), so the leading edge of the
-  answer is a soft gradient a few words long instead of characters stamped one
-  frame at a time. Opacity only, on inline spans the renderer wraps around the
-  fresh tail (`MarkdownRenderer/ink.ts`, the `ink` prop, live answers only), so
-  the line breaks and the layout are the ones the plain text would have; code
-  and directive blocks are left unwrapped. A stretch keeps its own birth time
-  across re-renders (a WAAPI animation started with a negative delay), the fade
-  runs out past the end of the stream instead of snapping, a rewrite of text
-  already shown appears at once, and reduced motion gets plain text.
+- **A round the agent takes back fades out and the next one fades in.** When
+  a live answer's words are withdrawn (the agent starts its answer over), the
+  words fade on `motionQuickExit`, „Arbeitet…“ holds the place, and the next
+  round's prose fades in on `motionBase` once its first words arrive; its
+  cards arrive again, and unplaced ones wait for the round's end. The round's
+  states (writing, fading, quiet, returning) are an XState machine,
+  `features/chat/lib/answer-round-machine.ts`, held by `answer-round-machine.spec.ts`.
+  `node scripts/measure-stream-socket.mjs --scenario retract-with-card` plays it.
 - **State changes inside an arrived turn are transitions, not entrances**:
   `AgentPrompt` dims to `opacity-75`; the answer's meta row is reserved at chip
   height (`min-h-6`) so late chips cannot grow the footer.

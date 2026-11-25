@@ -6,7 +6,7 @@ import { flushSync } from 'react-dom'
 import { usePanelRef } from 'react-resizable-panels'
 import { PanelLeft, PanelRight } from 'lucide-react'
 
-import { asWebAnimation, motionDeliberateEntrance, motionSheetExit, usePrefersReducedMotion } from '@/components/motion'
+import { asWebAnimation, motionDeliberateMove, usePrefersReducedMotion } from '@/components/motion'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { cn } from '@/lib/utils'
@@ -103,7 +103,7 @@ export function DockedSplit({
         setLeaving(false)
         return
       }
-      const closing = glide(parts, from, side, shown, false, asWebAnimation(motionSheetExit))
+      const closing = glide(parts, from, side, shown, false, asWebAnimation(motionDeliberateMove))
       glideRef.current = closing
       if (parts.panel) parts.panel.inert = true
       void Promise.all(closing.map((motion) => motion.finished)).then(
@@ -120,7 +120,7 @@ export function DockedSplit({
     docked.resize(widthRef.current)
     if (!from) return
     const target = docked.getSize().inPixels || widthRef.current
-    const opening = glide(parts, from, side, target, true, asWebAnimation(motionDeliberateEntrance))
+    const opening = glide(parts, from, side, target, true, asWebAnimation(motionDeliberateMove))
     glideRef.current = opening
     void Promise.all(opening.map((motion) => motion.finished)).then(
       () => {

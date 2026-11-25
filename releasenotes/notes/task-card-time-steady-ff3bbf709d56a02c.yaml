@@ -1,0 +1,7 @@
+---
+# area: tasks
+fixes:
+  - >
+    A task card no longer redraws itself a moment after the Aufgaben page
+    opens. It first shows the date and time a task was started, then says how
+    long ago that was, without anything else on the card moving.

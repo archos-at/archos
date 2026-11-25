@@ -18,6 +18,7 @@ import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } 
 import { HeightArrival } from '@/components/motion/height-arrival'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { SlideBelowScope, useSlideBelow } from '@/components/motion/slide-below'
+import { useHeightGlide } from '@/components/motion/height-glide'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
@@ -91,6 +92,24 @@ const JOIN = '\u00A0· '
 
 const PHASE_NOTE_MIN_GAP_MS = 3000
 
+type SettleVariant = 'panel' | 'single' | 'no-research'
+
+const SettleFrame: FC<{ variant: SettleVariant; children: ReactNode }> = ({ variant, children }) => {
+  const frameRef = useRef<HTMLDivElement>(null)
+  useHeightGlide(frameRef, variant)
+  const [arrivedAs] = useState(variant)
+  return (
+    <div ref={frameRef} className="w-full">
+      <div
+        key={variant}
+        className={cn(variant !== arrivedAs && 'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none')}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 const ChatThinkingView: FC<ChatThinkingProps> = ({
   steps,
   isThinking = true,
@@ -146,10 +165,12 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   )
   const fallbackId = useId()
   const anchorPrefix = answerSourceAnchorPrefix(answerId ?? fallbackId)
-  const citationScope = (node: ReactNode) => (
-    <CitationScope documents={sourceCards} anchorPrefix={anchorPrefix}>
-      {node}
-    </CitationScope>
+  const citationScope = (node: ReactNode, variant: SettleVariant) => (
+    <SettleFrame variant={variant}>
+      <CitationScope documents={sourceCards} anchorPrefix={anchorPrefix}>
+        {node}
+      </CitationScope>
+    </SettleFrame>
   )
   const sourceCount = sourceCards.length
 
@@ -285,19 +306,21 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     const Glyph = askedBack ? CircleHelp : status === 'flagged' ? TriangleAlert : CircleMinus
     const tone = askedBack ? 'text-brand' : status === 'flagged' ? 'text-warning' : 'text-muted-foreground'
     return (
-      <div
-        data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
-        className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
-      >
-        <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
-          <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
-          {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
-          {warning && JOIN + warning.text}
-        </p>
-        <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
-          {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
-        </p>
-      </div>
+      <SettleFrame variant="no-research">
+        <div
+          data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
+          className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
+        >
+          <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
+            <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
+            {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
+            {warning && JOIN + warning.text}
+          </p>
+          <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
+            {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
+          </p>
+        </div>
+      </SettleFrame>
     )
   }
   if (status === 'done' && !worst && overview.single && works.length === 0 && !showTechnicalSteps) {
@@ -336,7 +359,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
             </span>
           )}
         </p>
-      </div>
+      </div>,
+      'single'
     )
   }
 
@@ -610,7 +634,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
           </HeightArrival>
         )}
       </AnimatePresence>
-    </div>
+    </div>,
+    'panel'
   )
 }
 

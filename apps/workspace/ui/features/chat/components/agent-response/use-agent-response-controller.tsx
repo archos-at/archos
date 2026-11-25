@@ -1,4 +1,5 @@
 import type { AgentResponseProps } from './agent-response-props'
+import { useMachine } from '@xstate/react'
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate } from 'motion/react'
 import {
@@ -29,6 +30,7 @@ import {
 
 import { useChatStore } from '../../store'
 import { registerShownText, useAnswerRevealStore } from '../../stores/answer-reveal-store'
+import { answerRoundMachine, roundIsQuiet, roundIsReturning, roundReopened } from '../../lib/answer-round-machine'
 import { useAnswerFileReferences } from '../../hooks/use-answer-file-references'
 
 import { usePacedText } from '../../hooks/use-paced-text'
@@ -170,8 +172,19 @@ export function useAgentResponseController({
     shownContentRef.current = shownContent
     if (shownContent.trim()) lastWords.current = shownContent
   })
-  const [retractionFaded, setRetractionFaded] = useState(false)
-  if (!retracted && retractionFaded) setRetractionFaded(false)
+  const retractionFade = useMotionToken(motionQuickExit)
+  const bodyFade = useMotionToken(motionBase)
+  const [round, sendRound] = useMachine(answerRoundMachine, {
+    input: {
+      fadeMs: (retractionFade.duration ?? 0) * 1000,
+      returnMs: (bodyFade.duration ?? 0) * 1000,
+    },
+  })
+  useLayoutEffect(() => {
+    sendRound({ type: retracted ? 'retract' : 'resume' })
+  }, [retracted, sendRound])
+  const retractionFaded = retracted && roundIsQuiet(round)
+  const returning = roundIsReturning(round)
   const drawnContent = retracted ? (retractionFaded ? '' : lastWords.current) : shownContent
   const finishing = live && !isStreaming
   const beginReveal = useAnswerRevealStore((s) => s.begin)
@@ -237,7 +250,8 @@ export function useAgentResponseController({
     [citationNumbers, anchorPrefix]
   )
   const fallbackCardIndices = useMemo(() => unplacedCardIndices(body, cardCount), [body, cardCount])
-  const unplacedIsFinal = !live || ((cards?.length ?? 0) > 0 && shownContent === content)
+  const unplacedIsFinal =
+    !live || ((cards?.length ?? 0) > 0 && shownContent === content && !(roundReopened(round) && isStreaming))
   const [unplacedDrawnLive, setUnplacedDrawnLive] = useState(false)
   if (live && unplacedIsFinal && !unplacedDrawnLive) setUnplacedDrawnLive(true)
   const drawUnplaced = unplacedIsFinal && (!cutShort || unplacedDrawnLive)
@@ -398,7 +412,6 @@ export function useAgentResponseController({
     [heightRelease]
   )
   const previousBody = useRef(body)
-  const bodyFade = useMotionToken(motionBase)
   const bodyFadeControls = useRef<{ complete: () => void } | null>(null)
   useLayoutEffect(() => () => bodyFadeControls.current?.complete(), [])
   useLayoutEffect(() => {
@@ -414,7 +427,6 @@ export function useAgentResponseController({
       : undefined
   }, [body, mountedLive, bodyFade, glideFrameDown, stopped, failed])
 
-  const retractionFade = useMotionToken(motionQuickExit)
   useLayoutEffect(() => {
     const frame = frameRef.current
     const prose = proseRef.current
@@ -422,16 +434,17 @@ export function useAgentResponseController({
     if (frameHeight.current !== null) frame.style.minHeight = `${frameHeight.current}px`
     if (retractionFaded) return
     const controls = animate(prose, { opacity: [1, 0] }, retractionFade)
-    const timer = window.setTimeout(
-      () => setRetractionFaded(true),
-      (retractionFade.duration ?? 0) * 1000
-    )
     return () => {
-      window.clearTimeout(timer)
       controls.stop()
       prose.style.opacity = ''
     }
   }, [retracted, retractionFaded, retractionFade])
+  useLayoutEffect(() => {
+    const prose = proseRef.current
+    if (!returning || !prose) return
+    const controls = animate(prose, { opacity: [0, 1] }, bodyFade)
+    return () => controls.complete()
+  }, [returning, bodyFade])
   useLayoutEffect(() => {
     const frame = frameRef.current
     if (retracted || !frame || !frame.style.minHeight) return

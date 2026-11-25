@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, memo, useMemo, useRef, useState } from 'react'
+import { type FC, memo, useMemo, useState } from 'react'
 import remarkDirective from 'remark-directive'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -11,7 +11,6 @@ import { normalizeDirectiveFences } from '@/lib/text/answer-directives'
 import { remarkAnswerDirectives } from './directives'
 import { MarkdownBlockView, headingIdsByBlock, type FootnoteOptions } from './markdown-block-view'
 import { remarkBlockContinues, splitMarkdownBlocks } from './markdown-blocks'
-import { blockInk, useInk, useInkAnimations } from './ink'
 import { rehypePluginsFor } from './rehype-plugins'
 import { MarkdownStreamStateContext, type MarkdownStreamState } from './render-state-context'
 import { stabilizeStreamingMarkdown } from './streaming-markdown'
@@ -21,7 +20,7 @@ import type { MarkdownRendererProps } from './types'
 export { holdHalfDirective, isOpenFence, stabilizeStreamingMarkdown } from './streaming-markdown'
 
 export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
-  ({ content, className = '', compact = false, isStreaming = false, remarkPlugins, caret, ink = false }) => {
+  ({ content, className = '', compact = false, isStreaming = false, remarkPlugins, caret }) => {
     const t = useTranslations(commonCopy)
     const [streamedHere, setStreamedHere] = useState(isStreaming)
     if (isStreaming && !streamedHere) setStreamedHere(true)
@@ -47,10 +46,6 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
       [renderedContent]
     )
     const headingIds = useMemo(() => headingIdsByBlock(renderedContent, blocks), [renderedContent, blocks])
-    const inkRuns = useInk(renderedContent, ink && isStreaming)
-    const inkByBlock = useMemo(() => blockInk(blocks, renderedContent, inkRuns), [blocks, renderedContent, inkRuns])
-    const rootRef = useRef<HTMLDivElement>(null)
-    useInkAnimations(rootRef, inkRuns)
 
     const withCaret = isStreaming && caret !== undefined && caret !== null && caret !== false
     const streamState = useMemo(
@@ -62,7 +57,6 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
       <StreamingCaretProvider value={withCaret ? caret : null}>
         <MarkdownStreamStateContext.Provider value={streamState}>
           <div
-            ref={rootRef}
             className={`markdown-content hyphens-auto [hyphenate-limit-chars:10_4_4] break-words [overflow-wrap:anywhere] [&>*:last-child]:mb-0 ${className}`}
           >
             {blocks.map((block, index) => {
@@ -76,7 +70,6 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = memo(
                   open={isStreaming && last}
                   remarkPlugins={last ? plugins.last : plugins.notLast}
                   rehypePlugins={rehypePluginsFor(index === 0, isStreaming && last, withCaret)}
-                  ink={inkByBlock[index]}
                   footnoteOptions={footnoteOptions}
                 />
               )

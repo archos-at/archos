@@ -4,6 +4,7 @@ import { doorOfPrincipal, findVisibleOperation } from '../policy'
 import type { McpCallContext } from '../telemetry'
 import { DOOR_DOCS } from './docs.generated'
 import { GUIDE_URI } from './index'
+import { DEPLOY_TEXT } from './cache-hints'
 
 export const ONBOARDING_GUIDE_URI = GUIDE_URI.replace(/guide$/, 'platform/onboarding-guide')
 
@@ -24,6 +25,7 @@ export function registerOnboardingGuide(server: McpServer, ctx: McpCallContext):
       description: 'How to bring a country’s knowledge in through this door: captures, dry runs, validation, review, and what the person decides.',
       mimeType: 'text/markdown',
       icons: RESOURCE_ICONS.guide,
+      cacheHint: DEPLOY_TEXT,
     },
     async () => ({ contents: [{ uri: ONBOARDING_GUIDE_URI, mimeType: 'text/markdown', text: DOOR_DOCS['platform/onboarding-guide.md'] }] }),
   )
