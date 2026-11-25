@@ -45,12 +45,12 @@ describe('inside a project', () => {
     ])
   })
 
-  it('links where the rail links: a fresh chat, the files, the overview, the org Postfach', () => {
+  it('links the chat tab back to the chat the person left, and the rest where the rail links', () => {
     const hrefs = Object.fromEntries(
       projectPhoneTabs('p1', '/app/projects/p1/files', ALL).map((tab) => [tab.key, tab.href])
     )
     expect(hrefs).toEqual({
-      chat: '/app/projects/p1/chat?new=1',
+      chat: '/app/projects/p1/chat',
       files: '/app/projects/p1/files',
       settings: '/app/projects/p1/settings',
       inbox: '/app/inbox',
@@ -172,10 +172,10 @@ describe('the Postfach looks like itself', () => {
 })
 
 describe('under Persönlich (ADR-0193)', () => {
-  it('carries its own places: a new personal chat, Meine Ablage, the Postfach and "Mehr", in that order', () => {
+  it('carries its own places: the personal chat, Meine Ablage, the Postfach and "Mehr", in that order', () => {
     const tabs = personalPhoneTabs('/app/personal/chat', ALL)
     expect(keys(tabs)).toEqual(['chat', 'personalShelf', 'inbox', 'more'])
-    expect(tabs.find((tab) => tab.key === 'chat')).toMatchObject({ href: '/app/personal/chat?new=1' })
+    expect(tabs.find((tab) => tab.key === 'chat')).toMatchObject({ href: '/app/personal/chat' })
     expect(tabs.find((tab) => tab.key === 'personalShelf')).toMatchObject({
       href: '/app/personal-shelf',
       label: { namespace: 'nav', key: 'personalShelf' },

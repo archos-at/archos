@@ -6,6 +6,7 @@ import { useSearchParams, usePathname } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store'
 import { resumableSessionId } from '@/features/chat/lib/resume-session'
 import { chatSideOf } from '@/components/shell/rail-mode'
+import { conversationMatchesProject } from '@/features/chat/lib/project-scope'
 
 interface UseSessionUrlOptions {
   isAuthenticated: boolean
@@ -18,6 +19,15 @@ const replaceUrlWithoutServerRender = (url: string): void => {
 interface UseSessionUrlReturn {
   updateSessionUrl: (sessionId: string | null) => void
   clearSessionUrl: () => void
+}
+
+function openOnThisSide(state: {
+  currentConversation: { id: string; userId?: string | null; projectId?: string | null } | null
+  currentUserId: string | null
+  projectId?: string | null
+}): string | null {
+  const open = state.currentConversation
+  return open && open.userId === state.currentUserId && conversationMatchesProject(open, state.projectId) ? open.id : null
 }
 
 export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSessionUrlReturn {
@@ -37,6 +47,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
   const pageSide = chatSideOf(pathname)
   const scopeIsThePage = pageSide === undefined || (scope ?? null) === pageSide
   const selectConversation = useChatStore((s) => s.selectConversation)
+  const openHere = useChatStore(openOnThisSide)
   const getUserConversations = useChatStore((s) => s.getUserConversations)
 
   const initialSyncDone = useRef(false)
@@ -48,7 +59,7 @@ export function useSessionUrl({ isAuthenticated }: UseSessionUrlOptions): UseSes
 
     const sessionId = searchParams.get('session')
     if (!sessionId) {
-      const resumeId = resumableSessionId(getUserConversations())
+      const resumeId = openHere ?? resumableSessionId(getUserConversations())
       if (resumeId) {
         selectConversation(resumeId)
         const params = new URLSearchParams(searchParams.toString())
