@@ -345,12 +345,30 @@ describe('AppSidebar - the resize edge', () => {
   })
 })
 
-describe('AppSidebar - mobile top bar', () => {
-  test('hides the standalone mobile top bar on the chat route (chat owns its chrome)', () => {
+describe('AppSidebar - the side row at the top of the phone chat', () => {
+  test('on the chat it carries the Persönlich | Projekt switch and the project’s name, which opens the project list', async () => {
     render(<AppSidebar {...baseProps} />)
-    const banner = screen.getByRole('banner')
-    expect(banner.className).toContain('hidden')
-    expect(banner.className).not.toMatch(/(^|\s)flex(\s|$)/)
+    const row = screen.getByRole('banner').querySelector('[data-slot="phone-side-bar"]') as HTMLElement
+    expect(within(row).getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'project')
+    await userEvent.click(within(row).getByRole('button', { name: /Project One/ }))
+    expect(useShellOverlays.getState()).toMatchObject({ moreSheetOpen: true, moreSheetView: 'projects' })
+  })
+
+  test('under Persönlich it carries the switch alone', () => {
+    pathname = '/app/personal/chat'
+    render(<AppSidebar {...baseProps} projectId={null} />)
+    const row = screen.getByRole('banner').querySelector('[data-slot="phone-side-bar"]') as HTMLElement
+    expect(within(row).getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'personal')
+    expect(row.querySelector('[data-project-selector]')).toBeNull()
+  })
+
+  test('stands on no other page, and not on a page with no side', () => {
+    for (const path of ['/app/projects/p1/files', '/app/inbox']) {
+      pathname = path
+      const { unmount } = render(<AppSidebar {...baseProps} onSide={path !== '/app/inbox'} />)
+      expect(document.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
+      unmount()
+    }
   })
 })
 

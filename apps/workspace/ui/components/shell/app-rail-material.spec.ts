@@ -230,7 +230,7 @@ describe('the app rail’s material', () => {
     phone.unmount()
   })
 
-  it('on a phone, names the project in „Mehr“ and nowhere above a page: no band, no crumb, no line over the chat', () => {
+  it('on a phone, names the project in „Mehr“ and, above a page, only in the side row at the top of the chat (the owner, 2026-11-24)', () => {
     for (const stem of ['ui/components/shell/app-sidebar', 'ui/features/layout/components/ChatToolbar', 'ui/features/layout/components/ChatConnectionLine']) {
       expect(codeOf(fileOf(stem))).not.toMatch(/\bprojectName\b|\bactiveProject\b|project\.name|projects\.find|ProjectCrumb|ProjectPill|PhoneProjectList|data-project-selector|projectSwitcher\.switch/)
     }
@@ -250,6 +250,10 @@ describe('the app rail’s material', () => {
     expect(bare.textContent).not.toContain('Project One')
 
     expect(phoneBackTarget('/app/projects/p1/files/all', 'p1')).toBeNull()
+
+    shell.pathname = '/app/projects/p1/chat'
+    const chat = renderRail().container.querySelector('header[data-scope="project"]') as HTMLElement
+    expect(chat.querySelector('[data-slot="phone-side-bar"] [data-project-selector]')).toHaveTextContent('Project One')
 
     const doors = railFiles().filter((file) => jsxTagsOf(file).includes('PhoneProjectList'))
     expect(doors).toEqual([fileOf('ui/components/shell/phone-more-sheet')])

@@ -71,7 +71,6 @@ function RailSwitchPreview(): JSX.Element {
           projects={PROJECTS}
           projectName={PROJECTS.find((project) => project.id === projectId)?.name ?? null}
           pathname={path}
-          navigateSide={navigate}
           organizationName={ORGANIZATION}
           user={USER}
           authRequired={false}

@@ -36,7 +36,6 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { isCurrentDestination, moreDestinations, type MoreDestination, type MoreFlags } from './phone-more'
 import { PhoneProjectList } from './phone-project-list'
-import { RailModeSwitch } from './rail-mode-switch'
 import type { ProjectSwitcherProject } from './project-list'
 import { useShellOverlays } from './shell-overlays'
 import type { SidebarUser } from './sidebar-user-menu'
@@ -60,7 +59,6 @@ export interface PhoneMoreSheetProps extends Omit<MoreFlags, keyof ShellAccount>
   projectName?: string | null
   projects?: ProjectSwitcherProject[]
   initialView?: MoreView
-  navigateSide?: (href: string) => void
 }
 
 type MoreView = 'more' | 'projects'
@@ -87,7 +85,6 @@ export function PhoneMoreSheet({
   initialView = 'more',
   user,
   organizations = [],
-  navigateSide,
   canViewOrganization = false,
   canManageOrganization = false,
   canManagePlatform = false,
@@ -102,6 +99,7 @@ export function PhoneMoreSheet({
   const pathname = pinnedPathname ?? currentPathname
   const open = useShellOverlays((s) => s.moreSheetOpen)
   const setOpen = useShellOverlays((s) => s.setMoreSheetOpen)
+  const askedView = useShellOverlays((s) => s.moreSheetView)
   const { signOut } = useAuth()
   const theme = useLayoutStore((s) => s.theme)
   const ActiveThemeIcon = THEME_ICONS[theme]
@@ -119,10 +117,9 @@ export function PhoneMoreSheet({
     setOpen(false)
   }, [pathname, setOpen])
   React.useEffect(() => {
-    if (open) setView(initialView)
-  }, [open, initialView])
+    if (open) setView(askedView === 'projects' ? 'projects' : initialView)
+  }, [open, initialView, askedView])
   const listing = view === 'projects' && selectable
-  const side = projectId === null ? 'personal' : 'project'
 
   const destinations = moreDestinations(projectId, pathname, flags)
   const label = (destination: MoreDestination): string =>
@@ -180,9 +177,6 @@ export function PhoneMoreSheet({
         </SheetHeader>
         {listing && <PhoneProjectList projects={projects} activeProjectId={projectId} onDone={() => setOpen(false)} />}
         <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2', listing && 'hidden')}>
-          <div className="px-4 pb-3" data-slot="phone-more-side">
-            <RailModeSwitch mode={side} collapsed={false} navigate={navigateSide} />
-          </div>
           {selectable && (
             <button
               type="button"
