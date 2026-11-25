@@ -1,8 +1,7 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import Link from 'next/link'
-import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
+import { CheckCircle2, CheckSquare, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -39,21 +38,16 @@ export interface InboundMailListProps {
   sections: ListSection[]
   status: InboundMailListStatus
   onFilterChange: (status: InboundMailListStatus, outcome: InboundMailOutcome | null) => void
-  waitingCount: number | null
-  waitingMore?: boolean
   openId: string | null
   focusedId: string | null
   checked: ReadonlySet<string>
+  selecting: boolean
+  onStartSelection?: () => void
   onCheckedChange: (mailId: string, checked: boolean) => void
   onFocusRow: (mailId: string) => void
   hrefFor: (mailId: string) => string
   quietOpen: boolean
   onQuietOpenChange: (open: boolean) => void
-  onFileGroup: (threadId: string, mailIds: string[]) => void
-  fileGroupBusy: string | null
-  onFileOne: (mailId: string) => void
-  fileOneBusy: string | null
-  onFileNow: (mailId: string) => void
   onFileReady: (mailIds: string[]) => void
   onRetry: () => void
   onLoadMore: () => void
@@ -72,9 +66,10 @@ export interface InboundMailListProps {
   now?: number
 }
 
-const GROUP_ACTION = 'shrink-0 gap-1.5'
 // A thread's press is the quiet text of the dialog's „Ändern“: under the section's button it read as a second, competing one.
 const GROUP_LINK = 'text-muted-foreground hover:text-foreground touch-target h-auto shrink-0 p-0 text-xs'
+
+const ENTRIES = 'flex flex-col [&>*:last-child_li:last-child]:after:hidden'
 
 type Block = { key: string; head: Extract<ListSection, { kind: 'readiness' | 'quiet' }> | null; entries: Array<Extract<ListSection, { kind: 'mail' | 'thread' }>> }
 
@@ -94,16 +89,19 @@ function blocksOf(sections: readonly ListSection[]): Block[] {
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { status, onFilterChange, waitingCount, waitingMore = false, showFilter = true, state, query = '', onQueryChange, searchInList = true, matchCount } = props
+  const { status, onFilterChange, showFilter = true, state, query = '', onQueryChange, searchInList = true, matchCount } = props
+  const readyAll = props.sections.flatMap((section) => (section.kind === 'mail' ? [section.mail] : section.kind === 'thread' ? section.mails : [])).filter(isReady)
+  const readyBatch = readyAll.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
   const searchable = searchInList && onQueryChange !== undefined && state.kind === 'ready' && (state.items.length > 0 || query !== '')
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
       <div className={cn('flex flex-col gap-2 px-4 pb-3 pt-2', !showFilter && 'hidden')} /* 24px under the tabs, as every tab */>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
         <ToggleGroup
           type="single"
           segmented
-          className="@3xl:bg-selected [&>button]:text-sm"
+          className="[&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -111,24 +109,27 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         >
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
-            {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
-            {/* One digit's width and no text to read: the one grey on the white thumb, white on the track. */}
-            {waitingCount === null && (
-              <CountPill tone="muted" aria-hidden className="in-data-[state=off]:bg-background">
-                <span className="invisible before:content-['8']" />
-              </CountPill>
-            )}
-            {waitingCount !== null && waitingCount > 0 &&
-              (waitingMore ? (
-                <CountPill tone="muted" className="in-data-[state=off]:bg-background" data-testid="filter-waiting-count">{`${waitingCount}+`}</CountPill>
-              ) : (
-                <CountPill count={waitingCount} tone="muted" className="in-data-[state=off]:bg-background" data-testid="filter-waiting-count" />
-              ))}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
             {t('filters.handled')}
           </ToggleGroupItem>
         </ToggleGroup>
+        {status === 'waiting' && !props.selecting && (
+          <div className="flex shrink-0 items-center gap-3">
+            {readyBatch.length > 1 && (
+              <Button type="button" variant="inline" className={GROUP_LINK} onClick={() => props.onFileReady(readyBatch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                {t(readyBatch.length < readyAll.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: readyBatch.length })}
+              </Button>
+            )}
+        {props.onStartSelection && (
+          <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={props.onStartSelection} data-testid="selection-start">
+            <CheckSquare className="size-4" aria-hidden />
+            {t('bulk.start')}
+          </Button>
+        )}
+          </div>
+        )}
+        </div>
         {searchable && (
           <SearchField
             size="sm"
@@ -172,17 +173,12 @@ function ListBody({
   openId,
   focusedId,
   checked,
+  selecting,
   onCheckedChange,
   onFocusRow,
   hrefFor,
   quietOpen,
   onQuietOpenChange,
-  onFileGroup,
-  fileGroupBusy,
-  onFileOne,
-  fileOneBusy,
-  onFileNow,
-  onFileReady,
   onRetry,
   onLoadMore,
   loadingMore,
@@ -295,21 +291,17 @@ function ListBody({
     )
   }
 
-  const picking = checked.size > 0
   const row = (mail: InboundMailSummaryView, group?: string): JSX.Element => (
     <InboundMailRow
       key={mail.id}
       inGroup={group !== undefined}
       groupThread={group}
-      onFileAsSuggested={status === 'waiting' ? () => onFileOne(mail.id) : undefined}
-      filingAsSuggested={fileOneBusy === mail.id}
-      onFileNow={status === 'waiting' ? () => onFileNow(mail.id) : undefined}
       mail={mail}
       href={hrefFor(mail.id)}
       open={mail.id === openId}
       focused={mail.id === focusedId}
       checked={checked.has(mail.id)}
-      selecting={checked.size > 0}
+      selecting={selecting}
       onCheckedChange={(value) => onCheckedChange(mail.id, value)}
       onFocusRow={() => onFocusRow(mail.id)}
       now={now}
@@ -340,46 +332,16 @@ function ListBody({
     return out
   }
 
-  const threadGroup = (section: Extract<ListSection, { kind: 'thread' }>): JSX.Element => {
-    const groupKey = `${section.threadId}:${section.mails[0]?.id ?? ''}`
-    const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
-    return (
-      <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
-        {/* One line: what the group is on the left, the one press on the right, in the section heading's quiet voice. */}
-        {/* A 40px line (44px under touch) with the 32px press centred in it, and 8px under it before the first row:
-            round 2 and 3 drew the line as tall as the press, and the press sat on the open row's sheet edge. */}
-        <div className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11" /* fixed: one height with its press or without, so ticking a box moves nothing */>
-          {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
-          <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
-            {/* A stack of mails: the circling arrows read as „sync“. */}
-            <Mails className="size-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{t('group.threadLine', { name: section.name })}</span>
-          </p>
-          {picking ? null : section.mails.every(isReady) ? (
-            <BusyButton
-              type="button"
-              variant="inline"
-              className={GROUP_LINK}
-              busy={fileGroupBusy === groupKey}
-              busyLabel={t('bulk.fileSuggestedBusy')}
-              onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
-              data-testid="thread-group-file"
-            >
-              {t(batch.length < section.mails.length ? 'group.threadActionFirst' : 'group.threadAction', { count: batch.length })}
-            </BusyButton>
-          ) : (
-            <Button asChild variant="inline" className={GROUP_LINK}>
-              <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
-                {t('group.reviewInOrder')}
-              </Link>
-            </Button>
-          )}
-        </div>
-        {/* Its rows hang from the group's glyph, so the press's count is the rows inside the line and no others. */}
-        <ul className="border-hairline ml-[22px] flex flex-col border-l pl-1" data-testid="thread-group-rows">{section.mails.map((mail) => row(mail, section.name))}</ul>
-      </section>
-    )
-  }
+  const threadGroup = (section: Extract<ListSection, { kind: 'thread' }>): JSX.Element => (
+    <section key={`${section.threadId}:${section.mails[0]?.id ?? ''}`} className="[&:not(:first-child)]:pt-4 [&:not(:last-child)]:pb-4" aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
+      <div className="flex min-w-0 items-baseline gap-2 px-4 pb-1" title={t('group.thread', { name: section.name, count: section.mails.length })}>
+        <Mails className="text-muted-foreground size-3.5 shrink-0 self-center" aria-hidden />
+        <h4 className="min-w-0 truncate text-sm font-medium">{section.name}</h4>
+        <span className="text-muted-foreground shrink-0 text-xs">{t('group.threadMeta', { count: section.mails.length })}</span>
+      </div>
+      <ul className="flex flex-col px-1" data-testid="thread-group-rows">{section.mails.map((mail) => row(mail, section.name))}</ul>
+    </section>
+  )
 
   return (
     /* One rhythm: 32px between sections, 12px between a heading, a thread and a run of rows inside one. The gaps were
@@ -408,10 +370,8 @@ function ListBody({
             </Collapsible>
           )
         }
-        if (!head) return <div key={block.key} className="flex flex-col gap-3">{entries(block.entries)}</div>
+        if (!head) return <div key={block.key} className={ENTRIES}>{entries(block.entries)}</div>
         const ready = head.readiness === 'ready'
-        const batch = head.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
-        const soleThread = block.entries.length === 1 && block.entries[0].kind === 'thread'
         return (
           <div key={block.key} className="flex flex-col gap-3">
             <div
@@ -428,17 +388,10 @@ function ListBody({
                   {t(`readiness.${head.readiness}`)}
                   <CountPill count={head.mails.length} tone="muted" />
                 </SectionLabel>
-                {ready && batch.length > 1 && !picking && !soleThread && (
-                  <Button type="button" size="sm" variant="secondary" className={GROUP_ACTION} onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
-                    {/* No glyph, as the thread's press has none: row-end actions are text presses. One request decides at
-                        most twenty mails: past that, the press says it files the first ones. */}
-                    {t(batch.length < head.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
-                  </Button>
-                )}
               </div>
               {head.readiness === 'others' && <p className="text-muted-foreground text-xs">{t('readiness.othersHint')}</p>}
             </div>
-            {entries(block.entries)}
+            <div className={ENTRIES}>{entries(block.entries)}</div>
           </div>
         )
       })}

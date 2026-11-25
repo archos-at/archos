@@ -18,6 +18,7 @@ export interface DecisionBarProps {
   impersonation?: boolean
   reportOffered?: boolean
   onOpenFiling: () => void
+  onFile?: () => void
   onDismiss: () => void
   filing: boolean
   dismissing: boolean
@@ -47,6 +48,7 @@ export function DecisionBar({
   impersonation = false,
   reportOffered = false,
   onOpenFiling,
+  onFile,
   onDismiss,
   filing,
   dismissing,
@@ -60,7 +62,8 @@ export function DecisionBar({
   const dismissFirst = impersonation || !offersFiling
   const showsDismiss = dismissFirst || !yieldPrimary
   const dismissNote = t('bar.dismissNote', { days: INBOUND_MAIL_RESTORE_DAYS })
-  const hint = questions > 0 ? t('filing.openHintQuestions', { count: questions }) : t('filing.openHint')
+  const direct = onFile !== undefined && !impersonation
+  const hint = direct ? t('filing.directHint') : questions > 0 ? t('filing.openHintQuestions', { count: questions }) : t('filing.openHint')
 
   return (
     <PinnedBar data-testid="decision-bar" className={className}>
@@ -101,16 +104,32 @@ export function DecisionBar({
               ref={openRef}
               type="button"
               size="sm"
-              variant={dismissFirst || yieldPrimary ? 'secondary' : 'default'}
+              variant={direct || dismissFirst || yieldPrimary ? 'secondary' : 'default'}
               onClick={onOpenFiling}
               disabled={filing || dismissing}
               aria-haspopup="dialog"
-              aria-describedby={impersonation ? undefined : hintId}
+              aria-describedby={impersonation || direct ? undefined : hintId}
               className={cn('min-w-0 sm:flex-none', showsDismiss ? 'flex-[2]' : 'flex-1')}
               data-testid="decision-open"
             >
-              {t('filing.open')}
+              {t(direct ? 'filing.change' : 'filing.open')}
             </Button>
+          )}
+          {offersFiling && direct && (
+            <BusyButton
+              type="button"
+              size="sm"
+              variant={yieldPrimary ? 'secondary' : 'default'}
+              busy={filing}
+              busyLabel={t('bulk.fileSuggestedBusy')}
+              blocked={dismissing}
+              onClick={onFile}
+              aria-describedby={hintId}
+              className="min-w-0 flex-[2] sm:flex-none"
+              data-testid="decision-file"
+            >
+              {t('filing.fileNow')}
+            </BusyButton>
           )}
         </div>
       </div>

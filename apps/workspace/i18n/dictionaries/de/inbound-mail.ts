@@ -9,7 +9,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   filters: {
     label: 'Anzeigen',
-    waiting: 'Wartet auf Ablage',
+    waiting: 'Wartet',
     handled: 'Bearbeitet',
   },
 
@@ -48,6 +48,12 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   row: {
+    dest: '→ {place}',
+    yesterday: 'gestern',
+    quoted: '„{name}“',
+    destMore: '→ {place} +{count}',
+    destNewThread: '→ neuer E-Mail-Verlauf',
+    expiresShort: 'bis {date}',
     noSubject: '(ohne Betreff)',
     attachments: '{count, plural, one {# Anhang} other {# Anhänge}}',
     automatic: 'Automatisch',
@@ -103,6 +109,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   group: {
+    threadMeta: 'E-Mail-Verlauf\u00A0· {count, plural, one {# E-Mail} other {# E-Mails}}',
     thread: 'E-Mail-Verlauf „{name}“\u00A0· {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
     threadLine: '„{name}“',
     threadAction: '{count, plural, one {Ablegen} other {Diese # ablegen}}',
@@ -177,6 +184,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   header: {
+    addressButton: 'Eingangsadresse',
     addressMenu: 'E-Mail-Adresse des Projekts',
     addressMore: 'Mehr zur Adresse',
     addressCopy: 'Adresse kopieren',
@@ -454,6 +462,11 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   filing: {
+    change: 'Ändern …',
+    fileNow: 'Ablegen',
+    directHint: 'Legt alles so ab, wie oben steht.',
+    where: 'Wohin abgelegt wird',
+    textLabel: 'E-Mail-Text',
     open: 'Einordnen …',
     openHint: 'Zeigt zuerst, was wohin kommt. Abgelegt wird erst, wenn Sie es bestätigen.',
     openHintQuestions: '{count, plural, one {Eine Frage, dann die Übersicht.} other {# Fragen, dann die Übersicht.}} Abgelegt wird erst, wenn Sie es bestätigen.',
@@ -583,6 +596,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   toast: {
+    held: '{count, plural, one {E-Mail wird abgelegt} other {# E-Mails werden abgelegt}}',
     filed: '{count, plural, one {# Datei abgelegt} other {# Dateien abgelegt}}',
     filedBoth: '{count, plural, one {# Datei und der E-Mail-Text abgelegt} other {# Dateien und der E-Mail-Text abgelegt}}',
     textFiled: 'E-Mail-Text abgelegt',
@@ -605,8 +619,18 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   bulk: {
+    preview: {
+      empty: 'Tippen Sie E-Mails in der Liste an. Hier steht dann, was die Leiste unten mit ihnen macht.',
+      title: '{count, plural, one {# E-Mail ablegen} other {# E-Mails ablegen}}',
+      titleSome: '{count} von {total} ablegen',
+      where: 'Wohin abgelegt wird',
+      thread: 'E-Mail-Verlauf „{name}“',
+      newThread: 'Neuer E-Mail-Verlauf',
+      held: '{count, plural, one {{names} bleibt im E-Mail-Eingang: noch nicht ablagebereit. Öffnen Sie sie einzeln.} other {{names} bleiben im E-Mail-Eingang: noch nicht ablagebereit. Öffnen Sie sie einzeln.}}',
+    },
+    fileSome: '{count} ablegen',
+    start: 'Auswählen',
     selected: '{count} ausgewählt',
-    paneHint: 'Die Leiste unter der Liste gilt für alle ausgewählten E-Mails.',
     clear: 'Auswahl aufheben',
     fileSuggested: 'Wie vorgeschlagen ablegen',
     fileSuggestedBusy: 'Wird abgelegt …',

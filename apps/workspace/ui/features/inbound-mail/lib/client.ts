@@ -32,7 +32,7 @@ export interface InboundMailClient {
   list(projectId: string, query?: Partial<InboundMailListQuery>, signal?: AbortSignal): Promise<InboundMailListView>
   get(projectId: string, mailId: string, signal?: AbortSignal): Promise<InboundMailView>
   text(projectId: string, mailId: string, signal?: AbortSignal): Promise<InboundMailTextView>
-  file(projectId: string, body: FileInboundMailsBody): Promise<InboundMailDecisionResultView>
+  file(projectId: string, body: FileInboundMailsBody, options?: { keepalive?: boolean }): Promise<InboundMailDecisionResultView>
   dismiss(projectId: string, body: DismissInboundMailsBody): Promise<{ mails: InboundMailView[] }>
   restore(projectId: string, mailId: string): Promise<InboundMailView>
   report(projectId: string, mailId: string): Promise<InboundMailReportResultView>

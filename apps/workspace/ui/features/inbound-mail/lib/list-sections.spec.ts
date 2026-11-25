@@ -19,27 +19,27 @@ const forged = summaryOf(mail({ key: 'g' }), { senderTrust: 'external_unverified
 const sectionsOf = (items: typeof a[]) => listSections(items, { grouped: true, groups: listPage(items).threadGroups })
 
 describe('listSections', () => {
-  it('puts „Bereit“ first and „Braucht Sie“ second, the server’s group where the first of its mails stands', () => {
+  it('puts „Braucht Sie“ first and „Bereit“ second, the server’s group where the first of its mails stands', () => {
     const sections = sectionsOf([unrelated, a, unconfirmed, b, stranger, robot])
-    expect(sections.map((section) => section.kind)).toEqual(['readiness', 'thread', 'readiness', 'mail', 'mail', 'mail', 'quiet'])
-    expect(sections[0]).toMatchObject({ kind: 'readiness', readiness: 'ready' })
-    expect(sections[0].kind === 'readiness' && sections[0].mails.map((mail) => mail.id).sort()).toEqual([a.id, b.id].sort())
-    expect(sections[2]).toMatchObject({ kind: 'readiness', readiness: 'needs_you' })
-    expect(sections[2].kind === 'readiness' && sections[2].mails.map((mail) => mail.id)).toEqual([unrelated.id, unconfirmed.id, stranger.id])
-    const group = sections[1]
+    expect(sections.map((section) => section.kind)).toEqual(['readiness', 'mail', 'mail', 'mail', 'readiness', 'thread', 'quiet'])
+    expect(sections[0]).toMatchObject({ kind: 'readiness', readiness: 'needs_you' })
+    expect(sections[0].kind === 'readiness' && sections[0].mails.map((mail) => mail.id)).toEqual([unrelated.id, unconfirmed.id, stranger.id])
+    expect(sections[4]).toMatchObject({ kind: 'readiness', readiness: 'ready' })
+    expect(sections[4].kind === 'readiness' && sections[4].mails.map((mail) => mail.id).sort()).toEqual([a.id, b.id].sort())
+    const group = sections[5]
     expect(group.kind === 'thread' && group.mails.map((member) => member.id).sort()).toEqual([a.id, b.id].sort())
   })
 
-  it('splits a server group along readiness, so one mail that needs a person holds nothing back', () => {
+  it('keeps a server group whole, under the first section any of its mails belongs to', () => {
     const c = summaryOf(mail({ key: 'c-ready', threadCandidates: [thread()] }))
     const held = summaryOf(mail({ key: 'held', threadCandidates: [thread()] }), { incompleteReason: 'needs_person' })
     const heldToo = summaryOf(mail({ key: 'held-too', threadCandidates: [thread()] }), { incompleteReason: 'scanning' })
     const sections = sectionsOf([a, held, b, heldToo, c])
     const groups = sections.filter((section) => section.kind === 'thread')
-    expect(groups).toHaveLength(2)
-    expect(groups[0].kind === 'thread' && groups[0].mails.map((mail) => mail.id)).toEqual(expect.arrayContaining([a.id, b.id, c.id]))
-    expect(groups[1].kind === 'thread' && groups[1].mails.map((mail) => mail.id).sort()).toEqual([held.id, heldToo.id].sort())
-    expect(sections.findIndex((section) => section === groups[0])).toBeLessThan(sections.findIndex((section) => section.kind === 'readiness' && section.readiness === 'needs_you'))
+    expect(groups).toHaveLength(1)
+    expect(groups[0].kind === 'thread' && groups[0].mails.map((mail) => mail.id).sort()).toEqual([a.id, b.id, c.id, held.id, heldToo.id].sort())
+    expect(sections.find((section) => section.kind === 'readiness' && section.readiness === 'ready')).toBeUndefined()
+    expect(sections[0]).toMatchObject({ kind: 'readiness', readiness: 'needs_you' })
   })
 
   it('never counts an impersonation as „Bereit“, even when a view says it is complete', () => {
@@ -62,8 +62,8 @@ describe('listSections', () => {
 describe('visibleMails', () => {
   it('walks every row on show, an unconfirmed stranger included, and the automatic group only while it is open', () => {
     const sections = sectionsOf([a, stranger, robot])
-    expect(visibleMails(sections, false).map((mail) => mail.id)).toEqual([a.id, stranger.id])
-    expect(visibleMails(sections, true).map((mail) => mail.id)).toEqual([a.id, stranger.id, robot.id])
+    expect(visibleMails(sections, false).map((mail) => mail.id)).toEqual([stranger.id, a.id])
+    expect(visibleMails(sections, true).map((mail) => mail.id)).toEqual([stranger.id, a.id, robot.id])
   })
 })
 

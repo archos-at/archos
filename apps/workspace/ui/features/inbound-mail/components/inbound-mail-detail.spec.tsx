@@ -105,12 +105,15 @@ describe('the mail pane', () => {
     expect(screen.getByTestId('not-staged-original')).toHaveTextContent('download it above under “Details”')
   })
 
-  it('has one primary that names the act, and says what dismissing does', () => {
+  it('files a mail with nothing left to ask in one press, offers „Change …“ beside it, and says what dismissing does', () => {
     renderDetail('member-verified')
-    const open = screen.getByTestId('decision-open')
-    expect(open).toHaveTextContent('Review and file …')
-    expect(open.className).toContain('bg-primary')
-    expect(open).toHaveAccessibleDescription('Shows what goes where first. Nothing is filed until you confirm.')
+    const file = screen.getByTestId('decision-file')
+    expect(file).toHaveTextContent('File')
+    expect(file.className).toContain('bg-primary')
+    expect(file).toHaveAccessibleDescription('Files everything as shown above.')
+    expect(screen.getByTestId('decision-open')).toHaveTextContent('Change …')
+    expect(screen.getByTestId('decision-open').className).not.toContain('bg-primary')
+    expect(screen.getByTestId('filing-where-text')).toHaveTextContent('Mail text')
     expect(screen.getByTestId('decision-dismiss').className).not.toContain('bg-primary')
     expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent(/^Dismissing acts only in \S+, not in the mail program, and can be restored for 7 days\.$/)
     expect(screen.getByTestId('decision-dismiss')).toHaveAccessibleDescription(screen.getByTestId('decision-dismiss-note').textContent ?? '')

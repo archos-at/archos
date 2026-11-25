@@ -30,6 +30,9 @@ import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocab
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { cn } from '@/lib/utils'
 import { useShortcutsPreference } from '@/hooks/use-shortcuts-preference'
+import { bulkSelectable } from '../lib/impersonation'
+import { useMailSelection } from '../lib/use-mail-selection'
+import { useHeldFilings } from '../lib/use-held-filings'
 import { useInboxKeys, type InboxKeyTarget } from '../lib/inbox-keys'
 import { useBulkLandingReport, useLandingReport } from '../lib/inbox-landing-report'
 import { useStartHint } from '../lib/inbox-start'
@@ -51,6 +54,7 @@ import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
 import { mailToast } from './inbound-mail-atoms'
 import { MailStepper } from './mail-stepper'
+import { SelectionPreview } from './selection-preview'
 import { SelectionBar, type BulkBlock } from './selection-bar'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
@@ -76,9 +80,12 @@ export interface InboundMailWorkspaceProps {
   listLoading?: boolean
   initialChecked?: readonly string[]
   pollMs?: number
+  holdMs?: number
 }
 
-type AsSuggestedSurface = 'row' | 'ready_section' | 'thread_group' | 'selection'
+const NEAR_THE_PRESS = { position: 'bottom-left' as const }
+
+type AsSuggestedSurface = 'ready_section' | 'selection'
 
 export function InboundMailWorkspace({
   projectId,
@@ -101,6 +108,7 @@ export function InboundMailWorkspace({
   listLoading = false,
   initialChecked,
   pollMs,
+  holdMs,
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const phone = useMediaQuery(PHONE_QUERY)
@@ -113,7 +121,7 @@ export function InboundMailWorkspace({
     listLoading ? { kind: 'loading' } : initialList ? { kind: 'ready', ...initialList } : initialListFailed ? { kind: 'error' } : { kind: 'loading' }
   )
   const [loadingMore, setLoadingMore] = useState(false)
-  const [checked, setChecked] = useState<Set<string>>(() => new Set(initialChecked))
+  const { checked, selecting, start: startSelection, end: endSelection, toggle } = useMailSelection(initialChecked)
   const [focusedId, setFocusedId] = useState<string | null>(mailId)
   const [quietToggled, setQuietToggled] = useState<boolean | null>(null)
   const [focusTarget, setFocusTarget] = useState<string | null>(null)
@@ -169,7 +177,8 @@ export function InboundMailWorkspace({
     void reload()
   }, [status, outcome, reload, initialList, initialListFailed, listLoading])
 
-  const items = useMemo(() => (list.kind === 'ready' ? list.items : []), [list])
+  const { hidden, settled, hold } = useHeldFilings(holdMs)
+  const items = useMemo(() => (list.kind !== 'ready' ? [] : status === 'waiting' ? list.items.filter((mail) => !hidden.has(mail.id)) : list.items), [list, hidden, status])
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sectionsOf = useCallback(
     (mails: readonly InboundMailSummaryView[], threadGroups: InboundMailListView['threadGroups']) =>
@@ -189,9 +198,7 @@ export function InboundMailWorkspace({
   const [bulkFiling, setBulkFiling] = useState<string | null>(null)
   const [bulkDismissing, setBulkDismissing] = useState(false)
   const [confirmFile, setConfirmFile] = useState<{ decisions: InboundMailDecision[]; plan: BulkPlan; surface: AsSuggestedSurface } | null>(null)
-  const [rowFiling, setRowFiling] = useState<string | null>(null)
   const [confirmDismiss, setConfirmDismiss] = useState(false)
-  const [filingRequest, setFilingRequest] = useState<string | null>(null)
 
   const readViews = useCallback(
     async (ids: string[]): Promise<Map<string, InboundMailView>> => {
@@ -225,7 +232,8 @@ export function InboundMailWorkspace({
     },
     [items]
   )
-  const selectionBlock = blockFor(selectedIds, summaryReason)
+  const readyIds = selectedIds.filter((id) => summaryReason(id) === null)
+  const selectionBlock = readyIds.length > 0 ? null : blockFor(selectedIds, summaryReason)
 
   const destinationLine = (destination: BulkDestination): string =>
     destination.kind === 'folder' && destination.label === ''
@@ -263,33 +271,24 @@ export function InboundMailWorkspace({
   }
 
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
-    const result = await client.file(projectId, { mails: decisions })
+    const ids = decisions.map((decision) => decision.mailId)
     const description = plan.destinations.map(destinationLine).join(CLAUSE_JOIN)
-    capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
-    const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { description })
-    void changed()
-    const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
-    if (sent) void reportLanding(sent, decisions[0], toastId)
-    else void reportBulk(result.mails, decisions, toastId)
-  }
-
-  const fileNow = (id: string): void => {
-    if (mailId !== id) router.push(paths.mail(id, filter))
-    setFilingRequest(id)
-  }
-
-  const fileOne = async (mailId: string): Promise<void> => {
-    if (rowFiling) return
-    setRowFiling(mailId)
-    try {
-      const built = await prepare([mailId], null)
-      if (built) await send(built.decisions, built.plan, 'row')
-    } catch (error) {
-      toast.error(t(`refusals.${refusalOf(error)}`))
-      void changed()
-    } finally {
-      setRowFiling(null)
-    }
+    hold({ ids, label: t('toast.held', { count: ids.length }), undoLabel: t('toast.undo'), toastOptions: mailToast({ ...NEAR_THE_PRESS, description }), onUndo: () => undefined, run: async (held, { keepalive }) => {
+      try {
+        const result = await client.file(projectId, { mails: decisions }, { keepalive })
+        capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
+        const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { id: held, description, action: undefined })
+        void changed()
+        const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
+        if (sent) void reportLanding(sent, decisions[0], toastId)
+        else void reportBulk(result.mails, decisions, toastId)
+        return true
+      } catch (error) {
+        toast.error(t(`refusals.${refusalOf(error)}`), { id: held, action: undefined })
+        void changed()
+        return false
+      }
+    } })
   }
 
   const fileConfirmed = async (): Promise<void> => {
@@ -297,7 +296,7 @@ export function InboundMailWorkspace({
     setBulkFiling('selection')
     try {
       await send(confirmFile.decisions, confirmFile.plan, confirmFile.surface)
-      setChecked(new Set())
+      endSelection()
     } catch (error) {
       toast.error(t(`refusals.${refusalOf(error)}`))
       void changed()
@@ -312,7 +311,7 @@ export function InboundMailWorkspace({
     try {
       await client.dismiss(projectId, { mailIds: selectedIds })
       toast.success(t('toast.dismissedMany', { count: selectedIds.length }))
-      setChecked(new Set())
+      endSelection()
       void changed()
     } catch (error) {
       toast.error(t(`refusals.${refusalOf(error)}`))
@@ -321,14 +320,6 @@ export function InboundMailWorkspace({
       setBulkDismissing(false)
     }
   }
-
-  const toggle = (id: string, value: boolean): void =>
-    setChecked((current) => {
-      const next = new Set(current)
-      if (value) next.add(id)
-      else next.delete(id)
-      return next
-    })
 
   const keyState = useRef({ rows, mailId })
   keyState.current = { rows, mailId }
@@ -360,12 +351,33 @@ export function InboundMailWorkspace({
     advance(open, before.rows, after)
   }, [projectId, client, reload, status, sectionsOf, quietToggled, advance])
 
+  const firstSettled = useRef(settled)
+  useEffect(() => {
+    if (settled !== firstSettled.current) void reload()
+  }, [settled, reload])
+
   useInboxLive({ projectId, enabled: status === 'waiting', stamp: waiting.stamp, lastRead: lastReload, reload })
 
   const reportLanding = useLandingReport({ client, projectId, pollMs, onSettled: () => void changed() })
 
-  const filedOpen = (sent: InboundMailView, decision: InboundMailDecision): void => {
-    const toastId = toast.loading(t('toast.filing'), mailToast())
+  const holdOpen = (view: InboundMailView, decision: InboundMailDecision): void => {
+    const { rows: before, mailId: open } = keyState.current
+    hold({ ids: [view.id], label: t('toast.held', { count: 1 }), undoLabel: t('toast.undo'), toastOptions: mailToast(NEAR_THE_PRESS), onUndo: () => router.push(paths.mail(view.id, filter)), run: async (toastId, { keepalive }) => {
+      try {
+        const sent = (await client.file(projectId, { mails: [decision] }, { keepalive })).mails.find((mail) => mail.id === view.id)
+        if (sent) filedOpen(sent, decision, toastId)
+        return true
+      } catch (error) {
+        toast.error(t(`refusals.${refusalOf(error)}`), { id: toastId, action: undefined })
+        void changed()
+        return false
+      }
+    } })
+    if (status === 'waiting' && open === view.id) advance(open, before, before.filter((mail) => mail.id !== open))
+  }
+
+  const filedOpen = (sent: InboundMailView, decision: InboundMailDecision, held?: string | number): void => {
+    const toastId = toast.loading(t('toast.filing'), mailToast({ id: held, action: undefined }))
     const { rows: before, mailId: open } = keyState.current
     if (status === 'waiting' && open === sent.id) advance(open, before, before.filter((mail) => mail.id !== open))
     void reload()
@@ -374,20 +386,6 @@ export function InboundMailWorkspace({
   const showHandled = useCallback(() => router.replace(paths.list({ status: 'handled', outcome: null })), [router, paths])
   const reportBulk = useBulkLandingReport({ client, projectId, pollMs, onSettled: () => void changed(), onShowHandled: showHandled })
 
-  useEffect(() => {
-    if (!filingRequest || mailId !== filingRequest) return
-    let tries = 0
-    const timer = window.setInterval(() => {
-      tries += 1
-      if (document.querySelector('[data-testid="filing-dialog"]') || tries > 50) {
-        window.clearInterval(timer)
-        setFilingRequest(null)
-        return
-      }
-      detailActions.current?.file()
-    }, 100)
-    return () => window.clearInterval(timer)
-  }, [filingRequest, mailId])
 
   const keyTarget = useRef<InboxKeyTarget | null>(null)
   keyTarget.current = {
@@ -404,6 +402,7 @@ export function InboundMailWorkspace({
     file: () => detailActions.current?.file(),
     dismissOpen: () => detailActions.current?.dismiss(),
     askDismissSelection: () => setConfirmDismiss(true),
+    selecting,
   }
   useInboxKeys(shortcutsOn, firstMail.ref, keyTarget)
 
@@ -432,16 +431,17 @@ export function InboundMailWorkspace({
     ) : null
 
   const selectionBar =
-    selectedIds.length > 0 ? (
+    selecting ? (
       <SelectionBar
         count={selectedIds.length}
-        block={selectedIds.length > INBOUND_MAIL_DECISION_MAX_MAILS ? { reason: 'too_many', count: selectedIds.length } : selectionBlock}
+        fileCount={readyIds.length}
+        block={readyIds.length > INBOUND_MAIL_DECISION_MAX_MAILS ? { reason: 'too_many', count: readyIds.length } : selectionBlock}
         max={INBOUND_MAIL_DECISION_MAX_MAILS}
         filing={bulkFiling === 'selection'}
         dismissing={bulkDismissing}
-        onFile={() => void askFile(selectedIds, null, 'selection')}
+        onFile={() => void askFile(readyIds, null, 'selection')}
         onDismiss={() => setConfirmDismiss(true)}
-        onClear={() => setChecked(new Set())}
+        onClear={endSelection}
       />
     ) : null
 
@@ -485,23 +485,22 @@ export function InboundMailWorkspace({
         )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
-      {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
-          apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
-      {/* 24px under the header's rule (16px on a phone): the list's desk and the open mail started on the rule and
+      {/* At the split the list stands on the page itself and the reader is the one sheet, 16px apart and 24px off the
+          foot; a grey panel behind the list made two boxes compete with the mail (owner review, 2026-11-25). The list's
+          text stands on the title's edge, its row fills bleeding out to the left. */}
+      {/* 24px under the header's rule (16px on a phone): the list and the open mail started on the rule and
           read as hung from it (review of 2026-11-11). */}
       <div className={cn('flex min-h-0 flex-1 flex-col pt-4 @3xl:pt-6', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
-        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:-ml-4 @3xl:flex @3xl:px-0', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
             status={status}
             onFilterChange={(nextStatus, nextOutcome) => {
-              setChecked(new Set())
+              endSelection()
               setQueryState('')
               router.replace(paths.list({ status: nextStatus, outcome: nextOutcome }))
             }}
-            waitingCount={waiting.count}
-            waitingMore={waiting.more}
             query={query}
             onQueryChange={setQuery}
             searchInList={phone}
@@ -510,16 +509,16 @@ export function InboundMailWorkspace({
             openId={mailId}
             focusedId={focusedId}
             checked={checked}
-            onCheckedChange={toggle}
+            selecting={selecting}
+            onStartSelection={status === 'waiting' && items.some((mail) => bulkSelectable(mail)) ? startSelection : undefined}
+            onCheckedChange={(id, value) => {
+              toggle(id, value)
+              setFocusedId(null)
+            }}
             onFocusRow={setFocusedId}
             hrefFor={(id) => paths.mail(id, filter)}
             quietOpen={quietOpen}
             onQuietOpenChange={setQuietToggled}
-            onFileGroup={(threadId, ids) => void askFile(ids, threadId, 'thread_group')}
-            fileGroupBusy={bulkFiling}
-            onFileOne={(id) => void fileOne(id)}
-            fileOneBusy={rowFiling}
-            onFileNow={fileNow}
             onFileReady={(ids) => void askFile(ids, null, 'ready_section')}
             onRetry={() => reload()}
             onLoadMore={async () => {
@@ -572,7 +571,9 @@ export function InboundMailWorkspace({
           className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block @3xl:overflow-y-auto @3xl:rounded-surface @3xl:bg-sheet @3xl:shadow-sm', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
           data-testid="inbound-mail-detail-pane"
         >
+          {selecting && <SelectionPreview mails={items.filter((mail) => checked.has(mail.id))} />}
           {mailId ? (
+            <div className={selecting ? 'hidden' : 'contents'}>
             <InboundMailDetail
               key={mailId}
               projectId={projectId}
@@ -583,16 +584,18 @@ export function InboundMailWorkspace({
               client={client}
               onChanged={() => void changed()}
               onFiled={filedOpen}
+              onHold={holdOpen}
               back={back}
               actionsRef={detailActions}
               now={now}
               decidedByOther={decidedByOther}
               yieldPrimary={selectedIds.length > 0}
             />
-          ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
+            </div>
+          ) : selecting || list.kind === 'loading' || firstMail.pending ? null : (
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
               <MailSearch className="size-5" aria-hidden />
-              <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
+              <p className="max-w-xs text-sm text-balance">{t('noSelection')}</p>
             </div>
           )}
         </div>

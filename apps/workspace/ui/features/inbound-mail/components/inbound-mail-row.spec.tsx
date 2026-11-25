@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import userEvent from '@testing-library/user-event'
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import { mail, messagePart, part, summaryOf } from '@/app/dev/inbound-mail/fixture-builders'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { InboundMailRow } from './inbound-mail-row'
@@ -29,7 +28,6 @@ describe('a settled mail, whose subject and sender were erased when it was filed
     expect(screen.queryByText('(no subject)')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
     expect(screen.queryByText('?')).toBeNull()
-    expect(screen.getByTestId('inbound-mail-row-settled-avatar')).toBeTruthy()
   })
 })
 
@@ -51,58 +49,74 @@ describe('a handled mail filed without a click', () => {
   })
 })
 
-describe('a ready mail says where one press files it', () => {
-  it('names the E-Mail-Verlauf its text joins and the folder of its attachment', () => {
+describe('a ready mail says on its second line where one press files it', () => {
+  it('names the folder of its attachment, and counts the other places', () => {
     row(ready({ suggestedPlaces: { text: { kind: 'thread', name: 'Verfahren MA 37' }, files: 1, folders: ['Behörde/Bescheide'] } }))
-    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('Mail text to “Verfahren MA 37”\u00A0· Attachment to Behörde/Bescheide')
-    expect(screen.queryByTestId('inbound-mail-row-thread')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('→ Behörde/Bescheide +1')
   })
 
-  it('counts files spread over folders, names the top level, and says a new Verlauf', () => {
-    const { unmount } = row(ready({ suggestedPlaces: { text: { kind: 'new_thread' }, files: 3, folders: ['Tragwerk', 'Behörde'] } }))
-    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('Mail text as a new mail thread\u00A0· 3 attachments to 2 folders')
+  it('names the Verlauf when the text is all it files, and the top level by its name', () => {
+    const { unmount } = row(ready({ suggestedPlaces: { text: { kind: 'thread', name: 'Verfahren MA 37' }, files: 0, folders: [] } }))
+    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('→ “Verfahren MA 37”')
     unmount()
     row(ready({ suggestedPlaces: { text: null, files: 2, folders: [''] } }))
-    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('2 attachments to Files (top level)')
+    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('→ Files (top level)')
   })
 
-  it('leaves the text out under its own thread group, whose line already names the Verlauf', () => {
-    const { unmount } = row(ready({ suggestedPlaces: { text: { kind: 'thread', name: 'Stellplatznachweis' }, files: 1, folders: ['Tragwerk'] } }), { inGroup: true, groupThread: 'Stellplatznachweis' })
-    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('Attachment to Tragwerk')
-    unmount()
-    row(ready({ suggestedPlaces: { text: { kind: 'thread', name: 'Stellplatznachweis' }, files: 0, folders: [] } }), { inGroup: true, groupThread: 'Stellplatznachweis' })
-    expect(screen.queryByTestId('inbound-mail-row-places')).toBeNull()
+  it('leaves the text out under its own thread label, whose line already names the Verlauf', () => {
+    row(ready({ suggestedPlaces: { text: { kind: 'thread', name: 'Stellplatznachweis' }, files: 1, folders: ['Tragwerk'] } }), { inGroup: true, groupThread: 'Stellplatznachweis' })
+    expect(screen.getByTestId('inbound-mail-row-places').textContent).toBe('→ Tragwerk')
   })
 
-  it('says nothing of places on a mail that needs the reader first', () => {
+  it('says what it needs instead on a mail that needs the reader first, with the warning glyph and ink words', () => {
     row(ready({ incompleteReason: 'no_thread', suggestedPlaces: { text: null, files: 1, folders: ['Tragwerk'] } }))
     expect(screen.queryByTestId('inbound-mail-row-places')).toBeNull()
     expect(screen.getByTestId('inbound-mail-row-reason')).toHaveTextContent('No matching mail thread')
+    expect(screen.getByTestId('inbound-mail-row-reason')).toHaveClass('text-foreground')
+  })
+
+  it('says the time short, as a mail program does, and draws no trust glyph for a sender the server vouches for', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-19T11:00:00Z'))
+      row(ready({ receivedAt: '2026-11-19T10:59:00Z', senderTrust: 'member_verified', senderFlags: [], impersonation: null }))
+      await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toMatch(/^\d{1,2}:\d{2}( [AP]M)?$/))
+      expect(screen.queryByTestId('sender-trust-glyph')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says „yesterday“ for the calendar day before, across the change from summer time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-10-25T22:30:00Z'))
+      row(ready({ receivedAt: '2026-10-24T20:00:00Z' }))
+      await waitFor(() => expect(screen.getByTestId('inbound-mail-row-time').textContent).toBe('yesterday'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('is two lines: no avatar, no press of its own', () => {
+    row(ready())
+    expect(screen.getByRole('listitem').querySelector('[data-slot="avatar"]')).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })
 
 describe('a mail in its last days', () => {
   const day = (iso: string) => new Intl.DateTimeFormat('en', { day: '2-digit', month: '2-digit' }).format(new Date(iso))
 
-  it('says until when an outsider’s mail stays, as a plain deadline, and offers „Einordnen“ at rest', async () => {
-    const onFileNow = vi.fn()
+  it('says until when it stays, in place of the time it came', () => {
     const expiresAt = new Date(NOW + 2 * 86_400_000).toISOString()
-    row(ready({ senderClass: 'external', senderFlags: [], expiresAt, incompleteReason: 'no_thread' }), { now: NOW, onFileNow })
-    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Stays in Project mail until ${day(expiresAt)}`)
-    await userEvent.click(screen.getByTestId('inbound-mail-row-file-now'))
-    expect(onFileNow).toHaveBeenCalledOnce()
+    row(ready({ senderClass: 'external', senderFlags: [], expiresAt, incompleteReason: 'no_thread' }), { now: NOW })
+    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`until ${day(expiresAt)}`)
   })
 
-  it('says the same of a member’s mail: every expiry is restorable for seven days, whoever sent it', () => {
-    const expiresAt = new Date(NOW + 86_400_000).toISOString()
-    row(ready({ senderClass: 'office_member', expiresAt }), { now: NOW, onFileNow: () => {} })
-    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Stays in Project mail until ${day(expiresAt)}`)
-  })
-
-  it('says nothing and offers nothing before its last five days', () => {
-    row(ready({ senderClass: 'external', expiresAt: new Date(NOW + 6 * 86_400_000).toISOString() }), { now: NOW, onFileNow: () => {} })
+  it('says nothing before its last five days', () => {
+    row(ready({ senderClass: 'external', expiresAt: new Date(NOW + 6 * 86_400_000).toISOString() }), { now: NOW })
     expect(screen.queryByTestId('inbound-mail-row-expiry')).toBeNull()
-    expect(screen.queryByTestId('inbound-mail-row-file-now')).toBeNull()
   })
 })
 

@@ -190,10 +190,8 @@ restorable for seven days (ADR-0137, amendment of 2026-11-19). It is a
 deadline, not a threat: „Wird am 03.12. entfernt, wenn niemand sie ablegt“,
 said of an outsider's mail while its expiry erased it, read as one, and „Läuft
 in 2 Tagen ab“ in ochre after the reason read as an alarm and said nothing of
-what happens. Such a row
-offers „Einordnen …“ at rest, which opens the mail and its filing dialog
-(rows differ in what they offer, so the press is shown, design principle 6);
-not for a mail only a colleague may file.
+what happens. In the row the time column says it instead, „bis 03.12.“ beside
+a gold hourglass, so the row stays two lines.
 „Ablagebereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
 too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome,
@@ -205,53 +203,40 @@ E-Mail-Verlauf its text went into (else its first file), or „Ohne Klick
 abgelegt“ where the reader may not open it (`filedWithoutClick` on the
 summary; i18n group `inboundMail.autoFiled`).
 
-A row: the sender's domain, the subject without `AW:`/`WG:`, the time, „· 3
-Anhänge“; suggestion chips; a trust or risk glyph. Over the rows a field
+**A row is two lines** (owner review, 2026-11-25): the subject without
+`AW:`/`WG:` and its time, short as a mail program's („10:48“ today, „gestern“,
+„13.11.“; `ListTime`), then the sender and the one thing that decides the
+mail: where it goes or what it needs. The sender's glyph stands only when
+something about the sender is off (a sender the server vouches for has none),
+every waiting subject is one weight (a section of bold rows said nothing), and
+one hairline stands under every row of a section, a thread's last included;
+only the section’s last row has none, and a thread takes 16px over its heading and under its last row, so where it ends shows
+(`ENTRIES` in `inbound-mail-list.tsx`). No avatar
+(a sender is not a member, and the disc was a column of initials), no press of
+its own: a row opens the mail, and the mail files it. „Braucht Sie“ stands
+first, then „Ablagebereit“, then „Wartet auf andere“. Over the rows a field
 „Absender oder Betreff“ filters the loaded mail by sender and subject, every
 word, without case or accents (`matchesQuery`, `lib/inbox-triage.ts`); the
 count of matches is said once by a status, Escape clears it, and a search that
 finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“. The list's
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
 run of rows inside one. „Ablagebereit“ says on hover „Jede Zeile sagt,
-wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ and, with two or more
-ready mails, „Alle {n} ablagebereiten E-Mails ablegen“ (bulk, confirmed and
-grouped by destination; more than 20: „Die ersten 20 ablagebereiten E-Mails
-ablegen“, since one request decides at most 20). It names its scope, the
-section, so it never reads as the thread group's „Diese {n} wie vorgeschlagen
-ablegen“ beside it (round 7: „Alle 5 …“ and „Diese 3 …“ read as two answers to
-one question); where the section is one thread group, only the group's press
-stands. Every ready row says in one muted line, with
-a folder glyph, where that press files it, so the bulk press is never blind:
-„E-Mail-Text an „Verfahren MA 37“ · Anhang nach Behörde/Bescheide“, „3
-Anhänge in 2 Ordner“, „E-Mail-Text als neuer E-Mail-Verlauf“, the top level
-„Dateien (oberste Ebene)“. The server says it (`suggestedPlaces` on the
-summary, `bff/inbound-mail/suggested-places.ts`: the preselected text's
-Verlauf and the distinct folders of the preselected attachments, a revision's
-folder for a next Fassung), the row only words it; inside a thread group the
-text's clause is left out, since the group's line names the Verlauf. The line
-replaces the row's „An E-Mail-Verlauf …“ and wraps to two lines at most. A
-ready row outside a thread group carries
-„Wie vorgeschlagen ablegen“, shown where the reader is (the open row, under the
-pointer or the keyboard, always under a finger): one press, no confirmation,
-the same request as bulk and never an acknowledgement. Under a finger it
-stands only on the open row: shown on every row, one stray tap filed a mail.
-After „Alle …“ or a group's press the toast waits until every part landed
+wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ With two
+or more ready mails anywhere in the list (a thread under „Braucht Sie“
+included), the toolbar beside „Wartet | Bearbeitet“ offers the text press
+„Alle {n} ablegen“ (bulk, confirmed and grouped by destination; more than 20:
+„Die ersten 20 ablegen“, since one request decides at most 20). The switch
+carries no count: the tab above says it. A ready row's second line says where it goes,
+„→ Behörde/Bescheide“, the first folder, then „+1“ for every other place
+(`destinationLine` in `inbound-mail-row.tsx`); inside a thread the text's
+Verlauf is left out, since the thread's heading names it. The server says it
+(`suggestedPlaces` on the summary, `bff/inbound-mail/suggested-places.ts`),
+the row only words it. After „Alle …“ the toast waits until every part landed
 (`useBulkLandingReport`, `landedPlaces` in `lib/inbox-landing.ts`) and says
-„3 E-Mails abgelegt“ with a line per destination („2 E-Mail-Texte →
-„Stellplatznachweis““, „1 Datei → Behörde/Bescheide“) and „Ansehen“: the one
-document they went into, else „Bearbeitet“, whose rows name where each mail
-went; a mail with a failed part makes it „1 E-Mail ließ sich nicht ganz
-ablegen und wartet wieder hier.“ A row whose parts are
-all on their way reads „Wird abgelegt …“ and offers no press. The open row is
-a fill, not a drawn box; a sender's disc is neutral (a sender is not a member,
-an identity hue would mean nothing). The mail is read again first; if it changed
-(„Anhang wird noch geprüft …“), nothing is filed and a toast says why. After
-the press: „1 E-Mail wird wie vorgeschlagen abgelegt“ with the destinations
-(„In E-Mail-Verlauf „Verfahren MA 37“: 1 · In „Behörde“: 1“), a toast that
-holds until the parts land (`awaitLanding`, `lib/inbox-landing.ts`) and then
-says what landed where („1 Datei und der E-Mail-Text abgelegt“, a line per
-part, „Ansehen“) or what failed (the detail's partial-failure and full-store
-words). A row under
+„3 E-Mails abgelegt“ with a line per destination and „Ansehen“; a mail with a
+failed part makes it „1 E-Mail ließ sich nicht ganz ablegen und wartet wieder
+hier.“ A row whose parts are all on their way reads „Wird abgelegt …“. The open
+row is the flat selected grey, not a card. A row under
 „Braucht Sie“ says what it needs: „Absender prüfen“, „Anhang prüfen“, „Anhang
 wird noch geprüft …“, „E-Mail-Verlauf wählen“, „Ordner wählen“, „Projekt ist
 abgeschlossen“. A mail that names a member whose domain did not confirm it is
@@ -260,27 +245,24 @@ phrased for its reader (`mailClaimOf`, `lib/sender.ts`): the member reads
 under „Wartet auf andere“. A verified writer's mail direct filing left
 (`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
-Thread groups are split by readiness: a conversation's ready replies are one
-group under „Ablagebereit“ with „Diese {n} wie vorgeschlagen ablegen“ (or
-„Die ersten 20 wie vorgeschlagen ablegen“; no Fassung range, which made a
-mail's text read as a plan's next Fassung); its replies that need a look are a group under „Braucht
-Sie“ with „Ansehen“ (opens the first, with no Fassung range, which would depend
-on what is filed first). The group line (the thread's glyph and „{name}“; „E-Mail-Verlauf“ and the
-count in its title and the section's label) and its press share one row. The rows do
-not repeat the thread: each subject drops the thread's name in front
-(`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
-rather than three cut-off „Stellplatznachweis – …“. The group's rows hang
-from its line: indented 22px, under the thread glyph, on a hairline down their
-left edge (`thread-group-rows`), so the press's count is the rows inside the
-line and the next loose row stands back on the column's edge. Round 3's
-reader saw „Diese 2 …“ over three flush rows and could not tell which two. A
-row whose text a follow already appended shows no thread line; what still waits are the attachments the follow could not place
-in an existing folder.
+**A thread is a heading over its mails**: the thread's name in ink, beside
+it „E-Mail-Verlauf · 2 E-Mails“ in muted text, and its rows under it on the
+column's edge (owner review, 2026-11-25: a muted label line over flush rows
+read as a stray line, the earlier indent and hairline as a second list). Thread
+stays whole (owner review, 2026-11-25: split by readiness, one conversation
+stood twice): it stands under the first section any of its mails belongs to,
+„Braucht Sie“ while one reply needs a look, and each row says its own state. A
+thread has no press of its own; the toolbar's „Alle {n} ablegen“ or a
+selection files its ready replies. The rows do not repeat the thread: each subject drops the thread's name in
+front (`subjectWithinThread`), so replies read „Nachreichung Statik“, „Index C“
+rather than cut-off „Stellplatznachweis – …“. A row whose text a follow
+already appended shows no thread line; what still waits are the attachments
+the follow could not place in an existing folder.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
 row reads „Gibt sich als {Name} aus · nicht ablegen“ (a red glyph, the words
 in ink) and has neither
-the one-press button nor a checkbox: it can never join a bulk decision, nor by
+a checkbox: it can never join a bulk decision, nor by
 the keyboard's X. The
 detail opens with a full-width warning above the header („Vorsicht: Diese
 E-Mail gibt sich als {Name} aus. …“ or „Vorsicht: Der Name {Name} gehört einem
@@ -424,12 +406,19 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    says nothing about its scan; „Wird auf Schadsoftware geprüft …“, „Prüfung
    fehlgeschlagen, wird wiederholt“ and „Schadsoftware gefunden · lässt sich
    nicht ablegen“ still show.
-4. The decision bar, pinned and safe-area padded (`DecisionBar`): **one
-   primary, „Einordnen …“**, and „Verwerfen“ beside it, on a phone too (the
+4. „Wohin abgelegt wird“ (owner review, 2026-11-25): over the attachments the
+   mail text's line says where it goes („E-Mail-Verlauf „Stellplatznachweis““,
+   `TextDestination` in `filing-where.tsx`), so the attachments' lines and it
+   are the whole plan before any press.
+5. The decision bar, pinned and safe-area padded (`DecisionBar`): when the
+   draft asks nothing (no step, no blocker, no impersonation) **the primary is
+   „Ablegen“**, which files at once behind „Rückgängig“, with „Ändern …“ (the
+   dialog) and „Verwerfen“ beside it; otherwise **one primary, „Einordnen …“**,
+   and „Verwerfen“ beside it, on a phone too (the
    primary the wider, nearest the thumb). On a desk one ink line left of the
-   presses says what the primary does: „Zeigt zuerst, was wohin kommt.
-   Abgelegt wird erst, wenn Sie es bestätigen.“, or „2 Fragen, dann die
-   Übersicht. …“ when „Einordnen“ asks some; under it, muted, what
+   presses says what the primary does: „Legt alles so ab, wie oben steht.“,
+   „Zeigt zuerst, was wohin kommt. Abgelegt wird erst, wenn Sie es
+   bestätigen.“, or „2 Fragen, dann die Übersicht. …“ when „Einordnen“ asks some; under it, muted, what
    „Verwerfen“ does, which the reader asked about her Outlook: „Verwerfen
    wirkt nur in {productName}, nicht im Mailprogramm, und lässt sich 7 Tage
    lang wiederherstellen.“, for every sender, an outsider whose domain did
@@ -442,7 +431,7 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    the one press and the primary. While a batch is selected in the list,
    „Einordnen …“ yields to the batch bar's primary and „Verwerfen“ stands
    down. A colleague of a claimed mail gets `ClaimedMailBar` instead (above).
-5. **„Einordnen“** (`FilingDialog`, `filing-dialog.tsx`): the kit's `Dialog`,
+6. **„Einordnen“** (`FilingDialog`, `filing-dialog.tsx`): the kit's `Dialog`,
    full screen on a phone (`fullScreenOnMobile`) with its presses pinned at
    the foot, opened on the agent's proposal (`initialDraft`: the server's
    defaults and the agent's suggestion). It asks **only the steps the draft
@@ -690,7 +679,7 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    a raised „Trotzdem ablegen …“ under the fraud warning was the next press
    in reach (round 4). Its first step is the phone check, nothing is preselected, so
    „E-Mail-Text“ and „Anhänge“ follow, and the yes is „Als echt ablegen“.
-6. After filing, when the sender would qualify, the same switch
+7. After filing, when the sender would qualify, the same switch
    (`follow-offer.tsx`) under „E-Mail-Verlauf „{Name}““, in its state:
    on where the filing started the follow, which is the default. The days
    are `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the
@@ -731,8 +720,17 @@ one toast: „Wird abgelegt …“ until the parts have landed, then „1 Datei 
 der E-Mail-Text abgelegt“, „N Dateien abgelegt“ or „E-Mail-Text abgelegt“ with
 where each part went („E-Mail-Text → „Stellplatznachweis““, „Bescheid_MA37….pdf
 → Behörde/Bescheide · Fassung 1“) and „Ansehen“, or the failure
-(`useLandingReport`, the same toast as a row's „Ablegen“). A filing has no undo;
-„Öffnen“ and „Ansehen“ are the way on. A mail of which something was filed and
+(`useLandingReport`). **A filing waits five seconds behind „Rückgängig“**
+(`useHeldFilings`, `lib/use-held-filings.ts`): the mail leaves the list and the
+next one opens at once, and one toast, at the bottom left over the list's foot (at the right it covered
+the next mail's presses; on a phone over the bar, as every mail toast), says „E-Mail wird abgelegt ·
+Rückgängig“, then, in place, „Wird abgelegt …“ and where it landed. Undoing
+sends nothing and opens the mail again. The hold belongs to the page, not to one
+mail: moving to the next mail, or elsewhere in the app, keeps it and its undo
+until the five seconds end; closing the tab or reloading sends it at once, with
+`keepalive`, best effort: a request the browser drops leaves the mail waiting,
+nothing half filed. A selection's and „Alle …“'s filing wait the same way, and a selection's
+dismissal offers „Rückgängig“ as one mail's does. „Öffnen“ and „Ansehen“ are the way on. A mail of which something was filed and
 one part dismissed says „1 Teil verworfen · wiederherstellbar bis …“ instead
 of a page-wide „Verworfen · …“.
 
@@ -740,7 +738,16 @@ of a page-wide „Verworfen · …“.
 attachment's place only when a field of it is the agent's stored suggestion;
 the rule's default folder for a new Verlauf is a plain „Ordner: …“.
 
-**Bulk** by selection: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
+**Bulk** by selection, picked as in Dateien: no row carries a box at rest;
+„Auswählen“ beside the Wartet/Bearbeitet switch (only while a waiting mail may
+join a bulk decision) starts picking, the boxes appear, a press on a row ticks
+it instead of opening it, the rows' own presses step back, and the bar's ×
+ends it (so does filing or dismissing the selection, or switching the tab).
+X on the keys' row ticks it and starts picking too. While picking, the reader
+pane says what the bar would do (`SelectionPreview`): „2 von 3 ablegen“, a line
+per destination with the mails that go there, and the mails that stay because
+they are not ready; the bar then files the ready ones („1 ablegen“) and is off
+only when none is. The bar: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
 Verwerfen“, enabled only when every selected mail is complete
 (`incompleteReason === null`); while it is not, the reason stands as a line
 under the count („Bei 1 E-Mail muss der Absender bestätigt werden. Öffnen Sie
@@ -956,8 +963,8 @@ Verlauf: no subject or file name of a mail reaches a row or a push
 warnings as a gold glyph with ink words (`FactLine tone="warning"`,
 `components/ui/fact-line.tsx`) and the default Alert with a gold icon, and what
 makes filing impossible as a red glyph with ink words (`tone="danger"`). The
-open row lifts to `bg-card` with the selected hairline inset all round instead
-of a tint (`bg-accent/70` behind muted 12px text is 4.33:1), and the keyboard's
+open row takes the flat selected grey (`bg-selected`: muted 12px text on it is
+5.4:1, where `bg-accent/70` was 4.33:1), and the keyboard's
 row (J/K) wears the keyboard's ring, inset: `Item`'s `data-current` and
 `data-cursor`. Neither is a bar down the row's edge (design language,
 „Emphasis without a stripe“). Each attachment's „Wird auf Schadsoftware

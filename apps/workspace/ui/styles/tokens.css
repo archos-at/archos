@@ -595,7 +595,7 @@
   --sheet: #ffffff; /* a document, card, menu, floating bar */
   --paper: #fafaf9; /* the working page: the brand's surface; a white sheet stands 1.04:1 off it and reads by its 12% edge and its shadow */
   --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
-  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
+  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1); the mail list's open row too */
   --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
   /* The pointer's fill: one step down the ladder from whatever plane it lies on. The ladder's steps are each 5.5% ink
      over the one above (sheet to desk, desk to selected, selected to pressed, each within 2 of 255), so one wash is the
@@ -633,14 +633,13 @@
    1.04:1 to 1.11:1): paper, then the desk (the rail, a list column, the hover) one step lighter, as macOS's sidebar
    sits lighter than its content, the picked grey and the sheet above it. A sheet is told from its plane by its edge,
    never by a lift: the sheet was #363330, 1.54:1 off the paper, so every card, field and pane read as a grey slab
-   (owner review, 2026-11-24). The open row still is the lightest thing in its column, and its field-border edge
-   (3:1) marks it, as the thumb's does. Text is #ebebea, not paper white: white on near black blooms.
+   (owner review, 2026-11-24). Text is #ebebea, not paper white: white on near black blooms.
    `brand-literals.spec.ts` holds the ladder. */
 .dark {
-  --sheet: #222120; /* a card, a field, the composer, the open row: one step above the picked grey, told by its edge */
+  --sheet: #222120; /* a card, a field, the composer: one step above the picked grey, told by its edge */
   --paper: #0e0e0d; /* near black, never #000: below it there is no step left for depth */
   --desk: #171716;
-  --selected: #1f1e1d; /* a picked row: one step up from the desk, just under the open row's sheet */
+  --selected: #1f1e1d; /* a picked row and the mail list's open row: one step up from the desk */
   --pressed: #2a2928;
   --hover: rgb(245 244 242 / 0.04); /* the white wash one step up under the pointer: the picked grey on the desk */
   --sheet-hover: color-mix(in srgb, var(--sheet) 96%, rgb(245 244 242)); /* lighter than the sheet: the desk would be a hole in it */

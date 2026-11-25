@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api-error'
-import { fileInboundMails, inboundMailPartContentUrl, listInboundMails } from './inbound-mail-client'
+import { fileInboundMails, inboundMailPartContentUrl, KEEPALIVE_BODY_LIMIT, listInboundMails } from './inbound-mail-client'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -21,6 +21,16 @@ describe('the inbound mail client', () => {
     expect(error).toBeInstanceOf(ApiRequestError)
     expect(error).toMatchObject({ status: 409, reason: 'stale', message: 'changed' })
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/p1/inbound-mails/file', expect.objectContaining({ method: 'POST', body: '{"mails":[]}' }))
+  })
+
+  it('sends a filing on page exit with keepalive, and a body past the browser limit as an ordinary request', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ mails: [] })))
+    vi.stubGlobal('fetch', fetchMock)
+    await fileInboundMails('p1', { mails: [] }, { keepalive: true })
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ keepalive: true }))
+    const large = { mails: [{ mailId: 'm', parts: [{ name: 'x'.repeat(KEEPALIVE_BODY_LIMIT) }] }] } as unknown as Parameters<typeof fileInboundMails>[1]
+    await fileInboundMails('p1', large, { keepalive: true })
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ keepalive: false }))
   })
 
   it('keeps what a refusal names, so a name stop can say its terms', async () => {
