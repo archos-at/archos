@@ -1,25 +1,63 @@
-import { type FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import {
-  ReactFlow,
-  applyNodeChanges,
-  useNodesInitialized,
-  useUpdateNodeInternals,
-  type Node,
-  type NodeChange,
-  type Edge,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
+import { type FC, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
-import { HandleSpec } from './flow-node-data'
+import { useSlideBelow } from '@/components/motion/slide-below'
+import { cn } from '@/lib/utils'
+import { EDGE_STROKE, type FlowNode, type HandleSpec } from './flow-node-data'
 import { nodeTypes } from './flow-nodes'
 import { ROW_GAP, PAD, SHEET_EDGE, FanLayout } from './flow-layout'
-import { edgeTypes } from './flow-edges'
-import { BuiltGraph, sameNodeData, animateFrontier, keepEdgeIdentity } from './build-graph'
+import { stepPath, type FlowEdge, type FlowPoint } from './flow-edges'
+import { BuiltGraph, animateFrontier, keepEdgeIdentity } from './build-graph'
 
-const DEFAULT_VIEWPORT = { x: SHEET_EDGE, y: SHEET_EDGE, zoom: 1 }
+const MIN_HEIGHT = 120
 
-const PRO_OPTIONS = { hideAttribution: true }
+const ARRIVING = 'animate-in fade-in-0 duration-base motion-reduce:animate-none'
+
+type Box = { left: number; top: number; width: number; height: number }
+
+const handleLeft = (node: FlowNode, handleId: string): string => {
+  const data = node.data as { sources?: HandleSpec[]; targets?: HandleSpec[]; source?: HandleSpec }
+  const specs = [...(data.sources ?? []), ...(data.targets ?? []), ...(data.source ? [data.source] : [])]
+  return specs.find((spec) => spec.id === handleId)?.left ?? '50%'
+}
+
+const along = (left: string, width: number): number =>
+  left.endsWith('%') ? (width * Number.parseFloat(left)) / 100 : Number.parseFloat(left) || 0
+
+export function edgeEnds(
+  edge: FlowEdge,
+  nodes: ReadonlyMap<string, FlowNode>,
+  boxes: ReadonlyMap<string, Box>
+): { from: FlowPoint; to: FlowPoint } | null {
+  const source = nodes.get(edge.source)
+  const target = nodes.get(edge.target)
+  const from = boxes.get(edge.source)
+  const to = boxes.get(edge.target)
+  if (!source || !target || !from || !to) return null
+  const inTop =
+    target.type === 'sourceColumn' && edge.targetHandle === 'in'
+      ? ((target.data as { inTop?: number }).inTop ?? 0)
+      : 0
+  return {
+    from: { x: from.left + along(handleLeft(source, edge.sourceHandle), from.width), y: from.top + from.height },
+    to: { x: to.left + along(handleLeft(target, edge.targetHandle), to.width), y: to.top + inTop },
+  }
+}
+
+const measureBoxes = (rows: HTMLElement): Map<string, Box> => {
+  const boxes = new Map<string, Box>()
+  rows.querySelectorAll<HTMLElement>('[data-flow-node]').forEach((element) => {
+    const row = element.parentElement
+    if (!element.dataset.id || !row) return
+    boxes.set(element.dataset.id, {
+      left: row.offsetLeft + element.offsetLeft,
+      top: row.offsetTop + element.offsetTop,
+      width: element.offsetWidth,
+      height: element.offsetHeight,
+    })
+  })
+  return boxes
+}
 
 export const FlowInner: FC<{ built: BuiltGraph; layout: FanLayout; live: boolean }> = ({
   built,
@@ -28,76 +66,17 @@ export const FlowInner: FC<{ built: BuiltGraph; layout: FanLayout; live: boolean
 }) => {
   const t = useTranslations(chatCopy)
   const { nodes, edges, rows } = built
-  const initialized = useNodesInitialized()
-  const paneRef = useRef<HTMLDivElement>(null)
-  const [rfNodes, setRfNodes] = useState<Node[]>(nodes)
-  const [height, setHeight] = useState<number | null>(null)
-  const [laidOut, setLaidOut] = useState(false)
-  const rowYRef = useRef<number[]>([])
+  const rowsRef = useRef<HTMLDivElement>(null)
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setRfNodes((nds) => applyNodeChanges(changes, nds)),
-    []
-  )
-
-  const rowIndexById = useMemo(() => {
+  const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
+  const rowOf = useMemo(() => {
     const map = new Map<string, number>()
     rows.forEach((row, i) => row.forEach((id) => map.set(id, i)))
     return map
   }, [rows])
 
-  useLayoutEffect(() => {
-    setRfNodes((prev) => {
-      const prevById = new Map(prev.map((n) => [n.id, n]))
-      const next = nodes.map((n) => {
-        const old = prevById.get(n.id)
-        if (!old) {
-          const rowY = rowYRef.current[rowIndexById.get(n.id) ?? -1]
-          return { ...n, position: { x: n.position.x, y: rowY ?? rowYRef.current.at(-1) ?? 0 } }
-        }
-        if (
-          old.position.x === n.position.x &&
-          old.type === n.type &&
-          sameNodeData(old.data, n.data)
-        ) {
-          return old
-        }
-        return { ...old, ...n, position: { x: n.position.x, y: old.position.y } }
-      })
-      const unchanged = next.length === prev.length && next.every((n, i) => n === prev[i])
-      return unchanged ? prev : next
-    })
-  }, [nodes, rowIndexById])
-
-  const updateNodeInternals = useUpdateNodeInternals()
-  const handleSigs = useMemo(() => {
-    const sigs = new Map<string, string>()
-    for (const n of nodes) {
-      const d = n.data as {
-        sources?: HandleSpec[]
-        targets?: HandleSpec[]
-        source?: HandleSpec
-        inTop?: number
-      }
-      const specs = [...(d.sources ?? []), ...(d.targets ?? []), ...(d.source ? [d.source] : [])]
-      const moved = d.inTop !== undefined ? `;in@${d.inTop}` : ''
-      sigs.set(n.id, specs.map((h) => `${h.id}@${h.left}`).join(',') + moved)
-    }
-    return sigs
-  }, [nodes])
-  const prevHandleSigs = useRef(handleSigs)
-  useEffect(() => {
-    const changed: string[] = []
-    for (const [id, sig] of handleSigs) {
-      const prev = prevHandleSigs.current.get(id)
-      if (prev !== undefined && prev !== sig) changed.push(id)
-    }
-    prevHandleSigs.current = handleSigs
-    if (changed.length > 0) updateNodeInternals(changed)
-  }, [handleSigs, updateNodeInternals])
-
   const frontierKey = live ? (rows.at(-1) ?? []).join('|') : ''
-  const keptEdgesRef = useRef<Edge[]>([])
+  const keptEdgesRef = useRef<FlowEdge[]>([])
   const renderedEdges = useMemo(() => {
     const newestRow = frontierKey ? frontierKey.split('|') : []
     const kept = keepEdgeIdentity(keptEdgesRef.current, animateFrontier(edges, newestRow))
@@ -105,87 +84,145 @@ export const FlowInner: FC<{ built: BuiltGraph; layout: FanLayout; live: boolean
     return kept
   }, [edges, frontierKey])
 
-  const rowsKey = useMemo(() => rows.map((r) => r.join('|')).join('/'), [rows])
-
+  const seen = useRef<{ rows: Set<string>; nodes: Set<string> } | null>(null)
+  const previouslySeen = seen.current
+  const arrives = (id: string, kind: 'rows' | 'nodes') =>
+    live && previouslySeen !== null && !previouslySeen[kind].has(id)
   useLayoutEffect(() => {
-    if (!initialized) return
-    const pane = paneRef.current
-    const measured = new Map<string, number>()
-    pane?.querySelectorAll<HTMLElement>('.react-flow__node[data-id]').forEach((el) => {
-      if (el.dataset.id) measured.set(el.dataset.id, el.offsetHeight)
-    })
-    const yById = new Map<string, number>()
-    const rowY: number[] = []
-    let y = 0
-    rows.forEach((row, i) => {
-      rowY[i] = y
-      let rowH = 0
-      for (const id of row) {
-        yById.set(id, y)
-        rowH = Math.max(rowH, measured.get(id) ?? 0)
-      }
-      y += rowH + ROW_GAP
-    })
-    rowY[rows.length] = y
-    rowYRef.current = rowY
+    seen.current = { rows: new Set(rows.map((row) => row[0] ?? '')), nodes: new Set(nodeById.keys()) }
+  })
 
-    setRfNodes((prev) => {
-      let moved = false
-      const next = prev.map((n) => {
-        const ny = yById.get(n.id)
-        if (ny === undefined || n.position.y === ny) return n
-        moved = true
-        return { ...n, position: { ...n.position, y: ny } }
-      })
-      return moved ? next : prev
+  const [paths, setPaths] = useState<ReadonlyMap<string, { d: string; animated: boolean }>>(
+    () => new Map()
+  )
+  const drawEdges = () => {
+    const list = rowsRef.current
+    if (!list) return
+    const boxes = measureBoxes(list)
+    const origins = [...list.children].map((row) => ({
+      x: (row as HTMLElement).offsetLeft,
+      y: (row as HTMLElement).offsetTop,
+    }))
+    const next = new Map<string, { d: string; animated: boolean }>()
+    for (const edge of renderedEdges) {
+      const ends = edgeEnds(edge, nodeById, boxes)
+      const row = rowOf.get(edge.target)
+      if (!ends || row === undefined) continue
+      const origin = origins[row] ?? { x: 0, y: 0 }
+      const shift = (p: FlowPoint) => ({ x: p.x - origin.x, y: p.y - origin.y })
+      next.set(edge.id, { d: stepPath(shift(ends.from), shift(ends.to), edge.type), animated: Boolean(edge.animated) })
+    }
+    setPaths((previous) => {
+      if (previous.size === next.size && [...next].every(([id, p]) => previous.get(id)?.d === p.d && previous.get(id)?.animated === p.animated)) {
+        return previous
+      }
+      return next
     })
-    const measuredHeight = Math.max(120, Math.ceil(Math.max(0, y - ROW_GAP)) + SHEET_EDGE + PAD)
-    setHeight((previous) =>
-      live && previous !== null ? Math.max(previous, measuredHeight) : measuredHeight
-    )
-    setLaidOut(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialized, rowsKey, rfNodes, layout.contentW, layout.colW, live])
+  }
+  const drawRef = useRef(drawEdges)
+  useLayoutEffect(() => {
+    drawRef.current = drawEdges
+    drawEdges()
+  })
+  useLayoutEffect(() => {
+    const list = rowsRef.current
+    if (!list || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => drawRef.current())
+    observer.observe(list)
+    list.querySelectorAll('[data-flow-node]').forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [nodes])
+
+  const tallest = useRef(0)
+  useLayoutEffect(() => {
+    const list = rowsRef.current
+    if (!list) return
+    list.style.minHeight = ''
+    if (!live) {
+      tallest.current = 0
+      return
+    }
+    tallest.current = Math.max(tallest.current, list.offsetHeight)
+    list.style.minHeight = `${tallest.current}px`
+  })
+
+  useSlideBelow(rowsRef)
 
   return (
     <div
-      ref={paneRef}
       style={{
-        height: height ?? undefined,
-        minHeight: height ? undefined : 160,
-        opacity: laidOut ? 1 : 0,
         ['--banner-w' as string]: `${layout.contentW}px`,
         ['--source-w' as string]: `${layout.colW}px`,
+        minHeight: MIN_HEIGHT,
       }}
-      className="reasoning-flow-scrollable w-full overflow-hidden"
+      className="w-full"
       data-testid="reasoning-flow"
       role="group"
       aria-label={t('thinking.reasoningGraphLabel')}
     >
-      <ReactFlow
-        style={height ? { height } : undefined}
-        nodes={rfNodes}
-        edges={renderedEdges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        defaultViewport={DEFAULT_VIEWPORT}
-        minZoom={1}
-        maxZoom={1}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        nodesFocusable={false}
-        edgesFocusable={false}
-        disableKeyboardA11y
-        zoomOnScroll={false}
-        zoomOnPinch={false}
-        zoomOnDoubleClick={false}
-        panOnDrag={false}
-        panOnScroll={false}
-        preventScrolling={false}
-        proOptions={PRO_OPTIONS}
-      />
+      <div
+        ref={rowsRef}
+        className="relative flex flex-col"
+        style={{
+          gap: ROW_GAP,
+          padding: `${SHEET_EDGE}px ${SHEET_EDGE}px ${PAD}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        {rows.map((row, i) => {
+          const key = row[0] ?? `row-${i}`
+          return (
+            <div
+              key={key}
+              data-flow-row
+              className={cn('relative grid', arrives(key, 'rows') && ARRIVING)}
+              style={{ zIndex: rows.length - i }}
+            >
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute top-0 left-0 overflow-visible"
+                width={1}
+                height={1}
+              >
+                {renderedEdges
+                  .filter((edge) => rowOf.get(edge.target) === i)
+                  .map((edge) => {
+                    const path = paths.get(edge.id)
+                    return path ? (
+                      <path
+                        key={edge.id}
+                        d={path.d}
+                        fill="none"
+                        stroke={EDGE_STROKE}
+                        strokeWidth={1.5}
+                        className={path.animated ? 'reasoning-flow-edge-live' : undefined}
+                      />
+                    ) : null
+                  })}
+              </svg>
+              {row.map((id) => {
+                const node = nodeById.get(id)
+                if (!node) return null
+                const Node = nodeTypes[node.type] as FC<{ data: unknown }>
+                return (
+                  <div
+                    key={id}
+                    data-id={id}
+                    data-flow-node
+                    className={cn(
+                      'relative col-start-1 row-start-1 max-w-full self-start justify-self-start',
+                      !arrives(key, 'rows') && arrives(id, 'nodes') && ARRIVING
+                    )}
+                    style={{ marginLeft: node.position.x }}
+                  >
+                    <Node data={node.data} />
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

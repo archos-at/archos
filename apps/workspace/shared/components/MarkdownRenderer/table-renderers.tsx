@@ -1,9 +1,11 @@
 'use client'
 
+import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react'
 import type { ExtraProps } from 'react-markdown'
 import { Chip } from '@/components/ui/chip'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { useTranslations } from '@/i18n'
+import { cn } from '@/lib/utils'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { PassedCheck, tableClass, tableFrameClass, tableRowClass, tableVariant, useOutcomeLabel } from './answer-atoms'
 import { useCaseMarks } from './case-marks'
@@ -17,7 +19,7 @@ export function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef
   const t = useTranslations(commonCopy)
   const tally = parseTally(node?.properties?.dataTally)
   const stackValue = node?.properties?.dataStack
-  const stack = stackValue === 'true' || stackValue === 'always' ? stackValue : undefined
+  const shaped = stackValue === 'true' || stackValue === 'always' ? stackValue : undefined
   const variant = tableVariant(node?.properties?.dataVariant)
   const outcomeLabel = useOutcomeLabel()
   const { streaming, streamedHere } = useMarkdownStreamState()
@@ -25,6 +27,9 @@ export function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef
     node?.properties?.dataCollapsed === 'true' && !streaming && !streamedHere ? Number(node.properties.dataPassCount) : 0
   const reserve = node?.properties?.dataTallyReserve
   const reserved = tally.length === 0 && (reserve === 'true' || (reserve === 'closed' && streamedHere))
+  const [firstShape] = useState(shaped)
+  const stack = streamedHere ? firstShape : shaped
+  const { tableRef, columns } = useStreamedColumns(streamedHere)
   const frame = (
     <div className={tableFrameClass(variant)} data-variant={variant === 'plain' ? undefined : variant}>
       {tally.length > 0 && !passed && (
@@ -47,10 +52,20 @@ export function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef
       )}
       <HorizontalScroll className="border-base rounded-control border" aria-label={t('markdown.scrollTable')}>
         <table
+          ref={tableRef}
           data-stack={stack}
           data-labels={node?.properties?.dataLabels === 'above' ? 'above' : undefined}
-          className={tableClass(variant)}
+          data-columns={columns ? 'held' : undefined}
+          className={cn(tableClass(variant), streamedHere && '[&_td]:align-top')}
+          style={columns?.style}
         >
+          {columns && (
+            <colgroup>
+              {columns.widths.map((width, i) => (
+                <col key={i} style={{ width: `${width}%` }} />
+              ))}
+            </colgroup>
+          )}
           {children}
         </table>
       </HorizontalScroll>
@@ -58,6 +73,25 @@ export function MarkdownTable({ children, node }: React.ComponentPropsWithoutRef
   )
   if (passed > 0) return <PassedCheck passed={passed}>{frame}</PassedCheck>
   return hasCases(node) ? <CasesScope node={node}>{frame}</CasesScope> : frame
+}
+
+type HeldColumns = { widths: number[]; style: CSSProperties }
+
+export function useStreamedColumns(streamedHere: boolean) {
+  const tableRef = useRef<HTMLTableElement>(null)
+  const [columns, setColumns] = useState<HeldColumns | null>(null)
+  useLayoutEffect(() => {
+    const table = tableRef.current
+    if (!streamedHere || columns || !table) return
+    const cells = [...(table.querySelector('tr')?.children ?? [])] as HTMLElement[]
+    const total = table.offsetWidth
+    if (cells.length === 0 || total <= 0 || getComputedStyle(table).display !== 'table') return
+    setColumns({
+      widths: cells.map((cell) => (cell.offsetWidth / total) * 100),
+      style: { tableLayout: 'fixed', width: `max(100%, ${total}px)` },
+    })
+  }, [streamedHere, columns])
+  return { tableRef, columns }
 }
 
 const outcomeTone = (word: string) =>

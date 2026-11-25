@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    The Herleitung stands at its full size the moment it appears, and while the
+    agent works, new steps and sources slide in instead of pushing the panel
+    around.
