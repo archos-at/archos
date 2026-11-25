@@ -161,10 +161,11 @@ function MultiSelect({
       </PopoverAnchor>
       <PopoverContent
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] p-0"
+        className="w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] rounded-surface p-0"
         collisionPadding={16}
       >
         <Command
+          className="rounded-surface"
           onKeyDown={(event) => {
             if (event.key === 'Backspace' && search === '' && value.length > 0) {
               event.preventDefault()
@@ -180,7 +181,7 @@ function MultiSelect({
               aria-label={searchPlaceholder ?? label}
             />
           ) : null}
-          <CommandList id={listId} aria-label={label} aria-multiselectable="true">
+          <CommandList className="p-0" id={listId} aria-label={label} aria-multiselectable="true">
             {loading ? (
               <div className="flex justify-center py-6" role="status">
                 <Spinner size="sm" className="text-muted-foreground" aria-hidden />
@@ -199,7 +200,7 @@ function MultiSelect({
                     onSelect={() => toggle(option.value)}
                     aria-checked={checked}
                     data-checked={checked || undefined}
-                    className="pointer-coarse:min-h-11"
+                    className="rounded-control pointer-coarse:min-h-11"
                   >
                     <span
                       aria-hidden

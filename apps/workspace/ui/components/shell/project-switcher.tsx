@@ -118,7 +118,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
             : project.name
         }
         className={cn(
-          'group h-9 gap-1.5 pr-1 pointer-coarse:h-11',
+          'group h-9 gap-1.5 rounded-control pr-1 pointer-coarse:h-11',
           isCurrent && 'bg-desk data-[selected=true]:bg-desk'
         )}
         data-current={isCurrent ? '' : undefined}
@@ -207,7 +207,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         align="start"
         side={collapsed ? 'right' : 'bottom'}
         sideOffset={collapsed ? 22 : 6}
-        className="w-80 max-w-[calc(100vw-2rem)] p-1.5 motion-reduce:animate-none"
+        className="w-80 max-w-[calc(100vw-2rem)] rounded-surface p-1 motion-reduce:animate-none"
         data-testid="project-switcher-menu"
         onOpenAutoFocus={(event) => {
           event.preventDefault()
@@ -228,7 +228,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
           onKeyDownCapture={releaseCursor}
           onPointerMoveCapture={releaseCursor}
           label={t('projectSwitcher.switchHeading')}
-          className="rounded-surface bg-transparent [&_[cmdk-input-wrapper]]:h-9 [&_[cmdk-input-wrapper]]:px-2 pointer-coarse:[&_[cmdk-input-wrapper]]:h-11 [&_[cmdk-item]]:text-[13px]"
+          className="rounded-control bg-transparent [&_[cmdk-input-wrapper]]:h-9 [&_[cmdk-input-wrapper]]:px-2 pointer-coarse:[&_[cmdk-input-wrapper]]:h-11 [&_[cmdk-item]]:text-[13px]"
         >
           <CommandInput
             ref={inputRef}
@@ -307,7 +307,7 @@ function ShowAllRow({
     <CommandItem
       value="project-switcher-show-all"
       onSelect={onSelect}
-      className={cn('h-9 gap-1.5 pr-2 pointer-coarse:h-11', 'text-muted-foreground')}
+      className={cn('h-9 gap-1.5 rounded-control pr-2 pointer-coarse:h-11', 'text-muted-foreground')}
       data-testid="project-switcher-show-all"
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
