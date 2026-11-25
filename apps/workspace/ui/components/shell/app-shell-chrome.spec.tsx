@@ -1,6 +1,7 @@
 import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { AppShellChrome } from './app-shell-chrome'
+import type { OverviewProject } from '@/lib/projects/overview-project'
 
 let pathname = '/app/projects/p1/chat'
 vi.mock('next/navigation', () => ({
@@ -36,8 +37,19 @@ vi.mock('./use-keyboard-up', () => ({
   useKeyboardUp: () => keyboardUp,
 }))
 
+const project = (id: string): OverviewProject => ({
+  id,
+  name: `Projekt ${id}`,
+  status: 'active',
+  profileUpdatedAt: null,
+  createdAt: new Date(2026, 10, 1),
+  place: null,
+  phase: null,
+  searchText: '',
+})
+
 const baseProps = {
-  projects: [],
+  projects: [project('p1'), project('p2')],
   authRequired: false,
   canManageOrganization: false,
   canViewOrganization: false,
@@ -95,6 +107,17 @@ describe('AppShellChrome — one chrome on every page', () => {
     render(<AppShellChrome {...baseProps} lastSide={{ mode: 'project', projectId: 'p2' }}>page</AppShellChrome>)
     expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p2')
     expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p2')
+  })
+
+  test('a project deleted from under the rail gives way: the refreshed overview stands on the server’s side, then Persönlich', () => {
+    const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
+    pathname = '/app/projects'
+    const afterDelete = { ...baseProps, projects: [project('p2')] }
+    rerender(<AppShellChrome {...afterDelete} lastSide={{ mode: 'project', projectId: 'p2' }}>page</AppShellChrome>)
+    expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p2')
+    expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p2')
+    rerender(<AppShellChrome {...afterDelete} lastSide={{ mode: 'project', projectId: 'p1' }}>page</AppShellChrome>)
+    expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'personal')
   })
 
   test('with no last place, a page with no side stands on Persönlich', () => {
