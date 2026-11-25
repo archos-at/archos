@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    In a chat outside a project, ARCHOS searches the OIB guidelines, the office's
+    archive and your own files again. Since a recent change, a question asked in
+    such a chat could come back with no sources at all.
