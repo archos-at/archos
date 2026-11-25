@@ -1,10 +1,11 @@
 'use client'
 
-import { type ReactNode, Suspense, useEffect, useRef } from 'react'
+import { type ReactNode, Suspense, useCallback, useEffect, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/adapters/auth'
 import { MainLayout } from '@/features/layout'
 import { useChatStore } from '@/features/chat/store'
+import { useNewChatParam } from '@/features/chat/hooks/use-new-chat-param'
 import { ChatArrivalProvider, type ChatArrival } from '@/features/layout/hooks/use-thread-phase'
 import { conversationMatchesProject } from '@/features/chat/lib/project-scope'
 import { newChatDropsFilePreview } from '@/features/documents/lib/ask-arrival'
@@ -51,11 +52,7 @@ const ProjectChatContent = ({
   const consumedAskRef = useRef<string | null>(null)
 
   const newParam = searchParams?.get('new') ?? null
-  const consumedNewRef = useRef(false)
-
-  useEffect(() => {
-    if (!newParam || !isAuthenticated || consumedNewRef.current) return
-    consumedNewRef.current = true
+  const startNewChat = useCallback(() => {
     startNewSessionDraft()
     if (newChatDropsFilePreview(searchParams?.get('doc'))) {
       useFilePreviewStore.getState().close()
@@ -67,7 +64,8 @@ const ProjectChatContent = ({
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
     }
-  }, [newParam, isAuthenticated, searchParams, pathname, router, startNewSessionDraft])
+  }, [searchParams, pathname, router, startNewSessionDraft])
+  useNewChatParam(newParam, isAuthenticated, startNewChat)
 
   useEffect(() => {
     enterSide(projectId)
