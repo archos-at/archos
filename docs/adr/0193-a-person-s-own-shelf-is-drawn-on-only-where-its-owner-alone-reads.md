@@ -94,8 +94,9 @@ start page and chats the agent API made without a project.
   starts). Every existing row is false. It is not inferred from a date. The
   agent API's `conversation-create` takes the same flag, so an agent marks a
   chat only when it asks to. `agent-ask-create` is the exception since
-  2026-11-25: a question an agent asks for the person without a project starts
-  in Persönlich unless it passes `personal: false`, because the person asked it
+  2026-11-25: a new conversation an agent starts for the person without a
+  project starts in Persönlich unless it passes `personal: false` (a follow-up
+  keeps its conversation's placement), because the person asked it
   through their agent as they would have typed it, and an unplaced ask was
   listed nowhere and never read their own shelf.
 * Persönlich lists only chats started there: the rail's „Letzte Chats“, the

@@ -22,7 +22,7 @@ export const consultOperations = [
       'neither is not grounded in a document. "submitted" or "working": call agent-ask-get after pollAfterSeconds. ' +
       '"rejected" or "failed" say why (spent budget, busy conversation). Pass projectId (from project-list) to ask ' +
       'about one project: without it ' + PRODUCT_NAME + ' answers for the office as a whole, reads no project’s files, ' +
-      'and files the chat on the person’s personal side (personal=false: on none). ' +
+      'and files a new chat on the person’s personal side (personal=false: on none). ' +
       'conversationId follows up an earlier ask. Uses the organization’s model budget.',
     method: 'POST',
     path: '/api/agent-asks',
