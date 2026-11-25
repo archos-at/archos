@@ -16,6 +16,17 @@ export function sideOfLastPlace(lastPlace: string | undefined, reachableProjectI
   return side
 }
 
+export function sideOffRoute(
+  remembered: RailSide | null,
+  lastSide: RailSide | undefined,
+  reachableProjectIds: readonly string[]
+): RailSide {
+  const reachable = (side: RailSide | null | undefined): side is RailSide =>
+    side != null && (side.projectId === null || reachableProjectIds.includes(side.projectId))
+  if (reachable(remembered)) return remembered
+  return reachable(lastSide) ? lastSide : PERSONAL_SIDE
+}
+
 function safeDecode(value: string): string {
   try {
     return decodeURIComponent(value)

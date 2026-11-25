@@ -12,7 +12,7 @@ import { AppSidebar } from './app-sidebar'
 import { useRecordLastPlace } from './last-place'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { useRailSide, type RailSide } from './rail-side'
-import { PERSONAL_SIDE, sideOfPath } from './shell-side'
+import { sideOffRoute, sideOfPath } from './shell-side'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
 import { useKeyboardUp } from './use-keyboard-up'
@@ -60,9 +60,14 @@ export function AppShellChrome({
   React.useEffect(() => settleSide(), [pathname, settleSide])
 
   const routeSide = sideOfPath(pathname)
-  const lastSide = React.useRef<RailSide>(chrome.lastSide ?? PERSONAL_SIDE)
-  if (routeSide) lastSide.current = routeSide
-  const side = routeSide ?? lastSide.current
+  const [remembered, setRemembered] = React.useState<RailSide | null>(null)
+  const routeMode = routeSide?.mode
+  const routeProjectId = routeSide?.projectId ?? null
+  React.useEffect(() => {
+    if (routeMode) setRemembered({ mode: routeMode, projectId: routeProjectId })
+  }, [routeMode, routeProjectId])
+  const projectIds = React.useMemo(() => chrome.projects.map((project) => project.id), [chrome.projects])
+  const side = routeSide ?? sideOffRoute(remembered, chrome.lastSide, projectIds)
   const projectId = side.projectId
 
   useVisualViewport()
