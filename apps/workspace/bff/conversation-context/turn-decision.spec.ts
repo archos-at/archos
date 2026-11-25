@@ -84,9 +84,20 @@ describe('decideTurn', () => {
       await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toBeInstanceOf(DecisionLeavesItsSideError)
     })
 
+    it('refuses another person’s personal shelf for a personal chat', async () => {
+      tenancy.mockResolvedValue(row(null))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(
+        withShelves([{ collection: 'personal_org_1__user_2', shelf: 'personal' }], ['personal_org_1__user_2']),
+      )
+
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toBeInstanceOf(DecisionLeavesItsSideError)
+    })
+
     it('signs a personal chat’s own shelves, and a project chat’s own project and its restricted folders', async () => {
       tenancy.mockResolvedValue(row(null))
-      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([{ collection: 'base', shelf: 'base' }, { collection: 'personal_org_1__user_1', shelf: 'personal' }]))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(
+        withShelves([{ collection: 'base', shelf: 'base' }, { collection: 'personal_org_1__user_1', shelf: 'personal' }], ['personal_org_1__user_1']),
+      )
       await expect(decideTurn(session, envelope, ANSWER, NOW)).resolves.toBeTruthy()
 
       tenancy.mockResolvedValue(row('p1'))
