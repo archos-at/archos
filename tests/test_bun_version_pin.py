@@ -61,3 +61,14 @@ def test_the_canary_test_runner_goes_once_a_stable_bun_carries_it() -> None:
         f"setup-bun pins Bun {_pinned()}, a release after the canary `test:specs` runs ({runner}). "
         "Run `bun test` on the pinned Bun: `test:specs` becomes `TZ=UTC bun test`."
     )
+
+
+def test_the_vitest_types_come_from_the_runners_bun() -> None:
+    """`bun-types` types the specs' `vitest` imports, so it moves with the Bun that runs them."""
+    package = json.loads(WORKSPACE_PACKAGE.read_text(encoding="utf-8"))
+    types = package["devDependencies"]["bun-types"]
+    canary = re.search(r"bun@(\d+\.\d+\.\d+-canary\.\d{8})", package["scripts"]["test:specs"])
+    expected = canary.group(1) if canary else _pinned()
+    assert types.startswith(expected), (
+        f"bun-types is {types}, but `test:specs` runs Bun {expected}: pin bun-types to that build's version."
+    )

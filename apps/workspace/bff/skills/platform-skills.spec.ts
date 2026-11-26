@@ -26,7 +26,7 @@ describe('sync-platform-skills --check', () => {
       output = execFileSync('node', [script, '--check'], { cwd: uiRoot, encoding: 'utf8' })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      expect.fail(`platform skills are stale: ${message}`)
+      throw new Error(`platform skills are stale: ${message}`)
     }
     expect(output).toContain('ok')
   })

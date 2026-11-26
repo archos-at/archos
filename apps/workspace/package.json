@@ -179,9 +179,9 @@
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
-    "@vitest/coverage-v8": "^5.0.5",
     "autoprefixer": "^10.6.1",
     "axe-core": "4.14.0",
+    "bun-types": "1.4.5-canary.20261126T141031",
     "concurrently": "^10.0.6",
     "dependency-cruiser": "18.7.0",
     "dockerfile-ast": "0.7.1",
@@ -202,7 +202,6 @@
     "tailwindcss": "^4.3.2",
     "typescript-api": "npm:typescript@6.0.3",
     "unified": "^11.0.5",
-    "vitest": "^5.0.5",
     "yaml": "2.9.1"
   },
   "overrides": {

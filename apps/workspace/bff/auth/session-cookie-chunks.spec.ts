@@ -25,6 +25,7 @@ mock.module('next/headers', () => ({
   cookies: async () => jar,
   headers: async () => new Headers({ 'x-url': 'https://app.dev.piloti.at/app/projects' }),
 }))
+declare const Bun: { resolveSync(specifier: string, from: string): string }
 const authkitJose = Bun.resolveSync('jose', path.resolve('node_modules/@workos-inc/authkit-nextjs'))
 const jose = await import(authkitJose)
 mock.module(authkitJose, () => ({

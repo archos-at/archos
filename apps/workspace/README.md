@@ -464,7 +464,7 @@ bun run test:watch
 bun run test:coverage
 ```
 
-- **`bun test`** -- Test runner, configured in `bunfig.toml`; specs import the Vitest API (`vi`, `describe`) from `vitest`, which Bun provides. The rule specs in `eslint-rules/` run on `node --test` (`bun run test:rules`)
+- **`bun test`** -- Test runner, configured in `bunfig.toml`; specs import the Vitest API (`vi`, `describe`) from `vitest`, which Bun provides, typed by `bun-types` (`types/test-runner.d.ts`); the `vitest` package is not installed. The rule specs in `eslint-rules/` run on `node --test` (`bun run test:rules`)
 - **Testing Library** -- `@testing-library/react` and `@testing-library/user-event` for component testing
 - **MSW** -- Mock Service Worker for API mocking in tests (handlers in `tests/mocks/`)
 - **happy-dom** -- DOM environment for tests

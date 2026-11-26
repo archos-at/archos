@@ -181,6 +181,8 @@ What changed with it:
   `@workos-inc/authkit-nextjs`) is `mock.module` from `bun:test`; `vi.mock`
   replaces a package only for our own files.
 * The shards split by `bun test --timings` (`tests/test-timings.json`).
+* The `vitest` package is gone: `bun-types`, pinned to the same canary, types
+  the `vitest` imports (`types/test-runner.d.ts`).
 
 ### Consequences
 

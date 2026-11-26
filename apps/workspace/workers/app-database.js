@@ -9,7 +9,7 @@
  * processes off the frontend image, with no build step.
  */
 
-const postgresModule = require('postgres')
+const postgresModule = /** @type {typeof import('postgres') & { default?: typeof import('postgres') }} */ (require('postgres'))
 const postgres = postgresModule.default ?? postgresModule
 
 /**
