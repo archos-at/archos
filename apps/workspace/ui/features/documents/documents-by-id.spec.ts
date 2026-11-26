@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { isDocumentId, resetDocumentsByIdCache, resolveDocumentsById, setDocumentsByIdFetch } from './documents-by-id'
+import { resetDocumentsByIdCache, resolveDocumentsById, setDocumentsByIdFetch } from './documents-by-id'
+import { isDocumentId } from './document-id'
 
 const PLAN = '3f1c2a7e-9b4d-4c1e-8a2f-5d6e7f809a1b'
 const DETAIL = '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d'

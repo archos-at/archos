@@ -1,6 +1,7 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { documentNameLookupKey, resolveDocumentsByName } from '@/features/documents/lib/documents-by-name'
-import { isDocumentId, resolveDocumentsById } from '@/features/documents/documents-by-id'
+import { resolveDocumentsById } from '@/features/documents/documents-by-id'
+import { isDocumentId } from '@/features/documents/document-id'
 import { maxCanvasPixels, rasterFor } from '@/features/knowledge/lib/pdf-raster'
 import { pageTextChunks } from '@/features/knowledge/lib/pdf-text-chunks'
 import { locatePassage, passageBounds } from '@/features/knowledge/lib/passage-highlight'

@@ -1,6 +1,7 @@
 import { createDocumentByIdClient, ByIdResolveError } from '@/lib/documents/by-id-client'
 import type { ResolvedDocumentRow } from '@/lib/documents/by-name-client'
 import { onDocumentsChanged } from '@/lib/documents/document-changes'
+import { isDocumentId } from './document-id'
 
 export interface IdentifiedDocument {
   project: ResolvedDocumentRow | null
@@ -9,11 +10,6 @@ export interface IdentifiedDocument {
 }
 
 const SOFT_OFFICE_SHELF_STATUSES = new Set([403, 404])
-
-const DOCUMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-export const isDocumentId = (value: string | null | undefined): value is string =>
-  typeof value === 'string' && DOCUMENT_ID.test(value.trim())
 
 const NOT_ASKED: IdentifiedDocument = { project: null, officeShelf: null, error: false }
 

@@ -9,7 +9,8 @@ import {
   resetDocumentsByNameCache,
   resolveDocumentsByName,
 } from '../lib/documents-by-name'
-import { isDocumentId, resetDocumentsByIdCache, resolveDocumentsById } from '../documents-by-id'
+import { resetDocumentsByIdCache, resolveDocumentsById } from '../documents-by-id'
+import { isDocumentId } from '../document-id'
 import { toFileItem } from '../lib/file-item'
 
 export interface SurfacedDocument {
