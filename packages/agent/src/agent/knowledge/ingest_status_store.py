@@ -440,8 +440,6 @@ def job_document_id(status: IngestionJobStatus) -> str | None:
     return document_id if isinstance(document_id, str) and document_id and len(status.file_details) == 1 else None
 
 
-
-
 def _submitted(status: IngestionJobStatus) -> datetime:
     return status.submitted_at.replace(tzinfo=None)
 

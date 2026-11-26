@@ -42,7 +42,8 @@ class TestCandidates:
 
     def test_the_file_itself_is_never_a_candidate(self):
         assert (
-            revisions.candidate_documents("C.pdf", [_row("C.pdf"), _row("B.pdf")], held=revisions.Held())[0].file_name == "B.pdf"
+            revisions.candidate_documents("C.pdf", [_row("C.pdf"), _row("B.pdf")], held=revisions.Held())[0].file_name
+            == "B.pdf"
         )
 
     def test_a_row_a_person_already_replaced_is_not_a_candidate(self):
@@ -55,7 +56,14 @@ class TestCandidates:
 
     def test_a_held_name_is_not_a_candidate(self):
         rows = [_row("gehalten.pdf"), _row("B.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held(names=frozenset({"gehalten.pdf"}), unidentified=frozenset({"gehalten.pdf"})))] == ["B.pdf"]
+        assert [
+            c.file_name
+            for c in revisions.candidate_documents(
+                "C.pdf",
+                rows,
+                held=revisions.Held(names=frozenset({"gehalten.pdf"}), unidentified=frozenset({"gehalten.pdf"})),
+            )
+        ] == ["B.pdf"]
 
     def test_the_file_a_person_already_refused_for_this_one_is_not_offered_again(self):
         own = _row("C.pdf", revision_suggestion={**SUGGESTION, "dismissed": True})

@@ -20,8 +20,8 @@ from knowledge_layer.ingest import visual_prompt
 from knowledge_layer.ingest import visual_rendering
 from knowledge_layer.ingest import visual_schema
 
-from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.document_metadata_constants import DocumentRef
+from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.schema import AvailableDocument
 
 
@@ -437,7 +437,9 @@ class TestSuggestionByNumber:
         from agent.knowledge import ingest_status_store
 
         monkeypatch.setattr(
-            ingest_status_store, "in_flight_documents", lambda collections: {"coll": [DocumentRef("gehalten.pdf", None)]}
+            ingest_status_store,
+            "in_flight_documents",
+            lambda collections: {"coll": [DocumentRef("gehalten.pdf", None)]},
         )
         monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
         rows = [_row("gehalten.pdf", {"document_number": "A-101", "revision": "A"})]

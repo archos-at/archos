@@ -181,3 +181,52 @@ def test_the_base_corpus_keeps_its_name_identity_and_names_no_stored_document():
     (chip,) = [source_entry_to_wire(entry) for entry in registry.all_sources()]
     assert chip["document_id"] == "doc:base_corpus:oib-rl_2_ausgabe_mai_2023.pdf"
     assert "stored_document_id" not in chip
+
+
+class TestTwoCallsEachFindingOneOfTwoDocumentsOfOneName:
+    def _two_calls(self) -> SourceRegistry:
+        registry = SourceRegistry()
+        token = begin_grounding_capture()
+        try:
+            for chunk in (_chunk(BESTAND, page=2), _chunk(ENTWURF, page=2)):
+                for entry in extract_sources_from_tool_result("knowledge_search", _search_text(chunk)):
+                    registry.add(entry)
+        finally:
+            end_grounding_capture(token)
+        return registry
+
+    def test_the_turn_inventory_keys_each_by_its_folder_though_no_block_held_both(self):
+        from agent.knowledge import AvailableDocument
+        from agent.knowledge.inventory import set_turn_documents
+
+        set_turn_documents(
+            [
+                AvailableDocument(
+                    file_name="Plan.pdf", collection="proj_1", shelf="project", folder_path=folder, document_id=key
+                )
+                for key, folder in FOLDERS.items()
+            ]
+        )
+        try:
+            registry = self._two_calls()
+        finally:
+            set_turn_documents(None)
+
+        assert [entry.citation_key for entry in registry.all_sources()] == [
+            "Bestand/Plan.pdf, p.2",
+            "Entwurf/Plan.pdf, p.2",
+        ]
+        assert registry.entry_for_citation_key("Entwurf/Plan.pdf, p.2").document_id == ENTWURF
+
+    def test_a_key_two_documents_share_is_resolved_to_neither_never_to_the_first(self):
+        registry = self._two_calls()
+
+        assert [entry.citation_key for entry in registry.all_sources()] == ["Plan.pdf, p.2", "Plan.pdf, p.2"]
+        assert registry.entry_for_citation_key("Plan.pdf, p.2") is None
+        assert not registry.has_citation_key("Plan.pdf, p.2")
+
+
+def test_a_replayed_turn_keeps_each_documents_id_read_from_the_text():
+    registry = _registered(*TWO_PLANS, records=False)
+
+    assert [entry.document_id for entry in registry.all_sources()] == [BESTAND, ENTWURF]

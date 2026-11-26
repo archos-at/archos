@@ -190,8 +190,9 @@ class TestInTheListing:
         from agent_host.routes.documents import _held_names_of
 
         seen = []
-        monkeypatch.setattr(revisions, "held_file_names", lambda collection: seen.append(collection) or {"x.pdf"})
-        assert _held_names_of("proj_a")() == {"x.pdf"}
+        held = revisions.Held(names=frozenset({"x.pdf"}))
+        monkeypatch.setattr(revisions, "held_documents", lambda collection: seen.append(collection) or held)
+        assert _held_names_of("proj_a")() is held
         assert seen == ["proj_a"]
 
 
