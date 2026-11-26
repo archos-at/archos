@@ -396,6 +396,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the navigation now opens from a menu button at the top left, as in chat apps, so the chat gets most of the screen: the tab bar at the bottom and „Mehr“ are gone, and the menu holds the same places, chats and account as the desktop sidebar.",
+            "de": "Auf dem Smartphone öffnet sich die Navigation jetzt über eine Menüschaltfläche oben links, wie bei Chat-Apps, damit der Chat den größten Teil des Bildschirms einnimmt: Die Tab-Leiste am unteren Rand und „Mehr“ entfallen, und das Menü enthält dieselben Orte, Chats und dasselbe Konto wie die Desktop-Seitenleiste."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
@@ -1016,6 +1024,14 @@
           "text": {
             "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
             "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On small phones such as the iPhone 13 mini, the chat no longer runs under the input field, and a quick second tap no longer zooms the page.",
+            "de": "Auf kleinen Smartphones wie dem iPhone 13 mini wird der Chat nicht mehr vom Eingabefeld verdeckt, und ein schnelles zweites Tippen zoomt die Seite nicht mehr."
           }
         },
         {

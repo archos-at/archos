@@ -3308,6 +3308,10 @@
     "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
   },
   {
+    "en": "On a phone, the navigation now opens from a menu button at the top left, as in chat apps, so the chat gets most of the screen: the tab bar at the bottom and „Mehr“ are gone, and the menu holds the same places, chats and account as the desktop sidebar.",
+    "de": "Auf dem Smartphone öffnet sich die Navigation jetzt über eine Menüschaltfläche oben links, wie bei Chat-Apps, damit der Chat den größten Teil des Bildschirms einnimmt: Die Tab-Leiste am unteren Rand und „Mehr“ entfallen, und das Menü enthält dieselben Orte, Chats und dasselbe Konto wie die Desktop-Seitenleiste."
+  },
+  {
     "en": "On a phone, the page no longer jumps when you go from the chat to another tab and back: the Persönlich | Projekt switch now comes and goes with the chat, and the project's name beside it fades in when you switch sides.",
     "de": "Auf dem Smartphone springt die Seite nicht mehr, wenn Sie vom Chat zu einem anderen Tab und zurück wechseln: Der Persönlich | Projekt-Schalter wird jetzt gemeinsam mit dem Chat ein- und ausgeblendet, und beim Wechsel zwischen Persönlich und Projekt blendet sich der Projektname daneben ein."
   },
@@ -3382,6 +3386,10 @@
   {
     "en": "On an iPhone, the input field no longer hides behind the keyboard.",
     "de": "Auf dem iPhone verschwindet das Eingabefeld nicht mehr hinter der Tastatur."
+  },
+  {
+    "en": "On small phones such as the iPhone 13 mini, the chat no longer runs under the input field, and a quick second tap no longer zooms the page.",
+    "de": "Auf kleinen Smartphones wie dem iPhone 13 mini wird der Chat nicht mehr vom Eingabefeld verdeckt, und ein schnelles zweites Tippen zoomt die Seite nicht mehr."
   },
   {
     "en": "On the Piloti website the knowledge sources gather around Piloti again, and the example decision now shows why one way is chosen and the others are not.",
