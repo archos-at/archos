@@ -108,7 +108,7 @@ def match_document(name: str) -> _Row | Unresolved:
     rows = _rows()
     for candidates in (
         [row for row in rows if row.document_id and row.document_id == name.strip()],
-        [row for row in rows if wanted in row.paths],
+        [row for row in rows if "/" in wanted and wanted in row.paths],
         [row for row in rows if _key(row.file_name) == wanted],
         [row for row in rows if _key(row.file_name.rsplit(".", 1)[0]) == wanted],
         [row for row in rows if wanted in _key(row.file_name)],
@@ -139,11 +139,10 @@ async def resolve_target(document: str, envelope: SignedEnvelope) -> Target | Un
     if not named:
         return Target(get_focused_document_id(), get_focused_file_name())
     if is_uuid(named):
+        if (listed := row_with_id(named)) is not None:
+            return Target(named, listed.file_name, listed.collection)
         focus_id = get_focused_document_id()
-        listed = row_with_id(named)
-        return Target(
-            named, get_focused_file_name() if focus_id == named else None, listed.collection if listed else None
-        )
+        return Target(named, get_focused_file_name() if focus_id == named else None)
     row = match_document(named)
     if isinstance(row, Unresolved):
         return row

@@ -15,7 +15,8 @@
 --   - job_access    — agent-host-owned job ownership/access control metadata
 --   - job_events    — SSE streaming events and job event persistence
 --   - document_metadata — Per-document metadata: summary, tags, doc_class,
---                     display_title (collection + filename keyed; was `summaries`)
+--                     display_title (keyed by collection + documents.id, the base corpus
+--                     by collection + filename; was `summaries`)
 --
 -- Tables in checkpoints:
 --   - checkpoints           — LangGraph conversation checkpoints
@@ -168,17 +169,24 @@ CREATE INDEX IF NOT EXISTS idx_job_events_job_id_id ON job_events(job_id, id);
 -- Per-document metadata table (summary + tags + doc_class + display_title).
 -- Formerly named `summaries`; existing deployments are renamed in place at
 -- runtime by DocumentMetadataStore (ALTER TABLE ... RENAME), preserving rows.
--- Only the summary column is created here; the optional columns are added by the
--- store's in-place migration on first access (always exercised on a live DB).
+-- Only the summary and identity columns are created here; the optional columns are
+-- added by the store's in-place migration on first access (always exercised on a live DB).
+-- A user document's row is keyed by documents.id; the file name keys only a row
+-- without one (the base corpus, and rows the re-key backfill has not reached).
 CREATE TABLE IF NOT EXISTS document_metadata (
     collection VARCHAR(256) NOT NULL,
     filename VARCHAR(512) NOT NULL,
+    document_id TEXT,
+    superseded_by_id TEXT,
     summary TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (collection, filename)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_document_metadata_collection ON document_metadata(collection);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_document_metadata_document_id
+    ON document_metadata (collection, document_id) WHERE document_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_document_metadata_unkeyed_filename
+    ON document_metadata (collection, filename) WHERE document_id IS NULL;
 
 -- =============================================================================
 -- Create LangGraph checkpoint tables in checkpoints database

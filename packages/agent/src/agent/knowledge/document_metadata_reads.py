@@ -63,7 +63,9 @@ def _resolve_links(
     for doc in documents:
         newer = by_id.get(doc.superseded_by_id) if doc.superseded_by_id else None
         holders = [
-            held for held in by_name.get(doc.superseded_by or "", []) if not doc.superseded_by_id or not held.document_id
+            held
+            for held in by_name.get(doc.superseded_by or "", [])
+            if not doc.superseded_by_id or not held.document_id
         ]
         if newer is None and len(holders) == 1:
             newer = holders[0]
@@ -117,12 +119,7 @@ def get_all(store, collection: str) -> list[AvailableDocument]:
         return []
 
 
-def get_many(
-    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> list[AvailableDocument]:
-    asked = _batch_match(filenames, document_ids)
-    if asked is None:
-        return []
+def _select(store, conn, collection: str, asked: tuple[str, dict[str, Any]]) -> list[AvailableDocument]:
     from sqlalchemy import text
 
     where, params = asked
@@ -132,33 +129,25 @@ def get_many(
         ),
         params,
     )
+    return [
+        store._row_to_document(row, collection) for row in conn.execute(select, {"collection": collection, **params})
+    ]
+
+
+def get_many(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> list[AvailableDocument]:
+    asked = _batch_match(filenames, document_ids)
+    if asked is None:
+        return []
     try:
         with store._sync_engine.connect() as conn:
-            documents = [
-                store._row_to_document(row, collection)
-                for row in conn.execute(select, {"collection": collection, **params})
-            ]
+            documents = _select(store, conn, collection, asked)
             newer = _batch_match(
                 [doc.superseded_by for doc in documents if doc.superseded_by],
                 [doc.superseded_by_id for doc in documents if doc.superseded_by_id],
             )
-            kept = (
-                [
-                    store._row_to_document(row, collection)
-                    for row in conn.execute(
-                        _batch_bind(
-                            text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                                f"SELECT {_DOCUMENT_COLUMNS} FROM {TABLE_NAME} "
-                                f"WHERE collection = :collection AND {newer[0]}"
-                            ),
-                            newer[1],
-                        ),
-                        {"collection": collection, **newer[1]},
-                    )
-                ]
-                if newer
-                else []
-            )
+            kept = _select(store, conn, collection, newer) if newer else []
     except Exception as e:
         logger.warning("Failed to get metadata of %d file(s) in %s: %s", len(filenames), collection, e)
         return []

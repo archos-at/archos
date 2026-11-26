@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from dataclasses import replace
 from typing import Any
+from typing import Literal
 
 from fastapi import APIRouter
 from fastapi import HTTPException
@@ -32,7 +34,8 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
 
     remembered = _remember_corpus_country(collection, update)
     store = _store()
-    chunks = store.count(collection, {"file_name": update.file_name}) if store.exists(collection) else 0
+    marked = _marked_document(store, collection, update)
+    chunks = store.count(collection, {marked.key: marked.value}) if store.exists(collection) else 0
     if not chunks:
         return 0 if remembered else None
     licence = {
@@ -49,8 +52,30 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
         payload[COUNTRY_FIELD] = update.country_id
     if "released" in named:
         payload[RELEASED_FIELD] = update.released
-    store.set_file_payloads(collection, {update.file_name: payload})
+    store.set_file_payloads(collection, {marked.value: payload}, key=marked.key)
     return chunks
+
+
+class AmbiguousMark(Exception): ...
+
+
+@dataclass(frozen=True)
+class _Marked:
+    key: Literal["file_name", "document_id"]
+    value: str
+
+
+def _marked_document(store: Any, collection: str, update: KnowledgeMarkUpdate) -> _Marked:
+    from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
+
+    if update.document_id is not None:
+        return _Marked("document_id", str(update.document_id))
+    if not store.exists(collection):
+        return _Marked("file_name", update.file_name)
+    named = sorted(store.facet_counts(collection, DOCUMENT_ID_FIELD, {"file_name": update.file_name}))
+    if len(named) > 1:
+        raise AmbiguousMark(update.file_name)
+    return _Marked("document_id", named[0]) if named else _Marked("file_name", update.file_name)
 
 
 def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:
@@ -85,6 +110,11 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from e
         try:
             chunks = await asyncio.to_thread(_mark, collection_name, request)
+        except AmbiguousMark:
+            raise HTTPException(
+                status_code=409,
+                detail={"reason": "ambiguous_name", "message": f"More than one document is '{request.file_name}'"},
+            ) from None
         except Exception as e:
             logger.exception("Marking %s in %s failed", request.file_name, collection_name)
             raise HTTPException(status_code=502, detail="the vector store refused the knowledge mark") from e

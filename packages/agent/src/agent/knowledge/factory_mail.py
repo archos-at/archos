@@ -18,6 +18,4 @@ def set_document_mail_thread(
 def set_document_mail_origin(
     collection: str, filename: str, origin: dict[str, Any] | None, *, document_id: str | None = None
 ) -> bool:
-    return _get_document_metadata_store().set_mail_origin(
-        collection, filename, origin or None, document_id=document_id
-    )
+    return _get_document_metadata_store().set_mail_origin(collection, filename, origin or None, document_id=document_id)

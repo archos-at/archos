@@ -13,7 +13,15 @@ import type { Document } from '@/lib/db/schema/documents'
 import { documentShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 import { collectionFileRef, collectionFileUrl, purgeIngestedChunks } from './collection-file-ref'
-import { deleteShelfDocumentRow, setDocumentDisplayName } from './repository'
+import {
+  deleteShelfDocumentRow,
+  findFreeDocumentName,
+  findLiveDocumentByFilename,
+  setDocumentDisplayName,
+  type DocumentNamePlace,
+} from './repository'
+import { NameConflictError, nameConflictWith } from './name-conflict'
+import { heldDocumentName } from './name-match'
 import { documentDisplayName, validateDocumentName } from './display-name'
 import { findDocumentForSession, getAccessibleDocument } from './access'
 import { eraseDocumentObjectsOrKeepRow } from './object-cleanup'
@@ -87,6 +95,7 @@ export async function renameDocument(
     }
     displayName = validated.value === doc.filename ? null : validated.value
   }
+  await assertNameFreeInFolder(session.organizationId, doc, displayName ?? doc.filename)
 
   await setDocumentDisplayName(documentId, session.organizationId, displayName)
   publishShelfChanged(session.organizationId, documentShelf(doc))
@@ -138,6 +147,15 @@ export async function renameDocument(
   })
 
   return { id: documentId, filename: doc.filename, displayName }
+}
+
+async function assertNameFreeInFolder(organizationId: string, doc: Document, name: string): Promise<void> {
+  const place: DocumentNamePlace =
+    doc.folderId === null ? { folderId: null, collectionName: doc.collectionName } : { folderId: doc.folderId }
+  const holder = await findLiveDocumentByFilename(organizationId, place, name, { excluding: doc.id })
+  if (!holder) return
+  const suggestedName = await findFreeDocumentName(organizationId, place, heldDocumentName(holder, name) ?? name)
+  throw new NameConflictError(nameConflictWith(holder, name, doc.folderId, suggestedName))
 }
 
 export async function eraseShelfDocument(doc: Document, organizationId: string): Promise<boolean | null> {

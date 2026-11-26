@@ -232,7 +232,8 @@ def _confirmed_revision_bit(doc: Any) -> str:
 
 
 def document_identity(doc: Any) -> tuple[str, str]:
-    return (_collection_of(doc), _file_name_of(doc))
+    document_id = doc.get("document_id") if isinstance(doc, dict) else getattr(doc, "document_id", None)
+    return (_collection_of(doc), str(document_id or "") or _file_name_of(doc))
 
 
 def stamp_document(doc: Any, *, collection: str, shelf: Shelf | None) -> Any:

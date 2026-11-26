@@ -61,7 +61,7 @@ export async function presignDocumentPageTextUpload(
   return { uploadUrl, storageKey, storageBucket, documentId, version: doc.version, contentHash: doc.contentHash }
 }
 
-export const AMBIGUOUS_NAME_REASON = 'ambiguous_name'
+const AMBIGUOUS_NAME_REASON = 'ambiguous_name'
 
 async function onlyDocumentNamed(
   collectionName: string,

@@ -28,6 +28,7 @@ vi.mock('@/lib/documents/document-edits', () => ({
 vi.mock('@/lib/documents/document-listing', () => ({
   resolveProjectDocumentsByName: vi.fn(),
 }))
+vi.mock('@/lib/documents/resolve-by-id', () => ({ resolveShelfDocumentsById: vi.fn(async () => []) }))
 vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn(), assertMoveKeepsOutOfStandards: vi.fn(async () => undefined) }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({ listOfficeShelfFolders: vi.fn() }))
 vi.mock('@/lib/projects/folder-service', () => ({ listProjectFolders: vi.fn(), createProjectFolder: vi.fn() }))
@@ -74,6 +75,7 @@ import { addResourceAssignment, listAssignmentCandidates } from '@/lib/assignmen
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { renameDocument } from '@/lib/documents/document-edits'
 import { resolveProjectDocumentsByName } from '@/lib/documents/document-listing'
+import { resolveShelfDocumentsById } from '@/lib/documents/resolve-by-id'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { createProjectFolder, listProjectFolders } from '@/lib/projects/folder-service'
 import { listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
@@ -137,7 +139,7 @@ beforeEach(() => {
   vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_session, _project, names) =>
     names.flatMap((name) => {
       if (name.toLowerCase() === 'grundriss eg.pdf') {
-        return [listed('doc_old', 'Grundriss EG.pdf', '2026-01-01T08:00:00Z'), listed('doc_eg', 'grundriss eg.PDF')]
+        return [listed('doc_eg', 'grundriss eg.PDF')]
       }
       if (name === 'Schnitt A-A.pdf') return [listed('doc_aa', 'Schnitt A-A.pdf')]
       return []
@@ -200,6 +202,33 @@ describe('GET /api/proposals/[id]', () => {
 })
 
 describe('POST /api/proposals/[id]/apply', () => {
+  it('moves the document an item names by id, and refuses a name two documents of the project carry', async () => {
+    vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_session, _project, names) =>
+      names.includes('Grundriss EG.pdf') ? [listed('doc_entwurf', 'Grundriss EG.pdf'), listed('doc_einreichung', 'Grundriss EG.pdf')] : []
+    )
+    vi.mocked(resolveShelfDocumentsById).mockImplementation(async (_session, _shelf, ids) => ids.map((id) => listed(id, 'Grundriss EG.pdf')))
+    const einreichung = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+    store.set(
+      ID,
+      row({
+        payload: {
+          operation: 'move',
+          operations: [
+            { document: 'Grundriss EG.pdf', document_id: einreichung, source: 'project', target_folder: 'Einreichung/Pläne' },
+            { document: 'Grundriss EG.pdf', source: 'project', target_folder: 'Einreichung/Pläne' },
+          ],
+        },
+      })
+    )
+
+    const { proposal } = await applyProposal(ID, run)
+
+    expect(moveDocumentToFolder).toHaveBeenCalledTimes(1)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: einreichung, folderId: 'f_plaene' }, SESSION)
+    expect(proposal.status).toBe('partially_applied')
+    expect(proposal.results?.[1]).toMatchObject({ ok: false, reason: expect.stringContaining('mehrmals') })
+  })
+
   it('moves each document through the move service, as the decider, resolving names and paths', async () => {
     const { proposal } = await applyProposal(ID, run)
 

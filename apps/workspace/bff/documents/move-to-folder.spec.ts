@@ -81,6 +81,20 @@ vi.mock('./access', () => ({
   findDocumentForSession: vi.fn(async () => db.selects.shift()?.[0] ?? null),
 }))
 
+vi.mock('./repository', () => ({
+  findLiveDocumentByFilename: vi.fn(async () => null),
+  findFreeDocumentName: vi.fn(async () => 'Fluchtwegplan 2.pdf'),
+}))
+vi.mock('./stored-copy', () => ({
+  storedFileOf: vi.fn(async (_document: unknown, name: string) => new File(['bytes'], name)),
+}))
+vi.mock('./shelf-upload', () => ({
+  uploadToShelf: vi.fn(async () => ({ documentId: 'doc-there', jobId: 'job-1', status: 'pending', filename: 'fluchtwegplan.pdf' })),
+}))
+vi.mock('@/lib/projects/document-bin', () => ({
+  moveDocumentToBin: vi.fn(async () => ({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-26T00:00:00.000Z' })),
+}))
+
 vi.mock('@/lib/db/schema/documents', () => ({
   documents: {
     id: 'documents.id',
@@ -105,6 +119,10 @@ import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { ForbiddenError } from '@/lib/api/errors'
 import { reingestDocument } from './reingest'
+import { findFreeDocumentName, findLiveDocumentByFilename } from './repository'
+import { uploadToShelf } from './shelf-upload'
+import { moveDocumentToBin } from '@/lib/projects/document-bin'
+import { makeLiveDocumentMatch } from '@/test-utils/db-fixtures'
 import { MOVED_SINCE_MESSAGE, moveDocumentToFolder, moveDocumentsToFolders } from './move-to-folder'
 
 const SESSION = { organizationId: 'org-1', userId: 'user-1' } as never
@@ -567,5 +585,130 @@ describe('moveDocumentToFolder on the Archiv shelf', () => {
 
     expect(result).toEqual({ ok: false, error: 'Only project and Archiv documents live in folders.' })
     expect(canManageOfficeShelf).not.toHaveBeenCalled()
+  })
+})
+
+describe('moveDocumentToFolder into a folder that holds the name', () => {
+  const THERE = makeLiveDocumentMatch({ id: 'doc-there', filename: 'fluchtwegplan.pdf', folderId: 'folder-1' })
+  const FOLDER = { id: 'folder-1', path: 'Brandschutz' }
+  const holding = () =>
+    vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place) => (place.folderId === 'folder-1' ? THERE : null))
+  const fetched = () => fetchSpy.mock.calls.map(([url, init]) => [String(url).replace('http://backend:8000/v1/collections/proj_1/documents', ''), JSON.parse(init.body)])
+
+  beforeEach(() => {
+    vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValue(null)
+    vi.mocked(findFreeDocumentName).mockClear()
+    vi.mocked(uploadToShelf).mockClear()
+    vi.mocked(moveDocumentToBin).mockClear()
+    holding()
+  })
+
+  it('moves nothing and answers the conflict: what is there, and the next free name in that folder', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1' }, SESSION)
+
+    expect(result).toMatchObject({
+      ok: false,
+      conflict: {
+        reason: 'name_conflict',
+        name: 'Fluchtwegplan.pdf',
+        folderId: 'folder-1',
+        existingDocumentId: 'doc-there',
+        existingName: 'fluchtwegplan.pdf',
+        suggestedName: 'Fluchtwegplan 2.pdf',
+      },
+    })
+    expect(vi.mocked(findLiveDocumentByFilename).mock.calls[0]?.slice(1)).toEqual([
+      { folderId: 'folder-1' },
+      'Fluchtwegplan.pdf',
+      { excluding: 'doc-1' },
+    ])
+    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: 'folder-1' }, 'fluchtwegplan.pdf')
+    expect(db.updates).toHaveLength(0)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('finds the clash at the shelf root by the collection the root files into', async () => {
+    db.selects = [[{ ...DOCUMENT, folderId: 'folder-7' }]]
+
+    await moveDocumentToFolder({ documentId: 'doc-1', folderId: null }, SESSION)
+
+    expect(vi.mocked(findLiveDocumentByFilename).mock.calls[0]?.[1]).toEqual({ folderId: null, collectionName: 'proj_1' })
+  })
+
+  it('„Überspringen“ leaves the document where it is', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'skip' }, SESSION)
+
+    expect(result).toMatchObject({ ok: true, changed: false, skipped: true, document: { id: 'doc-1', folderId: null } })
+    expect(db.updates).toHaveLength(0)
+  })
+
+  it('„Beide behalten“ moves it under the next free name and tells the backend the new name', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'keep_both' }, SESSION)
+
+    expect(result).toMatchObject({ ok: true, changed: true })
+    expect(db.updates[0]).toMatchObject({ folderId: 'folder-1', filename: 'Fluchtwegplan 2.pdf', displayName: null })
+    expect(fetched()).toEqual([
+      ['/by-id/doc-1/folder-path', { folder_path: 'Brandschutz' }],
+      ['/by-id/doc-1/file-name', { file_name: 'Fluchtwegplan 2.pdf' }],
+    ])
+  })
+
+  it('„Beide behalten“ on a renamed document makes the free name its only name, here and in the backend', async () => {
+    db.selects = [[{ ...DOCUMENT, displayName: 'Fluchtweg.pdf' }], [FOLDER]]
+    vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, name) =>
+      place.folderId === 'folder-1' && name === 'Fluchtweg.pdf' ? { ...THERE, filename: 'fluchtweg.pdf' } : null,
+    )
+    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('fluchtweg 2.pdf')
+
+    await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'keep_both' }, SESSION)
+
+    expect(db.updates[0]).toMatchObject({ filename: 'fluchtweg 2.pdf', displayName: null })
+    expect(fetched().slice(1)).toEqual([
+      ['/by-id/doc-1/file-name', { file_name: 'fluchtweg 2.pdf' }],
+      ['/by-id/doc-1/display-title', { display_title: null }],
+    ])
+  })
+
+  it('„Ersetzen“ files the moved document’s bytes as the next Fassung of the one there, and bins the moved one', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+    const request = new Request('https://grid.test/api/documents/doc-1/folder')
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'replace' }, SESSION, { request })
+
+    expect(vi.mocked(uploadToShelf).mock.calls[0]?.slice(1)).toEqual([
+      { kind: 'project', projectId: 'proj-1' },
+      { file: expect.any(File), folderId: 'folder-1', onConflict: 'replace' },
+      request,
+    ])
+    expect(moveDocumentToBin).toHaveBeenCalledWith(SESSION, 'doc-1', request)
+    expect(result).toMatchObject({ ok: true, replacedInto: 'doc-there', document: { id: 'doc-there', folderId: 'folder-1' } })
+    expect(db.updates).toHaveLength(0)
+  })
+
+  it('answers a move that lost the name to a racing one with the conflict, not a 500', async () => {
+    vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValueOnce(null).mockResolvedValue(THERE)
+    db.selects = [[DOCUMENT], [FOLDER]]
+    db.updateFails = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+      constraint_name: 'uniq_documents_live_name_per_collection',
+    })
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1' }, SESSION)
+
+    expect(result).toMatchObject({ ok: false, conflict: { existingDocumentId: 'doc-there' } })
+  })
+
+  it('reports each conflict of a batch on its own outcome, and moves the rest', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+
+    const [outcome] = await moveDocumentsToFolders([{ documentId: 'doc-1', folderId: 'folder-1' }], SESSION)
+
+    expect(outcome).toMatchObject({ documentId: 'doc-1', ok: false, conflict: { existingDocumentId: 'doc-there' } })
   })
 })

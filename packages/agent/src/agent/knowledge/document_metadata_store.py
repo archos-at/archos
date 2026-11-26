@@ -38,8 +38,8 @@ from agent.knowledge.document_metadata_constants import RETAINED_TABLE_NAME
 from agent.knowledge.document_metadata_constants import SUGGESTION_BASES
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import TAGS_SET_BY_PERSON
-from agent.knowledge.document_metadata_constants import logger
 from agent.knowledge.document_metadata_constants import DocumentRef
+from agent.knowledge.document_metadata_constants import logger
 from agent.knowledge.document_metadata_helpers import LinkOutcome
 from agent.knowledge.document_metadata_helpers import _current_doc_class
 from agent.knowledge.document_metadata_helpers import _decode_page_count
@@ -425,9 +425,7 @@ class DocumentMetadataStore:
     ) -> dict[str, str]:
         return revisions_impl.get_superseded_by_batch(self, collection, filenames, document_ids=document_ids)
 
-    def documents_linked_to(
-        self, collection: str, newer: str, *, document_id: str | None = None
-    ) -> list[DocumentRef]:
+    def documents_linked_to(self, collection: str, newer: str, *, document_id: str | None = None) -> list[DocumentRef]:
         return revisions_impl.documents_linked_to(self, collection, newer, document_id=document_id)
 
     def files_linked_to(self, collection: str, newer: str, *, document_id: str | None = None) -> list[str]:
@@ -457,9 +455,7 @@ class DocumentMetadataStore:
     ) -> bool:
         return fields_impl._update_column(self, collection, filename, column, value, document_id=document_id)
 
-    def _get_column(
-        self, collection: str, filename: str, column: str, *, document_id: str | None = None
-    ) -> str | None:
+    def _get_column(self, collection: str, filename: str, column: str, *, document_id: str | None = None) -> str | None:
         return fields_impl._get_column(self, collection, filename, column, document_id=document_id)
 
     def _get_column_batch(

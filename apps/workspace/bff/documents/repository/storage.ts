@@ -31,7 +31,7 @@ function readableUserFileIn(collectionName: string, organizationId: string | und
   ]
 }
 
-export const NAME_AMBIGUITY_PROBE = 2
+const NAME_AMBIGUITY_PROBE = 2
 
 export async function findStorageKeysByCollectionAndFilename(
   collectionName: string,

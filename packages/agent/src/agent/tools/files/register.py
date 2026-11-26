@@ -6,6 +6,7 @@ from agent import project_context
 from agent.tools.files.cards import propose_file_operation
 from agent.tools.files.resolve import Refusal
 from agent.tools.files.resolve import ResolvedDocument
+from agent.tools.files.resolve import documents_in
 from agent.tools.files.resolve import known_folders
 from agent.tools.files.resolve import resolve_document
 from agent.tools.files.resolve import resolve_folder
@@ -53,6 +54,35 @@ def _document(name: str) -> ResolvedDocument | str:
     return resolved.message if isinstance(resolved, Refusal) else resolved
 
 
+def _addressed(resolved: ResolvedDocument) -> dict[str, str]:
+    return {"document": resolved.file_name, **({"document_id": resolved.document_id} if resolved.document_id else {})}
+
+
+def _holder(folder: str, resolved: ResolvedDocument, name: str) -> ResolvedDocument | None:
+    return next((doc for doc in documents_in(folder, resolved.source) if doc != resolved and doc.holds(name)), None)
+
+
+def _where(folder: str) -> str:
+    return f"„{folder}“" if folder else "The top level"
+
+
+def _move_conflict(folder: str, holder: ResolvedDocument, resolved: ResolvedDocument) -> str:
+    return (
+        f"Conflict: {_where(folder)} already holds {holder.shown()}, and a name is taken once per folder. No "
+        f"proposal was made and nothing is replaced on its own. Tell the person and ask what they want for "
+        f"`{resolved.file_name}`: replace that document (it becomes its new Fassung), keep both (the moved file "
+        "gets the next free name, „Name 2“), or leave it where it is. Moving it in the project files asks them "
+        "the same question."
+    )
+
+
+def _rename_conflict(folder: str, holder: ResolvedDocument, name: str) -> str:
+    return (
+        f"Conflict: {_where(folder)} already holds {holder.shown()}, which is called „{name}“, and a name is taken "
+        "once per folder. No proposal was made. Ask the person for another name."
+    )
+
+
 async def _move(document: str, target_folder: str, reason: str = "") -> str:
     resolved = _document(document)
     if isinstance(resolved, str):
@@ -63,9 +93,11 @@ async def _move(document: str, target_folder: str, reason: str = "") -> str:
     if folder == resolved.folder_path:
         where = f"„{folder}“" if folder else "the top level"
         return f"`{resolved.file_name}` is already in {where}. No proposal needed."
+    if (holder := _holder(folder, resolved, resolved.file_name)) is not None:
+        return _move_conflict(folder, holder, resolved)
 
     item = {
-        "document": resolved.file_name,
+        **_addressed(resolved),
         "source": resolved.source,
         "current": resolved.folder_path,
         "target_folder": folder,
@@ -93,9 +125,11 @@ async def _rename(document: str, new_name: str, reason: str = "") -> str:
         return f"Error: The new name is longer than {MAX_DISPLAY_NAME_CHARS} characters. Shorten it."
     if name == resolved.file_name:
         return f"`{resolved.file_name}` already has that name. No proposal needed."
+    if (holder := _holder(resolved.folder_path, resolved, name)) is not None:
+        return _rename_conflict(resolved.folder_path, holder, name)
 
     item = {
-        "document": resolved.file_name,
+        **_addressed(resolved),
         "source": resolved.source,
         "current": resolved.file_name,
         "new_display_name": name,
@@ -142,7 +176,7 @@ async def _assign(document: str, member: str, reason: str = "") -> str:
     if not person:
         return "Error: `member` is empty. Give the person as the user named them."
 
-    item = {"document": resolved.file_name, "source": resolved.source, "member": person, **_reason_field(reason)}
+    item = {**_addressed(resolved), "source": resolved.source, "member": person, **_reason_field(reason)}
     if not await propose_file_operation(operation="assign", title="Datei zuweisen", item=item):
         return _NOT_PROPOSED
     return f"Proposed: `{resolved.file_name}` → {person}. {_PROPOSED}"
@@ -168,8 +202,10 @@ _DESCRIPTION = (
     "card — why exactly this change („gehört zum Bescheid vom 12. März“). Only what you can substantiate from "
     "the file name, content or conversation; nothing invented. The reason is stored with the proposal and "
     "appears among the decisions in later turns.\n"
-    "`document` is the file name exactly as the overview or a listing shows it. One call "
-    "proposes ONE change; several files are several calls."
+    "`document` is the file name exactly as the overview or a listing shows it; when two files share a name "
+    "(in different folders), give its folder path ('Einreichung/Plan.pdf') or its document id. A folder "
+    "holds a name once: a move or rename onto a name the folder already holds comes back as a conflict for the "
+    "person to decide, never as a replacement. One call proposes ONE change; several files are several calls."
 )
 
 _OPERATIONS = ("move", "rename", "create_folder", "assign")

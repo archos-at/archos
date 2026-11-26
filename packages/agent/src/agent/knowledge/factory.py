@@ -320,9 +320,7 @@ def get_document_person_tags(
 def set_document_topics_by_person(
     collection: str, filename: str, topics: list[str] | None, *, document_id: str | None = None
 ) -> bool:
-    changed = _get_document_metadata_store().set_topics_by_person(
-        collection, filename, topics, document_id=document_id
-    )
+    changed = _get_document_metadata_store().set_topics_by_person(collection, filename, topics, document_id=document_id)
     if changed:
         _mirror_document(collection, filename, document_id)
     return changed
@@ -375,9 +373,7 @@ def set_document_page_count(
     return _get_document_metadata_store().set_page_count(collection, filename, page_count, document_id=document_id)
 
 
-def set_document_file_name(
-    collection: str, document_id: str, file_name: str
-) -> bool:
+def set_document_file_name(collection: str, document_id: str, file_name: str) -> bool:
     changed = _get_document_metadata_store().set_file_name(collection, document_id, file_name)
     _rename_points(collection, document_id, file_name)
     if changed:
@@ -517,7 +513,11 @@ def set_document_folder_path(
     from .folder_cards import mark_folders
 
     store = _get_document_metadata_store()
-    left = store.get_folder_path(collection, filename, document_id=document_id) if folder_cards_enabled(collection) else None
+    left = (
+        store.get_folder_path(collection, filename, document_id=document_id)
+        if folder_cards_enabled(collection)
+        else None
+    )
     changed = store.set_folder_path(collection, filename, (folder_path or "").strip() or None, document_id=document_id)
     if changed:
         mark_folders(collection, [left])
@@ -543,9 +543,7 @@ def set_document_provenance(
     )
 
 
-def get_document_provenance(
-    collection: str, filename: str, *, document_id: str | None = None
-) -> dict[str, str] | None:
+def get_document_provenance(collection: str, filename: str, *, document_id: str | None = None) -> dict[str, str] | None:
     return _get_document_metadata_store().get_provenance(collection, filename, document_id=document_id)
 
 
@@ -643,7 +641,11 @@ def unregister_summary(
 
     store = _get_document_metadata_store()
     linked = store.documents_linked_to(collection, filename, document_id=document_id)
-    left = store.get_folder_path(collection, filename, document_id=document_id) if folder_cards_enabled(collection) else None
+    left = (
+        store.get_folder_path(collection, filename, document_id=document_id)
+        if folder_cards_enabled(collection)
+        else None
+    )
     store.unregister(collection, filename, permanent=permanent, document_id=document_id)
     mark_folders(collection, [left])
     _mirror_documents(collection, linked)

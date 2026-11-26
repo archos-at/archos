@@ -62,6 +62,7 @@ export const citationFromWire = (
     title: wire.title?.trim() || undefined,
     citationKey: wire.citation_key?.trim() || undefined,
     documentId: wire.document_id?.trim() || undefined,
+    storedDocumentId: wire.stored_document_id?.trim() || undefined,
     collection: wire.collection?.trim() || undefined,
     sourceType: wire.source_type?.trim() || undefined,
     tool: wire.tool?.trim() || undefined,

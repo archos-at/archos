@@ -9,7 +9,8 @@ export const useSourcePreviewIndex = (
   projectId: string | null,
   conversationId: string | null,
   enabled: boolean,
-  fileName: string | null
+  fileName: string | null,
+  storedDocumentId: string | null
 ): SourcePreviewIndex | null => {
   const [index, setIndex] = useState<SourcePreviewIndex | null>(null)
   const generation = useDocumentsGeneration()
@@ -17,7 +18,7 @@ export const useSourcePreviewIndex = (
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    loadSourcePreviewIndex(projectId, conversationId, fileName)
+    loadSourcePreviewIndex(projectId, conversationId, { fileName, storedDocumentId })
       .then((loaded) => {
         if (!cancelled) setIndex(loaded)
       })
@@ -27,7 +28,7 @@ export const useSourcePreviewIndex = (
     return () => {
       cancelled = true
     }
-  }, [projectId, conversationId, enabled, fileName, generation])
+  }, [projectId, conversationId, enabled, fileName, storedDocumentId, generation])
 
   return enabled ? index : null
 }

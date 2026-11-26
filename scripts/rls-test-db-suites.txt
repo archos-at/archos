@@ -27,6 +27,7 @@ batch              bff/authz/folder-access.integration.spec.ts
 batch              bff/projects/collection-placement.integration.spec.ts
 batch              bff/projects/folder-visibility.integration.spec.ts
 batch              bff/documents/shelf-folders.integration.spec.ts
+batch              bff/documents/name-per-folder.integration.spec.ts
 batch              bff/documents/stuck-processing.integration.spec.ts
 batch              bff/documents/retry-policy.integration.spec.ts
 batch              bff/project-profile/profile-bindings.integration.spec.ts

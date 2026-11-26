@@ -207,7 +207,7 @@ export async function reviewUploadFiling(
     basis,
     shelf: shelf.kind,
     documents: judgedDocuments.map((row) => ({ id: row.id, filename: row.filename })),
-    batchFilenames: documents.all.map((row) => row.filename),
+    batch: documents.all.map((row) => ({ id: row.id, filename: row.filename })),
     judged: true,
     moves: judgement.moves,
     restrictedDocumentIds: new Set(documents.all.filter(leftAlone).map((row) => row.id)),

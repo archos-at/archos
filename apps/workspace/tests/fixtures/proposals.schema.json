@@ -53,6 +53,17 @@
                           }
                         ]
                       },
+                      "document_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "source": {
                         "anyOf": [
                           {
@@ -443,6 +454,17 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 512
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "document_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
                   },
                   {
                     "type": "null"
@@ -881,6 +903,17 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 512
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "document_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid"
                           },
                           {
                             "type": "null"
@@ -2027,6 +2060,17 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 512
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "document_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
                               },
                               {
                                 "type": "null"

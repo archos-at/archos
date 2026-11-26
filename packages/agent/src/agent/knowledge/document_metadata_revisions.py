@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 
 from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import TABLE_NAME
-from agent.knowledge.document_metadata_constants import logger
 from agent.knowledge.document_metadata_constants import DocumentRef
+from agent.knowledge.document_metadata_constants import logger
 from agent.knowledge.document_metadata_helpers import LinkOutcome
 from agent.knowledge.document_metadata_helpers import _link_lock_key
 from agent.knowledge.document_metadata_helpers import _LinkRow
@@ -44,8 +44,8 @@ def set_superseded_by(
             result = conn.execute(
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
-                    f"UPDATE {TABLE_NAME} SET superseded_by = :newer, superseded_by_id = :newer_id{_stamp(document_id)} "
-                    f"WHERE collection = :collection AND {where}"
+                    f"UPDATE {TABLE_NAME} SET superseded_by = :newer, "
+                    f"superseded_by_id = :newer_id{_stamp(document_id)} WHERE collection = :collection AND {where}"
                 ),
                 {"newer": newer or None, "newer_id": (newer_id or None) if newer else None, "collection": collection}
                 | keyed,
@@ -194,13 +194,14 @@ def _write_link(
         superseded_by_id=linked_id,
     )
     previous = rows.get(older_row.superseded_by or "")
-    if (
-        previous is not None
-        and older_row.superseded_by != newer
-        and previous.change_basis == older_row.file_name
-    ):
+    if previous is not None and older_row.superseded_by != newer and previous.change_basis == older_row.file_name:
         _set_columns(
-            conn, collection, previous.file_name, document_id=previous.document_id, change_summary=None, change_basis=None
+            conn,
+            collection,
+            previous.file_name,
+            document_id=previous.document_id,
+            change_summary=None,
+            change_basis=None,
         )
     stored = store._decode_suggestion(own.revision_suggestion) if own is not None else None
     if (

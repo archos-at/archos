@@ -230,7 +230,7 @@ export async function describeBackendIngestState(
 export const readCollectionReadings = async (
   collectionName: string,
   refs: readonly CollectionFileRef[]
-): Promise<Map<string, ListedReading> | null> => {
+): Promise<Map<CollectionFileRef, ListedReading> | null> => {
   const files = await loadCollectionFilesFresh(collectionName)
   if (!files || files.readingUnavailable) return null
   return readingsIn(files, collectionName, refs)

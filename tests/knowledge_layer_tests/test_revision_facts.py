@@ -368,7 +368,9 @@ class TestSuggestionByNumber:
         from agent import knowledge
 
         calls = []
-        monkeypatch.setattr(knowledge, "set_document_revision_suggestion", lambda *args: calls.append(args) or True)
+        monkeypatch.setattr(
+            knowledge, "set_document_revision_suggestion", lambda *args, document_id=None: calls.append(args) or True
+        )
         return calls
 
     def test_a_candidate_with_the_same_number_is_found_though_the_names_share_nothing(self, job_store, stored):

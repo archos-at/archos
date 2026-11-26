@@ -109,6 +109,7 @@ def test_a_failed_dossier_keeps_the_old_summary_and_the_references(tmp_path, rea
 def test_the_predecessor_is_the_re_uploaded_name_else_the_linked_version():
     from types import SimpleNamespace
 
+    from knowledge_layer.ingest import _PreviousVersion
     from knowledge_layer.ingest import _predecessor_dossier
 
     rows = [
@@ -116,7 +117,21 @@ def test_the_predecessor_is_the_re_uploaded_name_else_the_linked_version():
         SimpleNamespace(file_name="EP-05.pdf", dossier={"facts": [{"key": "units", "value": "12"}]}),
         SimpleNamespace(file_name="Foto.jpg", dossier=None),
     ]
-    assert _predecessor_dossier(rows, ["EP-05.pdf"], None)[0] == "EP-05.pdf"
-    assert _predecessor_dossier(rows, [], "EP-05_Index-B.pdf")[0] == "EP-05_Index-B.pdf"
-    assert _predecessor_dossier(rows, [], "Foto.jpg") is None
-    assert _predecessor_dossier(rows, [], None) is None
+    assert _predecessor_dossier(rows, _PreviousVersion(stored_names=["EP-05.pdf"]), None)[0] == "EP-05.pdf"
+    assert _predecessor_dossier(rows, None, "EP-05_Index-B.pdf")[0] == "EP-05_Index-B.pdf"
+    assert _predecessor_dossier(rows, None, "Foto.jpg") is None
+    assert _predecessor_dossier(rows, None, None) is None
+
+
+def test_the_predecessor_of_a_document_is_its_own_row_never_a_namesake():
+    from types import SimpleNamespace
+
+    from knowledge_layer.ingest import _PreviousVersion
+    from knowledge_layer.ingest import _predecessor_dossier
+
+    rows = [
+        SimpleNamespace(file_name="Plan.pdf", document_id="doc-other", dossier={"facts": [{"key": "other"}]}),
+        SimpleNamespace(file_name="Plan.pdf", document_id="doc-own", dossier={"facts": [{"key": "own"}]}),
+    ]
+    previous = _PreviousVersion(stored_names=["Plan.pdf"], document_id="doc-own")
+    assert _predecessor_dossier(rows, previous, None) == ("Plan.pdf", {"facts": [{"key": "own"}]})

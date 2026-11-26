@@ -19,6 +19,8 @@ import { hasHeader } from '@/lib/http/legacy-header-names'
 import { isPersonalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 
+type DocumentFileTarget = { readonly documentId: string } | { readonly filename: string }
+
 const querySchema = z
   .object({
     collection: z.string().min(1),
@@ -29,8 +31,8 @@ const querySchema = z
     calibrationsPage: z.coerce.number().int().min(1).optional(),
   })
   .transform(({ documentId, filename, ...rest }, ctx) => {
-    if (documentId) return { ...rest, target: { documentId } }
-    if (filename) return { ...rest, target: { filename } }
+    const target: DocumentFileTarget | null = documentId ? { documentId } : filename ? { filename } : null
+    if (target) return { ...rest, target }
     ctx.addIssue({ code: 'custom', message: 'name the document by documentId, or by filename' })
     return z.NEVER
   })

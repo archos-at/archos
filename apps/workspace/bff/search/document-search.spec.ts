@@ -100,6 +100,7 @@ const row = (overrides: Partial<DocumentSearchRow> = {}): DocumentSearchRow => (
   author: null,
   matchedName: false,
   matchedReading: true,
+  matchedContentKey: true,
   ...overrides,
 })
 
@@ -228,7 +229,7 @@ describe('runSearch', () => {
       { file_name: 'bericht.pdf', collection: 'proj_a', snippet: 'of a person', page_number: 1, score: 0.8, rank: 1 },
     ])
     repository.searchDocumentPage.mockResolvedValue({
-      rows: [row(), row({ id: 'm1', filename: 'bericht.pdf', authoredBy: 'agent' })],
+      rows: [row(), row({ id: 'm1', filename: 'bericht.pdf', authoredBy: 'agent', matchedContentKey: false })],
       total: 2,
     })
 
@@ -239,6 +240,41 @@ describe('runSearch', () => {
       contentKeys: ['', 'proj_a\u001fbericht.pdf'],
       contentIds: ['other', ''],
     })
+  })
+
+  it('hands a passage without a document id to neither of two same-named documents the name alone cannot tell apart', async () => {
+    vi.mocked(fetchGroupedSemanticHits).mockResolvedValue([
+      { file_name: 'Plan.pdf', collection: 'proj_a', snippet: 'Brandabschnitt', page_number: 2, score: 0.9, rank: 0 },
+    ])
+    repository.searchDocumentPage.mockResolvedValue({
+      rows: [
+        row({ id: 'entwurf', filename: 'Plan.pdf', folderId: 'f-entwurf', matchedContentKey: false }),
+        row({ id: 'einreichung', filename: 'Plan.pdf', folderId: 'f-einreichung', matchedContentKey: false }),
+      ],
+      total: 2,
+    })
+
+    const answer = await runSearch(session, {}, { text: 'Brandabschnitt', kinds: ['document'] })
+
+    expect(answer.sections.document?.hits.map((hit) => hit.passage)).toEqual([null, null])
+  })
+
+  it('hands each of two same-named documents the passage its own id names', async () => {
+    vi.mocked(fetchGroupedSemanticHits).mockResolvedValue([
+      { file_name: 'Plan.pdf', collection: 'proj_a', snippet: 'Entwurf', page_number: 1, score: 0.9, rank: 0, document_id: 'entwurf' },
+      { file_name: 'Plan.pdf', collection: 'proj_a', snippet: 'Einreichung', page_number: 4, score: 0.8, rank: 1, document_id: 'einreichung' },
+    ])
+    repository.searchDocumentPage.mockResolvedValue({
+      rows: [row({ id: 'einreichung', filename: 'Plan.pdf' }), row({ id: 'entwurf', filename: 'Plan.pdf' })],
+      total: 2,
+    })
+
+    const answer = await runSearch(session, {}, { text: 'Plan', kinds: ['document'] })
+
+    expect(answer.sections.document?.hits.map((hit) => [hit.id, hit.passage?.text])).toEqual([
+      ['einreichung', 'Einreichung'],
+      ['entwurf', 'Entwurf'],
+    ])
   })
 
   it('cuts every kind to the projects a projectIds filter names, and leaves the office shelf out', async () => {

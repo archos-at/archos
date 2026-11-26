@@ -38,6 +38,23 @@ class ResolvedDocument:
     file_name: str
     source: DocumentSource
     folder_path: str
+    document_id: str | None = None
+    display_title: str = ""
+
+    @property
+    def path(self) -> str:
+        return f"{self.folder_path}/{self.file_name}" if self.folder_path else self.file_name
+
+    def holds(self, name: str) -> bool:
+        return _name_match_key(name) in {_name_match_key(self.file_name), _name_match_key(self.display_title)}
+
+    def shown(self) -> str:
+        where = f"in „{self.folder_path}“" if self.folder_path else "at the top level"
+        return f"`{self.file_name}` {where}" + (f" (document id {self.document_id})" if self.document_id else "")
+
+
+def _name_match_key(name: str) -> str:
+    return unicodedata.normalize("NFC", name or "").strip().lower()
 
 
 def _rows() -> list[ResolvedDocument]:
@@ -51,14 +68,20 @@ def _rows() -> list[ResolvedDocument]:
             ResolvedDocument(
                 file_name=file_name,
                 source=source,
-                folder_path=_nfc(str(_attr(row, "folder_path") or "")),
+                folder_path=_nfc(str(_attr(row, "folder_path") or "")).strip("/"),
+                document_id=str(_attr(row, "document_id") or "").strip() or None,
+                display_title=_nfc(str(_attr(row, "display_title") or "")),
             )
         )
     return out
 
 
 def _named(candidates: list[ResolvedDocument]) -> str:
-    shown = [f"`{doc.file_name}`" for doc in candidates[:_MAX_NAMED_CANDIDATES]]
+    names = [_key(doc.file_name) for doc in candidates]
+    shown = [
+        doc.shown() if names.count(_key(doc.file_name)) > 1 else f"`{doc.file_name}`"
+        for doc in candidates[:_MAX_NAMED_CANDIDATES]
+    ]
     rest = len(candidates) - len(shown)
     return ", ".join(shown) + (f" (und {rest} weitere)" if rest > 0 else "")
 
@@ -76,6 +99,8 @@ def resolve_document(name: str) -> ResolvedDocument | Refusal:
         )
 
     for candidates in (
+        [doc for doc in rows if doc.document_id and doc.document_id == name.strip()],
+        [doc for doc in rows if "/" in wanted and _key(doc.path) == wanted.strip("/")],
         [doc for doc in rows if _key(doc.file_name) == wanted],
         [doc for doc in rows if _key(doc.file_name.rsplit(".", 1)[0]) == wanted],
         [doc for doc in rows if wanted in _key(doc.file_name)],
@@ -84,14 +109,20 @@ def resolve_document(name: str) -> ResolvedDocument | Refusal:
             return candidates[0]
         if len(candidates) > 1:
             return Refusal(
-                f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask the user which file "
-                "is meant, and call the tool again with the exact file name."
+                f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask the user which file is meant, and "
+                "call the tool again with the exact file name, or with its folder path (Ordner/Name) or document "
+                "id when two share a name."
             )
 
     return Refusal(
         f"Not found: „{_nfc(name)}“ is not in this conversation's file overview. Give the "
         "exact file name from the overview or ask the user for it — do not guess."
     )
+
+
+def documents_in(folder_path: str, source: DocumentSource) -> list[ResolvedDocument]:
+    wanted = _key(folder_path).strip("/")
+    return [doc for doc in _rows() if doc.source == source and _key(doc.folder_path) == wanted]
 
 
 def known_folders() -> list[str]:

@@ -93,6 +93,23 @@ class TestDocumentIdentity:
     def test_identity_is_collection_and_name(self):
         assert document_identity(_doc("a.pdf", collection="proj_1")) == ("proj_1", "a.pdf")
 
+    def test_two_documents_of_one_name_in_one_collection_are_two_documents(self):
+        bestand, entwurf = (
+            AvailableDocument(
+                file_name="Plan.pdf", collection="proj_1", shelf="project", folder_path=folder, document_id=i
+            )
+            for folder, i in (
+                ("Bestand", "aaaaaaaa-0000-4000-8000-00000000000a"),
+                ("Entwurf", "bbbbbbbb-0000-4000-8000-00000000000b"),
+            )
+        )
+
+        kept = allocate_inventory([bestand, entwurf], None)
+
+        assert kept == [bestand, entwurf]
+        rendered = render_inventory_block(kept)
+        assert "(Ordner: Bestand)" in rendered and "(Ordner: Entwurf)" in rendered
+
 
 class TestAllocateInventory:
     def test_same_filename_on_two_collections_is_kept_twice(self):

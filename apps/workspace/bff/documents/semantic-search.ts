@@ -9,7 +9,8 @@ import { NotFoundError, UpstreamError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Project } from '@/lib/db/schema/projects'
 import { toListedDocuments, type ListedDocument } from './shelf-listing'
-import { findProjectDocumentsByFilenames } from './repository'
+import { findProjectDocumentsByFilenames, findProjectDocumentsByIds } from './repository'
+import { hitDocumentId } from './legacy-search-hit'
 import { SCREENED_ONLY } from './document-reader'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { BACKEND_FETCH_TIMEOUT_MS } from './ingest-dispatch'
@@ -114,21 +115,29 @@ function collectionFileKey(collectionName: string, filename: string): string {
 }
 
 export function joinHitsToFiles<
-  T extends { filename: string; collectionName: string; createdAt: Date | string; authoredBy: string },
+  T extends { id: string; filename: string; collectionName: string; authoredBy: string },
 >(hits: BackendSearchHit[], files: T[]): Array<SearchedDocument<T>> {
-  const byName = new Map<string, T>()
+  const byId = new Map<string, T>()
+  const byName = new Map<string, T[]>()
   for (const file of files) {
     if (file.authoredBy !== 'user') continue
+    byId.set(file.id, file)
     const key = collectionFileKey(file.collectionName, file.filename)
-    const existing = byName.get(key)
-    if (!existing || new Date(file.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
-      byName.set(key, file)
+    byName.set(key, [...(byName.get(key) ?? []), file])
+  }
+  const fileOf = (hit: BackendSearchHit): T | undefined => {
+    const id = hitDocumentId(hit)
+    if (id) {
+      const file = byId.get(id)
+      return file && file.collectionName === hit.collection ? file : undefined
     }
+    const named = byName.get(collectionFileKey(hit.collection, hit.file_name)) ?? []
+    return named.length === 1 ? named[0] : undefined
   }
 
   const matched: Array<SearchedDocument<T>> = []
   for (const hit of hits) {
-    const file = byName.get(collectionFileKey(hit.collection, hit.file_name))
+    const file = fileOf(hit)
     if (!file) continue
     matched.push({
       ...file,
@@ -139,6 +148,20 @@ export function joinHitsToFiles<
     })
   }
   return matched
+}
+
+export async function findHitDocuments<T extends { id: string }>(
+  hits: readonly BackendSearchHit[],
+  byIds: (ids: readonly string[]) => Promise<T[]>,
+  byNames: (names: readonly string[]) => Promise<T[]>
+): Promise<T[]> {
+  const ids = [...new Set(hits.flatMap((hit) => hitDocumentId(hit) ?? []))]
+  const names = [...new Set(hits.filter((hit) => !hitDocumentId(hit)).map((hit) => hit.file_name))]
+  const [identified, named] = await Promise.all([
+    ids.length > 0 ? byIds(ids) : Promise.resolve([]),
+    names.length > 0 ? byNames(names) : Promise.resolve([]),
+  ])
+  return [...new Map([...identified, ...named].map((row) => [row.id, row])).values()]
 }
 
 export interface ProjectSearchOptions {
@@ -172,11 +195,9 @@ export async function hydrateProjectHits(
   if (own.length === 0) return []
   const projectId = plan.project.id
   const reader = options.forModel ? SCREENED_ONLY : await shelfReaderFor(session, { scope: 'project', projectId })
-  const rows = await findProjectDocumentsByFilenames(
-    projectId,
-    session.organizationId,
-    own.map((hit) => hit.file_name),
-    { hiddenFolderIds: [...plan.access.hiddenFolderIds], reader }
+  const rows = await findHitDocuments(own, (ids) =>
+    findProjectDocumentsByIds(projectId, session.organizationId, ids, { hiddenFolderIds: [...plan.access.hiddenFolderIds], reader }),
+    (names) => findProjectDocumentsByFilenames(projectId, session.organizationId, names, { hiddenFolderIds: [...plan.access.hiddenFolderIds], reader })
   )
   const joined = joinHitsToFiles(own, await toListedDocuments(session, rows, reader))
   return options.forModel ? joined.filter((row) => !row.revision?.supersededBy) : joined

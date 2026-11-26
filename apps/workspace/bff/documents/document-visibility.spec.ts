@@ -22,9 +22,9 @@ const SEES_EVERY_ROW: Record<string, string> = {
     "The settle push: the in-flight rows of jobs the worker says ended, held by definition, each reconciled in its own organization. Nothing to a person; the route answers a count.",
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':
     'Sweep: the failed-ingestion rescan re-dispatches each id through `reingestDocument`. Ids only, to a job.',
-  'lib/platform/vector-reconcile.ts#liveFilenamesByCollection':
-    'Sweep: which filenames still have a row, so chunks of deleted documents are purged. A held row is not deleted.',
-  'lib/platform/vector-reconcile.ts#liveFilenamesIn':
+  'lib/platform/vector-reconcile.ts#liveDocumentsByCollection':
+    'Sweep: which document ids and filenames still have a row, so chunks of deleted documents are purged. A held row is not deleted.',
+  'lib/platform/vector-reconcile.ts#liveDocumentsIn':
     "The same sweep's second look at one collection right before its delete, so a document filed since the snapshot keeps its chunks. A held row is not deleted either.",
   'lib/session-documents/repository.ts#listSessionDocumentsForCleanup':
     "Discarding a chat erases every attachment's objects, held ones first among them.",
@@ -33,6 +33,8 @@ const SEES_EVERY_ROW: Record<string, string> = {
     "Sweep: the search projection's backstop walks a shelf's ids to rewrite their derived rows (ADR-0136). Ids to a job; every search joins the rows under the reader's predicate.",
   'lib/search/facets-repository.ts#listCollectionDocumentsForProjection':
     "The search projection: the ids of the documents a settled Fassung replaces, by id or file name, so their derived rows say so (ADR-0136). Ids to the projector; every search joins the rows under the reader's predicate.",
+  'lib/search/document-repository.ts#nameSharedInCollection':
+    "Whether another uploaded document in the collection carries a search hit's file name, so a passage the index stored without a document id is handed to neither: an existence check over every row, held ones included, that returns nothing.",
   'lib/search/facets-repository.ts#shelfSourceFingerprints':
     "Staleness probe: a count and newest change per shelf, compared with the projection's last sync. Numbers to a job, nothing to a person.",
 

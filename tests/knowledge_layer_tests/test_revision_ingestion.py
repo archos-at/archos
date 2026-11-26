@@ -145,7 +145,9 @@ class TestSuggestRevision:
         from agent import knowledge
 
         calls = []
-        monkeypatch.setattr(knowledge, "set_document_revision_suggestion", lambda *args: calls.append(args) or True)
+        monkeypatch.setattr(
+            knowledge, "set_document_revision_suggestion", lambda *args, document_id=None: calls.append(args) or True
+        )
         return calls
 
     def test_the_verdict_is_stored_as_a_suggestion_with_its_basis(self, job_store, stored):

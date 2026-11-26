@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import _INDEX_NAME
-from agent.knowledge.document_metadata_constants import _LEGACY_RETAINED_COLUMNS
 from agent.knowledge.document_metadata_constants import _LEGACY_INDEX_NAME
+from agent.knowledge.document_metadata_constants import _LEGACY_RETAINED_COLUMNS
 from agent.knowledge.document_metadata_constants import _OPTIONAL_COLUMN_TYPES
 from agent.knowledge.document_metadata_constants import _OPTIONAL_COLUMNS
 from agent.knowledge.document_metadata_constants import DOCUMENT_ID_INDEXES
@@ -212,7 +212,9 @@ def _rebuild_without_primary_key(conn, table: str) -> None:
         f"DROP TABLE {table}",
         f"ALTER TABLE {rebuilt} RENAME TO {table}",
     ):
-        conn.execute(text(statement))  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(
+            text(statement)
+        )  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     logger.info("Re-keyed '%s' by document id: the (collection, filename) primary key is gone", table)
 
 

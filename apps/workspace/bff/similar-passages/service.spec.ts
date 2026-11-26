@@ -43,6 +43,7 @@ vi.mock('@/lib/documents/access', () => ({
 }))
 vi.mock('@/lib/projects/service', () => ({ listChatProjects: vi.fn(async () => state.reach) }))
 vi.mock('@/lib/office-shelf/repository', () => ({ findOfficeShelfDocumentsByFilenames: vi.fn(async () => []) }))
+vi.mock('@/lib/documents/repository', () => ({ findDocumentsByIds: vi.fn(async () => []) }))
 vi.mock('@/lib/documents/shelf-listing', () => ({ toListedDocuments: vi.fn(async () => []) }))
 vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/documents/semantic-search')>()
@@ -50,6 +51,7 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
     BACKEND_SEARCH_MAX_COLLECTIONS: actual.BACKEND_SEARCH_MAX_COLLECTIONS,
     projectsWithinCollectionCap: actual.projectsWithinCollectionCap,
     joinHitsToFiles: actual.joinHitsToFiles,
+    findHitDocuments: actual.findHitDocuments,
     planProjectSearch: vi.fn(async (_session: unknown, projectId: string) => {
       const project = state.reach.find((one) => one.id === projectId)
       if (!project) throw new Error('not found')
@@ -65,6 +67,9 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
 
 import { ServiceUnavailableError } from '@/lib/api/errors'
 import { findOfficeShelfDocumentsByFilenames } from '@/lib/office-shelf/repository'
+import { findDocumentsByIds } from '@/lib/documents/repository'
+import { toListedDocuments } from '@/lib/documents/shelf-listing'
+import type { ListedDocument } from '@/lib/documents/shelf-listing'
 import { BACKEND_SEARCH_MAX_COLLECTIONS, hydrateProjectHits } from '@/lib/documents/semantic-search'
 import { findSimilarPassages, foldDocuments } from './service'
 
@@ -186,6 +191,45 @@ describe('a failed join to the documents', () => {
     vi.mocked(findOfficeShelfDocumentsByFilenames).mockRejectedValueOnce(new Error('connection terminated'))
 
     await expect(findSimilarPassages(session, request)).rejects.toBeInstanceOf(ServiceUnavailableError)
+  })
+})
+
+describe('a Bürobibliothek hit that names its document by id', () => {
+  const ENTWURF_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+  const EINREICHUNG_ID = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+  const listed = (id: string) =>
+    ({ id, filename: 'Musterdetail.pdf', collectionName: 'archiv_org_1', authoredBy: 'user', displayName: null, contentType: 'application/pdf', revisionFacts: null, revision: null }) as unknown as ListedDocument
+
+  it('joins the passages to the document the id names, not to a same-named one in another folder', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              documents: [
+                {
+                  collection: 'archiv_org_1',
+                  file_name: 'Musterdetail.pdf',
+                  document_id: EINREICHUNG_ID,
+                  passages: [{ chunk_id: 'c1', snippet: 'Attika', page_number: 2, score: 0.9 }],
+                },
+              ],
+              origin: 'point',
+            }),
+            { status: 200 }
+          )
+      )
+    )
+    vi.mocked(findDocumentsByIds).mockImplementation(async (_shelf, _organizationId, ids) => ids.map((id) => ({ id }) as never))
+    vi.mocked(toListedDocuments).mockImplementation(async (_session, rows) => rows.map((row) => listed(row.id)))
+
+    const response = await findSimilarPassages(session, request)
+
+    expect(findDocumentsByIds).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org_1', [EINREICHUNG_ID], { reader: { kind: 'screened-only' } })
+    expect(findOfficeShelfDocumentsByFilenames).not.toHaveBeenCalled()
+    expect(JSON.stringify(response)).toContain(EINREICHUNG_ID)
+    expect(JSON.stringify(response)).not.toContain(ENTWURF_ID)
   })
 })
 

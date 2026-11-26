@@ -99,7 +99,7 @@ async function undoBin(
 ): Promise<void> {
   try {
     if (moved) {
-      const back = await moveDocumentToFolder({ documentId, folderId, expectedFolderId: holderId }, session)
+      const back = await moveDocumentToFolder({ documentId, folderId, expectedFolderId: holderId, onConflict: 'keep_both' }, session)
       if (!back.ok) throw new Error(back.error)
     }
     if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holderId)) {
@@ -134,7 +134,10 @@ export async function restoreDocumentFromBin(
 
   const { restoredTo } = await restoreFolderFromBin(session, { shelf, folderId: holder.id }, request)
   const target = restoredTo === 'root' ? null : holder.parentId
-  const back = await moveDocumentToFolder({ documentId, folderId: target, expectedFolderId: holder.id }, session)
+  const back = await moveDocumentToFolder(
+    { documentId, folderId: target, expectedFolderId: holder.id, onConflict: 'keep_both' },
+    session
+  )
   if (!back.ok) throw new BadRequestError(back.error)
   if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holder.id)) {
     publishShelfChanged(session.organizationId, shelf, { folders: true })

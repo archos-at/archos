@@ -2,17 +2,25 @@ import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { moveDocumentSchema } from '@/lib/documents/document-wire'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
+import { NameConflictError, nameConflictResolutionSchema } from '@/lib/documents/name-conflict'
 import { assertMoveKeepsOutOfStandards } from '@/lib/office-shelf/service'
 
 type Params = { id: string }
 
+const moveRequestSchema = moveDocumentSchema.extend({ onConflict: nameConflictResolutionSchema.optional() })
+
 export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
-    const { folderId } = await parseJsonBody(request, moveDocumentSchema)
+    const { folderId, onConflict } = await parseJsonBody(request, moveRequestSchema)
     await assertMoveKeepsOutOfStandards(session, params.id, folderId)
-    const result = await moveDocumentToFolder({ documentId: params.id, folderId }, session)
-    if (!result.ok) throw new BadRequestError(result.error)
-    return { ...result.document, pending: result.pending ?? false }
+    const result = await moveDocumentToFolder({ documentId: params.id, folderId, onConflict }, session, { request })
+    if (!result.ok) throw result.conflict ? new NameConflictError(result.conflict) : new BadRequestError(result.error)
+    return {
+      ...result.document,
+      pending: result.pending ?? false,
+      ...(result.skipped ? { skipped: true } : {}),
+      ...(result.replacedInto ? { replacedInto: result.replacedInto } : {}),
+    }
   },
   {
     authz: {

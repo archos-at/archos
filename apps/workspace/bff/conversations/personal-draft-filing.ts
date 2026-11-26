@@ -7,7 +7,8 @@ import { renderAgentDocumentMarkdown } from '@/lib/documents/agent-document-mark
 import { AGENT_FILE_PRODUCER } from '@/lib/documents/agent-file'
 import { resolveDocumentBranding } from '@/lib/documents/branding'
 import { memberReader } from '@/lib/documents/document-reader'
-import { documentNameKey } from '@/lib/documents/name-match'
+import { documentNameMatchKey } from '@/lib/documents/name-match'
+import type { DocumentNameMatchRow } from '@/lib/documents/repository'
 import { generatedDocumentMarking, generatedDocumentProvenance } from '@/lib/documents/generated'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { findShelfFolder } from '@/lib/documents/shelf-folders'
@@ -54,11 +55,16 @@ function withSuffix(filename: string, n: number): string {
   return dot > 0 ? `${filename.slice(0, dot)} (${n})${filename.slice(dot)}` : `${filename} (${n})`
 }
 
-async function freeName(session: AuthorizedSession, filename: string): Promise<string> {
+async function namesInFolder(session: AuthorizedSession, names: readonly string[], folderId: string | null): Promise<DocumentNameMatchRow[]> {
+  const rows = await probePersonalShelfDocumentNames(session, names)
+  return rows.filter((row) => (row.folderId ?? null) === folderId)
+}
+
+async function freeName(session: AuthorizedSession, filename: string, folderId: string | null): Promise<string> {
   const candidates = [filename, ...Array.from({ length: 20 }, (_, i) => withSuffix(filename, i + 2))]
-  const taken = await probePersonalShelfDocumentNames(session, candidates)
-  const takenKeys = new Set(taken.map((row) => documentNameKey(row.filename)))
-  const free = candidates.find((name) => !takenKeys.has(documentNameKey(name)))
+  const taken = await namesInFolder(session, candidates, folderId)
+  const takenKeys = new Set(taken.flatMap((row) => [row.filename, ...(row.displayName ? [row.displayName] : [])]).map(documentNameMatchKey))
+  const free = candidates.find((name) => !takenKeys.has(documentNameMatchKey(name)))
   if (!free) throw new ConflictError('Too many files with this name are already in Meine Ablage', { reason: 'name-exhausted' })
   return free
 }
@@ -126,11 +132,11 @@ export async function fileDraftToPersonalShelf(
 
   const extension = filedExtension(context.type)
   const wanted = filingName(input.name ?? (input.title?.trim() || draftFileName(context.path)), extension)
-  const filename = previous ? previous.filename : input.force ? await freeName(session, wanted) : wanted
+  const filename = previous ? previous.filename : input.force ? await freeName(session, wanted, folderId) : wanted
   if (!previous && !input.force) {
-    const [clash] = await probePersonalShelfDocumentNames(session, [filename])
+    const [clash] = await namesInFolder(session, [filename], folderId)
     if (clash) {
-      throw new ConflictError('A file with this name is already in Meine Ablage', {
+      throw new ConflictError('A file with this name is already in this folder of Meine Ablage', {
         reason: 'same-name',
         documentId: clash.id,
         displayName: clash.filename,

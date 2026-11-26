@@ -113,8 +113,8 @@ export function useDocumentMoves(
       inFlight.current += 1
       try {
         const response = await patchFolder(documentId, folderId)
-        const conflict = await nameConflictOfResponse(response)
-        if (conflict && askConflicts) {
+        const conflict = askConflicts ? await nameConflictOfResponse(response) : null
+        if (conflict) {
           moved(documentId, previousFolderId)
           seen.current.set(documentId, file)
           const choice = (await askAbout([{ file, conflict }], folderId)).get(documentId)
@@ -175,8 +175,8 @@ export function useDocumentMoves(
                 continue
               }
               restore()
-              const conflict = choice ? null : await nameConflictOfResponse(response)
-              if (conflict && askConflicts) held.push({ file, conflict })
+              const conflict = askConflicts && !choice ? await nameConflictOfResponse(response) : null
+              if (conflict) held.push({ file, conflict })
               else if ((await shelfRefusalOf(response)) === 'ifcRestricted') outcome.refused += 1
             } catch {
               restore()

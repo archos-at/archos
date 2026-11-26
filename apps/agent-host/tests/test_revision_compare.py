@@ -79,16 +79,18 @@ def licence(monkeypatch):
 def pages(monkeypatch):
     unavailable: set[str] = set()
     asked: list[tuple[str, str, int, str | None]] = []
+    ids: list[str | None] = []
     salt = uuid.uuid4().hex
 
-    async def load(collection, file_name, page, organization_id):
+    async def load(collection, file_name, page, organization_id, document_id=None):
         asked.append((collection, file_name, page, organization_id))
+        ids.append(document_id)
         if file_name in unavailable:
             raise PageImageUnavailable("not_stored")
         return PageImage(jpeg=f"{salt}|{file_name}|{page}".encode(), width=100, height=50)
 
     monkeypatch.setattr(route, "_load_page", load)
-    return MagicMock(unavailable=unavailable, asked=asked)
+    return MagicMock(unavailable=unavailable, asked=asked, ids=ids)
 
 
 @pytest.fixture
@@ -337,7 +339,9 @@ class TestChangedPages:
             OLDER: [("Grundriss EG\nWand 2,50 m", {"page_label": "1"}), ("Schnitt\nREI 90", {"page_label": "2"})],
             NEWER: [("Grundriss EG\nWand 2,50 m", {"page_label": "1"}), ("Schnitt\nREI 60", {"page_label": "2"})],
         }
-        monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", lambda collection, name: chunks.get(name))
+        monkeypatch.setattr(
+            "agent.knowledge.collection_pages.read_chunks", lambda collection, name, document_id=None: chunks.get(name)
+        )
         return chunks
 
     async def _pages(self, body=None, gateway=None):
@@ -375,7 +379,7 @@ class TestChangedPages:
 
         offices: list[object] = []
 
-        def read(collection, name):
+        def read(collection, name, document_id=None):
             offices.append(office_read(collection))  # the real refusal, had no office been named
 
         monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", read)
@@ -390,7 +394,7 @@ class TestChangedPages:
         assert len(offices) == 2 and all(offices)
 
     async def test_an_index_outage_is_a_503_never_nothing_changed(self, ingested, monkeypatch):
-        def down(collection, name):
+        def down(collection, name, document_id=None):
             raise ConnectionError("qdrant down")
 
         monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", down)

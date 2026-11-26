@@ -1,13 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sent = vi.hoisted(() => ({ bodies: [] as FormData[] }))
-vi.mock('@/lib/http/xhr-upload', () => ({
-  XhrUploadError: class extends Error {},
-  xhrUpload: vi.fn(async ({ body }: { body: FormData }) => {
-    sent.bodies.push(body)
-    return JSON.stringify({ documentId: 'doc-1', status: 'stored' })
-  }),
-}))
+const sent = vi.hoisted(() => ({ bodies: [] as FormData[], refusal: null as null | { status: number; body: unknown } }))
+vi.mock('@/lib/http/xhr-upload', () => {
+  class XhrUploadError extends Error {
+    constructor(
+      message: string,
+      readonly status: number,
+      readonly responseText: string
+    ) {
+      super(message)
+    }
+  }
+  return {
+    XhrUploadError,
+    XhrNetworkError: class extends Error {},
+    xhrUpload: vi.fn(async ({ body }: { body: FormData }) => {
+      sent.bodies.push(body)
+      if (sent.refusal) throw new XhrUploadError('refused', sent.refusal.status, JSON.stringify(sent.refusal.body))
+      return JSON.stringify({ documentId: 'doc-1', status: 'stored' })
+    }),
+  }
+})
 
 import type { TrackedFile } from '../types'
 import { uploadTrackedFile, type UploadTrackedFileContext } from './upload-tracked-file'
@@ -24,11 +37,13 @@ function context(shelf: UploadTrackedFileContext['shelf'], asNorm?: boolean): Up
     batchId: null,
     resolvedFolderId: () => null,
     revisionOfFile: () => null,
+    onConflictOf: () => null,
+    asksAboutConflicts: false,
     ...(asNorm === undefined ? {} : { asNorm }),
     screeningReleased: () => false,
     abortControllers: new Map(),
     failureCopy: {} as UploadTrackedFileContext['failureCopy'],
-    outcome: { unchangedCount: 0, uploadedTypes: [], serverStopped: [], heldReplaced: [] },
+    outcome: { unchangedCount: 0, uploadedTypes: [], serverStopped: [], heldReplaced: [], nameConflicts: [] },
     updateTrackedFile: vi.fn(),
     setUploadProgress: vi.fn(),
     removeRecentlyDeletedIds: vi.fn(),
@@ -41,6 +56,7 @@ const upload = (shelf: UploadTrackedFileContext['shelf'], asNorm?: boolean) =>
 
 beforeEach(() => {
   sent.bodies = []
+  sent.refusal = null
 })
 
 describe('the upload request', () => {
@@ -63,5 +79,41 @@ describe('an upload to Meine Ablage (ADR-0193)', () => {
     expect(sent.bodies[0].get('scope')).toBe('personal')
     expect(sent.bodies[0].get('projectId')).toBeNull()
     expect(sent.bodies[0].get('asNorm')).toBeNull()
+  })
+})
+
+describe('a name the target folder already holds', () => {
+  const conflict = {
+    reason: 'name_conflict',
+    name: 'Brandschutzkonzept.pdf',
+    folderId: 'f-1',
+    existingDocumentId: 'doc-held',
+    existingName: 'Brandschutzkonzept.pdf',
+    suggestedName: 'Brandschutzkonzept 2.pdf',
+  }
+
+  it('sends the answer the reader gave for it, and none on a shelf without folders', async () => {
+    const keepBoth = { ...context('project'), onConflictOf: () => 'keep_both' as const }
+    await uploadTrackedFile({ file, tracked: { id: 't-1' } as TrackedFile }, keepBoth)
+    await uploadTrackedFile({ file, tracked: { id: 't-2' } as TrackedFile }, { ...context('session'), onConflictOf: () => 'replace' as const })
+    await upload('project')
+    expect(sent.bodies.map((body) => body.get('onConflict'))).toEqual(['keep_both', null, null])
+  })
+
+  it('hands the refusal back to be asked about, when the caller asks, and drops the row', async () => {
+    sent.refusal = { status: 409, body: { error: 'taken', code: 'CONFLICT', details: conflict } }
+    const asking = { ...context('project'), asksAboutConflicts: true }
+    await uploadTrackedFile({ file, tracked: { id: 't-1' } as TrackedFile }, asking)
+
+    expect(asking.outcome.nameConflicts).toEqual([{ file, conflict }])
+    expect(asking.dismissTrackedFiles).toHaveBeenCalledWith(['t-1'])
+    expect(asking.updateTrackedFile).not.toHaveBeenCalledWith('t-1', expect.objectContaining({ status: 'failed' }))
+  })
+
+  it('fails the row in words, never as a silent replacement, when nobody can be asked', async () => {
+    sent.refusal = { status: 409, body: { error: 'taken', code: 'CONFLICT', details: conflict } }
+    const quiet = { ...context('project'), failureCopy: { nameConflict: (name: string) => `taken: ${name}` } as UploadTrackedFileContext['failureCopy'] }
+    await expect(uploadTrackedFile({ file, tracked: { id: 't-1' } as TrackedFile }, quiet)).rejects.toThrow('taken: Brandschutzkonzept.pdf')
+    expect(quiet.updateTrackedFile).toHaveBeenCalledWith('t-1', expect.objectContaining({ status: 'failed', retryable: false }))
   })
 })

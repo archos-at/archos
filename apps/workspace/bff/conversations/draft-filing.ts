@@ -15,7 +15,9 @@ import { readDraftFacts, type DraftFacts } from './draft-preview'
 import { draftFileName, draftFileType, filedExtension, type DraftFileType } from './draft-media'
 import { fileAgentFileDraft } from '@/lib/documents/agent-file'
 import { REFUSED_AGENT_FILE_TYPES } from '@/lib/documents/agent-file-types'
-import { findProjectFolder } from '@/lib/projects/folder-service'
+import { findProjectFolder, findRootProjectFolderByName } from '@/lib/projects/folder-service'
+import { GENERATED_DOCUMENT_FOLDER_NAME } from '@/lib/documents/generated-folder'
+import { documentNameMatchKey } from '@/lib/documents/name-match'
 import { fileDraftToPersonalShelf } from './personal-draft-filing'
 import type { FilingRelease } from './restricted-egress'
 import { filingReleaseOf } from './confidential-release'
@@ -59,11 +61,6 @@ export function filingReference(conversationId: string, path: string): string {
   return `${raw.slice(0, MAX_FILING_REF_CHARS - suffix.length)}${suffix}`
 }
 
-function sameTitle(a: string, b: string): boolean {
-  const key = (value: string): string => value.normalize('NFC').trim().toLowerCase()
-  return key(a) === key(b)
-}
-
 function fallbackTitle(path: string): string {
   const name = path.includes('/') ? path.slice(path.lastIndexOf('/') + 1) : path
   return name.trim() || 'Entwurf'
@@ -85,12 +82,24 @@ export function filingName(input: string, extension: string): string {
 
 type Destination = { kind: 'default' } | { kind: 'chosen'; folderId: string | null }
 
+async function destinationFolderId(
+  projectId: string,
+  organizationId: string,
+  destination: Destination,
+): Promise<string | null | undefined> {
+  if (destination.kind === 'chosen') return destination.folderId
+  return (await findRootProjectFolderByName(projectId, GENERATED_DOCUMENT_FOLDER_NAME, organizationId))?.id
+}
+
 async function findSameTitleDocument(
   projectId: string,
   organizationId: string,
   title: string,
   destination: Destination,
 ): Promise<DocumentListRow | null> {
+  const folderId = await destinationFolderId(projectId, organizationId, destination)
+  if (folderId === undefined) return null
+  const key = documentNameMatchKey(title)
   let offset = 0
   for (;;) {
     const rows = await listProjectDocuments(projectId, organizationId, {
@@ -98,11 +107,7 @@ async function findSameTitleDocument(
       offset,
       reader: SCREENED_ONLY,
     })
-    const clash = rows.find(
-      (row) =>
-        (destination.kind === 'default' || row.folderId === destination.folderId) &&
-        sameTitle(documentDisplayName(row), title),
-    )
+    const clash = rows.find((row) => (row.folderId ?? null) === folderId && documentNameMatchKey(documentDisplayName(row)) === key)
     if (clash) return clash
     if (rows.length < DOCUMENT_LIST_LIMIT) return null
     offset += rows.length
@@ -213,7 +218,7 @@ async function fileNew(
   if (!input.force) {
     const clash = await findSameTitleDocument(projectId, session.organizationId, title, destination)
     if (clash) {
-      throw new ConflictError('A document with this title is already in the project', {
+      throw new ConflictError('A document with this title is already in the folder it would be filed into', {
         reason: 'same-name',
         documentId: clash.id,
         displayName: documentDisplayName(clash),

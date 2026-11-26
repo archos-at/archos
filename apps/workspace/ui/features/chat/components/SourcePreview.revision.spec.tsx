@@ -35,6 +35,10 @@ const row = (id: string, filename: string, extra: Record<string, unknown> = {}) 
 let rows: Record<string, ReturnType<typeof row>> = {}
 
 const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+  if (String(input) === '/api/documents/by-id') {
+    const ids = (JSON.parse(String(init?.body)) as { ids: string[] }).ids
+    return Promise.resolve(jsonResponse({ documents: Object.values(rows).filter((each) => ids.includes(each.id)) }))
+  }
   if (String(input) === '/api/documents/by-name') {
     const names = (JSON.parse(String(init?.body)) as { names: string[] }).names
     return Promise.resolve(
@@ -44,8 +48,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
   return Promise.resolve(jsonResponse({ documents: [], files: [] }))
 })
 
-const refTo = (fileName: string): CitationRef => {
+const refTo = (fileName: string, storedDocumentId?: string): CitationRef => {
   const source: CitationSource = {
+    ...(storedDocumentId ? { storedDocumentId, documentId: `doc:id:${storedDocumentId}` } : {}),
     id: 'c-1',
     url: '',
     content: `[KB] ${fileName}, p.3`,
@@ -118,6 +123,21 @@ describe('a citation of an older revision', () => {
         projectId: 'project-1',
       })
     )
+  })
+
+  test('a citation that names its stored document is looked up by that id, never by its name', async () => {
+    rows = {
+      'plan.pdf': row('doc-bestand', 'Plan.pdf'),
+      entwurf: row('doc-entwurf', 'Plan.pdf', replaced),
+    }
+    const user = userEvent.setup()
+    render(<SourcePreviewChip citation={refTo('Plan.pdf', 'doc-entwurf')} />)
+    await user.hover(await screen.findByRole('button', { name: /Preview source/ }))
+
+    expect(await screen.findByText('Older revision. Current:')).toBeInTheDocument()
+    const asked = fetchMock.mock.calls.map(([input, init]) => [String(input), init?.body ? JSON.parse(String(init.body)) : null])
+    expect(asked).toContainEqual(['/api/documents/by-id', { projectId: 'project-1', ids: ['doc-entwurf'] }])
+    expect(asked.map(([path]) => path)).not.toContain('/api/documents/by-name')
   })
 
   test('a current revision that is gone says so and opens nothing', async () => {

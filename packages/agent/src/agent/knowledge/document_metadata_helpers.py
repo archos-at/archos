@@ -15,9 +15,7 @@ from agent.knowledge.page_count import page_number
 if TYPE_CHECKING:
     pass
 
-from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import _RETAINED_COLUMNS
-from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_constants import REFUSAL_REASON
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 
@@ -153,7 +151,9 @@ def _batch_match(filenames: Iterable[str], document_ids: Iterable[str] | None) -
 def _batch_bind(statement: Any, params: Mapping[str, Any]) -> Any:
     from sqlalchemy import bindparam
 
-    return statement.bindparams(*(bindparam(key, expanding=True) for key in ("filenames", "document_ids") if key in params))
+    return statement.bindparams(
+        *(bindparam(key, expanding=True) for key in ("filenames", "document_ids") if key in params)
+    )
 
 
 def _batch_keys(filename: str, document_id: str | None, names: set[str], ids: set[str]) -> list[str]:
@@ -229,7 +229,9 @@ def _with_refusal(stored: dict[str, Any] | None, older: str, older_id: str | Non
 
 
 def _person_made_facts(filename: str, stored: Mapping[str, Any]) -> dict[str, str | None] | None:
-    refusals = _merged_suggestion(facade.DocumentMetadataStore._decode_suggestion(stored["revision_suggestion"]), None)
+    from agent.knowledge.document_metadata_store import DocumentMetadataStore
+
+    refusals = _merged_suggestion(DocumentMetadataStore._decode_suggestion(stored["revision_suggestion"]), None)
     change_summary, change_basis = stored["change_summary"], stored["change_basis"]
     linked_change = bool(change_summary) and bool(change_basis) and change_basis != filename
     kept = {

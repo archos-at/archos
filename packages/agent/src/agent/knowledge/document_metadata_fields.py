@@ -10,19 +10,23 @@ if TYPE_CHECKING:
 
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
-from agent.knowledge.document_metadata_helpers import _current_doc_class
-from agent.knowledge.document_metadata_helpers import _decode_page_count
-from agent.knowledge.document_metadata_helpers import _encode_page_count
 from agent.knowledge.document_metadata_helpers import _batch_bind
 from agent.knowledge.document_metadata_helpers import _batch_keys
 from agent.knowledge.document_metadata_helpers import _batch_match
+from agent.knowledge.document_metadata_helpers import _current_doc_class
+from agent.knowledge.document_metadata_helpers import _decode_page_count
+from agent.knowledge.document_metadata_helpers import _encode_page_count
 from agent.knowledge.document_metadata_helpers import _escape_like
 from agent.knowledge.document_metadata_helpers import _match
 from agent.knowledge.document_metadata_helpers import _stamp
 
 
-def set_doc_class(store, collection: str, filename: str, doc_class: str | None, *, document_id: str | None = None) -> bool:
-    return store._update_column(collection, filename, "doc_class", _current_doc_class(doc_class), document_id=document_id)
+def set_doc_class(
+    store, collection: str, filename: str, doc_class: str | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(
+        collection, filename, "doc_class", _current_doc_class(doc_class), document_id=document_id
+    )
 
 
 def get_doc_class(store, collection: str, filename: str, *, document_id: str | None = None) -> str | None:

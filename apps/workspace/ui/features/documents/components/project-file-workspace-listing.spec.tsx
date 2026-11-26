@@ -442,7 +442,7 @@ describe('ProjectFileWorkspace — a folder larger than one page', () => {
   })
 
   it('continues a first-page seed from its cursor, and a dropped folder still knows the old file', async () => {
-    probeShelf = [newest, oldest]
+    probeShelf = [newest, { ...oldest, folderId: 'f-wohnbau' }]
     renderWorkspace(
       <ProjectFileWorkspace
         projectId="proj-1"
@@ -450,7 +450,7 @@ describe('ProjectFileWorkspace — a folder larger than one page', () => {
         collectionName="test-coll"
         initialFiles={[newest]}
         initialNextCursor="page-2"
-        initialFolders={[]}
+        initialFolders={[{ id: 'f-wohnbau', parentId: null, name: 'Wohnbau', path: 'Wohnbau' }]}
       />,
     )
     expect(await findFileButton(/Neu-Plan\.pdf/)).toBeInTheDocument()

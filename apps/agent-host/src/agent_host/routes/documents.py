@@ -3,7 +3,9 @@ import logging
 import os
 import tempfile
 from collections.abc import Callable
+from functools import partial
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -23,8 +25,12 @@ from ..models.requests import UploadResponse
 from .collections import _require_ingestor
 from .collections import require_collection
 from .document_edits import rewrite_folder_paths_route
+from .document_edits import update_document_display_title_by_id_route
 from .document_edits import update_document_display_title_route
+from .document_edits import update_document_file_name_by_id_route
+from .document_edits import update_document_folder_path_by_id_route
 from .document_edits import update_document_folder_path_route
+from .document_edits import update_document_tags_by_id_route
 from .document_edits import update_document_tags_route
 from .document_revisions import put_revision_route
 from .documents_jobs import _add_document_job_routes
@@ -198,20 +204,34 @@ async def list_documents(
     return files
 
 
+async def _visual_details(collection_name: str, http_request: Request, read: Callable[[], list[dict]]) -> dict:
+    from .internal_auth import read_as_internal_office
+
+    try:
+        return {"details": await read_as_internal_office(http_request, read)}
+    except Exception as e:
+        logger.warning("Failed to fetch visual details for a document in %s: %s", collection_name, e)
+        return {"details": []}
+
+
 async def get_document_visual_details_route(
     collection_name: str,
     file_name: str,
     http_request: Request,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict:
-    from .internal_auth import read_as_internal_office
+    read = partial(ingestor.get_document_visual_details, collection_name, file_name)
+    return await _visual_details(collection_name, http_request, read)
 
-    try:
-        visual = ingestor.get_document_visual_details
-        return {"details": await read_as_internal_office(http_request, visual, collection_name, file_name)}
-    except Exception as e:
-        logger.warning("Failed to fetch visual details for %s/%s: %s", collection_name, file_name, e)
-        return {"details": []}
+
+async def get_document_visual_details_by_id_route(
+    collection_name: str,
+    document_id: UUID,
+    http_request: Request,
+    ingestor: BaseIngestor = Depends(_require_ingestor),
+) -> dict:
+    read = partial(ingestor.get_document_visual_details, collection_name, "", document_id=str(document_id))
+    return await _visual_details(collection_name, http_request, read)
 
 
 async def delete_files(
@@ -257,6 +277,31 @@ async def delete_files(
         raise HTTPException(status_code=500, detail="Failed to delete files")
 
 
+def _add_document_by_id_routes(router: APIRouter) -> None:
+    by_id = "/v1/collections/{collection_name}/documents/by-id/{document_id}"
+    router.get(
+        f"{by_id}/visual-details",
+        tags=["documents"],
+        summary="Per-page VLM descriptions of one document's visual chunks, addressed by its id",
+    )(get_document_visual_details_by_id_route)
+    router.patch(
+        f"{by_id}/tags", tags=["documents"], summary="Replace one document's controlled tags, addressed by its id"
+    )(update_document_tags_by_id_route)
+    router.patch(
+        f"{by_id}/display-title",
+        tags=["documents"],
+        summary="Rename one document (user-facing display title), addressed by its id",
+    )(update_document_display_title_by_id_route)
+    router.patch(f"{by_id}/folder-path", tags=["documents"], summary="Re-file one document, addressed by its id")(
+        update_document_folder_path_by_id_route
+    )
+    router.patch(
+        f"{by_id}/file-name",
+        tags=["documents"],
+        summary="Rewrite one document's stored file name (both documents kept in one folder), addressed by its id",
+    )(update_document_file_name_by_id_route)
+
+
 def add_document_routes(router: APIRouter):
     router.post(
         "/v1/collections/{collection_name}/documents",
@@ -271,6 +316,7 @@ def add_document_routes(router: APIRouter):
         tags=["documents"],
         summary="List documents in a collection",
     )(list_documents)
+    _add_document_by_id_routes(router)
     router.get(
         "/v1/collections/{collection_name}/documents/{file_name}/visual-details",
         tags=["documents"],

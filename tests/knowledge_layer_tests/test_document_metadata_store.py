@@ -93,6 +93,8 @@ class TestAvailableDocument:
         data = doc.model_dump()
         assert data == {
             "file_name": "report.pdf",
+            "document_id": None,
+            "superseded_by_id": None,
             "summary": "Financial report.",
             "tags": None,
             "doc_class": None,
@@ -122,6 +124,8 @@ class TestAvailableDocument:
         data = doc.model_dump()
         assert data == {
             "file_name": "report.pdf",
+            "document_id": None,
+            "superseded_by_id": None,
             "summary": None,
             "tags": None,
             "doc_class": None,
@@ -1249,11 +1253,11 @@ class TestMigrationFailureNotCached:
     def _flaky_add_column(calls):
         real = DocumentMetadataStore._add_column_if_missing
 
-        def flaky(self, conn, column, ddl_type="TEXT"):
+        def flaky(self, conn, column, ddl_type="TEXT", **where):
             calls["n"] += 1
             if calls["n"] == 1:
                 raise RuntimeError("simulated ALTER failure")
-            return real(self, conn, column, ddl_type)
+            return real(self, conn, column, ddl_type, **where)
 
         return flaky
 

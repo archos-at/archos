@@ -126,7 +126,8 @@ def _take_back_retained(store, conn, collection: str, filename: str, *, document
     kept = conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
-            f"SELECT {', '.join(_RETAINED_COLUMNS)} FROM {RETAINED_TABLE_NAME} WHERE collection = :collection AND {where}"
+            f"SELECT {', '.join(_RETAINED_COLUMNS)} FROM {RETAINED_TABLE_NAME} "
+            f"WHERE collection = :collection AND {where}"
         ),
         params,
     ).first()

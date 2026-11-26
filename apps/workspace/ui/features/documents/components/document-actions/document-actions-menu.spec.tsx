@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { DocumentActionsMenu } from './document-actions-menu'
+import { NameConflictAskContext } from '../../hooks/use-name-conflict-prompt'
 
 const DOCUMENT = { id: 'doc-1', filename: 'Einreichplan_EG.pdf', displayName: null }
 
@@ -211,6 +212,48 @@ describe('DocumentActionsMenu — renaming', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Pläne/EG')
   })
 
+  it('says in the field, not in a toast, that a document in this folder already has the name', async () => {
+    server.use(
+      http.patch('/api/documents/:id', () =>
+        HttpResponse.json(
+          {
+            error: 'taken',
+            code: 'CONFLICT',
+            details: {
+              reason: 'name_conflict',
+              name: 'Grundriss.pdf',
+              folderId: null,
+              existingDocumentId: 'doc-2',
+              existingName: 'grundriss.pdf',
+              suggestedName: 'Grundriss 2.pdf',
+            },
+          },
+          { status: 409 }
+        )
+      )
+    )
+    const toastError = vi.spyOn((await import('sonner')).toast, 'error')
+    const onRenamed = vi.fn()
+    const user = userEvent.setup()
+    render(<DocumentActionsMenu document={DOCUMENT} scope="files" onRenamed={onRenamed} />)
+
+    await openMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: /rename/i }))
+    const field = await screen.findByLabelText('Name')
+    await user.clear(field)
+    await user.type(field, 'Grundriss')
+    await user.click(screen.getByTestId('rename-submit'))
+
+    expect(await screen.findByTestId('rename-error')).toHaveTextContent(
+      'A document in this folder is already called “Grundriss.pdf”. Choose another name.'
+    )
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Name')).toHaveValue('Grundriss')
+    expect(onRenamed).not.toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+    toastError.mockRestore()
+  })
+
   it('offers to restore the original name, and only once there is one to restore', async () => {
     const captured: Array<Record<string, unknown>> = []
     server.use(renameRoute(captured))
@@ -370,4 +413,47 @@ describe('DocumentActionsMenu — moving between folders', () => {
     expect(screen.getByTestId('document-move-root')).not.toHaveAttribute('aria-disabled', 'true')
   })
 
+  it('asks what to do with a name the target folder holds, and moves under the answer', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    server.use(
+      http.patch('/api/documents/:id/folder', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        bodies.push(body)
+        if (body.onConflict) return HttpResponse.json({ id: 'doc-1' })
+        return HttpResponse.json(
+          {
+            error: 'taken',
+            code: 'CONFLICT',
+            details: {
+              reason: 'name_conflict',
+              name: DOCUMENT.filename,
+              folderId: 'f-statik',
+              existingDocumentId: 'doc-2',
+              existingName: DOCUMENT.filename,
+              suggestedName: 'Einreichplan_EG 2.pdf',
+            },
+          },
+          { status: 409 }
+        )
+      })
+    )
+    const ask = vi.fn(async () => new Map([['doc-1', 'keep_both' as const]]))
+    const onMoved = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <NameConflictAskContext.Provider value={ask}>
+        <DocumentActionsMenu document={DOCUMENT} scope="files" folders={FOLDERS} onMoved={onMoved} />
+      </NameConflictAskContext.Provider>
+    )
+    await openMove(user)
+    const target = await screen.findByRole('menuitem', { name: /^Statik$/ })
+    target.focus()
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(onMoved).toHaveBeenCalledWith('doc-1', 'f-statik'))
+    expect(ask).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: 'move', folderName: 'Statik', rows: [expect.objectContaining({ keepBothAs: 'Einreichplan_EG 2.pdf' })] })
+    )
+    expect(bodies).toEqual([{ folderId: 'f-statik' }, { folderId: 'f-statik', onConflict: 'keep_both' }])
+  })
 })

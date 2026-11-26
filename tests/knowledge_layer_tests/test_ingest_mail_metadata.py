@@ -37,10 +37,10 @@ class TestTheRecordsGoOnTheRow:
     def _calls(self, monkeypatch, config: dict, *, replaced: bool) -> dict[str, list]:
         calls: dict[str, list] = {"thread": [], "origin": []}
         monkeypatch.setattr(
-            "agent.knowledge.set_document_mail_thread", lambda c, f, v: calls["thread"].append((c, f, v))
+            "agent.knowledge.set_document_mail_thread", lambda c, f, v, document_id=None: calls["thread"].append((c, f, v))
         )
         monkeypatch.setattr(
-            "agent.knowledge.set_document_mail_origin", lambda c, f, v: calls["origin"].append((c, f, v))
+            "agent.knowledge.set_document_mail_origin", lambda c, f, v, document_id=None: calls["origin"].append((c, f, v))
         )
         store_mail_facts("proj_1", "Datei", config, replaced=replaced)
         return calls

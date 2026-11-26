@@ -250,7 +250,7 @@ describe('resolveCitationTarget', () => {
     })
   })
 
-  test('a project upload wins over an office shelf document of the same name', () => {
+  test('a citation without a stored id (an older answer) falls back to the first document of its name', () => {
     const shadowed: StoredDocumentRef = {
       id: 'archiv-2',
       filename: 'Brandschutzkonzept.pdf',
@@ -263,6 +263,48 @@ describe('resolveCitationTarget', () => {
     )
 
     expect(target).toMatchObject({ document: { id: 'doc-1' } })
+  })
+
+  describe('two documents of one name in different folders', () => {
+    const bestand: StoredDocumentRef = { id: 'doc-bestand', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' }
+    const entwurf: StoredDocumentRef = { id: 'doc-entwurf', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' }
+    const cited = (storedDocumentId: string, key: string): Partial<CitationSource> => ({
+      url: '',
+      content: `[KB] ${key}`,
+      citationKey: key,
+      fileName: 'Plan.pdf',
+      documentId: `doc:id:${storedDocumentId}`,
+      storedDocumentId,
+      shelf: 'project',
+    })
+
+    test('each citation opens its own document by its stored id, whichever comes first', () => {
+      expect(targetFor(cited('doc-entwurf', 'Entwurf/Plan.pdf, p.3'), [bestand, entwurf])).toMatchObject({
+        page: 3,
+        document: { type: 'stored', id: 'doc-entwurf' },
+      })
+      expect(targetFor(cited('doc-bestand', 'Bestand/Plan.pdf, p.3'), [entwurf, bestand])).toMatchObject({
+        document: { type: 'stored', id: 'doc-bestand' },
+      })
+    })
+
+    test('never opens the namesake when the cited document is not among those the reader may see', () => {
+      expect(targetFor(cited('doc-gone', 'Entwurf/Plan.pdf, p.3'), [bestand])).toMatchObject({ kind: 'info' })
+    })
+
+    test('stay two sources in one answer, never merged by their shared name', () => {
+      const docs = buildCitationModel({
+        citations: [
+          citation(cited('doc-bestand', 'Bestand/Plan.pdf, p.3')),
+          citation({ ...cited('doc-entwurf', 'Entwurf/Plan.pdf, p.3'), id: 'c-2' }),
+        ],
+      })
+
+      expect(docs.map((doc) => [doc.id, doc.storedDocumentId])).toEqual([
+        ['doc:id:doc-bestand', 'doc-bestand'],
+        ['doc:id:doc-entwurf', 'doc-entwurf'],
+      ])
+    })
   })
 
   describe('a citation names its own shelf', () => {

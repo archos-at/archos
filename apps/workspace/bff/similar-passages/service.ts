@@ -1,7 +1,9 @@
 import 'server-only'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import { hasPassedScreening, SCREENED_ONLY } from '@/lib/documents/document-reader'
-import { BACKEND_SEARCH_MAX_COLLECTIONS, hydrateProjectHits, joinHitsToFiles, planProjectSearch, projectsWithinCollectionCap, type BackendSearchHit, type ProjectSearchPlan, type SearchedDocument } from '@/lib/documents/semantic-search'
+import { BACKEND_SEARCH_MAX_COLLECTIONS, findHitDocuments, hydrateProjectHits, joinHitsToFiles, planProjectSearch, projectsWithinCollectionCap, type BackendSearchHit, type ProjectSearchPlan, type SearchedDocument } from '@/lib/documents/semantic-search'
+import { findDocumentsByIds } from '@/lib/documents/repository'
+import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import type { ListedDocument } from '@/lib/documents/shelf-listing'
 import { toListedDocuments } from '@/lib/documents/shelf-listing'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
@@ -72,6 +74,7 @@ export function otherProjectsToSearch(reach: readonly Project[], current: Pick<P
 interface BackendSimilarDocument {
   collection: string
   file_name: string
+  document_id?: string | null
   passages: Array<{ chunk_id: string; snippet: string; page_number: number | null; score: number }>
 }
 
@@ -125,6 +128,7 @@ export function asSearchHits(documents: readonly BackendSimilarDocument[]): Back
   return documents.flatMap((document, rank) =>
     document.passages.map((passage) => ({
       file_name: document.file_name,
+      ...(document.document_id ? { document_id: document.document_id } : {}),
       collection: document.collection,
       snippet: passage.snippet,
       page_number: passage.page_number,
@@ -139,10 +143,10 @@ async function hydrateOfficeShelfHits(
   hits: BackendSearchHit[]
 ): Promise<Array<SearchedDocument<ListedDocument>>> {
   if (hits.length === 0) return []
-  const rows = await findOfficeShelfDocumentsByFilenames(
-    session.organizationId,
-    hits.map((hit) => hit.file_name),
-    { reader: SCREENED_ONLY }
+  const rows = await findHitDocuments(
+    hits,
+    (ids) => findDocumentsByIds(OFFICE_SHELF, session.organizationId, ids, { reader: SCREENED_ONLY }),
+    (names) => findOfficeShelfDocumentsByFilenames(session.organizationId, names, { reader: SCREENED_ONLY })
   )
   return joinHitsToFiles(hits, await toListedDocuments(session, rows, SCREENED_ONLY))
 }

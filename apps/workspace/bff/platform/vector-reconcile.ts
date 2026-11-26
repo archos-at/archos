@@ -40,6 +40,17 @@ interface BackendSummaryReconcile {
 
 interface BackendFileInfo {
   file_name?: string
+  document_id?: string | null
+}
+
+interface StoredFile {
+  fileName: string
+  documentId: string | null
+}
+
+interface LiveDocuments {
+  ids: Set<string>
+  names: Set<string>
 }
 
 function safeDecode(name: string): string {
@@ -59,56 +70,55 @@ type LiveRow = {
   publishedVersionId: string | null
 }
 
-async function liveFilenamesByCollection(): Promise<Map<string, Set<string>>> {
+const liveRowColumns = {
+  id: documents.id,
+  collectionName: documents.collectionName,
+  filename: documents.filename,
+  authoredBy: documents.authoredBy,
+  authoredByProducer: documents.authoredByProducer,
+  publishedVersionId: documents.publishedVersionId,
+}
+
+function addLive(live: LiveDocuments, row: LiveRow): void {
+  if (!collectionFileRef(row)) return
+  live.ids.add(row.id)
+  live.names.add(row.filename)
+}
+
+async function liveDocumentsByCollection(): Promise<Map<string, LiveDocuments>> {
   const db = getDb()
   const rows = (await withPlatformAccess(
     'vector reconciliation sweep: every collection in the deployment, across organizations',
-    () =>
-      db
-        .select({
-          id: documents.id,
-          collectionName: documents.collectionName,
-          filename: documents.filename,
-          authoredBy: documents.authoredBy,
-          authoredByProducer: documents.authoredByProducer,
-          publishedVersionId: documents.publishedVersionId,
-        })
-        .from(documents),
+    () => db.select(liveRowColumns).from(documents),
   )) as LiveRow[]
 
-  const byCollection = new Map<string, Set<string>>()
+  const byCollection = new Map<string, LiveDocuments>()
   for (const row of rows) {
-    let names = byCollection.get(row.collectionName)
-    if (!names) {
-      names = new Set<string>()
-      byCollection.set(row.collectionName, names)
+    let live = byCollection.get(row.collectionName)
+    if (!live) {
+      live = { ids: new Set<string>(), names: new Set<string>() }
+      byCollection.set(row.collectionName, live)
     }
-    if (collectionFileRef(row)) names.add(row.filename)
+    addLive(live, row)
   }
   return byCollection
 }
 
-async function liveFilenamesIn(collectionName: string): Promise<Set<string>> {
+async function liveDocumentsIn(collectionName: string): Promise<LiveDocuments> {
   const db = getDb()
   const rows = (await withPlatformAccess(
     'vector reconciliation sweep: re-reading one collection before deleting its orphans',
-    () =>
-      db
-        .select({
-          id: documents.id,
-          collectionName: documents.collectionName,
-          filename: documents.filename,
-          authoredBy: documents.authoredBy,
-          authoredByProducer: documents.authoredByProducer,
-          publishedVersionId: documents.publishedVersionId,
-        })
-        .from(documents)
-        .where(eq(documents.collectionName, collectionName)),
+    () => db.select(liveRowColumns).from(documents).where(eq(documents.collectionName, collectionName)),
   )) as LiveRow[]
-  return new Set(rows.filter((row) => collectionFileRef(row)).map((row) => row.filename))
+  const live: LiveDocuments = { ids: new Set<string>(), names: new Set<string>() }
+  for (const row of rows) addLive(live, row)
+  return live
 }
 
-async function listStoredFilenames(collectionName: string): Promise<string[]> {
+const isOrphanOf = (live: LiveDocuments) => (file: StoredFile): boolean =>
+  file.documentId ? !live.ids.has(file.documentId) : !live.names.has(safeDecode(file.fileName))
+
+async function listStoredFiles(collectionName: string): Promise<StoredFile[]> {
   const res = await fetch(
     `${getBackendUrl()}/v1/collections/${encodeURIComponent(collectionName)}/documents`,
     { signal: AbortSignal.timeout(BACKEND_FETCH_TIMEOUT_MS) },
@@ -116,22 +126,40 @@ async function listStoredFilenames(collectionName: string): Promise<string[]> {
   if (!res.ok) throw new Error(`list returned ${res.status}`)
   const body = (await res.json()) as BackendFileInfo[]
   if (!Array.isArray(body)) return []
-  return body.map((file) => file.file_name).filter((name): name is string => typeof name === 'string' && name.length > 0)
+  return body.flatMap((file) =>
+    typeof file.file_name === 'string' && file.file_name.length > 0
+      ? [{ fileName: file.file_name, documentId: typeof file.document_id === 'string' && file.document_id.length > 0 ? file.document_id : null }]
+      : [],
+  )
 }
 
-async function deleteChunks(collectionName: string, fileIds: string[]): Promise<number> {
+async function deleteChunks(collectionName: string, body: object): Promise<number> {
   const res = await fetch(
     `${getBackendUrl()}/v1/collections/${encodeURIComponent(collectionName)}/documents`,
     {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_ids: fileIds }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(BACKEND_FETCH_TIMEOUT_MS),
     },
   )
   if (!res.ok) throw new Error(`delete returned ${res.status}`)
-  const body = (await res.json().catch(() => ({}))) as { total_deleted?: number }
-  return typeof body.total_deleted === 'number' ? body.total_deleted : 0
+  const answer = (await res.json().catch(() => ({}))) as { total_deleted?: number }
+  return typeof answer.total_deleted === 'number' ? answer.total_deleted : 0
+}
+
+async function deleteOrphans(collectionName: string, orphans: readonly StoredFile[]): Promise<number> {
+  const identified = orphans.filter((file) => file.documentId !== null)
+  const named = orphans.filter((file) => file.documentId === null)
+  let deleted = 0
+  if (identified.length > 0) {
+    deleted += await deleteChunks(collectionName, {
+      file_ids: identified.map((file) => file.fileName),
+      documents: identified.map((file) => ({ id: file.documentId, file_name: file.fileName })),
+    })
+  }
+  if (named.length > 0) deleted += await deleteChunks(collectionName, { file_ids: named.map((file) => file.fileName) })
+  return deleted
 }
 
 async function reconcileOrphanedSummaries(
@@ -201,7 +229,7 @@ async function refreshDocumentFacts(
 }
 
 export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult> {
-  const live = await liveFilenamesByCollection()
+  const live = await liveDocumentsByCollection()
   const result: VectorReconcileResult = {
     collectionsScanned: 0,
     orphansFound: 0,
@@ -210,17 +238,16 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
     failures: [],
   }
 
-  for (const [collectionName, liveNames] of live) {
+  for (const [collectionName, liveThen] of live) {
     result.collectionsScanned += 1
     try {
-      const stored = await listStoredFilenames(collectionName)
-      const candidates = stored.filter((name) => !liveNames.has(safeDecode(name)))
+      const stored = await listStoredFiles(collectionName)
+      const candidates = stored.filter(isOrphanOf(liveThen))
       if (candidates.length === 0) continue
-      const liveNow = await liveFilenamesIn(collectionName)
-      const orphans = candidates.filter((name) => !liveNow.has(safeDecode(name)))
+      const orphans = candidates.filter(isOrphanOf(await liveDocumentsIn(collectionName)))
       if (orphans.length === 0) continue
       result.orphansFound += orphans.length
-      result.orphansDeleted += await deleteChunks(collectionName, orphans)
+      result.orphansDeleted += await deleteOrphans(collectionName, orphans)
     } catch (error) {
       result.failures.push({
         collectionName,
