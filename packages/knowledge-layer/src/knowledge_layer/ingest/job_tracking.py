@@ -57,10 +57,14 @@ def _existing_paths(
 
 
 def _file_progress(
-    collection_name: str, validated_paths: list[str | Callable[[], str]], original_filenames: list[str]
+    collection_name: str,
+    validated_paths: list[str | Callable[[], str]],
+    original_filenames: list[str],
+    document_id: str | None = None,
 ) -> list[FileProgress]:
     from knowledge_layer.ingest.deferred_files import is_deferred
 
+    one_document = document_id if len(validated_paths) == 1 else None
     file_details = []
     for i, p in enumerate(validated_paths):
         if i < len(original_filenames):
@@ -69,7 +73,7 @@ def _file_progress(
             file_name = "document" if is_deferred(p) else Path(p).name
         file_details.append(
             FileProgress(
-                file_id=stable_file_id(collection_name, file_name),
+                file_id=stable_file_id(collection_name, file_name, one_document),
                 file_name=file_name,
                 status=FileStatus.UPLOADING,
                 progress_percent=0.0,
@@ -255,7 +259,12 @@ class JobTracking:
             processed_files=0,
             collection_name=collection_name,
             backend=self.backend_name,
-            file_details=_file_progress(collection_name, validated_paths, aligned_filenames),
+            file_details=_file_progress(
+                collection_name,
+                validated_paths,
+                aligned_filenames,
+                job_config["document_id"] if isinstance(job_config.get("document_id"), str) else None,
+            ),
             metadata={
                 key: job_config[key] for key in ("dispatch_key", "document_id") if isinstance(job_config.get(key), str)
             },

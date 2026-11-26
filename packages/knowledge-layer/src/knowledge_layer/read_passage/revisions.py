@@ -6,15 +6,23 @@ from typing import Any
 from .models import PassageTarget
 
 
+def _newer(document: Any, by_id: dict[str, Any], by_name: dict[str, Any]) -> Any | None:
+    newer_id = getattr(document, "superseded_by_id", None)
+    if newer_id:
+        return by_id.get(str(newer_id))
+    return by_name.get(str(getattr(document, "superseded_by", None) or ""))
+
+
 def _current_revision(document: Any, documents: Sequence[Any]) -> str | None:
+    by_id = {str(doc.document_id): doc for doc in documents if getattr(doc, "document_id", None)}
     by_name = {str(getattr(doc, "file_name", "")): doc for doc in documents}
-    seen = {str(getattr(document, "file_name", ""))}
+    seen = {id(document)}
     current: str | None = None
-    next_name = getattr(document, "superseded_by", None)
-    while next_name and next_name in by_name and next_name not in seen:
-        current = next_name
-        seen.add(next_name)
-        next_name = getattr(by_name[next_name], "superseded_by", None)
+    newer = _newer(document, by_id, by_name)
+    while newer is not None and id(newer) not in seen:
+        current = str(getattr(newer, "file_name", ""))
+        seen.add(id(newer))
+        newer = _newer(newer, by_id, by_name)
     return current
 
 

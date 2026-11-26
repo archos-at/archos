@@ -93,7 +93,7 @@ export function ConversationPrivacyLine({
       temporary={temporary}
       reserved
       privateToReader={sharing === 'private'}
-      className={className}
+      className={cn(statesTemporary && !temporary && 'max-md:hidden', className)}
     />
   )
 }

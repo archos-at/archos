@@ -3,6 +3,7 @@ import {
   resetDocumentsByNameCache,
   resolveDocumentsByName,
 } from '@/features/documents/lib/documents-by-name'
+import { resetDocumentsByIdCache, resolveDocumentsById } from '@/features/documents/documents-by-id'
 import type { RevisionRef } from '@/lib/documents/revision-links'
 import type { StoredDocumentRef } from '../../lib/citations'
 import type { Shelf } from '@/lib/source-kinds'
@@ -22,6 +23,7 @@ const indexCache = new Map<string, Promise<ShelfLists>>()
 export const resetSourcePreviewIndexCache = (): void => {
   indexCache.clear()
   resetDocumentsByNameCache()
+  resetDocumentsByIdCache()
 }
 
 onDocumentsChanged(resetSourcePreviewIndexCache)
@@ -49,21 +51,38 @@ const toRefs = (rows: unknown, shelf: Shelf): StoredDocumentRef[] =>
         }))
     : []
 
+export interface CitedStoredDocument {
+  fileName: string | null
+  storedDocumentId: string | null
+}
+
+const resolveCited = async (
+  projectId: string | null,
+  { fileName, storedDocumentId }: CitedStoredDocument
+): Promise<{ project: unknown[]; officeShelf: unknown[] }> => {
+  if (storedDocumentId) {
+    const found = (await resolveDocumentsById(projectId, [storedDocumentId])).get(storedDocumentId)
+    return { project: found?.project ? [found.project] : [], officeShelf: found?.officeShelf ? [found.officeShelf] : [] }
+  }
+  if (!fileName) return { project: [], officeShelf: [] }
+  const answers = [...(await resolveDocumentsByName(projectId, [fileName])).values()]
+  return {
+    project: answers.flatMap((answer) => answer.project),
+    officeShelf: answers.flatMap((answer) => answer.officeShelf),
+  }
+}
+
 export const loadSourcePreviewIndex = async (
   projectId: string | null,
   conversationId: string | null,
-  fileName: string | null
+  cited: CitedStoredDocument
 ): Promise<SourcePreviewIndex> => {
-  const [lists, named] = await Promise.all([
-    loadShelfLists(projectId, conversationId),
-    fileName ? resolveDocumentsByName(projectId, [fileName]) : Promise.resolve(null),
-  ])
-  const answers = named ? [...named.values()] : []
+  const [lists, resolved] = await Promise.all([loadShelfLists(projectId, conversationId), resolveCited(projectId, cited)])
   return {
     storedDocuments: [
-      ...toRefs(answers.flatMap((answer) => answer.project), 'project'),
+      ...toRefs(resolved.project, 'project'),
       ...lists.sessionDocuments,
-      ...toRefs(answers.flatMap((answer) => answer.officeShelf), 'office_shelf'),
+      ...toRefs(resolved.officeShelf, 'office_shelf'),
     ],
     baseCorpusFiles: lists.baseCorpusFiles,
   }

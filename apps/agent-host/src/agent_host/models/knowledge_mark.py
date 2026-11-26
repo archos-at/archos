@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -30,6 +31,13 @@ _MARK_FIELDS = {"licence_class", "ai_processing_attested", "quote_max_chars", "k
 
 class KnowledgeMarkUpdate(BaseModel):
     file_name: str = Field(..., min_length=1, max_length=1024, description="The file whose chunks are marked")
+    document_id: UUID | None = Field(
+        None,
+        description=(
+            "The document (documents.id) whose chunks are marked; wins over `file_name`. Absent for the base "
+            "corpus, whose texts have no document"
+        ),
+    )
     licence_class: LicenceClass | None = Field(None, description="How the source may be used; None clears it")
     ai_processing_attested: bool | None = Field(
         None, description="Whether the office stated its licence covers AI processing; None clears it"

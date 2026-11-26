@@ -57,8 +57,8 @@ def _earlier_turn(hit: GroundingHit) -> str:
 def source(monkeypatch):
     state = {"terms": TERMS, "texts": [PASSAGE], "reads": []}
 
-    def sources(collection, file_name, page):
-        state["reads"].append((collection, file_name, page))
+    def sources(collection, file_name, page, document_id=None):
+        state["reads"].append((collection, file_name, page) + ((document_id,) if document_id else ()))
         return state["terms"], list(state["texts"])
 
     monkeypatch.setattr(licensed_recall, "_sources", sources)
@@ -135,9 +135,34 @@ async def test_a_reference_typed_into_a_question_is_not_read(source):
 def test_an_anchor_survives_any_file_name_and_rejects_what_it_did_not_write():
     anchor = licensed_recall.anchor_of("office-org-a", "ÖNORM B 1600 (2017) – Brüstungen.pdf", None, 812)
 
-    assert licensed_recall.parse_anchor(anchor) == ("office-org-a", "ÖNORM B 1600 (2017) – Brüstungen.pdf", None, 812)
+    assert licensed_recall.parse_anchor(anchor) == (
+        "office-org-a",
+        "ÖNORM B 1600 (2017) – Brüstungen.pdf",
+        None,
+        812,
+        None,
+    )
     assert licensed_recall.parse_anchor("not-an-anchor") is None
 
 
 def test_a_turn_with_no_signed_scope_reads_nothing_again():
     assert licensed_recall._scope() == frozenset()
+
+
+async def test_a_reference_is_read_again_from_its_own_document_by_id(source):
+    stored = _earlier_turn(_hit().model_copy(update={"document_id": "doc-norm"}))
+
+    sent = await _sent_on_a_later_turn(stored)
+
+    assert PASSAGE in sent
+    assert source["reads"] == [(COLLECTION, "oenorm_b_1600.pdf", 12, "doc-norm")]
+
+
+def test_an_anchor_written_before_anchors_carried_an_id_still_reads():
+    import base64
+    import json
+
+    old = base64.urlsafe_b64encode(json.dumps(["c", "a.pdf", 3, 40]).encode()).decode().rstrip("=")
+
+    assert licensed_recall.parse_anchor(old) == ("c", "a.pdf", 3, 40, None)
+    assert licensed_recall.parse_anchor(licensed_recall.anchor_of("c", "a.pdf", 3, 40, "doc-1"))[4] == "doc-1"

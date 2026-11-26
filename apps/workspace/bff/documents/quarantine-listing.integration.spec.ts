@@ -203,11 +203,11 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
   })
 
   it("never resolves a held file for the agent's byte lookup", async () => {
-    await expect(repo.findStorageKeyByCollectionAndFilename(COLLECTION, 'project-own.pdf', ORG)).resolves.toBeNull()
-    await expect(repo.findStorageKeyByCollectionAndFilename(COLLECTION, 'project-pending.pdf', ORG)).resolves.toBeNull()
-    await expect(repo.findStorageKeyByCollectionAndFilename(COLLECTION, 'project-ready.pdf', ORG)).resolves.toMatchObject({
+    await expect(repo.findStorageKeysByCollectionAndFilename(COLLECTION, 'project-own.pdf', ORG)).resolves.toEqual([])
+    await expect(repo.findStorageKeysByCollectionAndFilename(COLLECTION, 'project-pending.pdf', ORG)).resolves.toEqual([])
+    await expect(repo.findStorageKeysByCollectionAndFilename(COLLECTION, 'project-ready.pdf', ORG)).resolves.toMatchObject([{
       storageKey: 'k/project/project-ready.pdf',
-    })
+    }])
   })
 
   it("names the Fassung the agent's byte lookup resolves: the published version the bytes mirror", async () => {
@@ -230,13 +230,13 @@ describe.skipIf(!url)('quarantined documents in listings, against Postgres', () 
         WHERE organization_id = ${ORG} AND filename = 'project-ready.pdf'
       `)
     )
-    await expect(repo.findStorageKeyByCollectionAndFilename(COLLECTION, 'project-ready.pdf', ORG)).resolves.toMatchObject({
+    await expect(repo.findStorageKeysByCollectionAndFilename(COLLECTION, 'project-ready.pdf', ORG)).resolves.toMatchObject([{
       storageKey: 'k/project/project-ready.pdf',
       versionId: String(published?.id),
-    })
+    }])
     await expect(
-      repo.findStorageKeyByCollectionAndFilename(`archiv_${ORG}`, 'office_shelf-ready.pdf', ORG)
-    ).resolves.toMatchObject({ versionId: null })
+      repo.findStorageKeysByCollectionAndFilename(`archiv_${ORG}`, 'office_shelf-ready.pdf', ORG)
+    ).resolves.toMatchObject([{ versionId: null }])
   })
 
   it('narrows the IFC model list the same way, and gives the agent none', async () => {

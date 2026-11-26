@@ -29,6 +29,13 @@ class PassageTarget:
     shelf: str | None
     current: str | None = None
     mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
+    document_id: str | None = None
+
+    @property
+    def selector(self) -> dict[str, Any]:
+        from knowledge_layer.vector_store import document_chunks
+
+        return document_chunks(self.file_name, self.document_id)
 
 
 @dataclass(frozen=True)

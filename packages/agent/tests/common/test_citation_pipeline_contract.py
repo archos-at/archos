@@ -644,3 +644,25 @@ class TestPassageBodyCannotForgeHeaderFields:
     def test_a_project_upload_stays_out_of_the_baurecht_lane(self):
         (entry,) = roundtrip(self.POISONED)
         assert source_lane(entry) == ("project", "Projektwissen")
+
+
+class TestAUserDocumentsIdReachesTheWire:
+    DOCUMENT_ID = "bbbbbbbb-0000-4000-8000-00000000000b"
+
+    @pytest.mark.parametrize("reader", ["records", "text"])
+    def test_the_producers_id_is_the_chips_stored_document(self, reader):
+        chunk = Hit(file_name="einreichplan_og.pdf", page=4, collection="proj_abc").chunk()
+        chunk.metadata["document_id"] = self.DOCUMENT_ID
+        token = begin_grounding_capture() if reader == "records" else None
+        try:
+            text = format_results(SimpleNamespace(success=True, error_message=None, chunks=[chunk]), "Fluchtwege")
+            (entry,) = extract_sources_from_tool_result("knowledge_search", text)
+        finally:
+            if token is not None:
+                end_grounding_capture(token)
+
+        wire = source_entry_to_wire(entry)
+        assert (wire["stored_document_id"], wire["document_id"]) == (self.DOCUMENT_ID, f"doc:id:{self.DOCUMENT_ID}")
+
+    def test_the_base_corpus_renders_no_document_id_line(self):
+        assert "Document-ID:" not in format_hits([TestProducerParserContract.OIB])

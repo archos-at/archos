@@ -4,10 +4,7 @@ import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneChatSideRow } from '@/components/shell/phone-side-bar'
 import { KeyboardShortcuts } from '@/components/shell/keyboard-shortcuts'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
-import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
@@ -66,7 +63,7 @@ export default function AppRailPreview(): JSX.Element {
   const open = params?.get('open')
   const viewer = params?.get('gates') === 'viewer'
   const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
-  const setSheetOpen = useShellOverlays((s) => s.setMoreSheetOpen)
+  const setSheetOpen = useShellOverlays((s) => s.setMenuOpen)
   const projectId = previewPath.startsWith('/app/personal') ? null : 'p-1'
 
   useEffect(() => {
@@ -108,7 +105,6 @@ export default function AppRailPreview(): JSX.Element {
       {/* Content stand-in: the rail is the subject, but it is only honest to
           judge its edge against the surface it actually borders. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <PhoneChatSideRow projectId={projectId} onSide projects={PROJECTS} pathname={previewPath} />
         <p className="text-muted-foreground p-6 font-mono text-xs">
           /dev/app-rail —{' '}
           {variant === 'collapsed'
@@ -116,26 +112,9 @@ export default function AppRailPreview(): JSX.Element {
             : variant === 'wide'
               ? `rail dragged to ${WIDE_WIDTH}px`
               : 'expanded rail (272px)'}
-          <span className="md:hidden"> · phone: tab bar lit for {previewPath}</span>
+          <span className="md:hidden"> · phone: the rail is the menu’s drawer</span>
         </p>
       </main>
-      <PhoneTabBar projectId={projectId} canAccessOfficeShelf canAccessInbox pathname={previewPath} />
-      <PhoneMoreSheet
-        projectId={projectId}
-        projects={PROJECTS}
-        projectName={PROJECTS[0]!.name}
-        initialView={open === 'switcher' ? 'projects' : 'more'}
-        pathname={previewPath}
-        organizationName="Musterarchitektur ZT GmbH"
-        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
-        authRequired={false}
-        canAccessOfficeShelf
-        canAccessInbox
-        showSkills
-        canViewOrganization
-        canManageOrganization={false}
-        canManagePlatform={false}
-      />
       <KeyboardShortcuts authRequired canViewOrganization />
     </div>
     </DevRailChats>

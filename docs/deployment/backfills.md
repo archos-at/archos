@@ -24,7 +24,7 @@ first line):
 
 | Field | Values |
 |---|---|
-| `kind` | `sql`: two files beside the manifest. `dryRun` returns one row per store, `store` and `rows`, read-only. `apply` rewrites, as the database owner, outside a transaction (a `DO` block may `COMMIT` per batch). `qdrant`: `command`, the dry run's argv in the backend image (the repository is under `/app`); `command --apply` writes; `command --check` is a dry run that exits 1 while anything is left. |
+| `kind` | `sql`: two files beside the manifest. `dryRun` returns one row per store, `store` and `rows`, read-only. `apply` rewrites, as the database owner, outside a transaction (a `DO` block may `COMMIT` per batch). `qdrant`: `command`, the dry run's argv in the backend image (the repository is under `/app`); `command --apply` writes; `command --check` is a dry run that exits 1 while anything is left. `backend`: the same three commands, for a rewrite that needs what only the app database knows (a document's id): the container also gets the backend's metadata database (`SUMMARY_DB`) and its BFF credentials (`FRONTEND_INTERNAL_URL`, `INTERNAL_API_TOKEN`), so it asks the BFF's internal routes. Such a route ships with the release it serves, so a `backend` backfill runs `after-switch`. |
 | `phase` | `before-readers`: after the migrations and before any workload that reads Postgres or Qdrant rolls out, for a copy the new readers need (the Qdrant `document_id`). `after-switch`: once every app Deployment and StatefulSet has rolled out, for a rewrite of what the old writers still wrote (the step-1 renames). |
 | `database` | `sql` only, optional. `app` (the default): the app database, as the owner the migrate Job uses. `jobs`: the Python backend's database, as its direct connection (`LISTEN_DB_URL`), the role that created its tables; a `jobs` backfill skips a table the backend has not created yet. |
 | `expires` | `drop after release YYYY-Www`: the contract deletes the directory with the legacy readers. |
@@ -47,6 +47,9 @@ container, in name order, so they run one after another:
 - **Qdrant** in the backend image with `QDRANT_URL` and `QDRANT_API_KEY`:
   `command`, `command --apply`, `command --check`. Its pods carry
   `app.kubernetes.io/name: app-backfill`, which the Qdrant network policy admits.
+- **Backend** the same way, with the backend's own values of `BACKEND_BACKFILL_ENV`
+  (`deploy/pulumi/src/app/backfills.ts`): Qdrant, `SUMMARY_DB` and the BFF credentials.
+  The frontend admits it through `allow-same-namespace`.
 
 The Job runs again whenever the image tag or a registered file changes, so on
 every deploy. Pulumi awaits it (65 minutes at most; `activeDeadlineSeconds` 60
@@ -77,6 +80,9 @@ A Qdrant backfill logs one `backfill.count` line per collection and step, with
 - `packages/knowledge-layer/tests/test_registered_qdrant_backfills.py` runs
   every registered Qdrant backfill's three steps twice against a real Qdrant,
   with legacy points, and checks that `--check` fails while one is left.
+  `test_registered_backend_backfills.py` does the same for every `backend` one,
+  with a legacy metadata row, a legacy point and a stand-in BFF, and checks that
+  a refused BFF call stops it.
 - `deploy/pulumi/index-backfills.spec.ts`: the order above, the owner
   credential, one container per registered backfill, and that a failure is
   awaited.

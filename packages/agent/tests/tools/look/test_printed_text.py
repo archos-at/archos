@@ -135,7 +135,9 @@ class TestAPageOfALicensedCopy:
         from agent.common.licensed_text import LicenceTerms
 
         terms = LicenceTerms(licence_class="licensed", ai_processing=True)
-        monkeypatch.setattr(register, "document_licence", lambda collection, file_name, unindexed=None: terms)
+        monkeypatch.setattr(
+            register, "document_licence", lambda collection, file_name, unindexed=None, document_id=None: terms
+        )
         from agent.common.licensed_text import current_capture
 
         token = begin_grounding_capture(licensed_text=True)

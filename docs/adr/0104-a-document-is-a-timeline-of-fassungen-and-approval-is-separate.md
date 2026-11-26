@@ -30,6 +30,12 @@ The cause is one key and one fused column:
   (ADR-0054). A link across names can only live where the name key lives, in the
   knowledge database (ADR-0099). Piloti's own files need a name prefix so they
   do not collide.
+
+  *Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md) (2026-11-26):* chunks and the metadata row of a user
+  document are keyed by its `document_id`; the name is a label, unique within
+  its folder. Rule 2 below (every Fassung indexed, keyed by its id) is still
+  not built.
+
 * **History and approval share one state.** ADR-0054 put "which bytes are live"
   and "who vouched for them" into `document_versions.state`, so every person's
   upload is born `approved` by its uploader, and a Fassung under another file

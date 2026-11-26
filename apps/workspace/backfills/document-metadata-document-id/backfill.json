@@ -1,0 +1,5 @@
+{"expires": "drop after release 2027-W02",
+  "kind": "backend",
+  "phase": "after-switch",
+  "command": ["python", "/app/scripts/document_metadata_backfill_document_id.py"]
+}

@@ -12,6 +12,7 @@ from dataclasses import field
 from agent import project_context
 from agent.common import bff_http
 from agent.common.stored_file import StoredFileUnavailable
+from agent.common.stored_file import ambiguous_name_message
 from agent.common.stored_file import locate_stored_file
 from agent.common.stored_file import read_stored_file
 from agent.knowledge.restricted_use import note_collections_read
@@ -125,17 +126,20 @@ async def _document_bytes(name: str, budget: int) -> tuple[str, str, bytes, str 
         )
     headers = _headers()
     try:
-        bucket, key = await asyncio.to_thread(locate_stored_file, resolved.collection, resolved.file_name, headers)
+        bucket, key = await asyncio.to_thread(
+            locate_stored_file, resolved.collection, resolved.file_name, headers, document_id=resolved.document_id
+        )
         data = await asyncio.to_thread(read_stored_file, bucket, key, min(budget, MAX_FILE_BYTES))
     except StoredFileUnavailable as exc:
         if exc.reason == "too_large":
             raise _too_large(resolved.file_name, exc.size, budget) from exc
+        if exc.reason == "ambiguous":
+            raise _Refusal(ambiguous_name_message(resolved.file_name), "unresolved") from exc
         raise _Refusal(
             f"'{resolved.file_name}' could not be read for the script ({exc.reason}).", "unreadable"
         ) from exc
     note_collections_read([resolved.collection])
-    document_id = resolved.target.document_id if resolved.target else None
-    return resolved.collection, resolved.file_name, data, document_id
+    return resolved.collection, resolved.file_name, data, resolved.document_id
 
 
 def input_name(file_name: str) -> str:

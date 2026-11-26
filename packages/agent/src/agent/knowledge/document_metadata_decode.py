@@ -9,7 +9,9 @@ if TYPE_CHECKING:
     pass
 
 from agent.knowledge.document_metadata_constants import SUGGESTION_BASES
+from agent.knowledge.document_metadata_helpers import dismissed_revision_ids
 from agent.knowledge.document_metadata_helpers import dismissed_revisions
+from agent.knowledge.document_metadata_helpers import is_refused
 
 
 def _decode_tags(raw: Any) -> list[str] | None:
@@ -83,15 +85,21 @@ def _normalise_suggestion(value: Any) -> dict[str, Any] | None:
         return None
     if not isinstance(reason, str) or not reason.strip() or basis not in SUGGESTION_BASES:
         return None
-    refused = dismissed_revisions(value)
-    return {
+    older_id = value.get("of_id") if isinstance(value.get("of_id"), str) and value["of_id"].strip() else None
+    refused_ids = dismissed_revision_ids(value)
+    normalised: dict[str, Any] = {
         "of": older,
         "confidence": float(confidence),
         "reason": reason.strip(),
         "basis": basis,
-        "dismissed": older in refused,
-        "dismissed_of": refused,
+        "dismissed": is_refused(value, older, older_id),
+        "dismissed_of": dismissed_revisions(value),
     }
+    if older_id:
+        normalised["of_id"] = older_id
+    if refused_ids:
+        normalised["dismissed_of_ids"] = refused_ids
+    return normalised
 
 
 def _decode_suggestion(cls, raw: Any) -> dict[str, Any] | None:

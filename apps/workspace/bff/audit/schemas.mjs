@@ -43,6 +43,7 @@ import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
 import { PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS } from './schemas-platform-knowledge.mjs'
 import { LEGACY_AGENT_AUDIT_SCHEMAS } from './schemas-legacy-agent.mjs'
 import { FOLDER_BIN_AUDIT_SCHEMAS } from './schemas-folder-bin.mjs'
+import { ORG_QUOTA_AUDIT_SCHEMAS } from './schemas-org-quotas.mjs'
 export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
 
 /**
@@ -90,14 +91,6 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
   'org.settings.updated': {
     targets: [{ type: 'organization' }],
     metadata: { fields: 'string' },
-  },
-  'org.storage_quota.updated': {
-    targets: [{ type: 'organization' }],
-    metadata: { quotaBytes: 'number' },
-  },
-  'org.upload_limit.updated': {
-    targets: [{ type: 'organization' }],
-    metadata: { maxUploadFileBytes: 'number' },
   },
   'org.documents.reingested': {
     targets: [{ type: 'organization' }],
@@ -650,6 +643,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     metadata: { subjectUserId: 'string' },
   },
   ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS, ...LEGACY_AGENT_AUDIT_SCHEMAS, ...FOLDER_BIN_AUDIT_SCHEMAS,
+  ...ORG_QUOTA_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */

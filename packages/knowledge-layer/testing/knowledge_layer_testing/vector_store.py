@@ -175,6 +175,24 @@ def fresh_qdrant_store(monkeypatch) -> Iterator[store_module.QdrantStore]:
     yield from fresh_store(monkeypatch)
 
 
+def _lexical_without_inference(text: str, length: Mapping[str, float] | None = None) -> models.SparseVector:
+    return models.SparseVector(indices=[0], values=[1.0])
+
+
+def local_store(monkeypatch) -> Iterator[store_module.QdrantStore]:
+    from qdrant_client import QdrantClient
+
+    store = store_module.QdrantStore(QdrantClient(":memory:"), IDENTITY)
+    monkeypatch.setattr(store_module, "bm25", _lexical_without_inference)
+    monkeypatch.setattr(store_module, "_store", store)
+    yield store
+
+
+@pytest.fixture
+def local_qdrant_store(monkeypatch) -> Iterator[store_module.QdrantStore]:
+    yield from local_store(monkeypatch)
+
+
 FEW_INDEXES = frozenset({"scope", "kind", "file_name", "chunk_id", schema.OFFICE_FIELD, schema.TEXT_FIELD})
 
 

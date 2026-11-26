@@ -6,9 +6,6 @@ import { notFound, useSearchParams } from 'next/navigation'
 
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { projectIdFromPathname } from '@/components/shell/org-sections'
-import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
-import { PhoneChatSideRow } from '@/components/shell/phone-side-bar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useRailSide } from '@/components/shell/rail-side'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
@@ -34,7 +31,7 @@ function RailSwitchPreview(): JSX.Element {
   const params = useSearchParams()
   const [path, setPath] = useState(params?.get('path') ?? (params?.get('side') === 'project' ? '/app/projects/p-1/chat' : '/app/personal/chat'))
   const settle = useRailSide((state) => state.settle)
-  const setSheetOpen = useShellOverlays((state) => state.setMoreSheetOpen)
+  const setSheetOpen = useShellOverlays((state) => state.setMenuOpen)
   const projectId = projectIdFromPathname(path)
   const navigate = (href: string): void => {
     window.setTimeout(() => setPath(href.split('?')[0]!), ROUTE_LOAD_MS)
@@ -69,27 +66,10 @@ function RailSwitchPreview(): JSX.Element {
           showSkills
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <PhoneChatSideRow projectId={projectId} onSide projects={PROJECTS} pathname={path} navigateSide={navigate} />
           <p key={path} className="text-muted-foreground p-6 font-mono text-xs" data-testid="rail-switch-path">
             {path}
           </p>
         </main>
-        <PhoneTabBar projectId={projectId} canAccessOfficeShelf canAccessInbox pathname={path} />
-        <PhoneMoreSheet
-          projectId={projectId}
-          projects={PROJECTS}
-          projectName={PROJECTS.find((project) => project.id === projectId)?.name ?? null}
-          pathname={path}
-          organizationName={ORGANIZATION}
-          user={USER}
-          authRequired={false}
-          canAccessOfficeShelf
-          canAccessInbox
-          showSkills
-          canViewOrganization
-          canManageOrganization={false}
-          canManagePlatform={false}
-        />
       </div>
     </DevRailChats>
   )

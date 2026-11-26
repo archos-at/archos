@@ -9,6 +9,10 @@ from typing import Any
 from agent import project_context
 from agent.common import bff_http
 from agent.common import seaweed_s3
+from agent.common.stored_file import DOCUMENT_FILE_PATH
+from agent.common.stored_file import ambiguous_name_message
+from agent.common.stored_file import document_file_query
+from agent.common.stored_file import names_several_documents
 from agent.drawings.sheet_calibration import from_records
 from agent.drawings.sheet_scale import Calibration
 from agent.drawings.sheet_types import Sheet
@@ -20,7 +24,6 @@ from ..look.register import licence_of
 from ..look.resolve import Resolved
 from ..look.resolve import resolve_document
 
-DOCUMENT_FILE_PATH = "/api/internal/document-file"
 TOOL = "drawing_measure"
 
 MAX_PDF_BYTES = 150 * 1024 * 1024
@@ -93,7 +96,8 @@ async def load_resolved_sheet(resolved: Resolved, page: int) -> LoadedSheet | st
     headers = bff_http.SignedEnvelope(header=header, signature=signature).headers()
     try:
         located, sheet = await asyncio.wait_for(
-            asyncio.to_thread(_sheet, resolved.collection, resolved.file_name, page, headers), READ_TIMEOUT_S
+            asyncio.to_thread(_sheet, resolved.collection, resolved.file_name, page, headers, resolved.document_id),
+            READ_TIMEOUT_S,
         )
     except SheetUnavailableError as exc:
         return str(exc)
@@ -113,8 +117,10 @@ async def load_resolved_sheet(resolved: Resolved, page: int) -> LoadedSheet | st
     )
 
 
-def _sheet(collection: str, file_name: str, page: int, headers: dict[str, str]) -> tuple[_Located, Sheet]:
-    located = _locate(collection, file_name, headers, page)
+def _sheet(
+    collection: str, file_name: str, page: int, headers: dict[str, str], document_id: str | None = None
+) -> tuple[_Located, Sheet]:
+    located = _locate(collection, file_name, headers, page, document_id)
     key = (located.bucket, located.key, page)
     with _LOCK:
         reading = _READING.setdefault(key, threading.Lock())
@@ -187,15 +193,19 @@ def _bytes(located: _Located) -> bytes:
     return data
 
 
-def _locate(collection: str, file_name: str, headers: dict[str, str], page: int) -> _Located:
+def _locate(
+    collection: str, file_name: str, headers: dict[str, str], page: int, document_id: str | None = None
+) -> _Located:
     try:
         body = bff_http.get_json(
             DOCUMENT_FILE_PATH,
             timeout=10.0,
-            query={"collection": collection, "filename": file_name, "calibrationsPage": page},
+            query={**document_file_query(collection, file_name, document_id), "calibrationsPage": page},
             headers=headers,
         )
     except bff_http.BffRefusedError as exc:
+        if names_several_documents(exc):
+            raise SheetUnavailableError(ambiguous_name_message(file_name)) from exc
         raise SheetUnavailableError(f"'{file_name}' is not a file this conversation may read.") from exc
     except bff_http.BffError as exc:
         raise SheetUnavailableError("The document service could not be reached; try again shortly.") from exc

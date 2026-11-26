@@ -122,6 +122,7 @@ describe('POST /api/documents/{id}/measure', () => {
     })
     expect(JSON.parse(String(init?.body))).toEqual({
       file_name: 'Floor EG.pdf',
+      document_id: 'doc_1',
       collection: 'p_proj_1',
       page: 2,
       operation: 'distance',

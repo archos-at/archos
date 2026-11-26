@@ -27,6 +27,7 @@ const text = (max: number) => z.string().trim().min(1).max(max)
 export const fileOperationItemSchema = z
   .object({
     document: text(512).nullish(),
+    document_id: z.guid().nullish(),
     source: z.preprocess(
       (value) => (value === 'project' ? 'project' : value === 'office' ? 'office' : value),
       z.enum(['project', 'office']).nullish()

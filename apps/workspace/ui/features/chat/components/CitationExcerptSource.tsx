@@ -38,7 +38,13 @@ const ResolvedExcerptSource: FC<{ citation: CitationRef; verified: boolean }> = 
   const projectId = useChatStore((s) => s.projectId)
   const conversationId = useChatStore((s) => s.currentConversation?.id ?? null)
   const url = citation.document.url
-  const previewIndex = useSourcePreviewIndex(projectId, conversationId, !url, citedFileName(citation.document))
+  const previewIndex = useSourcePreviewIndex(
+    projectId,
+    conversationId,
+    !url,
+    citedFileName(citation.document),
+    citation.document.storedDocumentId ?? null
+  )
   const target = resolveCitationTarget(citation.document, {
     locus: citation.locus,
     storedDocuments: previewIndex?.storedDocuments,

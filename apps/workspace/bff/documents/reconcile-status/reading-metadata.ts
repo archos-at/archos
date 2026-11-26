@@ -9,7 +9,7 @@ import {
   type ReadingCoverage,
 } from '../dossier'
 import type { CollectionFileRef } from '../collection-file-ref'
-import type { CollectionFiles } from './collection-listing-types'
+import { fileListedFor, type CollectionFiles } from './collection-listing-types'
 
 export interface DocumentMetadata {
   summary?: string
@@ -27,8 +27,7 @@ export interface DocumentMetadata {
 }
 
 export const extractMetadata = (files: CollectionFiles | null, ref: CollectionFileRef): DocumentMetadata | null => {
-  if (!files || files.ambiguousNames.has(ref.filename)) return null
-  const file = files.byName.get(ref.filename)
+  const file = fileListedFor(files, ref)
   if (!file) return null
 
   const meta: DocumentMetadata = {}
@@ -67,13 +66,13 @@ export function readingsIn(
   files: CollectionFiles,
   collectionName: string,
   refs: readonly CollectionFileRef[]
-): Map<string, ListedReading> {
-  const readings = new Map<string, ListedReading>()
+): Map<CollectionFileRef, ListedReading> {
+  const readings = new Map<CollectionFileRef, ListedReading>()
   for (const ref of refs) {
-    if (ref.collectionName !== collectionName || files.ambiguousNames.has(ref.filename)) continue
-    const file = files.byName.get(ref.filename)
+    if (ref.collectionName !== collectionName) continue
+    const file = fileListedFor(files, ref)
     if (!file) continue
-    readings.set(ref.filename, { metadata: extractMetadata(files, ref), superseded: Boolean(file.revision?.supersededBy) })
+    readings.set(ref, { metadata: extractMetadata(files, ref), superseded: Boolean(file.revision?.supersededBy) })
   }
   return readings
 }

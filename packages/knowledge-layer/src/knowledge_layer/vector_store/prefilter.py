@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -97,8 +95,3 @@ def plan(
 
 def post_filtered(*, title_contains: str | None, file_name: str | None) -> bool:
     return bool(title_contains or file_name)
-
-
-def without_files(chunks: Sequence[Any], file_names: Iterable[str]) -> list[Any]:
-    hidden = set(file_names)
-    return [chunk for chunk in chunks if getattr(chunk, "file_name", None) not in hidden]

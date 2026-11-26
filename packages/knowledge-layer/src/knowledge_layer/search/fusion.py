@@ -2,6 +2,8 @@ import logging
 from contextlib import suppress
 
 from .chunk_noise import without_noise
+from .document_groups import document_key
+from .focus import turn_focus
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ def apply_diversity_cap(ordered, top_k: int, max_per_document: int) -> list:
         if len(selected) >= top_k:
             deferred.append(index)
             continue
-        doc_key = ((getattr(chunk, "metadata", None) or {}).get("collection"), getattr(chunk, "file_name", None))
+        doc_key = document_key(chunk)
         if per_doc.get(doc_key, 0) < max_per_document:
             per_doc[doc_key] = per_doc.get(doc_key, 0) + 1
             selected.append(index)
@@ -109,25 +111,9 @@ def merge_results(results, query: str, top_k: int, backend_name: str, max_per_do
             chunk.fusion_score = fused_score
         merged_chunks.append(chunk)
 
-    try:
-        from agent.common.focus_file import get_focused_file_name
-        from agent.common.focus_file import get_focused_shelf
-
-        focused = get_focused_file_name()
-        focused_shelf = get_focused_shelf()
-    except Exception:
-        focused = None
-        focused_shelf = None
-    if focused:
-
-        def _is_focus(chunk) -> bool:
-            if (chunk.file_name or "") != focused:
-                return False
-            if not focused_shelf:
-                return True
-            return (chunk.metadata or {}).get("shelf") == focused_shelf
-
-        matching = [chunk for chunk in merged_chunks if _is_focus(chunk)]
+    focus = turn_focus()
+    if focus:
+        matching = [chunk for chunk in merged_chunks if focus.holds(chunk)]
         merged_chunks = matching if matching else merged_chunks
 
     merged_top_k = apply_diversity_cap(merged_chunks, top_k, max_per_document)

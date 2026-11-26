@@ -54,7 +54,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     async def run_tape(request: Any) -> dict[str, Any]:
         if not turn_file_kinds.turn_states("pdf"):
             return {"refused": "not_enabled"}
-        seen.append({"request": request.model_dump(), "user": RequestContext.from_context().user_id})
+        seen.append({"request": request.model_dump(exclude_none=True), "user": RequestContext.from_context().user_id})
         return ANSWER
 
     monkeypatch.setattr(drawing_tape, "run_tape", run_tape)
@@ -107,3 +107,11 @@ def test_it_refuses_a_point_off_the_page(client, calls) -> None:
 
     assert client.post(DRAWING_TAPE_PATH, json=body, headers=_headers()).status_code == 422
     assert calls == []
+
+
+def test_the_drawing_named_by_its_id_reaches_the_tape(client, calls) -> None:
+    document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+    body = {**BODY, "document_id": document_id, "stated_kinds": ["pdf"]}
+
+    assert client.post(DRAWING_TAPE_PATH, json=body, headers=_headers()).status_code == 200
+    assert str(calls[0]["request"]["document_id"]) == document_id

@@ -26,11 +26,12 @@ class FileOperationItem(CardModel):
                 ":meth:`FileOperationProposalCard._require_operation_fields` is what keeps a\n"
                 "row from carrying another operation's fields.\n"
                 "\n"
-                "``document`` is a FILE NAME and never an id. The agent's inventory\n"
-                "(``knowledge/inventory.py``) knows files by ``(collection, file_name)`` and\n"
-                "has no document ids in it at all, so a card carrying an id would be\n"
-                "carrying something the tool invented. The reader's session resolves the\n"
-                "name against their own document list when they accept."
+                "``document`` is the FILE NAME the person reads; ``document_id`` is the\n"
+                "document itself (``documents.id``), copied from the turn's inventory row\n"
+                "(``knowledge/inventory.py``), never invented. A name is unique only within\n"
+                "its folder, so the applier acts on the id; a row without one (an inventory\n"
+                "from before rows carried ids) is resolved by name in the reader's session,\n"
+                "and refused there when the name is not unique."
             )
         }
     )
@@ -38,6 +39,11 @@ class FileOperationItem(CardModel):
     document: str | None = Field(
         default=None,
         description="File name exactly as the inventory lists it (move, rename, assign)",
+    )
+    document_id: str | None = Field(
+        default=None,
+        pattern=PROPOSAL_ID_PATTERN,
+        description="The document (documents.id) the row acts on, from the inventory; the name is only its label",
     )
     source: Literal["project", "office"] | None = Field(
         default=None,

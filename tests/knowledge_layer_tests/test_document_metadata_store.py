@@ -93,6 +93,8 @@ class TestAvailableDocument:
         data = doc.model_dump()
         assert data == {
             "file_name": "report.pdf",
+            "document_id": None,
+            "superseded_by_id": None,
             "summary": "Financial report.",
             "tags": None,
             "doc_class": None,
@@ -122,6 +124,8 @@ class TestAvailableDocument:
         data = doc.model_dump()
         assert data == {
             "file_name": "report.pdf",
+            "document_id": None,
+            "superseded_by_id": None,
             "summary": None,
             "tags": None,
             "doc_class": None,
@@ -1010,13 +1014,14 @@ class TestReconcileCollectionSummaries:
             DocumentMetadataStore.dispose_engine(f"sqlite:///{db_path}")
 
     @staticmethod
-    def _file_info(file_name, status=None):
+    def _file_info(file_name, status=None, document_id=None):
         from agent.knowledge.schema import FileInfo
         from agent.knowledge.schema import FileStatus
 
         return FileInfo(
-            file_id=file_name,
+            file_id=document_id or file_name,
             file_name=file_name,
+            document_id=document_id,
             collection_name="coll",
             status=status or FileStatus.SUCCESS,
         )
@@ -1025,11 +1030,13 @@ class TestReconcileCollectionSummaries:
         def __init__(self, files, text_samples=None):
             self._files = files
             self._text_samples = text_samples or {}
+            self.sampled = []
 
         def list_files(self, collection_name):
             return self._files
 
-        def get_document_text_sample(self, collection_name, file_name):
+        def get_document_text_sample(self, collection_name, file_name, *, document_id=None):
+            self.sampled.append((file_name, document_id))
             return self._text_samples.get(file_name)
 
     def test_backfills_missing_document_with_text_sample(self, temp_db_url):
@@ -1050,6 +1057,29 @@ class TestReconcileCollectionSummaries:
         docs = {d.file_name: d for d in get_available_documents("coll")}
         assert "orphan.pdf" in docs
         assert "Brandschutzkonzept" in docs["orphan.pdf"].summary
+
+    def test_two_documents_of_one_name_each_get_their_row_by_id(self, temp_db_url):
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge.factory import register_summary
+
+        configure_summary_db(temp_db_url)
+        register_summary("coll", "Plan.pdf", "Erdgeschoss.", document_id="doc-eg")
+        ingestor = self._FakeIngestor(
+            files=[
+                self._file_info("Plan.pdf", document_id="doc-eg"),
+                self._file_info("Plan.pdf", document_id="doc-og"),
+            ],
+            text_samples={"Plan.pdf": "Dies ist der Grundriss des Obergeschosses mit den Fluchtwegen."},
+        )
+
+        assert reconcile_collection_summaries(ingestor, "coll") == 1
+
+        assert ingestor.sampled == [("Plan.pdf", "doc-og")]
+        rows = {doc.document_id: doc.summary for doc in get_available_documents("coll")}
+        assert rows["doc-eg"] == "Erdgeschoss."
+        assert "Obergeschoss" in rows["doc-og"]
 
     def test_no_sampler_falls_back_to_filename(self, temp_db_url):
         from agent.knowledge import configure_summary_db
@@ -1112,7 +1142,7 @@ class TestReconcileCollectionSummaries:
             def list_files(self, collection_name):
                 return [TestReconcileCollectionSummaries._file_info("weird.pdf")]
 
-            def get_document_text_sample(self, collection_name, file_name):
+            def get_document_text_sample(self, collection_name, file_name, *, document_id=None):
                 raise RuntimeError("chroma unreachable")
 
         backfilled = reconcile_collection_summaries(BrokenSamplerIngestor(), "coll")
@@ -1249,11 +1279,11 @@ class TestMigrationFailureNotCached:
     def _flaky_add_column(calls):
         real = DocumentMetadataStore._add_column_if_missing
 
-        def flaky(self, conn, column, ddl_type="TEXT"):
+        def flaky(self, conn, column, ddl_type="TEXT", **where):
             calls["n"] += 1
             if calls["n"] == 1:
                 raise RuntimeError("simulated ALTER failure")
-            return real(self, conn, column, ddl_type)
+            return real(self, conn, column, ddl_type, **where)
 
         return flaky
 

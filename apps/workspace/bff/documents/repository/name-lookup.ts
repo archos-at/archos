@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { projectShelf, shelfDocumentWhere, type DocumentShelf } from '../shelf'
+import { isUuid } from '@/lib/ids'
 import { documentAliasKey, documentNameVariants } from '../name-match'
 import { FILENAME_LOOKUP_MAX_NAMES } from '../filename-lookup'
 import { documents, type DocumentAuthor, type DocumentLifecycle } from '@/lib/db/schema/documents'
@@ -20,10 +21,10 @@ export interface RevisionCounterpartRow {
 export async function findRevisionCounterparts(
   organizationId: string,
   collectionName: string,
-  filenames: readonly string[],
+  references: readonly string[],
   reader: DocumentReader,
 ): Promise<RevisionCounterpartRow[]> {
-  const unique = [...new Set(filenames)]
+  const unique = [...new Set(references)]
   const byId = new Map<string, RevisionCounterpartRow>()
   for (let start = 0; start < unique.length; start += FILENAME_LOOKUP_MAX_NAMES) {
     const chunk = unique.slice(start, start + FILENAME_LOOKUP_MAX_NAMES)
@@ -35,11 +36,12 @@ export async function findRevisionCounterparts(
 async function findRevisionCounterpartChunk(
   organizationId: string,
   collectionName: string,
-  filenames: readonly string[],
+  references: readonly string[],
   reader: DocumentReader,
 ): Promise<RevisionCounterpartRow[]> {
-  const variants = [...new Set(filenames.flatMap(documentNameVariants))]
+  const variants = [...new Set(references.flatMap(documentNameVariants))]
   if (variants.length === 0) return []
+  const ids = references.filter(isUuid)
   const db = getDb()
   return withTenant({ organizationId }, () =>
     db
@@ -55,7 +57,7 @@ async function findRevisionCounterpartChunk(
         and(
           eq(documents.organizationId, organizationId),
           eq(documents.collectionName, collectionName),
-          inArray(documents.filename, variants),
+          or(inArray(documents.filename, variants), ids.length > 0 ? inArray(documents.id, ids) : undefined),
           eq(documents.authoredBy, 'user'),
           eq(documents.lifecycle, 'active'),
           documentVisibleTo(reader),

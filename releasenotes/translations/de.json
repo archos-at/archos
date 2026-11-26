@@ -2748,6 +2748,10 @@
     "de": "Entscheiden zwei Personen gleichzeitig, erfährt die zweite, dass sich der Stand geändert hat, und sieht, was passiert ist."
   },
   {
+    "en": "If you belong to more than one office, tapping Projekt no longer opens a \"not found\" page for a project of the office you were in before: it opens the last project of the office you are in now.",
+    "de": "Wenn Sie mehreren Büros angehören, öffnet ein Tippen auf „Projekt“ bei einem Projekt Ihres vorherigen Büros keine „Nicht gefunden“-Seite mehr, sondern das letzte Projekt Ihres aktuellen Büros."
+  },
+  {
     "en": "If you belong to more than one office, you can switch offices from the menu under your name in the sidebar and, on a phone, from „Mehr“. Before, the switch was only in the menu of the bar above the project overview.",
     "de": "Wenn Sie mehreren Büros angehören, können Sie im Menü unter Ihrem Namen in der Seitenleiste und auf dem Smartphone unter „Mehr“ zwischen den Büros wechseln. Bisher war der Wechsel nur über das Menü in der Leiste oberhalb der Projektübersicht möglich."
   },
@@ -3308,6 +3312,10 @@
     "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
   },
   {
+    "en": "On a phone, the navigation now opens from a menu button at the top left, as in chat apps, so the chat gets most of the screen: the tab bar at the bottom and „Mehr“ are gone, and the menu holds the same places, chats and account as the desktop sidebar.",
+    "de": "Auf dem Smartphone öffnet sich die Navigation jetzt über eine Menüschaltfläche oben links, wie bei Chat-Apps, damit der Chat den größten Teil des Bildschirms einnimmt: Die Tab-Leiste am unteren Rand und „Mehr“ entfallen, und das Menü enthält dieselben Orte, Chats und dasselbe Konto wie die Desktop-Seitenleiste."
+  },
+  {
     "en": "On a phone, the page no longer jumps when you go from the chat to another tab and back: the Persönlich | Projekt switch now comes and goes with the chat, and the project's name beside it fades in when you switch sides.",
     "de": "Auf dem Smartphone springt die Seite nicht mehr, wenn Sie vom Chat zu einem anderen Tab und zurück wechseln: Der Persönlich | Projekt-Schalter wird jetzt gemeinsam mit dem Chat ein- und ausgeblendet, und beim Wechsel zwischen Persönlich und Projekt blendet sich der Projektname daneben ein."
   },
@@ -3376,12 +3384,20 @@
     "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
   },
   {
+    "en": "On an iPhone, tapping into a chat's input now leaves it right above the keyboard at once, instead of jumping to the top of the screen and sliding slowly back down.",
+    "de": "Wenn Sie auf einem iPhone das Eingabefeld eines Chats antippen, bleibt es jetzt sofort direkt über der Tastatur, statt an den oberen Bildschirmrand zu springen und langsam wieder nach unten zu gleiten."
+  },
+  {
     "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
     "de": "Auf dem iPhone rutscht das Eingabefeld in einem leeren Chat beim Antippen nicht mehr nach unten, sondern bleibt direkt über der Tastatur stehen – wie in einem bereits begonnenen Chat."
   },
   {
     "en": "On an iPhone, the input field no longer hides behind the keyboard.",
     "de": "Auf dem iPhone verschwindet das Eingabefeld nicht mehr hinter der Tastatur."
+  },
+  {
+    "en": "On small phones such as the iPhone 13 mini, the chat no longer runs under the input field, and a quick second tap no longer zooms the page.",
+    "de": "Auf kleinen Smartphones wie dem iPhone 13 mini wird der Chat nicht mehr vom Eingabefeld verdeckt, und ein schnelles zweites Tippen zoomt die Seite nicht mehr."
   },
   {
     "en": "On the Piloti website the knowledge sources gather around Piloti again, and the example decision now shows why one way is chosen and the others are not.",
@@ -6334,6 +6350,10 @@
   {
     "en": "Your office can now build its own roles in Piloti, under Organisation → Personen & Zugriff → Eigene Rollen, and decide per project folder which roles may read it and which may edit it. A role not on a folder's list does not see the folder, its files or what Piloti finds in them, and organization admins may read and edit everything.",
     "de": "Ihr Büro kann jetzt unter Organisation → Personen & Zugriff → Eigene Rollen eigene Rollen in Piloti anlegen und je Projektordner festlegen, welche Rollen ihn lesen und welche ihn bearbeiten dürfen. Eine Rolle, die nicht auf der Liste eines Ordners steht, sieht weder den Ordner noch seine Dateien noch das, was Piloti darin findet, und Organisations-Admins dürfen alles lesen und bearbeiten."
+  },
+  {
+    "en": "Your office can read in uploaded documents worth up to 10,000 credits a month, separately from your daily and monthly limit, and this allowance can now be raised for your office on request, for example before a large project folder goes up. The usage page shows the allowance that applies.",
+    "de": "Ihr Büro kann pro Monat hochgeladene Dokumente für bis zu 10.000 Credits auslesen lassen, unabhängig von Ihrem täglichen und monatlichen Limit. Dieses Kontingent kann jetzt auf Anfrage für Ihr Büro erhöht werden, zum Beispiel bevor ein großer Projektordner hochgeladen wird. Auf der Nutzungsseite sehen Sie das geltende Kontingent."
   },
   {
     "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",

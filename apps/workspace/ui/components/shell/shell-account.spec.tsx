@@ -1,6 +1,5 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen, within } from '@/test-utils'
-import userEvent from '@testing-library/user-event'
+import { render } from '@/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 vi.mock('next/navigation', () => ({
@@ -35,7 +34,6 @@ vi.mock('./sidebar-user-menu', () => ({
 }))
 
 import { AppSidebar } from './app-sidebar'
-import { PhoneMoreSheet } from './phone-more-sheet'
 import { shellAccount, type ShellAccount } from './shell-account'
 import { useShellOverlays } from './shell-overlays'
 
@@ -56,7 +54,7 @@ const ACCOUNT_KEYS = ['authRequired', 'canManageOrganization', 'canManagePlatfor
 
 afterEach(() => {
   avatars.length = 0
-  useShellOverlays.setState({ moreSheetOpen: false })
+  useShellOverlays.setState({ menuOpen: false })
 })
 
 describe('one account, in every place that shows it', () => {
@@ -68,30 +66,5 @@ describe('one account, in every place that shows it', () => {
     render(<AppSidebar {...ACCOUNT} projectId="p1" projects={[{ id: 'p1', name: 'Seestadt' }]} canAccessInbox />)
     const rail = avatars.findLast((avatar) => avatar.surface === 'rail')
     expect(Object.fromEntries(ACCOUNT_KEYS.map((key) => [key, rail?.props[key]]))).toEqual(ACCOUNT)
-  })
-
-  test('„Mehr“ offers the switch to another office, and a tap on one starts it', async () => {
-    const user = userEvent.setup()
-    render(
-      <PhoneMoreSheet
-        {...ACCOUNT}
-        projectId="p1"
-        canAccessOfficeShelf
-        canAccessInbox
-        showSkills={false}
-      />
-    )
-    useShellOverlays.setState({ moreSheetOpen: true })
-    const switches = within(await screen.findByRole('dialog')).getByText('Switch organization').closest('[data-slot="phone-more-organizations"]') as HTMLElement
-    expect(within(switches).getByRole('button', { name: /Musterarchitektur/ })).toBeDisabled()
-    await user.click(within(switches).getByRole('button', { name: /feld72/ }))
-    expect(switchToOrganization).toHaveBeenCalledWith('org_2')
-  })
-
-  test('„Mehr“ shows no switch to a person in one office', async () => {
-    render(<PhoneMoreSheet {...ACCOUNT} organizations={[ACCOUNT.organizations[0]!]} projectId="p1" canAccessOfficeShelf canAccessInbox showSkills={false} />)
-    useShellOverlays.setState({ moreSheetOpen: true })
-    await screen.findByRole('dialog')
-    expect(document.querySelector('[data-slot="phone-more-organizations"]')).toBeNull()
   })
 })

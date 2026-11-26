@@ -12,10 +12,10 @@ const prefetch = vi.hoisted(() => vi.fn())
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, prefetch }) }))
 
 const warm = vi.fn()
-const show = (mode: 'personal' | 'project' = 'personal') =>
+const show = (mode: 'personal' | 'project' = 'personal', projectIds: readonly string[] = ['p1', 'p2']) =>
   render(
     <RailChatsSource value={{ items: [], allHref: '/app/personal/chat', onWarmOtherSide: warm }}>
-      <RailModeSwitch mode={mode} collapsed={false} tourAnchor="side-switch" />
+      <RailModeSwitch mode={mode} projectIds={projectIds} collapsed={false} tourAnchor="side-switch" />
     </RailChatsSource>
   )
 const thumb = (): HTMLElement => document.querySelector<HTMLElement>('[data-slot="rail-mode-thumb"]')!
@@ -75,5 +75,32 @@ describe('the Persönlich | Projekt switch moves at once (the rail’s transitio
     await user.keyboard('{Alt>}{ArrowLeft}{/Alt}')
 
     expect(push).not.toHaveBeenCalled()
+  })
+})
+
+describe('Projekt opens the last project of this office, never one the person cannot reach here', () => {
+  test('a project last opened in another office is passed over for this office’s last one', async () => {
+    recordRecentProject('p2')
+    recordRecentProject('other-office')
+    const user = userEvent.setup()
+    show('personal', ['p1', 'p2'])
+
+    await user.click(screen.getByRole('radio', { name: 'Project' }))
+
+    expect(push.mock.calls).toEqual([['/app/projects/p2/chat']])
+    expect(useRailSide.getState().pending).toEqual({ mode: 'project', projectId: 'p2' })
+  })
+
+  test('with no recent project of this office it opens the projects, and warms them, not the other office’s', async () => {
+    recordRecentProject('other-office')
+    const user = userEvent.setup()
+    show('personal', ['p3'])
+
+    await user.hover(screen.getByTestId('rail-mode-switch'))
+    await user.click(screen.getByRole('radio', { name: 'Project' }))
+
+    expect(prefetch).toHaveBeenCalledWith('/app/projects')
+    expect(push.mock.calls).toEqual([['/app/projects']])
+    expect(useRailSide.getState().pending).toBeNull()
   })
 })

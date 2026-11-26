@@ -9,13 +9,12 @@ import { FeedbackProvider } from '@/features/product-feedback/components'
 import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { cn } from '@/lib/utils'
 import { AppSidebar } from './app-sidebar'
+import { PhonePlaceProvider } from './phone-floating-bar'
+import { useTranslations } from '@/i18n'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { useRecordLastPlace } from './last-place'
-import { PhoneMoreSheet } from './phone-more-sheet'
-import { ShellSideRowProvider } from './phone-side-bar'
 import { useRailSide, type RailSide } from './rail-side'
-import { sideOffRoute, sideOfPath } from './shell-side'
-import { PhoneTabBar } from './phone-tab-bar'
-import { phoneTabBarHiddenOnRoute } from './phone-tabs'
+import { onSideChat, sideOffRoute, sideOfPath } from './shell-side'
 import { useKeyboardUp } from './use-keyboard-up'
 import { ProjectOverviewWindow } from './project-overview-window'
 import { shellAccount } from './shell-account'
@@ -48,6 +47,8 @@ export interface AppShellChromeProps {
   lastSide?: RailSide
   children: React.ReactNode
   overlay: React.ReactNode
+  /** The phone menu button's mark: the app layer computes it from the Postfach and the product team's news. */
+  phoneMenuMark?: React.ReactNode
 }
 
 export function AppShellChrome({
@@ -75,10 +76,13 @@ export function AppShellChrome({
   const account = shellAccount(chrome)
 
   const onSide = routeSide !== null
-  const sideRow = React.useMemo(() => ({ projectId, onSide, projects: chrome.projects }), [projectId, onSide, chrome.projects])
-
   const keyboardUp = useKeyboardUp()
-  const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(pathname)
+  const phonePage = onSideChat(pathname, projectId, onSide) ? 'chat' : 'page'
+  const t = useTranslations(navCopy)
+  const placeName =
+    side.mode === 'project'
+      ? (chrome.projects.find((project) => project.id === projectId)?.name ?? t('railModeProject'))
+      : t('railModePersonal')
 
   return (
     <ProductTour
@@ -89,14 +93,16 @@ export function AppShellChrome({
     >
     <FeedbackProvider userEmail={chrome.user?.email ?? null}>
     <div
-      data-tab-bar={tabBarShown ? 'shown' : 'hidden'}
+      data-phone-page={phonePage}
       data-keyboard={keyboardUp ? 'up' : undefined}
       className={cn(
-        'bg-background text-foreground flex h-[var(--visual-viewport-height,100dvh)] overflow-hidden',
+        'bg-background text-foreground flex h-[var(--visual-viewport-bottom,100dvh)] overflow-hidden',
         'flex-col md:flex-row',
-        '[--shell-inset-bottom:env(safe-area-inset-bottom)] data-[keyboard=up]:[--shell-inset-bottom:0px] max-md:data-[tab-bar=shown]:[--shell-inset-bottom:0px] max-md:[--chat-inset-top:0px]',
+        '[--shell-inset-bottom:env(safe-area-inset-bottom)] data-[keyboard=up]:[--shell-inset-bottom:0px]',
+        '[--phone-top-room:calc(max(0.5rem,env(safe-area-inset-top))+3.5rem)] max-md:data-[phone-page=page]:[--phone-main-top:var(--phone-top-room)]',
       )}
     >
+      <PhonePlaceProvider value={placeName}>
       <AppSidebar
         projectId={projectId}
         onSide={onSide}
@@ -108,28 +114,10 @@ export function AppShellChrome({
         showSkills={chrome.showSkills}
         showModels={chrome.showModels}
         inboundMailEnabled={chrome.inboundMail}
+        phoneMenuMark={chrome.phoneMenuMark}
       />
-      <ShellSideRowProvider value={sideRow}>{children}</ShellSideRowProvider>
-      {tabBarShown && (
-        <PhoneTabBar
-          projectId={projectId}
-          canAccessOfficeShelf={chrome.canAccessOfficeShelf}
-          canAccessInbox={chrome.canAccessInbox}
-          inboundMailEnabled={chrome.inboundMail}
-        />
-      )}
-      {tabBarShown && (
-        <PhoneMoreSheet
-          projectId={projectId}
-          projects={chrome.projects}
-          projectName={chrome.projects.find((project) => project.id === projectId)?.name ?? null}
-          {...account}
-          canAccessOfficeShelf={chrome.canAccessOfficeShelf}
-          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
-          canAccessInbox={chrome.canAccessInbox}
-          showSkills={chrome.showSkills}
-        />
-      )}
+      {children}
+      </PhonePlaceProvider>
       <React.Suspense fallback={null}>
         <ProjectOverviewWindow
           projects={chrome.projects}

@@ -36,7 +36,7 @@ ROWS = {"org_a": [BSK, NOTE], "org_b": [FileRow(file_name="Fremd.pdf", shelf="pr
 
 
 def _page_reader(text_by_file: dict[str, dict[int, str]], origin: str = "stored"):
-    async def read(collection: str, file_name: str, *, wanted=None):
+    async def read(collection: str, file_name: str, *, wanted=None, document_id=None):
         pages = text_by_file.get(file_name)
         if pages is None:
             return None

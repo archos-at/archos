@@ -1,0 +1,12 @@
+---
+# area: general
+improvements:
+  - >
+    On a phone, the navigation now opens from a menu button at the top left,
+    as in chat apps, so the chat gets most of the screen: the tab bar at the
+    bottom and „Mehr“ are gone, and the menu holds the same places, chats and
+    account as the desktop sidebar.
+fixes:
+  - >
+    On small phones such as the iPhone 13 mini, the chat no longer runs under
+    the input field, and a quick second tap no longer zooms the page.

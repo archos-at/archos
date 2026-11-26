@@ -725,7 +725,7 @@ The agent reaches marks in two ways.
 `look` (`packages/agent/src/agent/tools/look/`, ADR-0128), a tool of its own bound in every
 context, renders the page or a box on it and makes the box glow here. The turn sends `leave` when it ends, so the agent's cursor goes with it.
 
-- A tool may name a document (`document`: a file name from the turn's inventory, or an id); the name is resolved against the inventory and its id read from `GET /api/internal/document-file` with the envelope echoed. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`apps/workspace/bff/annotations/agent.ts`).
+- A tool may name a document (`document`: a file name from the turn's inventory, its folder path `Ordner/Name` (`/Name` at the top level), or an id); the name is resolved against the inventory, whose row carries the document's id, and only a row without one has its id read from `GET /api/internal/document-file` with the envelope echoed. A name two documents share is a question naming each folder and id, and a name the BFF finds twice (`409`, `ambiguous_name`) is the same question, never the newest of them. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`apps/workspace/bff/annotations/agent.ts`).
 - With no document named and no subject, the tool gets a typed 422 and asks which document is meant.
 - A reply, a proposal, a highlight and a labelled pointer are seen by everyone who opens the document, so a conversation that drew on a restricted folder or another project may write none of them (`tools/canvas/policy.py`).
 - A held upload reaches no model.
@@ -1422,8 +1422,8 @@ the Papierkorb (on a phone from its ⋯), lists the live marks of every
 document of the project, grouped by document.
 
 **Why a page under Dateien and not a project section.** A section is a rail
-entry, a palette command, a `g` shortcut, a tour stop and a phone tab
-decision (`components/shell/project-sections.ts`, `phone-tabs.ts`). Open
+entry, a palette command, a `g` shortcut and a tour stop
+decision (`components/shell/project-sections.ts`). Open
 points are a view of the documents, so they stand where the Papierkorb
 stands: a page of the Dateien section with its own address, which a Jour fixe
 can bookmark, and the Dateien tab stays lit on a phone. The rail carries no

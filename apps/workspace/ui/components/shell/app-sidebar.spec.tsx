@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useShellOverlays } from './shell-overlays'
+import { PhonePlaceProvider } from './phone-floating-bar'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
 import { RECENT_CHATS_COLLAPSED_STORAGE_KEY, RailChatsSource, type RailChats } from './rail-chats'
@@ -70,7 +71,7 @@ afterEach(() => {
   pathname = '/app/projects/p1/chat'
   window.localStorage.removeItem('sidebar.collapsed')
   vi.mocked(useIsMobile).mockReturnValue(false)
-  useShellOverlays.setState({ paletteOpen: false })
+  useShellOverlays.setState({ paletteOpen: false, menuOpen: false })
 })
 
 describe('the inbox bell stands beside the person, for a reader who may reach the inbox', () => {
@@ -345,57 +346,82 @@ describe('AppSidebar - the resize edge', () => {
   })
 })
 
-describe('AppSidebar - the phone chat’s side row is not the band’s', () => {
-  test('the band above `main` holds no side row on the chat: the page owns it, so leaving the chat moves nothing', () => {
-    for (const path of ['/app/projects/p1/chat', '/app/personal/chat']) {
+describe('AppSidebar - the phone’s floating buttons', () => {
+  const bar = (): HTMLElement => document.querySelector<HTMLElement>('[data-slot="phone-floating-bar"]')!
+
+  test('over a page: the menu, the place it is in and the search; no way back where the page has its own', () => {
+    pathname = '/app/projects/p1/files'
+    render(
+      <PhonePlaceProvider value="Project One">
+        <AppSidebar {...baseProps} />
+      </PhonePlaceProvider>
+    )
+    expect(within(bar()).getByTestId('phone-menu-button')).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(within(bar()).getByTestId('phone-place')).toHaveTextContent('Project One')
+    expect(within(bar()).getByTestId('shell-search')).toBeInTheDocument()
+    expect(within(bar()).queryByTestId('phone-back')).toBeNull()
+  })
+
+  test('over a chat: the menu and a new chat, the chat’s header names the rest', () => {
+    for (const [path, projectId, fresh] of [
+      ['/app/projects/p1/chat', 'p1', '/app/projects/p1/chat?new=1'],
+      ['/app/personal/chat', null, '/app/personal/chat?new=1'],
+    ] as const) {
       pathname = path
-      const { unmount } = render(<AppSidebar {...baseProps} projectId={path.startsWith('/app/personal') ? null : 'p1'} />)
-      const banner = screen.getByRole('banner')
-      expect(banner.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
-      expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
+      const { unmount } = render(<AppSidebar {...baseProps} projectId={projectId} />)
+      expect(within(bar()).getByTestId('phone-new-chat')).toHaveAttribute('href', fresh)
+      expect(within(bar()).queryByTestId('phone-place')).toBeNull()
       unmount()
     }
   })
-})
 
-describe('AppSidebar - the phone top band', () => {
-  test('draws nothing over a page that has a header: no project name, no control', () => {
-    pathname = '/app/projects/p1/files'
-    render(<AppSidebar {...baseProps} />)
-    const banner = screen.getByRole('banner')
-    expect(banner).not.toHaveTextContent('Project One')
-    expect(within(banner).queryAllByRole('button')).toEqual([])
-    expect(within(banner).queryAllByRole('link')).toEqual([])
-    expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
-  })
-
-  test('a bare flow has no page header, so its way back and the search keep one line, without the project’s name', async () => {
+  test('a bare flow has no page header, so the way back floats beside the menu', async () => {
     pathname = '/app/projects/p1/setup'
     const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    const banner = screen.getByRole('banner')
-    const line = banner.querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
-    expect(within(line).getByRole('link', { name: 'Back to Project settings' })).toHaveAttribute('href', '/app/projects/p1/settings')
-    expect(banner).not.toHaveTextContent('Project One')
-    await user.click(within(line).getByTestId('shell-search'))
+    expect(within(bar()).getByRole('link', { name: 'Back to Project settings' })).toHaveAttribute('href', '/app/projects/p1/settings')
+    await user.click(within(bar()).getByTestId('shell-search'))
     expect(useShellOverlays.getState().paletteOpen).toBe(true)
+  })
+
+  test('the menu button opens the rail as a drawer', async () => {
+    pathname = '/app/projects/p1/files'
+    vi.mocked(useIsMobile).mockReturnValue(true)
+    const user = userEvent.setup()
+    const { container } = render(<AppSidebar {...baseProps} />)
+    expect(container.querySelector('[data-sidebar="sidebar"]')).toBeNull()
+    await user.click(within(bar()).getByTestId('phone-menu-button'))
+    const drawer = await screen.findByRole('dialog', { name: 'Menu' })
+    expect(drawer.querySelector('[data-sidebar="sidebar"]')).not.toBeNull()
+    expect(within(drawer).getByRole('link', { name: 'Project settings' })).toHaveAttribute('href', '/app/projects/p1/settings')
+  })
+
+  test('a link followed in the drawer closes it', async () => {
+    pathname = '/app/projects/p1/files'
+    vi.mocked(useIsMobile).mockReturnValue(true)
+    const user = userEvent.setup()
+    render(<AppSidebar {...baseProps} />)
+    await user.click(within(bar()).getByTestId('phone-menu-button'))
+    const drawer = await screen.findByRole('dialog', { name: 'Menu' })
+    await user.click(within(drawer).getByRole('link', { name: 'New chat' }))
+    expect(useShellOverlays.getState().menuOpen).toBe(false)
   })
 
   test('shows the connection on a phone, where the rail footer is out of sight', () => {
     pathname = '/app/projects/p1/files'
     vi.mocked(useIsMobile).mockReturnValue(true)
     render(<AppSidebar {...baseProps} />)
-    expect(within(screen.getByRole('banner')).getByTestId('connection-band')).toBeInTheDocument()
+    expect(within(bar()).getByTestId('connection-band')).toBeInTheDocument()
     expect(screen.getAllByTestId('connection-band')).toHaveLength(1)
   })
 
-  test('on a desktop the connection is a row of the rail footer, and the header carries none', () => {
+  test('on a desktop the connection is a row of the rail footer; the floating buttons’ line is a phone’s only', () => {
     pathname = '/app/projects/p1/files'
     const { container } = render(<AppSidebar {...baseProps} />)
-    const bands = screen.getAllByTestId('connection-band')
-    expect(bands).toHaveLength(1)
-    expect(bands[0]).toHaveAttribute('data-appearance', 'rail')
-    expect(container.querySelector('[data-sidebar="footer"]')).toContainElement(bands[0]!)
+    const rail = screen.getAllByTestId('connection-band').filter((band) => band.getAttribute('data-appearance') === 'rail')
+    expect(rail).toHaveLength(1)
+    expect(container.querySelector('[data-sidebar="footer"]')).toContainElement(rail[0]!)
+    expect(bar()).toHaveClass('md:hidden')
   })
 })
 
@@ -439,16 +465,6 @@ describe('AppSidebar - active state', () => {
 
   test('keys the pill identity by side, so it never glides up or down across a side switch', () => {
     expect(railActivePillId(false, 'personal')).not.toBe(railActivePillId(false, 'project'))
-  })
-})
-
-describe('AppSidebar - on a phone', () => {
-  test('renders the top band and no rail', () => {
-    pathname = '/app/projects/p1/files'
-    vi.mocked(useIsMobile).mockReturnValue(true)
-    const { container } = render(<AppSidebar {...baseProps} />)
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    expect(container.querySelector('[data-sidebar="sidebar"]')).toBeNull()
   })
 })
 

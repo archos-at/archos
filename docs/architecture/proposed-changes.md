@@ -129,9 +129,12 @@ that does not exist yet: applying creates it with its description before the
 first move, so „create this folder and move these files into it" is one
 confirm. It must be the target of every item (422, `proposal-new-folder-mismatch`).
 `basis` (`name` or `content`) marks the agent's filing suggestion and says what it
-was judged from. Documents are named by file NAME and folders by PATH, never by id: the
-agent's inventory has no ids, and the deciding person's session resolves the
-names when the change is applied. Every item must carry the fields its verb
+was judged from. Folders are named by PATH. A document is named by its id
+(`document_id`, which the agent's inventory rows carry) beside its file name:
+the document is its id (ADR-0200), so the applier acts on the id and resolves
+a name alone only when one document of the project holds it, refusing it as
+ambiguous otherwise. The deciding person's session resolves them when the
+change is applied. Every item must carry the fields its verb
 needs, or the proposal is refused when it is made (422,
 `proposal-item-incomplete`).
 

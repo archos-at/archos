@@ -4,6 +4,9 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
+from agent.common.stored_file import AMBIGUOUS_NAME
+from agent.common.stored_file import AmbiguousDocumentName
+
 from . import view_image as _view
 from . import view_rendering as _rendering
 
@@ -29,13 +32,19 @@ async def load_page_jpeg(
     page: int,
     *,
     organization_id: str | None = None,
+    document_id: str | None = None,
     max_dim: int | None = None,
     timeout: float = 30.0,
 ) -> PageImage:
     if page < 1:
         raise PageImageUnavailable("invalid_page")
     limit = max_dim or _view.default_max_dim()
-    location = await _view._resolve_storage_location(collection, file_name, organization_id)
+    try:
+        location = await _view._resolve_storage_location(
+            collection, file_name, organization_id, document_id=document_id
+        )
+    except AmbiguousDocumentName:
+        raise PageImageUnavailable(AMBIGUOUS_NAME) from None
     if location is None:
         raise PageImageUnavailable("not_stored")
     try:

@@ -102,3 +102,19 @@ async def test_a_bff_that_has_not_rolled_yet_still_sends_the_old_key(app, mock_i
     config = _config(mock_ingestor)
     assert config["revision_of"] == "Grundriss_EG_Index_B.pdf"
     assert "fassung_of" not in config
+
+
+@pytest.mark.asyncio
+async def test_the_chosen_older_documents_id_reaches_the_ingest_job_config(app, mock_ingestor):
+    older_id = "aaaaaaaa-0000-4000-8000-00000000000a"
+    response = await _ingest(app, {**BODY, "revision_of": "Plan.pdf", "revision_of_id": older_id})
+
+    assert response.status_code == 202
+    assert (_config(mock_ingestor)["revision_of"], _config(mock_ingestor)["revision_of_id"]) == ("Plan.pdf", older_id)
+
+
+@pytest.mark.asyncio
+async def test_an_older_id_that_is_no_document_id_is_refused(app, mock_ingestor):
+    response = await _ingest(app, {**BODY, "revision_of_id": "Plan.pdf"})
+
+    assert response.status_code == 422

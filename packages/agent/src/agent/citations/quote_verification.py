@@ -64,7 +64,7 @@ def _quote_cited_numbers(body: str, start: int, end: int) -> set[int]:
 
 @dataclass(frozen=True)
 class _CitedSources:
-    documents: frozenset[tuple[str | None, str]] = frozenset()
+    documents: frozenset[tuple[str | None, ...]] = frozenset()
     urls: frozenset[str] = frozenset()
 
     def holds(self, source: SourceEntry) -> bool:
@@ -98,7 +98,7 @@ class _CitedLookup:
         return self._memo[key]
 
     def _resolve(self, lines: Sequence[str]) -> _CitedSources:
-        documents: set[tuple[str | None, str]] = set()
+        documents: set[tuple[str | None, ...]] = set()
         urls: set[str] = set()
         for line in lines:
             text = line.strip()

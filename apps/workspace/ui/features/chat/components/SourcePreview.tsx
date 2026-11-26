@@ -61,7 +61,8 @@ export const SourcePreviewChip: FC<SourcePreviewChipProps> = ({
     documentProjectId(doc, projectId),
     conversationId,
     needsIndex,
-    citedFileName(doc)
+    citedFileName(doc),
+    doc.storedDocumentId ?? null
   )
   const [unrenderableId, setUnrenderableId] = useState<string | null>(null)
 

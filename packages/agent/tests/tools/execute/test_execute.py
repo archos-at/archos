@@ -227,6 +227,31 @@ class TestARun:
         assert store.search(draft_namespace(CONVERSATION)) == []
 
 
+async def test_a_resolved_document_is_read_by_its_id(store, monkeypatch) -> None:
+    from agent.tools.canvas.target import Target
+    from agent.tools.look.resolve import Resolved
+
+    document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+    located: list[str | None] = []
+
+    async def resolve(name: str) -> Resolved:
+        return Resolved("Plan.pdf", "proj_abc", Target(document_id, "Plan.pdf", "proj_abc"))
+
+    def locate(collection, name, headers, document_id=None):
+        located.append(document_id)
+        return ("bucket", "key")
+
+    monkeypatch.setattr(run, "resolve_document", resolve)
+    monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
+    monkeypatch.setattr(run, "locate_stored_file", locate)
+    monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: b"%PDF-1.7")
+    _runner(monkeypatch, _ok({}), [])
+
+    await run.execute(RUNNER, "export default () => 1", documents=["Entwurf/Plan.pdf"])
+
+    assert located == [document_id]
+
+
 async def test_a_named_document_reports_its_collection(store, monkeypatch) -> None:
     from agent.knowledge import restricted_use
     from agent.tools.look.resolve import Resolved
@@ -236,7 +261,9 @@ async def test_a_named_document_reports_its_collection(store, monkeypatch) -> No
 
     monkeypatch.setattr(run, "resolve_document", resolve)
     monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
-    monkeypatch.setattr(run, "locate_stored_file", lambda collection, name, headers: ("bucket", "key"))
+    monkeypatch.setattr(
+        run, "locate_stored_file", lambda collection, name, headers, document_id=None: ("bucket", "key")
+    )
     monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: b"%PDF-1.7")
     seen: list[dict] = []
     _runner(monkeypatch, _ok({}), seen)
@@ -261,7 +288,11 @@ def _documents(monkeypatch: pytest.MonkeyPatch, named: dict[str, tuple[str, str,
     by_key = {f"{collection}/{file_name}": data for collection, file_name, data in named.values()}
     monkeypatch.setattr(run, "resolve_document", resolve)
     monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
-    monkeypatch.setattr(run, "locate_stored_file", lambda collection, name, headers: ("bucket", f"{collection}/{name}"))
+    monkeypatch.setattr(
+        run,
+        "locate_stored_file",
+        lambda collection, name, headers, document_id=None: ("bucket", f"{collection}/{name}"),
+    )
     monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: by_key[key])
 
 

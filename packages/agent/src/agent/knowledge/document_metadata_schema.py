@@ -17,9 +17,11 @@ if TYPE_CHECKING:
 from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import _INDEX_NAME
 from agent.knowledge.document_metadata_constants import _LEGACY_INDEX_NAME
+from agent.knowledge.document_metadata_constants import _LEGACY_RETAINED_COLUMNS
 from agent.knowledge.document_metadata_constants import _OPTIONAL_COLUMN_TYPES
 from agent.knowledge.document_metadata_constants import _OPTIONAL_COLUMNS
-from agent.knowledge.document_metadata_constants import _RETAINED_COLUMNS
+from agent.knowledge.document_metadata_constants import DOCUMENT_ID_INDEXES
+from agent.knowledge.document_metadata_constants import IDENTITY_COLUMNS
 from agent.knowledge.document_metadata_constants import LEGACY_RETAINED_TABLE_NAME
 from agent.knowledge.document_metadata_constants import LEGACY_TABLE_NAME
 from agent.knowledge.document_metadata_constants import RETAINED_TABLE_NAME
@@ -83,6 +85,7 @@ def _run_schema(store, conn) -> None:
         if column not in present:
             store._add_column_if_missing(conn, column, _OPTIONAL_COLUMN_TYPES.get(column, "TEXT"))
 
+    _key_by_document_id(store, conn, TABLE_NAME)
     store._ensure_index(conn)
     store._create_retained_table(conn)
     store._rename_legacy_doc_classes(conn)
@@ -132,36 +135,113 @@ def _create_retained_table(store, conn) -> None:
 
     inspector = inspect(conn)
     has_legacy = inspector.has_table(LEGACY_RETAINED_TABLE_NAME)
-    if has_legacy and not inspector.has_table(RETAINED_TABLE_NAME):
+    has_current = inspector.has_table(RETAINED_TABLE_NAME)
+    if has_legacy and not has_current:
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(f"ALTER TABLE {LEGACY_RETAINED_TABLE_NAME} RENAME TO {RETAINED_TABLE_NAME}"))
         logger.info("Renamed '%s' to '%s' (rows preserved)", LEGACY_RETAINED_TABLE_NAME, RETAINED_TABLE_NAME)
-        return
-    if has_legacy:
-        columns = ", ".join(("collection", "filename", *_RETAINED_COLUMNS))
+    elif not has_current:
+        conn.execute(
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+            text(
+                f"CREATE TABLE {RETAINED_TABLE_NAME} ("
+                "collection VARCHAR(256) NOT NULL, "
+                "filename VARCHAR(512) NOT NULL, "
+                "document_id TEXT, "
+                "superseded_by TEXT, "
+                "superseded_by_id TEXT, "
+                "revision_suggestion TEXT, "
+                "change_summary TEXT, "
+                "change_basis TEXT)"
+            )
+        )
+    _key_by_document_id(store, conn, RETAINED_TABLE_NAME)
+    if has_legacy and has_current:
+        columns = ", ".join(("collection", "filename", *_LEGACY_RETAINED_COLUMNS))
         conn.execute(
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"INSERT INTO {RETAINED_TABLE_NAME} ({columns}) SELECT {columns} FROM {LEGACY_RETAINED_TABLE_NAME} "
-                "WHERE true ON CONFLICT (collection, filename) DO NOTHING"
+                "WHERE true ON CONFLICT DO NOTHING"
             )
         )
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(f"DELETE FROM {LEGACY_RETAINED_TABLE_NAME}"))
-        return
+
+
+def _key_by_document_id(store, conn, table: str) -> None:
+    from sqlalchemy import text
+
+    present = present_columns(conn, table)
+    for column in IDENTITY_COLUMNS:
+        if column not in present:
+            store._add_column_if_missing(conn, column, "TEXT", table=table)
+    if not store._is_postgres():
+        _rebuild_without_primary_key(conn, table)
+    by_id, by_name = DOCUMENT_ID_INDEXES[table]
     conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
-            f"CREATE TABLE IF NOT EXISTS {RETAINED_TABLE_NAME} ("
-            "collection VARCHAR(256) NOT NULL, "
-            "filename VARCHAR(512) NOT NULL, "
-            "superseded_by TEXT, "
-            "revision_suggestion TEXT, "
-            "change_summary TEXT, "
-            "change_basis TEXT, "
-            "PRIMARY KEY (collection, filename))"
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {by_id} ON {table} (collection, document_id) "
+            "WHERE document_id IS NOT NULL"
         )
     )
+    conn.execute(
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        text(f"CREATE UNIQUE INDEX IF NOT EXISTS {by_name} ON {table} (collection, filename) WHERE document_id IS NULL")
+    )
+
+
+def _rebuild_without_primary_key(conn, table: str) -> None:
+    from sqlalchemy import text
+
+    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+    columns = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+    if not any(column[5] for column in columns):
+        return
+    definitions = ", ".join(
+        f"{name} {kind}{' NOT NULL' if not_null else ''}{f' DEFAULT {default}' if default is not None else ''}"
+        for _, name, kind, not_null, default, _ in columns
+    )
+    names = ", ".join(column[1] for column in columns)
+    rebuilt = f"{table}__by_document_id"
+    for statement in (
+        f"DROP TABLE IF EXISTS {rebuilt}",
+        f"CREATE TABLE {rebuilt} ({definitions})",
+        f"INSERT INTO {rebuilt} ({names}) SELECT {names} FROM {table}",
+        f"DROP TABLE {table}",
+        f"ALTER TABLE {rebuilt} RENAME TO {table}",
+    ):
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(text(statement))
+    logger.info("Re-keyed '%s' by document id: the (collection, filename) primary key is gone", table)
+
+
+def name_primary_keys(conn) -> dict[str, str]:
+    from sqlalchemy import bindparam
+    from sqlalchemy import text
+
+    if conn.dialect.name != "postgresql":
+        return {}
+    rows = conn.execute(
+        text(
+            "SELECT rel.relname, con.conname FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid "
+            "WHERE con.contype = 'p' AND rel.relname IN :tables AND pg_table_is_visible(rel.oid)"
+        ).bindparams(bindparam("tables", expanding=True)),
+        {"tables": [TABLE_NAME, RETAINED_TABLE_NAME]},
+    )
+    return {row[0]: row[1] for row in rows}
+
+
+def drop_name_primary_keys(conn) -> int:
+    from sqlalchemy import text
+
+    dropped = name_primary_keys(conn)
+    for table, constraint in dropped.items():
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(text(f'ALTER TABLE {table} DROP CONSTRAINT "{constraint}"'))
+        logger.info("Dropped %s's (collection, filename) primary key %s", table, constraint)
+    return len(dropped)
 
 
 def _create_table(store, conn) -> None:
@@ -179,25 +259,26 @@ def _create_table(store, conn) -> None:
             "display_title TEXT, "
             "folder_path TEXT, "
             "provenance TEXT, "
-            "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, "
-            "PRIMARY KEY (collection, filename))"
+            "document_id TEXT, "
+            "superseded_by_id TEXT, "
+            "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
         )
     )
     logger.info("Created document_metadata table in %s", redact_db_url(store.db_url))
 
 
-def _add_column_if_missing(store, conn, column: str, ddl_type: str = "TEXT") -> None:
+def _add_column_if_missing(store, conn, column: str, ddl_type: str = "TEXT", *, table: str = TABLE_NAME) -> None:
     from sqlalchemy import text
 
     if store._is_postgres():
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        conn.execute(text(f"ALTER TABLE {TABLE_NAME} ADD COLUMN IF NOT EXISTS {column} {ddl_type}"))
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl_type}"))
         return
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-    existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({TABLE_NAME})")).fetchall()}
+    existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()}
     if column not in existing:
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        conn.execute(text(f"ALTER TABLE {TABLE_NAME} ADD COLUMN {column} {ddl_type}"))
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
 
 
 def _ensure_index(store, conn) -> None:

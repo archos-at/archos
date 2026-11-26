@@ -7,13 +7,13 @@ import { ChatResumeRecorder } from '@/features/chat/components/chat-resume-recor
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
-import { PhoneChatSideRowSlot } from '@/components/shell/phone-side-bar'
 import { LAST_PLACE_COOKIE } from '@/components/shell/landing'
 import { sideOfLastPlace } from '@/components/shell/shell-side'
 import { resolveShellChrome } from '@/lib/shell/chrome'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
 import { RecentlyDeleted } from '@/features/projects/components/recently-deleted'
 import { ShellNormDialog } from './shell-norm-dialog'
+import { PhoneMenuMark } from './phone-menu-mark'
 
 export default async function AppShellLayout({
   children,
@@ -23,18 +23,17 @@ export default async function AppShellLayout({
   overlay: ReactNode
 }): Promise<JSX.Element> {
   const chrome = await runWithTenantSlot(resolveShellChrome)
-  const lastSide = sideOfLastPlace(
-    (await cookies()).get(LAST_PLACE_COOKIE)?.value,
-    chrome.projects.map((project) => project.id)
-  )
+  const projectIds = chrome.projects.map((project) => project.id)
+  const lastSide = sideOfLastPlace((await cookies()).get(LAST_PLACE_COOKIE)?.value, projectIds)
 
   return (
-    <RailChatsProvider>
+    <RailChatsProvider projectIds={projectIds}>
     <ShellNormDialog>
     <AppShellChrome
       projects={chrome.projects}
       projectActivity={chrome.projectActivity}
       projectOverviewAfter={<RecentlyDeleted canManageCompliance={chrome.navFlags.canManageCompliance} />}
+      phoneMenuMark={<PhoneMenuMark canAccessInbox={chrome.navFlags.canAccessInbox} />}
       user={chrome.user}
       organizationName={chrome.organizationName}
       authRequired={chrome.authRequired}
@@ -61,13 +60,10 @@ export default async function AppShellLayout({
       <main
         id="main-content"
         tabIndex={-1}
-        className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto outline-none"
+        className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto outline-none max-md:pt-[var(--phone-main-top,0px)]"
       >
         <RouteFocus />
         <MainScrollMemory />
-        {/* The phone chat's side row stands at the top of the page, not above `main`:
-            leaving or reaching the chat swaps it with the page, so `main` never moves. */}
-        <PhoneChatSideRowSlot />
         {children}
       </main>
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}

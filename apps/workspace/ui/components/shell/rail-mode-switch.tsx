@@ -9,16 +9,13 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { useRailChats } from './rail-chats'
-import { readRecentProjectIds } from './recent-projects'
+import { readLastProjectId } from './recent-projects'
 import { PERSONAL_CHAT_PATH, type RailMode } from './rail-mode'
 import { useRailSide } from './rail-side'
 
-export function projectModeHref(recentProjectIds: readonly string[]): string {
-  const last = recentProjectIds[0]
-  return last ? `/app/projects/${encodeURIComponent(last)}/chat` : '/app/projects'
+export function projectModeHref(projectId: string | null): string {
+  return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : '/app/projects'
 }
-
-const sideHref = (side: RailMode): string => (side === 'personal' ? PERSONAL_CHAT_PATH : projectModeHref(readRecentProjectIds()))
 
 const ICON = { personal: LockKeyhole, project: Users } as const
 
@@ -31,11 +28,13 @@ const THUMB = {
 
 export function RailModeSwitch({
   mode,
+  projectIds,
   collapsed,
   navigate,
   tourAnchor,
 }: {
   mode: RailMode
+  projectIds: readonly string[]
   collapsed: boolean
   navigate?: (href: string) => void
   tourAnchor: string
@@ -47,10 +46,11 @@ export function RailModeSwitch({
   const railChats = useRailChats()
   const shown = pending?.mode ?? mode
   const other: RailMode = shown === 'personal' ? 'project' : 'personal'
+  const sideHref = (side: RailMode): string => (side === 'personal' ? PERSONAL_CHAT_PATH : projectModeHref(readLastProjectId(projectIds)))
 
   const go = (next: RailMode): void => {
     if (next === shown) return
-    const projectId = next === 'personal' ? null : (readRecentProjectIds()[0] ?? null)
+    const projectId = next === 'personal' ? null : readLastProjectId(projectIds)
     if (next === 'personal' || projectId) begin({ mode: next, projectId })
     ;(navigate ?? router.push)(sideHref(next))
   }

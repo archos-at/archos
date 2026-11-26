@@ -9,6 +9,8 @@ from knowledge_layer.chunk_positions import body
 from knowledge_layer.chunk_positions import repeated_head
 from knowledge_layer.chunk_positions import split_prefix
 
+from .models import PassageTarget
+
 ORDER_FILTERS = "order"
 
 LABEL_FILTERS = "label"
@@ -24,9 +26,11 @@ _MAX_RANGE_PAGES = 30
 _PAGE_SPAN_WINDOW = 8
 
 
-def _range_filters(file_name: str, first: int, last: int | None, window: int = _PAGE_SPAN_WINDOW) -> dict[str, Any]:
+def _range_filters(
+    target: PassageTarget, first: int, last: int | None, window: int = _PAGE_SPAN_WINDOW
+) -> dict[str, Any]:
     clauses: list[dict[str, Any]] = [
-        {"file_name": {"$eq": file_name}},
+        target.selector,
         {"reading_order": {"$gte": max(1, first - window)}},
     ]
     if last is not None:
@@ -34,15 +38,17 @@ def _range_filters(file_name: str, first: int, last: int | None, window: int = _
     return {"$and": clauses}
 
 
-def _range_label_filters(file_name: str, first: int, last: int, window: int = _PAGE_SPAN_WINDOW) -> dict[str, Any]:
+def _range_label_filters(
+    target: PassageTarget, first: int, last: int, window: int = _PAGE_SPAN_WINDOW
+) -> dict[str, Any]:
     labels = [str(number) for number in range(max(1, first - window), last + 1)]
-    return {"$and": [{"file_name": {"$eq": file_name}}, {"page_label": {"$in": labels}}]}
+    return {"$and": [target.selector, {"page_label": {"$in": labels}}]}
 
 
 def _filters_for(kind: str, first: int, last: int | None, window: int = _PAGE_SPAN_WINDOW):
     if kind == LABEL_FILTERS and last is not None:
-        return lambda file_name: _range_label_filters(file_name, first, last, window)
-    return lambda file_name: _range_filters(file_name, first, last, window)
+        return lambda target: _range_label_filters(target, first, last, window)
+    return lambda target: _range_filters(target, first, last, window)
 
 
 def _page_span(chunk: Any) -> tuple[int, int] | None:
@@ -152,8 +158,8 @@ def _range_trailer(document: str, kept: Sequence[Any], first: int, last: int | N
     return line
 
 
-def _passage_filters(file_name: str, clause: str | None, page: int | None) -> dict[str, Any]:
-    clauses: list[dict[str, Any]] = [{"file_name": {"$eq": file_name}}]
+def _passage_filters(target: PassageTarget, clause: str | None, page: int | None) -> dict[str, Any]:
+    clauses: list[dict[str, Any]] = [target.selector]
     if clause:
         spellings = _clause_spellings(clause)
         clauses.append({"clause_id": {"$eq": clause} if len(spellings) == 1 else {"$in": spellings}})

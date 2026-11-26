@@ -75,9 +75,9 @@ export const onboarding: typeof en.onboarding = {
         title: 'Persönlich oder Projekt',
         body: 'Ein Schalter, zwei Seiten. Persönlich: Ihre eigenen Chats und „Meine Ablage“, nur für Sie. Projekt: alles zu einem Gebäude, mit allen, die daran arbeiten.',
       },
-      sidesPhone: {
-        title: 'Persönlich oder Projekt',
-        body: 'Ein Schalter oben im Chat, zwei Seiten. Persönlich: Ihre eigenen Chats und „Meine Ablage“, nur für Sie. Projekt: alles zu einem Gebäude. Dort öffnet der Projektname daneben Ihre Projekte.',
+      menuPhone: {
+        title: 'Alles im Menü',
+        body: 'Das Menü oben links öffnet alles: Persönlich oder Projekt, Ihre Projekte, die Ablage, die Bürobibliothek, das Postfach und Ihr Konto.',
       },
       projects: {
         title: 'Ihre Projekte',
@@ -87,13 +87,9 @@ export const onboarding: typeof en.onboarding = {
         title: 'Ihre Projekte',
         body: 'Ein Klick auf {productName} öffnet die Projektübersicht. Projekte erscheinen dort, sobald Kolleginnen und Kollegen Sie hinzufügen; ein eigenes legen Sie dort an.',
       },
-      morePhone: {
-        title: 'Alles Weitere unter „Mehr“',
-        body: 'Ihre Projekte und „Neues Projekt“, die Suche, die Bürobibliothek Ihres Büros und Ihr Konto, auch der Wechsel in ein anderes Büro.',
-      },
-      morePhoneShelfless: {
-        title: 'Alles Weitere unter „Mehr“',
-        body: 'Ihre Projekte und „Neues Projekt“, die Suche und Ihr Konto, auch der Wechsel in ein anderes Büro.',
+      menuPhoneShelfless: {
+        title: 'Alles im Menü',
+        body: 'Das Menü oben links öffnet alles: Persönlich oder Projekt, Ihre Projekte, die Ablage, das Postfach und Ihr Konto.',
       },
       officeShelf: {
         title: 'Bürobibliothek',
@@ -131,7 +127,7 @@ export const onboarding: typeof en.onboarding = {
       },
       projectChatPhone: {
         title: 'Mit {productName} arbeiten',
-        body: 'Fragen Sie {productName} zu diesem Gebäude oder übergeben Sie ihm eine Aufgabe. „Chat“ bringt Sie zurück zu Ihrem letzten Chat.',
+        body: 'Fragen Sie {productName} zu diesem Gebäude oder übergeben Sie ihm eine Aufgabe. Ihre Chats stehen im Menü oben links.',
       },
       projectFiles: {
         title: 'Ablage',
@@ -147,7 +143,7 @@ export const onboarding: typeof en.onboarding = {
       },
       filesOrOfficeShelfPhone: {
         title: 'Ablage oder Bürobibliothek?',
-        body: 'Entscheidend ist, wem die Unterlage gehört. Die Bürobibliothek finden Sie unter „Mehr“.',
+        body: 'Entscheidend ist, wem die Unterlage gehört. Beide finden Sie im Menü oben links.',
       },
       projectSources: {
         title: 'Jede Antwort zeigt ihre Quellen',
@@ -159,7 +155,7 @@ export const onboarding: typeof en.onboarding = {
       },
       projectSettingsPhone: {
         title: 'Beteiligte und Eckdaten',
-        body: 'Der Tab „Projekt“ zeigt, wo dieses Projekt steht. Dort laden Sie Beteiligte ein und passen die Eckdaten an.',
+        body: 'Im Menü unter „Projekteinstellungen“ sehen Sie, wo dieses Projekt steht. Dort laden Sie Beteiligte ein und passen die Eckdaten an.',
       },
     },
   },

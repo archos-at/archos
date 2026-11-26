@@ -28,7 +28,8 @@ export const SourceDocumentDialog: FC<{
     documentProjectId(citation.document, projectId),
     conversationId,
     !citation.document.url,
-    citedFileName(citation.document)
+    citedFileName(citation.document),
+    citation.document.storedDocumentId ?? null
   )
   const target = resolveCitationTarget(citation.document, {
     locus: citation.locus,

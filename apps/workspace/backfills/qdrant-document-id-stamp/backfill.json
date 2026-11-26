@@ -1,0 +1,5 @@
+{"expires": "drop after release 2027-W02",
+  "kind": "backend",
+  "phase": "after-switch",
+  "command": ["python", "/app/scripts/qdrant_backfill_document_id_stamp.py"]
+}

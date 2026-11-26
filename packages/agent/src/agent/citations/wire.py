@@ -8,6 +8,7 @@ from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_place
 from agent.citations.office_lines import office_line_fields
+from agent.citations.registry import bare_file_name
 from agent.citations.roles import classification_for
 from agent.citations.roles import role_fields
 from agent.citations.roles import use_for_entry
@@ -28,7 +29,8 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
     file_name: str | None = None
     page: int | None = None
     if entry.citation_key:
-        parsed_name, page = parse_citation_key(entry.citation_key)
+        _key_name, page = parse_citation_key(entry.citation_key)
+        parsed_name = bare_file_name(entry)
         project_qualifier = f" ({entry.project_name})" if entry.project_name else None
         if project_qualifier and parsed_name.endswith(project_qualifier):
             parsed_name = parsed_name[: -len(project_qualifier)].rstrip()
@@ -51,6 +53,7 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
     payload: dict[str, Any] = {
         "number": number,
         "document_id": document_key(entry),
+        "stored_document_id": entry.document_id,
         "content": content,
         "title": entry.title or file_name,
         "citation_key": entry.citation_key,
@@ -103,6 +106,7 @@ def _wire_project(entry: SourceEntry) -> dict[str, str] | None:
 _READ_SOURCE_WIRE_KEYS = frozenset(
     {
         "document_id",
+        "stored_document_id",
         "citation_key",
         "file_name",
         "page",

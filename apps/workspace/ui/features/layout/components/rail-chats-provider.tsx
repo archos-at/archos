@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
 import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
-import { readRecentProjectIds } from '@/components/shell/recent-projects'
+import { readLastProjectId } from '@/components/shell/recent-projects'
 import { shownSide, useRailSide } from '@/components/shell/rail-side'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { serverSideKey, useChatStore } from '@/features/chat/store'
@@ -42,7 +42,15 @@ export function newestWithCurrent<T>(rows: readonly T[], limit: number, isCurren
 
 const under = (pathname: string, base: string): boolean => pathname === base || pathname.startsWith(`${base}/`)
 
-export function RailChatsProvider({ children, pathname: pathnameOverride }: { children: ReactNode; pathname?: string }): JSX.Element {
+export function RailChatsProvider({
+  children,
+  projectIds,
+  pathname: pathnameOverride,
+}: {
+  children: ReactNode
+  projectIds: readonly string[]
+  pathname?: string
+}): JSX.Element {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const routeMode = railModeOf(pathname)
@@ -102,9 +110,9 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const loading = mode !== null && listing === undefined && loadingSides.has(serverSideKey(mode, side))
   const onWarmOtherSide = useCallback((): void => {
     if (mode === 'project') loadSide(null)
-    const recent = mode === 'personal' ? readRecentProjectIds()[0] : undefined
+    const recent = mode === 'personal' ? readLastProjectId(projectIds) : null
     if (recent) loadSide(recent)
-  }, [mode, loadSide])
+  }, [mode, loadSide, projectIds])
 
   const userId = useChatStore((s) => s.currentUserId)
   useEffect(() => {

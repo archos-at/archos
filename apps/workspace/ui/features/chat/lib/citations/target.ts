@@ -111,6 +111,20 @@ const openAt = (doc: CitedDocument, locus?: CitationLocus): CitationLocus | unde
 export const openAtLocus = (doc: CitedDocument, locus?: CitationLocus): CitationLocus | undefined =>
   openAt(doc, locus)
 
+const storedByName = (
+  rows: readonly StoredDocumentRef[],
+  wanted: string,
+  shelf: Shelf | undefined,
+  isStoredShelf: boolean
+): StoredDocumentRef | undefined => {
+  const named = rows.filter((row) => row.filename.toLowerCase() === wanted)
+  const inScope =
+    shelf === undefined ? named : isStoredShelf ? named.filter((row) => row.shelf === undefined || row.shelf === shelf) : []
+  const first = inScope[0]
+  const namesakes = new Set(inScope.filter((row) => row.shelf === first?.shelf).map((row) => row.id))
+  return namesakes.size === 1 ? first : undefined
+}
+
 const addressTarget = (doc: CitedDocument, url: string, snippet: string | undefined): CitationTarget =>
   isRisUrl(url) ? { kind: 'ris', title: doc.title, url, snippet } : { kind: 'url', url }
 
@@ -127,22 +141,16 @@ export const resolveCitationTarget = (
   if (isHttpUrl(doc.url)) return addressTarget(doc, doc.url!, snippet)
 
   const locator = documentLocator(doc)
+  const storedId = doc.storedDocumentId
 
-  if (locator) {
-    const wanted = locator.filename.toLowerCase()
-    const named =
-      options?.storedDocuments?.filter((row) => row.filename.toLowerCase() === wanted) ?? []
-    const baseFile = options?.baseCorpusFiles?.find((name) => name.toLowerCase() === wanted)
-    const shelf = locator.shelf
+  if (locator || storedId) {
+    const wanted = locator?.filename.toLowerCase()
+    const shelf = locator?.shelf ?? doc.shelf
     const isStoredShelf = shelf !== undefined && STORED_SHELVES.has(shelf)
-
-    const candidates =
-      shelf === undefined
-        ? named
-        : isStoredShelf
-          ? named.filter((row) => row.shelf === undefined || row.shelf === shelf)
-          : []
-    const storedDoc = candidates[0]
+    const baseFile = storedId ? undefined : options?.baseCorpusFiles?.find((name) => name.toLowerCase() === wanted)
+    const storedDoc = storedId
+      ? options?.storedDocuments?.find((row) => row.id === storedId)
+      : storedByName(options?.storedDocuments ?? [], wanted ?? '', shelf, isStoredShelf)
 
     const isOffice = storedDoc != null && isRenditionSource(storedDoc)
     if (storedDoc && (isPreviewableContentType(storedDoc.contentType) || isOffice)) {

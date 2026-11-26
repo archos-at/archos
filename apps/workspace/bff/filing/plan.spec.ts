@@ -22,7 +22,7 @@ const input = (patch: Partial<FilingPlanInput> = {}): FilingPlanInput => ({
   basis: 'name',
   shelf: 'project',
   documents: DOCUMENTS,
-  batchFilenames: DOCUMENTS.map((document) => document.filename),
+  batch: DOCUMENTS,
   judged: true,
   moves: [],
   restrictedDocumentIds: new Set(),
@@ -62,8 +62,8 @@ describe('planFiling', () => {
       basis: 'name',
       new_folder: null,
       operations: [
-        { document: 'MA37_Bescheid.pdf', source: 'project', target_folder: 'Bescheide', reason: 'd1 gehört nach Bescheide.' },
-        { document: 'EG.pdf', source: 'project', target_folder: 'Bescheide', reason: 'd3 gehört nach Bescheide.' },
+        { document: 'MA37_Bescheid.pdf', document_id: 'd1', source: 'project', target_folder: 'Bescheide', reason: 'd1 gehört nach Bescheide.' },
+        { document: 'EG.pdf', document_id: 'd3', source: 'project', target_folder: 'Bescheide', reason: 'd3 gehört nach Bescheide.' },
       ],
     })
   })
@@ -81,6 +81,7 @@ describe('planFiling', () => {
         operations: [
           {
             document: 'Fristerstreckung.pdf',
+            document_id: 'd2',
             source: 'office',
             target_folder: 'Korrespondenz',
             reason: 'd2 gehört nach Korrespondenz.',
@@ -94,7 +95,7 @@ describe('planFiling', () => {
 
   it('splits a folder with more than eight files into proposals of eight', () => {
     const many = Array.from({ length: 10 }, (_, index) => ({ id: `m${index}`, filename: `Bescheid ${index}.pdf` }))
-    const plan = planFiling(input({ documents: many, moves: many.map((document) => move(document.id, 'Bescheide')) }))
+    const plan = planFiling(input({ documents: many, batch: many, moves: many.map((document) => move(document.id, 'Bescheide')) }))
     expect(plan.create.map((payload) => payload.operations.length)).toEqual([8, 2])
   })
 
@@ -172,6 +173,67 @@ describe('planFiling', () => {
     expect(planFiling(input({ basis: 'content', judged: false, record: [recorded('p', 'proposed', [['EG.pdf', 'X']])] }))).toEqual({
       create: [],
       withdraw: [],
+    })
+  })
+
+  describe('two documents of one name in different folders of the batch', () => {
+    const PAIR = [
+      { id: 'entwurf', filename: 'Plan.pdf' },
+      { id: 'einreichung', filename: 'Plan.pdf' },
+    ]
+    const recordedById = (id: string, status: 'proposed' | 'dismissed', documentId: string, target: string, extra: Partial<RecordedProposal> = {}) => ({
+      ...recorded(id, status, [['Plan.pdf', target]], extra),
+      payload: {
+        operation: 'move' as const,
+        operations: [{ document: 'Plan.pdf', document_id: documentId, source: 'project' as const, target_folder: target }],
+        basis: 'name' as const,
+      },
+    })
+
+    it('names each document by its id in the proposal, so the applier moves that one', () => {
+      const plan = planFiling(input({ documents: PAIR, batch: PAIR, moves: [move('entwurf', 'Entwurf'), move('einreichung', 'Einreichung')] }))
+      expect(plan.create.flatMap((payload) => payload.operations.map((item) => [item.document_id, item.target_folder]))).toEqual([
+        ['entwurf', 'Entwurf'],
+        ['einreichung', 'Einreichung'],
+      ])
+    })
+
+    it('lets an open proposal for one of them cover that one only', () => {
+      const plan = planFiling(
+        input({
+          documents: PAIR,
+          batch: PAIR,
+          moves: [move('entwurf', 'Entwurf'), move('einreichung', 'Einreichung')],
+          record: [recordedById('p-open', 'proposed', 'entwurf', 'Entwurf')],
+        })
+      )
+      expect(plan.create.flatMap((payload) => payload.operations.map((item) => item.document_id))).toEqual(['einreichung'])
+    })
+
+    it('remembers a dismissal for the document it was made on, not for its namesake', () => {
+      const plan = planFiling(
+        input({
+          documents: PAIR,
+          batch: PAIR,
+          moves: [move('entwurf', 'Archiv'), move('einreichung', 'Archiv')],
+          record: [recordedById('p-no', 'dismissed', 'entwurf', 'Archiv')],
+        })
+      )
+      expect(plan.create.flatMap((payload) => payload.operations.map((item) => item.document_id))).toEqual(['einreichung'])
+    })
+
+    it('withdraws a content-revisable suggestion for one of them by its id, whatever its namesake is judged to need', () => {
+      const plan = planFiling(
+        input({
+          basis: 'content',
+          documents: PAIR,
+          batch: PAIR,
+          moves: [move('entwurf', 'Entwurf'), move('einreichung', 'Einreichung')],
+          record: [recordedById('p-name', 'proposed', 'einreichung', 'Einreichung'), recordedById('p-stale', 'proposed', 'entwurf', 'Einreichung')],
+        })
+      )
+      expect(plan.withdraw).toEqual(['p-stale'])
+      expect(plan.create.flatMap((payload) => payload.operations.map((item) => item.document_id))).toEqual(['entwurf'])
     })
   })
 

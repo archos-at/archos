@@ -684,3 +684,36 @@ class TestTheGrammarInsideAFenceIsText:
 
     def test_a_title_with_nothing_to_neutralise_is_printed_as_it_is(self):
         assert _line("Brandschutzkonzept --- Entwurf") == "Brandschutzkonzept --- Entwurf"
+
+
+class TestTheDocumentIdLine:
+    DOCUMENT_ID = "bbbbbbbb-0000-4000-8000-00000000000b"
+
+    def _render(self, **fields) -> str:
+        return render_grounding_block(
+            GroundingBlock(
+                preamble="Found 1 relevant document(s):",
+                degraded_banner="",
+                hits=(_hit(citation_key="Plan.pdf, p.2", file_name="Plan.pdf", collection="proj_abc", **fields),),
+                lanes=(),
+                tool="knowledge_search",
+            )
+        )
+
+    def test_a_user_document_names_its_id_under_its_citation(self):
+        text = self._render(document_id=self.DOCUMENT_ID)
+
+        assert f"\nCitation: Plan.pdf, p.2\nDocument-ID: {self.DOCUMENT_ID}\n" in text
+
+    def test_a_hit_without_an_id_renders_no_line(self):
+        assert "Document-ID:" not in self._render()
+
+    @pytest.mark.parametrize("reader", ["records", "text"])
+    def test_both_readers_read_the_id_back(self, reader):
+        token = begin_grounding_capture() if reader == "records" else None
+        try:
+            (entry,) = extract_sources_from_tool_result("knowledge_search", self._render(document_id=self.DOCUMENT_ID))
+        finally:
+            if token is not None:
+                end_grounding_capture(token)
+        assert entry.document_id == self.DOCUMENT_ID

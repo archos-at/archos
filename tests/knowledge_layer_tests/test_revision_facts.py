@@ -20,6 +20,7 @@ from knowledge_layer.ingest import visual_prompt
 from knowledge_layer.ingest import visual_rendering
 from knowledge_layer.ingest import visual_schema
 
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.schema import AvailableDocument
 
@@ -352,7 +353,7 @@ class TestStorage:
 def job_store(monkeypatch):
     from agent.knowledge import ingest_status_store
 
-    monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {})
+    monkeypatch.setattr(ingest_status_store, "in_flight_documents", lambda collections: {})
     monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
 
 
@@ -368,7 +369,9 @@ class TestSuggestionByNumber:
         from agent import knowledge
 
         calls = []
-        monkeypatch.setattr(knowledge, "set_document_revision_suggestion", lambda *args: calls.append(args) or True)
+        monkeypatch.setattr(
+            knowledge, "set_document_revision_suggestion", lambda *args, document_id=None: calls.append(args) or True
+        )
         return calls
 
     def test_a_candidate_with_the_same_number_is_found_though_the_names_share_nothing(self, job_store, stored):
@@ -433,7 +436,11 @@ class TestSuggestionByNumber:
     def test_a_held_file_with_the_same_number_is_not_a_candidate(self, monkeypatch, stored):
         from agent.knowledge import ingest_status_store
 
-        monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {"coll": ["gehalten.pdf"]})
+        monkeypatch.setattr(
+            ingest_status_store,
+            "in_flight_documents",
+            lambda collections: {"coll": [DocumentRef("gehalten.pdf", None)]},
+        )
         monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
         rows = [_row("gehalten.pdf", {"document_number": "A-101", "revision": "A"})]
 
@@ -470,7 +477,7 @@ class TestSuggestionByNumber:
 
     def test_candidates_carry_the_stored_facts_to_the_judge(self):
         (candidate,) = revisions.candidate_documents(
-            "neu.pdf", [_row("alt.pdf", {"document_number": "A-101"})], held=set()
+            "neu.pdf", [_row("alt.pdf", {"document_number": "A-101"})], held=revisions.Held()
         )
         assert candidate.revision_facts == {"document_number": "A-101"}
 

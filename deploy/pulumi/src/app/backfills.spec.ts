@@ -28,6 +28,9 @@ describe("the backfill registry", () => {
       expect.arrayContaining(["actor-kind", "inbox-types", "lanes", "mention-ids", "qdrant-document-id"]),
     );
     expect(all.find((b) => b.name === "qdrant-document-id")).toMatchObject({ kind: "qdrant", phase: "before-readers" });
+    for (const name of ["document-metadata-document-id", "qdrant-document-id-stamp"]) {
+      expect(all.find((b) => b.name === name), name).toMatchObject({ kind: "backend", phase: "after-switch" });
+    }
   });
 
   it("reads a SQL backfill and its files, in name order", () => {
@@ -74,8 +77,17 @@ describe("the backfill registry", () => {
     ).toThrow(/database must be/);
   });
 
-  it("refuses a Qdrant backfill without a command", () => {
-    const manifest = `{"expires": "${MARKER}",\n  "kind": "qdrant",\n  "phase": "before-readers",\n  "command": []\n}\n`;
-    expect(() => loadBackfills(registry({ x: { manifest } }))).toThrow(/command/);
+  it("refuses a Qdrant or backend backfill without a command", () => {
+    for (const kind of ["qdrant", "backend"]) {
+      const manifest = `{"expires": "${MARKER}",\n  "kind": "${kind}",\n  "phase": "before-readers",\n  "command": []\n}\n`;
+      expect(() => loadBackfills(registry({ x: { manifest } })), kind).toThrow(/command/);
+    }
+  });
+
+  it("reads a backend backfill's command", () => {
+    const manifest = `{"expires": "${MARKER}",\n  "kind": "backend",\n  "phase": "after-switch",\n  "command": ["python", "/app/scripts/x.py"]\n}\n`;
+    expect(loadBackfills(registry({ x: { manifest } }))).toEqual([
+      { name: "x", expires: MARKER, phase: "after-switch", kind: "backend", command: ["python", "/app/scripts/x.py"] },
+    ]);
   });
 });

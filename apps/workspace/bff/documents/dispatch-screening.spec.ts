@@ -23,7 +23,7 @@ vi.mock('./repository', () => ({
   markDocumentNotIndexed: vi.fn().mockResolvedValue(undefined),
   findDocumentInOrg: vi.fn(),
   findFolderPathInProject: vi.fn(),
-  findStorageKeyByCollectionAndFilename: vi.fn(),
+  findStorageKeysByCollectionAndFilename: vi.fn(),
   listProjectDocuments: vi.fn(),
   deleteProjectDocument: vi.fn(),
 }))

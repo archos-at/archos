@@ -324,6 +324,14 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Your office can read in uploaded documents worth up to 10,000 credits a month, separately from your daily and monthly limit, and this allowance can now be raised for your office on request, for example before a large project folder goes up. The usage page shows the allowance that applies.",
+            "de": "Ihr Büro kann pro Monat hochgeladene Dokumente für bis zu 10.000 Credits auslesen lassen, unabhängig von Ihrem täglichen und monatlichen Limit. Dieses Kontingent kann jetzt auf Anfrage für Ihr Büro erhöht werden, zum Beispiel bevor ein großer Projektordner hochgeladen wird. Auf der Nutzungsseite sehen Sie das geltende Kontingent."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "The line above an answer no longer warns about „Aussagen ohne Beleg“; it warns only when a source the answer cites says something else. The „Einschätzung“ label under the answer now says what was checked, such as „3 zitierte Quellen geprüft“, and names a source that says nothing or a statement of law without one.",
@@ -392,6 +400,14 @@
           "text": {
             "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
             "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the navigation now opens from a menu button at the top left, as in chat apps, so the chat gets most of the screen: the tab bar at the bottom and „Mehr“ are gone, and the menu holds the same places, chats and account as the desktop sidebar.",
+            "de": "Auf dem Smartphone öffnet sich die Navigation jetzt über eine Menüschaltfläche oben links, wie bei Chat-Apps, damit der Chat den größten Teil des Bildschirms einnimmt: Die Tab-Leiste am unteren Rand und „Mehr“ entfallen, und das Menü enthält dieselben Orte, Chats und dasselbe Konto wie die Desktop-Seitenleiste."
           }
         },
         {
@@ -1022,6 +1038,22 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On an iPhone, tapping into a chat's input now leaves it right above the keyboard at once, instead of jumping to the top of the screen and sliding slowly back down.",
+            "de": "Wenn Sie auf einem iPhone das Eingabefeld eines Chats antippen, bleibt es jetzt sofort direkt über der Tastatur, statt an den oberen Bildschirmrand zu springen und langsam wieder nach unten zu gleiten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On small phones such as the iPhone 13 mini, the chat no longer runs under the input field, and a quick second tap no longer zooms the page.",
+            "de": "Auf kleinen Smartphones wie dem iPhone 13 mini wird der Chat nicht mehr vom Eingabefeld verdeckt, und ein schnelles zweites Tippen zoomt die Seite nicht mehr."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
             "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
           }
@@ -1088,6 +1120,14 @@
           "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "If you belong to more than one office, tapping Projekt no longer opens a \"not found\" page for a project of the office you were in before: it opens the last project of the office you are in now.",
+            "de": "Wenn Sie mehreren Büros angehören, öffnet ein Tippen auf „Projekt“ bei einem Projekt Ihres vorherigen Büros keine „Nicht gefunden“-Seite mehr, sondern das letzte Projekt Ihres aktuellen Büros."
           }
         },
         {

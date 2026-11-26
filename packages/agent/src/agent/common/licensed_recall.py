@@ -20,19 +20,27 @@ logger = logging.getLogger(__name__)
 MAX_RECALLED_PER_TURN = 64
 
 
-def anchor_of(collection: str | None, file_name: str, page: int | None, length: int) -> str:
-    raw = json.dumps([collection or "", file_name, page, length], ensure_ascii=False, separators=(",", ":"))
+def anchor_of(
+    collection: str | None, file_name: str, page: int | None, length: int, document_id: str | None = None
+) -> str:
+    fields = [collection or "", file_name, page, length, *([document_id] if document_id else [])]
+    raw = json.dumps(fields, ensure_ascii=False, separators=(",", ":"))
     return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
 
 
-def parse_anchor(anchor: str) -> tuple[str, str, int | None, int] | None:
+def parse_anchor(anchor: str) -> tuple[str, str, int | None, int, str | None] | None:
     try:
-        collection, file_name, page, length = json.loads(base64.urlsafe_b64decode(anchor + "=" * (-len(anchor) % 4)))
+        collection, file_name, page, length, *identity = json.loads(
+            base64.urlsafe_b64decode(anchor + "=" * (-len(anchor) % 4))
+        )
     except ValueError, TypeError:
         return None
     if not (isinstance(collection, str) and isinstance(file_name, str) and isinstance(length, int)):
         return None
-    return collection, file_name, page if isinstance(page, int) else None, length
+    document_id = identity[0] if len(identity) == 1 and isinstance(identity[0], str) and identity[0] else None
+    if identity and document_id is None:
+        return None
+    return collection, file_name, page if isinstance(page, int) else None, length, document_id
 
 
 def references_in(text: str) -> Iterator[tuple[str, str | None]]:
@@ -85,9 +93,9 @@ def recall(ref: str, anchor: str, scope: frozenset[str]) -> tuple[str, Any] | No
     place = parse_anchor(anchor)
     if place is None or place[0] not in scope:
         return None
-    collection, file_name, page, length = place
+    collection, file_name, page, length, document_id = place
     try:
-        terms, sources = _sources(collection, file_name, page)
+        terms, sources = _sources(collection, file_name, page, document_id)
     except Exception:  # noqa: BLE001 - a store that cannot be read recalls nothing
         logger.info("licensed reference not recalled: its document could not be read", exc_info=True)
         return None
@@ -96,10 +104,12 @@ def recall(ref: str, anchor: str, scope: frozenset[str]) -> tuple[str, Any] | No
     return next(((body, terms) for body in _bodies(sources, length) if passage_digest(body) == ref), None)
 
 
-def _sources(collection: str, file_name: str, page: int | None) -> tuple[LicenceTerms | None, list[str]]:
+def _sources(
+    collection: str, file_name: str, page: int | None, document_id: str | None = None
+) -> tuple[LicenceTerms | None, list[str]]:
     from agent.knowledge.licences import licensed_passage_sources
 
-    return licensed_passage_sources(collection, file_name, page)
+    return licensed_passage_sources(collection, file_name, page, document_id=document_id)
 
 
 def _bodies(sources: Iterable[str], length: int) -> Iterator[str]:

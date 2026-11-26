@@ -11,6 +11,7 @@ export interface WireCitationSource extends CitationLineWire {
   origin?: string | null
   number?: number | null
   document_id?: string | null
+  stored_document_id?: string | null
   file_name?: string | null
   page?: number | null
   clause?: string | null

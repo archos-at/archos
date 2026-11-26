@@ -1392,8 +1392,10 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    `common/image_view_budget.py`, a per-turn ContextVar bound beside the card
    registry in `core/conversation_register.py`); past that it answers with a
    text block. Because the SeaweedFS `storage_key` lives only in the frontend's
-   `documents` table, the tool resolves `(collection, filename)` through a new
-   token-guarded BFF route `GET /api/internal/document-file`
+   `documents` table, the tool resolves the document (by its `documentId` when the
+   turn's row carries one, else by `(collection, filename)`, which answers `409`
+   for a name two documents hold, ADR-0200) through a token-guarded BFF route
+   `GET /api/internal/document-file`
    (`lib/documents/{service,repository}.ts`, ADR-0017 layering) and fetches the
    bytes itself via boto3 (S3, path-style, read-only `get_object`) — which is
    why the aiq-agent tier now carries the `SEAWEED_*` credential set

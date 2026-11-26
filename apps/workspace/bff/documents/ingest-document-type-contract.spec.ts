@@ -49,6 +49,17 @@ describe('ingest document type contract', () => {
     expect(agentHost.INGEST_REQUEST_FIELDS).toContain(keys[0])
   })
 
+  it('names the older Fassung by keys IngestRequest declares, its document id among them', async () => {
+    await dispatchIngest('doc-1', 'proj_abc', 'org/org-1/doc-1/Plan.pdf', 'org-1', null, null, {
+      revisionOf: 'Plan.pdf',
+      revisionOfId: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d',
+    })
+    const body = JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body)) as Record<string, unknown>
+
+    expect(body).toMatchObject({ revision_of: 'Plan.pdf', revision_of_id: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d' })
+    expect(agentHost.INGEST_REQUEST_FIELDS).toEqual(expect.arrayContaining(['revision_of', 'revision_of_id']))
+  })
+
   it('types the field with the vocabulary the backend accepts', () => {
     expect([...DOCUMENT_TYPE_TAGS]).toEqual([...backend.DOCUMENT_TYPE_TAGS])
   })

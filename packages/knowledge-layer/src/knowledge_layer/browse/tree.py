@@ -11,6 +11,7 @@ from knowledge_layer.revision_series import revision_label
 from .render import _in_flight_line
 from .rows import MAX_TYPE_COUNTS
 from .rows import FileRow
+from .rows import RowIndex
 from .rows import _RowKey
 from .rows import _state_label
 from .rows import _subfolders
@@ -64,52 +65,57 @@ class FolderCard:
 class _Series:
     head: FileRow
     basis: str
-    older: tuple[str, ...]
+    older: tuple[FileRow, ...]
 
 
-def _confirmed_head(row: FileRow, by_key: dict[_RowKey, FileRow]) -> FileRow | None:
+def _confirmed_head(row: FileRow, index: RowIndex) -> FileRow | None:
     seen: set[_RowKey] = set()
     current = row
-    while current.superseded_by and (current.collection, current.superseded_by) in by_key:
-        seen.add((current.collection, current.file_name))
-        current = by_key[(current.collection, current.superseded_by)]
-        if (current.collection, current.file_name) in seen:
+    while (newer := index.newer(current)) is not None:
+        seen.add(current.key)
+        current = newer
+        if current.key in seen:
             return None
     return current
 
 
 def _revision_series(rows: Sequence[FileRow]) -> list[_Series]:
-    by_key = {(row.collection, row.file_name): row for row in rows}
+    index = RowIndex(rows)
+    by_key = {row.key: row for row in rows}
     confirmed = confirmed_revision_marks(rows)
     heads: dict[_RowKey, _RowKey] = {}
     for row in rows:
-        if row.superseded_by and (row.collection, row.superseded_by) in by_key:
-            head = _confirmed_head(row, by_key)
+        if index.newer(row) is not None:
+            head = _confirmed_head(row, index)
             if head is not None:
-                heads[(row.collection, row.file_name)] = (head.collection, head.file_name)
-    replaced: dict[_RowKey, list[str]] = {}
+                heads[row.key] = head.key
+    replaced: dict[_RowKey, list[FileRow]] = {}
     for key, head_key in heads.items():
-        replaced.setdefault(head_key, []).append(key[1])
+        replaced.setdefault(head_key, []).append(by_key[key])
     _, block_series_of = title_block_marks(rows)
     _, name_series_of = revision_marks(rows)
-    grouped: list[tuple[str, dict[_RowKey, list[str]]]] = []
+    grouped: list[tuple[str, dict[_RowKey, list[FileRow]]]] = []
     for basis, series_of, skip in (
         ("by Plankopf", block_series_of, set(confirmed)),
         ("by file name", name_series_of, set(confirmed) | set(block_series_of)),
     ):
-        groups: dict[_RowKey, list[str]] = {}
+        groups: dict[_RowKey, list[FileRow]] = {}
         for key, head_key in series_of.items():
             if key == head_key or key in skip:
                 continue
             if head_key in heads:
-                replaced.setdefault(heads[head_key], []).append(key[1])
+                replaced.setdefault(heads[head_key], []).append(by_key[key])
             else:
-                groups.setdefault(head_key, []).append(key[1])
+                groups.setdefault(head_key, []).append(by_key[key])
         grouped.append((basis, groups))
-    series = [_Series(by_key[head], "confirmed", tuple(sorted(names, key=fold))) for head, names in replaced.items()]
+    series = [_Series(by_key[head], "confirmed", _by_name(older)) for head, older in replaced.items()]
     for basis, groups in grouped:
-        series += [_Series(by_key[head], basis, tuple(sorted(names, key=fold))) for head, names in groups.items()]
+        series += [_Series(by_key[head], basis, _by_name(older)) for head, older in groups.items()]
     return series
+
+
+def _by_name(rows: Sequence[FileRow]) -> tuple[FileRow, ...]:
+    return tuple(sorted(rows, key=lambda row: fold(row.file_name)))
 
 
 def _series_label(head: FileRow, basis: str) -> str:
@@ -125,11 +131,10 @@ def _current_lines(series: Sequence[_Series], keys: set[_RowKey]) -> tuple[list[
     lines: list[str] = []
     older_held = 0
     for entry in sorted(series, key=lambda item: fold(item.head.file_name)):
-        collection = entry.head.collection
-        older_held += sum(1 for name in entry.older if (collection, name) in keys)
-        if (collection, entry.head.file_name) not in keys:
+        older_held += sum(1 for row in entry.older if row.key in keys)
+        if entry.head.key not in keys:
             continue
-        shown = ", ".join(entry.older[:MAX_REPLACED_NAMES])
+        shown = ", ".join(row.file_name for row in entry.older[:MAX_REPLACED_NAMES])
         more = len(entry.older) - MAX_REPLACED_NAMES
         replaces = f"{shown} and {more} more" if more > 0 else shown
         lines.append(f"{entry.head.file_name} ({_series_label(entry.head, entry.basis)}) replaces {replaces}")
@@ -141,7 +146,7 @@ def _folder_card(path: str, depth: int, rows: Sequence[FileRow], series: Sequenc
     types, untyped = _type_profile(rows)
     dated = [row for row in rows if row.added_at]
     newest = max(dated, key=lambda row: (row.added_at or "", fold(row.file_name)), default=None)
-    current, older_held = _current_lines(series, {(row.collection, row.file_name) for row in rows})
+    current, older_held = _current_lines(series, {row.key for row in rows})
     own_dated = [row for row in rows if row.document_date]
     newest_own = max(own_dated, key=lambda row: (row.document_date or "", fold(row.file_name)), default=None)
     direct_rows = sorted((row for row in rows if row.folder == path), key=lambda row: fold(row.file_name))

@@ -173,6 +173,30 @@ class TestTheWireContract:
         errors = sorted(_validator(proposals_schema, REQUEST_DEF).iter_errors(body), key=str)
         assert not errors, [error.message for error in errors]
 
+    async def test_a_row_with_its_document_id_sends_a_body_the_contract_accepts(
+        self, proposals_schema, registry, transport
+    ):
+        document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+        set_turn_documents(
+            [
+                AvailableDocument(
+                    file_name="Plan.pdf",
+                    shelf="project",
+                    collection="proj_1",
+                    folder_path="Entwurf",
+                    document_id=document_id,
+                ),
+                *INVENTORY,
+            ]
+        )
+        fake = transport(_created(FIRST))
+        await _propose("move", document="Entwurf/Plan.pdf", target_folder="Einreichung")
+
+        (body,) = fake.bodies()
+        assert body["payload"]["operations"][0]["document_id"] == document_id
+        errors = sorted(_validator(proposals_schema, REQUEST_DEF).iter_errors(body), key=str)
+        assert not errors, [error.message for error in errors]
+
     def test_the_answer_the_tool_reads_is_the_contracts(self, proposals_schema):
         assert not list(_validator(proposals_schema, RESPONSE_DEF).iter_errors(_created(FIRST)))
 

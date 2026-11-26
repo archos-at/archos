@@ -1,15 +1,14 @@
 import { createElement, forwardRef, type AnchorHTMLAttributes, type ReactNode, type ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@/test-utils'
-import { nodesOf, parseSource, productionSources, walk, ts } from '@/test-utils/source-ast'
+import { render } from '@/test-utils'
+import { parseSource, productionSources, walk, ts } from '@/test-utils/source-ast'
 import { AppSidebar } from './app-sidebar'
-import { PhoneMoreSheet } from './phone-more-sheet'
-import { PhoneChatSideRow } from './phone-side-bar'
 import { ProjectSectionFrame } from './project-section-frame'
 import { ProjectSwitcher } from './project-switcher'
 import { RAIL_CHAT_LIMIT, RailChatList, RailChatsSource, type RailChats } from './rail-chats'
-import { phoneBackTarget } from './phone-tabs'
+import { phoneBackTarget } from './phone-back'
 import { useShellOverlays } from './shell-overlays'
+import { PhonePlaceProvider } from './phone-floating-bar'
 
 const shell = vi.hoisted(() => ({ pathname: '/app/projects/p1/chat', phone: false }))
 
@@ -46,16 +45,6 @@ vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
 const PROJECT = { id: 'p1', name: 'Project One' }
 const PROJECTS = [PROJECT, { id: 'p2', name: 'Project Two' }]
 const BASE_PROPS = { projectId: 'p1', projects: PROJECTS, authRequired: false, canAccessInbox: true }
-const FLAGS = {
-  canAccessOfficeShelf: true,
-  canAccessOfficeStandards: true,
-  canAccessInbox: true,
-  showSkills: true,
-  canViewOrganization: true,
-  canManageOrganization: false,
-  canManagePlatform: false,
-}
-
 const CHATS: RailChats = {
   items: [
     { id: 'c1', title: 'Erste Frage', href: '/app/projects/p1/chat/c1', current: true },
@@ -97,24 +86,17 @@ function codeOf(file: string): string {
   return code
 }
 
-function jsxTagsOf(file: string): string[] {
-  return nodesOf(parseSource(file), (node): node is ts.JsxOpeningElement | ts.JsxSelfClosingElement =>
-    ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)
-  ).map((node) => node.tagName.getText())
-}
-
 const RAIL_STEMS = [
   'ui/components/shell/app-sidebar',
   'ui/components/shell/sidebar-brand',
   'ui/components/shell/project-switcher',
-  'ui/components/shell/phone-project-list',
-  'ui/components/shell/phone-more-sheet',
+  'ui/components/shell/phone-floating-bar',
   'ui/components/shell/sidebar-user-menu',
   'ui/components/shell/connection-band',
   'ui/components/shell/connection-presence-indicator',
-  'ui/components/shell/phone-tab-bar',
   'ui/components/shell/shell-count',
   'ui/components/ui/sidebar',
+  'ui/components/ui/sidebar-drawer',
 ] as const
 
 const fileOf = (stem: string): string => {
@@ -131,8 +113,7 @@ const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
 
 const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
   'ui/components/shell/rail-active-pill': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'where the reader is: a sheet with the thumb’s shadow' }],
-  'ui/components/shell/phone-tab-bar': [{ fill: /bg-sheet shadow-xs absolute inset-0 rounded-control/, what: 'the current tab: the same sheet, on either side' }],
-  'ui/components/shell/phone-more-sheet': [{ fill: /bg-sheet shadow-press/, what: 'the phone’s project selector, the first row of „Mehr“: a press' }],
+  'ui/components/shell/phone-floating-bar': [{ fill: /bg-sheet text-foreground shadow-press/, what: 'the phone’s floating buttons over the page: a press each' }],
   'ui/components/ui/sidebar': [{ fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' }],
 }
 
@@ -151,7 +132,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.localStorage.clear()
-  useShellOverlays.setState({ moreSheetOpen: false })
+  useShellOverlays.setState({ menuOpen: false })
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -194,19 +175,6 @@ describe('the app rail’s material', () => {
     expect(withInitials).toEqual([fileOf('ui/components/shell/project-switcher')])
   })
 
-  it('the phone’s project selector is a press with the name at the section size, in „Mehr“', async () => {
-    shell.phone = true
-    shell.pathname = '/app/projects/p1/files'
-    render(createElement(PhoneMoreSheet, { projectId: 'p1', projectName: 'Project One', projects: PROJECTS, authRequired: false, ...FLAGS }))
-    act(() => useShellOverlays.setState({ moreSheetOpen: true }))
-    await screen.findByRole('dialog')
-    const selector = document.querySelector('[data-project-selector]') as HTMLElement
-    expect(classesOf(selector)).toEqual(expect.arrayContaining(['bg-sheet', 'shadow-press']))
-    const name = selector.querySelector('[title="Project One"]') as HTMLElement
-    expect(classesOf(name)).toContain('text-section')
-    expect(allClasses(selector).join(' ')).not.toMatch(/line-clamp|whitespace-normal|text-pretty/)
-  })
-
   it('the section frame names the project in its crumb on a desktop and in its title on an unknown page, and offers a way back where one is', () => {
     const desktop = render(createElement(ProjectSectionFrame, { projectId: 'p1', projectName: 'Project One', pathname: '/app/projects/p1/settings/x'  } as ComponentProps<typeof ProjectSectionFrame>, createElement('div')))
     const crumb = desktop.container.querySelector('span[title="Project One"]') as HTMLElement
@@ -215,8 +183,7 @@ describe('the app rail’s material', () => {
     expect(desktop.container.querySelector('.max-md\\:hidden')).not.toBeNull()
     expect(desktop.container.querySelector('[data-project-selector]')).toBeNull()
     expect(classesOf(desktop.container.querySelector('[data-testid="page-header-back"]') as HTMLElement)).toContain('md:hidden')
-    expect(desktop.container.querySelectorAll('[data-testid="shell-search"]')).toHaveLength(1)
-    expect(classesOf(desktop.container.querySelector('[data-testid="shell-search"]') as HTMLElement)).toEqual(expect.arrayContaining(['-mr-2.5', 'md:hidden']))
+    expect(desktop.container.querySelectorAll('[data-testid="shell-search"]')).toHaveLength(0)
     desktop.unmount()
 
     const unknown = render(createElement(ProjectSectionFrame, { projectId: 'p1', projectName: 'Project One', pathname: '/app/projects/p1/unknown'  } as ComponentProps<typeof ProjectSectionFrame>, createElement('div')))
@@ -231,36 +198,29 @@ describe('the app rail’s material', () => {
     phone.unmount()
   })
 
-  it('on a phone, names the project in „Mehr“ and, above a page, only in the side row at the top of the chat (the owner, 2026-11-24)', () => {
-    for (const stem of ['ui/components/shell/app-sidebar', 'ui/features/layout/components/ChatToolbar', 'ui/features/layout/components/ChatConnectionLine']) {
-      expect(codeOf(fileOf(stem))).not.toMatch(/\bprojectName\b|\bactiveProject\b|project\.name|projects\.find|ProjectCrumb|ProjectPill|PhoneProjectList|data-project-selector|projectSwitcher\.switch/)
-    }
-
+  it('on a phone, floats the menu over every page and names the place once: in the pill beside it, or the chat’s own header (the owner, 2026-11-26)', () => {
     shell.phone = true
     shell.pathname = '/app/projects/p1/files'
-    const { container } = renderRail()
-    const band = container.querySelector('header[data-scope="project"]') as HTMLElement
-    expect(band.textContent).not.toContain('Project One')
-    expect(allClasses(band)).not.toContain('min-h-14')
-    expect(band.querySelectorAll('[data-testid="shell-search"]')).toHaveLength(0)
+    const { container } = render(createElement(PhonePlaceProvider, { value: 'Project One' }, createElement(AppSidebar, BASE_PROPS)))
+    const bar = container.querySelector('[data-slot="phone-floating-bar"]') as HTMLElement
+    expect(bar.querySelector('[data-testid="phone-menu-button"]')).not.toBeNull()
+    expect(bar.querySelector('[data-testid="phone-place"]')).toHaveTextContent('Project One')
+    expect(bar.querySelectorAll('[data-testid="shell-search"]')).toHaveLength(1)
+    expect(bar.querySelector('[data-testid="phone-back"]')).toBeNull()
 
     shell.pathname = '/app/projects/p1/setup'
-    const bare = renderRail().container.querySelector('header[data-scope="project"]') as HTMLElement
-    expect(bare.querySelector('[data-slot="phone-bare-line"]')).not.toBeNull()
-    expect(bare.querySelectorAll('[data-testid="shell-search"]')).toHaveLength(1)
-    expect(bare.textContent).not.toContain('Project One')
+    const bare = renderRail().container.querySelectorAll('[data-slot="phone-floating-bar"]')
+    expect(bare[bare.length - 1]!.querySelector('[data-testid="phone-back"]')).toHaveAttribute('href', '/app/projects/p1/settings')
 
     expect(phoneBackTarget('/app/projects/p1/files/all', 'p1')).toBeNull()
 
     shell.pathname = '/app/projects/p1/chat'
-    const chat = renderRail().container.querySelector('header[data-scope="project"]') as HTMLElement
-    expect(chat.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
-    const row = render(createElement(PhoneChatSideRow, { projectId: 'p1', onSide: true, projects: PROJECTS, pathname: shell.pathname }))
-    expect(row.container.querySelector('[data-slot="phone-side-bar"] [data-project-selector]')).toHaveTextContent('Project One')
+    const chats = renderRail().container.querySelectorAll('[data-slot="phone-floating-bar"]')
+    const chat = chats[chats.length - 1]!
+    expect(chat.querySelector('[data-testid="phone-place"]')).toBeNull()
+    expect(chat.querySelector('[data-testid="phone-new-chat"]')).toHaveAttribute('href', '/app/projects/p1/chat?new=1')
 
-    const doors = railFiles().filter((file) => jsxTagsOf(file).includes('PhoneProjectList'))
-    expect(doors).toEqual([fileOf('ui/components/shell/phone-more-sheet')])
-    expect(productionSources().some((path) => path.startsWith('ui/components/shell/project-crumb.'))).toBe(false)
+    expect(productionSources().some((path) => /^ui\/components\/shell\/(phone-tab-bar|phone-more-sheet|phone-project-list|project-crumb)\./.test(path))).toBe(false)
   })
 
   it('sets a row at 13px, muted at 440 at rest and ink at 500 where the reader is: never 14px or 600', () => {

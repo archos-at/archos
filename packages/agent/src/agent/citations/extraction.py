@@ -127,6 +127,8 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         tool_name=tool_name,
         collection=(hit.collection or "").strip() or None,
         shelf=str(hit.shelf) if hit.shelf is not None else None,
+        document_id=(hit.document_id or "").strip() or None,
+        folder_path=(hit.folder_path or "").strip().strip("/") or None,
         doc_class=(hit.doc_class or "").strip() or None,
         authored_by=hit.authored_by,
         source_format=(hit.source_format or "").strip() or None,

@@ -1,0 +1,3 @@
+{"expires": "drop after release 2026-W52",
+  "what": "Documents unique per folder, deploy 1: every reader and writer addresses a user document by documents.id and still reads the name-keyed shapes; Python metadata and Qdrant chunks are re-keyed to the id"
+}

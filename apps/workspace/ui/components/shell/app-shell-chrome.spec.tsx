@@ -1,7 +1,7 @@
 import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { AppShellChrome } from './app-shell-chrome'
-import { PhoneChatSideRowSlot } from './phone-side-bar'
+import { PhonePlaceOfShell } from './phone-floating-bar'
 import type { OverviewProject } from '@/lib/projects/overview-project'
 
 let pathname = '/app/projects/p1/chat'
@@ -24,14 +24,6 @@ vi.mock('./app-sidebar', async () => {
 })
 vi.mock('@/features/onboarding/components/product-tour', () => ({
   ProductTour: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-vi.mock('./phone-tab-bar', () => ({
-  PhoneTabBar: ({ projectId }: { projectId: string | null }) => (
-    <nav data-testid="tab-bar" data-project-id={projectId ?? 'personal'} />
-  ),
-}))
-vi.mock('./phone-more-sheet', () => ({
-  PhoneMoreSheet: () => <div data-testid="more-sheet" />,
 }))
 let keyboardUp = false
 vi.mock('./use-keyboard-up', () => ({
@@ -69,35 +61,28 @@ afterEach(() => {
   railMounts = 0
 })
 
-describe('AppShellChrome — the phone chat’s side row stands in the page, so `main` never moves', () => {
-  const page = (): React.JSX.Element => (
-    <main data-testid="main">
-      <PhoneChatSideRowSlot />
-      page
-    </main>
-  )
-
-  test('on a chat the row stands inside `main`, on the route’s side; on any other page there is none', () => {
-    const sideRow = (): HTMLElement | null => document.querySelector('[data-slot="phone-side-bar"]')
-    const { rerender } = render(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
-    const main = screen.getByTestId('main')
-    expect(main.firstElementChild).toContainElement(sideRow())
-    expect(sideRow()).toHaveTextContent('Projekt p1')
+describe('AppShellChrome — the phone page', () => {
+  test('a chat draws its own header under the floating buttons; any other page is pushed below them', () => {
+    const { container, rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
+    const frame = container.querySelector('[data-phone-page]')!
+    expect(frame).toHaveAttribute('data-phone-page', 'chat')
+    expect(frame.className).toContain('max-md:data-[phone-page=page]:[--phone-main-top:var(--phone-top-room)]')
     for (const path of ['/app/projects/p1/files', '/app/personal-shelf', '/app/inbox']) {
       pathname = path
-      rerender(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
-      expect(sideRow()).toBeNull()
-      expect(screen.getByTestId('main')).toBe(main)
+      rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
+      expect(frame).toHaveAttribute('data-phone-page', 'page')
     }
     pathname = '/app/personal/chat'
-    rerender(<AppShellChrome {...baseProps}>{page()}</AppShellChrome>)
-    expect(main.firstElementChild).toContainElement(sideRow())
-    expect(screen.getByTestId('rail-mode-switch')).toHaveAttribute('data-shown', 'personal')
+    rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
+    expect(frame).toHaveAttribute('data-phone-page', 'chat')
   })
 
-  test('outside the shell the slot draws nothing', () => {
-    render(page())
-    expect(document.querySelector('[data-slot="phone-side-bar"]')).toBeNull()
+  test('tells the page which place it is in: the project’s name, or the personal side', () => {
+    const { rerender } = render(<AppShellChrome {...baseProps}><PhonePlaceOfShell /></AppShellChrome>)
+    expect(screen.getByTestId('phone-place')).toHaveTextContent('Projekt p1')
+    pathname = '/app/personal/chat'
+    rerender(<AppShellChrome {...baseProps}><PhonePlaceOfShell /></AppShellChrome>)
+    expect(screen.getByTestId('phone-place')).toHaveTextContent('Personal')
   })
 })
 
@@ -108,13 +93,11 @@ describe('AppShellChrome — one chrome on every page', () => {
     expect(screen.getByTestId('rail')).toHaveAttribute('data-on-side', 'true')
   })
 
-  test('the rail and the tab bar never remount between pages: project → Postfach → Suche → Organisation → Persönlich', () => {
+  test('the rail never remounts between pages: project → Postfach → Suche → Organisation → Persönlich', () => {
     const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    const bar = screen.getByTestId('tab-bar')
     for (const path of ['/app/inbox', '/app/search', '/app/organization/members', '/app/personal/chat']) {
       pathname = path
       rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-      expect(screen.getByTestId('tab-bar')).toBe(bar)
     }
     expect(railMounts).toBe(1)
   })
@@ -126,7 +109,6 @@ describe('AppShellChrome — one chrome on every page', () => {
       rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
       expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p1')
       expect(screen.getByTestId('rail')).toHaveAttribute('data-on-side', 'false')
-      expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p1')
     }
     pathname = '/app/personal-shelf'
     rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
@@ -139,7 +121,6 @@ describe('AppShellChrome — one chrome on every page', () => {
     pathname = '/app/inbox'
     render(<AppShellChrome {...baseProps} lastSide={{ mode: 'project', projectId: 'p2' }}>page</AppShellChrome>)
     expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p2')
-    expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p2')
   })
 
   test('a project deleted from under the rail gives way: the refreshed overview stands on the server’s side, then Persönlich', () => {
@@ -148,7 +129,6 @@ describe('AppShellChrome — one chrome on every page', () => {
     const afterDelete = { ...baseProps, projects: [project('p2')] }
     rerender(<AppShellChrome {...afterDelete} lastSide={{ mode: 'project', projectId: 'p2' }}>page</AppShellChrome>)
     expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'p2')
-    expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p2')
     rerender(<AppShellChrome {...afterDelete} lastSide={{ mode: 'project', projectId: 'p1' }}>page</AppShellChrome>)
     expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'personal')
   })
@@ -157,60 +137,24 @@ describe('AppShellChrome — one chrome on every page', () => {
     pathname = '/app/projects'
     render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     expect(screen.getByTestId('rail')).toHaveAttribute('data-project-id', 'personal')
-    expect(screen.getByTestId('more-sheet')).toBeInTheDocument()
   })
 })
 
 describe('AppShellChrome — height', () => {
-  test('the frame follows the visual viewport while the iOS keyboard is up, 100dvh otherwise', () => {
+  test("the frame's bottom stands on the iOS keyboard while it is up, 100dvh otherwise", () => {
     const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     const frame = container.querySelector('.overflow-hidden')
-    expect(frame?.className).toContain('h-[var(--visual-viewport-height,100dvh)]')
+    expect(frame?.className).toContain('h-[var(--visual-viewport-bottom,100dvh)]')
   })
 })
 
-describe('AppShellChrome — the phone tab bar', () => {
-  test('stands after the page, carrying the side it is on, with „Mehr“ beside it', () => {
-    const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    const bar = screen.getByTestId('tab-bar')
-    expect(bar).toHaveAttribute('data-project-id', 'p1')
-    const frame = container.querySelector('[data-tab-bar]')!
-    expect(Array.from(frame.children).indexOf(bar)).toBeGreaterThan(0)
-    expect(screen.getByTestId('more-sheet')).toBeInTheDocument()
-  })
-
-  test('stands down while the keyboard is up, and zeroes the inset a composer pads for', () => {
+describe('AppShellChrome — the keyboard', () => {
+  test('zeroes the inset a composer pads for while the keyboard is up', () => {
     keyboardUp = true
     const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    expect(screen.queryByTestId('tab-bar')).toBeNull()
-    const frame = container.querySelector('[data-tab-bar]')!
-    expect(frame).toHaveAttribute('data-tab-bar', 'hidden')
+    const frame = container.querySelector('[data-phone-page]')!
     expect(frame).toHaveAttribute('data-keyboard', 'up')
-    expect(frame.className).toContain('data-[keyboard=up]:[--shell-inset-bottom:0px]')
-  })
-
-  test('the chat route on a phone always has a way to the navigation: the bar returns when the keyboard goes', () => {
-    pathname = '/app/projects/p1/chat'
-    keyboardUp = true
-    const { rerender } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    expect(screen.queryByTestId('tab-bar')).toBeNull()
-
-    keyboardUp = false
-    rerender(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'p1')
-  })
-
-  test('stands down on the intake wizard, which has its own footer', () => {
-    pathname = '/app/projects/p1/intake'
-    render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    expect(screen.queryByTestId('tab-bar')).toBeNull()
-  })
-
-  test('while it stands, the page below is told the bar clears the home indicator', () => {
-    const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
-    const frame = container.querySelector('[data-tab-bar]')!
-    expect(frame).toHaveAttribute('data-tab-bar', 'shown')
     expect(frame.className).toContain('[--shell-inset-bottom:env(safe-area-inset-bottom)]')
-    expect(frame.className).toContain('max-md:data-[tab-bar=shown]:[--shell-inset-bottom:0px]')
+    expect(frame.className).toContain('data-[keyboard=up]:[--shell-inset-bottom:0px]')
   })
 })

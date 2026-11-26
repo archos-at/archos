@@ -26,13 +26,23 @@ def with_document_type(tags: list[str] | None, document_type: str) -> list[str]:
     return [document_type, *others][:MAX_TAGS]
 
 
-def keep(collection_name: str, file_name: str, document_type: str, tags: list[str] | None) -> None:
+def keep(
+    collection_name: str,
+    file_name: str,
+    document_type: str,
+    tags: list[str] | None,
+    *,
+    document_id: str | None = None,
+) -> None:
     from agent.knowledge import get_document_person_tags
     from agent.knowledge import set_document_tags_by_person
 
-    person = get_document_person_tags(collection_name, [file_name]).get(file_name)
-    base = person if person is not None else tags
-    if not set_document_tags_by_person(collection_name, file_name, with_document_type(base, document_type)):
+    if document_id:
+        person = get_document_person_tags(collection_name, [], document_ids=[document_id]).get(document_id)
+    else:
+        person = get_document_person_tags(collection_name, [file_name]).get(file_name)
+    chosen = with_document_type(person if person is not None else tags, document_type)
+    if not set_document_tags_by_person(collection_name, file_name, chosen, document_id=document_id):
         logger.warning("Could not store the chosen document type of %s in %s", file_name, collection_name)
 
 
@@ -42,11 +52,17 @@ def apply(config: dict, tags: list[str] | None) -> tuple[str | None, list[str] |
 
 
 def carry_person_tags(
-    collection_name: str, file_name: str, preserved: dict, chosen_type: str | None, tags: list[str] | None
+    collection_name: str,
+    file_name: str,
+    preserved: dict,
+    chosen_type: str | None,
+    tags: list[str] | None,
+    *,
+    document_id: str | None = None,
 ) -> None:
     if "tags" in preserved:
         from agent.knowledge import set_document_tags_by_person
 
-        set_document_tags_by_person(collection_name, file_name, json.loads(preserved["tags"]))
+        set_document_tags_by_person(collection_name, file_name, json.loads(preserved["tags"]), document_id=document_id)
     if chosen_type:
-        keep(collection_name, file_name, chosen_type, tags)
+        keep(collection_name, file_name, chosen_type, tags, document_id=document_id)

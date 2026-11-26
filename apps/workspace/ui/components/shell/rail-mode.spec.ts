@@ -25,7 +25,7 @@ describe('the rail’s links', () => {
   })
 
   it('goes back to the last project, or to the list of projects', () => {
-    expect(projectModeHref(['p1', 'p2'])).toBe('/app/projects/p1/chat')
-    expect(projectModeHref([])).toBe('/app/projects')
+    expect(projectModeHref('p1')).toBe('/app/projects/p1/chat')
+    expect(projectModeHref(null)).toBe('/app/projects')
   })
 })

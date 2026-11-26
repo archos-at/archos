@@ -3,8 +3,6 @@ import { describe, expect, test, vi } from 'vitest'
 
 import { render } from '@/test-utils'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneChatSideRow } from '@/components/shell/phone-side-bar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { PERSONAL_CHAT_PATH } from '@/components/shell/rail-mode'
 import {
   TOURS,
@@ -81,17 +79,6 @@ function shell(tour: TourId, reader: Omit<TourReader, 'phone'>): void {
         showModels={false}
         showSkills={false}
       />
-      <main>
-        <PhoneChatSideRow projectId={projectId} onSide projects={PROJECTS} pathname={at} />
-      </main>
-      {mobile && (
-        <PhoneTabBar
-          projectId={projectId}
-          pathname={at}
-          canAccessOfficeShelf={reader.canAccessOfficeShelf}
-          canAccessInbox={reader.canAccessInbox}
-        />
-      )}
     </>,
   )
 }

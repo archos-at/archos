@@ -97,7 +97,7 @@ class TestALookIsSeen:
     async def test_a_look_records_the_revision_it_read(self, registry, steps, monkeypatch) -> None:
         import knowledge_layer.view_image as view
 
-        async def locate(collection, file_name, organization_id=None, image_index=None):
+        async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
             return view.StorageLocation("key", None, "version-7") if collection == "proj_1" else None
 
         monkeypatch.setattr(view, "_resolve_storage_location", locate)
