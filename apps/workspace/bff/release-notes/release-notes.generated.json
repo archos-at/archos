@@ -148,6 +148,22 @@
         },
         {
           "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A name now has to be unique only within its folder: the same name in another folder is a document of its own, with its own Fassungen, so a project folder from your office server arrives whole even when hundreds of files share a name across subfolders.",
+            "de": "Ein Name muss jetzt nur noch in seinem Ordner eindeutig sein: Derselbe Name in einem anderen Ordner ist ein eigenes Dokument mit eigenen Fassungen, sodass ein Projektordner von Ihrem Büroserver vollständig ankommt, auch wenn sich Hunderte Dateien in verschiedenen Unterordnern einen Namen teilen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "When a file comes into a folder that already holds its name, by upload or by moving it, you choose „Ersetzen“, „Beide behalten“ (it comes in as „Plan 2.pdf“) or „Überspringen“, per file or with „Für alle anwenden“; {productName} asks the same before any move it proposes, and never replaces a document on its own.",
+            "de": "Kommt eine Datei in einen Ordner, der ihren Namen schon enthält, ob beim Hochladen oder beim Verschieben, wählen Sie „Ersetzen“, „Beide behalten“ (sie kommt als „Plan 2.pdf“ hinein) oder „Überspringen“, je Datei oder mit „Für alle anwenden“; {productName} fragt vor jeder vorgeschlagenen Verschiebung genauso und ersetzt nie von sich aus ein Dokument."
+          }
+        },
+        {
+          "section": "features",
           "area": "general",
           "text": {
             "en": "On a phone, the „Chats“ list in the chat now starts with „Letzte Chats“, the last five chats of the side you are on, as the sidebar shows them on a computer.",
@@ -392,6 +408,22 @@
           "text": {
             "en": "The E-Mail-Eingang is calmer: each mail is two lines that say where it goes or what it still needs, threads stand under their own name, and a mail with nothing left to decide is filed with one press on „Ablegen“. A filing can be undone for a few seconds, and while you pick several mails, the right side shows where they will go.",
             "de": "Der E-Mail-Eingang ist übersichtlicher: Jede Mail besteht aus zwei Zeilen, die zeigen, wohin sie gehört oder was noch fehlt. Threads erscheinen unter ihrem eigenen Namen, und eine Mail, bei der nichts mehr zu entscheiden ist, legen Sie mit einem Klick auf „Ablegen“ ab. Das Ablegen lässt sich einige Sekunden lang rückgängig machen, und während Sie mehrere Mails auswählen, zeigt die rechte Seite, wohin sie abgelegt werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The list of names a folder upload asks about shows every file with its whole path, wraps long names instead of cutting them, and „Kopieren“ copies all the paths at once.",
+            "de": "Die Liste der Namen, nach denen ein Ordner-Upload fragt, zeigt jede Datei mit ihrem ganzen Pfad, bricht lange Namen um, statt sie abzuschneiden, und „Kopieren“ kopiert alle Pfade auf einmal."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Renaming a document to a name its folder already holds is refused right in the rename field, so two documents of one folder can no longer look alike.",
+            "de": "Ein Dokument auf einen Namen umzubenennen, den sein Ordner schon enthält, wird direkt im Feld abgelehnt, sodass zwei Dokumente eines Ordners nicht mehr gleich aussehen können."
           }
         },
         {
@@ -912,6 +944,14 @@
           "text": {
             "en": "Folder cards have the rounded corners of a card again, not the small ones they briefly took.",
             "de": "Ordnerkarten haben wieder die abgerundeten Ecken einer Karte und nicht mehr die kleinen, die sie kurzzeitig hatten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A folder upload no longer holds back files that share a name with a file in another subfolder of the upload; each one arrives in its own folder.",
+            "de": "Ein Ordner-Upload hält keine Dateien mehr zurück, die denselben Namen tragen wie eine Datei in einem anderen Unterordner des Uploads; jede kommt in ihrem eigenen Ordner an."
           }
         },
         {
