@@ -8,7 +8,13 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import type { FileItem, FolderItem } from '../file-types'
 import { refusalOf, shelfRefusalOf, throwUnlessOk, type ShelfRefusal } from '../lib/move-refusal'
 import type { NameConflict } from '@/lib/documents/name-conflict'
-import { moveConflictRow, movePatchBody, nameConflictOfResponse, type SentConflictChoice } from '../lib/name-conflict'
+import {
+  moveConflictRow,
+  movePatchBody,
+  nameConflictOfResponse,
+  replaceUnavailableOfResponse,
+  type SentConflictChoice,
+} from '../lib/name-conflict'
 import type { AskNameConflicts } from './use-name-conflict-prompt'
 import { documentPathIn } from '../lib/folder-path-label'
 
@@ -122,9 +128,16 @@ export function useDocumentMoves(
         if (conflict) {
           moved(documentId, previousFolderId)
           seen.current.set(documentId, file)
-          const choice = (await askAbout([{ file, conflict }], folderId)).get(documentId)
-          if (!choice) return
-          const resolved = await patchFolder(documentId, folderId, choice)
+          let asking = conflict
+          let choice = (await askAbout([{ file, conflict: asking }], folderId)).get(documentId)
+          let resolved = choice ? await patchFolder(documentId, folderId, choice) : null
+          for (let narrowed = resolved && (await replaceUnavailableOfResponse(resolved)); narrowed; ) {
+            asking = { ...asking, choices: narrowed }
+            choice = (await askAbout([{ file, conflict: asking }], folderId)).get(documentId)
+            resolved = choice ? await patchFolder(documentId, folderId, choice) : null
+            narrowed = resolved && (await replaceUnavailableOfResponse(resolved))
+          }
+          if (!choice || !resolved) return
           await throwUnlessOk(resolved)
           const filename = await storedFilename(resolved, conflict)
           settleResolved(file, folderId, choice, filename)
@@ -166,7 +179,8 @@ export function useDocumentMoves(
       for (const file of targets) moved(file.id, folderId)
 
       const outcome = { moved: 0, refused: 0, skipped: 0 }
-      const held: HeldName[] = []
+      let held: HeldName[] = []
+      const narrowed: HeldName[] = []
       const send = async (batch: readonly FileItem[], choices?: ReadonlyMap<string, SentConflictChoice>): Promise<void> => {
         const queue = [...batch]
         const worker = async (): Promise<void> => {
@@ -182,8 +196,11 @@ export function useDocumentMoves(
                 continue
               }
               restore()
+              const asked = choice ? held.find((entry) => entry.file.id === file.id) : undefined
+              const offered = asked ? await replaceUnavailableOfResponse(response) : null
               const conflict = askConflicts && !choice ? await nameConflictOfResponse(response) : null
-              if (conflict) held.push({ file, conflict })
+              if (asked && offered) narrowed.push({ file, conflict: { ...asked.conflict, choices: offered } })
+              else if (conflict) held.push({ file, conflict })
               else if ((await shelfRefusalOf(response)) === 'ifcRestricted') outcome.refused += 1
             } catch {
               restore()
@@ -195,12 +212,14 @@ export function useDocumentMoves(
       inFlight.current += 1
       try {
         await send(targets)
-        if (held.length > 0) {
+        while (held.length > 0) {
           const chosen = await askAbout(held, folderId)
-          outcome.skipped = held.length - chosen.size
+          outcome.skipped += held.length - chosen.size
           const resend = held.map((entry) => entry.file).filter((file) => chosen.has(file.id))
           for (const file of resend) moved(file.id, folderId)
+          narrowed.length = 0
           await send(resend, chosen)
+          held = [...narrowed]
         }
       } finally {
         inFlight.current -= 1

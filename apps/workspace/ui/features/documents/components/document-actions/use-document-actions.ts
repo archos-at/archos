@@ -14,7 +14,14 @@ import { documentBinResultSchema } from '@/lib/projects/document-bin-wire'
 import { INGEST_RUNNING } from '@/lib/documents/reingest-codes'
 import { requestReingest } from '../../lib/reingest-request'
 import { requestCancelIngest } from '../../lib/cancel-request'
-import { moveConflictRow, movePatchBody, nameConflictOfResponse, type SentConflictChoice } from '../../lib/name-conflict'
+import type { NameConflict } from '@/lib/documents/name-conflict'
+import {
+  moveConflictRow,
+  movePatchBody,
+  nameConflictOfResponse,
+  replaceUnavailableOfResponse,
+  type SentConflictChoice,
+} from '../../lib/name-conflict'
 import { NameConflictAskContext } from '../../hooks/use-name-conflict-prompt'
 
 
@@ -250,16 +257,23 @@ export function useDocumentActions({
         const conflict = await nameConflictOfResponse(res)
         let movedAs = name
         if (conflict) {
-          const choice = askConflicts
-            ? (await askConflicts({ operation: 'move', folderName, rows: [moveConflictRow({ id: document.id, name, path: folderPath?.(document.folderId, name) ?? name }, conflict)] }))?.get(
-                document.id
-              )
-            : undefined
+          const path = folderPath?.(document.folderId, name) ?? name
+          const askAbout = async (asking: NameConflict) =>
+            askConflicts
+              ? (await askConflicts({ operation: 'move', folderName, rows: [moveConflictRow({ id: document.id, name, path }, asking)] }))?.get(
+                  document.id
+                )
+              : undefined
+          let choice = await askAbout(conflict)
           if (!choice || choice === 'skip') {
             if (!askConflicts) toast.error(tFiles('errors.nameConflict', { name }))
             return false
           }
-          res = await send(choice)
+          for (let offered = await replaceUnavailableOfResponse((res = await send(choice))); offered; ) {
+            choice = await askAbout({ ...conflict, choices: offered })
+            if (!choice || choice === 'skip') return false
+            offered = await replaceUnavailableOfResponse((res = await send(choice)))
+          }
           if (res.ok && choice === 'replace') {
             notifyDocumentsChanged()
             onDeleted?.(document.id)

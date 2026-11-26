@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import type { ConflictChoice, ConflictOperation, ConflictRow } from '../../lib/name-conflict'
+import { choicesOf, type ConflictChoice, type ConflictOperation, type ConflictRow } from '../../lib/name-conflict'
 import { CopyPathsButton } from './copy-paths-button'
 
 export interface NameConflictListProps {
@@ -15,9 +15,6 @@ export interface NameConflictListProps {
   onChoose?: (keys: readonly string[], choice: ConflictChoice) => void
   disabled?: boolean
 }
-
-const choicesOf = (row: ConflictRow): readonly ConflictChoice[] =>
-  row.within === 'folder' ? ['replace', 'keep_both', 'skip'] : ['keep_both', 'skip']
 
 const CHOICE_LABEL = { replace: 'replace', keep_both: 'keepBoth', skip: 'skip' } as const
 
