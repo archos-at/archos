@@ -324,6 +324,14 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Your office can read in uploaded documents worth up to 10,000 credits a month, separately from your daily and monthly limit, and this allowance can now be raised for your office on request, for example before a large project folder goes up. The usage page shows the allowance that applies.",
+            "de": "Ihr Büro kann pro Monat hochgeladene Dokumente für bis zu 10.000 Credits auslesen lassen, unabhängig von Ihrem täglichen und monatlichen Limit. Dieses Kontingent kann jetzt auf Anfrage für Ihr Büro erhöht werden, zum Beispiel bevor ein großer Projektordner hochgeladen wird. Auf der Nutzungsseite sehen Sie das geltende Kontingent."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "The line above an answer no longer warns about „Aussagen ohne Beleg“; it warns only when a source the answer cites says something else. The „Einschätzung“ label under the answer now says what was checked, such as „3 zitierte Quellen geprüft“, and names a source that says nothing or a statement of law without one.",
