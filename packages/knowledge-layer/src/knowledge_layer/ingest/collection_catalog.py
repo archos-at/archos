@@ -301,8 +301,10 @@ class CollectionCatalog:
             logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
         else:
             logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
+        if document_id:
+            unregister_summary(collection_name, file_name, permanent=permanent, document_id=document_id)
         for name in names:
-            unregister_summary(collection_name, name, permanent=permanent, document_id=document_id)
+            unregister_summary(collection_name, name, permanent=permanent)
         return bool(chunks) or forgotten > 0
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
