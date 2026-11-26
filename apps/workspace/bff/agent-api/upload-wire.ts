@@ -59,9 +59,7 @@ export const documentUploadFields = {
 export const uploadConflictField = {
   onConflict: nameConflictResolutionSchema
     .optional()
-    .describe(
-      'When the folder already holds a document of this name (in any case): replace makes this the next Fassung of that document, keep_both keeps both under the next free name, skip leaves it. Leave it out and a clash answers 409 `name_conflict` with `existingDocumentId` and `suggestedName`: ask the person, then send their answer.',
-    ),
+    .describe('After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.'),
 } satisfies Record<string, z.ZodType>
 
 export const uploadBodySchema = z.object({

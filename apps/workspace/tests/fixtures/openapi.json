@@ -5042,7 +5042,7 @@
       "patch": {
         "operationId": "document-rename",
         "summary": "Rename a document",
-        "description": "Set the name ARCHOS shows for a document (`displayName`); `null` clears it so the file name shows again. The stored file name never changes. Needs write access to the document’s project or shelf.",
+        "description": "Set the name ARCHOS shows for a document (`displayName`); `null` clears it so the file name shows again. The stored file name never changes; a name its folder holds answers 409. Needs write access to the document’s project or shelf.",
         "tags": [
           "documents"
         ],
@@ -5600,6 +5600,15 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "onConflict": {
+                    "description": "After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.",
+                    "type": "string",
+                    "enum": [
+                      "replace",
+                      "keep_both",
+                      "skip"
                     ]
                   }
                 },
@@ -6554,6 +6563,15 @@
                     "description": "The batch uuid given to upload-batch-open, to file this upload under that batch.",
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "onConflict": {
+                    "description": "After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.",
+                    "type": "string",
+                    "enum": [
+                      "replace",
+                      "keep_both",
+                      "skip"
+                    ]
                   }
                 },
                 "required": [

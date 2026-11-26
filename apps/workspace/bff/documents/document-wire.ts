@@ -13,12 +13,7 @@ export const moveDocumentSchema = z.object({
   folderId: z.guid().nullable(),
   onConflict: nameConflictResolutionSchema
     .optional()
-    .describe(
-      'When the destination already holds a document of this name (in any case): replace makes this document’s file the ' +
-        'next Fassung of that one and bins this one, keep_both moves it under the next free name, skip leaves it where it is. ' +
-        'Leave it out and a clash answers 409 `name_conflict` with `existingDocumentId` and `suggestedName`: ask the person, ' +
-        'then send their answer.',
-    ),
+    .describe('After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.'),
 })
 
 export const updateTagsSchema = z.object({
