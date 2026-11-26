@@ -4,10 +4,14 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import type { PlatformOrgBudget } from '@/lib/budgets/platform-contract'
+import {
+  ingestAllowancePutSchema,
+  withIngestAllowance,
+} from '@/lib/budgets/ingest-allowance-contract'
+import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
 import { PlatformOrgBudgetDialog } from '../../app/(shell)/platform/platform-org-budget-dialog'
 
-const BUDGET: PlatformOrgBudget = {
+let BUDGET: PlatformOrgBudget = {
   organizationId: 'org_01HQZX3K8FELD',
   unit: 'credit',
   dailyLimit: 2500,
@@ -34,8 +38,20 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      if (url.includes('/ingest-allowance')) return Response.json(BUDGET.ingest)
-      if (url.includes('/api/platform/organizations/')) return Response.json(BUDGET)
+      const write =
+        init?.method === 'PUT' && typeof init.body === 'string' ? JSON.parse(init.body) : null
+      if (url.includes('/ingest-allowance')) {
+        if (write) {
+          const { monthlyAllowance } = ingestAllowancePutSchema.parse(write)
+          BUDGET = { ...BUDGET, ingest: withIngestAllowance(BUDGET.ingest, monthlyAllowance) }
+        }
+        return Response.json(BUDGET.ingest)
+      }
+      if (url.includes('/api/platform/organizations/')) {
+        if (write)
+          BUDGET = { ...BUDGET, ...platformOrgBudgetPutSchema.parse(write), explicit: true }
+        return Response.json(BUDGET)
+      }
       return real(input, init)
     }
   }
@@ -48,11 +64,15 @@ export default function PlatformOrgBudgetDevPage(): JSX.Element {
   }
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-8" data-testid="platform-org-budget-preview">
+    <main
+      className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-8"
+      data-testid="platform-org-budget-preview"
+    >
       <div>
         <h1 className="text-lg font-semibold">Platform — an office&apos;s Kontingent</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          The daily and monthly limits, and the monthly allowance for reading documents in, set by an operator.
+          The daily and monthly limits, and the monthly allowance for reading documents in, set by
+          an operator.
         </p>
       </div>
       <Button className="self-start" onClick={() => setOpen(true)}>

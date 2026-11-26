@@ -17,6 +17,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useUnsavedEditGuard } from '@/components/ui/unsaved-edit-confirm'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
@@ -119,6 +120,12 @@ export function PlatformOrgBudgetDialog({
     ingestDraft.value !== (budget.ingest.explicit ? budget.ingest.monthlyAllowance : null)
   const saveLimits = budget !== null && (limitsChanged || (!budget.explicit && !ingestChanged))
   const dirty = budget !== null && (limitsChanged || !budget.explicit || ingestChanged)
+  const guard = useUnsavedEditGuard({
+    dirty: canManage && (limitsChanged || ingestChanged),
+    onOpenChange: (open) => {
+      if (!open) onClose()
+    },
+  })
   const ingestDefault =
     budget === null
       ? null
@@ -133,7 +140,7 @@ export function PlatformOrgBudgetDialog({
     setSaving(true)
     let step: 'limits' | 'ingest' = 'limits'
     try {
-      if (saveLimits) await fetchPlatformOrgBudget(organization.id, draft.data)
+      if (saveLimits) setBudget(await fetchPlatformOrgBudget(organization.id, draft.data))
       step = 'ingest'
       if (ingestChanged) {
         await putPlatformIngestAllowance(organization.id, {
@@ -332,36 +339,39 @@ export function PlatformOrgBudgetDialog({
   }
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !saving) onClose()
-      }}
-    >
-      <DialogContent showCloseButton={!saving}>
-        <DialogHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <DialogTitle>{t('orgBudgets.title', { name: organization.name })}</DialogTitle>
-            {budget ? (
-              <Badge variant={budget.explicit ? 'secondary' : 'outline'}>
-                {t(budget.explicit ? 'orgBudgets.explicit' : 'orgBudgets.default')}
-              </Badge>
-            ) : null}
-          </div>
-          <DialogDescription>{t('orgBudgets.description')}</DialogDescription>
-        </DialogHeader>
-        {body()}
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
-            {canManage ? tc('actions.cancel') : tc('actions.close')}
-          </Button>
-          {canManage && !error ? (
-            <Button onClick={() => void save()} disabled={saving || !valid || !dirty}>
-              {tc(saving ? 'states.saving' : 'actions.save')}
+    <>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!saving) guard.onOpenChange(open)
+        }}
+      >
+        <DialogContent showCloseButton={!saving}>
+          <DialogHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogTitle>{t('orgBudgets.title', { name: organization.name })}</DialogTitle>
+              {budget ? (
+                <Badge variant={budget.explicit ? 'secondary' : 'outline'}>
+                  {t(budget.explicit ? 'orgBudgets.explicit' : 'orgBudgets.default')}
+                </Badge>
+              ) : null}
+            </div>
+            <DialogDescription>{t('orgBudgets.description')}</DialogDescription>
+          </DialogHeader>
+          {body()}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => guard.onOpenChange(false)} disabled={saving}>
+              {canManage ? tc('actions.cancel') : tc('actions.close')}
             </Button>
-          ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {canManage && !error ? (
+              <Button onClick={() => void save()} disabled={saving || !valid || !dirty}>
+                {tc(saving ? 'states.saving' : 'actions.save')}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {guard.question}
+    </>
   )
 }

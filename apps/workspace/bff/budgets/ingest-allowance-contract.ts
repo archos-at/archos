@@ -15,9 +15,18 @@ export const ingestAllowancePutSchema = z
 
 export type IngestAllowancePut = z.infer<typeof ingestAllowancePutSchema>
 
+export function withIngestAllowance(
+  current: PlatformIngestAllowance,
+  monthlyAllowance: number | null,
+): PlatformIngestAllowance {
+  return monthlyAllowance === null
+    ? { ...current, monthlyAllowance: current.defaultMonthlyAllowance, explicit: false }
+    : { ...current, monthlyAllowance, explicit: true }
+}
+
 export interface PlatformIngestAllowance {
   unit: IngestAllowancePut['unit']
-  monthlyAllowance: number | null
+  monthlyAllowance: number | null,
   defaultMonthlyAllowance: number | null
   defaultFactor: number
   explicit: boolean

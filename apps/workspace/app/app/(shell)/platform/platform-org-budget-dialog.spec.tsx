@@ -332,6 +332,57 @@ describe('platform organization allowance editor', () => {
       expect(onClose).not.toHaveBeenCalled()
     })
 
+    it('compares a retry with the limits already saved, not the ones it opened with', async () => {
+      fetchMock
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response({ ...explicitBudget, monthlyLimit: 20000 }))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response(explicitBudget.ingest))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const monthly = await screen.findByLabelText('Monthly allowance (credits)')
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '20000')
+      const ingest = screen.getByLabelText(INGEST_LABEL)
+      await userEvent.clear(ingest)
+      await userEvent.type(ingest, '7')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '10000')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+      expect(fetchMock.mock.calls.map((call) => [call[0], call[1].method])).toEqual([
+        ['/api/platform/organizations/org_tenant/budgets', undefined],
+        ['/api/platform/organizations/org_tenant/budgets', 'PUT'],
+        [ingestUrl, 'PUT'],
+        ['/api/platform/organizations/org_tenant/budgets', 'PUT'],
+        [ingestUrl, 'PUT'],
+      ])
+      expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toMatchObject({ monthlyLimit: 10000 })
+    })
+
+    it('asks before closing over an unsaved edit, and closes an untouched one at once', async () => {
+      fetchMock.mockImplementation(async () => response(explicitBudget))
+      const { unmount } = render(
+        <PlatformOrgBudgetDialog organization={organization} onClose={onClose} />
+      )
+      await userEvent.type(await screen.findByLabelText(INGEST_LABEL), '0')
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(await screen.findByText('Leave without your changes?')).toBeDefined()
+      expect(onClose).not.toHaveBeenCalled()
+      await userEvent.click(screen.getByTestId('unsaved-edit-confirm'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+      unmount()
+
+      onClose.mockClear()
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      await screen.findByLabelText(INGEST_LABEL)
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('Leave without your changes?')).toBeNull()
+    })
+
     it('is read-only without the manage permission', async () => {
       fetchMock.mockResolvedValue(response({ ...explicitBudget, canManage: false }))
       render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)

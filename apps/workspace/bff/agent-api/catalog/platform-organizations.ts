@@ -81,7 +81,8 @@ export const platformOrganizationOperations = [
       'Sets how much reading uploaded documents in (OCR, vision, embeddings, the intake reading) one organization may ' +
       'spend per UTC month, as an amount in its budget unit; null goes back to the default of three times its monthly ' +
       'limit, 0 stops new readings. Pass the `unit` platform-org-budget-get reports: an amount set for one unit never ' +
-      'applies to the other, and a stale unit answers 409. Separate from the daily and monthly limits. Audited.',
+      'applies to the other, and a stale unit answers 409. Separate from the daily and monthly limits. Needs ' +
+      'platform:organizations:manage. Audited.',
     method: 'PUT',
     path: '/api/platform/organizations/[organizationId]/ingest-allowance',
     params: organizationParams,
