@@ -1,3 +1,4 @@
+import type { IngestAllowancePut, PlatformIngestAllowance } from './ingest-allowance-contract'
 import type { PlatformOrgBudget, PlatformOrgBudgetInput, PlatformOrgUsage } from './platform-contract'
 
 export class PlatformBudgetRequestError extends Error {
@@ -28,4 +29,21 @@ export async function fetchPlatformOrgUsage(organizationId: string): Promise<Pla
   })
   if (!response.ok) throw new PlatformBudgetRequestError(response.status)
   return (await response.json()) as PlatformOrgUsage
+}
+
+export async function putPlatformIngestAllowance(
+  organizationId: string,
+  input: IngestAllowancePut,
+): Promise<PlatformIngestAllowance> {
+  const response = await fetch(
+    `/api/platform/organizations/${encodeURIComponent(organizationId)}/ingest-allowance`,
+    {
+      credentials: 'same-origin',
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  )
+  if (!response.ok) throw new PlatformBudgetRequestError(response.status)
+  return (await response.json()) as PlatformIngestAllowance
 }

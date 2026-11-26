@@ -75,6 +75,7 @@ export const PLATFORM_EXPOSURE = {
   'platform-norm-verify': PLATFORM_PUBLIC,
   'platform-org-budget-get': PLATFORM_PUBLIC,
   'platform-org-budget-update': PLATFORM_PUBLIC,
+  'platform-org-ingest-allowance-update': PLATFORM_PUBLIC,
   'platform-org-storage-get': PLATFORM_PUBLIC,
   'platform-org-storage-update': PLATFORM_PUBLIC,
   'platform-org-upload-limit-update': PLATFORM_PUBLIC,

@@ -33,6 +33,10 @@ const budgets = vi.hoisted(() => ({
   listActivePolicies: vi.fn(async () => []),
 }))
 vi.mock('@/lib/budgets/service', () => budgets)
+const resolveIngestLimit = vi.hoisted(() =>
+  vi.fn(async () => ({ limit: 50000, defaultLimit: 3000, explicit: true })),
+)
+vi.mock('@/lib/budgets/ingest-allowance', () => ({ resolveIngestLimit }))
 vi.mock('@/lib/organizations/service', () => ({ getOrganizationDisplayName: vi.fn(async () => 'Büro Nord') }))
 vi.mock('@/lib/db/tenant-context', () => ({
   withTenant: async (_scope: unknown, run: () => unknown) => await run(),
@@ -321,6 +325,8 @@ describe('exportUsageToPosthog', () => {
         month_amount: 800,
         day_pct: 25,
         month_pct: 80,
+        ingest_monthly_limit: 50000,
+        ingest_limit_explicit: true,
         blocked: false,
       },
     })

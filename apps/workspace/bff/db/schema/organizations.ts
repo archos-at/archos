@@ -15,7 +15,7 @@ export const organizations = pgTable('organizations', {
 export type Organization = typeof organizations.$inferSelect
 export type NewOrganization = typeof organizations.$inferInsert
 
-export const PLATFORM_OWNED_SETTINGS = ['storageQuotaBytes', 'maxUploadFileBytes'] as const
+export const PLATFORM_OWNED_SETTINGS = ['storageQuotaBytes', 'maxUploadFileBytes', 'ingestMonthlyAllowance'] as const
 
 export type PlatformOwnedSetting = (typeof PLATFORM_OWNED_SETTINGS)[number]
 
