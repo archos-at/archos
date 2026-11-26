@@ -148,6 +148,7 @@ export async function fileDraftToPersonalShelf(
   const file = new File([Buffer.from(rendered.bytes)], filename, { type: rendered.contentType })
   const uploaded = await uploadToPersonalShelf(session, file, request, {
     folderId,
+    onConflict: 'replace',
     originConversationId: conversationId,
   })
   const outcome = previous ? (uploaded.unchanged ? 'unchanged' : 'updated') : 'filed'

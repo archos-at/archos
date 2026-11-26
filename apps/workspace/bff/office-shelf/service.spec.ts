@@ -311,7 +311,7 @@ describe('uploadOfficeShelfDocument', () => {
   it('rejects callers without org:office_shelf:manage (403)', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
 
-    await expect(uploadOfficeShelfDocument(session, makeFile(), request)).rejects.toBeInstanceOf(ForbiddenError)
+    await expect(uploadOfficeShelfDocument(session, makeFile(), request, { onConflict: 'replace' })).rejects.toBeInstanceOf(ForbiddenError)
     expect(admitOrDiscard).not.toHaveBeenCalled()
     expect(assertUploadTypeAllowed).not.toHaveBeenCalled()
   })
@@ -319,7 +319,7 @@ describe('uploadOfficeShelfDocument', () => {
   it('stores, records, dispatches ingest, and audits on the happy path', async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
 
-    const result = await uploadOfficeShelfDocument(session, makeFile(), request)
+    const result = await uploadOfficeShelfDocument(session, makeFile(), request, { onConflict: 'replace' })
 
     expect(assertUploadTypeAllowed).toHaveBeenCalledWith(session, 'plan.pdf')
     expect(admitOrDiscard).toHaveBeenCalledWith(
@@ -352,6 +352,7 @@ describe('uploadOfficeShelfDocument', () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Normen/Brandschutz')
 
       await uploadOfficeShelfDocument(session, makeFile(), request, {
+        onConflict: 'replace',
         folderId: 'folder-1',
         originPath: 'Normen/Brandschutz/plan.pdf',
       })
@@ -374,7 +375,7 @@ describe('uploadOfficeShelfDocument', () => {
 
     it('is a 404 for a folder that is not on this organization\u2019s Archiv shelf', async () => {
       await expect(
-        uploadOfficeShelfDocument(session, makeFile(), request, { folderId: 'folder-elsewhere' }),
+        uploadOfficeShelfDocument(session, makeFile(), request, { onConflict: 'replace', folderId: 'folder-elsewhere' }),
       ).rejects.toBeInstanceOf(NotFoundError)
       expect(admitOrDiscard).not.toHaveBeenCalled()
       expect(s3Client.send).not.toHaveBeenCalled()
@@ -385,7 +386,7 @@ describe('uploadOfficeShelfDocument', () => {
       const atRoot = makeLiveDocumentMatch({ id: 'archiv-doc-1', folderId: null, status: 'ready' })
       vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place) => (place.folderId === null ? atRoot : null))
 
-      const result = await uploadOfficeShelfDocument(session, makeFile(), request, { folderId: 'folder-2' })
+      const result = await uploadOfficeShelfDocument(session, makeFile(), request, { onConflict: 'replace', folderId: 'folder-2' })
 
       expect(vi.mocked(findLiveDocumentByFilename).mock.calls.at(-1)?.[1]).toEqual({
         folderId: 'folder-2',
@@ -410,7 +411,7 @@ describe('uploadOfficeShelfDocument', () => {
         status: 'completed',
       }))
 
-      const result = await uploadOfficeShelfDocument(session, makeFile(), request)
+      const result = await uploadOfficeShelfDocument(session, makeFile(), request, { onConflict: 'replace' })
 
       expect(result).toMatchObject({ documentId: 'archiv-doc-1', unchanged: true, jobId: null })
       expect(s3Client.send).not.toHaveBeenCalled()
@@ -594,7 +595,7 @@ describe('deleteOfficeShelfDocument', () => {
 
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
 
-    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request)
+    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request, { onConflict: 'replace' })
 
     expect(result.documentId).toBe('archiv-doc-1')
     expect(admitOrDiscard).not.toHaveBeenCalled()
@@ -619,7 +620,7 @@ describe('deleteOfficeShelfDocument', () => {
     )
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
 
-    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request)
+    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request, { onConflict: 'replace' })
 
     const inserted = vi.mocked(admitOrDiscard).mock.calls.at(-1)
     expect(inserted?.[2]).toMatchObject({ scope: 'office_shelf', filename: 'norm.pdf' })
@@ -631,7 +632,7 @@ describe('deleteOfficeShelfDocument', () => {
     vi.mocked(findDocumentInOrg).mockResolvedValueOnce(null)
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
 
-    await expect(uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request)).rejects.toMatchObject({
+    await expect(uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request, { onConflict: 'replace' })).rejects.toMatchObject({
       status: 409,
       details: { reason: 'deleted_during_upload' },
     })
@@ -654,7 +655,7 @@ describe('deleteOfficeShelfDocument', () => {
     vi.mocked(admitOrDiscard).mockRejectedValueOnce(new LiveFilenameTakenError('norm.pdf'))
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
 
-    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request)
+    const result = await uploadOfficeShelfDocument(session, makeFile('norm.pdf'), request, { onConflict: 'replace' })
 
     expect(result.documentId).toBe('archiv-winner')
     const replaced = vi.mocked(admitReplacementOrDiscard).mock.calls.at(-1)
@@ -784,7 +785,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
       holding('Brandschutz-Richtlinie.pdf')
 
-      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-plans' })
+      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { onConflict: 'replace', folderId: 'folder-plans' })
 
       expect(result.filename).toBe('Brandschutz-Richtlinie.pdf')
       expect(storedName()).toBe('Brandschutz-Richtlinie.pdf')
@@ -796,10 +797,21 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
       holding('Brandschutz-Richtlinie.pdf', 'Brandschutz-Richtlinie (2).pdf')
 
-      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire' })
+      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { onConflict: 'replace', folderId: 'folder-fire' })
 
       expect(result.documentId).not.toBe('norm-1')
       expect(storedName()).toBe('Brandschutz-Richtlinie (3).pdf')
+      expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+    })
+
+    it('skips, rather than numbers, a file its folder in the standards tree holds when the person said skip', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
+      holding('Brandschutz-Richtlinie.pdf')
+
+      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { onConflict: 'skip', folderId: 'folder-fire' })
+
+      expect(result).toMatchObject({ skipped: true, existingDocumentId: 'norm-1' })
+      expect(admitOrDiscard).not.toHaveBeenCalled()
       expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
     })
 
@@ -809,7 +821,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
         place.folderId === 'folder-plans' && filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
       )
 
-      await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { folderId: 'folder-standards' })
+      await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { onConflict: 'replace', folderId: 'folder-standards' })
 
       expect(storedName()).toBe('Plan.pdf')
       expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
@@ -821,7 +833,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
         place.folderId === 'folder-plans' && filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
       )
 
-      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { folderId: 'folder-plans' })
+      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { onConflict: 'replace', folderId: 'folder-plans' })
 
       expect(result.documentId).toBe('plan-1')
       expect(admitReplacementOrDiscard).toHaveBeenCalled()
@@ -831,7 +843,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
       holding('Brandschutz-Richtlinie.pdf')
 
-      const result = await uploadOfficeShelfDocument(session, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire' })
+      const result = await uploadOfficeShelfDocument(session, makeFile('Brandschutz-Richtlinie.pdf'), request, { onConflict: 'replace', folderId: 'folder-fire' })
 
       expect(result.documentId).toBe('norm-1')
       expect(admitReplacementOrDiscard).toHaveBeenCalled()
@@ -850,7 +862,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
     it('is refused in the Ordner when it names a norm, and nothing is stored', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
 
-      const refusal = uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie_v2.pdf'), request, { folderId: 'folder-plans', revisionOf: NORM_ID })
+      const refusal = uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie_v2.pdf'), request, { onConflict: 'replace', folderId: 'folder-plans', revisionOf: NORM_ID })
 
       await expect(refusal).rejects.toBeInstanceOf(UnprocessableError)
       expect(s3Client.send).not.toHaveBeenCalled()
@@ -859,7 +871,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
 
     it('is refused under the standards tree when it names an Ordner file', async () => {
       await expect(
-        uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire', revisionOf: PLAN_ID }),
+        uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { onConflict: 'replace', folderId: 'folder-fire', revisionOf: PLAN_ID }),
       ).rejects.toBeInstanceOf(UnprocessableError)
       expect(admitOrDiscard).not.toHaveBeenCalled()
     })
@@ -867,8 +879,8 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
     it('is left to the upload when both lie in the Ordner, or the office has no standards of its own', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValue('Pläne')
 
-      await uploadOfficeShelfDocument(standardsOn, makeFile('Plan_v2.pdf'), request, { folderId: 'folder-plans', revisionOf: PLAN_ID })
-      await uploadOfficeShelfDocument(session, makeFile('Plan_v3.pdf'), request, { folderId: 'folder-plans', revisionOf: NORM_ID })
+      await uploadOfficeShelfDocument(standardsOn, makeFile('Plan_v2.pdf'), request, { onConflict: 'replace', folderId: 'folder-plans', revisionOf: PLAN_ID })
+      await uploadOfficeShelfDocument(session, makeFile('Plan_v3.pdf'), request, { onConflict: 'replace', folderId: 'folder-plans', revisionOf: NORM_ID })
 
       expect(admitOrDiscard).toHaveBeenCalledTimes(2)
     })

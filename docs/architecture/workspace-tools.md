@@ -154,8 +154,8 @@ Three consequences for the next operation:
 - **Nothing is resolved that the turn cannot see.** A document is matched
   against the turn's inventory rows (`knowledge/inventory.get_turn_documents`),
   and a folder against the paths those rows carry. A name is unique only within
-  its folder, so a row is named by its name, its folder path (`Ordner/Name`) or
-  its document id, and the item carries that id (`document_id`) for the applier
+  its folder, so a row is named by its name, its folder path (`Ordner/Name`, `/Name`
+  at the top level) or its document id, and the item carries that id (`document_id`) for the applier
   to act on. A name that matches two files comes back as a question naming each
   one's folder and id, never as a proposal naming one of them. A move or rename
   onto a name the target folder already holds comes back as a conflict for the

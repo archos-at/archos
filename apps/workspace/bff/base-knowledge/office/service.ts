@@ -262,6 +262,7 @@ export async function uploadBaseKnowledge(
   let entryId: string | null = null
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
     folderId: target,
+    onConflict: 'keep_both',
     beforeDispatch: async (documentId) => {
       entryId = await recordProposal(session, { ...given, documentId }, file.name, 'person', editionOf, { filedFrom: FRESH_UPLOAD })
     },

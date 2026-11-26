@@ -70,8 +70,8 @@ class PastAdmission extends Error {}
 
 const DOORS = {
   'the project shelf': () =>
-    uploadToShelf(SESSION, { kind: 'project', projectId: 'proj-1' }, { file: file(), folderId: null }, request()),
-  'the Archiv': () => uploadToShelf(SESSION, { kind: 'office_shelf' }, { file: file(), folderId: null }, request()),
+    uploadToShelf(SESSION, { kind: 'project', projectId: 'proj-1' }, { file: file(), folderId: null, onConflict: 'refuse' }, request()),
+  'the Archiv': () => uploadToShelf(SESSION, { kind: 'office_shelf' }, { file: file(), folderId: null, onConflict: 'refuse' }, request()),
   'a chat attachment': () =>
     uploadSessionDocument(SESSION, { conversationId: 'conv-1', file: file() }, request()),
 }

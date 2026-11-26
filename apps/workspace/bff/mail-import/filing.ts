@@ -317,6 +317,7 @@ async function fileBytes(
       {
         projectId: context.mailImport.projectId,
         folderId,
+        onConflict: 'replace',
         file,
         priority: 'bulk',
         uploadBatchId: context.uploadBatch.id,

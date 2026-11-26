@@ -236,6 +236,7 @@ const sliceState = (overrides: Partial<ReindexProjectPayload> = {}): ReindexProj
 const makeInput = (overrides: { name?: string; type?: string } = {}) => ({
   projectId: 'proj-1',
   folderId: null,
+  onConflict: 'replace' as const,
   file: {
     name: overrides.name ?? 'plan.pdf',
     type: overrides.type ?? 'application/pdf',

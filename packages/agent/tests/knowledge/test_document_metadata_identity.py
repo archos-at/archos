@@ -111,18 +111,6 @@ class TestTwoDocumentsOfOneName:
         assert store.get_display_title(COLLECTION, "Plan.pdf", document_id=OG) == "Grundriss OG"
         assert len(store.get_all(COLLECTION)) == 2
 
-    def test_a_write_by_name_alone_never_reaches_a_document_with_an_id(self, store):
-        _two_plans(store)
-
-        assert store.set_display_title(COLLECTION, "Plan.pdf", "Geraten") is False
-        store.register(COLLECTION, "Plan.pdf", "Ohne Kennung.")
-        store.unregister(COLLECTION, "Plan.pdf")
-
-        assert {doc.document_id: doc.summary for doc in store.get_all(COLLECTION)} == {
-            EG: "Erdgeschoss.",
-            OG: "Obergeschoss.",
-        }
-
     def test_a_re_register_updates_only_its_own_row(self, store):
         _two_plans(store)
         store.register(COLLECTION, "Plan.pdf", "Erdgeschoss, neu gelesen.", document_id=EG)
@@ -233,33 +221,33 @@ class TestRowsWithoutAnId:
         assert (document.document_id, document.display_title) == (None, "OIB-Richtlinie 2")
         assert store.get_display_titles_batch(COLLECTION, ["OIB-RL 2.pdf"]) == {"OIB-RL 2.pdf": "OIB-Richtlinie 2"}
 
-    def test_a_write_by_id_never_reaches_a_row_without_one(self, store):
+    def test_a_write_by_id_reaches_a_row_not_yet_keyed_and_keys_it(self, store):
         store.register(COLLECTION, "a.pdf", "A.")
 
-        assert store.set_display_title(COLLECTION, "a.pdf", "A", document_id=EG) is False
+        assert store.set_display_title(COLLECTION, "a.pdf", "A", document_id=EG)
 
-        assert [(doc.document_id, doc.display_title) for doc in store.get_all(COLLECTION)] == [(None, None)]
+        assert [(doc.document_id, doc.display_title) for doc in store.get_all(COLLECTION)] == [(EG, "A")]
 
-    def test_a_second_writer_of_the_name_never_adopts_a_legacy_row(self, store):
-        store.register(COLLECTION, "a.pdf", "Alt.", ["Statik"])
+    def test_register_by_id_adopts_the_row_of_its_name(self, store):
+        store.register(COLLECTION, "a.pdf", "A.", ["Statik"])
         store.set_tags_by_person(COLLECTION, "a.pdf", ["Person"])
 
-        store.register(COLLECTION, "a.pdf", "Erdgeschoss.", ["Grundriss"], document_id=EG)
-        store.register(COLLECTION, "a.pdf", "Obergeschoss.", ["Schnitt"], document_id=OG)
+        store.register(COLLECTION, "a.pdf", "A, neu gelesen.", ["Neu"], document_id=EG)
 
-        rows = {doc.document_id: (doc.summary, doc.tags) for doc in store.get_all(COLLECTION)}
-        assert rows == {
-            None: ("Alt.", ["Person"]),
-            EG: ("Erdgeschoss.", ["Grundriss"]),
-            OG: ("Obergeschoss.", ["Schnitt"]),
-        }
+        [document] = store.get_all(COLLECTION)
+        assert (document.document_id, document.summary, document.tags) == (EG, "A, neu gelesen.", ["Person"])
 
-    def test_a_rename_by_id_never_reaches_a_row_without_one(self, store):
+    def test_a_rename_by_id_reaches_a_row_not_yet_keyed_through_its_previous_name(self, store):
         store.register(COLLECTION, "Plan.pdf", "EG.")
+        store.register(COLLECTION, "alt.pdf", "Alt.")
+        store.set_superseded_by(COLLECTION, "alt.pdf", "Plan.pdf")
 
-        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf", previous_file_name="Plan.pdf") is False
+        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf") is False
+        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf", previous_file_name="Plan.pdf")
 
-        assert [(doc.file_name, doc.document_id) for doc in store.get_all(COLLECTION)] == [("Plan.pdf", None)]
+        documents = {doc.file_name: doc for doc in store.get_all(COLLECTION)}
+        assert (documents["Plan 2.pdf"].document_id, sorted(documents)) == (EG, ["Plan 2.pdf", "alt.pdf"])
+        assert (documents["alt.pdf"].superseded_by, documents["alt.pdf"].superseded_by_id) == ("Plan 2.pdf", EG)
 
     def test_a_link_written_by_name_still_reads(self, store):
         store.register(COLLECTION, "alt.pdf", "Alt.")

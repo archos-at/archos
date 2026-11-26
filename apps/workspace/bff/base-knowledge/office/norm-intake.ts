@@ -48,7 +48,7 @@ export async function uploadToOfficeShelf(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { asNorm = false, ...input }: NormIntakeInput = {},
+  { asNorm = false, ...input }: NormIntakeInput,
 ): Promise<UploadOfficeShelfDocumentResult> {
   if (!isOfficeStandardsEnabled(session) || !canManageOfficeShelf(session)) return uploadOfficeShelfDocument(session, file, request, input)
   const from = input.folderId ?? null
