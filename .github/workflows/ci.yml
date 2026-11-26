@@ -823,7 +823,7 @@ jobs:
           for spec in bff/*/orchestrator.integration.spec.ts; do
             area="${spec#bff/}"; area="${area%%/*}"
             bash ../../scripts/rls-test-db.sh --only "$spec" \
-              --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/hatchet-bff-$area.xml"
+              --reporter=junit --reporter-outfile="$RUNNER_TEMP/hatchet-bff-$area.xml"
           done
       - name: Every suite ran, none skipped
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
