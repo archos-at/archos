@@ -108,6 +108,60 @@ describe('useDocumentMoves — a name the target folder already holds', () => {
     expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 3.jpg', displayName: null })
   })
 
+  it('asks again without „Replace" when the shelf cannot replace on a move, and sends the second answer', async () => {
+    const unavailable = new Response(
+      JSON.stringify({ code: 'CONFLICT', details: { reason: 'replace_unavailable', documentId: 'a', choices: ['keep_both', 'skip'] } }),
+      { status: 409 }
+    )
+    fetchMock
+      .mockResolvedValueOnce(held('a.jpg'))
+      .mockResolvedValueOnce(unavailable)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const ask = vi
+      .fn<AskNameConflicts>()
+      .mockResolvedValueOnce(new Map([['a', 'replace' as const]]))
+      .mockResolvedValueOnce(new Map([['a', 'keep_both' as const]]))
+    const { hook, rows } = harness([file('a', 'old')], ask)
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(ask.mock.calls[1]?.[0].rows[0]?.choices).toEqual(['keep_both', 'skip'])
+    expect(fetchMock.mock.calls.map(sentBody)).toEqual([
+      { folderId: 'site' },
+      { folderId: 'site', onConflict: 'replace' },
+      { folderId: 'site', onConflict: 'keep_both' },
+    ])
+    expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 2.jpg' })
+  })
+
+  it('asks a bulk move again for the documents the shelf cannot replace', async () => {
+    let round = 0
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { onConflict?: string }
+      if (!body.onConflict) return held('a.jpg')
+      round += 1
+      return body.onConflict === 'replace'
+        ? new Response(JSON.stringify({ details: { reason: 'replace_unavailable', documentId: 'a', choices: ['keep_both', 'skip'] } }), { status: 409 })
+        : new Response('{}', { status: 200 })
+    })
+    const ask = vi
+      .fn<AskNameConflicts>()
+      .mockResolvedValueOnce(new Map([['a', 'replace' as const]]))
+      .mockResolvedValueOnce(new Map([['a', 'keep_both' as const]]))
+    const { hook } = harness([file('a', null)], ask)
+
+    let moved = 0
+    await act(async () => {
+      moved = await hook.result.current.moveMany(['a'], 'site', 'Baustelle')
+    })
+
+    expect(round).toBe(2)
+    expect(ask).toHaveBeenCalledTimes(2)
+    expect(ask.mock.calls[1]?.[0].rows[0]?.choices).toEqual(['keep_both', 'skip'])
+    expect(moved).toBe(1)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
   it('leaves the document where it was when the reader skips or closes the question', async () => {
     fetchMock.mockResolvedValue(held('a.jpg'))
     const { hook, rows } = harness([file('a', 'old')], vi.fn(async () => null))

@@ -66,6 +66,19 @@ describe('NameConflictList', () => {
     expect(within(lastRow).queryByTestId('name-conflict-replace')).toBeNull()
   })
 
+  it('offers only the answers the server lists, and never applies a replacement to a row that cannot take one', async () => {
+    render(<Choosing rows={[row('Pläne/A.pdf'), row('Ablage/B.pdf', { choice: 'keep_both', choices: ['keep_both', 'skip'] })]} />)
+    const [, withoutReplace] = screen.getAllByTestId('name-conflict-row')
+    expect(within(withoutReplace).queryByTestId('name-conflict-replace')).toBeNull()
+
+    await userEvent.click(screen.getByTestId('name-conflict-apply-all'))
+    await userEvent.click(screen.getAllByTestId('name-conflict-skip')[0])
+    await userEvent.click(screen.getAllByTestId('name-conflict-replace')[0])
+
+    expect(checked('name-conflict-replace')).toEqual(['true'])
+    expect(checked('name-conflict-skip')).toEqual(['false', 'true'])
+  })
+
   it('selects with the arrow keys, as a radio group does', async () => {
     render(<Choosing rows={[row('Pläne/A.pdf')]} />)
 
