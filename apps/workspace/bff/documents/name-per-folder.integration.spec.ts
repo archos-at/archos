@@ -162,6 +162,30 @@ describe.skipIf(!url)('a document name is unique per folder, against Postgres (0
     ).toBeNull()
   })
 
+  it('finds a name whose lower case is longer than the name, which a pattern of the lowered key would miss', async () => {
+    const istanbul = await admit('\u0130stanbul.pdf', plans)
+
+    expect(await repo.findLiveDocumentByFilename(ORG, { folderId: plans }, '\u0130stanbul.pdf')).toMatchObject({ id: istanbul })
+    expect(await repo.findLiveDocumentByFilename(ORG, { folderId: plans }, '\u0130STANBUL.PDF')).toMatchObject({ id: istanbul })
+    expect(await repo.findLiveDocumentByFilename(ORG, { folderId: plans }, 'i\u0307stanbul.pdf')).toMatchObject({ id: istanbul })
+    expect(await repo.findFreeDocumentName(ORG, { folderId: plans }, '\u0130stanbul.pdf')).toBe('\u0130stanbul 2.pdf')
+  })
+
+  it('serialises two renames to one name in one folder: one writes, the other is told who holds it', async () => {
+    const first = await admit('Grundriss_A.pdf', archive)
+    const second = await admit('Grundriss_B.pdf', archive)
+
+    const [a, b] = await Promise.all([
+      repo.setDocumentDisplayNameInFolder(ORG, { folderId: archive }, first, 'Grundriss.pdf', 'Grundriss.pdf'),
+      repo.setDocumentDisplayNameInFolder(ORG, { folderId: archive }, second, 'Grundriss.pdf', 'Grundriss.pdf'),
+    ])
+
+    expect([a, b].filter((holder) => holder === null)).toHaveLength(1)
+    expect(a?.id ?? b?.id).toBe(a ? second : first)
+    const shown = [await rowOf(first), await rowOf(second)].map((row) => row.display_name)
+    expect(shown.filter((name) => name === 'Grundriss.pdf')).toHaveLength(1)
+  })
+
   it('suggests the next free name the way the Finder does, in the spelling it came in, past the numbered names the folder holds', async () => {
     await admit('plan 2.pdf', plans)
 

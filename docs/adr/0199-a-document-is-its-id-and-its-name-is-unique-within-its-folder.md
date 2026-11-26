@@ -56,9 +56,10 @@ folder.
    backend's metadata rows, the chunk filters of read, outline and folder cards,
    the agent-host edit routes, `GET /api/internal/document-file`, citations and
    the source preview, `look`, drawings and the canvas), it is addressed by id.
-   The name is the label and the folder is where it lives; both may change. A
-   caller that still names a document by name alone gets it only while one live
-   document of the collection holds that name; two are a `409`
+   The name is the label and the folder is where it lives; both may change.
+   Where a route still takes a name alone (`GET /api/internal/document-file`,
+   the backend's `revision` and `knowledge-mark`), it answers for the name only
+   while one document of the collection holds it; two are a `409`
    (`ambiguous_name`), never the newest. The base corpus (OIB, RIS) has no
    document row and keeps its names.
 2. **A name is unique within its folder.** The project root counts as a folder,

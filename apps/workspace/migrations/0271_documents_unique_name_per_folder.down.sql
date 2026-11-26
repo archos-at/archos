@@ -36,6 +36,6 @@ BEGIN
       ON "documents" ("organization_id", "collection_name", "filename")
       WHERE "authored_by" = 'user' OR "authored_by_producer" IN ('agent_document', 'agent_file');
     COMMENT ON INDEX "uniq_documents_live_name_per_collection" IS
-      'A document''s identity is documents.id; its filename is a label. One live document per (organization, collection, filename), case- and folder-blind: 0246''s key, which 0271 widened to the folder and its down restores. Two arms. authored_by = ''user'' is migration 0074''s rule. authored_by_producer IN (''agent_document'', ''agent_file'') (0246) are the machine producers whose documents may be published and indexed (ADR-0054, ADR-0182).';
+      'A document''s identity is documents.id; its filename is a label. One live document per (organization, collection, filename), the filename compared exactly (case-sensitive) and across every folder of the collection: 0246''s key, which 0271 widened to the folder and its down restores. Two arms. authored_by = ''user'' is migration 0074''s rule. authored_by_producer IN (''agent_document'', ''agent_file'') (0246) are the machine producers whose documents may be published and indexed (ADR-0054, ADR-0182).';
   END IF;
 END $$;
