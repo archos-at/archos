@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -191,6 +191,55 @@ describe('DocumentAnswerCard', () => {
     expect(screen.getByTestId('document-answer-unresolved')).toHaveAttribute('href', '/app/office-shelf')
     expect(screen.getByText('Open in Office library')).toBeInTheDocument()
     expect(screen.queryByText('Project')).not.toBeInTheDocument()
+  })
+
+  describe('two project documents of one name, in different folders', () => {
+    const bestand = row('11111111-1111-4111-8111-111111111111', 'Bericht.pdf', { summary: 'Bericht aus dem Bestand.', folderId: 'f-bestand' })
+    const entwurf = row('22222222-2222-4222-8222-222222222222', 'Bericht.pdf', { summary: 'Bericht aus dem Entwurf.', folderId: 'f-entwurf' })
+
+    it('opens the one the card names by id, and asks nothing by name', async () => {
+      const byName = vi.fn()
+      const asked: unknown[] = []
+      server.use(
+        shelfPost('project', '/api/documents/by-id', async ({ request }) => {
+          const { ids } = (await request.json()) as { ids: string[] }
+          asked.push(ids)
+          return HttpResponse.json({ documents: [bestand, entwurf].filter((each) => ids.includes(each.id)) })
+        }),
+        shelfPost('office_shelf', '/api/documents/by-id', () => HttpResponse.json({ documents: [] })),
+        http.post('/api/documents/by-name', () => {
+          byName()
+          return HttpResponse.json({ documents: [bestand, entwurf] })
+        }),
+        http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({}, { status: 404 })),
+      )
+
+      render(
+        <DocumentAnswerCard
+          title="Test"
+          documents={[{ file_name: 'Bericht.pdf', document_id: entwurf.id, source: 'project' }]}
+          projectId="proj-1"
+        />,
+      )
+
+      await waitFor(() => expect(screen.getByText('Bericht aus dem Entwurf.')).toBeInTheDocument())
+      expect(screen.queryByText('Bericht aus dem Bestand.')).not.toBeInTheDocument()
+      expect(asked).toEqual([[entwurf.id]])
+      expect(byName).not.toHaveBeenCalled()
+    })
+
+    it('without an id, links neither rather than the newest of the two', async () => {
+      server.use(
+        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [bestand, entwurf] })),
+        shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({ documents: [] })),
+      )
+
+      render(<DocumentAnswerCard title="Test" documents={[{ file_name: 'Bericht.pdf' }]} projectId="proj-1" />)
+
+      await waitFor(() => expect(screen.getByText('The assistant referenced this file.')).toBeInTheDocument())
+      expect(screen.queryByText('Bericht aus dem Entwurf.')).not.toBeInTheDocument()
+      expect(screen.queryByText('Bericht aus dem Bestand.')).not.toBeInTheDocument()
+    })
   })
 
   it('offers the workspace search with the same question when the files came from it', async () => {

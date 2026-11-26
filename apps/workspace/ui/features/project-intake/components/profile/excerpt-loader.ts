@@ -1,5 +1,6 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { documentNameLookupKey, resolveDocumentsByName } from '@/features/documents/lib/documents-by-name'
+import { resolveDocumentsById } from '@/features/documents/documents-by-id'
 import { maxCanvasPixels, rasterFor } from '@/features/knowledge/lib/pdf-raster'
 import { pageTextChunks } from '@/features/knowledge/lib/pdf-text-chunks'
 import { locatePassage, passageBounds } from '@/features/knowledge/lib/passage-highlight'
@@ -8,7 +9,7 @@ import { documentFileUrl } from '@/lib/documents/urls'
 import type { ProfileEvidence } from '@/lib/project-intake/types'
 import { excerptOf, type Excerpt } from './excerpt-geometry'
 
-export type DocumentEvidence = Extract<ProfileEvidence, { kind: 'document' }>
+export type DocumentEvidence = Extract<ProfileEvidence, { kind: 'document' }> & { documentId?: string | null }
 
 export function hasExcerpt(evidence: ProfileEvidence): evidence is DocumentEvidence & { page: number } {
   return evidence.kind === 'document' && evidence.page !== null && /\.pdf$/i.test(evidence.fileName.trim())
@@ -42,10 +43,13 @@ export function resetExcerptDocuments(): void {
   opened.clear()
 }
 
-async function documentIdOf(projectId: string | null, fileName: string): Promise<string | null> {
-  const named = (await resolveDocumentsByName(projectId, [fileName])).get(documentNameLookupKey(fileName))
-  const row = named?.project.find((candidate) => !candidate.contentType || candidate.contentType === 'application/pdf')
-  return row?.id ?? null
+async function documentIdOf(projectId: string | null, evidence: DocumentEvidence): Promise<string | null> {
+  if (evidence.documentId) {
+    return (await resolveDocumentsById(projectId, [evidence.documentId])).get(evidence.documentId)?.project?.id ?? null
+  }
+  const named = (await resolveDocumentsByName(projectId, [evidence.fileName])).get(documentNameLookupKey(evidence.fileName))
+  const pdfs = named?.project.filter((candidate) => !candidate.contentType || candidate.contentType === 'application/pdf') ?? []
+  return pdfs.length === 1 ? pdfs[0].id : null
 }
 
 export interface DrawnExcerpt {
@@ -62,7 +66,7 @@ export async function drawExcerpt(options: {
 }): Promise<DrawnExcerpt | null> {
   const { evidence, canvas, cssWidth, signal } = options
   try {
-    const documentId = await documentIdOf(options.projectId, evidence.fileName)
+    const documentId = await documentIdOf(options.projectId, evidence)
     if (!documentId || signal.aborted) return null
     const doc = await openDocument(documentId)
     if (signal.aborted || evidence.page > doc.numPages) return null
