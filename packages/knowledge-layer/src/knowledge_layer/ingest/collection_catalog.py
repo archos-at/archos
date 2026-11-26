@@ -106,13 +106,13 @@ class CollectionCatalog:
         return get_store()
 
     def _chunk_ids_of(self, collection_name: str, stored_names: list[str]) -> list[tuple[str, str]]:
+        from knowledge_layer.vector_store import named_chunks
+
         if not stored_names:
             return []
         return [
             (chunk_id, stored)
-            for chunk_id, stored, _claimed in self._chunks_matching(
-                collection_name, {"file_name": {"$in": sorted(set(stored_names))}}
-            )
+            for chunk_id, stored, _claimed in self._chunks_matching(collection_name, named_chunks(stored_names))
         ]
 
     def _chunks_of_document(

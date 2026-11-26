@@ -62,10 +62,13 @@ schema code, because a pod one release old upserts `ON CONFLICT (collection,
 filename)` until the rollout is over (the gotcha under „ON CONFLICT
 specification“ in [gotchas.md](../contributing/gotchas.md)).
 
-`unmatched` is counted and never fails: a row or a chunk of a name no live
-document holds (left by a document deleted earlier) or of a name two live
-documents hold. Before deploy 2 the second cannot occur within a collection; a
-row the BFF lists under no id stays name-keyed, as the base corpus does.
+`unmatched` is counted: a row or a chunk of a name no live document holds
+(left by a document deleted earlier) or of a name two live documents hold. The
+first never fails. A chunk of the second is also counted as `unmatched_held`,
+and the stamp's `--check` fails while there is one: neither namesake can claim
+it, and the next replace of either would take it over. Before deploy 2 the
+second cannot occur within a collection; a row the BFF lists under no id stays
+name-keyed, as the base corpus does.
 
 **Rollback.** Roll the images back ([rollback.md](rollback.md)). The new columns,
 indexes and chunk fields are additive, and the build before ignores them, with
