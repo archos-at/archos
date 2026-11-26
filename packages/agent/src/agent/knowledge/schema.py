@@ -255,6 +255,13 @@ class FileInfo(BaseModel):
             "The agent never sets it on its own."
         ),
     )
+    superseded_by_id: str | None = Field(
+        None,
+        description=(
+            "documents.id of that newer Fassung, when both are workspace documents; it names the Fassung "
+            "where its file name may not."
+        ),
+    )
     supersedes: list[str] | None = Field(
         None,
         description="File names this document replaces by a person's confirmation (the reverse of superseded_by).",

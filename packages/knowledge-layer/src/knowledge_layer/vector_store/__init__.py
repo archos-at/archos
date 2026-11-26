@@ -93,7 +93,7 @@ _LAZY: dict[str, str] = {
     "LEGACY_DOCUMENT_ID_FIELD": ".legacy_names",
     "backfill_document_ids": ".document_id_backfill",
     "document_id_mismatches": ".document_id_backfill",
-    "stamp_document_ids": ".document_id_backfill",
+    "stamp_document_ids": ".document_id_stamp",
     "Physical": ".schema",
     "SCOPE_FIELD": ".schema",
     "BASE_CORPUS_SCOPE": ".schema",
