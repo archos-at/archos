@@ -17,12 +17,12 @@ import { emitInboxItems } from '@/lib/inbox/service'
 import { collectionFileRef } from './collection-file-ref'
 import { SCREENED_ONLY } from './document-reader'
 import { documentDisplayName, splitDocumentName, type NamedDocument } from './display-name'
+import { revisionCounterpartOf } from './name-match'
 import { claimRevisionAnnouncement, releaseRevisionAnnouncement, type RevisionAnnouncementKey } from './revision-announcement-repository'
 import type { RevisionLinkNames } from './revision-links'
 import { mayOpenDocument } from './may-open'
 import { readRevisionLinkNames, refreshCollectionFiles } from './reconcile-status'
 import { findDocumentInOrg, findRevisionCounterparts, type RevisionCounterpartRow } from './repository'
-import { revisionCounterpartOf } from './revision-reference'
 import { findPreviousVersion, findPublishedVersion } from './version-repository'
 
 const SUMMARY_LINE_MAX = 200

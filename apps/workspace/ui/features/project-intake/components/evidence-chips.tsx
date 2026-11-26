@@ -9,7 +9,7 @@ import type { CitationRef } from '@/features/chat/lib/citations'
 import { useTranslations } from '@/i18n'
 import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import type { ProfileEvidence } from '@/lib/project-intake/types'
-import { isDocumentId } from '@/features/documents/document-id'
+import { isUuidString } from '@/lib/ids'
 import type { DocumentEvidence } from './profile/excerpt-loader'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +28,7 @@ export function citationOfEvidence(evidence: DocumentEvidence): CitationRef {
       id: `intake:${evidence.fileName}`,
       title: evidence.fileName,
       fileName: evidence.fileName,
-      ...(isDocumentId(evidence.documentId) ? { storedDocumentId: evidence.documentId } : {}),
+      ...(isUuidString(evidence.documentId) ? { storedDocumentId: evidence.documentId } : {}),
       shelf: 'project',
       kind: 'project',
       tint: 'project',

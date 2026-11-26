@@ -10,7 +10,7 @@ import {
   resolveDocumentsByName,
 } from '../lib/documents-by-name'
 import { resetDocumentsByIdCache, resolveDocumentsById } from '../documents-by-id'
-import { isDocumentId } from '../document-id'
+import { isUuidString } from '@/lib/ids'
 import { toFileItem } from '../lib/file-item'
 
 export interface SurfacedDocument {
@@ -186,12 +186,12 @@ export function useSurfacedDocuments(
   const namesKey = useMemo(
     () =>
       JSON.stringify(
-        [...new Set(documents.filter((doc) => !isDocumentId(doc.document_id)).map((doc) => documentNameLookupKey(doc.file_name)))].sort()
+        [...new Set(documents.filter((doc) => !isUuidString(doc.document_id)).map((doc) => documentNameLookupKey(doc.file_name)))].sort()
       ),
     [documents]
   )
   const idsKey = useMemo(
-    () => JSON.stringify([...new Set(documents.flatMap((doc) => (isDocumentId(doc.document_id) ? [doc.document_id] : [])))].sort()),
+    () => JSON.stringify([...new Set(documents.flatMap((doc) => (isUuidString(doc.document_id) ? [doc.document_id] : [])))].sort()),
     [documents]
   )
 
@@ -228,7 +228,7 @@ export function useSurfacedDocuments(
         const key = `${surfaced.file_name}-${i}`
         if (!index) return { key, surfaced, file: null, docSource: null }
 
-        if (isDocumentId(surfaced.document_id)) {
+        if (isUuidString(surfaced.document_id)) {
           const { project, officeShelf } = index.identified
           const inProject = surfaced.source === 'office' ? undefined : project.get(surfaced.document_id)
           const inOffice = surfaced.source === 'project' ? undefined : officeShelf.get(surfaced.document_id)
