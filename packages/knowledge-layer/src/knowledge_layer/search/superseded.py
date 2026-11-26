@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 _HIDDEN_REVISIONS_NAMED = 5
+_IDS_PER_READ = 500
 
 
 @dataclass(frozen=True)
@@ -52,17 +53,25 @@ def _end_of_chain(start: str, links: dict[str, str]) -> str:
     return current
 
 
+def _names_of(collection: str, ids: Sequence[str]) -> dict[str, str]:
+    from agent.knowledge import get_documents
+
+    names: dict[str, str] = {}
+    for start in range(0, len(ids), _IDS_PER_READ):
+        batch = ids[start : start + _IDS_PER_READ]
+        names.update({str(doc.document_id): doc.file_name for doc in get_documents(collection, [], document_ids=batch)})
+    return names
+
+
 def _replaced_in(collection: str) -> Replaced:
     from agent.knowledge import get_superseded_files
 
     by_name = dict(sorted(get_superseded_files(collection).items()))
     try:
-        from agent.knowledge import get_documents
         from agent.knowledge import get_superseded_ids
 
         by_id = dict(sorted(get_superseded_ids(collection).items()))
-        ids = sorted({*by_id, *by_id.values()})
-        names = {str(doc.document_id): doc.file_name for doc in get_documents(collection, [], document_ids=ids)}
+        names = _names_of(collection, sorted({*by_id, *by_id.values()}))
     except Exception:  # noqa: BLE001 — the payload flag still excludes them; only this backstop is lost
         logger.warning("Could not read the replaced documents of %s by id", collection, exc_info=True)
         by_id, names = {}, {}

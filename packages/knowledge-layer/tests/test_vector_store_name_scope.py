@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.ingest import collection_catalog
 from knowledge_layer.search import hit_metadata
 from knowledge_layer.search import superseded
 from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
@@ -46,6 +47,14 @@ def test_a_name_selects_only_points_that_carry_no_id():
     selector = QdrantStore._document_filter(SCOPE, PLAN, "file_name")
     assert models.FieldCondition(key="file_name", match=models.MatchValue(value=PLAN)) in selector.must
     assert models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD)) in selector.must
+
+
+def test_the_chunks_of_a_name_are_only_those_that_carry_no_id(local_qdrant_store):
+    _seed()
+
+    found = collection_catalog.CollectionCatalog()._chunk_ids_of(SCOPE, [PLAN])
+
+    assert found == [("legacy-1", PLAN)]
 
 
 def test_payloads_by_name_never_reach_a_point_that_carries_an_id(local_qdrant_store):

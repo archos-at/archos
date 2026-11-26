@@ -22,7 +22,7 @@ from .measures import _stage
 from .measures import file_trace as _file_trace
 from .measures import finish_file as _finish_file_trace
 from .stored_names import _normalized_file_name
-from .stored_names import _replacement_lock_key
+from .stored_names import _replacement_lock_keys
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,8 @@ class FileIngest:
         from agent.knowledge.leader_lock import keyed_lock
 
         collection_name, file_name, document_id = run.collection_name, file.file_name, file.document_id
-        file.scope.enter_context(keyed_lock(_replacement_lock_key(collection_name, file_name, document_id)))
+        for key in _replacement_lock_keys(collection_name, file_name, document_id):
+            file.scope.enter_context(keyed_lock(key))
         if document_id:
             file.previous = self._find_previous_version_of_document(collection_name, file_name, document_id)
             file.row_doc_class = get_document_doc_class(collection_name, file_name, document_id=document_id)

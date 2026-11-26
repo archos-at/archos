@@ -14,9 +14,11 @@ from agent.knowledge.schema import IngestionJobStatus
 from agent.knowledge.schema import JobState
 from agent.knowledge.schema import stable_file_id
 from knowledge_layer.ingest.listing import LISTING_FIELDS
+from knowledge_layer.ingest.listing import by_owner
 from knowledge_layer.ingest.listing import files_from_payloads
 from knowledge_layer.ingest.listing import from_epoch
 from knowledge_layer.ingest.listing import listing_key
+from knowledge_layer.ingest.listing import sole_holders
 
 from . import limits
 from .stored_names import _stored_name_matches
@@ -57,8 +59,10 @@ def _merge_file_records(indexed: FileInfo | None, recorded: FileInfo | None) -> 
         return indexed
     if indexed is None:
         return None if recorded.status == FileStatus.SUCCESS else recorded
+    identity = {} if recorded.document_id else {"document_id": indexed.document_id, "file_id": indexed.file_id}
     return recorded.model_copy(
         update={
+            **identity,
             "chunk_count": indexed.chunk_count,
             "file_size": recorded.file_size or indexed.file_size,
             "uploaded_at": recorded.uploaded_at or indexed.uploaded_at,
@@ -263,19 +267,18 @@ class CollectionCatalog:
         self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
     ) -> bool:
         forgotten = ingest_status_store.forget_file(collection_name, file_name, document_id=document_id)
-        found = self._chunks_of_document(collection_name, document_id, self._spellings_in(collection_name, file_name))
+        spellings = self._spellings_in(collection_name, file_name, unclaimed=True)
+        found = self._chunks_of_document(collection_name, document_id, spellings)
         chunks = [(chunk_id, stored) for chunk_id, stored, _claimed in found]
         names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
         return self._purge(
             collection_name, chunks, forgotten, names=names, document_id=document_id, permanent=permanent
         )
 
-    def _spellings_in(self, collection_name: str, file_name: str) -> list[str]:
-        return sorted(
-            stored
-            for stored in self._store().file_counts(collection_name)
-            if stored == file_name or _stored_name_matches(file_name, stored)
-        )
+    def _spellings_in(self, collection_name: str, file_name: str, *, unclaimed: bool = False) -> list[str]:
+        store = self._store()
+        names = store.unclaimed_file_names(collection_name) if unclaimed else store.file_counts(collection_name)
+        return sorted(stored for stored in names if stored == file_name or _stored_name_matches(file_name, stored))
 
     def _purge(
         self,
@@ -319,6 +322,10 @@ class CollectionCatalog:
         try:
             indexed = self._indexed_files(collection_name)
             recorded = self._recorded_files(collection_name)
+            holders = sole_holders(
+                (key, info.file_name, info.document_id) for key, info in [*indexed.items(), *recorded.items()]
+            )
+            indexed, recorded = by_owner(indexed, holders), by_owner(recorded, holders)
 
             merged = (_merge_file_records(indexed.get(name), recorded.get(name)) for name in {**indexed, **recorded})
             result = [record for record in merged if record is not None]

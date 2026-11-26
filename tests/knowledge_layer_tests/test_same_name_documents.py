@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import collection_catalog
-from knowledge_layer.ingest import stored_names
 from knowledge_layer.read_passage import ORDER_FILTERS
 from knowledge_layer.read_passage import PassageTarget
 from knowledge_layer.read_passage import ReadCursor
@@ -131,6 +130,57 @@ class TestTwoDocumentsThatShareAName:
         assert _points("doc-eg")
 
 
+class TestADocumentHalfGivenItsId:
+    def test_is_listed_once_under_its_id(self, ingestor):
+        write(SCOPE, [record("EG", PLAN, chunk_id="eg-1")], {"document_id": "doc-eg"})
+        write(SCOPE, [record("vor den Ids", PLAN, chunk_id="legacy-1")])
+
+        (listed,) = ingestor.list_files(SCOPE)
+
+        assert (listed.document_id, listed.chunk_count) == ("doc-eg", 2)
+
+    def test_with_its_new_upload_in_flight_is_listed_once_under_its_id(self, ingestor, monkeypatch):
+        from agent.knowledge.schema import FileInfo
+        from agent.knowledge.schema import FileStatus
+        from agent.knowledge.schema import stable_file_id
+
+        write(SCOPE, [record("vor den Ids", PLAN, chunk_id="legacy-1")])
+        uploading = FileInfo(
+            file_id=stable_file_id(SCOPE, PLAN, "doc-eg"),
+            file_name=PLAN,
+            collection_name=SCOPE,
+            document_id="doc-eg",
+            status=FileStatus.INGESTING,
+        )
+        monkeypatch.setattr(ingestor, "_recorded_files", lambda collection: {"id:doc-eg": uploading})
+
+        (listed,) = ingestor.list_files(SCOPE)
+
+        assert (listed.file_id, listed.status, listed.chunk_count) == (uploading.file_id, FileStatus.INGESTING, 1)
+
+    def test_with_a_job_record_from_before_ids_is_listed_once_under_its_id(self, ingestor, monkeypatch):
+        from agent.knowledge.schema import FileInfo
+        from agent.knowledge.schema import FileStatus
+        from agent.knowledge.schema import stable_file_id
+
+        write(SCOPE, [record("EG", PLAN, chunk_id="eg-1")], {"document_id": "doc-eg"})
+        failed = FileInfo(
+            file_id=stable_file_id(SCOPE, PLAN), file_name=PLAN, collection_name=SCOPE, status=FileStatus.FAILED
+        )
+        monkeypatch.setattr(ingestor, "_recorded_files", lambda collection: {PLAN: failed})
+
+        (listed,) = ingestor.list_files(SCOPE)
+
+        assert (listed.document_id, listed.file_id) == ("doc-eg", stable_file_id(SCOPE, PLAN, "doc-eg"))
+
+    def test_beside_a_namesake_leaves_its_points_from_before_ids_to_neither(self, ingestor):
+        write(SCOPE, [record("EG", PLAN, chunk_id="eg-1")], {"document_id": "doc-eg"})
+        write(SCOPE, [record("OG", PLAN, chunk_id="og-1")], {"document_id": "doc-og"})
+        write(SCOPE, [record("vor den Ids", PLAN, chunk_id="legacy-1")])
+
+        assert sorted(str(info.document_id) for info in ingestor.list_files(SCOPE)) == ["None", "doc-eg", "doc-og"]
+
+
 class TestThePreviousVersionOfADocument:
     @pytest.fixture()
     def seeded(self, ingestor):
@@ -181,17 +231,52 @@ class TestThePreviousVersionOfADocument:
 
         assert found.chunk_ids == ["legacy-1"]
 
+    def test_while_names_still_reach_identified_points_a_job_without_an_id_finds_every_point_of_its_name(
+        self, seeded, monkeypatch
+    ):
+        from knowledge_layer.vector_store import name_scope
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
+
+        found = seeded._chunk_ids_of(SCOPE, [PLAN])
+
+        assert sorted(chunk_id for chunk_id, _stored in found) == ["eg-1", "eg-2", "legacy-1", "og-1"]
+
+    def test_a_delete_by_id_reads_only_the_names_of_points_without_an_id(self, seeded, monkeypatch):
+        write(SCOPE, [record("hochgeladen", "tmpab12cd34_Plan.txt", chunk_id="tmp-1")])
+
+        def every_name(self, scope):
+            raise AssertionError("a delete by id lists only the names of points without an id")
+
+        monkeypatch.setattr(store_module.QdrantStore, "file_counts", every_name)
+
+        assert seeded.delete_document("doc-eg", PLAN, SCOPE) is True
+
+        assert set(_points()) == {"og-1"}
+
     def test_a_new_document_beside_two_namesakes_has_no_previous_version(self, ingestor):
         write(SCOPE, [record("EG", PLAN, chunk_id="eg-1")], {"document_id": "doc-eg"})
         write(SCOPE, [record("OG", PLAN, chunk_id="og-1")], {"document_id": "doc-og"})
 
         assert ingestor._find_previous_version_of_document(SCOPE, PLAN, "doc-neu") is None
 
-    def test_the_replacement_lock_is_the_documents_own(self):
-        eg = stored_names._replacement_lock_key(SCOPE, PLAN, "doc-eg")
-        og = stored_names._replacement_lock_key(SCOPE, PLAN, "doc-og")
-        assert eg != og
-        assert stored_names._replacement_lock_key(SCOPE, PLAN) == f"reingest:{SCOPE}:{PLAN}"
+    def test_a_replacement_holds_its_documents_lock_and_the_one_its_name_was_locked_by(self, ingestor, monkeypatch):
+        from contextlib import ExitStack
+        from contextlib import nullcontext
+
+        taken: list[str] = []
+        monkeypatch.setattr("agent.knowledge.leader_lock.keyed_lock", lambda key: taken.append(key) or nullcontext())
+        for document_id in ("doc-eg", "doc-og"):
+            file = SimpleNamespace(file_name=PLAN, document_id=document_id, scope=ExitStack())
+            run = SimpleNamespace(collection_name=SCOPE, config={})
+            ingestor._take_previous_version(run, file)
+
+        assert taken == [
+            f"reingest:{SCOPE}:{PLAN}",
+            f"reingest:{SCOPE}:id:doc-eg",
+            f"reingest:{SCOPE}:{PLAN}",
+            f"reingest:{SCOPE}:id:doc-og",
+        ]
 
 
 class TestTheChunksOfOneDocument:
@@ -461,6 +546,25 @@ class TestAReplacedNamesake:
 
         assert [chunk.content for chunk in kept] == ["aktuell"]
         assert superseded.hidden_revisions_notice({SCOPE: replaced}).startswith(f"Older Fassungen left out: {PLAN};")
+
+    async def test_the_names_of_many_replaced_documents_are_read_in_bounded_batches(self, monkeypatch):
+        from agent import knowledge
+
+        replaced_ids = {f"alt-{index:04d}": f"neu-{index:04d}" for index in range(600)}
+        asked: list[int] = []
+
+        def documents(collection, filenames, *, document_ids=None):
+            asked.append(len(document_ids))
+            return [SimpleNamespace(document_id=value, file_name=f"{value}.pdf") for value in document_ids]
+
+        monkeypatch.setattr(knowledge, "get_superseded_files", lambda collection: {})
+        monkeypatch.setattr(knowledge, "get_superseded_ids", lambda collection: replaced_ids)
+        monkeypatch.setattr(knowledge, "get_documents", documents)
+
+        replaced = (await superseded.superseded_files([SCOPE]))[SCOPE]
+
+        assert max(asked) <= 500 and sum(asked) == 1200
+        assert len(replaced.older_names()) == 600
 
     def test_while_names_still_reach_identified_points_a_replaced_name_still_hides(self, monkeypatch):
         from knowledge_layer.vector_store import name_scope

@@ -55,6 +55,8 @@ NAME_SERIES_CONFIDENCE = 0.9
 
 
 def _open_to_link(older: Any, newer: Any) -> bool:
+    if older.file_name == newer.file_name:
+        return False
     return not older.superseded_by and not newer.superseded_by and older.file_name not in (newer.supersedes or ())
 
 

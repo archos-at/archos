@@ -123,6 +123,14 @@ class TestByTheTitleBlocks:
             == {}
         )
 
+    def test_a_namesake_in_another_folder_is_never_a_fassung(self):
+        rows = [
+            _row("Plan.pdf", {"document_number": "A-101", "revision": "B"}, document_id="doc-eg"),
+            _row("Plan.pdf", {"document_number": "A-101", "revision": "C"}, document_id="doc-og"),
+        ]
+
+        assert revisions.derive_suggestions(rows, _held()) == {}
+
     def test_it_covers_the_file_so_the_name_reading_does_not_speak_twice(self):
         rows = [
             _row(B, {"document_number": "A-101", "revision": "B"}),

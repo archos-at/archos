@@ -342,6 +342,12 @@ class QdrantStore:
             return {}
         return self._facet_counts(self.alias(scope), "file_name", scope_filter([scope]))
 
+    def unclaimed_file_names(self, scope: str) -> list[str]:
+        if not self.exists(scope):
+            return []
+        unclaimed = models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD))
+        return self._facet(self.alias(scope), "file_name", scope_filter([scope], None, unclaimed))
+
     def scopes(self, physical: Physical) -> list[str]:
         return list(self.scope_counts(physical))
 
