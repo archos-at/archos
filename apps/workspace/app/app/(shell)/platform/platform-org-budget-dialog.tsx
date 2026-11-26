@@ -149,7 +149,9 @@ export function PlatformOrgBudgetDialog({
           error instanceof PlatformBudgetRequestError && error.status === 409
             ? 'orgBudgets.unitChanged'
             : step === 'ingest'
-              ? 'orgBudgets.ingestSaveError'
+              ? saveLimits
+                ? 'orgBudgets.ingestSaveErrorAfterLimits'
+                : 'orgBudgets.ingestSaveError'
               : 'orgBudgets.saveError'
         )
       )

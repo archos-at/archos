@@ -215,7 +215,9 @@ describe('platform organization allowance editor', () => {
       const field = await screen.findByLabelText(INGEST_LABEL)
       expect(field).toHaveValue('')
       expect(field).toHaveAttribute('placeholder', 'Default: 30,000')
-      expect(screen.getByText('Read in this month').nextElementSibling).toHaveTextContent('4,200 credits')
+      expect(screen.getByText('Read in this month').nextElementSibling).toHaveTextContent(
+        '4,200 credits'
+      )
       expect(screen.getByText('Default')).toBeDefined()
     })
 
@@ -226,11 +228,16 @@ describe('platform organization allowance editor', () => {
       await userEvent.type(monthly, '20000')
       expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: 60,000')
       await userEvent.clear(monthly)
-      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: unlimited')
+      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute(
+        'placeholder',
+        'Default: unlimited'
+      )
     })
 
     it('saves only the ingest allowance, without pinning the default limits as a policy', async () => {
-      fetchMock.mockResolvedValueOnce(response(budget)).mockResolvedValueOnce(response(explicitBudget.ingest))
+      fetchMock
+        .mockResolvedValueOnce(response(budget))
+        .mockResolvedValueOnce(response(explicitBudget.ingest))
       render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
       await userEvent.type(await screen.findByLabelText(INGEST_LABEL), '50000')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -245,7 +252,9 @@ describe('platform organization allowance editor', () => {
     })
 
     it('goes back to the default with one click', async () => {
-      fetchMock.mockResolvedValueOnce(response(explicitBudget)).mockResolvedValueOnce(response(budget.ingest))
+      fetchMock
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response(budget.ingest))
       render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
       expect(await screen.findByLabelText(INGEST_LABEL)).toHaveValue('50000')
       expect(screen.getByText('Custom')).toBeDefined()
@@ -255,7 +264,10 @@ describe('platform organization allowance editor', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
       expect(fetchMock.mock.calls[1][0]).toBe(ingestUrl)
-      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ unit: 'credit', monthlyAllowance: null })
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+        unit: 'credit',
+        monthlyAllowance: null,
+      })
     })
 
     it('saves the limits first, then the ingest allowance, when both changed', async () => {
@@ -277,7 +289,10 @@ describe('platform organization allowance editor', () => {
         ['/api/platform/organizations/org_tenant/budgets', 'PUT'],
         [ingestUrl, 'PUT'],
       ])
-      expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ unit: 'credit', monthlyAllowance: 0 })
+      expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+        unit: 'credit',
+        monthlyAllowance: 0,
+      })
     })
 
     it('refuses a negative amount and names the ingest failure', async () => {
@@ -290,7 +305,30 @@ describe('platform organization allowance editor', () => {
       await userEvent.clear(ingest)
       await userEvent.type(ingest, '5')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the ingest allowance.'))
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Could not save the ingest allowance.')
+      )
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('says the limits were saved when only the ingest allowance failed after them', async () => {
+      fetchMock
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response({}, 500))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const monthly = await screen.findByLabelText('Monthly allowance (credits)')
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '20000')
+      const ingest = screen.getByLabelText(INGEST_LABEL)
+      await userEvent.clear(ingest)
+      await userEvent.type(ingest, '7')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          'The limits were saved, but the ingest allowance could not be saved.'
+        )
+      )
       expect(onClose).not.toHaveBeenCalled()
     })
 

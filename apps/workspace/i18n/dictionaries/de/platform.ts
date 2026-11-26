@@ -473,6 +473,7 @@ export const platform: typeof en.platform = {
     ingestUseDefault: 'Standard verwenden',
     ingestInvalid: 'Eine Zahl ab 0 eingeben oder für den Standard leer lassen.',
     ingestSaveError: 'Das Einlesekontingent konnte nicht gespeichert werden.',
+    ingestSaveErrorAfterLimits: 'Die Limits wurden gespeichert, das Einlesekontingent aber nicht.',
   },
   knowledgeAdmin: {
     addDocuments: 'Dokumente hinzufügen',

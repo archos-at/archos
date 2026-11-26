@@ -469,6 +469,7 @@ export const platform = {
     ingestUseDefault: 'Use default',
     ingestInvalid: 'Enter a number of 0 or more, or leave blank for the default.',
     ingestSaveError: 'Could not save the ingest allowance.',
+    ingestSaveErrorAfterLimits: 'The limits were saved, but the ingest allowance could not be saved.',
   },
   knowledgeAdmin: {
     addDocuments: 'Add documents',
