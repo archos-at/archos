@@ -153,7 +153,7 @@ class TestTheBlocks:
         assert "Rebuilt from the index; page breaks inside a passage are approximate." in result.text
 
     async def test_a_drawing_page_says_it_is_a_reading_and_not_a_measurement(self) -> None:
-        async def read(collection, file_name, *, wanted=None):
+        async def read(collection, file_name, *, wanted=None, document_id=None):
             page = stored_pages.Page(number=1, text="Grundriss EG 1:100", source="vlm_reading")
             return stored_pages.PageText(pages=[page], origin="stored", page_count=1)
 
@@ -213,7 +213,7 @@ class TestStoredPages:
                 return data
             return data[byte_range[0] : byte_range[1] + 1]
 
-        async def resolve(collection, file_name):
+        async def resolve(collection, file_name, document_id=None):
             from knowledge_layer.view_image import StorageLocation
 
             return StorageLocation(self.KEY, None, "ver-2", "d1")
@@ -233,10 +233,10 @@ class TestStoredPages:
         assert await stored_pages.read_stored("proj_a", "B.pdf", resolve=resolve, fetch=fetch) is None
 
     async def test_no_index_falls_back_to_the_chunks(self) -> None:
-        async def resolve(collection, file_name):
+        async def resolve(collection, file_name, document_id=None):
             return ("org/o/doc/d1/B.pdf", None)
 
-        def chunks(collection, file_name):
+        def chunks(collection, file_name, document_id=None):
             return [(1, "Seite eins", {}), (1, "noch eins", {}), (2, "Seite zwei", {"content_type": "drawing"})]
 
         text = await stored_pages.read_pages(

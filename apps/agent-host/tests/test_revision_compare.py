@@ -71,7 +71,9 @@ def _environment(monkeypatch):
 @pytest.fixture(autouse=True)
 def licence(monkeypatch):
     state = {"value": None}
-    monkeypatch.setattr("agent.tools.look.place.document_licence", lambda collection, name: state["value"])
+    monkeypatch.setattr(
+        "agent.tools.look.place.document_licence", lambda collection, name, document_id=None: state["value"]
+    )
     return state
 
 

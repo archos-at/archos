@@ -138,7 +138,9 @@ def derive_suggestions(rows: Sequence[Any], held_names: Callable[[], set[str] | 
     if held is None:
         return {}
     visible = [row for row in rows if row.file_name not in held]
-    return {newer.file_name: suggestion for newer, _, suggestion in _pairs(visible)}
+    return {
+        getattr(newer, "document_id", None) or newer.file_name: suggestion for newer, _, suggestion in _pairs(visible)
+    }
 
 
 def _pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:

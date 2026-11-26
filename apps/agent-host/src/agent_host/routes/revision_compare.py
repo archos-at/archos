@@ -151,11 +151,16 @@ async def _pages(collection: str, pair: Fassungen, page: int, organization_id: s
     return older_jpeg, newer_jpeg
 
 
-def _licence_of(collection: str, older: str, newer: str):
+def _licence_of(collection: str, older: Any, newer: Any):
     from agent.tools.look.place import document_licence
 
     terms = [
-        licence for licence in (document_licence(collection, older), document_licence(collection, newer)) if licence
+        licence
+        for licence in (
+            document_licence(collection, row.file_name, document_id=getattr(row, "document_id", None))
+            for row in (older, newer)
+        )
+        if licence
     ]
     licensed = [licence for licence in terms if licence.licensed]
     if any(not licence.ai_processing for licence in licensed):
@@ -306,7 +311,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         x_grid_user_id: str | None = Header(default=None),
     ) -> RevisionCompareResponse:
         pair = await _ingested_or_409(collection_name, request)
-        licence = await asyncio.to_thread(_licence_of, collection_name, pair.older.file_name, pair.newer.file_name)
+        licence = await asyncio.to_thread(_licence_of, collection_name, pair.older, pair.newer)
         cred = await asyncio.to_thread(_vision_settings, x_grid_organization_id)
         if not cred.api_key:
             raise HTTPException(status_code=503, detail="No vision model is configured")

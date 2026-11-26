@@ -210,7 +210,9 @@ class EstateBackend(BackendProtocol):
         return output, facts
 
     async def _page_text(self, file: EstateFile, wanted: set[int] | None) -> stored_pages.PageText | None:
-        return await self._page_reader(file.row.collection, file.row.file_name, wanted=wanted)
+        return await self._page_reader(
+            file.row.collection, file.row.file_name, wanted=wanted, document_id=file.row.document_id
+        )
 
     async def _read_pages(
         self, file: EstateFile, wanted: list[int] | None, offset: int, limit: int, note: str
@@ -302,7 +304,12 @@ class EstateBackend(BackendProtocol):
         from knowledge_layer.read_passage import _outline_block
         from knowledge_layer.read_passage import outline_for
 
-        target = PassageTarget(collection=file.row.collection, file_name=file.row.file_name, shelf=file.row.shelf)
+        target = PassageTarget(
+            collection=file.row.collection,
+            file_name=file.row.file_name,
+            shelf=file.row.shelf,
+            document_id=file.row.document_id,
+        )
         try:
             outline = await outline_for([target], file.row.file_name)
         except Exception:  # noqa: BLE001 - the outline is an index beside the page, never worth the read
@@ -317,8 +324,13 @@ class EstateBackend(BackendProtocol):
         from knowledge_layer.read_passage import _fetch_all
         from knowledge_layer.read_passage import _passage_filters
 
-        target = PassageTarget(collection=file.row.collection, file_name=file.row.file_name, shelf=file.row.shelf)
-        fetched = await _fetch_all([target], lambda name: _passage_filters(name, clause, None), clause, 12)
+        target = PassageTarget(
+            collection=file.row.collection,
+            file_name=file.row.file_name,
+            shelf=file.row.shelf,
+            document_id=file.row.document_id,
+        )
+        fetched = await _fetch_all([target], lambda target: _passage_filters(target, clause, None), clause, 12)
         chunks = sorted((chunk for chunk in fetched.chunks if _addresses(chunk, clause, None)), key=_clause_sort_key)
         if fetched.failures and not chunks:
             return ToolOutput(_store_down(file), status="error")

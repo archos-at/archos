@@ -146,9 +146,7 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
-def document_licence(
-    collection: str, file_name: str, *, unindexed: Any = None, document_id: str | None = None
-) -> Any:
+def document_licence(collection: str, file_name: str, *, unindexed: Any = None, document_id: str | None = None) -> Any:
     import os
 
     from knowledge_layer.vector_store import get_store

@@ -34,6 +34,7 @@ def _response(result: Any, snippet_max_chars: int) -> SimilarPassagesResponse:
             SimilarDocument(
                 collection=document.scope,
                 file_name=document.file_name,
+                document_id=document.document_id,
                 passages=[
                     SimilarPassage(
                         chunk_id=passage.chunk_id,

@@ -52,8 +52,14 @@ def _chain_members(rows: Sequence[FileRow], start: FileRow) -> list[FileRow]:
         if number is not None:
             groups.setdefault(("plankopf", number), []).append(row)
     for members in groups.values():
+        names = [row.file_name for row in members]
+        namesakes = len(set(names)) < len(names)
         for row in members:
-            neighbours[row.key].update(other.key for other in members if other.file_name != row.file_name)
+            neighbours[row.key].update(
+                other.key
+                for other in members
+                if other.file_name != row.file_name and (not namesakes or other.folder == row.folder)
+            )
     seen = {start.key}
     queue = [start.key]
     while queue:
@@ -198,11 +204,7 @@ def render_revisions(
         else f'"{asked}" on {where}: only this one Fassung.'
     ]
     for number, row in enumerate(members[:MAX_CHAIN_LINES], start=1):
-        lines.append(
-            _chain_line(
-                number, row, current=number == 1, mark=confirmed.get(row.key), basis=basis
-            )
-        )
+        lines.append(_chain_line(number, row, current=number == 1, mark=confirmed.get(row.key), basis=basis))
     if len(members) > MAX_CHAIN_LINES:
         lines.append(f"… and {len(members) - MAX_CHAIN_LINES} more, older Fassungen.")
     if len(members) == 1:

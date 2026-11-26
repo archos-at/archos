@@ -36,7 +36,7 @@ def _estate() -> EstateBackend:
     async def none():
         return []
 
-    async def pages(collection, file_name, *, wanted=None):
+    async def pages(collection, file_name, *, wanted=None, document_id=None):
         texts = {1: "Der Fluchtweg führt ins Freie.", 2: "Keine Sprinkler."}
         items = [stored_pages.Page(number=n, text=t) for n, t in texts.items() if wanted is None or n in wanted]
         return stored_pages.PageText(pages=items, origin="stored", page_count=2)

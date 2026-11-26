@@ -11,6 +11,7 @@ from qdrant_client import models
 
 from agent.knowledge.base import reading_order
 
+from . import name_scope
 from .schema import CHUNK_ID_FIELD
 from .schema import DENSE
 from .schema import DOCUMENT_ID_FIELD
@@ -59,6 +60,7 @@ class SimilarDocument:
     scope: str
     file_name: str
     passages: list[SimilarPassage] = field(default_factory=list)
+    document_id: str | None = None
 
 
 @dataclass
@@ -72,13 +74,18 @@ def normalized(text: str) -> str:
     return _SPACE.sub(" ", _TRAILING_ELLIPSIS.sub("", text or "")).strip().casefold()
 
 
+def _named(source: PassageSource) -> models.FieldCondition:
+    return models.FieldCondition(key="file_name", match=models.MatchValue(value=source.file_name))
+
+
+def _document_condition(source: PassageSource) -> models.FieldCondition:
+    if source.document_id:
+        return models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
+    return _named(source)
+
+
 def _file_condition(source: PassageSource) -> models.Filter:
-    return models.Filter(
-        must=[
-            scope_condition([source.scope]),
-            models.FieldCondition(key="file_name", match=models.MatchValue(value=source.file_name)),
-        ]
-    )
+    return models.Filter(must=[scope_condition([source.scope]), _document_condition(source)])
 
 
 def _record_by_chunk_id(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:
@@ -119,10 +126,8 @@ def locate_source(store: QdrantStore, source: PassageSource, *, office_id: str |
 
 def _excluded(source: PassageSource) -> models.Filter:
     exclusions: list[Any] = [_file_condition(source)]
-    if source.document_id:
-        exclusions.append(
-            models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
-        )
+    if source.document_id and not name_scope.NAMES_SKIP_IDENTIFIED_POINTS:
+        exclusions.append(models.Filter(must=[scope_condition([source.scope]), _named(source)]))
     return models.Filter(must_not=exclusions)
 
 
@@ -130,17 +135,18 @@ CURRENT_REVISIONS: dict[str, Any] = {"superseded": {"$ne": True}}
 
 
 def group_by_document(points: Sequence[Any], documents: int, per_document: int) -> list[SimilarDocument]:
-    grouped: dict[tuple[str, str], SimilarDocument] = {}
+    grouped: dict[tuple[str, str, str], SimilarDocument] = {}
     for point in points:
         payload = point.payload or {}
         scope, file_name = payload.get(SCOPE_FIELD), payload.get("file_name")
         if not scope or not file_name:
             continue
-        key = (str(scope), str(file_name))
+        document_id = str(payload.get(DOCUMENT_ID_FIELD) or "") or None
+        key = (str(scope), "id", document_id) if document_id else (str(scope), "file", str(file_name))
         if key not in grouped:
             if len(grouped) >= documents:
                 continue
-            grouped[key] = SimilarDocument(scope=key[0], file_name=key[1])
+            grouped[key] = SimilarDocument(scope=str(scope), file_name=str(file_name), document_id=document_id)
         document = grouped[key]
         if len(document.passages) < per_document:
             page = reading_order(payload.get("page_label"))

@@ -186,3 +186,33 @@ class TestFactsOfTwoDocumentsThatShareAName:
         )
 
         assert _payloads(local_qdrant_store)["a3"]["folder_path"] == "Einreichung"
+
+
+def _similar_point(chunk_id: str, document_id: str | None) -> SimpleNamespace:
+    payload = {"scope": SCOPE, "file_name": PLAN, "chunk_id": chunk_id, "text": chunk_id}
+    return SimpleNamespace(
+        id=chunk_id, score=0.9, payload={**payload, **({"document_id": document_id} if document_id else {})}
+    )
+
+
+class TestSimilarPassagesOfNamesakes:
+    def test_two_namesakes_are_two_similar_documents(self):
+        from knowledge_layer.vector_store import similar
+
+        found = similar.group_by_document(
+            [_similar_point("a1", "doc-a"), _similar_point("b1", "doc-b"), _similar_point("l1", None)], 5, 3
+        )
+
+        assert [(document.file_name, document.document_id) for document in found] == [
+            (PLAN, "doc-a"),
+            (PLAN, "doc-b"),
+            (PLAN, None),
+        ]
+
+    def test_the_source_document_is_left_out_by_its_id(self):
+        from knowledge_layer.vector_store import similar
+
+        excluded = similar._excluded(similar.PassageSource(SCOPE, PLAN, document_id="doc-a"))
+
+        by_id = models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value="doc-a"))
+        assert any(by_id in exclusion.must for exclusion in excluded.must_not)

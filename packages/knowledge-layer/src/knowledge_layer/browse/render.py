@@ -169,8 +169,7 @@ def render_listing(listing: Listing, *, in_flight: Sequence[str] = ()) -> str:
         lines.append("Files:")
         show_shelf = len(listing.shelves) > 1
         lines.extend(
-            _row_line(row, show_shelf=show_shelf, mark=listing.revision_marks.get(row.key))
-            for row in listing.rows
+            _row_line(row, show_shelf=show_shelf, mark=listing.revision_marks.get(row.key)) for row in listing.rows
         )
         remaining = listing.total - (listing.offset + len(listing.rows))
         if remaining > 0:

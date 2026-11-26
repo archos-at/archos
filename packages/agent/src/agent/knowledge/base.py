@@ -311,7 +311,11 @@ class BaseIngestor(ABC):
     ) -> dict[str, Any]:
         return _delete_each(
             [
-                (name, document_id, partial(self.delete_document, document_id, name, collection_name, permanent=permanent))
+                (
+                    name,
+                    document_id,
+                    partial(self.delete_document, document_id, name, collection_name, permanent=permanent),
+                )
                 for document_id, name in documents
             ]
         )

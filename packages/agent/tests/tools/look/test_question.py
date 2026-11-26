@@ -279,7 +279,9 @@ class TestAPageOfALicensedCopy:
         from agent.tools.look import register
 
         terms = {"value": LicenceTerms(licence_class="licensed", ai_processing=True)}
-        monkeypatch.setattr(register, "document_licence", lambda collection, file_name, unindexed=None: terms["value"])
+        monkeypatch.setattr(
+            register, "document_licence", lambda collection, file_name, unindexed=None, document_id=None: terms["value"]
+        )
         cred = ResolvedCredential(
             api_key="sk-vlm", base_url="https://openrouter.ai/api/v1", model="vision-1", source="test"
         )
@@ -338,7 +340,7 @@ class TestAPageOfALicensedCopy:
 
         asked = []
 
-        def lookup(collection, file_name, unindexed=None):
+        def lookup(collection, file_name, unindexed=None, document_id=None):
             asked.append(collection)
             return unindexed
 

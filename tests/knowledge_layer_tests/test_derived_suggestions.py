@@ -193,3 +193,9 @@ class TestInTheListing:
         monkeypatch.setattr(revisions, "held_file_names", lambda collection: seen.append(collection) or {"x.pdf"})
         assert _held_names_of("proj_a")() == {"x.pdf"}
         assert seen == ["proj_a"]
+
+
+def test_a_suggestion_for_a_document_with_an_id_is_keyed_by_that_id():
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c")]
+
+    assert list(revisions.derive_suggestions(rows, _held())) == ["doc-c"]

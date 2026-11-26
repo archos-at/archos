@@ -42,10 +42,10 @@ def citation_key(facts: PlaceFacts) -> str:
     return f"{facts.file_name}, p.{facts.page}"
 
 
-def document_licence(collection: str, file_name: str, unindexed: Any = None) -> Any:
+def document_licence(collection: str, file_name: str, unindexed: Any = None, *, document_id: str | None = None) -> Any:
     from agent.knowledge.licences import document_licence as read
 
-    return read(collection, file_name, unindexed=unindexed)
+    return read(collection, file_name, unindexed=unindexed, document_id=document_id)
 
 
 def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: Any = None) -> str:

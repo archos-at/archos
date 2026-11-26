@@ -284,11 +284,11 @@ class IngestRun:
             screening_unusable=screening_config_unusable(config.get("screening")),
         )
 
-    def _reconcile_summaries(self, collection_name: str, file_names: list[str]) -> None:
+    def _reconcile_summaries(self, collection_name: str, documents: list[Any]) -> None:
         try:
             from agent.knowledge.factory import reconcile_collection_summaries
 
-            reconcile_collection_summaries(self, collection_name, file_names=file_names)
+            reconcile_collection_summaries(self, collection_name, documents=documents)
         except Exception as e:
             logger.warning("Reconciliation failed for collection %s: %s", collection_name, e)
 
@@ -301,7 +301,12 @@ class IngestRun:
         successful_files = [f for f in job.file_details if f.status == FileStatus.SUCCESS]
 
         if successful_files:
-            self._reconcile_summaries(collection_name, [f.file_name for f in successful_files])
+            from agent.knowledge.document_metadata_constants import DocumentRef
+
+            document_id = str(run.config.get("document_id") or "").strip() or None
+            self._reconcile_summaries(
+                collection_name, [DocumentRef(f.file_name, document_id) for f in successful_files]
+            )
 
         with self._lock:
             if failed_files and not successful_files:

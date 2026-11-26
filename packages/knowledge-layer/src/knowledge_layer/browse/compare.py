@@ -37,7 +37,9 @@ def _other_document(
     shelves = (shelf,) if shelf else tuple(default_shelves)
     where = " and ".join(_SHELF_LABELS.get(name, name) for name in shelves)
     chain = {row.key for row in members}
-    scoped = [row for row in rows if (row.shelf in shelves or (not shelf and row.shelf is None)) and row.key not in chain]
+    scoped = [
+        row for row in rows if (row.shelf in shelves or (not shelf and row.shelf is None)) and row.key not in chain
+    ]
     candidates = _chain_candidates(scoped, target)
     chain_names = ", ".join(row.file_name for row in members[:MAX_CHAIN_CANDIDATES])
     if not candidates:

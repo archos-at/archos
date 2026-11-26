@@ -110,3 +110,12 @@ def test_a_namesake_replaced_by_name_does_not_hide_a_hit_with_an_id():
     kept = superseded.without_replaced([_hit("doc-a"), _hit(None)], replaced)
 
     assert [hit.content for hit in kept] == ["doc-a"]
+
+
+def test_the_source_of_similar_passages_never_leaves_out_a_namesake():
+    from knowledge_layer.vector_store import similar
+
+    excluded = similar._excluded(similar.PassageSource(SCOPE, PLAN, document_id="doc-a"))
+
+    by_name = models.FieldCondition(key="file_name", match=models.MatchValue(value=PLAN))
+    assert not any(by_name in exclusion.must for exclusion in excluded.must_not)

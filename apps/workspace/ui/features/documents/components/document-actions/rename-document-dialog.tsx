@@ -139,7 +139,7 @@ export function RenameDocumentDialog({
             )}
           </Field>
 
-          <DialogFooter className="mt-5">
+          <DialogFooter className="mt-5 sm:flex-wrap">
             {/* Recovery sits with the other controls rather than in a menu one
                 level up: the person who wants the original name back is already
                 looking at the field that took it away. */}
