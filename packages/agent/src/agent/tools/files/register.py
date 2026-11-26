@@ -202,10 +202,8 @@ _DESCRIPTION = (
     "card — why exactly this change („gehört zum Bescheid vom 12. März“). Only what you can substantiate from "
     "the file name, content or conversation; nothing invented. The reason is stored with the proposal and "
     "appears among the decisions in later turns.\n"
-    "`document` is the file name exactly as the overview or a listing shows it; when two files share a name "
-    "(in different folders), give its folder path ('Einreichung/Plan.pdf') or its document id. A folder "
-    "holds a name once: a move or rename onto a name the folder already holds comes back as a conflict for the "
-    "person to decide, never as a replacement. One call proposes ONE change; several files are several calls."
+    "`document` is the file name exactly as the overview or a listing shows it, or for two files of one name its "
+    "folder path or document id. One call proposes ONE change; several files are several calls."
 )
 
 _OPERATIONS = ("move", "rename", "create_folder", "assign")

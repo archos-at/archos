@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nameConflictResolutionSchema } from '@/lib/documents/name-conflict'
 
 export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 
@@ -53,6 +54,14 @@ export const documentUploadFields = {
     .guid()
     .optional()
     .describe('The batch uuid given to upload-batch-open, to file this upload under that batch.'),
+} satisfies Record<string, z.ZodType>
+
+export const uploadConflictField = {
+  onConflict: nameConflictResolutionSchema
+    .optional()
+    .describe(
+      'When the folder already holds a document of this name (in any case): replace makes this the next Fassung of that document, keep_both keeps both under the next free name, skip leaves it. Leave it out and a clash answers 409 `name_conflict` with `existingDocumentId` and `suggestedName`: ask the person, then send their answer.',
+    ),
 } satisfies Record<string, z.ZodType>
 
 export const uploadBodySchema = z.object({

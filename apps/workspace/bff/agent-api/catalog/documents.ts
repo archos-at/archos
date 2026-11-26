@@ -20,7 +20,7 @@ import {
   suggestBodySchema,
 } from '@/lib/search/search-wire'
 import type { AgentOperation } from '../operation'
-import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith } from '../upload-wire'
+import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith, uploadConflictField } from '../upload-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const documentParams = z.object({
@@ -41,6 +41,7 @@ const uploadBody = uploadBodySchemaWith({
   revisionOf: revisionOfField,
   originConversationId: z.string().max(128).optional().describe('Set by the server to your conversation; a value you send is replaced.'),
   ...documentUploadFields,
+  ...uploadConflictField,
 })
 const projectUploadExample = {
   body: {
@@ -78,7 +79,8 @@ export const documentsOperations = [
     summary: 'Rename a document',
     description:
       'Set the name ' + PRODUCT_NAME + ' shows for a document (`displayName`); `null` clears it so the file name shows again. ' +
-      'The stored file name never changes. Needs write access to the document’s project or shelf.',
+      'The stored file name never changes. A name another document in the same folder holds answers 409 `name_conflict`. ' +
+      'Needs write access to the document’s project or shelf.',
     method: 'PATCH',
     path: '/api/documents/[id]',
     params: documentParams,
@@ -130,7 +132,8 @@ export const documentsOperations = [
     summary: 'Move a document to another folder',
     description:
       'File a document in a folder (`folderId`, from folder-list) or at its shelf’s root with `folderId: null`. ' +
-      'Needs write access on the document and on the target folder.',
+      'Needs write access on the document and on the target folder. A folder that holds the name already answers 409 ' +
+      '`name_conflict` until `onConflict` says what to do; it never replaces on its own.',
     method: 'PATCH',
     path: '/api/documents/[id]/folder',
     params: documentParams,
@@ -404,7 +407,8 @@ export const documentsOperations = [
     summary: 'Upload a file to a project or the office shelf',
     description:
       `Stores one file on a shelf, optionally in a folder, and ingests it. ${SIZE_NOTE} Send \`body.files[0]\` as ` +
-      '{ name, mimeType, contentBase64 } and in `body.fields` `projectId` or `scope: office_shelf`. Follow it with document-status.',
+      '{ name, mimeType, contentBase64 } and in `body.fields` `projectId` or `scope: office_shelf`. A folder that holds the name ' +
+      'already answers 409 `name_conflict` until `fields.onConflict` says what to do. Follow it with document-status.',
     method: 'POST',
     path: '/api/documents/upload',
     body: uploadBody,

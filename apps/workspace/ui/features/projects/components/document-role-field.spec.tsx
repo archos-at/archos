@@ -68,8 +68,10 @@ describe('DocumentRoleField upload', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     const uploads = fetchSpy.mock.calls.filter(([url]) => url === '/api/documents/upload')
     expect(uploads).toHaveLength(1)
-    const sent = (uploads[0] as unknown as [string, { body: FormData }])[1].body.get('file') as File
+    const body = (uploads[0] as unknown as [string, { body: FormData }])[1].body
+    const sent = body.get('file') as File
     expect(sent.name).toBe('Lageplan.pdf')
+    expect(body.get('onConflict')).toBe('replace')
     expect(String(vi.mocked(toast.error).mock.calls[0][0])).toContain('Honorarnote.pdf')
   })
 

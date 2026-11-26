@@ -3011,14 +3011,14 @@ describe('an upload into a folder that holds the name: the Finder’s three answ
     vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: 'proj-1', collectionName: 'proj_abc' }))
     vi.mocked(findFolderPathInProject).mockResolvedValue('Pläne')
     holding(holder)
-    vi.mocked(findFreeDocumentName).mockReset().mockResolvedValue('Plan 2.pdf')
+    vi.mocked(findFreeDocumentName).mockReset().mockResolvedValue('plan 2.pdf')
   })
 
   afterEach(() => {
     vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValue(null)
   })
 
-  it('asks first: 409 name_conflict naming what is there and the next free name, and stores nothing', async () => {
+  it('asks first: 409 name_conflict naming what is there and the next free name in the spelling it came in, and stores nothing', async () => {
     const refusal = into('refuse')
 
     await expect(refusal).rejects.toMatchObject({
@@ -3029,14 +3029,14 @@ describe('an upload into a folder that holds the name: the Finder’s three answ
         folderId: PLANS,
         existingDocumentId: 'doc-plan',
         existingName: 'Plan.pdf',
-        suggestedName: 'Plan 2.pdf',
+        suggestedName: 'plan 2.pdf',
       },
     })
     expect(vi.mocked(findLiveDocumentByFilename).mock.calls[0]?.slice(1)).toEqual([
       { folderId: PLANS, collectionName: 'proj_abc' },
       'plan.pdf',
     ])
-    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: PLANS, collectionName: 'proj_abc' }, 'Plan.pdf')
+    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: PLANS, collectionName: 'proj_abc' }, 'plan.pdf')
     expect(putKeys()).toEqual([])
     expect(admitOrDiscard).not.toHaveBeenCalled()
     expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
@@ -3055,20 +3055,20 @@ describe('an upload into a folder that holds the name: the Finder’s three answ
     const result = await into('keep_both')
 
     expect(result.documentId).not.toBe('doc-plan')
-    expect(result.filename).toBe('Plan 2.pdf')
-    expect(vi.mocked(admitOrDiscard).mock.calls[0]?.[2]).toMatchObject({ filename: 'Plan 2.pdf', folderId: PLANS })
+    expect(result.filename).toBe('plan 2.pdf')
+    expect(vi.mocked(admitOrDiscard).mock.calls[0]?.[2]).toMatchObject({ filename: 'plan 2.pdf', folderId: PLANS })
     expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
   })
 
   it('„Beide behalten“ takes the next name again when a racing upload took the free one', async () => {
-    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('Plan 2.pdf').mockResolvedValueOnce('Plan 3.pdf')
-    vi.mocked(admitOrDiscard).mockRejectedValueOnce(new LiveFilenameTakenError('Plan 2.pdf'))
+    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('plan 2.pdf').mockResolvedValueOnce('plan 3.pdf')
+    vi.mocked(admitOrDiscard).mockRejectedValueOnce(new LiveFilenameTakenError('plan 2.pdf'))
 
     const result = await into('keep_both')
 
     expect(admitOrDiscard).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(admitOrDiscard).mock.calls[1]?.[2]).toMatchObject({ filename: 'Plan 3.pdf' })
-    expect(result.filename).toBe('Plan 3.pdf')
+    expect(vi.mocked(admitOrDiscard).mock.calls[1]?.[2]).toMatchObject({ filename: 'plan 3.pdf' })
+    expect(result.filename).toBe('plan 3.pdf')
   })
 
   it('„Überspringen“ leaves the folder as it was and names the document that is there', async () => {

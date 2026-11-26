@@ -1,4 +1,5 @@
 import { isNameTakenBody } from '@/lib/documents/name-taken'
+import { nameConflictOf } from '@/lib/documents/name-conflict'
 import { splitDocumentName } from '@/lib/documents/display-name'
 import { protocolFileNameOf, safeFileStem, type AnnotationExportFormat } from '@/lib/annotations/export-request'
 import { calendarDayIn, OFFICE_TIME_ZONE } from '@/lib/format'
@@ -52,9 +53,10 @@ export async function fileProtocol(
   form.append('file', new File([blob], filename, { type: blob.type || exported.headers.get('content-type') || '' }))
   form.append('projectId', target.projectId)
   if (target.folderId) form.append('folderId', target.folderId)
+  form.append('onConflict', 'replace')
   const uploaded = await fetch('/api/documents/upload', { method: 'POST', body: form })
   const body: unknown = await uploaded.json().catch(() => null)
-  if (!uploaded.ok) throw new ProtocolFilingError(isNameTakenBody(body) ? 'name-taken' : 'upload')
+  if (!uploaded.ok) throw new ProtocolFilingError(isNameTakenBody(body) || nameConflictOf(body) ? 'name-taken' : 'upload')
   const { documentId: filedId, unchanged } = (body ?? {}) as { documentId?: unknown; unchanged?: unknown }
   if (typeof filedId !== 'string' || !filedId) throw new ProtocolFilingError('upload')
   return { documentId: filedId, filename, unchanged: unchanged === true }

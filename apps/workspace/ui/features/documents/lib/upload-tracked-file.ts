@@ -7,7 +7,8 @@ import { shouldEmitProgress } from './upload-progress'
 import { sendWaitingOutRateLimit } from './upload-queue'
 import { mayRetryRefusal, uploadRefusalOf } from './upload-refusal'
 import { UploadFailureSentence, uploadFailureSentence, type UploadFailureCopy } from './upload-failure'
-import type { NameConflict, SentConflictChoice } from './name-conflict'
+import type { NameConflict } from '@/lib/documents/name-conflict'
+import type { SentConflictChoice } from './name-conflict'
 
 interface UploadDocumentResponse {
   documentId?: string

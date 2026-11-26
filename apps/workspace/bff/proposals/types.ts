@@ -157,10 +157,20 @@ export const operationTargetViewSchema = z.object({
 })
 export type OperationTargetView = z.infer<typeof operationTargetViewSchema>
 
+export const proposedNameConflictSchema = z.object({
+  reason: z.literal('name_conflict'),
+  name: z.string(),
+  folderId: z.string().nullable(),
+  existingDocumentId: z.string(),
+  existingName: z.string(),
+  suggestedName: z.string(),
+})
+
 export const proposedChangeResultSchema = z.object({
   label: z.string(),
   ok: z.boolean(),
   reason: z.string().optional(),
+  conflict: proposedNameConflictSchema.optional(),
   itemId: z.string().optional(),
   scope: z.enum(MEMORY_SCOPES).optional(),
 })

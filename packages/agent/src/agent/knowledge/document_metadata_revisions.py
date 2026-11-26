@@ -39,13 +39,14 @@ def set_superseded_by(
     from sqlalchemy import text
 
     where, keyed = _match(older, document_id)
+    linked_id = ":newer_id" if newer_id or not newer else "CASE WHEN superseded_by = :newer THEN superseded_by_id END"
     try:
         with store._sync_engine.begin() as conn:
             result = conn.execute(
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
-                    f"UPDATE {TABLE_NAME} SET superseded_by = :newer, "
-                    f"superseded_by_id = :newer_id{_stamp(document_id)} WHERE collection = :collection AND {where}"
+                    f"UPDATE {TABLE_NAME} SET superseded_by_id = {linked_id}, superseded_by = :newer"
+                    f"{_stamp(document_id)} WHERE collection = :collection AND {where}"
                 ),
                 {"newer": newer or None, "newer_id": (newer_id or None) if newer else None, "collection": collection}
                 | keyed,

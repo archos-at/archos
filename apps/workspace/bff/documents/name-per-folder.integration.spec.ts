@@ -162,11 +162,11 @@ describe.skipIf(!url)('a document name is unique per folder, against Postgres (0
     ).toBeNull()
   })
 
-  it('suggests the next free name the way the Finder does, past the numbered names the folder holds', async () => {
+  it('suggests the next free name the way the Finder does, in the spelling it came in, past the numbered names the folder holds', async () => {
     await admit('plan 2.pdf', plans)
 
-    expect(await repo.findFreeDocumentName(ORG, { folderId: plans }, 'Plan.pdf')).toBe('Plan 3.pdf')
-    expect(await repo.findFreeDocumentName(ORG, { folderId: archive }, 'Plan.pdf')).toBe('Plan 2.pdf')
+    expect(await repo.findFreeDocumentName(ORG, { folderId: plans }, 'PLAN.pdf')).toBe('PLAN 3.pdf')
+    expect(await repo.findFreeDocumentName(ORG, { folderId: archive }, 'plan.pdf')).toBe('plan 2.pdf')
   })
 
   it('never moves the row a replacement lands on: the folder is what it expects', async () => {

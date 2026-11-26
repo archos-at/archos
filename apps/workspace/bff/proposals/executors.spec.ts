@@ -32,6 +32,7 @@ vi.mock('@/lib/projects/folder-service', () => ({
 }))
 vi.mock('@/lib/documents/document-listing', () => ({ resolveProjectDocumentsByName: vi.fn(async () => []) }))
 vi.mock('@/lib/documents/resolve-by-id', () => ({ resolveShelfDocumentsById: vi.fn(async () => []) }))
+vi.mock('@/lib/documents/document-edits', () => ({ renameDocument: vi.fn() }))
 vi.mock('@/lib/documents/move-to-folder', () => ({
   moveDocumentToFolder: vi.fn(async ({ documentId, folderId }: { documentId: string; folderId: string | null }) => ({
     ok: true,
@@ -41,6 +42,8 @@ vi.mock('@/lib/documents/move-to-folder', () => ({
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
+import { renameDocument } from '@/lib/documents/document-edits'
+import { NameConflictError, type NameConflict } from '@/lib/documents/name-conflict'
 import { resolveProjectDocumentsByName, type ListedDocument } from '@/lib/documents/document-listing'
 import { resolveShelfDocumentsById } from '@/lib/documents/resolve-by-id'
 import { applyFileOperations, resolveItemDocuments } from './executors'
@@ -138,5 +141,57 @@ describe('a proposed move in a project with two documents of one name in differe
     vi.mocked(resolveShelfDocumentsById).mockResolvedValue([])
 
     expect(await resolveItemDocuments(SESSION, 'proj-1', [{ source: 'project', document: 'Plan.pdf', document_id: ENTWURF }])).toBeNull()
+  })
+})
+
+describe('a proposed change that meets a name already in the folder', () => {
+  const DOC = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+  const CONFLICT: NameConflict = {
+    reason: 'name_conflict',
+    name: 'Plan.pdf',
+    folderId: 'folder-plans',
+    existingDocumentId: '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30',
+    existingName: 'Plan.pdf',
+    suggestedName: 'Plan 2.pdf',
+  }
+
+  beforeEach(() => {
+    vi.mocked(resolveShelfDocumentsById).mockImplementation(
+      async (_session, _shelf, ids) => ids.map((id) => ({ id, filename: 'Plan.pdf', createdAt: '2026-11-01T00:00:00Z' })) as unknown as ListedDocument[],
+    )
+  })
+
+  it('reports a move into a folder holding the name as a typed conflict, and never asks to replace', async () => {
+    vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'A document of this name is already in the destination folder.', conflict: CONFLICT })
+
+    const results = await applyFileOperations(
+      { operation: 'move', operations: [{ source: 'project', document: 'Plan.pdf', document_id: DOC, target_folder: 'Pläne' }] },
+      { session: SESSION, projectId: 'proj-1', request },
+    )
+
+    expect(results).toEqual([{ label: 'Plan.pdf', ok: false, reason: 'A document named "Plan.pdf" is already in this folder.', conflict: CONFLICT }])
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: DOC, folderId: 'folder-plans' }, SESSION)
+  })
+
+  it('reports a rename to a name the folder holds as the same typed conflict', async () => {
+    vi.mocked(renameDocument).mockRejectedValueOnce(new NameConflictError(CONFLICT))
+
+    const results = await applyFileOperations(
+      { operation: 'rename', operations: [{ source: 'project', document: 'Entwurf.pdf', document_id: DOC, new_display_name: 'Plan.pdf' }] },
+      { session: SESSION, projectId: 'proj-1', request },
+    )
+
+    expect(results).toEqual([expect.objectContaining({ label: 'Entwurf.pdf', ok: false, conflict: CONFLICT })])
+  })
+
+  it('carries no conflict on a refusal that is not one', async () => {
+    vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'Folder not found in this project.' })
+
+    const [result] = await applyFileOperations(
+      { operation: 'move', operations: [{ source: 'project', document: 'Plan.pdf', document_id: DOC, target_folder: 'Pläne' }] },
+      { session: SESSION, projectId: 'proj-1', request },
+    )
+
+    expect(result).toEqual({ label: 'Plan.pdf', ok: false, reason: 'Folder not found in this project.' })
   })
 })

@@ -6,7 +6,8 @@ import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import { findRevisionSeries, parseRevisionName } from '@/lib/documents/revision-series'
 import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
-import { nextFreeDocumentName, type ConflictChoice, type SentConflictChoice } from './name-conflict'
+import { nextFreeDocumentName } from '@/lib/documents/name-conflict'
+import type { ConflictChoice, SentConflictChoice } from './name-conflict'
 
 export type PlannedAction = 'new' | 'update' | 'unchanged' | 'collision' | 'excluded'
 

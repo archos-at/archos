@@ -174,6 +174,7 @@ export function DocumentRoleField({
             const form = new FormData()
             form.append('file', file)
             form.append('projectId', projectId)
+            form.append('onConflict', 'replace')
             if (batchId) form.append('uploadBatchId', batchId)
             const response = await fetch('/api/documents/upload', { method: 'POST', body: form })
             answered += 1

@@ -1,7 +1,8 @@
 import type { NameMatch } from '@/lib/upload-screening/name-screen'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import type { TrackedFile } from '../types'
-import type { NameConflict, SentConflictChoice } from '../lib/name-conflict'
+import type { NameConflict } from '@/lib/documents/name-conflict'
+import type { SentConflictChoice } from '../lib/name-conflict'
 import type { ValidationContext } from '../validation'
 
 export interface UseFileUploadOptions {

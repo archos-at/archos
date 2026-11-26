@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -10,7 +11,7 @@ from pydantic import Field
 from agent.common.turn_file_kinds import turn_states
 from agent.drawings import sheet_targets
 
-from ..look.resolve import Resolved
+from ..look.resolve import stated_document
 from .measure_register import ANSWER_TIMEOUT_S
 from .sheet_source import LoadedSheet
 from .sheet_source import load_resolved_sheet
@@ -21,6 +22,7 @@ class SnapTargetsRequest(BaseModel):
 
     file_name: str = Field(min_length=1, max_length=1024)
     collection: str = Field(min_length=1, max_length=256)
+    document_id: UUID | None = Field(default=None, description="The drawing's document id; its pixels are read by it")
     page: int = Field(default=1, ge=1)
 
 
@@ -50,7 +52,8 @@ def targets_of(loaded: LoadedSheet) -> dict[str, Any]:
 async def run_snap_targets(request: SnapTargetsRequest) -> dict[str, Any]:
     if not turn_states("pdf"):
         return {"refused": "not_enabled"}
-    loaded = await load_resolved_sheet(Resolved(request.file_name, request.collection), request.page)
+    resolved = stated_document(request.file_name, request.collection, request.document_id)
+    loaded = await load_resolved_sheet(resolved, request.page)
     if isinstance(loaded, str):
         return {"unavailable": {"reason": loaded}}
     try:

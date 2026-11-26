@@ -129,6 +129,7 @@ def _filing_choice_config(request: IngestRequest) -> dict[str, str]:
     choices = {
         "folder_path": (request.folder_path or "").strip(),
         "revision_of": (request.revision_of or "").strip(),
+        "revision_of_id": str(request.revision_of_id or ""),
         "document_type": request.document_type or "",
     }
     return {key: value for key, value in choices.items() if value}

@@ -624,7 +624,7 @@ describe('moveDocumentToFolder into a folder that holds the name', () => {
       'Fluchtwegplan.pdf',
       { excluding: 'doc-1' },
     ])
-    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: 'folder-1' }, 'fluchtwegplan.pdf')
+    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: 'folder-1' }, 'Fluchtwegplan.pdf')
     expect(db.updates).toHaveLength(0)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -664,13 +664,14 @@ describe('moveDocumentToFolder into a folder that holds the name', () => {
     vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, name) =>
       place.folderId === 'folder-1' && name === 'Fluchtweg.pdf' ? { ...THERE, filename: 'fluchtweg.pdf' } : null,
     )
-    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('fluchtweg 2.pdf')
+    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('Fluchtweg 2.pdf')
 
     await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'keep_both' }, SESSION)
 
-    expect(db.updates[0]).toMatchObject({ filename: 'fluchtweg 2.pdf', displayName: null })
+    expect(findFreeDocumentName).toHaveBeenLastCalledWith('org-1', { folderId: 'folder-1' }, 'Fluchtweg.pdf')
+    expect(db.updates[0]).toMatchObject({ filename: 'Fluchtweg 2.pdf', displayName: null })
     expect(fetched().slice(1)).toEqual([
-      ['/by-id/doc-1/file-name', { file_name: 'fluchtweg 2.pdf' }],
+      ['/by-id/doc-1/file-name', { file_name: 'Fluchtweg 2.pdf' }],
       ['/by-id/doc-1/display-title', { display_title: null }],
     ])
   })

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import unicodedata
 from dataclasses import dataclass
+from uuid import UUID
 
 from agent import project_context
 from agent.common.bff_http import SignedEnvelope
@@ -40,6 +41,11 @@ class Resolved:
     @property
     def document_id(self) -> str | None:
         return self.target.document_id if self.target is not None else None
+
+
+def stated_document(file_name: str, collection: str, document_id: UUID | None) -> Resolved:
+    target = Target(str(document_id), file_name, collection) if document_id else None
+    return Resolved(file_name, collection, target)
 
 
 def _key(value: str | None) -> str:

@@ -1,7 +1,5 @@
 import { nameConflictOf, type NameConflict, type NameConflictResolution } from '@/lib/documents/name-conflict'
 
-export { nameConflictOf, nextFreeDocumentName, type NameConflict } from '@/lib/documents/name-conflict'
-
 export type ConflictChoice = NameConflictResolution
 export type SentConflictChoice = Exclude<ConflictChoice, 'skip'>
 

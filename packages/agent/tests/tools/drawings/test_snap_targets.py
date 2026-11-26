@@ -44,11 +44,14 @@ def stored(monkeypatch: pytest.MonkeyPatch) -> list[list[dict[str, Any]]]:
     sheet_source.clear_cache()
     _Store.reads = 0
     calibrations: list[list[dict[str, Any]]] = [[]]
+    asked: list[dict[str, Any]] = []
+    monkeypatch.setattr(snap_targets, "asked_of_the_bff", asked, raising=False)
 
     async def no_licence(_resolved: Any) -> None:
         return None
 
     def get_json(path: str, **kwargs: Any) -> dict[str, Any]:
+        asked.append(kwargs["query"])
         return {
             "storageKey": "org/v1/floor.pdf",
             "documentId": "doc-1",
@@ -101,3 +104,13 @@ async def test_a_call_the_bff_stated_no_pdf_for_reads_nothing(stored) -> None:
 
 async def test_a_file_that_is_no_pdf_is_unavailable_with_its_sentence(stored) -> None:
     assert "is no PDF" in (await _targets("site.dxf"))["unavailable"]["reason"]
+
+
+async def test_a_drawing_the_bff_names_by_id_is_read_by_that_id(stored) -> None:
+    document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+    request = SnapTargetsRequest(file_name=FILE, collection=COLLECTION, document_id=document_id)
+
+    with turn_file_kinds.stating(frozenset({"pdf"})):
+        await snap_targets.run_snap_targets(request)
+
+    assert snap_targets.asked_of_the_bff[-1]["documentId"] == document_id  # type: ignore[attr-defined]

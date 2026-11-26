@@ -137,6 +137,18 @@ class TestTwoDocumentsOfOneName:
         assert store.documents_linked_to(COLLECTION, "Plan.pdf", document_id=EG) == []
         assert _by_id(store, ALT)[ALT].superseded_by_id == OG
 
+    def test_carrying_a_link_by_its_name_keeps_the_newer_documents_id(self, store):
+        _two_plans(store)
+        store.register(COLLECTION, "Plan_alt.pdf", "Ältere Fassung.", document_id=ALT)
+        store.link_revision(COLLECTION, "Plan_alt.pdf", "Plan.pdf", older_id=ALT, newer_id=OG)
+
+        assert store.set_superseded_by(COLLECTION, "Plan_alt.pdf", "Plan.pdf", document_id=ALT)
+        assert _by_id(store, ALT)[ALT].superseded_by_id == OG
+        assert store.set_superseded_by(COLLECTION, "Plan_alt.pdf", "Plan.pdf", document_id=ALT, newer_id=EG)
+        assert _by_id(store, ALT)[ALT].superseded_by_id == EG
+        assert store.set_superseded_by(COLLECTION, "Plan_alt.pdf", None, document_id=ALT)
+        assert (_by_id(store, ALT)[ALT].superseded_by, _by_id(store, ALT)[ALT].superseded_by_id) == (None, None)
+
     def test_a_link_back_is_a_loop_only_for_the_same_document(self, store):
         _two_plans(store)
         store.register(COLLECTION, "Plan_alt.pdf", "Ältere Fassung.", document_id=ALT)
