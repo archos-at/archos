@@ -320,7 +320,20 @@ class TestHitFactsOfNamesakes:
         resolved = hit_metadata.resolve_folder_paths(hits)
 
         assert [hit_metadata.hit_folder_path(hit, resolved) for hit in hits] == ["Einreichung", "Ausführung/OG"]
-        assert asked == [([], ["doc-eg", "doc-og"])]
+        assert [ids for _names, ids in asked] == [["doc-eg", "doc-og"]]
+
+    def test_while_names_still_reach_identified_points_a_hit_takes_its_unkeyed_rows_facts(self, monkeypatch):
+        from knowledge_layer.vector_store import name_scope
+
+        from agent.knowledge import factory
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
+        monkeypatch.setattr(
+            factory, "get_document_folder_paths", lambda collection, filenames, *, document_ids=None: {PLAN: "Archiv"}
+        )
+        hits = [_chunk("doc-eg", "Erdgeschoss")]
+
+        assert hit_metadata.hit_folder_path(hits[0], hit_metadata.resolve_folder_paths(hits)) == "Archiv"
 
     def test_a_folder_filter_keeps_only_the_namesake_in_that_folder(self, monkeypatch):
         from agent.knowledge import factory
@@ -357,3 +370,11 @@ class TestAReplacedNamesake:
 
         assert [chunk.content for chunk in kept] == ["aktuell"]
         assert superseded.hidden_revisions_notice({SCOPE: replaced}).startswith(f"Older Fassungen left out: {PLAN};")
+
+    def test_while_names_still_reach_identified_points_a_replaced_name_still_hides(self, monkeypatch):
+        from knowledge_layer.vector_store import name_scope
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
+        replaced = superseded.Replaced(by_name={PLAN: "Plan Index B.txt"})
+
+        assert superseded.without_replaced([_chunk("doc-eg", "alt")], replaced) == []

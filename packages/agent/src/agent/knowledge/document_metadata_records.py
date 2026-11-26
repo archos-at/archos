@@ -85,7 +85,7 @@ def _upsert_metadata(
             f"UPDATE {TABLE_NAME} SET summary = :summary, "
             "tags = CASE WHEN tags_set_by = :person THEN tags ELSE :tags END, "
             "topics = CASE WHEN tags_set_by = :person THEN topics ELSE :topics END "
-            "WHERE collection = :collection AND filename = :filename AND document_id IS NULL"
+            "WHERE collection = :collection AND filename = :filename"
         ),
         params,
     )

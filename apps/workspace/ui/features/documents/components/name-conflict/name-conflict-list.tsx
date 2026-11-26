@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
@@ -74,7 +74,18 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
             data-testid="name-conflict-row"
           >
             <div className="min-w-0 space-y-0.5">
-              <p className="font-mono text-xs text-foreground [overflow-wrap:anywhere]">{row.path}</p>
+              <p className="font-mono text-xs text-foreground [overflow-wrap:anywhere]">
+                {row.path.split('/').map((segment, index) => (
+                  <Fragment key={index}>
+                    {index > 0 && (
+                      <>
+                        /<wbr />
+                      </>
+                    )}
+                    {segment}
+                  </Fragment>
+                ))}
+              </p>
               <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]" data-testid="name-conflict-outcome">
                 {outcome(row)}
               </p>

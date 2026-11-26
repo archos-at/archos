@@ -7,6 +7,7 @@ from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 from knowledge_layer.vector_store import QdrantStore
 from knowledge_layer.vector_store import copy_facts
 from knowledge_layer.vector_store import facts_by_file
+from knowledge_layer.vector_store import name_scope
 from knowledge_layer.vector_store import rewrite_file_name
 from knowledge_layer.vector_store import write_chunks
 from knowledge_layer_testing.vector_store import IDENTITY
@@ -70,10 +71,9 @@ class TestTheFilterThatAddressesADocument:
         assert any(c.key == DOCUMENT_ID_FIELD and c.match == models.MatchValue(value="doc-a") for c in conditions)
         assert not any(c.key == "file_name" for c in conditions)
 
-    def test_a_name_selects_only_points_that_carry_no_id(self):
+    def test_a_name_selects_the_points_of_that_name(self):
         selector = QdrantStore._document_filter(SCOPE, PLAN, "file_name")
         assert models.FieldCondition(key="file_name", match=models.MatchValue(value=PLAN)) in selector.must
-        assert models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD)) in selector.must
 
     def test_any_other_key_is_refused(self):
         with pytest.raises(ValueError):
@@ -89,13 +89,22 @@ class TestPayloadsByDocument:
         payloads = _payloads(local_qdrant_store)
         assert {cid for cid, p in payloads.items() if p.get("folder_path") == "Einreichung"} == {"a1", "a2"}
 
-    def test_payloads_by_name_never_reach_a_point_that_carries_an_id(self, local_qdrant_store):
+    def test_payloads_by_name_reach_the_points_without_an_id(self, local_qdrant_store):
         _seed(local_qdrant_store)
 
         local_qdrant_store.set_file_payloads(SCOPE, {PLAN: {"folder_path": "Alt"}})
 
-        payloads = _payloads(local_qdrant_store)
-        assert {cid for cid, p in payloads.items() if p.get("folder_path") == "Alt"} == {"legacy-1"}
+        assert _payloads(local_qdrant_store)["legacy-1"]["folder_path"] == "Alt"
+
+    def test_while_names_still_reach_identified_points_a_row_without_an_id_keeps_its_facts(
+        self, local_qdrant_store, monkeypatch
+    ):
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
+        write(SCOPE, [record("EG", PLAN, chunk_id="a1")], {"document_id": "doc-a"})
+
+        local_qdrant_store.set_file_payloads(SCOPE, {PLAN: {"folder_path": "Einreichung"}})
+
+        assert _payloads(local_qdrant_store)["a1"]["folder_path"] == "Einreichung"
 
     def test_a_rename_by_id_rewrites_only_that_documents_name(self, local_qdrant_store):
         _seed(local_qdrant_store)
@@ -149,9 +158,7 @@ class TestFactsOfTwoDocumentsThatShareAName:
 
         assert copy_facts(SCOPE, [PLAN]) == 1
 
-        folders = {cid: p.get("folder_path") for cid, p in _payloads(local_qdrant_store).items()}
-        assert folders["legacy-1"] == "Archiv"
-        assert folders["a1"] is None and folders["b1"] is None
+        assert _payloads(local_qdrant_store)["legacy-1"]["folder_path"] == "Archiv"
 
     def test_a_write_takes_the_facts_of_its_own_document(self, local_qdrant_store, two_plans):
         records = [record("OG neu", PLAN, chunk_id="b2")]
@@ -160,3 +167,22 @@ class TestFactsOfTwoDocumentsThatShareAName:
 
         assert _payloads(local_qdrant_store)["b2"]["folder_path"] == "Ausführung/OG"
         assert two_plans == [([], ["doc-b"])]
+
+    def test_while_names_still_reach_identified_points_a_write_takes_the_facts_of_a_row_without_an_id(
+        self, local_qdrant_store, monkeypatch
+    ):
+        from agent import knowledge
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
+        legacy_row = _document(PLAN, None, "Einreichung")
+        monkeypatch.setattr(
+            knowledge,
+            "get_documents",
+            lambda collection, filenames, *, document_ids=None: [] if document_ids else [legacy_row],
+        )
+
+        write_chunks(
+            SCOPE, PLAN, [record("EG", PLAN, chunk_id="a3")], identity=IDENTITY, config={"document_id": "doc-a"}
+        )
+
+        assert _payloads(local_qdrant_store)["a3"]["folder_path"] == "Einreichung"

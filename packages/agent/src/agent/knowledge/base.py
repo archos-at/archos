@@ -311,7 +311,7 @@ class BaseIngestor(ABC):
     ) -> dict[str, Any]:
         return _delete_each(
             [
-                (name, partial(self.delete_document, document_id, name, collection_name, permanent=permanent))
+                (name, document_id, partial(self.delete_document, document_id, name, collection_name, permanent=permanent))
                 for document_id, name in documents
             ]
         )
@@ -325,7 +325,7 @@ class BaseIngestor(ABC):
     ) -> dict[str, Any]:
         return _delete_each(
             [
-                (file_id, partial(self.delete_file, file_id, collection_name, permanent=permanent))
+                (file_id, None, partial(self.delete_file, file_id, collection_name, permanent=permanent))
                 for file_id in file_ids
             ]
         )
@@ -349,24 +349,34 @@ class BaseIngestor(ABC):
     def generate_summary(self, text_content: str, file_name: str) -> str | None:
         return None
 
-    def get_document_visual_details(self, collection_name: str, file_name: str) -> list[dict[str, Any]]:
+    def get_document_visual_details(
+        self, collection_name: str, file_name: str, *, document_id: str | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health_check(self) -> bool:
         return True  # NOSONAR
 
 
-def _delete_each(attempts: list[tuple[str, Callable[[], bool]]]) -> dict[str, Any]:
+def _delete_each(attempts: list[tuple[str, str | None, Callable[[], bool]]]) -> dict[str, Any]:
     successful, not_found, failed = [], [], []
-    for name, delete in attempts:
+    by_id: dict[str, list[str]] = {"successful": [], "not_found": [], "failed": []}
+    for name, document_id, delete in attempts:
         try:
-            (successful if delete() else not_found).append(name)
+            outcome = "successful" if delete() else "not_found"
+            (successful if outcome == "successful" else not_found).append(name)
         except Exception as e:
-            failed.append({"file_id": name, "error": str(e)})
-    return {
+            outcome = "failed"
+            failed.append({"file_id": name, "error": str(e), **({"document_id": document_id} if document_id else {})})
+        if document_id:
+            by_id[outcome].append(document_id)
+    result: dict[str, Any] = {
         "message": f"Deleted {len(successful)} of {len(attempts)} files",
         "successful": successful,
         "not_found": not_found,
         "failed": failed,
         "total_deleted": len(successful),
     }
+    if any(document_id for _name, document_id, _delete in attempts):
+        result["documents"] = by_id
+    return result
