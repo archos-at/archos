@@ -77,12 +77,12 @@ describe('describeBackendIngestState', () => {
       { file_name: 'Plan.pdf', document_id: 'doc-einreichung', status: 'pending' },
     ])
 
-    const entwurf = await describeBackendIngestState(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf', status: 'processing' }))
-    const einreichung = await describeBackendIngestState(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'processing' }))
+    const draft = await describeBackendIngestState(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf', status: 'processing' }))
+    const submission = await describeBackendIngestState(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'processing' }))
     const neither = await describeBackendIngestState(makeRow({ id: 'doc-bestand', filename: 'Plan.pdf', status: 'processing' }))
 
-    expect(entwurf).toMatchObject({ state: 'terminal', resolution: { status: 'completed' } })
-    expect(einreichung).toEqual({ state: 'in-progress' })
+    expect(draft).toMatchObject({ state: 'terminal', resolution: { status: 'completed' } })
+    expect(submission).toEqual({ state: 'in-progress' })
     expect(neither).toEqual({ state: 'absent' })
   })
 

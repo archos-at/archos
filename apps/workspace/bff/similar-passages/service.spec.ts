@@ -195,8 +195,8 @@ describe('a failed join to the documents', () => {
 })
 
 describe('a Bürobibliothek hit that names its document by id', () => {
-  const ENTWURF_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
-  const EINREICHUNG_ID = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+  const DRAFT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+  const SUBMISSION_ID = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
   const listed = (id: string) =>
     ({ id, filename: 'Musterdetail.pdf', collectionName: 'archiv_org_1', authoredBy: 'user', displayName: null, contentType: 'application/pdf', revisionFacts: null, revision: null }) as unknown as ListedDocument
 
@@ -211,7 +211,7 @@ describe('a Bürobibliothek hit that names its document by id', () => {
                 {
                   collection: 'archiv_org_1',
                   file_name: 'Musterdetail.pdf',
-                  document_id: EINREICHUNG_ID,
+                  document_id: SUBMISSION_ID,
                   passages: [{ chunk_id: 'c1', snippet: 'Attika', page_number: 2, score: 0.9 }],
                 },
               ],
@@ -226,10 +226,10 @@ describe('a Bürobibliothek hit that names its document by id', () => {
 
     const response = await findSimilarPassages(session, request)
 
-    expect(findDocumentsByIds).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org_1', [EINREICHUNG_ID], { reader: { kind: 'screened-only' } })
+    expect(findDocumentsByIds).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org_1', [SUBMISSION_ID], { reader: { kind: 'screened-only' } })
     expect(findOfficeShelfDocumentsByFilenames).not.toHaveBeenCalled()
-    expect(JSON.stringify(response)).toContain(EINREICHUNG_ID)
-    expect(JSON.stringify(response)).not.toContain(ENTWURF_ID)
+    expect(JSON.stringify(response)).toContain(SUBMISSION_ID)
+    expect(JSON.stringify(response)).not.toContain(DRAFT_ID)
   })
 })
 

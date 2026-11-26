@@ -207,14 +207,14 @@ describe('POST /api/proposals/[id]/apply', () => {
       names.includes('Grundriss EG.pdf') ? [listed('doc_entwurf', 'Grundriss EG.pdf'), listed('doc_einreichung', 'Grundriss EG.pdf')] : []
     )
     vi.mocked(resolveShelfDocumentsById).mockImplementation(async (_session, _shelf, ids) => ids.map((id) => listed(id, 'Grundriss EG.pdf')))
-    const einreichung = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+    const submission = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
     store.set(
       ID,
       row({
         payload: {
           operation: 'move',
           operations: [
-            { document: 'Grundriss EG.pdf', document_id: einreichung, source: 'project', target_folder: 'Einreichung/Pläne' },
+            { document: 'Grundriss EG.pdf', document_id: submission, source: 'project', target_folder: 'Einreichung/Pläne' },
             { document: 'Grundriss EG.pdf', source: 'project', target_folder: 'Einreichung/Pläne' },
           ],
         },
@@ -224,7 +224,7 @@ describe('POST /api/proposals/[id]/apply', () => {
     const { proposal } = await applyProposal(ID, run)
 
     expect(moveDocumentToFolder).toHaveBeenCalledTimes(1)
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: einreichung, folderId: 'f_plaene' }, SESSION)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: submission, folderId: 'f_plaene' }, SESSION)
     expect(proposal.status).toBe('partially_applied')
     expect(proposal.results?.[1]).toMatchObject({ ok: false, reason: expect.stringContaining('mehrmals') })
   })

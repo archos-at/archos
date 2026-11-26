@@ -23,8 +23,8 @@ import { findDocumentsByIds } from './repository'
 import { memberReader } from './document-reader'
 import { DOCUMENT_ID_LOOKUP_MAX_IDS } from './by-id-types'
 
-const ENTWURF = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
-const EINREICHUNG = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+const DRAFT = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+const SUBMISSION = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
 
 beforeEach(() => {
   captured.length = 0
@@ -32,7 +32,7 @@ beforeEach(() => {
 
 describe('findDocumentsByIds', () => {
   it('asks for the ids on the shelf, under the listing predicate and the reader’s visibility', async () => {
-    await findDocumentsByIds({ kind: 'project', projectId: 'p1' }, 'org-1', [ENTWURF, EINREICHUNG], {
+    await findDocumentsByIds({ kind: 'project', projectId: 'p1' }, 'org-1', [DRAFT, SUBMISSION], {
       hiddenFolderIds: ['folder-closed'],
       reader: memberReader('user-1'),
     })
@@ -44,14 +44,14 @@ describe('findDocumentsByIds', () => {
     expect(query.sql).toContain('"documents"."lifecycle" = ')
     expect(query.sql).toContain('"documents"."folder_id"')
     expect(query.sql).toContain('"documents"."screened_hash" IS NOT DISTINCT FROM')
-    expect(query.params).toEqual(expect.arrayContaining([ENTWURF, EINREICHUNG, 'p1', 'org-1', 'folder-closed', 'quarantined']))
+    expect(query.params).toEqual(expect.arrayContaining([DRAFT, SUBMISSION, 'p1', 'org-1', 'folder-closed', 'quarantined']))
   })
 
   it('asks nothing for a list holding no id, and never sends a value that is not one', async () => {
     expect(await findDocumentsByIds({ kind: 'office_shelf' }, 'org-1', ['Plan.pdf'], { reader: memberReader('user-1') })).toEqual([])
     expect(captured).toHaveLength(0)
 
-    await findDocumentsByIds({ kind: 'office_shelf' }, 'org-1', ['Plan.pdf', ENTWURF], { reader: memberReader('user-1') })
+    await findDocumentsByIds({ kind: 'office_shelf' }, 'org-1', ['Plan.pdf', DRAFT], { reader: memberReader('user-1') })
     expect(captured[0].params).not.toContain('Plan.pdf')
   })
 

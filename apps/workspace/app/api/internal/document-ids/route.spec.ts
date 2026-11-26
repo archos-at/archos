@@ -15,8 +15,8 @@ import { GET } from './route'
 import { getTenantContext } from '@/lib/db/tenant-context'
 import { listDocumentIdsInCollection } from '@/lib/documents/repository'
 
-const ENTWURF = { id: '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f', filename: 'Plan.pdf', folderId: 'a0000000-0000-4000-8000-000000000001' }
-const EINREICHUNG = { id: '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30', filename: 'Plan.pdf', folderId: 'a0000000-0000-4000-8000-000000000002' }
+const DRAFT = { id: '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f', filename: 'Plan.pdf', folderId: 'a0000000-0000-4000-8000-000000000001' }
+const SUBMISSION = { id: '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30', filename: 'Plan.pdf', folderId: 'a0000000-0000-4000-8000-000000000002' }
 
 const request = (query = '?collection=proj_1', token: string | null = 'test-token'): Request =>
   new Request(`http://localhost/api/internal/document-ids${query}`, {
@@ -48,10 +48,10 @@ describe('GET /api/internal/document-ids', () => {
   })
 
   it('answers every document of the collection with its id, file name and folder, same-named ones apart', async () => {
-    vi.mocked(listDocumentIdsInCollection).mockResolvedValue([ENTWURF, EINREICHUNG])
+    vi.mocked(listDocumentIdsInCollection).mockResolvedValue([DRAFT, SUBMISSION])
     const res = await GET(request())
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ documents: [ENTWURF, EINREICHUNG] })
+    expect(await res.json()).toEqual({ documents: [DRAFT, SUBMISSION] })
     expect(vi.mocked(listDocumentIdsInCollection).mock.calls[0]).toEqual(['proj_1', undefined])
   })
 

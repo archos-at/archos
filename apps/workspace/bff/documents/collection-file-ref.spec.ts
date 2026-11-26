@@ -81,15 +81,15 @@ describe('the URL builders', () => {
   })
 
   it('tells two documents of one name in different folders apart, on every per-file endpoint', () => {
-    const inEntwurf = collectionFileRef({ ...row, id: 'doc_entwurf', filename: 'Plan.pdf', authoredBy: 'user' })
-    const inEinreichung = collectionFileRef({ ...row, id: 'doc_einreichung', filename: 'Plan.pdf', authoredBy: 'user' })
-    if (!inEntwurf || !inEinreichung) throw new Error('unreachable: the fixture rows are human-authored')
+    const inDraft = collectionFileRef({ ...row, id: 'doc_entwurf', filename: 'Plan.pdf', authoredBy: 'user' })
+    const inSubmission = collectionFileRef({ ...row, id: 'doc_einreichung', filename: 'Plan.pdf', authoredBy: 'user' })
+    if (!inDraft || !inSubmission) throw new Error('unreachable: the fixture rows are human-authored')
 
     for (const suffix of ['/tags', '/display-title', '/folder-path', '/visual-details', '/file-name']) {
-      expect(collectionFileUrl('http://backend:8000', inEntwurf, suffix)).toBe(
+      expect(collectionFileUrl('http://backend:8000', inDraft, suffix)).toBe(
         `http://backend:8000/v1/collections/proj_abc/documents/by-id/doc_entwurf${suffix}`,
       )
-      expect(collectionFileUrl('http://backend:8000', inEinreichung, suffix)).toBe(
+      expect(collectionFileUrl('http://backend:8000', inSubmission, suffix)).toBe(
         `http://backend:8000/v1/collections/proj_abc/documents/by-id/doc_einreichung${suffix}`,
       )
     }

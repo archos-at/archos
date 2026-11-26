@@ -278,7 +278,7 @@ describe('resolveCitationTarget', () => {
 
   describe('two documents of one name in different folders', () => {
     const bestand: StoredDocumentRef = { id: 'doc-bestand', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' }
-    const entwurf: StoredDocumentRef = { id: 'doc-entwurf', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' }
+    const draft: StoredDocumentRef = { id: 'doc-entwurf', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' }
     const cited = (storedDocumentId: string, key: string): Partial<CitationSource> => ({
       url: '',
       content: `[KB] ${key}`,
@@ -290,11 +290,11 @@ describe('resolveCitationTarget', () => {
     })
 
     test('each citation opens its own document by its stored id, whichever comes first', () => {
-      expect(targetFor(cited('doc-entwurf', 'Entwurf/Plan.pdf, p.3'), [bestand, entwurf])).toMatchObject({
+      expect(targetFor(cited('doc-entwurf', 'Entwurf/Plan.pdf, p.3'), [bestand, draft])).toMatchObject({
         page: 3,
         document: { type: 'stored', id: 'doc-entwurf' },
       })
-      expect(targetFor(cited('doc-bestand', 'Bestand/Plan.pdf, p.3'), [entwurf, bestand])).toMatchObject({
+      expect(targetFor(cited('doc-bestand', 'Bestand/Plan.pdf, p.3'), [draft, bestand])).toMatchObject({
         document: { type: 'stored', id: 'doc-bestand' },
       })
     })

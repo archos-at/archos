@@ -325,7 +325,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [entwurf, einreichung] = await reconcileDocumentStatuses(
+    const [draft, submission] = await reconcileDocumentStatuses(
       [
         makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf', status: 'pending', metadata: {} }),
         makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'pending', metadata: {} }),
@@ -334,8 +334,8 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       'read'
     )
 
-    expect([entwurf.status, entwurf.summary, entwurf.chunkCount]).toEqual(['completed', 'Entwurf.', 3])
-    expect([einreichung.status, einreichung.summary, einreichung.chunkCount]).toEqual(['completed', 'Einreichung.', 9])
+    expect([draft.status, draft.summary, draft.chunkCount]).toEqual(['completed', 'Entwurf.', 3])
+    expect([submission.status, submission.summary, submission.chunkCount]).toEqual(['completed', 'Einreichung.', 9])
   })
 
   it('never lends one document the reading of a same-named document whose id the listing names', async () => {
@@ -344,13 +344,13 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       collectionResponse([{ file_id: 'f-1', file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success', summary: 'Entwurf.' }])
     )
 
-    const [einreichung] = await reconcileDocumentStatuses(
+    const [submission] = await reconcileDocumentStatuses(
       [makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'completed' })],
       'org-1',
       'read'
     )
 
-    expect(einreichung.summary).toBeUndefined()
+    expect(submission.summary).toBeUndefined()
   })
 
   it('still reads a listing entry written before chunks carried a document id, by its name', async () => {
@@ -460,9 +460,9 @@ describe('readCollectionReadings', () => {
   })
 
   it('reads two same-named documents of one collection each from its own listing entry', async () => {
-    const entwurf = collectionFileRef(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf' }))
-    const einreichung = collectionFileRef(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf' }))
-    if (!entwurf || !einreichung) throw new Error('unreachable: the rows are human-authored')
+    const draft = collectionFileRef(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf' }))
+    const submission = collectionFileRef(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf' }))
+    if (!draft || !submission) throw new Error('unreachable: the rows are human-authored')
     mockFetch.mockResolvedValue(
       collectionResponse([
         { file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success', summary: 'Entwurf.', superseded_by_id: 'doc-einreichung' },
@@ -470,10 +470,10 @@ describe('readCollectionReadings', () => {
       ])
     )
 
-    const readings = await readCollectionReadings('proj_abc', [entwurf, einreichung])
+    const readings = await readCollectionReadings('proj_abc', [draft, submission])
 
-    expect(readings?.get(entwurf)).toEqual({ metadata: { summary: 'Entwurf.' }, superseded: true })
-    expect(readings?.get(einreichung)).toEqual({ metadata: { summary: 'Einreichung.' }, superseded: false })
+    expect(readings?.get(draft)).toEqual({ metadata: { summary: 'Entwurf.' }, superseded: true })
+    expect(readings?.get(submission)).toEqual({ metadata: { summary: 'Einreichung.' }, superseded: false })
   })
 
   it('says nothing when the backend listed the files without their reading, so nothing is blanked', async () => {

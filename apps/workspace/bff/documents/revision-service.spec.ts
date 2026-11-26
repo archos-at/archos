@@ -199,9 +199,9 @@ describe('setRevisionLink', () => {
   })
 
   it('names each of two same-named documents in different folders by its own id', async () => {
-    const entwurf = doc({ id: 'doc-entwurf', filename: 'Plan.pdf', folderId: 'folder-entwurf' })
-    const einreichung = doc({ id: 'doc-einreichung', filename: 'Plan.pdf', folderId: 'folder-einreichung' })
-    documentsById(entwurf, einreichung)
+    const draft = doc({ id: 'doc-entwurf', filename: 'Plan.pdf', folderId: 'folder-entwurf' })
+    const submission = doc({ id: 'doc-einreichung', filename: 'Plan.pdf', folderId: 'folder-einreichung' })
+    documentsById(draft, submission)
 
     await setRevisionLink(session, 'doc-einreichung', 'doc-entwurf', true, request)
 

@@ -82,8 +82,8 @@ describe('a proposed move on the office shelf', () => {
 })
 
 describe('a proposed move in a project with two documents of one name in different folders', () => {
-  const ENTWURF = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
-  const EINREICHUNG = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
+  const DRAFT = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+  const SUBMISSION = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
   const listed = (id: string) => ({ id, filename: 'Plan.pdf', createdAt: '2026-11-01T00:00:00Z' }) as unknown as ListedDocument
   const move = (item: Record<string, unknown>) =>
     applyFileOperations(
@@ -92,23 +92,23 @@ describe('a proposed move in a project with two documents of one name in differe
     )
 
   beforeEach(() => {
-    vi.mocked(resolveProjectDocumentsByName).mockResolvedValue([listed(ENTWURF), listed(EINREICHUNG)])
+    vi.mocked(resolveProjectDocumentsByName).mockResolvedValue([listed(DRAFT), listed(SUBMISSION)])
     vi.mocked(resolveShelfDocumentsById).mockImplementation(async (_session, _shelf, ids) => ids.map(listed))
   })
 
   it('moves the document the proposal names by id, looked up on the project shelf the reader may see', async () => {
-    const results = await move({ document_id: EINREICHUNG })
+    const results = await move({ document_id: SUBMISSION })
 
     expect(results).toEqual([expect.objectContaining({ ok: true })])
-    expect(resolveShelfDocumentsById).toHaveBeenCalledWith(SESSION, { kind: 'project', projectId: 'proj-1' }, [EINREICHUNG])
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: EINREICHUNG, folderId: 'folder-plans' }, SESSION)
+    expect(resolveShelfDocumentsById).toHaveBeenCalledWith(SESSION, { kind: 'project', projectId: 'proj-1' }, [SUBMISSION])
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: SUBMISSION, folderId: 'folder-plans' }, SESSION)
     expect(resolveProjectDocumentsByName).not.toHaveBeenCalled()
   })
 
   it('refuses an id the reader may not see on that shelf, rather than falling back to the name', async () => {
     vi.mocked(resolveShelfDocumentsById).mockResolvedValue([])
 
-    const results = await move({ document_id: EINREICHUNG })
+    const results = await move({ document_id: SUBMISSION })
 
     expect(results).toEqual([expect.objectContaining({ ok: false })])
     expect(moveDocumentToFolder).not.toHaveBeenCalled()
@@ -122,25 +122,25 @@ describe('a proposed move in a project with two documents of one name in differe
   })
 
   it('still moves by name when exactly one document in the project carries it', async () => {
-    vi.mocked(resolveProjectDocumentsByName).mockResolvedValue([listed(ENTWURF)])
+    vi.mocked(resolveProjectDocumentsByName).mockResolvedValue([listed(DRAFT)])
 
     expect(await move({})).toEqual([expect.objectContaining({ ok: true })])
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: ENTWURF, folderId: 'folder-plans' }, SESSION)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: DRAFT, folderId: 'folder-plans' }, SESSION)
   })
 
   it('lists the documents a proposal touches by id, and leaves out a name it cannot tell apart', async () => {
     const items = [
-      { source: 'project' as const, document: 'Plan.pdf', document_id: ENTWURF },
+      { source: 'project' as const, document: 'Plan.pdf', document_id: DRAFT },
       { source: 'project' as const, document: 'Plan.pdf' },
     ]
 
-    expect(await resolveItemDocuments(SESSION, 'proj-1', items)).toEqual([{ id: ENTWURF, name: 'Plan.pdf' }])
+    expect(await resolveItemDocuments(SESSION, 'proj-1', items)).toEqual([{ id: DRAFT, name: 'Plan.pdf' }])
   })
 
   it('hides a proposal naming a document id the reader may not see', async () => {
     vi.mocked(resolveShelfDocumentsById).mockResolvedValue([])
 
-    expect(await resolveItemDocuments(SESSION, 'proj-1', [{ source: 'project', document: 'Plan.pdf', document_id: ENTWURF }])).toBeNull()
+    expect(await resolveItemDocuments(SESSION, 'proj-1', [{ source: 'project', document: 'Plan.pdf', document_id: DRAFT }])).toBeNull()
   })
 })
 

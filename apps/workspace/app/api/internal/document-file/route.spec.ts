@@ -119,28 +119,28 @@ describe('GET /api/internal/document-file', () => {
   })
 
   describe('by document id', () => {
-    const ENTWURF = { ...STORED, id: '33333333-3333-4333-8333-333333333333', storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' }
-    const EINREICHUNG = { ...STORED, id: '44444444-4444-4444-8444-444444444444', storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' }
+    const DRAFT = { ...STORED, id: '33333333-3333-4333-8333-333333333333', storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' }
+    const SUBMISSION = { ...STORED, id: '44444444-4444-4444-8444-444444444444', storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' }
 
     it('answers the key of the document the id names, of two same-named ones in different folders', async () => {
       vi.mocked(findDocumentStorageKeyById).mockImplementation(async (_collection, id) =>
-        [ENTWURF, EINREICHUNG].find((row) => row.id === id) ?? null
+        [DRAFT, SUBMISSION].find((row) => row.id === id) ?? null
       )
 
-      const entwurf = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}`))
-      const einreichung = await GET(request(`?collection=proj_1&documentId=${EINREICHUNG.id}`))
+      const draft = await GET(request(`?collection=proj_1&documentId=${DRAFT.id}`))
+      const submission = await GET(request(`?collection=proj_1&documentId=${SUBMISSION.id}`))
 
-      expect(await entwurf.json()).toMatchObject({ documentId: ENTWURF.id, storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' })
-      expect(await einreichung.json()).toMatchObject({ documentId: EINREICHUNG.id, storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' })
-      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, undefined])
+      expect(await draft.json()).toMatchObject({ documentId: DRAFT.id, storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' })
+      expect(await submission.json()).toMatchObject({ documentId: SUBMISSION.id, storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' })
+      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', DRAFT.id, undefined])
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
     })
 
     it('prefers the id when the caller also sends the name', async () => {
-      vi.mocked(findDocumentStorageKeyById).mockResolvedValue(ENTWURF)
-      const res = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}&filename=Plan.pdf&organizationId=org_1`))
+      vi.mocked(findDocumentStorageKeyById).mockResolvedValue(DRAFT)
+      const res = await GET(request(`?collection=proj_1&documentId=${DRAFT.id}&filename=Plan.pdf&organizationId=org_1`))
       expect(res.status).toBe(200)
-      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, 'org_1'])
+      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', DRAFT.id, 'org_1'])
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
     })
 
@@ -152,7 +152,7 @@ describe('GET /api/internal/document-file', () => {
 
     it('404s an id with no readable row in that collection', async () => {
       vi.mocked(findDocumentStorageKeyById).mockResolvedValue(null)
-      expect((await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}`))).status).toBe(404)
+      expect((await GET(request(`?collection=proj_1&documentId=${DRAFT.id}`))).status).toBe(404)
     })
 
     it('resolves a stored raster by the id', async () => {
@@ -161,9 +161,9 @@ describe('GET /api/internal/document-file', () => {
         storageBucket: null,
         contentType: 'image/jpeg',
       })
-      const res = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}&imageIndex=1`))
+      const res = await GET(request(`?collection=proj_1&documentId=${DRAFT.id}&imageIndex=1`))
       expect(await res.json()).toMatchObject({ storageKey: 'org/o1/project/p1/doc/entwurf/_img/1.jpg' })
-      expect(vi.mocked(findDocumentImageStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, 1, undefined])
+      expect(vi.mocked(findDocumentImageStorageKeyById).mock.calls[0]).toEqual(['proj_1', DRAFT.id, 1, undefined])
       expect(findDocumentImageStorageKey).not.toHaveBeenCalled()
     })
   })

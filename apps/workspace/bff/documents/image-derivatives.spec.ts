@@ -107,16 +107,16 @@ describe('findDocumentImageStorageKey', () => {
 })
 
 describe('findDocumentStorageKey', () => {
-  const entwurf = { ...row, id: 'doc-entwurf', storageKey: 'org/o1/project/p1/doc/doc-entwurf/Plan.pdf', contentType: 'application/pdf' }
-  const einreichung = { ...row, id: 'doc-einreichung', storageKey: 'org/o1/project/p1/doc/doc-einreichung/Plan.pdf', contentType: 'application/pdf' }
+  const draft = { ...row, id: 'doc-entwurf', storageKey: 'org/o1/project/p1/doc/doc-entwurf/Plan.pdf', contentType: 'application/pdf' }
+  const submission = { ...row, id: 'doc-einreichung', storageKey: 'org/o1/project/p1/doc/doc-einreichung/Plan.pdf', contentType: 'application/pdf' }
 
   it('answers the one document a name names', async () => {
-    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([entwurf])
-    await expect(findDocumentStorageKey('proj_1', 'Plan.pdf')).resolves.toEqual(entwurf)
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([draft])
+    await expect(findDocumentStorageKey('proj_1', 'Plan.pdf')).resolves.toEqual(draft)
   })
 
   it('refuses a name two live documents carry as ambiguous, rather than answering the newest', async () => {
-    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([einreichung, entwurf])
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([submission, draft])
     await expect(findDocumentStorageKey('proj_1', 'Plan.pdf')).rejects.toMatchObject({
       status: 409,
       details: { reason: 'ambiguous_name' },
@@ -124,13 +124,13 @@ describe('findDocumentStorageKey', () => {
   })
 
   it('refuses the same name for a stored raster too', async () => {
-    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([einreichung, entwurf])
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([submission, draft])
     await expect(findDocumentImageStorageKey('proj_1', 'Plan.pdf', 0)).rejects.toMatchObject({ status: 409 })
   })
 
   it('answers each of two same-named documents by its id', async () => {
-    vi.mocked(findReadableStorageKeyById).mockImplementation(async (id) => [entwurf, einreichung].find((doc) => doc.id === id) ?? null)
-    await expect(findDocumentStorageKeyById('proj_1', 'doc-entwurf')).resolves.toEqual(entwurf)
-    await expect(findDocumentStorageKeyById('proj_1', 'doc-einreichung')).resolves.toEqual(einreichung)
+    vi.mocked(findReadableStorageKeyById).mockImplementation(async (id) => [draft, submission].find((doc) => doc.id === id) ?? null)
+    await expect(findDocumentStorageKeyById('proj_1', 'doc-entwurf')).resolves.toEqual(draft)
+    await expect(findDocumentStorageKeyById('proj_1', 'doc-einreichung')).resolves.toEqual(submission)
   })
 })

@@ -128,7 +128,7 @@ describe('a citation of an older revision', () => {
   test('a citation that names its stored document is looked up by that id, never by its name', async () => {
     rows = {
       'plan.pdf': row('11111111-1111-4111-8111-111111111111', 'Plan.pdf'),
-      entwurf: row('22222222-2222-4222-8222-222222222222', 'Plan.pdf', replaced),
+      draft: row('22222222-2222-4222-8222-222222222222', 'Plan.pdf', replaced),
     }
     const user = userEvent.setup()
     render(<SourcePreviewChip citation={refTo('Plan.pdf', '22222222-2222-4222-8222-222222222222')} />)

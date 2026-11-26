@@ -811,12 +811,12 @@ describe('announceSettledVersions — a link written at ingestion', () => {
   })
 
   describe('with a same-named document in another folder', () => {
-    const ENTWURF = { id: 'doc-a', filename: 'Grundriss_A.pdf', projectId: 'p1', folderId: 'folder-entwurf', createdAt: new Date() }
+    const DRAFT = { id: 'doc-a', filename: 'Grundriss_A.pdf', projectId: 'p1', folderId: 'folder-entwurf', createdAt: new Date() }
     const BESTAND = { id: 'doc-c', filename: 'Grundriss_A.pdf', projectId: 'p1', folderId: 'folder-bestand', createdAt: new Date() }
 
     it('announces to the followers of the document the link names by id, with the excerpt written against it', async () => {
       vi.mocked(readRevisionLinkNames).mockResolvedValue({ ...written('Wand verschoben.', 'doc-a'), supersedes: ['doc-a'] })
-      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, BESTAND])
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([DRAFT, BESTAND])
 
       await announceSettledVersions('org-1', ['doc-b'])
 
@@ -825,7 +825,7 @@ describe('announceSettledVersions — a link written at ingestion', () => {
     })
 
     it('announces nothing for a name both carry, rather than telling the followers of both', async () => {
-      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, BESTAND])
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([DRAFT, BESTAND])
 
       await announceSettledVersions('org-1', ['doc-b'])
 

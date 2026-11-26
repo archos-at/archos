@@ -195,7 +195,7 @@ describe('DocumentAnswerCard', () => {
 
   describe('two project documents of one name, in different folders', () => {
     const bestand = row('11111111-1111-4111-8111-111111111111', 'Bericht.pdf', { summary: 'Bericht aus dem Bestand.', folderId: 'f-bestand' })
-    const entwurf = row('22222222-2222-4222-8222-222222222222', 'Bericht.pdf', { summary: 'Bericht aus dem Entwurf.', folderId: 'f-entwurf' })
+    const draft = row('22222222-2222-4222-8222-222222222222', 'Bericht.pdf', { summary: 'Bericht aus dem Entwurf.', folderId: 'f-entwurf' })
 
     it('opens the one the card names by id, and asks nothing by name', async () => {
       const byName = vi.fn()
@@ -204,12 +204,12 @@ describe('DocumentAnswerCard', () => {
         shelfPost('project', '/api/documents/by-id', async ({ request }) => {
           const { ids } = (await request.json()) as { ids: string[] }
           asked.push(ids)
-          return HttpResponse.json({ documents: [bestand, entwurf].filter((each) => ids.includes(each.id)) })
+          return HttpResponse.json({ documents: [bestand, draft].filter((each) => ids.includes(each.id)) })
         }),
         shelfPost('office_shelf', '/api/documents/by-id', () => HttpResponse.json({ documents: [] })),
         http.post('/api/documents/by-name', () => {
           byName()
-          return HttpResponse.json({ documents: [bestand, entwurf] })
+          return HttpResponse.json({ documents: [bestand, draft] })
         }),
         http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({}, { status: 404 })),
       )
@@ -217,20 +217,20 @@ describe('DocumentAnswerCard', () => {
       render(
         <DocumentAnswerCard
           title="Test"
-          documents={[{ file_name: 'Bericht.pdf', document_id: entwurf.id, source: 'project' }]}
+          documents={[{ file_name: 'Bericht.pdf', document_id: draft.id, source: 'project' }]}
           projectId="proj-1"
         />,
       )
 
       await waitFor(() => expect(screen.getByText('Bericht aus dem Entwurf.')).toBeInTheDocument())
       expect(screen.queryByText('Bericht aus dem Bestand.')).not.toBeInTheDocument()
-      expect(asked).toEqual([[entwurf.id]])
+      expect(asked).toEqual([[draft.id]])
       expect(byName).not.toHaveBeenCalled()
     })
 
     it('treats an id that is no document id as absent, and finds the file by its name', async () => {
       server.use(
-        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [entwurf] })),
+        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [draft] })),
         shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({ documents: [] })),
         http.post('/api/documents/by-id', () => HttpResponse.json({}, { status: 400 })),
         http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({}, { status: 404 })),
@@ -245,7 +245,7 @@ describe('DocumentAnswerCard', () => {
 
     it('without an id, links neither rather than the newest of the two', async () => {
       server.use(
-        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [bestand, entwurf] })),
+        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [bestand, draft] })),
         shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({ documents: [] })),
       )
 
