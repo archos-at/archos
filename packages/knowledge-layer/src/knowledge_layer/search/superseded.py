@@ -21,9 +21,13 @@ class Replaced:
         return bool(self.by_name or self.by_id)
 
     def hides(self, chunk: Any) -> bool:
+        from knowledge_layer import vector_store
+
         document_id = (getattr(chunk, "metadata", None) or {}).get("document_id")
-        if document_id:
-            return str(document_id) in self.by_id
+        if document_id and str(document_id) in self.by_id:
+            return True
+        if document_id and vector_store.NAMES_SKIP_IDENTIFIED_POINTS:
+            return False
         return getattr(chunk, "file_name", None) in self.by_name
 
     def older_names(self) -> set[str]:

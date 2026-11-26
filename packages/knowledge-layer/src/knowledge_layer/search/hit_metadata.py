@@ -3,28 +3,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _hit_key(chunk) -> tuple[str, str] | None:
+def _hit_keys(chunk) -> list[tuple[str, str]]:
+    from knowledge_layer import vector_store
+
     metadata = chunk.metadata or {}
     collection = metadata.get("collection")
     if not collection:
-        return None
+        return []
     document_id = metadata.get("document_id")
-    if document_id:
-        return collection, f"id:{document_id}"
-    return (collection, chunk.file_name) if chunk.file_name else None
+    keys = [(collection, f"id:{document_id}")] if document_id else []
+    if chunk.file_name and not (document_id and vector_store.NAMES_SKIP_IDENTIFIED_POINTS):
+        keys.append((collection, chunk.file_name))
+    return keys
+
+
+def _stored(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
+    return next((resolved[key] for key in _hit_keys(chunk) if key in resolved), None)
 
 
 def _asked(chunks) -> dict[str, tuple[list[str], list[str]]]:
     asked: dict[str, tuple[list[str], list[str]]] = {}
     for chunk in chunks:
-        key = _hit_key(chunk)
-        if key is None:
+        keys = _hit_keys(chunk)
+        if not keys:
             continue
-        names, ids = asked.setdefault(key[0], ([], []))
-        document_id = (chunk.metadata or {}).get("document_id")
-        wanted, value = (ids, str(document_id)) if document_id else (names, chunk.file_name)
-        if value not in wanted:
-            wanted.append(value)
+        collection = keys[0][0]
+        names, ids = asked.setdefault(collection, ([], []))
+        document_id = str((chunk.metadata or {}).get("document_id") or "")
+        if document_id and document_id not in ids:
+            ids.append(document_id)
+        if (collection, chunk.file_name) in keys and chunk.file_name not in names:
+            names.append(chunk.file_name)
     return asked
 
 
@@ -60,9 +69,7 @@ def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_doc_class(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    key = _hit_key(chunk)
-    stored = resolved.get(key) if key is not None else None
-    return stored or (chunk.metadata or {}).get("doc_class")
+    return _stored(chunk, resolved) or (chunk.metadata or {}).get("doc_class")
 
 
 def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
@@ -70,8 +77,7 @@ def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_display_title(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    key = _hit_key(chunk)
-    stored = resolved.get(key) if key is not None else None
+    stored = _stored(chunk, resolved)
     if stored:
         return stored
     if chunk.file_name:
@@ -89,8 +95,7 @@ def resolve_folder_paths(chunks) -> dict[tuple[str, str], str]:
 
 
 def hit_folder_path(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    key = _hit_key(chunk)
-    return resolved.get(key) if key is not None else None
+    return _stored(chunk, resolved)
 
 
 def _folder_matches(stored: str | None, requested: str) -> bool:
