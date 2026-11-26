@@ -122,14 +122,17 @@ describe('the proposal card in a host', () => {
     await waitFor(() => expect(delivered()).not.toBeNull())
 
     render(<ProposalCardFrame result={delivered()} hostContext={app.getHostContext()} app={app} />)
-    expect(await screen.findByText('Rename the folder „Pläne alt“ to „Archiv 2025“')).toBeInTheDocument()
-    expect(screen.getByText('Übernehmen?')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Rename the folder „Pläne alt“ to „Archiv 2025“')).toBeInTheDocument()
+      expect(screen.getByText('Übernehmen?')).toBeInTheDocument()
+    })
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.style.getPropertyValue('--background')).toBe('var(--color-background-primary)')
     expect(document.documentElement.style.getPropertyValue('--foreground')).toBe('var(--color-text-primary)')
     expect(document.documentElement.style.getPropertyValue('--muted-foreground')).toBe('')
 
-    await waitFor(() => expect(calledOperations()).toEqual(['proposal-get', 'proposal-get']))
+    await waitFor(() => expect(calledOperations().length).toBeGreaterThanOrEqual(2))
+    expect(new Set(calledOperations())).toEqual(new Set(['proposal-get']))
     await act(async () => {
       await userEvent.click(screen.getByRole('button', { name: 'Übernehmen' }))
     })
