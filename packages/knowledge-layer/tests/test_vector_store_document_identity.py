@@ -139,7 +139,10 @@ class TestFactsOfTwoDocumentsThatShareAName:
         assert facts["doc-a"]["folder_ancestors"] == ["einreichung"]
         assert facts["doc-b"]["folder_ancestors"] == ["ausführung", "ausführung/og"]
 
-    def test_each_document_gets_its_own_folder_ancestors(self, local_qdrant_store, two_plans):
+    def test_each_document_gets_its_own_folder_ancestors(self, local_qdrant_store, two_plans, monkeypatch):
+        from knowledge_layer.vector_store import name_scope
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", True)
         _seed(local_qdrant_store)
 
         assert copy_facts(SCOPE, document_ids=["doc-a", "doc-b"]) == 2

@@ -302,8 +302,11 @@ class TestTheChunksOfOneDocument:
 
         assert terms is not None and terms.licensed
 
-    def test_the_facts_of_its_row_reach_them_and_never_a_namesake(self, seeded, monkeypatch):
+    def test_while_names_still_reach_identified_points_the_facts_of_its_row_reach_them(self, seeded, monkeypatch):
         from knowledge_layer.vector_store import copy_facts
+        from knowledge_layer.vector_store import name_scope
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
 
         row = SimpleNamespace(document_id="doc-eg", file_name=PLAN, folder_path="Einreichung", superseded_by="B.txt")
         monkeypatch.setattr("agent.knowledge.get_documents", lambda scope, names, *, document_ids=None: [row])
@@ -318,7 +321,10 @@ class TestTheChunksOfOneDocument:
             "legacy-1": ("Einreichung", True),
         }
 
-    def test_a_rename_reaches_them_and_never_a_namesake(self, seeded):
+    def test_while_names_still_reach_identified_points_a_rename_reaches_them(self, seeded, monkeypatch):
+        from knowledge_layer.vector_store import name_scope
+
+        monkeypatch.setattr(name_scope, "NAMES_SKIP_IDENTIFIED_POINTS", False)
         renamed = seeded.rewrite_file_name(SCOPE, "doc-eg", "Plan EG.txt", previous_name=PLAN)
 
         assert renamed == 2

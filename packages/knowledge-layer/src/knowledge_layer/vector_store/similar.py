@@ -78,14 +78,8 @@ def _named(source: PassageSource) -> models.FieldCondition:
     return models.FieldCondition(key="file_name", match=models.MatchValue(value=source.file_name))
 
 
-def _document_condition(source: PassageSource) -> models.FieldCondition:
-    if source.document_id:
-        return models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=source.document_id))
-    return _named(source)
-
-
 def _file_condition(source: PassageSource) -> models.Filter:
-    return models.Filter(must=[scope_condition([source.scope]), _document_condition(source)])
+    return scope_filter([source.scope], document_chunks(source.file_name, source.document_id))
 
 
 def _record_by_chunk_id(store: QdrantStore, source: PassageSource, office_id: str | None) -> Any | None:

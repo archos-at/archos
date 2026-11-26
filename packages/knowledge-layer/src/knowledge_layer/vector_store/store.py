@@ -43,8 +43,8 @@ from .schema import identity_mismatch
 from .schema import physical_for_scope
 from .schema import text_index_drift
 from .scope import kind_filter
-from .selectors import document_chunks
 from .scope import scope_filter
+from .selectors import document_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ class QdrantStore:
     def _document_filter(
         scope: str, value: str, key: PayloadKey = "file_name", name: str | None = None
     ) -> models.Filter:
-        if key == "document_id" and name:
+        if key == "document_id" and name and not name_scope.NAMES_SKIP_IDENTIFIED_POINTS:
             return scope_filter([scope], document_chunks(name, value))
         if key == "document_id":
             return scope_filter(

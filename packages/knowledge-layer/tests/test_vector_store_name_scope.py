@@ -57,6 +57,18 @@ def test_the_chunks_of_a_name_are_only_those_that_carry_no_id(local_qdrant_store
     assert found == [("legacy-1", PLAN)]
 
 
+def test_a_rename_by_id_never_reaches_a_point_without_one(local_qdrant_store):
+    _seed()
+
+    assert local_qdrant_store.rewrite_file_name(SCOPE, "doc-a", "Plan EG.pdf", previous_name=PLAN) == 1
+
+    assert {cid: p["file_name"] for cid, p in _payloads(local_qdrant_store).items()} == {
+        "a1": "Plan EG.pdf",
+        "b1": PLAN,
+        "legacy-1": PLAN,
+    }
+
+
 def test_payloads_by_name_never_reach_a_point_that_carries_an_id(local_qdrant_store):
     _seed()
 
