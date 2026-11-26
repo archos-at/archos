@@ -5,7 +5,7 @@
  * fixtures that proved it, and nothing for a source no lookup reads or one too large to carry.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 
 const { lookupConfig } = await import('./sources')

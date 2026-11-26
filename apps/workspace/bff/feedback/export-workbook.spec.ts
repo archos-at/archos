@@ -3,7 +3,7 @@
  */
 
 import { Workbook, type CellHyperlinkValue, type Worksheet } from 'exceljs'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { feedbackExportCopy } from '@/i18n/namespaces/feedback-export'
 import { platformCopy } from '@/i18n/namespaces/platform'
 

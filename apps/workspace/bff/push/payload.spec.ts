@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'

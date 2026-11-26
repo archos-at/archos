@@ -1,5 +1,5 @@
 import postgres from 'postgres'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PLATFORM_ROLE } from './tenant-context'
 
 

@@ -756,7 +756,8 @@ def test_no_job_posts_a_coverage_comment_or_instruments_the_ui_shards():
     text = (WORKFLOWS / "ci.yml").read_text()
     assert "pytest-coverage-comment" not in text and "vitest-coverage-report" not in text
     shard = next(s for s in JOBS["workspace-test"]["steps"] if s.get("name", "").startswith("All specs"))
-    assert "COVERAGE=false" in shard["run"]
+    assert "task workspace:test:shard" in shard["run"]
+    assert not any("--coverage" in str(cmd) for cmd in TASKS["workspace:test:shard"])
 
 
 def test_claude_runs_only_where_a_mention_can_start_it_and_one_ai_review_remains():

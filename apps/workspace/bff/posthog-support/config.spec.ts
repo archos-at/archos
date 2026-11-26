@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 
 import { posthogSupportConfigFromEnv } from './config'

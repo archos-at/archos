@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 
 import { DOCUMENT_CHECK_SCORE_NAME, toDocumentCheckScore } from './document-check-score'
