@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   withTenant: vi.fn(async (_scope: unknown, fn: () => unknown) => await fn()),
   withPlatformAccess: vi.fn(async (_reason: string, fn: () => unknown) => await fn()),

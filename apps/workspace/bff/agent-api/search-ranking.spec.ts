@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordOperationMissing: vi.fn() }))
 
 import { nothingMatched, searchOperations } from './discovery'

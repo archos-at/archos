@@ -29,7 +29,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { SearchReach } from './reach'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/membership-roles', () => ({
   resolveMembershipRoles: vi.fn(async () => ['member']),
 }))

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbound-mail/staging', () => ({
   RAW_MESSAGE_CONTENT_TYPE: 'message/rfc822',
   readStagedObject: vi.fn(),

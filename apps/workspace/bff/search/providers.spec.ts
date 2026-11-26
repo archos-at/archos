@@ -13,7 +13,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { makeProject } from '@/test-utils/db-fixtures'
 import type { ReachedProject, SearchReach } from './reach'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   withTenant: (_scope: unknown, run: () => unknown) => run(),
 }))

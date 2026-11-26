@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/assignments/repository', () => ({ listAssignmentsForResources: vi.fn() }))
 vi.mock('@/lib/annotations/repository', () => ({ listDocumentAnnotations: vi.fn(), findDocumentAnnotation: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ filterUsersWhoMayReadFolder: vi.fn() }))

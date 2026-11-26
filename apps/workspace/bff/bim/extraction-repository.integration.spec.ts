@@ -20,7 +20,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { BimModelRun } from './extraction-repository'
 import type { BimElement, BimModelSummary } from './types'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_bim_run_${Date.now()}`

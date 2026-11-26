@@ -22,7 +22,6 @@ import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { publishedRequest } from '../platform/testing/lifecycle'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/knowledge/service', () => ({
   reingestKnowledgeBaseDocuments: async (names: string[]) => ({ status: 'pending', queued: names, unknown: [], message: '' }),

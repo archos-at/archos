@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEventOrThrow: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ customFolderNames: vi.fn() }))

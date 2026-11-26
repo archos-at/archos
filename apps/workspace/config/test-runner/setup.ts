@@ -265,7 +265,8 @@ afterEach(() => {
   resetDatabase()
 })
 
-afterAll(() => {
+afterAll(async () => {
   vi.unstubAllEnvs()
   server?.close()
+  await (globalThis as { happyDOM?: { abort(): Promise<void> } }).happyDOM?.abort()
 })

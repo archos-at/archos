@@ -9,7 +9,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
-vi.mock('server-only', () => ({}))
 const findOrganization = vi.fn()
 const readRulesetsInForce = vi.fn()
 vi.mock('@/lib/organizations/repository', () => ({ findOrganization: (id: string) => findOrganization(id) }))

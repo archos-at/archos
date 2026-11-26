@@ -21,7 +21,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbound-mail/repository', () => ({
   findActiveAddressByToken: vi.fn(),
   stagedBytes: vi.fn(),

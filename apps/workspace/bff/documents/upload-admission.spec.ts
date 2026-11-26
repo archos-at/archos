@@ -12,7 +12,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const calls = vi.hoisted(() => [] as string[])
 const assertUploadNameAllowed = vi.hoisted(() => vi.fn())

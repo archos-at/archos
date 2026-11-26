@@ -23,7 +23,6 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
 vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn().mockResolvedValue({ jobId: 'job', status: 'pending' }),

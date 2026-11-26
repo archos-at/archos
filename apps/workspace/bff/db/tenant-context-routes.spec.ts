@@ -9,7 +9,6 @@ const { requireAuthorizedSession, getUserSession, requirePlatformPermission, pri
   principalOrRefusal: vi.fn(),
 }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession }))
 vi.mock('@/lib/auth/session', () => ({ getUserSession }))
 vi.mock('@/lib/authz/platform', () => ({

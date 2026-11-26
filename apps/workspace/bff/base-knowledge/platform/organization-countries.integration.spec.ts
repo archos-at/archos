@@ -21,7 +21,6 @@ const UNSEEN = `org_place_b_${fixed.run}`
 const NAMED = `org_place_c_${fixed.run}`
 const UNSTATED = `org_place_d_${fixed.run}`
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()

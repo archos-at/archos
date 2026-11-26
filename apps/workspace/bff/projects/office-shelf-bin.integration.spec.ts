@@ -24,7 +24,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const norms = vi.hoisted(() => ({ listed: new Set<string>() }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(async () => undefined) }))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn(async () => new Map()) }))

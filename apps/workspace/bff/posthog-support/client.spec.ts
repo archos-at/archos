@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import {
   countFeedbackTicketsByStatus,

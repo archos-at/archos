@@ -3,7 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const api = vi.hoisted(() => ({ batch: vi.fn() }))
 vi.mock('@langfuse/client', () => ({

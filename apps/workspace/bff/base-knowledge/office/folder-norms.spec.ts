@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./folder-norms-repository', () => ({ listUndecidedFolderFiles: vi.fn(), keepAsOrdinaryFiles: vi.fn() }))
 vi.mock('./norm-intake', () => ({ takeAsNorm: vi.fn() }))
 vi.mock('../store/repository', () => ({ readOfficeEntries: vi.fn(async () => []) }))

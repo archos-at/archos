@@ -7,7 +7,6 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { expectGenerated } from '@/test-utils/generated-file'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/agent-api/telemetry', () => ({ recordOperationCalled: vi.fn(), recordCapabilityMissing: vi.fn() }))
 
 import { describeOperation, SENSITIVE_MATCH_NOTE, searchOperations } from '@/lib/agent-api/discovery'

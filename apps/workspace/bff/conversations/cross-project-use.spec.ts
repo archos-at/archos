@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationAudienceRow } from './restricted-use-repository'
 
-vi.mock('server-only', () => ({}))
 
 const ORG = 'org_1'
 const CONV = 's_conv_1'

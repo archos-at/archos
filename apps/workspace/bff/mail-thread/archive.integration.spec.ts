@@ -25,7 +25,6 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const uploads = vi.hoisted(() => [] as Array<{ filename: string; folderId: string | null; text: string; batch: string | null }>)
 vi.mock('@/lib/documents/document-dispatch', async (importOriginal) => {

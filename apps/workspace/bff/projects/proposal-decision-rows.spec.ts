@@ -7,7 +7,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ conversationOpenToProjectReaders: () => ({}) }))
 

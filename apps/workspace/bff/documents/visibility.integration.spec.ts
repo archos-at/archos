@@ -34,7 +34,6 @@ import {
   type ReadableFacts,
 } from './document-reader'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

@@ -7,7 +7,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { type CacheStore, setCacheStore } from '@/lib/cache'
 import type { AuthorizedSession } from '@/lib/auth/types'

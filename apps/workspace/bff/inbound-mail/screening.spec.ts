@@ -5,7 +5,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { SUGGESTED_SCREENING_POLICY, type UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { mailScreening, MAX_NAME_STOP_TERMS } from './screening'

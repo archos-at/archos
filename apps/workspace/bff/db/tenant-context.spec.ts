@@ -3,7 +3,6 @@
 import http from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import {
   MissingTenantContextError,

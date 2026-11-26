@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/search/reach', () => ({ reachForAudience: vi.fn() }))
 vi.mock('./repository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./repository')>()),

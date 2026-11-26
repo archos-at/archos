@@ -26,7 +26,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import type { MalwareScanVerdict } from '@/lib/malware-scan/types'
 
-vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   row: null as InboundMailRow | null,

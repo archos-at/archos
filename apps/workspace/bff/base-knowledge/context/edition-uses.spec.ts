@@ -8,7 +8,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const { turnContextOf, insertValues } = vi.hoisted(() => ({ turnContextOf: vi.fn(), insertValues: vi.fn() }))
 vi.mock('./turn-snapshot', () => ({ turnContextOf }))
 vi.mock('@/lib/db', () => ({

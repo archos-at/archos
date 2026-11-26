@@ -3,7 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
 
 import { NAME_HASH_PREFIX, nameHash, residencyAuditMetadata } from './service'

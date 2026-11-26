@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbox/best-effort', () => ({
   bestEffortInbox: async (_label: string, _org: string, write: () => Promise<unknown>) => {
     await write()

@@ -11,7 +11,6 @@ import {
   splitGroupDefault,
 } from './backend-defaults'
 
-vi.mock('server-only', () => ({}))
 
 const getPlatformModelDefaults = vi.fn()
 vi.mock('./platform-defaults', () => ({ getPlatformModelDefaults: () => getPlatformModelDefaults() }))

@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BudgetPolicy } from '@/lib/db/schema/budgets'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 const canManageBudgets = vi.fn(() => false)
 vi.mock('@/lib/authz/organizations', () => ({ canManageBudgets: () => canManageBudgets() }))
 const can = vi.fn(async (_session: unknown, _permission: string, _resource?: unknown) => true)

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbox/service', () => ({
   emitInboxItems: vi.fn(),
   resolveInboxItemsAnchoredOn: vi.fn(),

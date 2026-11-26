@@ -4,7 +4,6 @@
 import { generateVAPIDKeys } from 'web-push'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn(async () => ({ jobId: 'j' })) }))
 vi.mock('./repository', () => ({ userIdsWithSubscription: vi.fn() }))
 

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('@/lib/documents/shelf-authz', () => ({ requireShelfRead: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/folder-access', () => ({

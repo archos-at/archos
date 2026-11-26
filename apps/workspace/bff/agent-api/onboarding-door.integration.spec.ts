@@ -33,7 +33,6 @@ import { doorScript, platformOperator, platformSession } from './testing/platfor
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_onb_${Date.now().toString(36)}` }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()

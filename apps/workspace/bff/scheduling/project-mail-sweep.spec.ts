@@ -7,7 +7,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { InboundMailSweepResult } from '@/lib/inbound-mail/sweep'
 
-vi.mock('server-only', () => ({}))
 const sweepInboundMail = vi.fn<() => Promise<Partial<InboundMailSweepResult>>>()
 vi.mock('@/lib/inbound-mail/sweep', () => ({ sweepInboundMail: () => sweepInboundMail() }))
 

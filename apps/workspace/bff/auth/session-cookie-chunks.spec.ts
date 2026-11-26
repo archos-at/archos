@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import path from 'node:path'
+import { mock } from 'bun:test'
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { sealData } from 'iron-session'
@@ -20,12 +21,14 @@ const jar = {
   },
 }
 
-vi.mock('next/headers', () => ({
+mock.module('next/headers', () => ({
   cookies: async () => jar,
   headers: async () => new Headers({ 'x-url': 'https://app.dev.piloti.at/app/projects' }),
 }))
-vi.mock('../../node_modules/@workos-inc/authkit-nextjs/node_modules/jose/dist/node/esm/index.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('jose')>()),
+const authkitJose = Bun.resolveSync('jose', path.resolve('node_modules/@workos-inc/authkit-nextjs'))
+const jose = await import(authkitJose)
+mock.module(authkitJose, () => ({
+  ...jose,
   createRemoteJWKSet: () => () => Promise.resolve(undefined),
   jwtVerify: async () => ({ payload: {}, protectedHeader: { alg: 'RS256' } }),
 }))

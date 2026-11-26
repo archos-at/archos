@@ -7,7 +7,6 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const { lookupConfig } = await import('./sources')
 const { MAX_SOURCE_CONFIG_CHARS } = await import('./wire')

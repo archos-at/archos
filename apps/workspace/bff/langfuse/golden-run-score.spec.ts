@@ -10,7 +10,6 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { GOLDEN_SCORE_NAMES, type GoldenCaseResult } from '@/lib/base-knowledge/wire/golden-case'
 import { GOLDEN_SCORE_DEFINITIONS as golden, SCORE_DEFINITIONS as runtime } from '@/shared/vocabularies.generated'

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/documents/shelf-authz', () => ({ requireShelfWrite: vi.fn() }))
 vi.mock('@/lib/storage/service', () => ({ assertWithinStorageQuota: vi.fn() }))

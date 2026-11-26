@@ -18,7 +18,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { handled } from '@/test-utils/scripted-job-handlers'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./handlers', async () => ({ JOB_HANDLERS: (await import('@/test-utils/scripted-job-handlers')).SCRIPTED_HANDLERS }))
 
 const url = process.env.TEST_DATABASE_URL

@@ -28,7 +28,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { AT_FACT_DEFINITIONS_VALUES, BEV_ADDRESS_REGISTER } from '@/lib/project-intake/at-setup.fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/projects', async (original) => ({
   ...(await original<typeof import('@/lib/authz/projects')>()),

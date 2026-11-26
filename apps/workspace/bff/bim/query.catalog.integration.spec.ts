@@ -8,7 +8,6 @@ import { runBimQuery } from './query'
 import { COUNT_CEILING } from './repository'
 import { BIG_MODEL_ELEMENTS, seedQueryFixture, type QueryFixture } from './query.fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', async () => {
   const { settledContext } = await import('./rule-basis.fixtures')
   return { contextForPage: vi.fn(async () => settledContext()) }

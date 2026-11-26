@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/mail-thread/write-repository', () => ({
   decidePendingAttachment: vi.fn(async () => undefined),
   findEntryOfMail: vi.fn(async () => ({ id: 'entry-1' })),

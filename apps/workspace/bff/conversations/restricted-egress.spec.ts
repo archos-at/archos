@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('./restricted-use', () => ({ recordedRestrictedFolders: vi.fn(), recordedSourceProjects: vi.fn() }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))

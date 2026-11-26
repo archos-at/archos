@@ -75,3 +75,5 @@ dist-jobs/
 
 # What each tree-reading spec read, while scripts/declare-disk-inputs.mjs records it
 .disk-inputs/
+# Per-shard timings while task workspace:test:durations records them.
+.timings/

@@ -7,7 +7,6 @@ import { memberReader } from './document-reader'
 import type { RevisionLinkNames } from './revision-links'
 import type { RevisionLinksSubject } from './revision-links-loader'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/folder-access', () => ({ getHiddenFolderIds: vi.fn() }))
 vi.mock('./reconcile-status', () => ({ readRevisionLinkNames: vi.fn(), refreshCollectionFiles: vi.fn() }))
 vi.mock('./repository', () => ({ findRevisionCounterparts: vi.fn() }))

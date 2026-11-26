@@ -27,7 +27,6 @@ import { approvedRequest, publishedRequest } from './testing/lifecycle'
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_alone_${Date.now().toString(36)}` }))
 const audit = vi.hoisted(() => ({ record: vi.fn(async (..._args: unknown[]) => undefined) }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()

@@ -5,7 +5,6 @@
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('../dispatch', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../dispatch')>()),
   callOperation: vi.fn(),

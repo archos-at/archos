@@ -15,7 +15,6 @@ const h = vi.hoisted(() => ({
   updatedIds: [] as string[][],
 }))
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('drizzle-orm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('drizzle-orm')>()

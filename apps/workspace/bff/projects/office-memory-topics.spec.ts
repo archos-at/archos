@@ -12,7 +12,6 @@ const h = vi.hoisted(() => ({
   queries: 0,
 }))
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/db', () => ({
   getDb: () => ({

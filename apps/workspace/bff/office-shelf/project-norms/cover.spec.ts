@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/stored-copy', () => ({
   storedFileOf: vi.fn(async (_file: unknown, name: string) => new File([new Uint8Array([1])], name, { type: 'application/pdf' })),
 }))

@@ -8,7 +8,6 @@ import type { BimModelHeader } from './repository'
 import { buildStoredRuleInputs } from './rule-inputs'
 import type { BimElement, BimModelSummary } from './types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))

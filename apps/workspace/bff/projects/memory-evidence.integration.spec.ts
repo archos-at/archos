@@ -22,7 +22,6 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/knowledge/embeddings')>()),
   embedNote: async () => null,

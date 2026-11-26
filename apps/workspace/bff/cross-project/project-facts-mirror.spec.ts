@@ -10,7 +10,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { makeProject } from '@/test-utils/db-fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
 
 const findProjectInOrg = vi.fn()

@@ -17,7 +17,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createZip } from './zip'
 
-vi.mock('server-only', () => ({}))
 
 import { IfcArchiveError, isZipArchive, readArchiveModelEntries, unwrapIfcArchive } from './ifc-archive'
 

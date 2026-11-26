@@ -3,7 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const driver = vi.hoisted(() => {
   const calls: { options?: Record<string, unknown>; url?: string; transactions: string[][] } = { transactions: [] }

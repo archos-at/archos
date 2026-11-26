@@ -4,7 +4,6 @@
 
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { __setHubTransportForTests, publish, SharedRedisTransport, subscribe } from './hub'
 

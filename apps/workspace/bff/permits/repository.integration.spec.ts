@@ -30,7 +30,6 @@ import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 let queryVector: number[] | null = null
 const MODEL = 'test-embedder'

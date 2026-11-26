@@ -7,7 +7,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { withConversationOrigin } from './operation-origin'
 

@@ -15,7 +15,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Document } from '@/lib/db/schema/documents'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/feature-flags', () => ({
   FEATURE_FLAGS: { ifcModels: 'ifc-models' },
   ifcModelsEnvEnabled: vi.fn().mockReturnValue(true),

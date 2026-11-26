@@ -4,7 +4,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ORG_INSTRUCTIONS_MAX_CHARS } from './constants'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const officeRows = vi.hoisted(() => ({ rows: [] as { topic: string | null }[] }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/conversations/cross-project-use', () => ({ requireMayRememberFrom: vi.fn(async () => undefined) }))
 vi.mock('@/lib/conversations/restricted-egress', () => ({ requireMayLeaveConversation: vi.fn(async () => undefined) }))
 vi.mock('@/lib/conversations/temporary', () => ({ requireConversationKeepsMemory: vi.fn(async () => undefined) }))

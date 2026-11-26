@@ -9,7 +9,8 @@
  * processes off the frontend image, with no build step.
  */
 
-const postgres = require('postgres')
+const postgresModule = require('postgres')
+const postgres = postgresModule.default ?? postgresModule
 
 /**
  * @param {NodeJS.ProcessEnv} [env]

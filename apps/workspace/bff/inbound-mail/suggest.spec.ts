@@ -7,7 +7,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend.test' }))
 
 import { mailFilingBody } from '@/lib/filing/judge'

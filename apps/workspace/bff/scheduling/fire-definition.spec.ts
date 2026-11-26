@@ -9,7 +9,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TaskDefinition } from '@/lib/db/schema/task-model'
 
-vi.mock('server-only', () => ({}))
 
 const findDefinitionsToRepair = vi.fn<(grace: number, limit: number) => Promise<TaskDefinition[]>>()
 vi.mock('./repository', () => ({

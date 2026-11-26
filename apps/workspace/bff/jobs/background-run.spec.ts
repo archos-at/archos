@@ -10,7 +10,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const { knowledgeContextForTurn, submitJob, isTemporaryConversation } = vi.hoisted(() => ({
   knowledgeContextForTurn: vi.fn(),
   isTemporaryConversation: vi.fn(async () => false),

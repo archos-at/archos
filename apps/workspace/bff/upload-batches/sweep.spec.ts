@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   withSystemReader: vi.fn(async (_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
 }))

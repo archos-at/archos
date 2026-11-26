@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/product-feedback/reply-notice', () => ({ notifyFeedbackReplies: vi.fn() }))
 
 import { UpstreamError } from '@/lib/api/errors'

@@ -20,7 +20,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const fileGeneratedDocument = vi.fn()
 vi.mock('./generated', () => ({

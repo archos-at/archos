@@ -97,7 +97,14 @@ tasks:
     desc: Re-record the per-file times the UI shards split by (tests/test-timings.json)
     dir: '{{.UI}}'
     cmds:
-      - bun run test:specs --parallel --timings=tests/test-timings.json --update-timings
+      - rm -rf .timings && mkdir .timings
+      - for: ['1', '2', '3', '4', '5', '6', '7', '8']
+        cmd: >-
+          echo '{"version":1,"files":{}}' > .timings/{{.ITEM}}.json &&
+          bun run test:specs --parallel --shard={{.ITEM}}/8
+          --timings=.timings/{{.ITEM}}.json --timings=tests/test-timings.json --update-timings
+      - node scripts/merge-test-timings.mjs .timings tests/test-timings.json
+      - rm -rf .timings
 
   workspace:test:related:
     desc: 'One shard of the UI specs that reach the given files (CI on a pull request: SHARD=1/8 FILES="...")'

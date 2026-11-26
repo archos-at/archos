@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/tasks/repository', () => ({
   findRunById: vi.fn(),
   findRunInProject: vi.fn(),

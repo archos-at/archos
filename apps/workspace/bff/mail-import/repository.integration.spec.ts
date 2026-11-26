@@ -18,7 +18,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DocumentListCursor } from '@/lib/documents/list-cursor'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_mail_imports_${Date.now()}`

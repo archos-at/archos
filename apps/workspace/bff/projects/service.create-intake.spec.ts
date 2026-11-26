@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 
 const insertProject = vi.fn()

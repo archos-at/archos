@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { InboxItemView } from './types'
 
-vi.mock('server-only', () => ({}))
 const waitingMailCounts = vi.fn(async (ids: readonly string[]) => new Map(ids.filter((id) => id === 'p1').map((id) => [id, 2])))
 vi.mock('@/lib/inbound-mail/notice-repository', () => ({ waitingMailCounts: (ids: readonly string[]) => waitingMailCounts(ids) }))
 

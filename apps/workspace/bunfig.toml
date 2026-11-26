@@ -2,7 +2,6 @@
 environment = "happy-dom"
 globals = "vitest"
 clearMocks = true
-timeout = 50000
 # oxlint's RuleTester refuses Bun: `node --test eslint-rules/*.spec.mjs` runs these.
 pathIgnorePatterns = ["eslint-rules/**"]
 preload = [

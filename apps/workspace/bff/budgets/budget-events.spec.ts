@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const captureServer = vi.hoisted(() => vi.fn(() => true))
 const enabled = vi.hoisted(() => ({ value: true }))

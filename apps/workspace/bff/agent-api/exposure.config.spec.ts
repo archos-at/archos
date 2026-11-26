@@ -7,7 +7,6 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { expectGenerated } from '@/test-utils/generated-file'
 
-vi.mock('server-only', () => ({}))
 
 import { AGENT_ASK_OPERATIONS } from '@/lib/agent-asks/ask-wire'
 import { PROPOSAL_DECISION_OPERATIONS } from '@/lib/proposals/operation-applier'

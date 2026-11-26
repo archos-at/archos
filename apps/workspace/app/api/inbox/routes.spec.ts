@@ -7,7 +7,6 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const SESSION = vi.hoisted(() => ({
   userId: 'user_1',

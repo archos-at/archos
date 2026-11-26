@@ -39,7 +39,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { FileOperationPayload } from './types'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

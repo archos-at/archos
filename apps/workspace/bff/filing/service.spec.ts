@@ -12,7 +12,6 @@ import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/
 import type { ProjectFolderRow } from '@/lib/projects/folder-service'
 import { makeDocument, makeProject } from '@/test-utils/db-fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/upload-batches/repository', () => ({ findUploadBatch: vi.fn(), listBatchDocuments: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn(), listProjectsInOrg: vi.fn() }))
 vi.mock('@/lib/projects/service', () => ({ projectsHolding: vi.fn() }))

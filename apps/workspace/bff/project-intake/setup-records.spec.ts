@@ -12,7 +12,6 @@ import { SHIPPED_SETUP_RECORDS, withShippedFallback } from '@/lib/base-knowledge
 import { AT_SETUP_RECORDS, AT_SETUP_VALUES } from './at-setup.fixtures'
 import { GERMAN_RECORDS } from './setup-countries.fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/store/rulesets', () => ({ readSetupRulesetsInForce: vi.fn() }))
 
 import { readSetupRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'

@@ -10,7 +10,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const { contextForPage, findProjectProfileInOrg } = vi.hoisted(() => ({ contextForPage: vi.fn(), findProjectProfileInOrg: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))

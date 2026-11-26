@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn() }))
 vi.mock('@/lib/inbox/repository', () => ({ archiveInboxItemsOfType: vi.fn(), findLiveInboxGroupKeys: vi.fn() }))
 vi.mock('./repository', () => ({ aggregateStorageUsageByOrganization: vi.fn() }))

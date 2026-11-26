@@ -5,7 +5,6 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { actingDoor, actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'

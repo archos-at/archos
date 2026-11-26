@@ -7,7 +7,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { AccessFolder, FolderClearance } from '@/lib/authz/folder-access'
 import type { ConversationAudienceRow } from './restricted-use-repository'
 
-vi.mock('server-only', () => ({}))
 
 const COLLECTION = 'proj_alpha'
 const VERTRAEGE_ID = '01234567-89ab-4cde-8f01-23456789abcd'

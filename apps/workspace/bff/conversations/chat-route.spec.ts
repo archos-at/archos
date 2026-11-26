@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ForbiddenError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 const tenancy = vi.hoisted(() => vi.fn())
 const access = vi.hoisted(() => vi.fn())
 vi.mock('./repository', () => ({ findConversationTenancy: tenancy }))

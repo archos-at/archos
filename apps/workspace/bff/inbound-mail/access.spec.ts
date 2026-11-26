@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn(async () => ({ role: 'project-editor', closed: true, readsBecauseClosed: false })) }))
 vi.mock('@/lib/authz/decide', () => ({ can: vi.fn(async () => true) }))
 vi.mock('@/lib/authz/feature-flags', () => ({

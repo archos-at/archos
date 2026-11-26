@@ -6,7 +6,6 @@ const FOLDERS = [
   { id: 'folder-fire', path: 'Grundlagen des Büros/Brandschutz' },
 ]
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({
   listOfficeShelfFolders: vi.fn(async () => FOLDERS),

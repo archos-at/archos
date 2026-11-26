@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({ findDocumentIdByStoredName: vi.fn(async () => null) }))
 vi.mock('@/lib/authz/folder-access', () => ({ requireFolderWrite: vi.fn(async () => undefined) }))
 vi.mock('@/lib/documents/accepted-types', () => ({

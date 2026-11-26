@@ -12,7 +12,6 @@ import { deleteBimCheckConfirmation, listBimCheckConfirmations, upsertBimCheckCo
 import { seedQueryFixture, type QueryFixture } from './query.fixtures'
 import { attachConfirmations, outstandingRules } from './rules'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', async () => {
   const { settledContext } = await import('./rule-basis.fixtures')
   return { contextForPage: vi.fn(async () => settledContext()) }

@@ -25,7 +25,6 @@ import {
   type ShelfReader,
 } from './document-reader'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_quarantine_${Date.now()}`

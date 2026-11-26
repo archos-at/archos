@@ -6,7 +6,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/project-membership', () => ({
   PERMISSION_CHECKS_AT_ONCE: 8,
   userHoldsProjectPermission: vi.fn(),

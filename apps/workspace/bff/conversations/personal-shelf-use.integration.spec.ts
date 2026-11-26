@@ -18,7 +18,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { decisionOf } from '@/lib/conversation-context/wire'
 
-vi.mock('server-only', () => ({}))
 
 const STAMP = Date.now()
 const ORG = `org_psu_${STAMP}`

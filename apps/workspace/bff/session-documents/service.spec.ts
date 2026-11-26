@@ -27,7 +27,6 @@ vi.mock('@/lib/documents/version-repository', () => ({
   listDocumentVersionObjects: vi.fn().mockResolvedValue([]),
 }))
 
-vi.mock('server-only', () => ({}))
 
 const CONVERSATION_ID = 's_11111111-2222-3333-4444-555555555555'
 const ORG_ID = 'org_1'

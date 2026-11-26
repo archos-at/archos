@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const findOrganization = vi.hoisted(() => vi.fn())
 vi.mock('./repository', () => ({ findOrganization }))
 vi.mock('@/lib/cache', () => ({ getCached: (_key: string, _ttl: number, load: () => Promise<unknown>) => load() }))
-vi.mock('server-only', () => ({}))
 
 import { isKnownTimeZone, officeTimeZone } from './time-zone'
 

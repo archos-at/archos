@@ -8,7 +8,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./generated', () => ({ fileGeneratedDocument: vi.fn(), assertMayFileGeneratedDocument: vi.fn() }))
 vi.mock('@/lib/pdf/markdown-pdf', () => ({ PDF_MEDIA_TYPE: 'application/pdf', renderMarkdownPdf: vi.fn() }))
 vi.mock('@/i18n/server', () => ({ getTranslations: vi.fn(), getLocale: vi.fn() }))

@@ -26,7 +26,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { memberReader, REVIEWER_READER } from '@/lib/documents/document-reader'
 import type { ProjectAnnotationPageQuery, ProjectAnnotationRecord } from './project-repository'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

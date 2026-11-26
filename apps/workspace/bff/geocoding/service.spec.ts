@@ -3,7 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { PHOTON_MOEDLING } from './photon.fixtures'
 import { searchAddresses } from './service'

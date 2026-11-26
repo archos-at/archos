@@ -5,7 +5,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/projects/repository', () => ({ listProjectsInOrg: vi.fn(), findProjectInOrg: vi.fn() }))
 
 import { REFERENCE_BRIEF_MAX, renderReferenceBrief } from './reference-brief'

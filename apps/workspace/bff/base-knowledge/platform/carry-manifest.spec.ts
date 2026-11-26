@@ -12,7 +12,6 @@ import { gzipSync } from 'node:zlib'
 import { describe, expect, it, vi } from 'vitest'
 import { CarryRefused, checkCarryOrder, parseManifest, sha256Hex, verifiedBundle } from './carry-manifest'
 
-vi.mock('server-only', () => ({}))
 
 const DIR = join(process.cwd(), 'config', 'knowledge-releases')
 

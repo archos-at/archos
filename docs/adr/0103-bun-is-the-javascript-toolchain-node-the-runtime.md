@@ -149,3 +149,51 @@ the five specs then import `typescript` again and the alias goes.
 removed. None of them occur in `frontends/ui`, so it had nothing to do here; it
 is the place to start for `deploy/pulumi` and `packages/ifc-spatial`, which
 stay on TypeScript 5 for now.
+
+## Amendment 1 (2026-11-26): `bun test` replaces vitest in `apps/workspace`
+
+The case against "the toolchain, and `bun test` in place of vitest" was a rewrite
+of every spec: Bun's module mocks were not hoisted, and the suite leans on
+`vi.mock`, `importOriginal` and a per-file happy-dom. The Bun canary of
+2026-11-26 (`1.4.5-canary.20261126.1`, reporting 1.4.6) hoists `vi.mock`,
+ships `vi.hoisted`, `vi.stubEnv`, `vi.stubGlobal`, `importOriginal`, the
+`environment = "happy-dom"` setting and a `vitest` module of its own. On a
+random 200 of the suite's files it ran all 2,438 tests unchanged where stable
+1.4.5 ran 1,371. The suite moves; Node stays the runtime, and install, `bun
+check` and the images stay on the toolchain pin.
+
+Measured on four cores, 2026-11-26: one CI shard (an eighth, ~310 files, three
+workers) takes 47–52 s against vitest's 63–77 s; one spec file 0.3–0.6 s
+against 1.0–1.7 s.
+
+What changed with it:
+
+* `bun test` runs on the canary through `test:specs` (`bunx` of that exact
+  version), so the canary never reaches the type checker or an image.
+  `tests/test_bun_version_pin.py` fails once the toolchain pin passes the
+  canary's release, and `test:specs` then runs the pinned Bun.
+* The rule specs in `eslint-rules/` run on `node --test`: oxlint's
+  `RuleTester` refuses any runtime but Node 22+ and Deno 2+.
+* `vitest related` is gone. `scripts/related-specs.mjs` selects a pull
+  request's specs on the esbuild graph `scripts/blast-radius.mjs` already
+  built, which never selects fewer than `vitest related` did.
+* A mock that must reach a package's own imports (`next/headers` inside
+  `@workos-inc/authkit-nextjs`) is `mock.module` from `bun:test`; `vi.mock`
+  replaces a package only for our own files.
+* The shards split by `bun test --timings` (`tests/test-timings.json`).
+
+### Consequences
+
+* Good, because each CI shard and every single-file run is faster, and one
+  tool installs, checks and tests.
+* Bad, because the specs run on JavaScriptCore while production runs on V8.
+  `Intl` output differs (`formatRange` spaces), and a package's `bun` export
+  condition resolves another build than Node's (`postgres`, `jose`). A spec
+  asserts what both engines produce, and code that can meet either build
+  takes either.
+* Bad, because a Bun worker's memory grows with every file it runs and nothing
+  replaces it past a limit: the whole suite in one run lost workers on 15 GB.
+  The suite runs as eight timed shards, locally too.
+* Bad, because the runner is a canary until the next release.
+* Neutral, because `apps/cms` and `deploy/pulumi` keep vitest for now; their
+  suites are small and node-only.

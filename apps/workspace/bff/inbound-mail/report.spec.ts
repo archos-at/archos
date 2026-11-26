@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const store = vi.hoisted(() => ({ mail: null as unknown, decisions: [] as unknown[] }))
 

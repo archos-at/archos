@@ -18,7 +18,6 @@ import { FEEDBACK_EXPORT_COLUMNS, FEEDBACK_WEEKLY_COLUMNS } from './export-colum
 import type { FeedbackExport } from './export-service'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-vi.mock('server-only', () => ({}))
 
 const { renderFeedbackWorkbook, XLSX_MAX_CELL_CHARS } = await import('./export-workbook')
 

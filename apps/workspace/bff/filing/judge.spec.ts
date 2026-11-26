@@ -3,7 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend.test' }))
 
 import { filingFitBody, judgeFiling, judgeMailFiling, keepKnownMoves, keepMailPlacements, mailFilingBody } from './judge'

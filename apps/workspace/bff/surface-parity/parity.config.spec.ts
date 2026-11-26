@@ -8,7 +8,6 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { expectGenerated } from '@/test-utils/generated-file'
 
-vi.mock('server-only', () => ({}))
 
 import { BACKEND_OPERATIONS } from '@/lib/agent-api/backend-operations'
 import { AGENT_OPERATIONS } from '@/lib/agent-api/catalog'

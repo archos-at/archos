@@ -23,7 +23,6 @@ import type { DocumentQuery, DocumentSearchRow, FacetKey } from './document-repo
 import type { SearchReach } from './reach'
 import type { DocumentFilters, SearchSort } from './search-wire'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

@@ -7,7 +7,6 @@ import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { Document } from '@/lib/db/schema/documents'
 import type { RevisionLinks } from './revision-links'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))

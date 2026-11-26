@@ -6,7 +6,6 @@ import { AppBridge, type McpUiHostContext } from '@modelcontextprotocol/ext-apps
 import { App } from '@modelcontextprotocol/ext-apps/react-with-deps'
 import { Client, InMemoryTransport, type CallToolResult } from '@modelcontextprotocol/client'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/agent-api/dispatch', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/agent-api/dispatch')>()),
   callOperation: vi.fn(),

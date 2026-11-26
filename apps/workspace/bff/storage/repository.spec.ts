@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 
-vi.mock('server-only', () => ({}))
 
 function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
   const statements: string[] = []

@@ -39,7 +39,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 
 const STAMP = Date.now()
 const ORG = `org_opprop_${STAMP}`

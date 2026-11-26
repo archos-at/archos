@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/conversations/repository', () => ({ listRunLedgersByMessageIds: vi.fn() }))
 
 import { listRunLedgersByMessageIds } from '@/lib/conversations/repository'

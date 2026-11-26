@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WIRE_TURN_FILES, frameOf, wireFixtureLines } from '@/test-utils/wire-v2-fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/conversations/repository', () => ({
   findConversationInOrg: vi.fn(),
   findMessageInConversation: vi.fn(),

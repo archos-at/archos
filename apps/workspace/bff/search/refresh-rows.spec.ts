@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/reconcile-status', () => ({ readCollectionReadings: vi.fn() }))
 vi.mock('./facets-projector', () => ({ projectReadings: vi.fn().mockResolvedValue(1) }))
 vi.mock('./facets-repository', () => ({ markShelvesStale: vi.fn().mockResolvedValue(undefined) }))

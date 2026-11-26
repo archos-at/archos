@@ -8,7 +8,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getTenantContext } from '@/lib/db/tenant-context'
 
-vi.mock('server-only', () => ({}))
 
 const seen: unknown[] = []
 const enqueueJob = vi.fn(async () => {

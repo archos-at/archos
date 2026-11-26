@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({}))
 vi.mock('@/lib/authz/folder-access', () => ({ getHiddenFolderIds: vi.fn() }))
 

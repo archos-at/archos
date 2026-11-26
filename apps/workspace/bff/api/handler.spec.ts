@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
-vi.mock('server-only', () => ({}))
 
 import { errorResponse, internalApiRoute, SIGNED_INTERNAL_PREFIX } from './handler'
 import { readBoundedBody } from './bounded-body'

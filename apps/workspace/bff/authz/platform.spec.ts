@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const getOrganizationByExternalId = vi.fn()
 const listOrganizationMemberships = vi.fn()

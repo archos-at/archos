@@ -6,7 +6,6 @@ import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ProfiledConversationFilter } from './repository'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 

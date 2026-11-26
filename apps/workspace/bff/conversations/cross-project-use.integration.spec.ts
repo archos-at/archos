@@ -41,7 +41,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { FolderClearance } from '@/lib/authz/folder-access'
 
-vi.mock('server-only', () => ({}))
 
 const STAMP = Date.now()
 const ORG = `org_xp_${STAMP}`

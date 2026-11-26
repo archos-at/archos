@@ -7,7 +7,6 @@ import type { PutObjectCommand } from '@aws-sdk/client-s3'
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
-vi.mock('server-only', () => ({}))
 
 const signingClient = vi.hoisted(() => ({ name: 'signing' }))
 vi.mock('@/lib/s3', async () => {

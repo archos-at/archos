@@ -18,7 +18,6 @@ import { and, eq, sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { localWorkOwnsRow, type LocalWorkOwnership } from './local-work-ownership'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()

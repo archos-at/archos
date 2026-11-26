@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { posthogSupportConfigFromEnv } from './config'
 

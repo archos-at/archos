@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: vi.fn((_t: unknown, run: () => unknown) => run()) }))
 const rows = vi.hoisted(() => ({ value: [] as unknown[] }))
 vi.mock('@/lib/db', () => ({ getDb: () => ({ select: () => ({ from: () => ({ where: async () => rows.value }) }) }) }))

@@ -31,7 +31,6 @@ import { makeProject } from '@/test-utils/db-fixtures'
 import type { DocumentQuery, FacetKey } from './document-repository'
 import type { ReachedProject, SearchReach } from './reach'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const enabled = Boolean(url) && process.env.SEARCH_LATENCY === '1'

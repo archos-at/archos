@@ -36,7 +36,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { restrictedCollectionName } from '@/lib/authz/folder-access-rule'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => null) }))
 
 const STAMP = Date.now()

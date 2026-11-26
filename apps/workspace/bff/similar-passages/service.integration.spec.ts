@@ -30,7 +30,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { PROJECT_PERMISSION_SPECS } from '@/lib/authz/catalog'
 
-vi.mock('server-only', () => ({}))
 
 const GRANTED = new Set<string>()
 const CLEARED_FOLDERS = new Set<string>()

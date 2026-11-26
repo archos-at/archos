@@ -4,7 +4,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentPrincipal } from './principal'
 
-vi.mock('server-only', () => ({}))
 
 import { AGENT_KIND } from '@/lib/agent-kind'
 import { ownShelfReadable } from './own-shelf'

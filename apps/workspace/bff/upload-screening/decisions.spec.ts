@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./review', () => ({
   NO_DIGEST_DETAILS: { reason: 'no_digest' },
   releaseQuarantinedDocument: vi.fn(),

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const store = vi.hoisted(() => ({ active: null as unknown, domain: 'example.org' as string | null }))
 

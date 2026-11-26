@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({ listRunsWithStaleQueuedFiling: vi.fn(), settleQueuedFiling: vi.fn() }))
 vi.mock('@/lib/documents/research-report', () => ({ findFiledResearchReport: vi.fn() }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn(), findDeadJob: vi.fn() }))

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { NORM_COVERS, normCoverFile, type NormCover } from '@/app/dev/_fixtures/norm-covers'
 import { readCoverText } from '@/lib/pdf/cover-text'

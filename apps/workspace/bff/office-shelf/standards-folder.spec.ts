@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/projects/folder-bin', () => ({ moveFolderToBin: vi.fn() }))
 vi.mock('@/lib/documents/shelf-folders', () => ({
   createShelfFolder: vi.fn(),

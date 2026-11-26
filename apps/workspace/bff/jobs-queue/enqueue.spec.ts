@@ -6,7 +6,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const insertJob = vi.fn(async () => 'job-1')
 const insertJobIfAbsent = vi.fn(async () => true)
 vi.mock('./repository', () => ({

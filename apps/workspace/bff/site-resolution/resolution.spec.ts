@@ -13,7 +13,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'

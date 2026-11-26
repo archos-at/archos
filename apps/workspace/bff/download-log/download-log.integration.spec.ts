@@ -24,7 +24,6 @@ import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/audit/service', () => ({
   recordAuditEvent: vi.fn(async () => undefined),
   recordAuditEventOrThrow: vi.fn(async () => undefined),

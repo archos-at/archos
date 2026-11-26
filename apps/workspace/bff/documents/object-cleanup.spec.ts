@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
-vi.mock('server-only', () => ({}))
 
 const send = vi.fn()
 vi.mock('@/lib/s3', async () => {

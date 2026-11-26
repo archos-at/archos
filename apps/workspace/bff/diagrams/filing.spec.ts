@@ -6,7 +6,6 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 
 vi.mock('@/lib/conversations/personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
-vi.mock('server-only', () => ({}))
 
 const s3Send = vi.fn()
 vi.mock('@/lib/s3', () => ({

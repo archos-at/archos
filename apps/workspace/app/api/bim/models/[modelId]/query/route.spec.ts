@@ -8,7 +8,6 @@ const requireAuthorizedSession = vi.fn()
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: () => requireAuthorizedSession(),
 }))
-vi.mock('server-only', () => ({}))
 
 const queryAccessibleModel = vi.fn()
 vi.mock('@/lib/bim/model-service', () => ({

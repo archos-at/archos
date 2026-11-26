@@ -15,7 +15,6 @@
 import { randomUUID } from 'node:crypto'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const STAMP = Date.now()
 const ORG = `org_mp_${STAMP}`

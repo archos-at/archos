@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./version-repository', () => ({ listRefusedVersionsForConversation: vi.fn() }))
 vi.mock('@/lib/sharing/directory', () => ({ resolvePeople: vi.fn() }))
 

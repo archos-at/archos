@@ -12,7 +12,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Project } from '@/lib/db/schema/projects'
 import { makeProject } from '@/test-utils/db-fixtures'
 
-vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   reach: [] as Project[],

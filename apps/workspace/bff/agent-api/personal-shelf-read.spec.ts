@@ -8,7 +8,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: vi.fn((_tenant: unknown, run: () => unknown) => run()) }))
 vi.mock('@/lib/conversations/personal-shelf-use', () => ({ admitPersonalShelf: vi.fn() }))
 vi.mock('./conversation-audience', async (importOriginal) => ({

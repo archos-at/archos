@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./operation-targets-repository', () => ({ findTargetPlace: vi.fn(), findProjectName: vi.fn(), findFolderName: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ isFolderVisibleTo: vi.fn() }))

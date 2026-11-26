@@ -9,7 +9,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import { directiveVerdict } from './platform'

@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BudgetPolicy } from '@/lib/db/schema/budgets'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/organizations', () => ({ canManageBudgets: () => true }))
 vi.mock('@/lib/authz/project-membership', () => ({ resolveSubjectMembership: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))

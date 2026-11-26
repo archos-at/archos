@@ -9,7 +9,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { ConcurrencyLimitStrategy } from '@hatchet-dev/typescript-sdk/v1'
 import type { TaskDeclarer } from './tasks'
 
-vi.mock('server-only', () => ({}))
 
 describe('the scheduling tasks', () => {
   it('registers the fire, fair per office, and every sweep on its cron with one run at a time', async () => {

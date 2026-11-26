@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 
+import { mock } from 'bun:test'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
@@ -18,7 +19,7 @@ const jar = {
   },
 }
 
-vi.mock('next/headers', () => ({
+mock.module('next/headers', () => ({
   cookies: async () => jar,
   headers: async () => new Headers({ 'x-redirect-uri': 'https://app.dev.piloti.at/api/auth/callback' }),
 }))

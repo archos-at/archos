@@ -3,7 +3,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { encodeDocumentLevelCursor } from './list-cursor'
 import type { ListedDocument } from './shelf-listing'
 
-vi.mock('server-only', () => ({}))
 const listDocumentsPage = vi.fn()
 vi.mock('./document-listing', () => ({
   listDocumentsPage: (...args: unknown[]) => listDocumentsPage(...args),
