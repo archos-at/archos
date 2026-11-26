@@ -795,7 +795,7 @@ At query time, the `knowledge_retrieval` function:
 1. Resolves target collections via `_resolve_target_collections()` (see [Collection Scoping](collection-scoping.md))
 2. For each collection, calls `retriever.retrieve(query, collection_name, top_k)` (config `top_k`, default 5; the working OpenRouter config uses 8)
 3. The `LlamaIndexRetriever` runs one hybrid Qdrant query (dense and German BM25, fused) for the `top_k` best chunks
-4. Results from all collections are merged by relevance score (cosine similarity) with a per-document diversity cap (`max_chunks_per_document`, default 2): a first pass takes at most that many chunks per distinct document (keyed by collection + file_name), then remaining slots up to `top_k` are filled with the highest-scoring leftovers — so cross-cutting questions span multiple Richtlinien instead of all chunks coming from the 1-2 top-scoring PDFs
+4. Results from all collections are merged by relevance score (cosine similarity) with a per-document diversity cap (`max_chunks_per_document`, default 2): a first pass takes at most that many chunks per distinct document (keyed by its `document_id`, a chunk without one by collection + file_name), then remaining slots up to `top_k` are filled with the highest-scoring leftovers — so cross-cutting questions span multiple Richtlinien instead of all chunks coming from the 1-2 top-scoring PDFs
 5. Formatted with citations (filename, page number) for LLM consumption (chunk content truncated at 2500 chars so OIB tables survive intact)
 
 Note this search path reads **only** the Qdrant index — it is

@@ -22,6 +22,8 @@ from .schema import Physical
 from .schema import physical_for_scope
 from .scope import ScopeRead
 from .scope import scope_condition
+from .scope import scope_filter
+from .selectors import document_chunks
 from .store import QdrantStore
 
 MAX_CANDIDATES = 200

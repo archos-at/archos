@@ -178,4 +178,4 @@ def test_a_document_with_an_id_is_read_by_its_id_never_by_a_namesakes_name(monke
     collection_pages.read_chunks("proj", "Plan.pdf", document_id="doc-og")
     collection_pages.read_chunks("base_corpus", "oib-rl_2.pdf")
 
-    assert asked == [{"document_id": "doc-og"}, {"file_name": "oib-rl_2.pdf"}]
+    assert asked == [vector_store.document_chunks("Plan.pdf", "doc-og"), {"file_name": {"$eq": "oib-rl_2.pdf"}}]

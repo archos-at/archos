@@ -212,10 +212,13 @@ class TestSimilarPassagesOfNamesakes:
             (PLAN, None),
         ]
 
-    def test_the_source_document_is_left_out_by_its_id(self):
+    def test_the_source_document_is_left_out_by_its_id_with_its_points_from_before_ids(self, local_qdrant_store):
         from knowledge_layer.vector_store import similar
+
+        write(SCOPE, [record("Erdgeschoss", PLAN, chunk_id="a1")], {"document_id": "doc-a"})
+        write(SCOPE, [record("Alte Fassung", PLAN, chunk_id="legacy-1")])
+        write(SCOPE, [record("Anderes", "Anderes.pdf", chunk_id="x1")], {"document_id": "doc-x"})
 
         excluded = similar._excluded(similar.PassageSource(SCOPE, PLAN, document_id="doc-a"))
 
-        by_id = models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value="doc-a"))
-        assert any(by_id in exclusion.must for exclusion in excluded.must_not)
+        assert {str(point.payload["chunk_id"]) for point in local_qdrant_store.scroll(SCOPE, None, excluded)} == {"x1"}
