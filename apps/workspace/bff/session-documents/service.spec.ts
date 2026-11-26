@@ -110,7 +110,7 @@ import {
 } from './repository'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
 import { deleteSessionDocument, listSessionDocuments, uploadSessionDocument } from './service'
-import { LiveFilenameTakenError, ReplacedDocumentGoneError } from '@/lib/documents/unique-conflicts'
+import { LiveFilenameTakenError, RACED_UPLOAD_ATTEMPTS, ReplacedDocumentGoneError } from '@/lib/documents/unique-conflicts'
 import { nextVersionNumber } from '@/lib/documents/version-repository'
 import { makeLiveDocumentMatch } from '@/test-utils/db-fixtures'
 
@@ -311,10 +311,10 @@ describe('uploadSessionDocument, when the shelf changes under the probe', () => 
     )
   })
 
-  it('answers 409 when the shelf changes twice in one request', async () => {
-    vi.mocked(admitOrDiscard)
-      .mockRejectedValueOnce(new LiveFilenameTakenError('brandschutz.pdf'))
-      .mockRejectedValueOnce(new LiveFilenameTakenError('brandschutz.pdf'))
+  it('answers 409 when the shelf keeps changing under the request, after a few tries', async () => {
+    for (let lost = 0; lost < RACED_UPLOAD_ATTEMPTS; lost += 1) {
+      vi.mocked(admitOrDiscard).mockRejectedValueOnce(new LiveFilenameTakenError('brandschutz.pdf'))
+    }
 
     const error = await uploadSessionDocument(
       session,
