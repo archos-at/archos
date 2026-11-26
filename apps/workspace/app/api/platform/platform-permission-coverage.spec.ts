@@ -107,6 +107,7 @@ const EXPECTED: Record<string, string> = {
   'organizations/[organizationId]/storage/route.ts GET': 'organizationsView',
   'organizations/[organizationId]/storage/route.ts PUT': 'organizationsManage',
   'organizations/[organizationId]/upload-limit/route.ts PUT': 'organizationsManage',
+  'organizations/[organizationId]/ingest-allowance/route.ts PUT': 'organizationsManage',
   'organizations/[organizationId]/budgets/route.ts GET': 'organizationsView',
   'organizations/[organizationId]/budgets/route.ts PUT': 'organizationsManage',
   'organizations/[organizationId]/usage/route.ts GET': 'usageView',

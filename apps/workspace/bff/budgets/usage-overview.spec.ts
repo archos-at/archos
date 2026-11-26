@@ -19,6 +19,9 @@ vi.mock('@/lib/cache', () => ({
   invalidateCachedPrefix: async () => {},
 }))
 
+const orgSettings = vi.fn(async (): Promise<{ settings: Record<string, unknown> }> => ({ settings: {} }))
+vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: () => orgSettings() }))
+
 const window = (credits: number, ingestCredits: number, events: number, ingestEvents: number) => ({
   costUsd: 0,
   ownKeyCostUsd: 0,
@@ -71,7 +74,7 @@ describe('the ingest meter of the usage overview', () => {
   it('shows a member the office-wide ingestion against the office-wide ceiling, beside their own work', async () => {
     const overview = await getUsageOverview(anna)
     expect(overview.summary.month).toEqual({ amount: 100, events: 5 })
-    expect(overview.ingest).toEqual({ month: { amount: 3000, events: 40 }, monthlyLimit: 3000 })
+    expect(overview.ingest).toEqual({ month: { amount: 3000, events: 40 }, monthlyLimit: 10000, explicit: false })
   })
 
   it('stays office-wide when an admin filters by member', async () => {
@@ -79,6 +82,11 @@ describe('the ingest meter of the usage overview', () => {
     const overview = await getUsageOverview(anna, { userId: 'ben' })
     expect(overview.summary.month).toEqual({ amount: 100, events: 5 })
     expect(overview.ingest.month).toEqual({ amount: 3000, events: 40 })
+  })
+
+  it('shows the office the allowance an operator set, marked as set', async () => {
+    orgSettings.mockResolvedValueOnce({ settings: { ingestMonthlyAllowance: { credit: 50000 } } })
+    expect((await getUsageOverview(anna)).ingest).toMatchObject({ monthlyLimit: 50000, explicit: true })
   })
 
   it('lists no model whose month was ingestion only', async () => {

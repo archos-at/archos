@@ -6352,6 +6352,10 @@
     "de": "Ihr Büro kann jetzt unter Organisation → Personen & Zugriff → Eigene Rollen eigene Rollen in Piloti anlegen und je Projektordner festlegen, welche Rollen ihn lesen und welche ihn bearbeiten dürfen. Eine Rolle, die nicht auf der Liste eines Ordners steht, sieht weder den Ordner noch seine Dateien noch das, was Piloti darin findet, und Organisations-Admins dürfen alles lesen und bearbeiten."
   },
   {
+    "en": "Your office can read in uploaded documents worth up to 10,000 credits a month, separately from your daily and monthly limit, and this allowance can now be raised for your office on request, for example before a large project folder goes up. The usage page shows the allowance that applies.",
+    "de": "Ihr Büro kann pro Monat hochgeladene Dokumente für bis zu 10.000 Credits auslesen lassen, unabhängig von Ihrem täglichen und monatlichen Limit. Dieses Kontingent kann jetzt auf Anfrage für Ihr Büro erhöht werden, zum Beispiel bevor ein großer Projektordner hochgeladen wird. Auf der Nutzungsseite sehen Sie das geltende Kontingent."
+  },
+  {
     "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
     "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
   },

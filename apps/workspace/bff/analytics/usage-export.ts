@@ -7,7 +7,7 @@ import {
   getSpendSummary,
   listActivePolicies,
 } from '@/lib/budgets/service'
-import { ingestLimitOf } from '@/lib/budgets/ingest-limit'
+import { resolveIngestLimit } from '@/lib/budgets/ingest-allowance'
 import { consumed, ingested } from '@/lib/budgets/spend-windows'
 import type { AnalyticsExportStream } from '@/lib/db/schema/analytics-export-cursors'
 import { UNBILLED_USAGE_ACTIVITIES, type BudgetUnit } from '@/lib/db/schema/budgets'
@@ -207,6 +207,7 @@ async function budgetSnapshot(organizationId: string): Promise<ServerEventProper
     ])
     const day = consumed(summary.day, unit)
     const month = consumed(summary.month, unit)
+    const ingest = await resolveIngestLimit(organizationId, unit, budget)
     return {
       organization_name: name ?? undefined,
       unit,
@@ -218,7 +219,8 @@ async function budgetSnapshot(organizationId: string): Promise<ServerEventProper
       day_pct: percentOf(day, budget.dailyLimit),
       month_pct: percentOf(month, budget.monthlyLimit),
       month_ingest_amount: round(ingested(summary.month, unit), 6),
-      ingest_monthly_limit: ingestLimitOf(budget),
+      ingest_monthly_limit: ingest.limit,
+      ingest_limit_explicit: ingest.explicit,
       blocked: status.blocked,
       blocked_scope: status.blockedScope ?? undefined,
       member_limits: policies.filter((policy) => policy.scope === 'member').length,
