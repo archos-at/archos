@@ -118,7 +118,7 @@ E-Mail-Import/
 ```
 
 The subject is never in a name. A filename is unique within its folder
-(ADR-0199), so a name is probed in the mail's own folder only
+(ADR-0200), so a name is probed in the mail's own folder only
 (`findLiveDocumentByFilename` with that folder): the same name in any other
 folder is another document, and the import never touches it. In the mail's
 folder, a document of the name whose screening has passed takes the attachment

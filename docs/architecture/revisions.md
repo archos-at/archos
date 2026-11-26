@@ -9,7 +9,7 @@ Why the link is not a merge:
 Why a same-name re-upload is a version:
 [ADR-0054](../adr/0054-document-versions-and-the-publish-door.md). Why only in
 the same folder:
-[ADR-0199](../adr/0199-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md).
+[ADR-0200](../adr/0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md).
 
 A file name with an index says a file has Fassungen. It does not say what kind of
 file it is; only the Dokumentart says that.

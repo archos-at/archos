@@ -39457,7 +39457,7 @@
       "get": {
         "operationId": "platform-org-budget-get",
         "summary": "Read an organization’s credit budget",
-        "description": "The daily and monthly credit limits of one organization and what the platform default would give it. Organization ids come from platform-overview-get. Change it with platform-org-budget-update.",
+        "description": "The daily and monthly credit limits of one organization and what the platform default would give it, and under `ingest` its monthly allowance for reading uploaded documents in, with the default it replaces and this month's use. Organization ids come from platform-overview-get. Change the limits with platform-org-budget-update, the ingest allowance with platform-org-ingest-allowance-update.",
         "tags": [
           "platform"
         ],
@@ -39761,6 +39761,96 @@
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/organizations/{organizationId}/ingest-allowance": {
+      "put": {
+        "operationId": "platform-org-ingest-allowance-update",
+        "summary": "Set an organization’s monthly allowance for reading documents in",
+        "description": "Sets how much reading uploaded documents in (OCR, vision, embeddings, the intake reading) one organization may spend per UTC month, as an amount in its budget unit; null goes back to the default (10,000 credits, or three times its monthly limit in tokens), 0 stops new readings. Pass the `unit` platform-org-budget-get reports: an amount set for one unit never applies to the other, and a stale unit answers 409. Separate from the daily and monthly limits. Needs platform:organizations:manage. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The organization id, from platform-overview-get."
+            },
+            "description": "The organization id, from platform-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "credit",
+                      "token"
+                    ]
+                  },
+                  "monthlyAllowance": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 999999999999
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "unit",
+                  "monthlyAllowance"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Set an organization’s monthly allowance for reading documents in",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }

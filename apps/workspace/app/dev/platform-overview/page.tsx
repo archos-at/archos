@@ -3,6 +3,11 @@
 import type { JSX } from 'react'
 import { PlatformOverview } from '@/app/app/(shell)/platform/platform-overview'
 import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
+import {
+  ingestAllowancePutSchema,
+  withIngestAllowance,
+  withMonthlyLimit,
+} from '@/lib/budgets/ingest-allowance-contract'
 
 const NAMES = [
   'GRID Platform',
@@ -103,6 +108,13 @@ const ORG_BUDGETS = new Map<string, PlatformOrgBudget>(
         explicit: index === 1,
         dayUsed: unit === 'credit' ? org.day.credits : org.day.tokens,
         monthUsed: unit === 'credit' ? org.month.credits : org.month.tokens,
+        ingest: {
+          unit,
+          monthlyAllowance: unit === 'credit' ? (index === 1 ? 100_000 : 10_000) : null,
+          defaultMonthlyAllowance: unit === 'credit' ? 10_000 : null,
+          explicit: index === 1,
+          monthUsed: 0,
+        },
         canManage: true,
       },
     ]
@@ -207,9 +219,25 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const request = new Request(new URL(url, window.location.origin), init)
         if (request.method === 'PUT') {
           const input = platformOrgBudgetPutSchema.parse(await request.json())
-          ORG_BUDGETS.set(id, { ...budget, ...input, explicit: true })
+          ORG_BUDGETS.set(id, {
+            ...budget,
+            ...input,
+            explicit: true,
+            ingest: withMonthlyLimit(budget.ingest, input.monthlyLimit),
+          })
         }
         return Response.json(ORG_BUDGETS.get(id))
+      }
+      const ingestMatch = /^\/api\/platform\/organizations\/([^/]+)\/ingest-allowance$/.exec(url)
+      if (ingestMatch) {
+        const id = decodeURIComponent(ingestMatch[1])
+        const budget = ORG_BUDGETS.get(id)
+        if (!budget) return Response.json({ error: 'Organization not found' }, { status: 404 })
+        const request = new Request(new URL(url, window.location.origin), init)
+        const { monthlyAllowance } = ingestAllowancePutSchema.parse(await request.json())
+        const ingest = withIngestAllowance(budget.ingest, monthlyAllowance)
+        ORG_BUDGETS.set(id, { ...budget, ingest })
+        return Response.json(ingest)
       }
       if (url.startsWith('/api/platform/pricing')) {
         const request = new Request(new URL(url, window.location.origin), init)
@@ -263,7 +291,7 @@ export default function PlatformOverviewDevPage(): JSX.Element {
       className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-8"
     >
       <div>
-        <h1 className="text-page-title font-medium phone:text-section">Platform — Overview</h1>
+        <h1 className="text-page-title phone:text-section font-medium">Platform — Overview</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Headline figures, the 30-day cost trend, the organization directory (columns drop by
           container width; on a phone revenue and the allowance action fold into the remaining

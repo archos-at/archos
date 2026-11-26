@@ -167,7 +167,7 @@ the user reads nothing. The blast radius of injection is exactly the width of
 the write surface.
 
 **It has no undo.** A document's object and every one of its chunks hang on
-its id (ADR-0199), and `documents.filename` is the label they carry: a rename
+its id (ADR-0200), and `documents.filename` is the label they carry: a rename
 writes `display_name`, and only a move that keeps both documents rewrites the
 file name, through the id. An
 in-place overwrite orphans chunks or, worse, leaves stale ones addressable under

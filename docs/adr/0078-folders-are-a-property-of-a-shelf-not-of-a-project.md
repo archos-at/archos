@@ -126,7 +126,7 @@ provision.
 * Bad, because a re-upload of a document into a different Archiv folder re-files
   the one document (a document is unique per filename per collection), exactly as
   a project does; two Archiv folders cannot hold two files of one name.
-  (Amended by [ADR-0199](0199-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md), 2026-11-26: a name is unique within its folder, so two
+  (Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md), 2026-11-26: a name is unique within its folder, so two
   folders hold two documents of one name, and a re-upload re-files nothing.)
 * Bad, because the Archiv's S3 keys now include the folder path at upload for new
   documents, as a project's do. It is a label (the key is read off the row, and a

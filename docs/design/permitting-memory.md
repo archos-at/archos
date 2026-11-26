@@ -121,7 +121,7 @@ Request:
 - The BFF finds the document by `documentId` AND `collection` in that
   organization (as `document-exists`), or, without an id, by `collection` AND
   `fileName` among live documents (the backfill only knows the name). Since
-  ADR-0199 a name is unique only within its folder, so a name two folders of the
+  ADR-0200 a name is unique only within its folder, so a name two folders of the
   collection hold takes the first match; every ingest sends the id. Unknown,
   binned or project-less →
   `{ stored: false }`, 200.

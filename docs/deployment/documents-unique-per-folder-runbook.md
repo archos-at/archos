@@ -2,7 +2,7 @@
 
 # Documents unique per folder: two deploys and the gate between them
 
-[ADR-0199](../adr/0199-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md)
+[ADR-0200](../adr/0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md)
 makes a document's name unique within its folder and addresses every user
 document by `documents.id`. It ships as two pull requests, one deploy each, in
 this order:

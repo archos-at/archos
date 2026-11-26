@@ -28,6 +28,7 @@ vi.mock('@/lib/authz/platform', async (importOriginal) => {
 import { ForbiddenError } from '@/lib/api/errors'
 import { PlatformAccessDeniedError } from '@/lib/authz/platform'
 import { PLATFORM_OWNED_SETTINGS } from '@/lib/db/schema/organizations'
+import { INGEST_ALLOWANCE_SETTING } from '@/lib/budgets/ingest-allowance-contract'
 import type { UserSession } from '@/lib/auth/types'
 import { updateOrgSettings, updatePlatformOwnedOrgSettings, writeDedicatedOrgSetting } from './service'
 
@@ -50,6 +51,13 @@ describe('platform-owned settings keys', () => {
   it.each([...PLATFORM_OWNED_SETTINGS])('refuses %s from the tenant write path', async (key) => {
     await expect(
       updateOrgSettings('org-1', { settings: { [key]: 999_999_999_999 } })
+    ).rejects.toBeInstanceOf(ForbiddenError)
+    expect(upsertOrganization).not.toHaveBeenCalled()
+  })
+
+  it('refuses an office raising its own ingest allowance', async () => {
+    await expect(
+      updateOrgSettings('org-1', { settings: { [INGEST_ALLOWANCE_SETTING]: { credit: 999_999 } } })
     ).rejects.toBeInstanceOf(ForbiddenError)
     expect(upsertOrganization).not.toHaveBeenCalled()
   })

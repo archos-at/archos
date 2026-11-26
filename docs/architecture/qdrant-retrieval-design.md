@@ -70,7 +70,7 @@ relative to `packages/knowledge-layer/src/knowledge_layer/` unless they are abso
 | Cosine recovered from `exp(-d)` | `adapter.py:998, 6393` | LlamaIndex's Chroma score scale |
 | RRF *across collections*, rank padding | `register.py:616-850` | N collections give N incomparable score bands |
 | 3× over-fetch, then post-filter on `doc_class`, title, folder | `register.py:48, 1132-1173, 2049` | Human-set metadata lives only in Postgres and cannot reach the store |
-| `file_name $in/$nin` lists for folders and superseded Fassungen | `register.py:2100, 2115` | Chunks on Chroma carried no folder or document id. On Qdrant they carry `document_id` and `folder_ancestors`, and a user document is filtered by its id (ADR-0199); a name list is left only for chunks without one |
+| `file_name $in/$nin` lists for folders and superseded Fassungen | `register.py:2100, 2115` | Chunks on Chroma carried no folder or document id. On Qdrant they carry `document_id` and `folder_ancestors`, and a user document is filtered by its id (ADR-0200); a name list is left only for chunks without one |
 | `read_passage` embeds a dummy label query to fetch by filter | `read_passage.py:1036` | No fetch-by-filter path was used |
 | File listing by scanning all metadatas, page size 5000 | `adapter.py` `_get_all_metadatas` | Chroma doubled as the file registry |
 | `_bound_chroma_http` private reach-in | `adapter.py:296` | The chromadb client sets no timeout (2026-10-12 outage) |

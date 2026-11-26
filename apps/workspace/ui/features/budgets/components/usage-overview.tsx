@@ -36,7 +36,7 @@ export interface MemberSpend {
 export interface UsageResponse {
   unit: BudgetUnit
   summary: { day: SpendWindow; month: SpendWindow; perModel: ModelSpend[] }
-  ingest?: { month: SpendWindow; monthlyLimit: number | null }
+  ingest?: { month: SpendWindow; monthlyLimit: number | null; explicit: boolean }
   perMember: MemberSpend[] | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
   status: { blocked: boolean; blockedScope: string | null }
@@ -330,7 +330,9 @@ export const UsageOverviewView: FC<{ usage: UsageResponse }> = ({ usage }) => {
               overNote={t('budgets.ingestOverLimit')}
             />
           </div>
-          <p className="text-muted-foreground mt-1.5 text-xs">{t('budgets.ingestNote')}</p>
+          <p className="text-muted-foreground mt-1.5 text-xs">
+            {t(usage.ingest.explicit ? 'budgets.ingestNoteExplicit' : 'budgets.ingestNote')}
+          </p>
         </div>
       )}
 

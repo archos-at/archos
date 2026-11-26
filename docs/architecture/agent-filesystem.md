@@ -210,7 +210,7 @@ the turn's one.
 - **The leaf is `documents.filename`**, NFC-normalised, with umlauts, spaces and
   case as the office wrote them
   (`/project/Einreichung/Pläne/EP-01_Grundrisse_Index-B.pdf.md`). It is a label:
-  the document is its id (`documents.id`, ADR-0199), which every row, hit and
+  the document is its id (`documents.id`, ADR-0200), which every row, hit and
   citation carries beside the name (`document_id`), so a path, a hit and a
   citation of one document agree even when another folder holds its name.
 - **Extracted text gets `.md` appended** (`Brandschutzkonzept_Hubergasse14.pdf.md`).
@@ -224,7 +224,7 @@ the turn's one.
 - **A rename** (`display_name`) shows on the `ls` row and resolves in `read_file`;
   the path keeps the file name and does not move.
 - **Duplicates.** A file name is unique within its folder, compared NFC,
-  trimmed and case-insensitively (ADR-0199), so two folders of one collection may
+  trimmed and case-insensitively (ADR-0200), so two folders of one collection may
   each hold `Plan.pdf`, and the folder part of the path decides between them.
   A path whose folder holds no such leaf still resolves to a listable document of
   that name elsewhere, with "Moved: … is now …" (`estate/glob.resolve_in`); when
