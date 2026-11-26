@@ -96,13 +96,19 @@ _KEPT_ON_THE_DOCUMENTS_OWN_ROW = frozenset({"superseded_by", "revision_suggestio
 
 
 def _read_document_human_set_fields(collection_name: str, version: _PreviousVersion) -> None:
-    document_id = str(version.document_id)
     try:
-        for name, values in _human_set_fields(collection_name, [], [document_id]):
-            if document_id in values and name not in _KEPT_ON_THE_DOCUMENTS_OWN_ROW:
-                version.preserved.setdefault(name, values[document_id])
+        fields = _human_set_fields(collection_name, [], [str(version.document_id)])
     except Exception:  # noqa: BLE001 — losing them must not keep the old chunks
         logger.warning("Could not read the previous version's metadata; re-deriving it", exc_info=True)
+        return
+    _preserve_own(version, fields)
+
+
+def _preserve_own(version: _PreviousVersion, fields: tuple[tuple[str, dict[str, Any]], ...]) -> None:
+    document_id = str(version.document_id)
+    for name, values in fields:
+        if document_id in values and name not in _KEPT_ON_THE_DOCUMENTS_OWN_ROW:
+            version.preserved.setdefault(name, values[document_id])
 
 
 def _version_of_document(document_id: str, chunks: list[tuple[str, str, bool]]) -> _PreviousVersion | None:

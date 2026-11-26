@@ -194,7 +194,7 @@ class EstateBackend(BackendProtocol):
         resolution = await self.resolve(parsed)
         file = resolution.file
         if file is None:
-            miss = ToolOutput(no_such_file(parsed.path, resolution.suggestions), status="error")
+            miss = ToolOutput(resolution.miss(parsed.path), status="error")
             return miss, ReadRowFacts(target=asked_document(parsed.path), missing=True)
         facts = ReadRowFacts(target=file.row.file_name if may_name(file.row.collection) else None, shelf=file.row.shelf)
         if file.row.file_name.lower().endswith(MODEL_EXTENSIONS):

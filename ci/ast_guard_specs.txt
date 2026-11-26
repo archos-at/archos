@@ -5,6 +5,7 @@ apps/workspace/bff/agent-api/agent-reachability.spec.ts
 apps/workspace/bff/agent-api/english-only.spec.ts
 apps/workspace/bff/backend-url.spec.ts
 apps/workspace/bff/db/rls-coverage.spec.ts
+apps/workspace/bff/db/schema/documents.spec.ts
 apps/workspace/bff/db/server-component-db-access.spec.ts
 apps/workspace/bff/documents/agent-namespace-producers.spec.ts
 apps/workspace/bff/documents/document-status.spec.ts

@@ -9,6 +9,7 @@ import { projects } from '@/lib/db/schema/projects'
 import { contentTokens, jaccardSimilarity, normalizeContentGerman } from '@/lib/knowledge/consolidation'
 import { cosineSimilaritySql, embedNote, type EmbeddedNote } from '@/lib/knowledge/embeddings'
 import { fuseHybridRelevance } from '@/lib/knowledge/recall-scoring'
+import { AmbiguousDocumentNameError } from '../documents/ambiguous-name'
 import { NAMESPACED_AGENT_PRODUCERS } from '../documents/agent-namespace'
 import type { LiveFolderAccess } from './live-access'
 
@@ -92,7 +93,7 @@ export interface PermitDocumentRef {
 }
 
 export async function findPermitDocument(organizationId: string, ref: PermitDocumentRef): Promise<PermitDocument | null> {
-  const [row] = await getDb()
+  const rows = await getDb()
     .select({
       documentId: documents.id,
       projectId: documents.projectId,
@@ -109,13 +110,16 @@ export async function findPermitDocument(organizationId: string, ref: PermitDocu
           ? eq(documents.id, ref.documentId)
           : and(
               eq(documents.filename, ref.fileName),
+              eq(documents.lifecycle, 'active'),
               or(eq(documents.authoredBy, 'user'), inArray(documents.authoredByProducer, [...NAMESPACED_AGENT_PRODUCERS]))
             ),
         sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         documentVisibleTo(internalRead('ingest'))
       )
     )
-    .limit(1)
+    .limit(ref.documentId ? 1 : 2)
+  if (rows.length > 1) throw new AmbiguousDocumentNameError()
+  const [row] = rows
   if (!row?.projectId) return null
   return { ...row, projectId: row.projectId }
 }

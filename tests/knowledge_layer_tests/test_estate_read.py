@@ -272,3 +272,29 @@ def _render_pages(pages: dict[int, str], *, document_id: str, version: int) -> t
 
 async def _async(value):
     return value
+
+
+class TestTwoNamesakes:
+    @pytest.fixture
+    def namesakes(self, monkeypatch):
+        from knowledge_layer_testing import estate_read as harness
+
+        rows = [
+            FileRow(file_name="Plan.pdf", shelf="project", collection="proj_a", folder="Einreichung", document_id="eg"),
+            FileRow(file_name="Plan.pdf", shelf="project", collection="proj_a", folder="Ausführung", document_id="og"),
+        ]
+        monkeypatch.setitem(harness.ROWS, "org_a", rows)
+        return harness._backend(page_reader=_page_reader({"Plan.pdf": {1: "Grundriss"}}))
+
+    async def test_a_path_whose_folder_holds_neither_asks_which_one_is_meant(self, namesakes) -> None:
+        result = await namesakes.read_file("/project/Alt/Plan.pdf.md", pages="1")
+
+        assert result.status == "error"
+        assert "/project/Einreichung/Plan.pdf.md" in result.text and "/project/Ausführung/Plan.pdf.md" in result.text
+        assert "Moved:" not in result.text
+
+    async def test_the_path_of_one_namesake_reads_that_one(self, namesakes) -> None:
+        result = await namesakes.read_file("/project/Ausführung/Plan.pdf.md", pages="1")
+
+        assert result.status == "ok"
+        assert [hit.document_id for hit in result.hits] == ["og"]

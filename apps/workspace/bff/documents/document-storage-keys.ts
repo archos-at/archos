@@ -2,7 +2,7 @@ import 'server-only'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { presignForBackend, buildImageStorageKey, buildPageTextStorageKey } from '@/lib/s3'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
-import { ConflictError } from '@/lib/api/errors'
+import { AmbiguousDocumentNameError } from './ambiguous-name'
 import {
   findPageTextTarget,
   findReadableStorageKeyById,
@@ -61,19 +61,13 @@ export async function presignDocumentPageTextUpload(
   return { uploadUrl, storageKey, storageBucket, documentId, version: doc.version, contentHash: doc.contentHash }
 }
 
-const AMBIGUOUS_NAME_REASON = 'ambiguous_name'
-
 async function onlyDocumentNamed(
   collectionName: string,
   filename: string,
   organizationId: string | undefined
 ): Promise<StoredDocumentFile | null> {
   const rows = await findStorageKeysByCollectionAndFilename(collectionName, filename, organizationId)
-  if (rows.length > 1) {
-    throw new ConflictError('More than one document in this collection has this name; ask by its document id', {
-      reason: AMBIGUOUS_NAME_REASON,
-    })
-  }
+  if (rows.length > 1) throw new AmbiguousDocumentNameError()
   return rows[0] ?? null
 }
 

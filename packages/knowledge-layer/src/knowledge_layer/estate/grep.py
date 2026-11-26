@@ -247,12 +247,12 @@ def _narrowing(
     if parsed is not None and parsed.leaf is not None and parsed.mount is not None:
         from .backend import resolve_in
 
-        hit = resolve_in(files, parsed).file
-        if hit is None:
+        resolution = resolve_in(files, parsed)
+        if resolution.file is None:
             from .backend import no_such_file
 
-            return None, no_such_file(parsed.path)
-        files = [hit]
+            return None, resolution.question or no_such_file(parsed.path)
+        files = [resolution.file]
     elif parsed is not None and parsed.mount is not None and parsed.folder:
         folder = fold(parsed.folder)
         files = [
