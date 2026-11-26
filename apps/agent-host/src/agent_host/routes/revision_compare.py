@@ -141,9 +141,7 @@ async def _pages(collection: str, pair: Fassungen, page: int, organization_id: s
 
     async def one(side: str, document: AvailableDocument) -> bytes:
         try:
-            return (
-                await _load_page(collection, document.file_name, page, organization_id, document.document_id)
-            ).jpeg
+            return (await _load_page(collection, document.file_name, page, organization_id, document.document_id)).jpeg
         except PageImageUnavailable as exc:
             raise HTTPException(
                 status_code=404, detail=f"Page {page} of the {side} Fassung is not available ({exc.reason})"
