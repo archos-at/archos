@@ -44,17 +44,24 @@ FROM (
 )
 UNION ALL
 SELECT
-    concat('[Jobs] ', env, ': fehlgeschlagen ohne Erfolg (26 h): ', arrayStringConcat(groupUniqArray(10)(name), ', ')) AS rule,
+    concat('[Jobs] ', env, ': letzter Lauf fehlgeschlagen: ', arrayStringConcat(groupUniqArray(10)(name), ', ')) AS rule,
     toFloat(count()) AS breach
 FROM (
-    -- Every stack. A Kubernetes Job (a CronJob's run) that failed and never
-    -- succeeded in the last 26 h. qdrant-snapshot failed every day on dev and
-    -- prod, its retries took the snapshots again, and prod's SeaweedFS filled
-    -- to 91 % before anything said so (2026-11-14).
+    -- Every stack. The latest finished run of a job failed. qdrant-snapshot
+    -- failed every day on dev and prod, its retries took the snapshots again,
+    -- and prod's SeaweedFS filled to 91 % before anything said so (2026-11-14).
+    -- A run is judged against the runs after it: one 500 from housekeeping-
+    -- ghost-jobs during a dev rollout, followed by 80 good runs, kept this
+    -- alert firing and emailing every hour for 26 h (2026-11-26).
+    SELECT env, name
+    FROM (
     SELECT
         coalesce(sr.env, '?') AS env,
-        replaceRegexpOne(sr.job, '-[0-9]{6,}$', '') AS name,
+        -- A CronJob's run carries a minute suffix, a Pulumi Job an 8-hex one;
+        -- the deploy-time base-corpus Job is a run of its CronJob.
+        replaceRegexpOne(sr.job, '(-deploy)?-([0-9]{6,}|[0-9a-f]{8})$', '') AS name,
         sr.job AS job,
+        min(m.timestamp) AS started,
         argMaxIf(m.value, m.timestamp, m.metric_name = 'k8s.job.failed_pods') AS failed,
         argMaxIf(m.value, m.timestamp, m.metric_name = 'k8s.job.successful_pods') AS ok
     FROM posthog.metrics AS m
@@ -71,7 +78,10 @@ FROM (
     WHERE m.timestamp > now() - INTERVAL 26 HOUR
         AND m.metric_name IN ('k8s.job.failed_pods', 'k8s.job.successful_pods')
     GROUP BY env, name, job
-    HAVING failed > 0 AND ok = 0
+    HAVING failed > 0 OR ok > 0
+    )
+    GROUP BY env, name
+    HAVING argMax(failed > 0 AND ok = 0, started)
 )
 GROUP BY env
 ))

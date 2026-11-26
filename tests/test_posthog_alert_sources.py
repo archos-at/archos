@@ -95,3 +95,12 @@ def test_a_guard_only_in_the_label_does_not_count() -> None:
     breach = "toFloat(countIf(spans15 AND hi15 = 0))"
     assert breach in sql
     assert _unguarded(sql.replace(breach, "toFloat(countIf(hi15 = 0))")) == ["Qdrant peer down for 15 min: "]
+
+
+def test_the_jobs_rule_judges_a_job_by_its_latest_run() -> None:
+    code = _code((ALERTS / "infrastructure-incidents.sql").read_text())
+    assert "HAVING argMax(failed > 0 AND ok = 0, started)" in code, (
+        "PostHog mails on every check while an alert fires. A [Jobs] rule that counts any failed run in 26 h "
+        "kept firing hourly after one failed run of a 2-minute CronJob whose later runs passed (2026-11-26). "
+        "Fire only when a job's latest finished run failed."
+    )
