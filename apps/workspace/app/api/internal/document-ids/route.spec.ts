@@ -55,6 +55,13 @@ describe('GET /api/internal/document-ids', () => {
     expect(vi.mocked(listDocumentIdsInCollection).mock.calls[0]).toEqual(['proj_1', undefined])
   })
 
+  it('answers 200 with no documents for a collection nobody knows, never a 404 the backend could take for a missing route', async () => {
+    vi.mocked(listDocumentIdsInCollection).mockResolvedValue([])
+    const res = await GET(request('?collection=proj_unknown'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ documents: [] })
+  })
+
   it('narrows to the organization the query names, read as the ingestion reader so a personal shelf is listed', async () => {
     let seen: unknown = null
     vi.mocked(listDocumentIdsInCollection).mockImplementation(async () => {

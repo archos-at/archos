@@ -34,6 +34,7 @@ export interface UseDocumentActionsOptions {
   onCancelled?: (documentId: string, status: string) => void
   onDeleted?: (documentId: string) => void
   onMoved?: (documentId: string, folderId: string | null) => void
+  folderPath?: (folderId: string | null | undefined, name: string) => string
 }
 
 export type RenameOutcome = 'renamed' | 'failed' | 'nameTaken'
@@ -89,6 +90,7 @@ export function useDocumentActions({
   onReingested,
   onCancelled,
   onMoved,
+  folderPath,
 }: UseDocumentActionsOptions): DocumentActions {
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
   const tFiles = useTranslations(filesCopy)
@@ -249,7 +251,7 @@ export function useDocumentActions({
         let movedAs = name
         if (conflict) {
           const choice = askConflicts
-            ? (await askConflicts({ operation: 'move', folderName, rows: [moveConflictRow({ id: document.id, name }, conflict)] }))?.get(
+            ? (await askConflicts({ operation: 'move', folderName, rows: [moveConflictRow({ id: document.id, name, path: folderPath?.(document.folderId, name) ?? name }, conflict)] }))?.get(
                 document.id
               )
             : undefined
@@ -282,7 +284,7 @@ export function useDocumentActions({
         setIsMoving(false)
       }
     },
-    [document.id, name, onMoved, onDeleted, askConflicts, t, tFiles]
+    [document.id, document.folderId, name, onMoved, onDeleted, askConflicts, folderPath, t, tFiles]
   )
 
   return {

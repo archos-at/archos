@@ -10,6 +10,7 @@ import { refusalOf, shelfRefusalOf, throwUnlessOk, type ShelfRefusal } from '../
 import type { NameConflict } from '@/lib/documents/name-conflict'
 import { moveConflictRow, movePatchBody, nameConflictOfResponse, type SentConflictChoice } from '../lib/name-conflict'
 import type { AskNameConflicts } from './use-name-conflict-prompt'
+import { documentPathIn } from '../lib/folder-path-label'
 
 const patchFolder = (documentId: string, folderId: string | null, onConflict?: SentConflictChoice): Promise<Response> =>
   fetch(`/api/documents/${documentId}/folder`, {
@@ -89,7 +90,10 @@ export function useDocumentMoves(
       const answer = await askConflicts({
         operation: 'move',
         folderName: folderLabel(folderId),
-        rows: held.map(({ file, conflict }) => moveConflictRow({ id: file.id, name: documentDisplayName(file) }, conflict)),
+        rows: held.map(({ file, conflict }) => {
+          const name = documentDisplayName(file)
+          return moveConflictRow({ id: file.id, name, path: documentPathIn(folders, file.folderId, name) }, conflict)
+        }),
       })
       for (const { file } of held) {
         const choice = answer?.get(file.id)
@@ -97,7 +101,7 @@ export function useDocumentMoves(
       }
       return chosen
     },
-    [askConflicts, folderLabel]
+    [askConflicts, folderLabel, folders]
   )
 
   const undo = useRef<(documentId: string, folderId: string | null) => Promise<void>>(async () => {})

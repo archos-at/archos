@@ -33,12 +33,12 @@ export function movePatchBody(folderId: string | null, onConflict?: SentConflict
 }
 
 export function moveConflictRow(
-  document: { id: string; name: string },
+  document: { id: string; name: string; path: string },
   conflict: NameConflict,
 ): ConflictRow {
   return {
     key: document.id,
-    path: document.name,
+    path: document.path,
     name: document.name,
     existingName: conflict.existingName,
     within: 'folder',

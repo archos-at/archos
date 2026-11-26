@@ -110,7 +110,7 @@ export function validateFileUpload(
   const newFileNames = new Set<string>()
 
   for (const file of files) {
-    if (newFileNames.has(file.name)) {
+    if (!context.durableCorpus && newFileNames.has(file.name)) {
       fileErrors.push({
         file,
         code: 'DUPLICATE_FILE',

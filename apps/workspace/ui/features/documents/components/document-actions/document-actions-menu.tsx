@@ -101,6 +101,7 @@ export function useDocumentActionMenu({
     onReingested,
     onCancelled,
     onMoved,
+    folderPath: (folderId, name) => documentPathIn(folders ?? [], folderId, name),
   })
 
   if (!live) return { entries: NO_ENTRIES, dialogs: null, name: documentActions.name }
