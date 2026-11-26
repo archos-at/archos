@@ -1,12 +1,12 @@
 import type { FileItem, FolderItem } from '../components/project-file-workspace'
 import { folderMatchKey, pathSegments } from '@/lib/projects/folders'
-import { documentNameKey } from '@/lib/documents/name-match'
+import { documentNameKey, documentNameMatchKey } from '@/lib/documents/name-match'
 import { documentReadFamily } from '@/lib/documents/document-status'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import { findRevisionSeries, parseRevisionName } from '@/lib/documents/revision-series'
 import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
-import { nameMatchKey, nextFreeDocumentName, type ConflictChoice, type SentConflictChoice } from './name-conflict'
+import { nextFreeDocumentName, type ConflictChoice, type SentConflictChoice } from './name-conflict'
 
 export type PlannedAction = 'new' | 'update' | 'unchanged' | 'collision' | 'excluded'
 
@@ -202,7 +202,7 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
     return created
   }
   const hold = (index: Map<string, Map<string, PlanDocument[]>>, folderKey: string, name: string, document: PlanDocument) => {
-    const key = nameMatchKey(name)
+    const key = documentNameMatchKey(name)
     const names = index.get(folderKey) ?? new Map<string, PlanDocument[]>()
     names.set(key, [...(names.get(key) ?? []), document])
     index.set(folderKey, names)
@@ -216,7 +216,7 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
   }
 
   const holderOf = (folderKey: string, name: string): PlanDocument | undefined => {
-    const key = nameMatchKey(name)
+    const key = documentNameMatchKey(name)
     const byFilename = heldByFilename.get(folderKey)?.get(key) ?? []
     const exact = byFilename.find((document) => documentNameKey(document.filename) === documentNameKey(name))
     return exact ?? byFilename[0] ?? heldByDisplayName.get(folderKey)?.get(key)?.[0]
@@ -225,15 +225,15 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
   const dropGroups = new Map<string, File[]>()
   for (const entry of admitted) {
     const folderKey = folderKeyOf(relativeDirectory(entry.path))
-    const key = `${folderKey}\u0000${nameMatchKey(entry.file.name)}`
+    const key = `${folderKey}\u0000${documentNameMatchKey(entry.file.name)}`
     dropGroups.set(key, [...(dropGroups.get(key) ?? []), entry.file])
-    takenIn(folderKey).add(nameMatchKey(entry.file.name))
+    takenIn(folderKey).add(documentNameMatchKey(entry.file.name))
   }
 
   const keepBothName = (folderKey: string, name: string): string => {
     const names = takenIn(folderKey)
     const suggested = nextFreeDocumentName(name, names)
-    names.add(nameMatchKey(suggested))
+    names.add(documentNameMatchKey(suggested))
     return suggested
   }
 
@@ -267,7 +267,7 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
     const targetPath = relativeDirectory(path)
     const folderKey = folderKeyOf(targetPath)
     const base: PlannedFile = { file, originPath: path, targetPath, landsInFolderId: landsIn(targetPath), action: 'new' }
-    const group = dropGroups.get(`${folderKey}\u0000${nameMatchKey(file.name)}`) ?? [file]
+    const group = dropGroups.get(`${folderKey}\u0000${documentNameMatchKey(file.name)}`) ?? [file]
     const existing = holderOf(folderKey, file.name)
     const shownAs = existing ? matchedName(existing, file.name) : undefined
     const held = existing

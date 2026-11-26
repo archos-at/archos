@@ -79,6 +79,7 @@ export const officeShelf = {
       empty: 'Bitte einen Namen eingeben.',
       tooLong: 'Dieser Name ist zu lang.',
       invalidCharacters: 'Ein Name darf keine Schrägstriche oder Zeilenumbrüche enthalten.',
+      nameTaken: 'In diesem Ordner heißt schon ein Dokument „{name}“. Wählen Sie einen anderen Namen.',
     },
   },
   delete: {

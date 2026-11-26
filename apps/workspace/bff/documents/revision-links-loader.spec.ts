@@ -83,6 +83,52 @@ describe('loadRevisionLinks', () => {
     })
   })
 
+  describe('two documents of one name in different folders', () => {
+    const ENTWURF = { id: '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f', filename: 'Plan.pdf', projectId: 'p1', folderId: 'folder-entwurf', createdAt: null }
+    const EINREICHUNG = { id: '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30', filename: 'Plan.pdf', projectId: 'p1', folderId: 'folder-einreichung', createdAt: null }
+    const einreichung = subject({ id: EINREICHUNG.id, filename: 'Plan.pdf' })
+
+    it('resolves a link the listing names by id to that document, not to the same-named one', async () => {
+      vi.mocked(readRevisionLinkNames).mockImplementation(async (ref) =>
+        ref.documentId === EINREICHUNG.id ? names({ supersedes: [ENTWURF.id] }) : null,
+      )
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, EINREICHUNG])
+
+      const facts = await loadRevisionLinks(session, [einreichung], reader)
+
+      expect(facts.get(EINREICHUNG.id)?.supersedes).toEqual([{ id: ENTWURF.id, filename: 'Plan.pdf' }])
+      expect(findRevisionCounterparts).toHaveBeenCalledWith('org-1', 'proj_abc', [ENTWURF.id], reader)
+    })
+
+    it('treats its own id as itself: a document never supersedes or is superseded by itself', async () => {
+      vi.mocked(readRevisionLinkNames).mockResolvedValue(names({ supersededBy: EINREICHUNG.id, change: { text: 'Neu.', basis: EINREICHUNG.id } }))
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, EINREICHUNG])
+
+      const facts = await loadRevisionLinks(session, [einreichung], reader)
+
+      expect(facts.get(EINREICHUNG.id)).toEqual({ supersededBy: null, supersedes: [], suggestion: null, changeSummary: { text: 'Neu.', basis: 'previous' } })
+    })
+
+    it('resolves a name two documents carry to neither, rather than guessing', async () => {
+      const bestand = subject({ id: 'doc-bestand', filename: 'Bestand.pdf' })
+      vi.mocked(readRevisionLinkNames).mockResolvedValue(names({ supersededBy: 'Plan.pdf' }))
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, EINREICHUNG])
+
+      expect((await loadRevisionLinks(session, [bestand], reader)).size).toBe(0)
+    })
+
+    it('still resolves a name only one document carries, for a link stored before links carried ids', async () => {
+      const bestand = subject({ id: 'doc-bestand', filename: 'Bestand.pdf' })
+      vi.mocked(readRevisionLinkNames).mockResolvedValue(names({ supersededBy: 'Plan.pdf' }))
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF])
+
+      expect((await loadRevisionLinks(session, [bestand], reader)).get('doc-bestand')?.supersededBy).toEqual({
+        id: ENTWURF.id,
+        filename: 'Plan.pdf',
+      })
+    })
+  })
+
   it('has no entry when everything a document refers to is hidden', async () => {
     vi.mocked(readRevisionLinkNames).mockResolvedValue(names({ supersededBy: HELD }))
 

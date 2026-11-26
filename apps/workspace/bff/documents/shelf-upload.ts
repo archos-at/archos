@@ -363,18 +363,11 @@ export async function uploadToShelf(
 
   const ignored = upload.revisionOfIgnored ? { revisionOfIgnored: upload.revisionOfIgnored } : {}
   const placed = await placeUpload(session, upload)
-  if (placed.kind === 'unchanged') {
-    return { documentId: placed.documentId, jobId: null, status: 'uploaded', filename: placed.filename, unchanged: true, ...ignored }
-  }
-  if (placed.kind === 'skipped') {
-    return {
-      documentId: placed.documentId,
-      jobId: null,
-      status: 'uploaded',
-      filename: placed.filename,
-      skipped: true,
-      existingDocumentId: placed.documentId,
-    }
+  if (placed.kind !== 'stored') {
+    const left = { documentId: placed.documentId, jobId: null, status: 'uploaded' as const, filename: placed.filename }
+    return placed.kind === 'unchanged'
+      ? { ...left, unchanged: true, ...ignored }
+      : { ...left, skipped: true, existingDocumentId: placed.documentId }
   }
   const { documentId, storageKey, filename } = placed
 

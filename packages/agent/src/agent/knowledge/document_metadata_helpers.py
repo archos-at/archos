@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import NamedTuple
 
 from agent.knowledge.document_classification import canonical_doc_class
 from agent.knowledge.page_count import page_number
@@ -18,6 +17,7 @@ if TYPE_CHECKING:
 
 from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import _RETAINED_COLUMNS
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_constants import REFUSAL_REASON
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 
@@ -26,11 +26,6 @@ class LinkOutcome(StrEnum):
     LINKED = "linked"
     LOOP = "loop"
     MISSING = "missing"
-
-
-class DocumentRef(NamedTuple):
-    file_name: str
-    document_id: str | None
 
 
 def _current_doc_class(value: str | None) -> str | None:

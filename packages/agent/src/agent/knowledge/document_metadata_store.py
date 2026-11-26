@@ -39,7 +39,7 @@ from agent.knowledge.document_metadata_constants import SUGGESTION_BASES
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import TAGS_SET_BY_PERSON
 from agent.knowledge.document_metadata_constants import logger
-from agent.knowledge.document_metadata_helpers import DocumentRef
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_helpers import LinkOutcome
 from agent.knowledge.document_metadata_helpers import _current_doc_class
 from agent.knowledge.document_metadata_helpers import _decode_page_count

@@ -16,7 +16,8 @@ import {
 import { isUuid } from '@/lib/ids'
 import { documentNameKey } from './name-match'
 import { readRevisionLinkNames, refreshCollectionFiles } from './reconcile-status'
-import { findRevisionCounterparts, revisionCounterpartOf, type RevisionCounterpartRow } from './repository'
+import { findRevisionCounterparts, type RevisionCounterpartRow } from './repository'
+import { revisionCounterpartOf, revisionReferenceKey } from './revision-reference'
 
 export interface RevisionLinksSubject extends AuthoredDocumentRow {
   id: string
@@ -44,8 +45,6 @@ async function visibleRefs(
   }
 }
 
-const referenceKey = (reference: string): string => (isUuid(reference) ? reference : documentNameKey(reference))
-
 const namesOf = (collectionName: string, reference: string): Promise<RevisionLinkNames | null> => {
   const ref = collectionFileRef({
     id: isUuid(reference) ? reference : null,
@@ -69,7 +68,7 @@ async function walkHistory(
   while (frontier.length > 0 && walked.length < REVISION_MAX_HISTORY) {
     const next: string[] = []
     for (const reference of frontier) {
-      const key = referenceKey(reference)
+      const key = revisionReferenceKey(reference)
       if (seen.has(key) || walked.length >= REVISION_MAX_HISTORY) continue
       seen.add(key)
       const own = await namesOf(collectionName, reference)

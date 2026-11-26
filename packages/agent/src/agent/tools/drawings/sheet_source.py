@@ -200,7 +200,7 @@ def _locate(
         body = bff_http.get_json(
             DOCUMENT_FILE_PATH,
             timeout=10.0,
-            query={**document_file_query(collection, file_name, document_id), "calibrationsPage": str(page)},
+            query={**document_file_query(collection, file_name, document_id), "calibrationsPage": page},
             headers=headers,
         )
     except bff_http.BffRefusedError as exc:

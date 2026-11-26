@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { projectShelf, shelfDocumentWhere, type DocumentShelf } from '../shelf'
 import { isUuid } from '@/lib/ids'
-import { documentAliasKey, documentNameKey, documentNameVariants } from '../name-match'
+import { documentAliasKey, documentNameVariants } from '../name-match'
 import { FILENAME_LOOKUP_MAX_NAMES } from '../filename-lookup'
 import { documents, type DocumentAuthor, type DocumentLifecycle } from '@/lib/db/schema/documents'
 import { documentVisibleTo, type DocumentReader } from '../visibility'
@@ -66,17 +66,6 @@ async function findRevisionCounterpartChunk(
       .orderBy(asc(documents.id))
       .limit(DOCUMENT_LIST_LIMIT),
   )
-}
-
-export function revisionCounterpartOf<T extends Pick<RevisionCounterpartRow, 'id' | 'filename'>>(
-  rows: readonly T[],
-  reference: string,
-): T | null {
-  const byId = rows.find((row) => row.id === reference)
-  if (byId) return byId
-  const key = documentNameKey(reference)
-  const named = rows.filter((row) => documentNameKey(row.filename) === key)
-  return named.length === 1 ? named[0] : null
 }
 
 export interface DocumentNameMatchRow {

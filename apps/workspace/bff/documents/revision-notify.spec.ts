@@ -800,6 +800,7 @@ describe('announceSettledVersions — a link written at ingestion', () => {
   })
 
   it('does not tell the older document\'s own followers about a link to itself', async () => {
+    vi.mocked(readRevisionLinkNames).mockResolvedValue({ ...written(), supersedes: ['doc-b', 'Grundriss_B.pdf'] })
     vi.mocked(findRevisionCounterparts).mockResolvedValue([
       { id: 'doc-b', filename: 'Grundriss_B.pdf', projectId: 'p1', folderId: null, createdAt: new Date() },
     ])
@@ -807,6 +808,29 @@ describe('announceSettledVersions — a link written at ingestion', () => {
     await announceSettledVersions('org-1', ['doc-b'])
 
     expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  describe('with a same-named document in another folder', () => {
+    const ENTWURF = { id: 'doc-a', filename: 'Grundriss_A.pdf', projectId: 'p1', folderId: 'folder-entwurf', createdAt: new Date() }
+    const BESTAND = { id: 'doc-c', filename: 'Grundriss_A.pdf', projectId: 'p1', folderId: 'folder-bestand', createdAt: new Date() }
+
+    it('announces to the followers of the document the link names by id, with the excerpt written against it', async () => {
+      vi.mocked(readRevisionLinkNames).mockResolvedValue({ ...written('Wand verschoben.', 'doc-a'), supersedes: ['doc-a'] })
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, BESTAND])
+
+      await announceSettledVersions('org-1', ['doc-b'])
+
+      expect(new Set(emitted().map((item) => item.anchorId))).toEqual(new Set(['doc-a']))
+      expect(emitted()[0]?.payload).toMatchObject({ excerpt: 'Wand verschoben.' })
+    })
+
+    it('announces nothing for a name both carry, rather than telling the followers of both', async () => {
+      vi.mocked(findRevisionCounterparts).mockResolvedValue([ENTWURF, BESTAND])
+
+      await announceSettledVersions('org-1', ['doc-b'])
+
+      expect(emitInboxItems).not.toHaveBeenCalled()
+    })
   })
 })
 

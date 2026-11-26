@@ -236,7 +236,9 @@ async def test_a_named_document_reports_its_collection(store, monkeypatch) -> No
 
     monkeypatch.setattr(run, "resolve_document", resolve)
     monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
-    monkeypatch.setattr(run, "locate_stored_file", lambda collection, name, headers: ("bucket", "key"))
+    monkeypatch.setattr(
+        run, "locate_stored_file", lambda collection, name, headers, document_id=None: ("bucket", "key")
+    )
     monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: b"%PDF-1.7")
     seen: list[dict] = []
     _runner(monkeypatch, _ok({}), seen)
@@ -261,7 +263,11 @@ def _documents(monkeypatch: pytest.MonkeyPatch, named: dict[str, tuple[str, str,
     by_key = {f"{collection}/{file_name}": data for collection, file_name, data in named.values()}
     monkeypatch.setattr(run, "resolve_document", resolve)
     monkeypatch.setattr(run, "_headers", lambda: {"x": "y"})
-    monkeypatch.setattr(run, "locate_stored_file", lambda collection, name, headers: ("bucket", f"{collection}/{name}"))
+    monkeypatch.setattr(
+        run,
+        "locate_stored_file",
+        lambda collection, name, headers, document_id=None: ("bucket", f"{collection}/{name}"),
+    )
     monkeypatch.setattr(run, "read_stored_file", lambda bucket, key, budget: by_key[key])
 
 

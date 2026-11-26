@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 from agent.knowledge import document_metadata_store as facade
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
-from agent.knowledge.document_metadata_helpers import DocumentRef
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_helpers import LinkOutcome
 from agent.knowledge.document_metadata_helpers import _link_lock_key
 from agent.knowledge.document_metadata_helpers import _LinkRow

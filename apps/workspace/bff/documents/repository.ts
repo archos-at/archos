@@ -5,7 +5,7 @@ export type { DocumentListRow, ListProjectDocumentsOptions, DocumentListPage } f
 export { afterDocumentLevelCursor, nameContains, readFamilyWhere, readDocumentLevelPage, listDocumentLevelPage } from './repository/levels'
 export type { ShelfReadFilters, DocumentLevelPage } from './repository/levels'
 export { findShelfDocumentListRow, summarizeShelfFolders, listShelfFailedDocuments, filenameLookupWhere, findDocumentsByFilenames, findProjectDocumentsByFilenames, findDocumentsByIds, findProjectDocumentsByIds } from './repository/shelf-reads'
-export { findRevisionCounterparts, revisionCounterpartOf, documentNameMatchColumns, probeDocumentNames, findDocumentsByNames, findProjectDocumentsByNames } from './repository/name-lookup'
+export { findRevisionCounterparts, documentNameMatchColumns, probeDocumentNames, findDocumentsByNames, findProjectDocumentsByNames } from './repository/name-lookup'
 export type { RevisionCounterpartRow, DocumentNameMatchRow } from './repository/name-lookup'
 export { findDocumentTenancy, updateDocumentVisibilityInOrg, listDocumentIdsForProject, listUnreadableProjectDocuments, documentIdsExisting, findDocumentInOrg } from './repository/lookup'
 export {

@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+class DocumentRef(NamedTuple):
+    file_name: str
+    document_id: str | None
 
 
 _OFFICE_TIMEZONE = ZoneInfo("Europe/Vienna")

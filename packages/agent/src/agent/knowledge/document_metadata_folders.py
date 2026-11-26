@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
-from agent.knowledge.document_metadata_helpers import DocumentRef
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.document_metadata_helpers import _escape_like
 
 
