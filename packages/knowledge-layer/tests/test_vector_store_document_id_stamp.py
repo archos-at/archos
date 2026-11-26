@@ -59,6 +59,20 @@ def test_a_stamp_gives_each_point_its_documents_id_once(fresh_qdrant_store):
     assert _keys("geloescht.pdf") == [(None, None)], "a point no live document holds stays as it is"
 
 
+def test_a_point_without_an_id_whose_name_two_live_documents_hold_is_counted_as_held(fresh_qdrant_store):
+    write(SCOPE, [record("vor den Ids", "Plan.pdf")])
+    write(SCOPE, [record("weg", "geloescht.pdf")])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    def live(scope: str) -> LiveDocuments:
+        return LiveDocuments.of(scope, [("doc_eg", "Plan.pdf"), ("doc_og", "Plan.pdf")])
+
+    count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
+
+    assert (count.written, count.after, count.unmatched, count.unmatched_held) == (0, 0, 2, 1)
+    assert _keys("Plan.pdf") == [(None, None)], "neither namesake can claim it"
+
+
 def test_the_base_corpus_is_never_asked_about(fresh_qdrant_store):
     write("base_corpus", [record("OIB", "OIB-RL 2.pdf")])
     asked: list[str] = []

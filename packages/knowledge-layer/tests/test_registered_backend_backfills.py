@@ -135,6 +135,18 @@ def test_the_check_fails_while_a_user_document_lacks_its_id(name, command, legac
     assert _main(command)([*command[2:], "--check"]) == 1, name
 
 
+def test_the_stamp_check_fails_while_two_live_documents_hold_the_name_of_a_point_without_an_id(
+    legacy_user_document, bff, capsys
+):
+    bff.documents[SCOPE].append({"id": "5d0c1c2e-0000-4000-8000-000000000002", "filename": "alt.pdf", "folderId": "f"})
+    command = dict(_registered())["qdrant-document-id-stamp"]
+
+    assert _deploy_sequence(command) == [0, 1], "dry run, apply"
+    [applied] = _count_lines(capsys.readouterr().out, "apply")
+    assert (applied["after"], applied["unmatched_held"]) == (0, 3)
+    assert _main(command)([*command[2:], "--check"]) == 1
+
+
 @pytest.mark.parametrize(("name", "command"), _registered())
 def test_a_bff_without_the_route_stops_the_backfill(name, command, legacy_user_document, monkeypatch, capsys):
     monkeypatch.setenv("INTERNAL_API_TOKEN", "not-the-token")

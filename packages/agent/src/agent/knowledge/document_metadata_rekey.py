@@ -61,6 +61,9 @@ class LiveDocuments:
                 return self.ids_by_name[spelling]
         return None
 
+    def holds(self, stored: str | None) -> bool:
+        return any(spelling in self.ids_by_name or spelling in self.ambiguous for spelling in _spellings(stored or ""))
+
 
 def live_documents(collection: str) -> LiveDocuments:
     body = get_json(DOCUMENT_IDS_PATH, timeout=_TIMEOUT_SECONDS, query={"collection": collection})

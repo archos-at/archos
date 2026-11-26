@@ -28,7 +28,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="Write. Without it nothing is changed.")
-    mode.add_argument("--check", action="store_true", help="A dry run that exits 1 while any point is left.")
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="A dry run that exits 1 while a point is left, or a point without an id has a name a live document holds.",
+    )
     parser.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE)
     args = parser.parse_args(argv)
     try:
@@ -57,12 +61,13 @@ def main(argv: list[str] | None = None) -> int:
                 "written": count.written,
                 "after": count.after,
                 "unmatched": count.unmatched,
+                "unmatched_held": count.unmatched_held,
             },
             separators=(",", ":"),
         ),
         flush=True,
     )
-    return 1 if count.after and (args.apply or args.check) else 0
+    return 1 if (count.after or count.unmatched_held) and (args.apply or args.check) else 0
 
 
 if __name__ == "__main__":

@@ -40,6 +40,14 @@ class StampCount:
     after: int
     unmatched: int
     scopes: int
+    unmatched_held: int = 0
+
+
+@dataclass(frozen=True)
+class _Match:
+    ids: dict[tuple[str, str], str]
+    unmatched: int
+    held: int
 
 
 def _unstamped_files(client: QdrantClient, collection: str, *, page_size: int) -> dict[tuple[str, str], int]:
@@ -63,18 +71,19 @@ def _unstamped_files(client: QdrantClient, collection: str, *, page_size: int) -
             return found
 
 
-def _matched(
-    files: dict[tuple[str, str], int], live: Callable[[str], LiveDocuments]
-) -> tuple[dict[tuple[str, str], str], int]:
-    matched: dict[tuple[str, str], str] = {}
-    unmatched = 0
+def _matched(files: dict[tuple[str, str], int], live: Callable[[str], LiveDocuments]) -> _Match:
+    ids: dict[tuple[str, str], str] = {}
+    unmatched = held = 0
     for (scope, file_name), points in files.items():
-        document_id = live(scope).id_for(file_name)
+        documents = live(scope)
+        document_id = documents.id_for(file_name)
         if document_id:
-            matched[(scope, file_name)] = document_id
-        else:
-            unmatched += points
-    return matched, unmatched
+            ids[(scope, file_name)] = document_id
+            continue
+        unmatched += points
+        if documents.holds(file_name):
+            held += points
+    return _Match(ids, unmatched, held)
 
 
 def _stamp_filter(scope: str, file_name: str) -> models.Filter:
@@ -103,21 +112,21 @@ def stamp_document_ids(
         return cache[scope]
 
     files = _unstamped_files(client, collection, page_size=page_size)
-    matched, unmatched = _matched(files, live)
-    before = sum(files[key] for key in matched)
+    found = _matched(files, live)
+    before = sum(files[key] for key in found.ids)
     scopes = len({scope for scope, _ in files})
     if not apply:
-        return StampCount(before=before, written=0, after=before, unmatched=unmatched, scopes=scopes)
+        return StampCount(before, 0, before, found.unmatched, scopes, found.held)
     operations = [
         models.SetPayloadOperation(
             set_payload=models.SetPayload(payload={DOCUMENT_ID_FIELD: document_id}, filter=_stamp_filter(*key))
         )
-        for key, document_id in matched.items()
+        for key, document_id in found.ids.items()
     ]
     for start in range(0, len(operations), STAMP_BATCH):
         client.batch_update_points(collection, update_operations=operations[start : start + STAMP_BATCH], wait=True)
         logger.info("%s: %d of %d files given %s", collection, start + STAMP_BATCH, len(operations), DOCUMENT_ID_FIELD)
     left = _unstamped_files(client, collection, page_size=page_size)
-    left_matched, left_unmatched = _matched(left, live)
-    after = sum(left[key] for key in left_matched)
-    return StampCount(before=before, written=before - after, after=after, unmatched=left_unmatched, scopes=scopes)
+    remaining = _matched(left, live)
+    after = sum(left[key] for key in remaining.ids)
+    return StampCount(before, before - after, after, remaining.unmatched, scopes, remaining.held)
