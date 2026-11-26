@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserSession } from '@/lib/auth/types'
 import { getTenantContext, withTenant } from '@/lib/db/tenant-context'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
-import { NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 
 const requirePlatformPermission = vi.fn()
 const hasPlatformPermission = vi.fn()
@@ -37,12 +37,27 @@ vi.mock('@/lib/audit/service', () => ({
 }))
 
 const listOrganizationMembers = vi.fn()
+const getOrgSettings = vi.fn()
+const updatePlatformOwnedOrgSettings = vi.fn()
 vi.mock('@/lib/organizations/service', () => ({
   getOrganizationDisplayName: async () => 'Büro Nord',
   listOrganizationMembers: (...args: unknown[]) => listOrganizationMembers(...args),
+  getOrgSettings: (...args: unknown[]) => getOrgSettings(...args),
+  updatePlatformOwnedOrgSettings: (...args: unknown[]) => updatePlatformOwnedOrgSettings(...args),
 }))
 
-import { getPlatformOrgBudget, getPlatformOrgUsage, savePlatformOrgBudget } from './platform-service'
+const invalidateIngestAllowanceCache = vi.fn()
+vi.mock('./ingest-allowance', async () => {
+  const { configuredIngestAllowances, effectiveIngestLimit } = await import('./ingest-limit')
+  return {
+    resolveIngestLimit: async (organizationId: string, unit: 'credit' | 'token', limits: { monthlyLimit: number | null }) =>
+      effectiveIngestLimit(configuredIngestAllowances((await getOrgSettings(organizationId)).settings), unit, limits),
+    invalidateIngestAllowanceCache: (...args: unknown[]) => invalidateIngestAllowanceCache(...args),
+  }
+})
+
+
+import { getPlatformOrgBudget, getPlatformOrgUsage, savePlatformIngestAllowance, savePlatformOrgBudget } from './platform-service'
 
 const session: UserSession = {
   userId: 'user_operator',
@@ -72,6 +87,7 @@ describe('platform organization allowances', () => {
     })
     setBudgetPolicy.mockResolvedValue({ id: 'policy_1', currency: 'credit' })
     recordAuditEvent.mockResolvedValue(undefined)
+    getOrgSettings.mockResolvedValue({ settings: {} })
   })
 
   it('reads the target allowance, not the operator active organization', async () => {
@@ -85,6 +101,13 @@ describe('platform organization allowances', () => {
         ...budget,
         dayUsed: 25,
         monthUsed: 300,
+        ingest: {
+          unit: 'credit',
+          monthlyAllowance: 10000,
+          defaultMonthlyAllowance: 10000,
+          explicit: false,
+          monthUsed: 0,
+        },
         canManage: true,
       })
       expect(getTenantContext()).toMatchObject({ organizationId: 'org_platform' })
@@ -162,6 +185,85 @@ describe('platform organization allowances', () => {
     setBudgetPolicy.mockRejectedValue(new Error('Database unavailable'))
     await expect(savePlatformOrgBudget(session, 'org_tenant', input, request)).rejects.toThrow('Database unavailable')
     expect(recordAuditEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('the ingest allowance an operator sets per office', () => {
+  const ingestRequest = new Request('http://localhost/api/platform/organizations/org_tenant/ingest-allowance', { method: 'PUT' })
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    requirePlatformPermission.mockResolvedValue(undefined)
+    hasPlatformPermission.mockResolvedValue(true)
+    getOrganization.mockResolvedValue({ id: 'org_tenant' })
+    getOrgBudget.mockResolvedValue(budget)
+    getSpendTotals.mockResolvedValue({
+      day: { credits: 25, tokens: 1000 },
+      month: { credits: 3300, tokens: 20000, ingestCredits: 3000, ingestTokens: 0 },
+    })
+    getOrgSettings.mockResolvedValue({ settings: {} })
+    updatePlatformOwnedOrgSettings.mockImplementation(async (_s: unknown, _o: string, patch: { settings: Record<string, unknown> }) => {
+      getOrgSettings.mockResolvedValue({ settings: patch.settings })
+    })
+  })
+
+  it('reads the set amount of the office’s unit, and the default it replaces', async () => {
+    getOrgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { credit: 50000, token: 9 } } })
+    expect((await getPlatformOrgBudget(session, 'org_tenant')).ingest).toEqual({
+      unit: 'credit',
+      monthlyAllowance: 50000,
+      defaultMonthlyAllowance: 10000,
+      explicit: true,
+      monthUsed: 3000,
+    })
+  })
+
+  it('stores the amount under the office’s unit, keeps the other unit’s, and audits it', async () => {
+    getOrgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { token: 9 } } })
+    const result = await savePlatformIngestAllowance(session, 'org_tenant', { unit: 'credit', monthlyAllowance: 50000 }, ingestRequest)
+
+    expect(requirePlatformPermission).toHaveBeenCalledWith(session, PLATFORM_PERMISSIONS.organizationsManage)
+    expect(updatePlatformOwnedOrgSettings).toHaveBeenCalledWith(session, 'org_tenant', {
+      settings: { ingestMonthlyAllowance: { token: 9, credit: 50000 } },
+    })
+    expect(invalidateIngestAllowanceCache).toHaveBeenCalledWith('org_tenant')
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'org_tenant',
+      action: 'org.ingest_allowance.updated',
+      targetType: 'organization',
+      targetId: 'org_tenant',
+      metadata: { unit: 'credit', monthlyAllowance: 50000, explicit: true },
+    }))
+    expect(result).toMatchObject({ monthlyAllowance: 50000, explicit: true, monthUsed: 3000 })
+  })
+
+  it('goes back to the default with null', async () => {
+    getOrgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { credit: 50000 } } })
+    const result = await savePlatformIngestAllowance(session, 'org_tenant', { unit: 'credit', monthlyAllowance: null }, ingestRequest)
+
+    expect(updatePlatformOwnedOrgSettings).toHaveBeenCalledWith(session, 'org_tenant', { settings: { ingestMonthlyAllowance: {} } })
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: { unit: 'credit', monthlyAllowance: 0, explicit: false },
+    }))
+    expect(result).toMatchObject({ monthlyAllowance: 10000, explicit: false })
+  })
+
+  it('refuses an amount meant for another unit than the office’s, and writes nothing', async () => {
+    getOrgBudget.mockResolvedValue({ ...budget, unit: 'token', monthlyLimit: null })
+    await expect(savePlatformIngestAllowance(session, 'org_tenant', { unit: 'credit', monthlyAllowance: 50000 }, ingestRequest))
+      .rejects.toBeInstanceOf(ConflictError)
+    expect(updatePlatformOwnedOrgSettings).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+  })
+
+  it('denies before probing the organization, and validates direct callers', async () => {
+    requirePlatformPermission.mockRejectedValueOnce(new Error('Forbidden'))
+    await expect(savePlatformIngestAllowance(session, 'org_tenant', { unit: 'credit', monthlyAllowance: 1 }, ingestRequest))
+      .rejects.toThrow('Forbidden')
+    expect(getOrganization).not.toHaveBeenCalled()
+    await expect(savePlatformIngestAllowance(session, 'org_tenant', { unit: 'credit', monthlyAllowance: -1 }, ingestRequest))
+      .rejects.toBeInstanceOf(UnprocessableError)
+    expect(updatePlatformOwnedOrgSettings).not.toHaveBeenCalled()
   })
 })
 

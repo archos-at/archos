@@ -210,7 +210,7 @@ the turn's one.
 - **The leaf is `documents.filename`**, NFC-normalised, with umlauts, spaces and
   case as the office wrote them
   (`/project/Einreichung/Pläne/EP-01_Grundrisse_Index-B.pdf.md`). It is a label:
-  the document is its id (`documents.id`, ADR-0199), which every row, hit and
+  the document is its id (`documents.id`, ADR-0200), which every row, hit and
   citation carries beside the name (`document_id`), so a path, a hit and a
   citation of one document agree even when another folder holds its name.
 - **Extracted text gets `.md` appended** (`Brandschutzkonzept_Hubergasse14.pdf.md`).

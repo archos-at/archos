@@ -167,6 +167,7 @@ backend:
   - 'deploy/compose/init-db.sql'
   - 'deploy/postgres/rename-legacy-names.sh'
   - 'deploy/posthog/README.md'
+  - 'deploy/posthog/alerts/infrastructure-incidents.sql'
   - 'deploy/posthog/alerts/platform-health.sql'
   - 'deploy/posthog/support/copy.de.json'
   - 'deploy/posthog/website/copy.de.json'

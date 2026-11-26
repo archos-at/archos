@@ -5,9 +5,14 @@ import { hasPlatformPermission, requirePlatformPermission } from '@/lib/authz/pl
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { withTenant } from '@/lib/db/tenant-context'
 import { getWorkOS } from '@/lib/workos/client'
-import { NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import { recordAuditEvent } from '@/lib/audit/service'
-import { getOrganizationDisplayName, listOrganizationMembers } from '@/lib/organizations/service'
+import {
+  getOrgSettings,
+  getOrganizationDisplayName,
+  listOrganizationMembers,
+  updatePlatformOwnedOrgSettings,
+} from '@/lib/organizations/service'
 import {
   BudgetValidationError,
   getOrganizationUsageOverview,
@@ -15,7 +20,17 @@ import {
   getSpendTotals,
   setBudgetPolicy,
 } from './service'
-import { consumed } from './spend-windows'
+import { consumed, ingested } from './spend-windows'
+import {
+  INGEST_ALLOWANCE_SETTING,
+  ingestAllowancePutSchema,
+  type IngestAllowancePut,
+  type PlatformIngestAllowance,
+} from './ingest-allowance-contract'
+import { resolveIngestLimit, invalidateIngestAllowanceCache } from './ingest-allowance'
+import { configuredIngestAllowances } from './ingest-limit'
+import type { SpendWindow } from './repository'
+import type { EffectiveBudgetPolicy } from './policy-lookup'
 import {
   platformOrgBudgetPutSchema,
   type PlatformOrgBudget,
@@ -49,8 +64,64 @@ async function readBudget(session: UserSession, organizationId: string): Promise
       explicit: budget.explicit,
       dayUsed: consumed(spend.day, budget.unit),
       monthUsed: consumed(spend.month, budget.unit),
+      ingest: await readIngestAllowance(organizationId, budget, spend.month),
       canManage,
     }
+  })
+}
+
+async function readIngestAllowance(
+  organizationId: string,
+  budget: EffectiveBudgetPolicy,
+  month: SpendWindow,
+): Promise<PlatformIngestAllowance> {
+  const ingest = await resolveIngestLimit(organizationId, budget.unit, budget)
+  return {
+    unit: budget.unit,
+    monthlyAllowance: ingest.limit,
+    defaultMonthlyAllowance: ingest.defaultLimit,
+    explicit: ingest.explicit,
+    monthUsed: ingested(month, budget.unit),
+  }
+}
+
+export async function savePlatformIngestAllowance(
+  session: UserSession,
+  organizationId: string,
+  input: IngestAllowancePut,
+  request: Request,
+): Promise<PlatformIngestAllowance> {
+  await requirePlatformPermission(session, PLATFORM_PERMISSIONS.organizationsManage)
+  await requireOrganization(organizationId)
+  const parsed = ingestAllowancePutSchema.safeParse(input)
+  if (!parsed.success) throw new UnprocessableError('Invalid ingest allowance')
+  const { unit, monthlyAllowance } = parsed.data
+
+  return withTenant({ organizationId, userId: session.userId }, async () => {
+    const budget = await getOrgBudget(organizationId)
+    if (budget.unit !== unit) {
+      throw new ConflictError(`The organization's budget unit is ${budget.unit}, not ${unit}`)
+    }
+    const configured = configuredIngestAllowances((await getOrgSettings(organizationId)).settings)
+    if (monthlyAllowance === null) delete configured[unit]
+    else configured[unit] = monthlyAllowance
+
+    await updatePlatformOwnedOrgSettings(session, organizationId, {
+      settings: { [INGEST_ALLOWANCE_SETTING]: configured },
+    })
+    await invalidateIngestAllowanceCache(organizationId)
+
+    await recordAuditEvent({
+      organizationId,
+      actor: { userId: session.userId, email: session.email },
+      action: 'org.ingest_allowance.updated',
+      targetType: 'organization',
+      targetId: organizationId,
+      metadata: { unit, monthlyAllowance: monthlyAllowance ?? 0, explicit: monthlyAllowance !== null },
+      request,
+    })
+
+    return readIngestAllowance(organizationId, budget, (await getSpendTotals(organizationId)).month)
   })
 }
 
