@@ -27,7 +27,7 @@ import { ForbiddenError } from '@/lib/api/errors'
 import type { ListedDocument } from '@/lib/documents/document-listing'
 import { resolveShelfDocumentsById } from '@/lib/documents/resolve-by-id'
 import { BY_ID_PATH, ByIdResolveError, createDocumentByIdClient } from '@/lib/documents/by-id-client'
-import { DOCUMENT_ID_LOOKUP_MAX_IDS } from '@/lib/documents/by-id-types'
+import { DOCUMENT_ID_LOOKUP_MAX_IDS } from '@/lib/documents/id-lookup'
 import { POST } from './route'
 
 const DRAFT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'

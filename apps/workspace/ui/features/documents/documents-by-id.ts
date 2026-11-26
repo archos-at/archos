@@ -1,7 +1,7 @@
 import { createDocumentByIdClient, ByIdResolveError } from '@/lib/documents/by-id-client'
 import type { ResolvedDocumentRow } from '@/lib/documents/by-name-client'
 import { onDocumentsChanged } from '@/lib/documents/document-changes'
-import { isDocumentId } from './document-id'
+import { isUuidString } from '@/lib/ids'
 
 export interface IdentifiedDocument {
   project: ResolvedDocumentRow | null
@@ -82,7 +82,7 @@ export async function resolveDocumentsById(
 ): Promise<Map<string, IdentifiedDocument>> {
   const entries = await Promise.all(
     [...new Set(ids.map((id) => id.trim()).filter(Boolean))].map(async (id) => {
-      if (!isDocumentId(id)) return [id, NOT_ASKED] as const
+      if (!isUuidString(id)) return [id, NOT_ASKED] as const
       const cacheKey = `${projectScope(projectId)}|${id}`
       let promise = cache.get(cacheKey)
       if (!promise) {

@@ -1,6 +1,6 @@
 import { byNameResponseSchema } from './by-name-types'
 import type { ByNameFetch, ResolvedDocumentRow } from './by-name-client'
-import { DOCUMENT_ID_LOOKUP_MAX_IDS } from './by-id-types'
+import { DOCUMENT_ID_LOOKUP_MAX_IDS } from './id-lookup'
 
 export class ByIdResolveError extends Error {
   constructor(readonly status: number) {

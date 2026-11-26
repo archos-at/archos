@@ -1,7 +1,7 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { documentNameLookupKey, resolveDocumentsByName } from '@/features/documents/lib/documents-by-name'
 import { resolveDocumentsById } from '@/features/documents/documents-by-id'
-import { isDocumentId } from '@/features/documents/document-id'
+import { isUuidString } from '@/lib/ids'
 import { maxCanvasPixels, rasterFor } from '@/features/knowledge/lib/pdf-raster'
 import { pageTextChunks } from '@/features/knowledge/lib/pdf-text-chunks'
 import { locatePassage, passageBounds } from '@/features/knowledge/lib/passage-highlight'
@@ -45,7 +45,7 @@ export function resetExcerptDocuments(): void {
 }
 
 async function documentIdOf(projectId: string | null, evidence: DocumentEvidence): Promise<string | null> {
-  if (isDocumentId(evidence.documentId)) {
+  if (isUuidString(evidence.documentId)) {
     return (await resolveDocumentsById(projectId, [evidence.documentId])).get(evidence.documentId)?.project?.id ?? null
   }
   const named = (await resolveDocumentsByName(projectId, [evidence.fileName])).get(documentNameLookupKey(evidence.fileName))

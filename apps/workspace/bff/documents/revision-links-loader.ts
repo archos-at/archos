@@ -14,10 +14,9 @@ import {
   type RevisionRef,
 } from './revision-links'
 import { isUuid } from '@/lib/ids'
-import { documentNameKey } from './name-match'
+import { documentNameKey, revisionCounterpartOf } from './name-match'
 import { readRevisionLinkNames, refreshCollectionFiles } from './reconcile-status'
 import { findRevisionCounterparts, type RevisionCounterpartRow } from './repository'
-import { revisionCounterpartOf, revisionReferenceKey } from './revision-reference'
 
 export interface RevisionLinksSubject extends AuthoredDocumentRow {
   id: string
@@ -56,6 +55,8 @@ const namesOf = (collectionName: string, reference: string): Promise<RevisionLin
   })
   return ref ? readRevisionLinkNames(ref) : Promise.resolve(null)
 }
+
+const revisionReferenceKey = (reference: string): string => (isUuid(reference) ? reference : documentNameKey(reference))
 
 async function walkHistory(
   collectionName: string,

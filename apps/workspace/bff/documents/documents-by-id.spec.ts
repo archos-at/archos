@@ -21,7 +21,7 @@ vi.mock('@/lib/db/tenant-context', () => ({
 
 import { findDocumentsByIds } from './repository'
 import { memberReader } from './document-reader'
-import { DOCUMENT_ID_LOOKUP_MAX_IDS } from './by-id-types'
+import { DOCUMENT_ID_LOOKUP_MAX_IDS } from './id-lookup'
 
 const DRAFT = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 const SUBMISSION = '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30'
