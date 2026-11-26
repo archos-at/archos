@@ -5,6 +5,7 @@ import { withOptionalTenant } from '@/lib/db/tenant-context'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
 import { NAMESPACED_AGENT_PRODUCERS } from '../agent-namespace'
+import { outsideTheBin } from '../shelf'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '../visibility'
 
 export interface StoredDocumentFile {
@@ -48,7 +49,13 @@ export async function findStorageKeysByCollectionAndFilename(
         .select(storedFileColumns)
         .from(documents)
         .where(
-          and(eq(documents.filename, filename), ...readableUserFileIn(collectionName, organizationId), documentVisibleTo(SCREENED_ONLY)),
+          and(
+            eq(documents.filename, filename),
+            ...readableUserFileIn(collectionName, organizationId),
+            eq(documents.lifecycle, 'active'),
+            outsideTheBin(),
+            documentVisibleTo(SCREENED_ONLY),
+          ),
         )
         .orderBy(desc(documents.createdAt))
         .limit(NAME_AMBIGUITY_PROBE),

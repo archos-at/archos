@@ -3,6 +3,7 @@ import { asShelf, asSourceKind, modernizeLane } from '@/lib/source-kinds'
 import { parsePageRegions } from '@/features/knowledge/lib/page-region'
 import { toProjectStatus } from '@/lib/projects/project-status'
 import { citationLineOf, hasCitationLine, type CitationLineWire } from '@/shared/citation-line'
+import { isDocumentId } from '@/features/documents/documents-by-id'
 
 const trimmed = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -62,7 +63,7 @@ export const citationFromWire = (
     title: wire.title?.trim() || undefined,
     citationKey: wire.citation_key?.trim() || undefined,
     documentId: wire.document_id?.trim() || undefined,
-    storedDocumentId: wire.stored_document_id?.trim() || undefined,
+    storedDocumentId: isDocumentId(wire.stored_document_id) ? wire.stored_document_id.trim() : undefined,
     collection: wire.collection?.trim() || undefined,
     sourceType: wire.source_type?.trim() || undefined,
     tool: wire.tool?.trim() || undefined,

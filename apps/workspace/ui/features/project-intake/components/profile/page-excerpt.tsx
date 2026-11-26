@@ -47,6 +47,7 @@ export function PageExcerpt({
   const near = useNear(frameRef)
   const [state, setState] = useState<State>({ status: 'waiting' })
   const { fileName, page, quote } = evidence
+  const documentId = evidence.documentId ?? null
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -55,7 +56,7 @@ export function PageExcerpt({
     setState({ status: 'waiting' })
     void drawExcerpt({
       projectId,
-      evidence: { kind: 'document', fileName, page, quote },
+      evidence: { kind: 'document', fileName, page, quote, documentId },
       canvas,
       cssWidth: frameRef.current?.clientWidth || FALLBACK_WIDTH,
       signal: controller.signal,
@@ -63,7 +64,7 @@ export function PageExcerpt({
       if (!controller.signal.aborted) setState(drawn ? { status: 'drawn', drawn } : { status: 'unavailable' })
     })
     return () => controller.abort()
-  }, [near, projectId, fileName, page, quote])
+  }, [near, projectId, fileName, page, quote, documentId])
 
   const label = t('excerpt.figure', { name: fileName, page })
   const drawn = state.status === 'drawn' ? state.drawn : null

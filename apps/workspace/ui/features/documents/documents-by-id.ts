@@ -10,6 +10,13 @@ export interface IdentifiedDocument {
 
 const SOFT_OFFICE_SHELF_STATUSES = new Set([403, 404])
 
+const DOCUMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const isDocumentId = (value: string | null | undefined): value is string =>
+  typeof value === 'string' && DOCUMENT_ID.test(value.trim())
+
+const NOT_ASKED: IdentifiedDocument = { project: null, officeShelf: null, error: false }
+
 const cache = new Map<string, Promise<IdentifiedDocument>>()
 const pending = new Map<string, Map<string, Array<(result: IdentifiedDocument) => void>>>()
 
@@ -79,6 +86,7 @@ export async function resolveDocumentsById(
 ): Promise<Map<string, IdentifiedDocument>> {
   const entries = await Promise.all(
     [...new Set(ids.map((id) => id.trim()).filter(Boolean))].map(async (id) => {
+      if (!isDocumentId(id)) return [id, NOT_ASKED] as const
       const cacheKey = `${projectScope(projectId)}|${id}`
       let promise = cache.get(cacheKey)
       if (!promise) {

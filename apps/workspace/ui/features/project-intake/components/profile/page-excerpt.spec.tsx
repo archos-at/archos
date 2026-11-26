@@ -67,6 +67,7 @@ describe('PageExcerpt', () => {
   })
 
   describe('two project documents of one name, in different folders', () => {
+    const ENTWURF = '22222222-2222-4222-8222-222222222222'
     const pdf = (id: string) => ({ id, filename: 'E-02 Schnitt.pdf', createdAt: '2026-10-14T08:30:00.000Z', contentType: 'application/pdf' })
 
     it('draws no excerpt rather than a page of the wrong one when the evidence names only the file', async () => {
@@ -82,12 +83,12 @@ describe('PageExcerpt', () => {
         return new Response(JSON.stringify({ documents: office ? [] : ids.map(pdf) }))
       })
       setDocumentsByIdFetch(byId)
-      const named = { ...evidence('E-02 Schnitt.pdf', 2), documentId: 'doc-entwurf' }
+      const named = { ...evidence('E-02 Schnitt.pdf', 2), documentId: ENTWURF }
       render(ui([named], true))
 
       await waitFor(() => expect(screen.getByTestId('page-excerpt')).toHaveAttribute('data-state', 'drawn'))
       expect(byName).not.toHaveBeenCalled()
-      expect(byId.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))).toContainEqual({ projectId: 'project-1', ids: ['doc-entwurf'] })
+      expect(byId.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))).toContainEqual({ projectId: 'project-1', ids: [ENTWURF] })
     })
   })
 

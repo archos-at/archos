@@ -47,6 +47,15 @@ describe('findStorageKeysByCollectionAndFilename', () => {
     expect(query.params).toEqual(expect.arrayContaining(['proj_abc', 'brandschutz-2026-08-20.pdf', 'user']))
   })
 
+  it('asks only the live documents of the name, so an archived or binned twin in another folder does not make it ambiguous', async () => {
+    await findStorageKeysByCollectionAndFilename('proj_abc', 'Plan.pdf')
+
+    const query = render(whereArg.mock.calls[0][0])
+    expect(query.sql).toContain('"documents"."lifecycle" = ')
+    expect(query.params).toContain('active')
+    expect(query.sql).toContain('bin_folder.deleted_at IS NOT NULL')
+  })
+
   it('never resolves a quarantined document, whose bytes no model may read (ADR-0086)', async () => {
     await findStorageKeysByCollectionAndFilename('proj_abc', 'konten.pdf')
 

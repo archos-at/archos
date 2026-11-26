@@ -170,6 +170,7 @@ describe('a proposed change that meets a name already in the folder', () => {
     )
 
     expect(results).toEqual([{ label: 'Plan.pdf', ok: false, reason: 'A document named "Plan.pdf" is already in this folder.', conflict: CONFLICT }])
+    expect(results[0]?.reason).not.toContain('onConflict')
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: DOC, folderId: 'folder-plans' }, SESSION)
   })
 
@@ -181,7 +182,7 @@ describe('a proposed change that meets a name already in the folder', () => {
       { session: SESSION, projectId: 'proj-1', request },
     )
 
-    expect(results).toEqual([expect.objectContaining({ label: 'Entwurf.pdf', ok: false, conflict: CONFLICT })])
+    expect(results).toEqual([{ label: 'Entwurf.pdf', ok: false, reason: 'A document named "Plan.pdf" is already in this folder.', conflict: CONFLICT }])
   })
 
   it('carries no conflict on a refusal that is not one', async () => {

@@ -228,6 +228,21 @@ describe('DocumentAnswerCard', () => {
       expect(byName).not.toHaveBeenCalled()
     })
 
+    it('treats an id that is no document id as absent, and finds the file by its name', async () => {
+      server.use(
+        shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [entwurf] })),
+        shelfPost('office_shelf', '/api/documents/by-name', () => HttpResponse.json({ documents: [] })),
+        http.post('/api/documents/by-id', () => HttpResponse.json({}, { status: 400 })),
+        http.get('/api/documents/:id/thumbnail', () => HttpResponse.json({}, { status: 404 })),
+      )
+
+      render(
+        <DocumentAnswerCard title="Test" documents={[{ file_name: 'Bericht.pdf', document_id: 'Bericht.pdf' }]} projectId="proj-1" />,
+      )
+
+      await waitFor(() => expect(screen.getByText('Bericht aus dem Entwurf.')).toBeInTheDocument())
+    })
+
     it('without an id, links neither rather than the newest of the two', async () => {
       server.use(
         shelfPost('project', '/api/documents/by-name', () => HttpResponse.json({ documents: [bestand, entwurf] })),

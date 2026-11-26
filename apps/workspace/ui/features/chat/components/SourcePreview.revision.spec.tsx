@@ -73,7 +73,7 @@ const CURRENT = 'Statik_Index_C.pdf'
 
 const replaced = {
   revision: {
-    supersededBy: { id: 'doc-c', filename: CURRENT },
+    supersededBy: { id: '33333333-3333-4333-8333-333333333333', filename: CURRENT },
     supersedes: [],
     suggestion: null,
     changeSummary: null,
@@ -88,7 +88,7 @@ describe('a citation of an older revision', () => {
     toastError.mockClear()
     rows = {
       [OLD.toLowerCase()]: row('doc-b', OLD, replaced),
-      [CURRENT.toLowerCase()]: row('doc-c', CURRENT),
+      [CURRENT.toLowerCase()]: row('33333333-3333-4333-8333-333333333333', CURRENT),
       'brandschutz.pdf': row('doc-x', 'Brandschutz.pdf'),
     }
     vi.stubGlobal('fetch', fetchMock)
@@ -118,7 +118,7 @@ describe('a citation of an older revision', () => {
     await waitFor(() => expect(open.openFilePeek).toHaveBeenCalledTimes(1))
     expect(open.openFilePeek).toHaveBeenCalledWith(
       expect.objectContaining({
-        file: expect.objectContaining({ id: 'doc-c', filename: CURRENT }),
+        file: expect.objectContaining({ id: '33333333-3333-4333-8333-333333333333', filename: CURRENT }),
         source: 'project',
         projectId: 'project-1',
       })
@@ -127,16 +127,16 @@ describe('a citation of an older revision', () => {
 
   test('a citation that names its stored document is looked up by that id, never by its name', async () => {
     rows = {
-      'plan.pdf': row('doc-bestand', 'Plan.pdf'),
-      entwurf: row('doc-entwurf', 'Plan.pdf', replaced),
+      'plan.pdf': row('11111111-1111-4111-8111-111111111111', 'Plan.pdf'),
+      entwurf: row('22222222-2222-4222-8222-222222222222', 'Plan.pdf', replaced),
     }
     const user = userEvent.setup()
-    render(<SourcePreviewChip citation={refTo('Plan.pdf', 'doc-entwurf')} />)
+    render(<SourcePreviewChip citation={refTo('Plan.pdf', '22222222-2222-4222-8222-222222222222')} />)
     await user.hover(await screen.findByRole('button', { name: /Preview source/ }))
 
     expect(await screen.findByText('Older revision. Current:')).toBeInTheDocument()
     const asked = fetchMock.mock.calls.map(([input, init]) => [String(input), init?.body ? JSON.parse(String(init.body)) : null])
-    expect(asked).toContainEqual(['/api/documents/by-id', { projectId: 'project-1', ids: ['doc-entwurf'] }])
+    expect(asked).toContainEqual(['/api/documents/by-id', { projectId: 'project-1', ids: ['22222222-2222-4222-8222-222222222222'] }])
     expect(asked.map(([path]) => path)).not.toContain('/api/documents/by-name')
   })
 
