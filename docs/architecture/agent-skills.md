@@ -1252,7 +1252,7 @@ history surfaces, and the run-history link and job-glyph rendering that
   `packages/agent/tests/turn/test_payload_parsing.py` — the envelope parsing,
   including that a `skills` array from an older client is dropped rather than
   obeyed.
-- BFF vitest, toolbox: `lib/skills/service.spec.ts` (authz, tenant filters,
+- BFF specs, toolbox: `lib/skills/service.spec.ts` (authz, tenant filters,
   snapshot and targeting semantics — pinned against the Python cases — plus the
   `a published platform row, after the standard tier was retired` block, which
   asserts that such a row is an ordinary offer: it starts off, an org row of the
@@ -1264,7 +1264,7 @@ history surfaces, and the run-history link and job-glyph rendering that
   keeping them out of chat), `features/skills/lib/slash-command.spec.ts`,
   `agent-scope.spec.ts`, `card-catalog.spec.ts`, `skill-document.spec.ts` and
   `components/skills-transparency.spec.tsx`.
-- BFF vitest, jobs: `lib/jobs/service.spec.ts` (the fire path, the skill pair,
+- BFF specs, jobs: `lib/jobs/service.spec.ts` (the fire path, the skill pair,
   the conversation creation and its best-effort contract),
   `lib/jobs/types.spec.ts`, `lib/jobs/schedule.spec.ts` (cron + min interval +
   timezone) and `lib/jobs/backend-client.spec.ts`.

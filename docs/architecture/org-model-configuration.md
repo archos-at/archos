@@ -553,7 +553,7 @@ invalidation: confirm `REDIS_URL` on both sides, then look for
 This environment cannot reach openrouter.ai (network policy), so:
 
 - The catalog client + capability filter + save validation are covered by
-  vitest specs replaying the documented `GET /api/v1/models` response shape
+  specs replaying the documented `GET /api/v1/models` response shape
   (`apps/workspace/bff/model-config/openrouter.spec.ts`).
 - The platform/org merge (per-group precedence, fail-open on a platform-side
   error) is covered by

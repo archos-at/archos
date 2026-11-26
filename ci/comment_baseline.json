@@ -81,7 +81,6 @@
   "apps/workspace/scripts/migrate-storage.mjs": 46,
   "apps/workspace/scripts/provision-workos-audit-schemas.mjs": 45,
   "apps/workspace/scripts/provision-workos-authz-reconcile.spec.mjs": 5,
-  "apps/workspace/scripts/record-vitest-durations.mjs": 6,
   "apps/workspace/scripts/sourcemaps-wiring.spec.mjs": 14,
   "apps/workspace/scripts/sync-platform-skills.mjs": 18,
   "apps/workspace/server.js": 50,

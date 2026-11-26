@@ -109,7 +109,7 @@ light run always runs in full.
 | Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data and applies the 65% gate; the total is in the job log and summary (a sticky PR comment listed only changed files, read "no changed files" on most PRs and re-notified every push, so it was removed) |
 | Backend suites (`backend-suites`) | backend tier: pushes, and `ci:full` PRs testmon cannot select for | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
 | Workspace (`workspace`) | workspace tier | card schema check, lint, types, and the tenant-isolation suite against a real Postgres |
-| Workspace tests (`workspace-test`) | workspace tier: pushes, and `ci:full` PRs unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
+| Workspace tests (`workspace-test`) | workspace tier: pushes, and `ci:full` PRs unless nothing a UI spec reads changed | the `bun test` suite in 8 shards, split by recorded time (`tests/test-timings.json`, `bun test --timings`, refreshed with `task workspace:test:durations`), and the `eslint-rules/` specs on `node --test` in the first; on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
 | Agent to engine tests (`agent-engine`) | backend or packages tier, except on a light pull request run | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run, here and in `hatchet`, which shares the check (`ci/hatchet_engine.sh require-ran`). `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every full run in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
 | Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*`, and in the same `packages` job `task browser:test` and `task runner:test` (the browser renderer's and the code runner's own suites) |
@@ -497,20 +497,22 @@ turned `develop` red on 2026-11-18. Named test files run in their suite's first
 shard; the core suite's include `packages/agent/tests/`, which they silently
 skipped from 2026-10-27 until the same fix.
 
-**The UI suite selects the same way, by import graph.** `vitest related`
-keeps the specs whose imports reach a changed file, split over the same eight
-shards. A spec that reads the tree from disk instead of importing it (the
+**The UI suite selects the same way, by import graph.**
+`scripts/related-specs.mjs` keeps the specs whose imports reach a changed file,
+by the esbuild graph `scripts/blast-radius.mjs` builds (it counts a module a
+spec mocks too, so it selects a little more than it must, never less), split
+over the same eight shards. A spec that reads the tree from disk instead of importing it (the
 route, key and migration walkers; ~120, found by what they call, not by a
 list) has inputs no import graph sees, so it declares them in its first line,
 `// @disk-inputs: src/app/api/**, ../../contracts/wire/v2/**` (globs relative to
 `apps/workspace`), and runs when a changed path matches one, wherever in the
-repository it is. `config/vitest/disk-inputs.ts` records what every declaring
+repository it is. `config/test-runner/disk-inputs.ts` records what every declaring
 spec reads while it runs and fails it on a path the line leaves out; `node
 scripts/declare-disk-inputs.mjs <spec>` rewrites the line from a recorded run.
 A spec that declares nothing runs on every selection, as all of them used to:
 one that starts a process (the recorder cannot see the child's reads), one
 that reads from a file list (over 60 inputs: `english-names.spec.ts`), and one
-that read nothing in the recording run. Changes to what every spec loads (the manifest, the vitest config and
+that read nothing in the recording run. Changes to what every spec loads (the manifest, `bunfig.toml` and the
 setup, the mocks the setup installs, tsconfig) run the whole suite. A median
 squash commit that touches the UI still selected 815 of 1,644 specs, 86% of
 the suite's time, in October 2026: half of them change a dictionary string,
@@ -555,7 +557,7 @@ Checked against GitHub's feature set on 2026-10-09.
 | Job outputs, dynamic matrix | Used | The Plan job's answers; the image matrix is the plan's `build` list |
 | Path filtering | Used, in a job | `on.paths` cannot skip a *required* check (it never reports), so the Plan job filters and every job skips through `if:` |
 | Job timeouts | Used | Every job has one, a few times its measured run. The default is 360 minutes, and a hung job holds a capped slot for all of them. A test fails on a job without one |
-| Annotations | Used | oxlint (`--format=github`), ruff (`--output-format=github`) and vitest (`github-actions` reporter) put findings on the PR's diff |
+| Annotations | Used | oxlint (`--format=github`), ruff (`--output-format=github`) and `bun test` (which detects Actions itself) put findings on the PR's diff |
 | Run summaries | Used | Plan's decisions, Semgrep findings, the deploy's URL and image refs |
 | Environments, deployments | Used | `staging` and `production`, with the stack's `appUrl` as the deployment URL; production has required reviewers |
 | Actions pinned by commit SHA | Used | A tag can be moved after review (tj-actions/changed-files, March 2025). Dependabot bumps the SHA and its version comment, workflows and composite actions both. A test and Semgrep's `github-actions-mutable-action-tag` rule refuse a tag |

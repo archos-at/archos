@@ -950,7 +950,7 @@ Do this in the same change that adds or changes the route. The exemplar is
    applies. Separately, an operation whose answer holds projects, documents,
    task runs or conversations declares `links:`
    ([Links into the app](#links-into-the-app)).
-9. **Run the gate**: `cd apps/workspace && bunx vitest run bff/agent-api/`, then
+9. **Run the gate**: `cd apps/workspace && bun run test:specs bff/agent-api/`, then
    `task generate`, which rewrites `tests/fixtures/exposure.json` and the other
    fixtures the catalog feeds; commit the diff.
 

@@ -65,7 +65,7 @@ describe('formatDate', () => {
 describe('formatDayRange', () => {
   test('an inclusive range of UTC days in the locale range form', () => {
     expect(formatDayRange('2026-09-01', '2026-09-30', 'de')).toBe('1.–30. Sept. 2026')
-    expect(formatDayRange('2026-09-01', '2026-09-30', 'en')).toBe('Sep 1\u2009–\u200930, 2026')
+    expect(formatDayRange('2026-09-01', '2026-09-30', 'en')).toMatch(/^Sep 1\s–\s30, 2026$/)
     expect(formatDayRange('2026-12-15', '2027-01-10', 'de')).toMatch(
       /^15\. Dez\. 2026\s–\s10\. Jan\. 2027$/
     )

@@ -16,7 +16,7 @@ REPO_ROOT="$(cd "$UI_DIR/../.." && pwd)"
 # A port nobody holds, unless the caller names one. Parallel runs in one
 # container (two agents, two worktrees) each get their own: a fixed default made
 # the second die at `pg_ctl: could not start server` before any migration ran.
-# TCP on 127.0.0.1 rather than the unix socket alone, because the vitest suites
+# TCP on 127.0.0.1 rather than the unix socket alone, because the integration suites
 # below connect to 127.0.0.1:$PORT. The OS picks an ephemeral port and the
 # probe releases it; the window before `pg_ctl` binds it again is milliseconds.
 PORT="${RLS_TEST_PORT:-$(node -e '
@@ -154,6 +154,19 @@ release_databases() {
 }
 RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target TEST_CARRY_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_carry_target"
 
+# `bun test` takes a file only as `./path` and fails on one that does not exist,
+# so a suite named before its file lands (below) is left out here.
+bun_test() {
+  local args=() arg
+  for arg in "$@"; do
+    case "$arg" in
+      -*) args+=("$arg") ;;
+      *) if [ -e "$arg" ]; then args+=("./${arg#./}"); fi ;;
+    esac
+  done
+  bun run test:specs "${args[@]}"
+}
+
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
 # measurements that are not part of the gate (`task workspace:search:latency`). The
@@ -167,7 +180,7 @@ if [ "${1:-}" = "--only" ]; then
   env $RELEASE_URLS \
   TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
-    npx vitest run "$@"
+    bun_test "$@"
   exit 0
 fi
 
@@ -196,7 +209,7 @@ run_step() {
 # order. The inbound mail and mail thread suites (ADR-0137) are named there before
 # their files exist, one per package that writes one: the repository (D7, D8),
 # the sweeps (D12), the review-first ratchet (D9), append (D9), follow (D10)
-# and the archive (D11). A name vitest finds no file for filters nothing, and
+# and the archive (D11). `bun_test` leaves out a name with no file yet, and
 # `integration-suite-coverage.spec.ts` fails a spec that lands under any other
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
@@ -208,10 +221,10 @@ release_databases
 # 2026-11-10 once the batch's timing moved).
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step site-resolution npx vitest run
+  run_step site-resolution bun_test --parallel
 echo "==> running the isolation, tenant keys, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step batch npx vitest run
+  run_step batch bun_test --parallel
 
 # Editions in time: alone, after the platform suite, since both release
 # Austria's territory and a release over one moved since a request was opened
@@ -219,7 +232,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request first lost (seen 2026-11-10 once a file joined the batch).
 echo "==> running the editions-in-time suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step editions-in-time npx vitest run
+  run_step editions-in-time bun_test --parallel
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
@@ -227,30 +240,30 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request was opened is a 409 by design.
 echo "==> running the onboarding door suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step onboarding-door npx vitest run
+  run_step onboarding-door bun_test --parallel
 
 # The onboarding tooling (ADR-0174): a scripted client onboards the synthetic
 # country XA (a source record, its testing hosts, an advice policy, counsel's
 # approval) and the source monitor opens a change request when the source changes.
 echo "==> running the synthetic country suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step synthetic-country npx vitest run
+  run_step synthetic-country bun_test --parallel
 
 # A source whose documents are PDFs (ADR-0174 amendment): a pdf_document source
 # record, a real public PDF captured through it, and a quote from its page 2
 # that passes KC-6. Its own synthetic country (XP), so it shares no territory.
 echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  run_step pdf-source npx vitest run
+  run_step pdf-source bun_test --parallel
 
 # A country's release, exported from one deployment's database and imported as a
 # draft into another's (rollover-to-prod, step 2). Its own two databases.
 echo "==> running the release transfer suite as app_rw"
-run_step release-transfer env $RELEASE_URLS npx vitest run
+(export $RELEASE_URLS; run_step release-transfer bun_test --parallel)
 
 # Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
 echo "==> running the knowledge carry suite as app_rw"
-run_step carry env $RELEASE_URLS npx vitest run
+(export $RELEASE_URLS; run_step carry bun_test --parallel)
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -272,7 +285,7 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
 TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
-  run_step one-at-a-time npx vitest run --no-file-parallelism
+  run_step one-at-a-time bun_test --isolate
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on

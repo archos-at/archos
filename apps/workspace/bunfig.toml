@@ -1,0 +1,13 @@
+[test]
+environment = "happy-dom"
+globals = "vitest"
+clearMocks = true
+timeout = 50000
+# oxlint's RuleTester refuses Bun: `node --test eslint-rules/*.spec.mjs` runs these.
+pathIgnorePatterns = ["eslint-rules/**"]
+preload = [
+  "./config/test-runner/aliases.ts",
+  "./config/test-runner/polyfills.ts",
+  "./config/test-runner/disk-inputs.ts",
+  "./config/test-runner/setup.ts",
+]

@@ -49,7 +49,7 @@ def test_a_ui_change_runs_the_ui_tier_on_the_specs_it_reaches(verify_plan, filte
 
 
 def test_a_change_every_spec_loads_runs_the_whole_ui_suite(verify_plan, filters) -> None:
-    decided = verify_plan.plan(["apps/workspace/vitest.config.ts"], filters, READERS)
+    decided = verify_plan.plan(["apps/workspace/bunfig.toml"], filters, READERS)
     assert "workspace:test" in decided.tasks
     assert decided.ui_files == ()
 

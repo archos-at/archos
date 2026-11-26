@@ -68,7 +68,7 @@ see.
 - [ ] A GET route writes nothing, not even on first read; creation is its own idempotent write.
 - [ ] `body` and `query` are the route's own schemas, not copies.
 - [ ] `destructive`, `readOnly` and `idempotent` are right where the defaults are not.
-- [ ] `cd apps/workspace && bunx vitest run src/lib/agent-api/` is green.
+- [ ] `cd apps/workspace && bun run test:specs bff/agent-api/` is green.
 - [ ] Nothing outside `lib/agent-api/dispatch.ts` calls `runAsActingSession`.
 
 ## What fails you

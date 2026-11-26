@@ -38,7 +38,7 @@ takes every path that differs from the merge base with `origin/develop`
 for a pull request, from the same two definitions:
 
 - a tier runs when [`.github/filters.yml`](../../.github/filters.yml) names a changed path;
-- the UI tier runs the specs `ci/pr_selection.py` selects (`vitest related`),
+- the UI tier runs the specs `ci/pr_selection.py` selects (`scripts/related-specs.mjs`),
   or the whole suite when the change reaches what every spec loads;
 - the backend tier runs whole, without coverage (`be:verify:fast`), until you
   record this checkout's testmon databases once with `task be:test:testmon`.
@@ -115,7 +115,7 @@ things follow from the realm:
   class. Test by shape, or list the spec in `PROCESS_PER_FILE` in the config
   with the reason; those specs keep a process each (the `process` project).
 - `process.env` is shared by every spec a worker runs.
-  `config/vitest/polyfills.ts` puts it back to the worker's starting
+  `config/test-runner/polyfills.ts` puts it back to the worker's starting
   environment before each spec file, so a spec may set a variable without
   restoring it. Anything else a spec changes on `process` (`chdir`, a listener)
   it must undo itself.

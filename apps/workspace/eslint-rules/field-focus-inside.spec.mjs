@@ -1,4 +1,4 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { RuleTester } from './rule-tester.mjs'
 import rule from './field-focus-inside.mjs'
 
 const ruleTester = new RuleTester({

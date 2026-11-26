@@ -21,7 +21,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import assert from 'node:assert/strict'
+import { after, before, describe, it } from 'node:test'
 
 import { PRE_EXISTING_DB_IMPORTERS } from './route-db-access-allowlist.mjs'
 
@@ -96,7 +97,7 @@ const EXPECTED = [
 let workdir
 let findings
 
-beforeAll(() => {
+before(() => {
   workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-canary-'))
   fs.copyFileSync(path.join(UI, '.oxlintrc.json'), path.join(workdir, '.oxlintrc.json'))
   fs.symlinkSync(path.join(UI, 'eslint-rules'), path.join(workdir, 'eslint-rules'))
@@ -115,25 +116,27 @@ beforeAll(() => {
     stdout = error.stdout
   }
   findings = JSON.parse(stdout).diagnostics.map((d) => [d.filename, d.code])
-}, 60_000)
+}, { timeout: 60_000 })
 
-afterAll(() => {
+after(() => {
   if (workdir) fs.rmSync(workdir, { recursive: true, force: true })
 })
 
 describe('.oxlintrc.json', () => {
-  it.each(EXPECTED)('%s reports %s', (file, rule) => {
-    expect(findings).toContainEqual([file, rule])
-  })
+  for (const [file, rule] of EXPECTED) {
+    it(`${file} reports ${rule}`, () => {
+      assert.ok(findings.some(([f, r]) => f === file && r === rule), `no ${rule} in ${file}`)
+    })
+  }
 
   it('reports each restricted selector once', () => {
     const restricted = findings.filter(([f, r]) => f === 'bff/canary.ts' && r === 'grid(no-restricted-syntax)')
-    expect(restricted).toHaveLength(4)
+    assert.equal(restricted.length, 4)
   })
 
   it('reports only the value import from the db in a route, and the schema barrel outside one', () => {
     const imports = findings.filter(([f, r]) => r === 'eslint(no-restricted-imports)')
-    expect(imports.sort()).toEqual([
+    assert.deepEqual(imports.sort(), [
       ['app/api/canary/route.ts', 'eslint(no-restricted-imports)'],
       ['bff/canary-repository.ts', 'eslint(no-restricted-imports)'],
     ])
@@ -146,10 +149,10 @@ describe('.oxlintrc.json', () => {
     const exempt = overrides.filter(
       (o) => o.rules?.['typescript/no-restricted-imports'] === 'allow' && !o.files.some((f) => f.includes('spec')),
     )
-    expect(exempt.flatMap((o) => o.files)).toEqual(PRE_EXISTING_DB_IMPORTERS)
+    assert.deepEqual(exempt.flatMap((o) => o.files), PRE_EXISTING_DB_IMPORTERS)
   })
 
   it('leaves specs out of the tenant-boundary and restricted-syntax rules', () => {
-    expect(findings.filter(([file]) => file === 'bff/canary.spec.ts')).toEqual([])
+    assert.deepEqual(findings.filter(([file]) => file === 'bff/canary.spec.ts'), [])
   })
 })

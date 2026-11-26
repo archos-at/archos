@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -42,3 +43,21 @@ def test_the_session_hook_reads_the_pin_rather_than_naming_one() -> None:
     hook = (REPO_ROOT / ".claude" / "hooks" / "session-start.sh").read_text(encoding="utf-8")
     assert ".github/actions/setup-bun/action.yml" in hook, "the session hook no longer installs the pinned Bun"
     assert not re.search(r"bun@\d", hook), "the session hook names a Bun version instead of reading setup-bun's"
+
+
+WORKSPACE_PACKAGE = REPO_ROOT / "apps" / "workspace" / "package.json"
+_CANARY_RUNNER = re.compile(r"bunx bun@(\d+)\.(\d+)\.(\d+)-canary\.\d+ test")
+
+
+def test_the_canary_test_runner_goes_once_a_stable_bun_carries_it() -> None:
+    """`bun test` runs on a canary until a release ships what the suite uses (ADR-0103)."""
+    runner = json.loads(WORKSPACE_PACKAGE.read_text(encoding="utf-8"))["scripts"]["test:specs"]
+    canary = _CANARY_RUNNER.search(runner)
+    if not canary:
+        return
+    base = tuple(int(part) for part in canary.groups())
+    pinned = tuple(int(part) for part in _pinned().split("."))
+    assert pinned <= base, (
+        f"setup-bun pins Bun {_pinned()}, a release after the canary `test:specs` runs ({runner}). "
+        "Run `bun test` on the pinned Bun: `test:specs` becomes `TZ=UTC bun test`."
+    )

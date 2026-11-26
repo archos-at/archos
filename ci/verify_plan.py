@@ -79,7 +79,11 @@ def _ui_tasks(changed: list[str], disk_readers: pr_selection.DiskReaders) -> tup
         return ["workspace:test"], [], f"UI suite: whole ({reason})"
     if mode == "none":
         return [], [], f"UI suite: skipped ({reason})"
-    return ["workspace:test:related"], files, f"UI suite: {len(files)} paths to `vitest related` ({reason})"
+    return (
+        ["workspace:test:related"],
+        files,
+        f"UI suite: the specs that reach {len(files)} paths (`scripts/related-specs.mjs`, {reason})",
+    )
 
 
 def full_plan(reason: str) -> Plan:

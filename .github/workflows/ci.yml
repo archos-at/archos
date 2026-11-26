@@ -561,7 +561,7 @@ jobs:
       - run: task workspace:install
       - name: All specs, shard ${{ matrix.shard }}/8
         if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
-        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
+        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8
       - name: The specs this change reaches, shard ${{ matrix.shard }}/8
         if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
         env:
