@@ -39,9 +39,8 @@ def read_chunks(
 
 
 def _document_hits(collection: str, file_name: str, *, document_id: str | None = None) -> list[Any]:
-    from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
+    from knowledge_layer.vector_store import document_chunks
     from knowledge_layer.vector_store import fetch
     from knowledge_layer.vector_store import in_document_order
 
-    selector = {DOCUMENT_ID_FIELD: document_id} if document_id else {"file_name": file_name}
-    return in_document_order(fetch(collection, selector, MAX_CHUNKS))
+    return in_document_order(fetch(collection, document_chunks(file_name, document_id), MAX_CHUNKS))

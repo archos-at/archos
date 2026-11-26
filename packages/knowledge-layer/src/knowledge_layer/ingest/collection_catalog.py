@@ -98,12 +98,6 @@ def _visual_detail(meta: dict[str, Any], text: str) -> dict[str, Any]:
     }
 
 
-def _document_condition(file_name: str, document_id: str | None) -> dict[str, Any]:
-    from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
-
-    return {DOCUMENT_ID_FIELD: document_id} if document_id else {"file_name": file_name}
-
-
 class CollectionCatalog:
     @staticmethod
     def _store():
@@ -343,12 +337,13 @@ class CollectionCatalog:
         self, collection_name: str, file_name: str, max_chars: int = 4000, *, document_id: str | None = None
     ) -> str | None:
         from agent.knowledge.base import READING_ORDER
+        from knowledge_layer.vector_store import document_chunks
         from knowledge_layer.vector_store import fetch as qdrant_fetch
         from knowledge_layer.vector_store import reading_for_maintenance
 
         try:
             with reading_for_maintenance():
-                hits = qdrant_fetch(collection_name, _document_condition(file_name, document_id), 5, READING_ORDER)
+                hits = qdrant_fetch(collection_name, document_chunks(file_name, document_id), 5, READING_ORDER)
         except Exception as e:
             logger.warning("Reconciliation: failed to fetch chunks for %s in %s: %s", file_name, collection_name, e)
             return None
@@ -361,7 +356,10 @@ class CollectionCatalog:
     ) -> list[dict[str, Any]]:
         from knowledge_layer import vector_store
 
-        visual = {**_document_condition(file_name, document_id), "content_type": {"$in": ["drawing", "image", "chart"]}}
+        visual = {
+            **vector_store.document_chunks(file_name, document_id),
+            "content_type": {"$in": ["drawing", "image", "chart"]},
+        }
         try:
             records = list(self._store().scroll(collection_name, visual, *vector_store.office_read(collection_name)))
         except Exception as e:

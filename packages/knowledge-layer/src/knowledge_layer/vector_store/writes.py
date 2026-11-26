@@ -153,12 +153,14 @@ def copy_facts(
 ) -> int:
     store = get_store()
     wanted = set(fields) if fields is not None else None
-    by_id, by_name = (_only(facts, wanted) for facts in _facts_by_key(_documents(scope, file_names, document_ids)))
-    store.set_file_payloads(scope, by_id, key="document_id")
+    documents = _documents(scope, file_names, document_ids)
+    names = {str(document.document_id): document.file_name for document in documents if document.document_id}
+    by_id, by_name = (_only(facts, wanted) for facts in _facts_by_key(documents))
+    store.set_file_payloads(scope, by_id, key="document_id", names=names)
     store.set_file_payloads(scope, by_name, key="file_name")
     if wanted is None or "doc_class" in wanted:
         unclassified_ids = [document_id for document_id, values in by_id.items() if "doc_class" not in values]
-        store.restore_chunk_doc_classes(scope, unclassified_ids, key="document_id")
+        store.restore_chunk_doc_classes(scope, unclassified_ids, key="document_id", names=names)
         store.restore_chunk_doc_classes(scope, [name for name, values in by_name.items() if "doc_class" not in values])
     return len(by_id) + len(by_name)
 
@@ -176,5 +178,5 @@ def refresh_facts(
         logger.warning("Qdrant: copying the facts of %s onto its points failed", scope, exc_info=True)
 
 
-def rewrite_file_name(scope: str, document_id: str, file_name: str) -> int:
-    return get_store().rewrite_file_name(scope, document_id, file_name)
+def rewrite_file_name(scope: str, document_id: str, file_name: str, *, previous_name: str | None = None) -> int:
+    return get_store().rewrite_file_name(scope, document_id, file_name, previous_name=previous_name)

@@ -33,9 +33,9 @@ class PassageTarget:
 
     @property
     def selector(self) -> dict[str, Any]:
-        if self.document_id:
-            return {"document_id": {"$eq": self.document_id}}
-        return {"file_name": {"$eq": self.file_name}}
+        from knowledge_layer.vector_store import document_chunks
+
+        return document_chunks(self.file_name, self.document_id)
 
 
 @dataclass(frozen=True)

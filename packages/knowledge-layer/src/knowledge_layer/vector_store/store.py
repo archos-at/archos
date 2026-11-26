@@ -43,6 +43,7 @@ from .schema import identity_mismatch
 from .schema import physical_for_scope
 from .schema import text_index_drift
 from .scope import kind_filter
+from .selectors import document_chunks
 from .scope import scope_filter
 
 logger = logging.getLogger(__name__)
@@ -227,7 +228,11 @@ class QdrantStore:
         self._delete(scope)
 
     @staticmethod
-    def _document_filter(scope: str, value: str, key: PayloadKey = "file_name") -> models.Filter:
+    def _document_filter(
+        scope: str, value: str, key: PayloadKey = "file_name", name: str | None = None
+    ) -> models.Filter:
+        if key == "document_id" and name:
+            return scope_filter([scope], document_chunks(name, value))
         if key == "document_id":
             return scope_filter(
                 [scope], None, models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=value))
@@ -240,23 +245,33 @@ class QdrantStore:
         return scope_filter([scope], None, *named)
 
     def set_file_payloads(
-        self, scope: str, payloads: Mapping[str, Mapping[str, Any]], *, key: PayloadKey = "file_name"
+        self,
+        scope: str,
+        payloads: Mapping[str, Mapping[str, Any]],
+        *,
+        key: PayloadKey = "file_name",
+        names: Mapping[str, str] | None = None,
     ) -> None:
         payloads = {value: dict(values) for value, values in payloads.items() if value and values}
         if not payloads or not self.exists(scope):
             return
+        names = names or {}
         operations = [
             models.SetPayloadOperation(
-                set_payload=models.SetPayload(payload=values, filter=self._document_filter(scope, value, key))
+                set_payload=models.SetPayload(
+                    payload=values, filter=self._document_filter(scope, value, key, names.get(value))
+                )
             )
             for value, values in payloads.items()
         ]
         self._batch(self.alias(scope), f"set payloads in {scope}", operations)
 
-    def rewrite_file_name(self, scope: str, document_id: str, file_name: str) -> int:
+    def rewrite_file_name(
+        self, scope: str, document_id: str, file_name: str, *, previous_name: str | None = None
+    ) -> int:
         if not document_id or not file_name.strip() or not self.exists(scope):
             return 0
-        selector = self._document_filter(scope, document_id, "document_id")
+        selector = self._document_filter(scope, document_id, "document_id", previous_name)
         alias = self.alias(scope)
         found = self.client.count(alias, count_filter=selector, exact=True).count
         if found:
@@ -266,14 +281,21 @@ class QdrantStore:
             )
         return found
 
-    def restore_chunk_doc_classes(self, scope: str, documents: Iterable[str], *, key: PayloadKey = "file_name") -> None:
+    def restore_chunk_doc_classes(
+        self,
+        scope: str,
+        documents: Iterable[str],
+        *,
+        key: PayloadKey = "file_name",
+        names: Mapping[str, str] | None = None,
+    ) -> None:
         values = sorted({value for value in documents if value})
         if not values or not self.exists(scope):
             return
         alias = self.alias(scope)
         operations: list[Any] = []
         for value in values:
-            selector = self._document_filter(scope, value, key)
+            selector = self._document_filter(scope, value, key, (names or {}).get(value))
             page, _next = self.client.scroll(
                 alias,
                 scroll_filter=selector,

@@ -283,12 +283,12 @@ def _mirror_document(collection: str, filename: str, document_id: str | None) ->
     _mirror_documents(collection, [DocumentRef(filename, document_id)])
 
 
-def _rename_points(collection: str, document_id: str, file_name: str) -> None:
+def _rename_points(collection: str, document_id: str, file_name: str, previous_file_name: str | None) -> None:
     try:
         from knowledge_layer.vector_store import rewrite_file_name
     except ImportError:  # the knowledge layer's store extra is not installed here
         return
-    rewrite_file_name(collection, document_id, file_name)
+    rewrite_file_name(collection, document_id, file_name, previous_name=previous_file_name)
 
 
 def register_summary(
@@ -380,7 +380,7 @@ def set_document_file_name(
     changed = _get_document_metadata_store().set_file_name(
         collection, document_id, file_name, previous_file_name=previous_file_name
     )
-    _rename_points(collection, document_id, file_name)
+    _rename_points(collection, document_id, file_name, previous_file_name)
     if changed:
         _mirror_facts(collection, document_ids=[document_id])
     return changed

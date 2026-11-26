@@ -104,7 +104,7 @@ async def test_an_id_that_is_no_document_id_never_reaches_the_name_routes(app, s
 
 
 async def test_the_file_name_of_one_document_is_rewritten_by_its_id(app, store, monkeypatch):
-    renamed: list[tuple[str, str, str]] = []
+    renamed: list[tuple[str, str, str, str | None]] = []
     monkeypatch.setattr("agent.knowledge.factory._rename_points", lambda *arguments: renamed.append(arguments) or None)
 
     response = await _patch(app, f"{BY_ID}/{ENTWURF}/file-name", {"file_name": "Plan 2.pdf"})
@@ -113,7 +113,7 @@ async def test_the_file_name_of_one_document_is_rewritten_by_its_id(app, store, 
     assert response.json() == {"collection_name": COLLECTION, "document_id": ENTWURF, "file_name": "Plan 2.pdf"}
     documents = _by_id(store)
     assert (documents[ENTWURF].file_name, documents[BESTAND].file_name) == ("Plan 2.pdf", "Plan.pdf")
-    assert renamed == [(COLLECTION, ENTWURF, "Plan 2.pdf")]
+    assert renamed == [(COLLECTION, ENTWURF, "Plan 2.pdf", "Plan.pdf")]
 
 
 async def test_visual_details_by_id_ask_the_index_for_that_document(app, store, ingestor):

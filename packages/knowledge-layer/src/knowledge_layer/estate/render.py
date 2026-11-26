@@ -149,6 +149,7 @@ def _older_revision_notice(file: EstateFile) -> str:
 def document_licence(collection: str, file_name: str, *, unindexed: Any = None, document_id: str | None = None) -> Any:
     import os
 
+    from knowledge_layer.vector_store import document_chunks
     from knowledge_layer.vector_store import get_store
 
     if not (os.environ.get("QDRANT_URL") or "").strip():
@@ -164,7 +165,7 @@ def document_licence(collection: str, file_name: str, *, unindexed: Any = None, 
 
     fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
     try:
-        records = list(get_store().scroll(collection, _selector(file_name, document_id), limit=1, fields=fields))
+        records = list(get_store().scroll(collection, document_chunks(file_name, document_id), limit=1, fields=fields))
     except Exception:  # noqa: BLE001 - fails closed, see the docstring
         return LicenceTerms(licence_class=LICENSED)
     return licence_from_metadata(records[0].payload or {}) if records else unindexed
@@ -183,12 +184,6 @@ def file_licence(row: Any) -> Any:
     return stated or document_licence(row.collection, row.file_name, document_id=row.document_id)
 
 
-def _selector(file_name: str, document_id: str | None) -> dict[str, Any]:
-    from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
-
-    return {DOCUMENT_ID_FIELD: document_id} if document_id else {"file_name": file_name}
-
-
 _RECALL_POINTS = 4000
 
 
@@ -198,12 +193,13 @@ def licensed_passage_sources(
     import asyncio
 
     from knowledge_layer.vector_store import TEXT_FIELD
+    from knowledge_layer.vector_store import document_chunks
     from knowledge_layer.vector_store import get_store
 
     terms = document_licence(collection, file_name, document_id=document_id)
     if terms is None or not terms.licensed or not terms.ai_processing:
         return terms, []
-    filters = _selector(file_name, document_id) | ({"page_label": str(page)} if page is not None else {})
+    filters = document_chunks(file_name, document_id) | ({"page_label": str(page)} if page is not None else {})
     points = get_store().scroll(collection, filters, limit=_RECALL_POINTS, fields=[TEXT_FIELD])
     texts = [str((point.payload or {}).get(TEXT_FIELD) or "") for point in points]
     wanted = {page} if page else None
