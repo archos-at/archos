@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSidebarPeek } from '@/components/ui/sidebar-peek'
+import { SidebarDrawerPanel, type SidebarDrawer } from '@/components/ui/sidebar-drawer'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar.width'
@@ -179,10 +180,12 @@ function SidebarProvider({
   )
 }
 
+
 function Sidebar({
   side = 'left',
   collapsible = 'offcanvas',
   peekOnHover = false,
+  drawer,
   className,
   children,
   ...props
@@ -190,11 +193,14 @@ function Sidebar({
   side?: 'left' | 'right'
   collapsible?: 'offcanvas' | 'icon'
   peekOnHover?: boolean
+  drawer?: SidebarDrawer
 }): React.JSX.Element | null {
   const { state, peek, setPeek } = useSidebar()
   const peekHandlers = useSidebarPeek(peekOnHover && collapsible === 'icon' && state === 'collapsed', peek, setPeek)
 
-  if (useIsMobileOnceKnown() === true) return null
+  if (useIsMobileOnceKnown() === true) {
+    return drawer ? <SidebarDrawerPanel drawer={drawer} side={side} {...props}>{children}</SidebarDrawerPanel> : null
+  }
 
   return (
     <div

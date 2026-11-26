@@ -1422,8 +1422,8 @@ the Papierkorb (on a phone from its ⋯), lists the live marks of every
 document of the project, grouped by document.
 
 **Why a page under Dateien and not a project section.** A section is a rail
-entry, a palette command, a `g` shortcut, a tour stop and a phone tab
-decision (`components/shell/project-sections.ts`, `phone-tabs.ts`). Open
+entry, a palette command, a `g` shortcut and a tour stop
+decision (`components/shell/project-sections.ts`). Open
 points are a view of the documents, so they stand where the Papierkorb
 stands: a page of the Dateien section with its own address, which a Jour fixe
 can bookmark, and the Dateien tab stays lit on a phone. The rail carries no

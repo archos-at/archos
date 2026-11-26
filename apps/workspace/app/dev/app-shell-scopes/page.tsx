@@ -2,7 +2,6 @@
 
 import type { JSX } from 'react'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
 
@@ -36,12 +35,10 @@ const CHROME_FLAGS = {
 function ScopeColumn({
   caption,
   row,
-  tabBar,
   children,
 }: {
   caption: string
   row: boolean
-  tabBar: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -53,7 +50,6 @@ function ScopeColumn({
       <main className="bg-background min-h-0 min-w-0 flex-1 overflow-hidden">
         <p className="text-muted-foreground p-6 font-mono text-xs">{caption}</p>
       </main>
-      {tabBar}
     </div>
   )
 }
@@ -67,14 +63,12 @@ export default function AppShellScopesPreview(): JSX.Element {
       <ScopeColumn
         row
         caption="project scope — /app/projects/p-1/files"
-        tabBar={<PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname="/app/projects/p-1/files" />}
       >
         <AppSidebar projectId="p-1" projects={PROJECTS} showModels showSkills {...CHROME_FLAGS} />
       </ScopeColumn>
       <ScopeColumn
         row
         caption="a page with no side, on the side the person came from — /app/inbox"
-        tabBar={<PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname="/app/inbox" />}
       >
         <AppSidebar projectId="p-1" onSide={false} pathname="/app/inbox" projects={PROJECTS} showModels showSkills {...CHROME_FLAGS} />
       </ScopeColumn>

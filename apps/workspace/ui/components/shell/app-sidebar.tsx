@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
+import { Folder, SquarePen } from 'lucide-react'
 
 import { AnimatePresence, motion, motionInstant, motionQuick, motionSnap } from '@/components/motion'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
@@ -33,18 +33,20 @@ import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu } from './sidebar-user-menu'
 import { shellAccount, type ShellAccount } from './shell-account'
-import { onSideChat } from './phone-side-bar'
+import { onSideChat } from './shell-side'
 import {
   railGroups,
   isSectionPathActive,
+  PROJECT_SETTINGS_SECTION,
   sectionLinkHref,
   type ProjectNavGroup,
   type ProjectSection,
 } from './project-sections'
-import { phoneBackTarget } from './phone-tabs'
-import { framesProjectPage } from './project-section-frame'
+import { phoneBackTarget } from './phone-back'
 import { useRecordRecentProject } from './recent-projects'
-import { ShellSearchButton } from './shell-search-button'
+import { framesProjectPage } from './project-section-frame'
+import { PhoneFloatingBar } from './phone-floating-bar'
+import { useShellOverlays } from './shell-overlays'
 import { RailActivePill } from './rail-active-pill'
 import { RailChatList, useRailChats } from './rail-chats'
 import { RailModeSwitch } from './rail-mode-switch'
@@ -80,6 +82,7 @@ export interface AppSidebarProps extends ShellAccount {
   inboundMailEnabled?: boolean
   pathname?: string
   navigateSide?: (href: string) => void
+  phoneMenuMark?: React.ReactNode
 }
 
 export interface RailItemModel {
@@ -130,6 +133,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
     inboundMailEnabled = false,
     pathname: pathnameOverride,
     navigateSide,
+    phoneMenuMark,
   } = props
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
@@ -150,7 +154,12 @@ function AppSidebarFrame(props: AppSidebarProps) {
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = projectId === null || !onSide ? null : phoneBackTarget(pathname, projectId)
-  const pageHasHeader = projectId === null || !onSide || onChat || framesProjectPage(pathname, projectId)
+  const menuOpen = useShellOverlays((s) => s.menuOpen)
+  const setMenuOpen = useShellOverlays((s) => s.setMenuOpen)
+  const paletteOpen = useShellOverlays((s) => s.paletteOpen)
+  React.useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname, paletteOpen, setMenuOpen])
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -179,9 +188,10 @@ function AppSidebarFrame(props: AppSidebarProps) {
   const projectItems: RailItemModel[] =
     mode === 'personal'
       ? personalRailItems(pathname, t, chatOpen, iconRail)
-      : groups
-          .filter((g) => g.key !== 'org')
-          .flatMap((g) => g.items)
+      : [
+          ...groups.filter((g) => g.key !== 'org').flatMap((g) => g.items),
+          ...(isMobile && sideProjectId !== null ? [projectOverviewItem(base, pathname, t)] : []),
+        ]
 
   const activePillId = railActivePillId(iconRail, mode)
   const railItem = (item: RailItemModel): React.JSX.Element => (
@@ -204,29 +214,20 @@ function AppSidebarFrame(props: AppSidebarProps) {
 
   return (
     <>
-      <header
-        data-scope="project"
-        className="bg-background flex w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden"
-      >
-        {/* A bare flow (the Einrichtung) has no page header: its way back and the search keep one 44px line. */}
-        {!pageHasHeader && (
-        <div data-slot="phone-bare-line" className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
-          {back && (
-            <Link
-              href={back.href}
-              aria-label={t('backTo', { label: t(`sections.${back.sectionKey}`) })}
-              className="text-muted-foreground hover:text-foreground active:bg-desk flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
-            >
-              <ChevronLeft className="size-5" aria-hidden />
-            </Link>
-          )}
-          <ShellSearchButton className="ml-auto" />
-        </div>
-        )}
-        {isMobile && <ConnectionBand />}
-      </header>
+      <PhoneFloatingBar
+        onChat={onChat}
+        newChatHref={sideProjectId === null ? NEW_PERSONAL_CHAT_HREF : `/app/projects/${sideProjectId}/chat?new=1`}
+        back={back && !framesProjectPage(pathname, projectId!) ? { href: back.href, label: t('backTo', { label: t(`sections.${back.sectionKey}`) }) } : null}
+        menuMark={phoneMenuMark}
+      />
 
-      <Sidebar collapsible="icon" peekOnHover data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
+      <Sidebar
+        collapsible="icon"
+        peekOnHover
+        drawer={{ open: menuOpen, onOpenChange: setMenuOpen, label: t('phoneMenu.title') }}
+        data-scope={mode}
+        aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}
+      >
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -348,10 +349,12 @@ function AppSidebarFrame(props: AppSidebarProps) {
             so the one control a keyboard user lands on has to speak the app's
             language like every other. `iconRail` is already the collapse
             control's source of truth two rows up — same state, same wording. */}
-        <SidebarRail
-          aria-label={t('resizeSidebar')}
-          title={iconRail ? t('expandSidebarHint') : t('resizeSidebarHint')}
-        />
+        {!isMobile && (
+          <SidebarRail
+            aria-label={t('resizeSidebar')}
+            title={iconRail ? t('expandSidebarHint') : t('resizeSidebarHint')}
+          />
+        )}
       </Sidebar>
     </>
   )
@@ -362,6 +365,20 @@ function ProjectRecorder({ projectId }: { projectId: string }): null {
   useRecordProjectSection(projectId)
   useRecordRecentProject(projectId)
   return null
+}
+
+const UNDER_OVERVIEW: readonly string[] = ['settings', 'setup', 'intake']
+
+/** The desktop reaches the project's overview through the project selector; the drawer lists it, as the phone's tab did. */
+function projectOverviewItem(base: string, pathname: string, t: (key: string) => string): RailItemModel {
+  return {
+    key: 'settings',
+    href: `${base}/settings`,
+    icon: PROJECT_SETTINGS_SECTION.icon,
+    label: t('sections.settings'),
+    active: UNDER_OVERVIEW.some((segment) => pathname === `${base}/${segment}` || pathname.startsWith(`${base}/${segment}/`)),
+    waitingCount: null,
+  }
 }
 
 function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean, iconRail: boolean): RailItemModel[] {

@@ -3,8 +3,6 @@
 import type { JSX, ReactNode } from 'react'
 
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installConnectionHealthFake } from './connection-health'
 import { installInboxBadgeFake } from './inbox-badge'
 import { DevRailChats } from './rail-chats'
@@ -56,23 +54,6 @@ export function DevRailShell({
         showSkills
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
-      <PhoneTabBar projectId={projectId} canAccessOfficeShelf canAccessInbox pathname={pathname} />
-      <PhoneMoreSheet
-        projectId={projectId}
-        projects={projects}
-        projectName={projectName}
-        pathname={pathname}
-        organizationName={ORGANIZATION}
-        user={USER}
-        authRequired={false}
-        canViewOrganization
-        canManageOrganization={false}
-        canManagePlatform={false}
-        canAccessOfficeShelf
-        canAccessOfficeStandards
-        canAccessInbox
-        showSkills
-      />
     </div>
     </DevRailChats>
   )

@@ -176,11 +176,6 @@ describe('ChatToolbar', () => {
       expect(onNewSession).toHaveBeenCalledTimes(1)
     })
 
-    test('the door’s word stands under its glyph, so the title keeps its room', () => {
-      render(<ChatToolbar sessionTitle="Brandschutz Stiegenhaus" />)
-
-      expect(screen.getByTestId('chat-history-door')).toHaveClass('max-sm:flex-col', 'max-sm:text-meta')
-    })
   })
 
   describe('thread row on a phone — a run and a rule together', () => {
@@ -239,21 +234,15 @@ describe('ChatToolbar', () => {
   })
 
   describe('the header holds still while the chat starts and its title arrives', () => {
-    test('the door has one shape in an empty chat and in a started one, so it never jumps', () => {
-      const { rerender } = render(<ChatToolbar isChatStarted={false} />)
-      const door = screen.getByTestId('chat-history-door')
-      const empty = door.className
-
-      rerender(<ChatToolbar isChatStarted />)
-
-      expect(screen.getByTestId('chat-history-door')).toBe(door)
-      expect(door.className).toBe(empty)
+    test('on a phone the header leaves the corners to the shell’s floating menu and new chat', () => {
+      render(<ChatToolbar isChatStarted />)
+      expect(screen.getByRole('banner')).toHaveClass('max-md:px-16')
     })
 
-    test('the pill draws its glass on a layer of its own, so its padding and the door stay put', () => {
+    test('the pill draws its glass on a layer of its own, so its padding stays put', () => {
       const { rerender } = render(<ChatToolbar isChatStarted={false} />)
-      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
-      const empty = pill.className.split(' ').filter((name) => name !== 'sm:invisible')
+      const pill = document.querySelector('[data-slot="chat-header-thread"]') as HTMLElement
+      const empty = pill.className.split(' ').filter((name) => name !== 'sm:invisible' && name !== 'max-md:hidden')
 
       rerender(<ChatToolbar isChatStarted />)
 
@@ -286,7 +275,7 @@ describe('ChatToolbar', () => {
 
     test('from `sm` the pill keeps its height in an empty chat, and the thread clears exactly that header', () => {
       const { rerender } = render(<ChatToolbar isChatStarted={false} />)
-      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      const pill = document.querySelector('[data-slot="chat-header-thread"]') as HTMLElement
       expect(pill).toHaveClass('sm:invisible')
       expect(pill).not.toHaveClass('sm:hidden')
       const height = Number(/(?:^| )sm:min-h-\[([\d.]+)rem\]/.exec(pill.className)?.[1])
@@ -300,7 +289,7 @@ describe('ChatToolbar', () => {
 
     test('the pill leaves the room of who-can-read, so their arrival does not narrow the title', () => {
       render(<ChatToolbar isChatStarted />)
-      const pill = screen.getByTestId('chat-history-door').parentElement as HTMLElement
+      const pill = document.querySelector('[data-slot="chat-header-thread"]') as HTMLElement
 
       expect(pill.className).toMatch(/(^| )sm:max-w-\[calc\(100%-\d+rem\)\]( |$)/)
     })
@@ -314,8 +303,6 @@ describe('ChatToolbar', () => {
           isChatStarted={false}
         />
       )
-
-      expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
 
       expect(screen.queryByTestId('thread-menu')).not.toBeInTheDocument()
       expect(
@@ -355,44 +342,22 @@ describe('ChatToolbar', () => {
     })
   })
 
-  describe('the history door is never a glyph alone', () => {
-    const HIDING = /(^|:)(hidden|sr-only|invisible)$/
-
+  describe('the chats are the drawer’s', () => {
     test.each([
       ['an empty chat', { isChatStarted: false }],
-      ['a chat with a title', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
-      ['a chat whose title is not in yet', { isChatStarted: true }],
-    ])('%s: the door says „Chats“ in words, and stands on a phone only, where there is no rail', (_, props) => {
+      ['a started chat', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
+    ])('%s has no door to the chat list in its header', (_, props) => {
       render(<ChatToolbar {...props} />)
-
-      const door = screen.getByTestId('chat-history-door')
-      const label = door.querySelector('[data-slot="history-door-label"]')
-      expect(label?.textContent).toBe('Chats')
-      expect(door).not.toHaveAttribute('aria-label')
-      expect(door).toHaveAccessibleName('Chats')
-      expect([...(label?.classList ?? [])].filter((c) => HIDING.test(c))).toEqual([])
-      expect([...door.classList].filter((c) => HIDING.test(c))).toEqual(['sm:hidden'])
-    })
-  })
-
-  describe('sessions toggle', () => {
-    test('toggles the sessions panel', async () => {
-      const user = userEvent.setup()
-
-      render(<ChatToolbar />)
-
-      await user.click(screen.getByRole('button', { name: 'Chats' }))
-
-      expect(mockToggleSessionsPanel).toHaveBeenCalledOnce()
+      expect(screen.queryByTestId('chat-history-door')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Chats' })).toBeNull()
     })
   })
 
   describe('phone layout', () => {
-    test('has no hamburger: the phone tab bar owns the drawer', () => {
+    test('has no menu button of its own: the shell floats the one that opens the drawer', () => {
       render(<ChatToolbar sessionTitle="Fluchtwegbreiten Treppenhaus 2" />)
 
-      expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Open menu' })).not.toBeInTheDocument()
     })
 
     test('the title takes the leftover width and may use two lines', () => {

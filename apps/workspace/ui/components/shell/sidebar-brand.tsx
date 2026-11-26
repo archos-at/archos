@@ -41,12 +41,10 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   return (
     <div className={cn(BRAND_ROW, BRAND_INSET_RAIL)}>
       {home}
-      {!isMobile && (
-        <div className="ml-auto flex items-center gap-0.5">
-          <ShellSearchButton className="size-7" />
-          <RailFoldButton />
-        </div>
-      )}
+      <div className="ml-auto flex items-center gap-0.5">
+        <ShellSearchButton className="size-7" />
+        {!isMobile && <RailFoldButton />}
+      </div>
     </div>
   )
 }

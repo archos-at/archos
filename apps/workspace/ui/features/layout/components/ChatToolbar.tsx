@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Lock, MessageSquareText, MoreHorizontal, PencilLine, Share2, SquarePen, Trash2 } from 'lucide-react'
+import { Lock, MoreHorizontal, PencilLine, Share2, SquarePen, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { Button } from '@/components/ui/button'
 import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
@@ -36,12 +36,12 @@ import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
 import type { ResourceSharingState } from '@/lib/sharing/types'
 import { useHeaderHeight } from '../hooks/use-header-height'
-import { useLayoutStore } from '../store'
 import { ChatConnectionLine } from './ChatConnectionLine'
 import { THREAD_COLUMN_INNER, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { ChatTitleText } from './chat-title-text'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 import { formatCalendarDate } from '@/lib/format'
+import { PhonePlaceOfShell } from '@/components/shell/phone-floating-bar'
 
 const MENU_FOCUS_GUARD_MS = 250
 
@@ -73,7 +73,6 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
   const t = useTranslations(researchCopy)
   const tChat = useTranslations(chatCopy)
   const tCollab = useTranslations(collaborationCopy)
-  const toggleSessionsPanel = useLayoutStore((s) => s.toggleSessionsPanel)
   const isDeepResearchStreaming = useChatStore((s) =>
     hasLiveRun(s.currentConversation?.messages ?? [])
   )
@@ -171,23 +170,20 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
     [commitTitle, cancelTitleEdit]
   )
 
-  const handleMenuClick = useCallback(() => {
-    if (isAuthenticated) toggleSessionsPanel()
-  }, [toggleSessionsPanel, isAuthenticated])
-
   const handleNewSessionClick = useCallback(() => {
     if (!isAuthenticated) return
     onNewSession?.()
   }, [isAuthenticated, onNewSession])
 
   return (
-    <header ref={headerRef} className={cn(THREAD_GUTTER, 'bg-background absolute inset-x-0 top-0 z-20 min-h-12 pb-2 pt-[max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))] max-md:landscape:flex max-md:landscape:items-start max-md:landscape:gap-2')}>
+    <header ref={headerRef} className={cn(THREAD_GUTTER, 'bg-background absolute inset-x-0 top-0 z-20 min-h-12 pb-2 pt-[max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))] max-md:px-16 max-md:landscape:flex max-md:landscape:items-start max-md:landscape:gap-2')}>
       <ChatConnectionLine className={cn(THREAD_COLUMN_INNER, 'max-md:landscape:mx-0 max-md:landscape:w-auto max-md:landscape:shrink-0')} />
       <div className={cn(THREAD_COLUMN_INNER, 'flex items-start justify-between gap-3 max-sm:items-stretch sm:items-center max-md:landscape:mx-0 max-md:landscape:min-w-0 max-md:landscape:flex-1')}>
+      {!isChatStarted && <PhonePlaceOfShell className="mx-auto self-center md:hidden" />}
       <div
         className={cn(
           'pointer-events-auto relative isolate flex min-h-12 min-w-0 items-center gap-0.5 rounded-surface border border-transparent p-0.5 max-sm:flex-1 sm:min-h-[2.625rem] sm:max-w-[calc(100%-12rem)]',
-          !isChatStarted && 'sm:invisible'
+          !isChatStarted && 'max-md:hidden sm:invisible'
         )}
         inert={!isChatStarted || undefined}
         data-slot="chat-header-thread"
@@ -202,18 +198,6 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
             />
           )}
         </AnimatePresence>
-        {/* A phone has no rail, so the door to the chat list stays here; from `sm` up the rail lists the chats. */}
-        <Button
-          variant="ghost"
-          className="h-11 shrink-0 rounded-[5px] font-medium sm:hidden max-sm:w-12 max-sm:flex-col max-sm:gap-0 max-sm:px-0 max-sm:text-meta"
-          onClick={handleMenuClick}
-          disabled={!isAuthenticated}
-          title={!isAuthenticated ? t('chatToolbar.signInToView') : t('chatToolbar.toggleSessions')}
-          data-testid="chat-history-door"
-        >
-          <MessageSquareText className="size-4" aria-hidden="true" />
-          <span data-slot="history-door-label">{t('chatToolbar.historyDoor')}</span>
-        </Button>
 
         <AnimatePresence initial={false}>
           {isChatStarted && (
@@ -223,8 +207,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
               className="flex min-w-0 flex-1 items-center gap-0.5 self-stretch sm:flex-initial"
               data-slot="chat-header-thread-row"
             >
-              <div aria-hidden="true" className="h-4 w-px shrink-0 bg-border sm:hidden" />
-              <nav
+                            <nav
                 className="flex min-h-9 min-w-0 flex-1 flex-col justify-center pl-1 pr-1.5 text-sm pointer-coarse:min-h-11 sm:w-[26rem] sm:flex-initial sm:flex-row sm:items-center sm:justify-start sm:gap-1.5"
                 aria-label={tChat('breadcrumb.ariaLabel')}
                 data-slot="chat-title-slot"
