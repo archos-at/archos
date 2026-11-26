@@ -80,7 +80,7 @@ describe('setRevisionLink', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links: asks for write access to both documents, tells the backend their file names, audits, and reads the facts back fresh', async () => {
+  it('links: asks for write access to both documents, tells the backend their ids beside their file names, audits, and reads the facts back fresh', async () => {
     const newerFacts: RevisionLinks = {
       supersededBy: null,
       supersedes: [{ id: 'doc-a', filename: 'Grundriss_A.pdf' }],
@@ -103,7 +103,7 @@ describe('setRevisionLink', () => {
       'http://backend:8000/v1/collections/proj_abc/revision',
       expect.objectContaining({
         method: 'PUT',
-        body: JSON.stringify({ newer: 'Grundriss_B.pdf', older: 'Grundriss_A.pdf', linked: true }),
+        body: JSON.stringify({ newer: 'Grundriss_B.pdf', older: 'Grundriss_A.pdf', newer_id: 'doc-b', older_id: 'doc-a', linked: true }),
       }),
     )
     expect(recordAuditEvent).toHaveBeenCalledWith(
@@ -198,12 +198,27 @@ describe('setRevisionLink', () => {
     expect(announceNewRevision).not.toHaveBeenCalled()
   })
 
+  it('names each of two same-named documents in different folders by its own id', async () => {
+    const draft = doc({ id: 'doc-entwurf', filename: 'Plan.pdf', folderId: 'folder-entwurf' })
+    const submission = doc({ id: 'doc-einreichung', filename: 'Plan.pdf', folderId: 'folder-einreichung' })
+    documentsById(draft, submission)
+
+    await setRevisionLink(session, 'doc-einreichung', 'doc-entwurf', true, request)
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
+      newer_id: 'doc-einreichung',
+      older_id: 'doc-entwurf',
+    })
+  })
+
   it('unlinks with linked: false', async () => {
     await setRevisionLink(session, 'doc-b', 'doc-a', false, request)
 
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
       newer: 'Grundriss_B.pdf',
       older: 'Grundriss_A.pdf',
+      newer_id: 'doc-b',
+      older_id: 'doc-a',
       linked: false,
     })
     expect(recordAuditEvent).toHaveBeenCalledWith(

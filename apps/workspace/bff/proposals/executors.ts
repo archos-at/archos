@@ -6,7 +6,9 @@ import { ensureOfficeShelfFolderPaths, listOfficeShelfFolders, updateOfficeShelf
 import { assertMoveKeepsOutOfStandards, resolveOfficeShelfDocumentsByName } from '@/lib/office-shelf/service'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { renameDocument } from '@/lib/documents/document-edits'
-import { resolveProjectDocumentsByName } from '@/lib/documents/document-listing'
+import { resolveProjectDocumentsByName, type ListedDocument } from '@/lib/documents/document-listing'
+import { resolveShelfDocumentsById } from '@/lib/documents/resolve-by-id'
+import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/shelf'
 import type { FolderRow } from '@/lib/documents/shelf-folders'
 import {
   createProjectFolder,
@@ -45,18 +47,39 @@ function folderIdForPath(folders: readonly FolderRow[], path: string | null | un
   return hit.id
 }
 
+function shelfFor(shelf: Shelf, projectId: string | null): DocumentShelf {
+  return shelf === 'office' ? OFFICE_SHELF : projectShelf(requireProject(projectId))
+}
+
+function resolveByName(session: AuthorizedSession, shelf: Shelf, projectId: string | null, names: readonly string[]): Promise<ListedDocument[]> {
+  return shelf === 'office'
+    ? resolveOfficeShelfDocumentsByName(session, names)
+    : resolveProjectDocumentsByName(session, requireProject(projectId), names)
+}
+
+type NameMatch = { kind: 'found'; id: string } | { kind: 'missing' } | { kind: 'ambiguous' }
+
+function onlyNamed(rows: readonly ListedDocument[], name: string): NameMatch {
+  const wanted = nameKey(name)
+  const matches = [...new Set(rows.filter((row) => nameKey(row.filename) === wanted).map((row) => row.id))]
+  if (matches.length === 0) return { kind: 'missing' }
+  return matches.length === 1 ? { kind: 'found', id: matches[0] } : { kind: 'ambiguous' }
+}
+
 async function documentIdFor(item: FileOperationItem, { session, projectId }: ExecutionContext): Promise<string> {
   const name = item.document ?? ''
-  const rows =
-    shelfOf(item) === 'office'
-      ? await resolveOfficeShelfDocumentsByName(session, [name])
-      : await resolveProjectDocumentsByName(session, requireProject(projectId), [name])
-  const wanted = nameKey(name)
-  const newest = rows
-    .filter((row) => nameKey(row.filename) === wanted)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-  if (!newest) throw new Error(`„${name}“ wurde nicht gefunden`)
-  return newest.id
+  const shelf = shelfOf(item)
+  if (item.document_id) {
+    const [row] = await resolveShelfDocumentsById(session, shelfFor(shelf, projectId), [item.document_id])
+    if (!row) throw new Error(`„${name || item.document_id}“ wurde nicht gefunden`)
+    return row.id
+  }
+  const match = onlyNamed(await resolveByName(session, shelf, projectId, [name]), name)
+  if (match.kind === 'missing') throw new Error(`„${name}“ wurde nicht gefunden`)
+  if (match.kind === 'ambiguous') {
+    throw new Error(`„${name}“ liegt mehrmals in verschiedenen Ordnern; der Vorschlag sagt nicht, welches Dokument gemeint ist`)
+  }
+  return match.id
 }
 
 export async function resolveItemDocuments(
@@ -64,28 +87,32 @@ export async function resolveItemDocuments(
   projectId: string | null,
   items: readonly FileOperationItem[]
 ): Promise<Array<{ id: string; name: string }> | null> {
-  const named = items.filter((item) => (item.document ?? '').trim().length > 0)
-  const byShelf = (shelf: Shelf) => [...new Set(named.filter((item) => shelfOf(item) === shelf).map((item) => item.document ?? ''))]
-  const [projekt, office] = [byShelf('project'), byShelf('office')]
-  if (projekt.length > 0 && !projectId) return null
-  const rows = [
-    ...(projekt.length > 0 && projectId ? await resolveProjectDocumentsByName(session, projectId, projekt) : []),
-    ...(office.length > 0 ? await resolveOfficeShelfDocumentsByName(session, office) : []),
-  ]
-  const newest = new Map<string, { id: string; createdAt: number }>()
-  for (const row of rows) {
-    const key = nameKey(row.filename)
-    const at = new Date(row.createdAt).getTime()
-    const held = newest.get(key)
-    if (!held || at > held.createdAt) newest.set(key, { id: row.id, createdAt: at })
+  const named = items.filter((item) => item.document_id || (item.document ?? '').trim().length > 0)
+  if (!projectId && named.some((item) => shelfOf(item) === 'project')) return null
+  const resolved = new Map<string, { id: string; name: string }>()
+  for (const shelf of ['project', 'office'] as const) {
+    const onShelf = named.filter((item) => shelfOf(item) === shelf)
+    if (onShelf.length === 0) continue
+    const ids = [...new Set(onShelf.flatMap((item) => item.document_id ?? []))]
+    const names = [...new Set(onShelf.filter((item) => !item.document_id).map((item) => item.document ?? ''))]
+    const [byId, byName] = await Promise.all([
+      ids.length > 0 ? resolveShelfDocumentsById(session, shelfFor(shelf, projectId), ids) : Promise.resolve([]),
+      names.length > 0 ? resolveByName(session, shelf, projectId, names) : Promise.resolve([]),
+    ])
+    const visible = new Set(byId.map((row) => row.id))
+    for (const item of onShelf) {
+      const name = item.document ?? ''
+      if (item.document_id) {
+        if (!visible.has(item.document_id)) return null
+        resolved.set(item.document_id, { id: item.document_id, name })
+        continue
+      }
+      const match = onlyNamed(byName, name)
+      if (match.kind === 'missing') return null
+      if (match.kind === 'found') resolved.set(match.id, { id: match.id, name })
+    }
   }
-  const resolved: Array<{ id: string; name: string }> = []
-  for (const name of new Set(named.map((item) => item.document ?? ''))) {
-    const hit = newest.get(nameKey(name))
-    if (!hit) return null
-    resolved.push({ id: hit.id, name })
-  }
-  return resolved
+  return [...resolved.values()]
 }
 
 async function memberFor(item: FileOperationItem, documentId: string, { session }: ExecutionContext): Promise<string> {

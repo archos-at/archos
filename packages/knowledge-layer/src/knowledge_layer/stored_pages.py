@@ -57,15 +57,15 @@ class PageText:
         return self.origin == "chunks"
 
 
-Resolver = Callable[[str, str], Awaitable[Any]]
+Resolver = Callable[[str, str, str | None], Awaitable[Any]]
 Fetcher = Callable[[str, str | None, tuple[int, int] | None], bytes | None]
-ChunkReader = Callable[[str, str], list[tuple[Any, str, dict[str, Any]]] | None]
+ChunkReader = Callable[[str, str, str | None], list[tuple[Any, str, dict[str, Any]]] | None]
 
 
-async def _resolve(collection: str, file_name: str) -> Any:
+async def _resolve(collection: str, file_name: str, document_id: str | None = None) -> Any:
     from .view_image import _resolve_storage_location
 
-    return await _resolve_storage_location(collection, file_name)
+    return await _resolve_storage_location(collection, file_name, document_id=document_id)
 
 
 def _fetch(key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> bytes | None:
@@ -84,11 +84,13 @@ def _fetch(key: str, bucket: str | None, byte_range: tuple[int, int] | None) -> 
         return None
 
 
-def _read_chunks(collection: str, file_name: str) -> list[tuple[Any, str, dict[str, Any]]] | None:
+def _read_chunks(
+    collection: str, file_name: str, document_id: str | None = None
+) -> list[tuple[Any, str, dict[str, Any]]] | None:
     from agent.knowledge.collection_pages import _document_hits
     from agent.knowledge.collection_pages import own_page_texts
 
-    hits = _document_hits(collection, file_name)
+    hits = _document_hits(collection, file_name, document_id=document_id)
     rows = [
         (hit.payload.get("page_label"), text, dict(hit.payload or {}))
         for hit, text in zip(hits, own_page_texts(hits), strict=True)
@@ -182,11 +184,12 @@ async def read_stored(
     wanted: set[int] | None = None,
     resolve: Resolver | None = None,
     fetch: Fetcher | None = None,
+    document_id: str | None = None,
 ) -> PageText | None:
     resolve = resolve or _resolve
     fetch = fetch or _fetch
     try:
-        location = await asyncio.wait_for(resolve(collection, file_name), FETCH_TIMEOUT_SECONDS)
+        location = await asyncio.wait_for(resolve(collection, file_name, document_id), FETCH_TIMEOUT_SECONDS)
     except Exception as error:  # noqa: BLE001 - fail-open: rebuild
         logger.info("stored_pages: lookup failed for a document (%s)", type(error).__name__)
         return None
@@ -235,8 +238,10 @@ async def _fetch_part(fetch: Fetcher, key: str, bucket: str | None, byte_range: 
         return None
 
 
-async def rebuild(collection: str, file_name: str, *, read_chunks: ChunkReader | None = None) -> PageText | None:
-    rows = await asyncio.to_thread(read_chunks or _read_chunks, collection, file_name)
+async def rebuild(
+    collection: str, file_name: str, *, read_chunks: ChunkReader | None = None, document_id: str | None = None
+) -> PageText | None:
+    rows = await asyncio.to_thread(read_chunks or _read_chunks, collection, file_name, document_id)
     if not rows:
         return None
     pages = pages_from_chunks(rows)
@@ -252,9 +257,12 @@ async def read_pages(
     fetch: Fetcher | None = None,
     read_chunks: ChunkReader | None = None,
     stored: bool = True,
+    document_id: str | None = None,
 ) -> PageText | None:
     if stored:
-        found = await read_stored(collection, file_name, wanted=wanted, resolve=resolve, fetch=fetch)
+        found = await read_stored(
+            collection, file_name, wanted=wanted, resolve=resolve, fetch=fetch, document_id=document_id
+        )
         if found is not None:
             return found
-    return await rebuild(collection, file_name, read_chunks=read_chunks)
+    return await rebuild(collection, file_name, read_chunks=read_chunks, document_id=document_id)

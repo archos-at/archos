@@ -83,6 +83,7 @@ class GroundingHit(BaseModel):
     edition_id: str | None = None
     public_url: str | None = None
     revision: SourceRevision | None = None
+    document_id: str | None = None
 
     @property
     def authored_by(self) -> str | None:
@@ -196,7 +197,7 @@ def _lanes_line(lanes: tuple[TraceLane, ...]) -> str:
 
 def _hit_lines(index: int, hit: GroundingHit) -> list[str]:
     body = (hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body
-    anchor = anchor_of(hit.collection, hit.file_name, hit.page, len(body)) if hit.licence else None
+    anchor = anchor_of(hit.collection, hit.file_name, hit.page, len(body), hit.document_id) if hit.licence else None
     body = licensed_body(body, hit.licence, anchor=anchor)
     return [f"--- Result {index} ---", *_header_lines(hit), "", fence(body), ""]
 
@@ -232,6 +233,8 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
     if licence := licence_line(hit.licence):
         yield f"Licence: {licence}"
     yield f"Citation: {_key(hit.citation_key)}"
+    if hit.document_id:
+        yield f"Document-ID: {_key(hit.document_id)}"
     yield f"Content Type: {_key(hit.content_type)}"
     if hit.stored_image_index is not None:
         yield f"Image: stored (look image_index={hit.stored_image_index})"

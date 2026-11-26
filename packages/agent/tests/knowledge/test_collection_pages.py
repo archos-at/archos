@@ -147,7 +147,7 @@ def test_read_pages_reads_the_overlap_and_the_breadcrumb_once(monkeypatch):
     from agent.knowledge import collection_pages
 
     hits = _fixture_hits("Besprechungsprotokoll_Tragwerk_2026-04-28.pdf")
-    monkeypatch.setattr(collection_pages, "_document_hits", lambda collection, file_name: hits)
+    monkeypatch.setattr(collection_pages, "_document_hits", lambda collection, file_name, document_id=None: hits)
 
     text = "\n".join(page_text for _page, page_text in read_pages("proj", "Besprechungsprotokoll.pdf"))
 
@@ -162,6 +162,20 @@ def test_read_pages_keeps_the_text_of_a_file_without_headings_as_stored(monkeypa
     from agent.knowledge import collection_pages
 
     hits = _fixture_hits("Schreiben_MA37_Baubeginn.pdf")
-    monkeypatch.setattr(collection_pages, "_document_hits", lambda collection, file_name: hits)
+    monkeypatch.setattr(collection_pages, "_document_hits", lambda collection, file_name, document_id=None: hits)
 
     assert read_pages("proj", "Schreiben.pdf") == [(hit.payload["page_label"], hit.text.strip()) for hit in hits]
+
+
+def test_a_document_with_an_id_is_read_by_its_id_never_by_a_namesakes_name(monkeypatch):
+    from knowledge_layer import vector_store
+
+    from agent.knowledge import collection_pages
+
+    asked: list[dict] = []
+    monkeypatch.setattr(vector_store, "fetch", lambda collection, filters, limit: asked.append(filters) or [])
+
+    collection_pages.read_chunks("proj", "Plan.pdf", document_id="doc-og")
+    collection_pages.read_chunks("base_corpus", "oib-rl_2.pdf")
+
+    assert asked == [vector_store.document_chunks("Plan.pdf", "doc-og"), {"file_name": {"$eq": "oib-rl_2.pdf"}}]

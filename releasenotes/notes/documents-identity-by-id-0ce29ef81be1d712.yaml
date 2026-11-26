@@ -1,0 +1,9 @@
+---
+# area: documents
+operators:
+  - >
+    Deploy 1 of 2: documents are addressed by id. The backfills
+    document-metadata-document-id and qdrant-document-id-stamp must report
+    after 0, unmatched_held 0 included, before deploy 2 is promoted. The first
+    drops the metadata tables' (collection, filename) primary key; a rollback
+    past it restores the key first (documents-unique-per-folder-runbook.md).

@@ -14,8 +14,11 @@ from agent.knowledge.schema import IngestionJobStatus
 from agent.knowledge.schema import JobState
 from agent.knowledge.schema import stable_file_id
 from knowledge_layer.ingest.listing import LISTING_FIELDS
+from knowledge_layer.ingest.listing import by_owner
 from knowledge_layer.ingest.listing import files_from_payloads
 from knowledge_layer.ingest.listing import from_epoch
+from knowledge_layer.ingest.listing import listing_key
+from knowledge_layer.ingest.listing import sole_holders
 
 from . import limits
 from .stored_names import _stored_name_matches
@@ -35,10 +38,12 @@ def _file_info_from_job(job: IngestionJobStatus, detail: FileProgress) -> FileIn
     status, error = detail.status, detail.error_message
     if status not in (FileStatus.SUCCESS, FileStatus.FAILED) and job.status == JobState.FAILED:
         status, error = FileStatus.FAILED, error or job.error_message
+    document_id = ingest_status_store.job_document_id(job)
     return FileInfo(
-        file_id=stable_file_id(job.collection_name, detail.file_name),
+        file_id=stable_file_id(job.collection_name, detail.file_name, document_id),
         file_name=detail.file_name,
         collection_name=job.collection_name,
+        document_id=document_id,
         status=status,
         chunk_count=detail.chunks_created,
         uploaded_at=job.submitted_at,
@@ -54,8 +59,10 @@ def _merge_file_records(indexed: FileInfo | None, recorded: FileInfo | None) -> 
         return indexed
     if indexed is None:
         return None if recorded.status == FileStatus.SUCCESS else recorded
+    identity = {} if recorded.document_id else {"document_id": indexed.document_id, "file_id": indexed.file_id}
     return recorded.model_copy(
         update={
+            **identity,
             "chunk_count": indexed.chunk_count,
             "file_size": recorded.file_size or indexed.file_size,
             "uploaded_at": recorded.uploaded_at or indexed.uploaded_at,
@@ -103,18 +110,44 @@ class CollectionCatalog:
         return get_store()
 
     def _chunk_ids_of(self, collection_name: str, stored_names: list[str]) -> list[tuple[str, str]]:
+        from knowledge_layer.vector_store import named_chunks
+
         if not stored_names:
             return []
+        return [
+            (chunk_id, stored)
+            for chunk_id, stored, _claimed in self._chunks_matching(collection_name, named_chunks(stored_names))
+        ]
+
+    def _chunks_of_document(
+        self, collection_name: str, document_id: str, stored_names: list[str]
+    ) -> list[tuple[str, str, bool]]:
+        from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
+
+        by_id: dict[str, Any] = {DOCUMENT_ID_FIELD: {"$eq": document_id}}
+        if not stored_names:
+            return self._chunks_matching(collection_name, by_id)
+        unclaimed = {
+            "$and": [{"file_name": {"$in": sorted(set(stored_names))}}, {DOCUMENT_ID_FIELD: {"$exists": False}}]
+        }
+        return self._chunks_matching(collection_name, {"$or": [by_id, unclaimed]})
+
+    def _chunks_matching(self, collection_name: str, filters: dict[str, Any]) -> list[tuple[str, str, bool]]:
         from knowledge_layer.vector_store import CHUNK_ID_FIELD
+        from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
         records = self._store().scroll(
             collection_name,
-            {"file_name": {"$in": sorted(set(stored_names))}},
-            fields=[CHUNK_ID_FIELD, "file_name"],
+            filters,
+            fields=[CHUNK_ID_FIELD, "file_name", DOCUMENT_ID_FIELD],
             page_size=_LISTING_PAGE,
         )
         return [
-            (str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id), str((record.payload or {}).get("file_name")))
+            (
+                str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id),
+                str((record.payload or {}).get("file_name")),
+                bool((record.payload or {}).get(DOCUMENT_ID_FIELD)),
+            )
             for record in records
         ]
 
@@ -184,7 +217,8 @@ class CollectionCatalog:
     ) -> FileInfo:
         file_path_obj = Path(file_path)
         file_name = file_path_obj.name
-        file_id = stable_file_id(collection_name, file_name)
+        document_id = (metadata or {}).get("document_id")
+        file_id = stable_file_id(collection_name, file_name, document_id if isinstance(document_id, str) else None)
 
         if not file_path_obj.exists():
             return FileInfo(
@@ -212,76 +246,64 @@ class CollectionCatalog:
             metadata={**(metadata or {}), "job_id": job_id},
         )
 
-    def _file_name_of(self, file_id: str, collection_name: str) -> str:
+    def _listed(self, file_id: str, collection_name: str) -> FileInfo | None:
         try:
             uuid.UUID(file_id)
         except ValueError:
-            return file_id
-        listed = next((f for f in self.list_files(collection_name) if f.file_id == file_id), None)
-        return listed.file_name if listed is not None else file_id
+            return None
+        return next((f for f in self.list_files(collection_name) if f.file_id == file_id), None)
 
     def delete_file(self, file_id: str, collection_name: str, *, permanent: bool = False) -> bool:
-        file_name = self._file_name_of(file_id, collection_name)
+        listed = self._listed(file_id, collection_name)
+        if listed is not None and listed.document_id:
+            return self.delete_document(listed.document_id, listed.file_name, collection_name, permanent=permanent)
+        file_name = listed.file_name if listed is not None else file_id
         forgotten = ingest_status_store.forget_file(collection_name, file_name)
         chunks = self._chunk_ids_of(collection_name, self._spellings_in(collection_name, file_name))
-        return self._purge(collection_name, [file_name], chunks, forgotten, permanent=permanent)
+        names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
+        return self._purge(collection_name, chunks, forgotten, names=names, permanent=permanent)
 
     def delete_document(
         self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
     ) -> bool:
-        from knowledge_layer.vector_store import CHUNK_ID_FIELD
-        from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
-
-        forgotten = ingest_status_store.forget_file(collection_name, file_name)
-        by_id: dict[str, Any] = {DOCUMENT_ID_FIELD: {"$eq": document_id}}
-        spellings = self._spellings_in(collection_name, file_name)
-        unclaimed = {"$and": [{"file_name": {"$in": spellings}}, {DOCUMENT_ID_FIELD: {"$exists": False}}]}
-        records = self._store().scroll(
-            collection_name,
-            {"$or": [by_id, unclaimed]} if spellings else by_id,
-            fields=[CHUNK_ID_FIELD, "file_name"],
-            page_size=_LISTING_PAGE,
-        )
-        chunks = [
-            (str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id), str((record.payload or {}).get("file_name")))
-            for record in records
-        ]
+        forgotten = ingest_status_store.forget_file(collection_name, file_name, document_id=document_id)
+        spellings = self._spellings_in(collection_name, file_name, unclaimed=True)
+        found = self._chunks_of_document(collection_name, document_id, spellings)
+        chunks = [(chunk_id, stored) for chunk_id, stored, _claimed in found]
         names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
-        return self._purge(collection_name, names, chunks, forgotten, permanent=permanent)
-
-    def _spellings_in(self, collection_name: str, file_name: str) -> list[str]:
-        return sorted(
-            stored
-            for stored in self._store().file_counts(collection_name)
-            if stored == file_name or _stored_name_matches(file_name, stored)
+        return self._purge(
+            collection_name, chunks, forgotten, names=names, document_id=document_id, permanent=permanent
         )
+
+    def _spellings_in(self, collection_name: str, file_name: str, *, unclaimed: bool = False) -> list[str]:
+        store = self._store()
+        names = store.unclaimed_file_names(collection_name) if unclaimed else store.file_counts(collection_name)
+        return sorted(stored for stored in names if stored == file_name or _stored_name_matches(file_name, stored))
 
     def _purge(
         self,
         collection_name: str,
-        names: list[str],
         chunks: list[tuple[str, str]],
         forgotten: int,
         *,
+        names: list[str],
+        document_id: str | None = None,
         permanent: bool,
     ) -> bool:
         from agent.knowledge import unregister_summary
 
         file_name = names[0]
-        if not chunks:
-            if forgotten:
-                logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
-            else:
-                logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
-            unregister_summary(collection_name, file_name, permanent=permanent)
-            return forgotten > 0
-
-        self._store().delete_chunks(collection_name, [chunk_id for chunk_id, _ in chunks])
-        bump_collection_version(collection_name)
-        logger.info(f"Deleted {len(chunks)} chunks for file {file_name}")
+        if chunks:
+            self._store().delete_chunks(collection_name, [chunk_id for chunk_id, _ in chunks])
+            bump_collection_version(collection_name)
+            logger.info(f"Deleted {len(chunks)} chunks for file {file_name}")
+        elif forgotten:
+            logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
+        else:
+            logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
         for name in names:
-            unregister_summary(collection_name, name, permanent=permanent)
-        return True
+            unregister_summary(collection_name, name, permanent=permanent, document_id=document_id)
+        return bool(chunks) or forgotten > 0
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
         records = self._store().scroll(collection_name, None, fields=LISTING_FIELDS, page_size=_LISTING_PAGE)
@@ -292,13 +314,18 @@ class CollectionCatalog:
         records: dict[str, FileInfo] = {}
         for job in ingest_status_store.collection_jobs(collection_name, limits.FILE_TRACKING_RETENTION_SECONDS):
             for detail in job.file_details:
-                records[detail.file_name] = _file_info_from_job(job, detail)
+                recorded = _file_info_from_job(job, detail)
+                records[listing_key(recorded.file_name, recorded.document_id)] = recorded
         return records
 
     def list_files(self, collection_name: str) -> list[FileInfo]:
         try:
             indexed = self._indexed_files(collection_name)
             recorded = self._recorded_files(collection_name)
+            holders = sole_holders(
+                (key, info.file_name, info.document_id) for key, info in [*indexed.items(), *recorded.items()]
+            )
+            indexed, recorded = by_owner(indexed, holders), by_owner(recorded, holders)
 
             merged = (_merge_file_records(indexed.get(name), recorded.get(name)) for name in {**indexed, **recorded})
             result = [record for record in merged if record is not None]
@@ -313,14 +340,17 @@ class CollectionCatalog:
     def get_file_status(self, file_id: str, collection_name: str) -> FileInfo | None:
         return next((f for f in self.list_files(collection_name) if f.file_id == file_id), None)
 
-    def get_document_text_sample(self, collection_name: str, file_name: str, max_chars: int = 4000) -> str | None:
+    def get_document_text_sample(
+        self, collection_name: str, file_name: str, max_chars: int = 4000, *, document_id: str | None = None
+    ) -> str | None:
         from agent.knowledge.base import READING_ORDER
+        from knowledge_layer.vector_store import document_chunks
         from knowledge_layer.vector_store import fetch as qdrant_fetch
         from knowledge_layer.vector_store import reading_for_maintenance
 
         try:
             with reading_for_maintenance():
-                hits = qdrant_fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
+                hits = qdrant_fetch(collection_name, document_chunks(file_name, document_id), 5, READING_ORDER)
         except Exception as e:
             logger.warning("Reconciliation: failed to fetch chunks for %s in %s: %s", file_name, collection_name, e)
             return None
@@ -328,10 +358,15 @@ class CollectionCatalog:
         combined = "\n".join(hit.text for hit in hits[:5] if hit.text)
         return combined[:max_chars] if combined else None
 
-    def get_document_visual_details(self, collection_name: str, file_name: str) -> list[dict[str, Any]]:
+    def get_document_visual_details(
+        self, collection_name: str, file_name: str, *, document_id: str | None = None
+    ) -> list[dict[str, Any]]:
         from knowledge_layer import vector_store
 
-        visual = {"file_name": file_name, "content_type": {"$in": ["drawing", "image", "chart"]}}
+        visual = {
+            **vector_store.document_chunks(file_name, document_id),
+            "content_type": {"$in": ["drawing", "image", "chart"]},
+        }
         try:
             records = list(self._store().scroll(collection_name, visual, *vector_store.office_read(collection_name)))
         except Exception as e:

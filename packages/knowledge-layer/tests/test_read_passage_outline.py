@@ -24,6 +24,10 @@ PLAN = "Brandschutzkonzept.pdf"
 SHEET = "Kostenaufstellung.xlsx"
 
 
+def _target(file_name: str):
+    return rp.PassageTarget(collection="base_corpus", file_name=file_name, shelf=None)
+
+
 def _document(file_name: str, display_title: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(file_name=file_name, display_title=display_title, summary=None, tags=None)
 
@@ -440,8 +444,8 @@ class TestWhatTheStoreIsAsked:
     def test_both_filters_survive_the_real_translator(self):
         from knowledge_layer.vector_store import translate
 
-        assert translate(rp._outline_filters(OIB)) is not None
-        assert translate(rp._whole_document_filters(OIB)) is not None
+        assert translate(rp._outline_filters(_target(OIB))) is not None
+        assert translate(rp._whole_document_filters(_target(OIB))) is not None
 
 
 class TestADocumentWhosePageLabelIsNotAPage:
@@ -470,7 +474,7 @@ class TestADocumentWhosePageLabelIsNotAPage:
 
 class TestTheDepthClauseMatchesTheRecheck:
     def test_the_clause_asks_for_both_spellings(self):
-        assert rp._outline_filters(OIB)["$and"][1]["$or"][1:] == [
+        assert rp._outline_filters(_target(OIB))["$and"][1]["$or"][1:] == [
             {"clause_depth": {"$in": [1, 2]}},
             {"clause_depth": {"$in": ["1", "2"]}},
         ]
@@ -480,7 +484,7 @@ class TestTheDepthClauseMatchesTheRecheck:
 
         asked = [
             depth
-            for clause in rp._outline_filters(OIB)["$and"][1]["$or"][1:]
+            for clause in rp._outline_filters(_target(OIB))["$and"][1]["$or"][1:]
             for depth in clause["clause_depth"]["$in"]
         ]
 

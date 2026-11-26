@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import Annotated
 from typing import Any
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -19,7 +20,7 @@ from agent.drawings.sheet_answers import Cause
 from agent.drawings.sheet_answers import Measurement
 from agent.drawings.sheet_types import inert
 
-from ..look.resolve import Resolved
+from ..look.resolve import stated_document
 from .measure_register import ANSWER_TIMEOUT_S
 from .measure_register import DrawingMeasureInput
 from .measure_register import measure
@@ -36,6 +37,7 @@ class TapeRequest(BaseModel):
 
     file_name: str = Field(min_length=1, max_length=1024)
     collection: str = Field(min_length=1, max_length=256)
+    document_id: UUID | None = Field(default=None, description="The drawing's document id; its pixels are read by it")
     page: int = Field(default=1, ge=1)
     operation: TapeOperation
     points: list[tuple[Share, Share]] = Field(min_length=1, max_length=MAX_POINTS)
@@ -141,7 +143,8 @@ def snapped(loaded: LoadedSheet, request: TapeRequest) -> dict[str, Any]:
 async def run_tape(request: TapeRequest) -> dict[str, Any]:
     if not turn_states("pdf"):
         return {"refused": "not_enabled"}
-    loaded = await load_resolved_sheet(Resolved(request.file_name, request.collection), request.page)
+    resolved = stated_document(request.file_name, request.collection, request.document_id)
+    loaded = await load_resolved_sheet(resolved, request.page)
     if isinstance(loaded, str):
         return _no_number("other", loaded, "")
     work = snapped if request.operation == "snap" else measured

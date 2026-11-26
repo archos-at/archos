@@ -12,6 +12,7 @@ from agent.tools.drawings import measure_register
 from agent.tools.drawings import sheet_source
 from agent.tools.drawings import tape
 from agent.tools.drawings.tape import TapeRequest
+from agent.tools.look.resolve import Resolved
 
 COLLECTION = "project_p1"
 FILE = "floor.pdf"
@@ -58,7 +59,7 @@ def _request(operation: str, points: list[Any]) -> TapeRequest:
 
 
 async def _loaded() -> sheet_source.LoadedSheet:
-    loaded = await sheet_source.load_resolved_sheet(tape.Resolved(FILE, COLLECTION), 1)
+    loaded = await sheet_source.load_resolved_sheet(Resolved(FILE, COLLECTION), 1)
     assert not isinstance(loaded, str), loaded
     return loaded
 
@@ -213,3 +214,15 @@ async def test_a_file_that_cannot_be_read_is_a_refusal_with_its_sentence(looked_
 def test_points_are_bounded_pairs(points) -> None:
     with pytest.raises(ValueError):
         _request("path", points)
+
+
+async def test_a_drawing_the_bff_names_by_id_is_read_by_that_id(looked_up) -> None:
+    document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+    request = TapeRequest(
+        file_name=FILE, collection=COLLECTION, document_id=document_id, page=1, operation="distance", points=CORNERS[:2]
+    )
+
+    with turn_file_kinds.stating(frozenset({"pdf"})):
+        await tape.run_tape(request)
+
+    assert looked_up[0]["query"]["documentId"] == document_id

@@ -128,7 +128,7 @@ def _markdown() -> list[dict[str, Any]]:
 
 @pytest.fixture
 def qdrant_env(qdrant_store, monkeypatch):
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {})
+    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None, *, document_ids=None: {})
     return qdrant_store
 
 

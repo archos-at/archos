@@ -167,3 +167,35 @@ async def test_parallel_calls_on_one_file_parse_it_once(store: _Store, monkeypat
     await asyncio.gather(*(_run(operation="overview") for _ in range(4)))
     assert parsed == [1]
     assert store.reads == 1
+
+
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
+
+
+async def test_a_resolved_document_is_located_by_its_id_beside_its_name(
+    store: _Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agent.tools.canvas.target import Target
+
+    async def resolve(document: str) -> Resolved:
+        return Resolved(FILE, COLLECTION, Target(DRAFT, FILE, COLLECTION))
+
+    monkeypatch.setattr(source, "resolve_document", resolve)
+
+    await _run(operation="overview")
+
+    (call,) = store.looked_up  # type: ignore[attr-defined]
+    assert call["query"] == {"collection": COLLECTION, "filename": FILE, "documentId": DRAFT}
+
+
+async def test_a_name_the_bff_finds_twice_is_a_question_not_the_newest_file(
+    store: _Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def ambiguous(path: str, **kwargs: Any) -> dict[str, Any]:
+        raise bff_http.BffRefusedError("refused", status=409, body={"details": {"reason": "ambiguous_name"}})
+
+    monkeypatch.setattr(source.bff_http, "get_json", ambiguous)
+
+    text = await _run(operation="overview")
+
+    assert text.startswith(f"Ambiguous: more than one document here is called '{FILE}'") and store.reads == 0

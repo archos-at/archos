@@ -17,12 +17,12 @@ import { emitInboxItems } from '@/lib/inbox/service'
 import { collectionFileRef } from './collection-file-ref'
 import { SCREENED_ONLY } from './document-reader'
 import { documentDisplayName, splitDocumentName, type NamedDocument } from './display-name'
+import { revisionCounterpartOf } from './name-match'
 import { claimRevisionAnnouncement, releaseRevisionAnnouncement, type RevisionAnnouncementKey } from './revision-announcement-repository'
 import type { RevisionLinkNames } from './revision-links'
 import { mayOpenDocument } from './may-open'
-import { documentNameKey } from './name-match'
 import { readRevisionLinkNames, refreshCollectionFiles } from './reconcile-status'
-import { findDocumentInOrg, findRevisionCounterparts } from './repository'
+import { findDocumentInOrg, findRevisionCounterparts, type RevisionCounterpartRow } from './repository'
 import { findPreviousVersion, findPublishedVersion } from './version-repository'
 
 const SUMMARY_LINE_MAX = 200
@@ -198,9 +198,13 @@ export function announceNewRevision(announcement: NewRevisionAnnouncement): Prom
   )
 }
 
-function changeAgainstName(change: RevisionLinkNames['change'], olderName: string): string | null {
+function changeAgainst(
+  change: RevisionLinkNames['change'],
+  older: RevisionCounterpartRow,
+  olders: readonly RevisionCounterpartRow[],
+): string | null {
   if (!change || change.basis === null) return null
-  return documentNameKey(change.basis) === documentNameKey(olderName) ? change.text : null
+  return revisionCounterpartOf(olders, change.basis)?.id === older.id ? change.text : null
 }
 
 async function announceSettledVersion(
@@ -230,15 +234,24 @@ async function announceSettledLinks(
   const ref = collectionFileRef(document)
   const names = ref ? await readRevisionLinkNames(ref) : null
   if (!names || names.supersedes.length === 0) return
-  const olders = await findRevisionCounterparts(organizationId, document.collectionName, names.supersedes, SCREENED_ONLY)
-  for (const older of olders) {
-    if (older.id === document.id) continue
+  const found = await findRevisionCounterparts(
+    organizationId,
+    document.collectionName,
+    [...new Set([...names.supersedes, ...(names.change?.basis ? [names.change.basis] : [])])],
+    SCREENED_ONLY,
+  )
+  const olders = new Map<string, RevisionCounterpartRow>()
+  for (const reference of names.supersedes) {
+    const older = revisionCounterpartOf(found, reference)
+    if (older && older.id !== document.id) olders.set(older.id, older)
+  }
+  for (const older of olders.values()) {
     await announceNewRevision({
       organizationId,
       actorUserId: document.createdBy,
       newerId: document.id,
       olderId: older.id,
-      changeSummary: changeAgainstName(names.change, older.filename),
+      changeSummary: changeAgainst(names.change, older, found),
       audience,
     })
   }

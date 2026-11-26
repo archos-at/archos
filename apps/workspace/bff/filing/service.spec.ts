@@ -136,7 +136,7 @@ describe('reviewUploadFiling', () => {
       payload: {
         operation: 'move',
         operations: [
-          { document: 'MA37_Bescheid.pdf', source: 'project', target_folder: 'Bescheide', reason: 'Ein Bescheid der MA 37.' },
+          { document: 'MA37_Bescheid.pdf', document_id: 'd1', source: 'project', target_folder: 'Bescheide', reason: 'Ein Bescheid der MA 37.' },
         ],
         basis: 'name',
         new_folder: null,

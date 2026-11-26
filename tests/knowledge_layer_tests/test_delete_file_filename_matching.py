@@ -73,7 +73,7 @@ def test_delete_returns_false_when_no_chunks_match_but_still_forgets_the_file(mo
     monkeypatch.setattr(
         knowledge_pkg,
         "unregister_summary",
-        lambda c, f, permanent=False: forgotten.append((c, f, permanent)),
+        lambda c, f, permanent=False, document_id=None: forgotten.append((c, f, permanent)),
         raising=False,
     )
     collection = _Collection({"c1": {"file_name": "something-else.pdf"}})
@@ -90,7 +90,7 @@ def test_a_permanent_delete_tells_the_store_so(monkeypatch, qdrant_store):
     monkeypatch.setattr(
         knowledge_pkg,
         "unregister_summary",
-        lambda _c, f, permanent=False: forgotten.append((f, permanent)),
+        lambda _c, f, permanent=False, document_id=None: forgotten.append((f, permanent)),
         raising=False,
     )
     ing = _ingestor(_Collection({"c1": {"file_name": "plan.pdf"}}))

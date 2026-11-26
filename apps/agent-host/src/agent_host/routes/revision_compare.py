@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 import base64
 import logging
+from dataclasses import dataclass
 from dataclasses import replace
 from typing import Any
 from typing import Literal
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter
@@ -13,6 +17,7 @@ from fastapi import Request
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import model_validator
 
 from agent.common import provider_limiter
 from agent.common.cache import get_json
@@ -27,6 +32,7 @@ from agent.common.openrouter import limited_async_http_client
 from agent.knowledge import get_available_documents_async
 from agent.knowledge import revision_compare as compare
 from agent.knowledge import revision_diff
+from agent.knowledge.schema import AvailableDocument
 from agent.observability.direct_trace import observed_generation
 
 from ._llm_json import extract_json_object
@@ -43,11 +49,22 @@ _LIMITER_CLASS = {"person": provider_limiter.INTERACTIVE, "notice": provider_lim
 MAX_PAGE = 2000
 
 
-class RevisionCompareRequest(BaseModel):
+class RevisionPair(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    older: str = Field(..., min_length=1, max_length=512, description="File name of the older Fassung.")
-    newer: str = Field(..., min_length=1, max_length=512, description="File name of the newer Fassung.")
+    older: str | None = Field(None, min_length=1, max_length=512, description="File name of the older Fassung.")
+    newer: str | None = Field(None, min_length=1, max_length=512, description="File name of the newer Fassung.")
+    older_id: UUID | None = Field(None, description="Document id of the older Fassung; wins over `older`.")
+    newer_id: UUID | None = Field(None, description="Document id of the newer Fassung; wins over `newer`.")
+
+    @model_validator(mode="after")
+    def _names_each_side(self) -> RevisionPair:
+        if not (self.older or self.older_id) or not (self.newer or self.newer_id):
+            raise ValueError("name the older and the newer Fassung, by document id or by file name")
+        return self
+
+
+class RevisionCompareRequest(RevisionPair):
     page: int = Field(1, ge=1, le=MAX_PAGE, description="Page to compare, 1-based; the same page of both files.")
     purpose: Literal["person", "notice"] = Field(
         "person",
@@ -55,11 +72,13 @@ class RevisionCompareRequest(BaseModel):
     )
 
 
-class RevisionPagesRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class RevisionPagesRequest(RevisionPair): ...
 
-    older: str = Field(..., min_length=1, max_length=512, description="File name of the older Fassung.")
-    newer: str = Field(..., min_length=1, max_length=512, description="File name of the newer Fassung.")
+
+@dataclass(frozen=True)
+class Revisions:
+    older: AvailableDocument
+    newer: AvailableDocument
 
 
 class RevisionPagesResponse(BaseModel):
@@ -109,34 +128,39 @@ def _vision_settings(organization_id: str | None) -> ResolvedCredential:
     return replace(cred, model=override) if override else cred
 
 
-async def _load_page(collection: str, file_name: str, page: int, organization_id: str | None):
+async def _load_page(
+    collection: str, file_name: str, page: int, organization_id: str | None, document_id: str | None = None
+):
     from knowledge_layer.page_image import load_page_jpeg
 
-    return await load_page_jpeg(collection, file_name, page, organization_id=organization_id)
+    return await load_page_jpeg(collection, file_name, page, organization_id=organization_id, document_id=document_id)
 
 
-async def _pages(
-    collection: str, older: str, newer: str, page: int, organization_id: str | None
-) -> tuple[bytes, bytes]:
+async def _pages(collection: str, pair: Revisions, page: int, organization_id: str | None) -> tuple[bytes, bytes]:
     from knowledge_layer.page_image import PageImageUnavailable
 
-    async def one(side: str, file_name: str) -> bytes:
+    async def one(side: str, document: AvailableDocument) -> bytes:
         try:
-            return (await _load_page(collection, file_name, page, organization_id)).jpeg
+            return (await _load_page(collection, document.file_name, page, organization_id, document.document_id)).jpeg
         except PageImageUnavailable as exc:
             raise HTTPException(
                 status_code=404, detail=f"Page {page} of the {side} Fassung is not available ({exc.reason})"
             ) from None
 
-    older_jpeg, newer_jpeg = await asyncio.gather(one("older", older), one("newer", newer))
+    older_jpeg, newer_jpeg = await asyncio.gather(one("older", pair.older), one("newer", pair.newer))
     return older_jpeg, newer_jpeg
 
 
-def _licence_of(collection: str, older: str, newer: str):
+def _licence_of(collection: str, older: Any, newer: Any):
     from agent.tools.look.place import document_licence
 
     terms = [
-        licence for licence in (document_licence(collection, older), document_licence(collection, newer)) if licence
+        licence
+        for licence in (
+            document_licence(collection, row.file_name, document_id=getattr(row, "document_id", None))
+            for row in (older, newer)
+        )
+        if licence
     ]
     licensed = [licence for licence in terms if licence.licensed]
     if any(not licence.ai_processing for licence in licensed):
@@ -217,32 +241,44 @@ def _response(
     )
 
 
-def _stored_chunks(collection: str, file_name: str) -> list[revision_diff.RevisionChunk] | None:
+def _stored_chunks(collection: str, document: AvailableDocument) -> list[revision_diff.RevisionChunk] | None:
     from agent.knowledge.collection_pages import read_chunks
 
-    stored = read_chunks(collection, file_name)
+    stored = read_chunks(collection, document.file_name, document_id=document.document_id)
     if stored is None:
         return None
     return [chunk for text, meta in stored if (chunk := revision_diff.chunk_from_store(text, meta)) is not None]
 
 
-async def _ingested_or_409(collection_name: str, older: str, newer: str) -> None:
-    if older == newer:
+async def _ingested_or_409(collection_name: str, request: RevisionPair) -> Revisions:
+    from .document_revisions import pick_document
+
+    documents = await get_available_documents_async(collection_name)
+    older = pick_document(documents, request.older, request.older_id)
+    newer = pick_document(documents, request.newer, request.newer_id)
+    if older is not None and older is newer:
         raise HTTPException(status_code=400, detail="A file is not compared with itself")
-    documents = {doc.file_name for doc in await get_available_documents_async(collection_name)}
-    missing = [name for name in (older, newer) if name not in documents]
-    if missing:
+    missing = [
+        str(document_id or name)
+        for found, name, document_id in (
+            (older, request.older, request.older_id),
+            (newer, request.newer, request.newer_id),
+        )
+        if found is None
+    ]
+    if missing or older is None or newer is None:
         raise HTTPException(status_code=409, detail=f"Not ingested in collection '{collection_name}': {missing!r}")
+    return Revisions(older, newer)
 
 
-async def _changed_pages(collection: str, request: RevisionPagesRequest, office: str | None) -> RevisionPagesResponse:
+async def _changed_pages(collection: str, pair: Revisions, office: str | None) -> RevisionPagesResponse:
     from knowledge_layer.search import reading_as
 
     try:
         with reading_as(office):
             older_chunks, newer_chunks = await asyncio.gather(
-                asyncio.to_thread(_stored_chunks, collection, request.older),
-                asyncio.to_thread(_stored_chunks, collection, request.newer),
+                asyncio.to_thread(_stored_chunks, collection, pair.older),
+                asyncio.to_thread(_stored_chunks, collection, pair.newer),
             )
     except Exception:  # noqa: BLE001 - an outage is said as one, never as "nothing changed"
         logger.warning("Changed pages of two Fassungen could not be read", exc_info=True)
@@ -274,15 +310,13 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         x_grid_organization_id: str | None = Header(default=None),
         x_grid_user_id: str | None = Header(default=None),
     ) -> RevisionCompareResponse:
-        await _ingested_or_409(collection_name, request.older, request.newer)
-        licence = await asyncio.to_thread(_licence_of, collection_name, request.older, request.newer)
+        pair = await _ingested_or_409(collection_name, request)
+        licence = await asyncio.to_thread(_licence_of, collection_name, pair.older, pair.newer)
         cred = await asyncio.to_thread(_vision_settings, x_grid_organization_id)
         if not cred.api_key:
             raise HTTPException(status_code=503, detail="No vision model is configured")
 
-        older_jpeg, newer_jpeg = await _pages(
-            collection_name, request.older, request.newer, request.page, x_grid_organization_id
-        )
+        older_jpeg, newer_jpeg = await _pages(collection_name, pair, request.page, x_grid_organization_id)
         key = compare.cache_key(cred.model, collection_name, request.page, older_jpeg, newer_jpeg)
         hit = await asyncio.to_thread(_cached, key)
         if hit is not None:
@@ -306,5 +340,5 @@ def add_revision_compare_routes(router: APIRouter) -> None:
     ) -> RevisionPagesResponse:
         from .internal_auth import internal_office
 
-        await _ingested_or_409(collection_name, request.older, request.newer)
-        return await _changed_pages(collection_name, request, internal_office(http_request))
+        pair = await _ingested_or_409(collection_name, request)
+        return await _changed_pages(collection_name, pair, internal_office(http_request))

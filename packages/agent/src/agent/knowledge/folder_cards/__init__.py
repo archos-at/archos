@@ -67,17 +67,28 @@ def mark_folders(collection: str, folder_paths: Iterable[str | None]) -> None:
         logger.warning("folder cards: could not mark %s in %s", paths, collection, exc_info=True)
 
 
-def mark_files(collection: str, file_names: Sequence[str] | None, store=None) -> None:
-    if not file_names or not enabled_for_collection(collection):
+def mark_files(
+    collection: str,
+    file_names: Sequence[str] | None,
+    store=None,
+    *,
+    document_ids: Sequence[str] | None = None,
+) -> None:
+    names, ids = list(file_names or ()), [document_id for document_id in document_ids or () if document_id]
+    if not (names or ids) or not enabled_for_collection(collection):
         return
     try:
         if store is None:
             from agent.knowledge.factory import _get_document_metadata_store
 
             store = _get_document_metadata_store()
-        mark_folders(collection, store.get_folder_paths_batch(collection, list(file_names)).values())
+        if ids:
+            paths = store.get_folder_paths_batch(collection, names, document_ids=ids)
+        else:
+            paths = store.get_folder_paths_batch(collection, names)
+        mark_folders(collection, paths.values())
     except Exception:  # noqa: BLE001
-        logger.warning("folder cards: could not mark the folders of %d file(s)", len(file_names), exc_info=True)
+        logger.warning("folder cards: could not mark the folders of %d file(s)", len(names) + len(ids), exc_info=True)
 
 
 @dataclass(frozen=True)

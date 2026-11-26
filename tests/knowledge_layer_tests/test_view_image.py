@@ -324,7 +324,7 @@ def _patch_seaweed_chain(
     fetched: bytes | None = b"image-bytes",
     normalized=(_JPEG_BYTES, 100, 50),
 ) -> None:
-    async def _resolve(_collection, _file_name, organization_id=None, image_index=None):
+    async def _resolve(_collection, _file_name, organization_id=None, image_index=None, document_id=None):
         _patch_seaweed_chain.seen.append({"image_index": image_index})
         return None if storage_key is None else (storage_key, storage_bucket)
 

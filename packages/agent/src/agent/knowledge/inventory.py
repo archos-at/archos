@@ -231,8 +231,25 @@ def _confirmed_revision_bit(doc: Any) -> str:
     return f" · {'; '.join(parts)}" if parts else ""
 
 
+def _document_id_of(doc: Any) -> str:
+    document_id = doc.get("document_id") if isinstance(doc, dict) else getattr(doc, "document_id", None)
+    return str(document_id or "")
+
+
 def document_identity(doc: Any) -> tuple[str, str]:
-    return (_collection_of(doc), _file_name_of(doc))
+    return (_collection_of(doc), _document_id_of(doc) or _file_name_of(doc))
+
+
+def shared_document_names(docs: Iterable[Any]) -> frozenset[tuple[str, str]]:
+    identities: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for doc in docs:
+        if name := _file_name_of(doc):
+            identities[(_collection_of(doc), name.casefold())].add(document_identity(doc)[1])
+    return frozenset(key for key, held in identities.items() if len(held) > 1)
+
+
+def names_shared_in_turn() -> frozenset[tuple[str, str]]:
+    return shared_document_names(get_turn_documents())
 
 
 def stamp_document(doc: Any, *, collection: str, shelf: Shelf | None) -> Any:
@@ -446,6 +463,31 @@ _SHELF_LINES: tuple[str, ...] = (
 )
 
 
+_SHARED_NAMES_NOTE = (
+    "Two files of one name are two documents and show their `(id …)`: name one to a tool by that id or "
+    "by its folder path (`Ordner/Name`, `/Name` at the top level), never by the name alone."
+)
+
+
+def _row_line(doc: Any, shared: frozenset[tuple[str, str]]) -> str:
+    tags = _tags_of(doc)
+    tag_bit = f" [{', '.join(tags)}]" if tags else ""
+    topics = _topics_of(doc)
+    topic_bit = f" Themen: {', '.join(topics)}" if topics else ""
+    captured = _captured_on_of(doc)
+    captured_bit = f" · aufgenommen {captured}" if captured else ""
+    folder = _folder_of(doc)
+    folder_bit = f" (Ordner: {folder})" if folder else ""
+    document_id = _document_id_of(doc)
+    if document_id and (_collection_of(doc), _file_name_of(doc).casefold()) in shared:
+        folder_bit += f" (id {document_id})"
+    summary = _summary_of(doc) or "No summary available"
+    return (
+        f"- **{_file_name_of(doc)}**{folder_bit}{tag_bit}{topic_bit}{captured_bit}{_confirmed_revision_bit(doc)}"
+        f"{_reading_bit(doc)}: {summary}"
+    )
+
+
 def render_inventory_block(
     docs: Sequence[Any],
     *,
@@ -508,6 +550,9 @@ def render_inventory_block(
             "there. Files with no `(Ordner: …)` sit at the top level."
         )
         lines.append("")
+    shared = shared_document_names(docs)
+    if shared:
+        lines.extend((_SHARED_NAMES_NOTE, ""))
 
     for paragraph in (in_flight_paragraph(in_flight), focus_paragraph(focused)):
         if paragraph:
@@ -526,22 +571,7 @@ def render_inventory_block(
         if not rows:
             lines.append("(empty — no files on this shelf)")
         else:
-            for doc in rows:
-                tags = _tags_of(doc)
-                tag_bit = f" [{', '.join(tags)}]" if tags else ""
-                topics = _topics_of(doc)
-                topic_bit = f" Themen: {', '.join(topics)}" if topics else ""
-                captured = _captured_on_of(doc)
-                captured_bit = f" · aufgenommen {captured}" if captured else ""
-                folder = _folder_of(doc)
-                folder_bit = f" (Ordner: {folder})" if folder else ""
-                summary = _summary_of(doc) or "No summary available"
-                revision_bit = _confirmed_revision_bit(doc)
-                reading_bit = _reading_bit(doc)
-                lines.append(
-                    f"- **{_file_name_of(doc)}**{folder_bit}{tag_bit}{topic_bit}{captured_bit}{revision_bit}"
-                    f"{reading_bit}: {summary}"
-                )
+            lines.extend(_row_line(doc, shared) for doc in rows)
         missing = dropped.get(shelf, 0)
         if missing > 0:
             lines.append(

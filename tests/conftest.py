@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from knowledge_layer_testing.ingest_fixtures import _no_memory_release_between_files  # noqa: F401 - autouse
 from knowledge_layer_testing.vector_store_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
+from knowledge_layer_testing.vector_store_fixtures import local_qdrant_store  # noqa: F401 - an in-process store
 from knowledge_layer_testing.vector_store_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
 
 

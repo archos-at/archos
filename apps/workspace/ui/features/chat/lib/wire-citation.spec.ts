@@ -92,6 +92,22 @@ describe('citationFromWire', () => {
   })
 })
 
+describe('citationFromWire — the stored document id', () => {
+  const ID = '3f1c2a7e-9b4d-4c1e-8a2f-5d6e7f809a1b'
+  const wire = (stored_document_id: string | null): WireCitationSource => ({
+    content: '[KB] Plan.pdf, p.3',
+    file_name: 'Plan.pdf',
+    document_id: `doc:id:${stored_document_id}`,
+    stored_document_id,
+  })
+
+  test('carries a document id, and drops anything else so the preview falls back to the name', () => {
+    expect(citationFromWire(wire(ID)).storedDocumentId).toBe(ID)
+    expect(citationFromWire(wire('Plan.pdf')).storedDocumentId).toBeUndefined()
+    expect(citationFromWire(wire(null)).storedDocumentId).toBeUndefined()
+  })
+})
+
 describe('sameCitation', () => {
   test('matches on the document key regardless of the rest', () => {
     const discovered = citationFromWire(KB_WIRE)

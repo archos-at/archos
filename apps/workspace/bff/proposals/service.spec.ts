@@ -132,7 +132,7 @@ beforeEach(() => {
   vi.mocked(resolveProjectDocumentsByName).mockImplementation(async (_session, _project, names) =>
     names.flatMap((name) => {
       if (name.toLowerCase() === 'grundriss eg.pdf') {
-        return [listed('doc_old', 'Grundriss EG.pdf', '2026-01-01T08:00:00Z'), listed('doc_eg', 'grundriss eg.PDF')]
+        return [listed('doc_eg', 'grundriss eg.PDF')]
       }
       if (name === 'Schnitt A-A.pdf') return [listed('doc_aa', 'Schnitt A-A.pdf')]
       return []

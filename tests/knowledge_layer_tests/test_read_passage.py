@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.read_passage import _MAX_PASSAGE_CHUNKS
 from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
+from knowledge_layer.read_passage import PassageTarget
 from knowledge_layer.read_passage import ReadPassageConfig
 from knowledge_layer.read_passage import _clause_sort_key
 from knowledge_layer.read_passage import _document_names
@@ -21,6 +22,7 @@ from agent.knowledge.schema import RetrievalResult
 from agent.knowledge.scoping import ScopedCollection
 
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
+OIB_TARGET = PassageTarget(collection="base_corpus", file_name=OIB, shelf=None)
 
 
 def _document(file_name: str, display_title: str | None = None) -> SimpleNamespace:
@@ -148,18 +150,18 @@ class TestResolution:
 
 class TestTheFilterIsTheAnswer:
     def test_a_clause_request_filters_on_file_and_clause(self):
-        assert _passage_filters(OIB, "3.5.2", None) == {
+        assert _passage_filters(OIB_TARGET, "3.5.2", None) == {
             "$and": [{"file_name": {"$eq": OIB}}, {"clause_id": {"$eq": "3.5.2"}}]
         }
 
     def test_a_page_request_compares_page_label_as_a_STRING(self):
         labels = [str(number) for number in range(4, 13)]
-        assert _passage_filters(OIB, None, 12) == {
+        assert _passage_filters(OIB_TARGET, None, 12) == {
             "$and": [{"file_name": {"$eq": OIB}}, {"page_label": {"$in": labels}}]
         }
 
     def test_both_together_read_that_clause_on_that_page(self):
-        clauses = _passage_filters(OIB, "3.5.2", 12)["$and"]
+        clauses = _passage_filters(OIB_TARGET, "3.5.2", 12)["$and"]
         assert clauses == [
             {"file_name": {"$eq": OIB}},
             {"clause_id": {"$eq": "3.5.2"}},
@@ -226,7 +228,7 @@ class TestTheFilterIsTheAnswer:
         assert "Rauchabzug" in out and "Fluchtweglänge" not in out
 
     def test_a_paragraph_locator_asks_for_both_spellings(self):
-        assert _passage_filters(OIB, "§3", None)["$and"][1] == {"clause_id": {"$in": ["§ 3", "§3"]}}
+        assert _passage_filters(OIB_TARGET, "§3", None)["$and"][1] == {"clause_id": {"$in": ["§ 3", "§3"]}}
 
     async def test_neither_clause_nor_page_outlines_the_document_instead_of_refusing(self, store):
         store.chunks = [_chunk(page=1, content="Titelblatt …", chunk_id="t1")]

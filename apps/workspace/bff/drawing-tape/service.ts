@@ -62,6 +62,7 @@ export async function measureOnReadDocument(
       headers: { 'content-type': 'application/json', ...envelope, ...token },
       body: JSON.stringify({
         file_name: document.filename,
+        document_id: document.id,
         collection: document.collectionName,
         page: request.page,
         operation: request.operation,

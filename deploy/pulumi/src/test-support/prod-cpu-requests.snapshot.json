@@ -720,6 +720,16 @@
         "memory": "64Mi"
       }
     },
+    "448e15dfa96a87a8": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
+      }
+    },
     "efaae0b1e43301a6": {
       "limits": {
         "cpu": "250m",
@@ -748,6 +758,16 @@
       "requests": {
         "cpu": "25m",
         "memory": "64Mi"
+      }
+    },
+    "2756522f4bbbafe6": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "50m",
+        "memory": "128Mi"
       }
     }
   },

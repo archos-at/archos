@@ -298,7 +298,7 @@ async function searchDocuments(
     toDocumentHit(
       row,
       passagesById.get(row.id) ??
-        (row.authoredBy === 'user' ? passagesByKey.get(contentKey(row.collectionName, row.filename)) : undefined),
+        (row.matchedContentKey ? passagesByKey.get(contentKey(row.collectionName, row.filename)) : undefined),
       people.get(row.createdBy)?.name ?? null
     )
   )

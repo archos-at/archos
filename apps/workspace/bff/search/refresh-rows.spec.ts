@@ -8,7 +8,8 @@ vi.mock('@/lib/documents/reconcile-status', () => ({ readCollectionReadings: vi.
 vi.mock('./facets-projector', () => ({ projectReadings: vi.fn().mockResolvedValue(1) }))
 vi.mock('./facets-repository', () => ({ markShelvesStale: vi.fn().mockResolvedValue(undefined) }))
 
-import { readCollectionReadings } from '@/lib/documents/reconcile-status'
+import type { CollectionFileRef } from '@/lib/documents/collection-file-ref'
+import { readCollectionReadings, type ListedReading } from '@/lib/documents/reconcile-status'
 import { projectReadings } from './facets-projector'
 import { markShelvesStale } from './facets-repository'
 import { projectDocuments, refreshSearchRows } from './refresh-rows'
@@ -27,14 +28,17 @@ const doc = (id: string, overrides: Partial<{ collectionName: string; authoredBy
   ...overrides,
 })
 
+const readingsOf = (refs: readonly CollectionFileRef[], documentId: string, reading: ListedReading) =>
+  new Map(refs.filter((ref) => ref.documentId === documentId).map((ref) => [ref, reading]))
+
 beforeEach(() => vi.clearAllMocks())
 
 describe('projectDocuments', () => {
   it('reads each collection once and writes the rows its listing knows, superseded as the listing says', async () => {
-    vi.mocked(readCollectionReadings).mockImplementation(async (collectionName) =>
+    vi.mocked(readCollectionReadings).mockImplementation(async (collectionName, refs) =>
       collectionName === 'proj_a'
-        ? new Map([['older.pdf', { metadata: { summary: 's' }, superseded: true }]])
-        : new Map([['other.pdf', { metadata: { tags: ['Gutachten'] }, superseded: false }]])
+        ? readingsOf(refs, 'older', { metadata: { summary: 's' }, superseded: true })
+        : readingsOf(refs, 'other', { metadata: { tags: ['Gutachten'] }, superseded: false })
     )
 
     await projectDocuments('org-1', [doc('older'), doc('newer'), doc('other', { collectionName: 'proj_b' })])
@@ -53,6 +57,19 @@ describe('projectDocuments', () => {
     expect(projectReadings).toHaveBeenCalledWith('org-1', [])
   })
 
+  it('writes each of two same-named documents the reading listed under its own id', async () => {
+    vi.mocked(readCollectionReadings).mockImplementation(async (_collectionName, refs) =>
+      new Map(refs.map((ref) => [ref, { metadata: { summary: `reading of ${ref.documentId}` }, superseded: false }]))
+    )
+
+    await projectDocuments('org-1', [doc('entwurf'), doc('einreichung')].map((row) => ({ ...row, filename: 'Plan.pdf' })))
+
+    expect(projectReadings).toHaveBeenCalledWith('org-1', [
+      { documentId: 'entwurf', metadata: { summary: 'reading of entwurf' }, superseded: false },
+      { documentId: 'einreichung', metadata: { summary: 'reading of einreichung' }, superseded: false },
+    ])
+  })
+
   it('throws when a listing is unreadable, so nothing is written as if nothing were known', async () => {
     vi.mocked(readCollectionReadings).mockResolvedValue(null)
 
@@ -63,7 +80,9 @@ describe('projectDocuments', () => {
 
 describe('refreshSearchRows', () => {
   it('writes the rows of the edited documents', async () => {
-    vi.mocked(readCollectionReadings).mockResolvedValue(new Map([['a.pdf', { metadata: { summary: 's' }, superseded: false }]]))
+    vi.mocked(readCollectionReadings).mockImplementation(async (_collectionName, refs) =>
+      readingsOf(refs, 'a', { metadata: { summary: 's' }, superseded: false })
+    )
 
     await refreshSearchRows('org-1', [doc('a')])
 

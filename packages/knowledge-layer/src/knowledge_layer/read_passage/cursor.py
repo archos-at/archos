@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .models import PassageTarget
 from .ranges import _FILTER_KINDS
 from .ranges import _MAX_RANGE_PAGES
 from .ranges import ORDER_FILTERS
@@ -70,10 +71,18 @@ class ReadCursor:
     position: tuple[int, int, int, int, int, int, str]
     last_page: int | None
     filters: str = ORDER_FILTERS
+    document_id: str | None = None
 
     @property
     def page(self) -> int:
         return self.position[0]
+
+    def continues(self, target: PassageTarget) -> bool:
+        if self.collection and target.collection != self.collection:
+            return False
+        if self.document_id and target.document_id:
+            return target.document_id == self.document_id
+        return target.file_name == self.file_name
 
 
 def _cursor_check(fields: Sequence[Any]) -> str:
@@ -82,6 +91,8 @@ def _cursor_check(fields: Sequence[Any]) -> str:
 
 def encode_cursor(cursor: ReadCursor) -> str:
     fields = [cursor.file_name, cursor.collection, list(cursor.position), cursor.last_page, cursor.filters]
+    if cursor.document_id:
+        fields.append(cursor.document_id)
     body = json.dumps([*fields, _cursor_check(fields)], ensure_ascii=False, separators=(",", ":"))
     return base64.urlsafe_b64encode(body.encode()).decode().rstrip("=")
 
@@ -95,12 +106,15 @@ def decode_cursor(token: str) -> ReadCursor | None:
     try:
         raw = json.loads(base64.urlsafe_b64decode(text + "=" * (-len(text) % 4)))
         *fields, check = raw
-        file_name, collection, position, last_page, filters = fields
+        file_name, collection, position, last_page, filters, *identity = fields
     except ValueError, TypeError, binascii.Error:
         return None
     if not isinstance(check, str) or check != _cursor_check(fields):
         return None
     if not (isinstance(file_name, str) and isinstance(collection, str) and filters in _FILTER_KINDS):
+        return None
+    document_id = identity[0] if len(identity) == 1 and isinstance(identity[0], str) and identity[0] else None
+    if identity and document_id is None:
         return None
     if not (isinstance(position, list) and len(position) == 7 and isinstance(position[6], str)):
         return None
@@ -108,7 +122,7 @@ def decode_cursor(token: str) -> ReadCursor | None:
         return None
     if last_page is not None and not _is_int(last_page):
         return None
-    return ReadCursor(file_name, collection, tuple(position), last_page, filters)  # type: ignore[arg-type]
+    return ReadCursor(file_name, collection, tuple(position), last_page, filters, document_id)  # type: ignore[arg-type]
 
 
 def _next_cursor(kept: Sequence[Any], last_page: int | None, filters: str) -> str:
@@ -116,7 +130,10 @@ def _next_cursor(kept: Sequence[Any], last_page: int | None, filters: str) -> st
     position = _chunk_position(last_chunk)
     collections = {str((getattr(chunk, "metadata", None) or {}).get("collection") or "") for chunk in kept}
     collection = collections.pop() if len(collections) == 1 else ""
-    cursor = ReadCursor(last_chunk.file_name, collection, (max(position[0], 1), *position[1:]), last_page, filters)
+    document_id = str((getattr(last_chunk, "metadata", None) or {}).get("document_id") or "") or None
+    cursor = ReadCursor(
+        last_chunk.file_name, collection, (max(position[0], 1), *position[1:]), last_page, filters, document_id
+    )
     return encode_cursor(cursor)
 
 

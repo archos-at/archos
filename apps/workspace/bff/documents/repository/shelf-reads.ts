@@ -1,10 +1,12 @@
 import 'server-only'
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
+import { isUuid } from '@/lib/ids'
 import { withTenant } from '@/lib/db/tenant-context'
 import { projectShelf, type DocumentShelf } from '../shelf'
 import { documentAliasKey, documentNameKey, documentNameVariants } from '../name-match'
 import { FILENAME_LOOKUP_MAX_NAMES } from '../filename-lookup'
+import { DOCUMENT_ID_LOOKUP_MAX_IDS } from '../id-lookup'
 import { declaredStatusesIn, type DocumentReadFamily } from '../document-status'
 import { SHELF_SUMMARY_FAILED_LIMIT, SHELF_SUMMARY_FOLDER_LIMIT, type ShelfFolderTally, type ShelfSummary } from '../shelf-summary-types'
 import { documents } from '@/lib/db/schema/documents'
@@ -134,6 +136,38 @@ export async function findDocumentsByFilenames(
       .orderBy(desc(documents.createdAt), asc(documents.id))
       .limit(DOCUMENT_LIST_LIMIT),
   )
+}
+
+export async function findDocumentsByIds(
+  shelf: DocumentShelf,
+  organizationId: string,
+  ids: readonly string[],
+  {
+    includeArchived = false,
+    hiddenFolderIds,
+    reader,
+  }: Pick<ListProjectDocumentsOptions, 'includeArchived' | 'hiddenFolderIds' | 'reader'>,
+): Promise<DocumentListRow[]> {
+  const bounded = [...new Set(ids)].filter(isUuid).slice(0, DOCUMENT_ID_LOOKUP_MAX_IDS)
+  if (bounded.length === 0) return []
+  const db = getDb()
+  return withTenant({ organizationId }, () =>
+    db
+      .select(documentListColumns)
+      .from(documents)
+      .where(and(listingWhere(shelf, organizationId, { includeArchived, hiddenFolderIds, reader }), inArray(documents.id, bounded)))
+      .orderBy(desc(documents.createdAt), asc(documents.id))
+      .limit(DOCUMENT_ID_LOOKUP_MAX_IDS),
+  )
+}
+
+export function findProjectDocumentsByIds(
+  projectId: string,
+  organizationId: string,
+  ids: readonly string[],
+  options: Pick<ListProjectDocumentsOptions, 'includeArchived' | 'hiddenFolderIds' | 'reader'>,
+): Promise<DocumentListRow[]> {
+  return findDocumentsByIds(projectShelf(projectId), organizationId, ids, options)
 }
 
 export function findProjectDocumentsByFilenames(

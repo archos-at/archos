@@ -127,7 +127,7 @@ def project(monkeypatch):
         return list(DOCUMENTS)
 
     monkeypatch.setattr(reading, "project_documents", documents)
-    monkeypatch.setattr(reading, "fetch_document_pages", lambda collection, name: PAGES.get(name))
+    monkeypatch.setattr(reading, "fetch_document_pages", lambda collection, name, document_id=None: PAGES.get(name))
 
 
 @pytest.fixture

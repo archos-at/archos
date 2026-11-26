@@ -102,8 +102,9 @@ def test_the_find_filters_by_name_instead_of_reading_the_collection(ingestor, re
 
     ingestor._find_previous_versions("base_corpus", ["statik standard.pdf"])
 
-    assert len(asked) == 1
-    spellings = asked[0]["file_name"]["$in"]
+    (filters,) = asked
+    (named,) = [clause for clause in filters.get("$and", [filters]) if "file_name" in clause]
+    spellings = named["file_name"]["$in"]
     assert "statik standard.pdf" in spellings
     assert "statik%20standard.pdf" in spellings
     assert "anderes.pdf" not in spellings

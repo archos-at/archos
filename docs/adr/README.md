@@ -269,6 +269,7 @@ Consequences, where a reader looks for them.
 | [0197](0197-the-answer-check-judges-citations-and-statements-of-law-only.md) | The answer check judges citations and statements of law only; amends 0139 | Accepted |
 | [0198](0198-a-person-may-release-a-draft-drawn-from-confidential-sources-after-checking-it.md) | A person may release a draft drawn from confidential sources after checking it | Accepted |
 | [0199](0199-the-ingest-allowance-is-an-amount-per-budget-unit-set-per-office.md) | The ingest allowance is an amount per budget unit, set per office by the platform | Proposed |
+| [0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md) | A document is its id, and its name is unique within its folder | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

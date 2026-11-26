@@ -49,6 +49,22 @@ export function contentKey(collectionName: string, filename: string): string {
 
 const contentKeyOf = sql`(${documents.collectionName} || chr(31) || ${documents.filename})`
 
+function nameSharedInCollection(): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM documents AS twin
+    WHERE twin.organization_id = ${documents.organizationId}
+      AND twin.collection_name = ${documents.collectionName}
+      AND twin.filename = ${documents.filename}
+      AND twin.authored_by = 'user'
+      AND twin.id <> ${documents.id}
+  )`
+}
+
+function contentKeyMatch(text: TextMatch): SQL | undefined {
+  if (text.contentKeys.length === 0) return undefined
+  return sql`(${documents.authoredBy} = 'user' AND ${contentKeyOf} = ANY(${pgTextArray(text.contentKeys)}) AND NOT ${nameSharedInCollection()})`
+}
+
 export function reachWhere(reach: SearchReach, includeArchived: boolean): SQL | undefined {
   const projectIds = reach.projects.map((reached) => reached.project.id)
   const hidden = reachHiddenFolderIds(reach)
@@ -151,9 +167,7 @@ function textWhere(text: TextMatch): SQL {
     nameContains(text.text),
     sql`${SEARCH_VECTOR} @@ ${tsQuery(text.text)}`,
     squashed.length >= 2 ? sql`${f.planNumberKey} LIKE ${`${squashed.replace(/[\\%_]/g, '\\$&')}%`}` : undefined,
-    text.contentKeys.length > 0
-      ? sql`(${documents.authoredBy} = 'user' AND ${contentKeyOf} = ANY(${pgTextArray(text.contentKeys)}))`
-      : undefined,
+    contentKeyMatch(text),
     contentIdsOf(text).length > 0 ? sql`${documents.id}::text = ANY(${pgTextArray(contentIdsOf(text))})` : undefined
   ) as SQL
 }
@@ -182,7 +196,7 @@ function contentIdsOf(text: TextMatch): string[] {
 function contentPosition(text: TextMatch): SQL<number | null> {
   return sql<number | null>`coalesce(
     array_position(${pgTextArray(text.contentIds ?? [])}, ${documents.id}::text),
-    CASE WHEN ${documents.authoredBy} = 'user' THEN array_position(${pgTextArray(text.contentKeys)}, ${contentKeyOf}) END
+    CASE WHEN ${contentKeyMatch(text) ?? sql`false`} THEN array_position(${pgTextArray(text.contentKeys)}, ${contentKeyOf}) END
   )`
 }
 
@@ -251,6 +265,7 @@ export interface DocumentSearchRow {
   author: string | null
   matchedName: boolean
   matchedReading: boolean
+  matchedContentKey: boolean
 }
 
 export async function searchDocumentPage(
@@ -297,6 +312,7 @@ export async function searchDocumentPage(
         )`,
         matchedName: text ? sql<boolean>`coalesce(${nameContains(text.text) ?? sql`false`}, false)` : sql<boolean>`false`,
         matchedReading: text ? sql<boolean>`coalesce(${SEARCH_VECTOR} @@ ${tsQuery(text.text)}, false)` : sql<boolean>`false`,
+        matchedContentKey: sql<boolean>`coalesce(${(text && contentKeyMatch(text)) ?? sql`false`}, false)`,
       })
         .from(documents)
         .leftJoin(f, eq(f.documentId, documents.id))
@@ -326,6 +342,7 @@ export async function searchDocumentPage(
       changedFacts: Array.isArray(row.changedFacts) ? row.changedFacts : [],
       matchedName: Boolean(row.matchedName),
       matchedReading: Boolean(row.matchedReading),
+      matchedContentKey: Boolean(row.matchedContentKey),
     })) as DocumentSearchRow[],
     total: Number(total),
   }

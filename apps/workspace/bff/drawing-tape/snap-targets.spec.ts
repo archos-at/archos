@@ -99,6 +99,7 @@ describe('snapTargetsOfDocument', () => {
     expect(url).toBe('http://backend.test/v1/internal/drawing-snap-targets')
     expect(JSON.parse(String(init?.body))).toEqual({
       file_name: 'plan.pdf',
+      document_id: 'doc-1',
       collection: 'p_1',
       page: 2,
       stated_kinds: ['pdf'],

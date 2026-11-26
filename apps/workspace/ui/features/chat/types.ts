@@ -201,6 +201,7 @@ export interface CitationSource {
   kind?: SourceKind
   shelf?: Shelf
   documentId?: string
+  storedDocumentId?: string
   lane?: string
   laneLabel?: string
   bindingNote?: string

@@ -47,6 +47,9 @@ class SimilarPassage(BaseModel):
 class SimilarDocument(BaseModel):
     collection: str = Field(..., description="The searched collection the document is in")
     file_name: str
+    document_id: str | None = Field(
+        None, description="documents.id of a workspace document; absent for the base corpus and older chunks"
+    )
     passages: list[SimilarPassage]
 
 

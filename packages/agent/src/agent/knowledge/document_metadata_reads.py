@@ -14,6 +14,8 @@ from agent.knowledge.document_metadata_constants import _DOCUMENT_COLUMNS
 from agent.knowledge.document_metadata_constants import _OFFICE_TIMEZONE
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
+from agent.knowledge.document_metadata_helpers import _batch_bind
+from agent.knowledge.document_metadata_helpers import _batch_match
 from agent.knowledge.document_metadata_helpers import _current_doc_class
 from agent.knowledge.document_metadata_helpers import _decode_page_count
 from agent.knowledge.mail_facts import normalise_mail_origin
@@ -44,20 +46,42 @@ def _row_to_document(store, row: Any, collection: str | None = None) -> Availabl
         coverage=store._decode_json(row[17], dict) if len(row) > 17 else None,
         mail_thread=mail_impl.decode_mail(row[18], normalise_mail_thread) if len(row) > 18 else None,
         mail_origin=mail_impl.decode_mail(row[19], normalise_mail_origin) if len(row) > 19 else None,
+        document_id=(row[20] or None) if len(row) > 20 else None,
+        superseded_by_id=(row[21] or None) if len(row) > 21 else None,
         collection=collection,
     )
 
 
+def _resolve_links(
+    documents: list[AvailableDocument], present: list[AvailableDocument]
+) -> list[tuple[AvailableDocument, AvailableDocument]]:
+    by_id = {doc.document_id: doc for doc in present if doc.document_id}
+    by_name: dict[str, list[AvailableDocument]] = {}
+    for doc in present:
+        by_name.setdefault(doc.file_name, []).append(doc)
+    links = []
+    for doc in documents:
+        newer = by_id.get(doc.superseded_by_id) if doc.superseded_by_id else None
+        holders = [
+            held
+            for held in by_name.get(doc.superseded_by or "", [])
+            if not doc.superseded_by_id or not held.document_id
+        ]
+        if newer is None and len(holders) == 1:
+            newer = holders[0]
+        doc.superseded_by = newer.file_name if newer is not None else None
+        doc.superseded_by_id = newer.document_id if newer is not None else None
+        if newer is not None:
+            links.append((doc, newer))
+    return links
+
+
 def _attach_supersedes(documents: list[AvailableDocument]) -> list[AvailableDocument]:
-    present = {doc.file_name for doc in documents}
-    replaced: dict[str, list[str]] = {}
+    replaced: dict[int, list[str]] = {}
+    for older, newer in _resolve_links(documents, documents):
+        replaced.setdefault(id(newer), []).append(older.file_name)
     for doc in documents:
-        if doc.superseded_by and doc.superseded_by in present:
-            replaced.setdefault(doc.superseded_by, []).append(doc.file_name)
-    for doc in documents:
-        if doc.superseded_by and doc.superseded_by not in present:
-            doc.superseded_by = None
-        doc.supersedes = sorted(replaced[doc.file_name]) if doc.file_name in replaced else None
+        doc.supersedes = sorted(replaced[id(doc)]) if id(doc) in replaced else None
     return documents
 
 
@@ -95,36 +119,39 @@ def get_all(store, collection: str) -> list[AvailableDocument]:
         return []
 
 
-def get_many(store, collection: str, filenames: list[str]) -> list[AvailableDocument]:
-    if not filenames:
-        return []
-    from sqlalchemy import bindparam
+def _select(store, conn, collection: str, asked: tuple[str, dict[str, Any]]) -> list[AvailableDocument]:
     from sqlalchemy import text
 
-    select = text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        f"SELECT {_DOCUMENT_COLUMNS} FROM {TABLE_NAME} WHERE collection = :collection AND filename IN :filenames"
-    ).bindparams(bindparam("filenames", expanding=True))
-    present = text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        f"SELECT filename FROM {TABLE_NAME} WHERE collection = :collection AND filename IN :filenames"
-    ).bindparams(bindparam("filenames", expanding=True))
+    where, params = asked
+    select = _batch_bind(
+        text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+            f"SELECT {_DOCUMENT_COLUMNS} FROM {TABLE_NAME} WHERE collection = :collection AND {where}"
+        ),
+        params,
+    )
+    return [
+        store._row_to_document(row, collection) for row in conn.execute(select, {"collection": collection, **params})
+    ]
+
+
+def get_many(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> list[AvailableDocument]:
+    asked = _batch_match(filenames, document_ids)
+    if asked is None:
+        return []
     try:
         with store._sync_engine.connect() as conn:
-            documents = [
-                store._row_to_document(row, collection)
-                for row in conn.execute(select, {"collection": collection, "filenames": list(filenames)})
-            ]
-            newer = sorted({doc.superseded_by for doc in documents if doc.superseded_by})
-            kept = (
-                {row[0] for row in conn.execute(present, {"collection": collection, "filenames": newer})}
-                if newer
-                else set()
+            documents = _select(store, conn, collection, asked)
+            newer = _batch_match(
+                [doc.superseded_by for doc in documents if doc.superseded_by],
+                [doc.superseded_by_id for doc in documents if doc.superseded_by_id],
             )
+            kept = _select(store, conn, collection, newer) if newer else []
     except Exception as e:
         logger.warning("Failed to get metadata of %d file(s) in %s: %s", len(filenames), collection, e)
         return []
-    for doc in documents:
-        if doc.superseded_by and doc.superseded_by not in kept:
-            doc.superseded_by = None
+    _resolve_links(documents, kept)
     return documents
 
 

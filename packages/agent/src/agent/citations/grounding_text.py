@@ -22,6 +22,9 @@ _KL_CITATION_RE = re.compile(r"^Citation:\s*(.+)$", re.MULTILINE)
 _KL_SOURCE_RE = re.compile(r"^Source:\s*(.+)$", re.MULTILINE)
 
 
+_KL_DOCUMENT_ID_RE = re.compile(r"^Document-ID:\s*(\S+)\s*$", re.MULTILINE)
+
+
 _KL_COLLECTION_RE = re.compile(r"^Collection:\s*(.+)$", re.MULTILINE)
 
 
@@ -133,6 +136,7 @@ def _kl_entry(
     score: float | None = None,
     project: tuple[str, str, str] | None = None,
     project_federal_state_note: str | None = None,
+    document_id: str | None = None,
 ) -> SourceEntry:
     parsed_shelf = parse_shelf(shelf)
     project_name, status_label, project_id = project if project else (None, None, None)
@@ -143,6 +147,7 @@ def _kl_entry(
         tool_name=tool_name,
         collection=collection or None,
         shelf=str(parsed_shelf) if parsed_shelf else None,
+        document_id=document_id or None,
         doc_class=doc_class or None,
         authored_by=authored_by or None,
         source_format=source_format or None,
@@ -199,6 +204,7 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
                     project=_parse_kl_project(header),
                     project_federal_state_note=_first(_KL_FEDERAL_STATE_RE, header),
                     score=_parse_kl_score(_first(_KL_SCORE_RE, block)),
+                    document_id=_first(_KL_DOCUMENT_ID_RE, header),
                 )
             )
     else:
@@ -254,6 +260,7 @@ def parse_look(content: str, tool_name: str) -> list[SourceEntry]:
             doc_class=None,
             chunk_text=None,
             tool_name=tool_name,
+            document_id=_first(_KL_DOCUMENT_ID_RE, header),
         )
         entry.read = _kl_block_body(block) or None
         entry.regions = _regions_from_header(header)

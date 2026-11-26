@@ -65,6 +65,7 @@ async function askEngine(
       headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify({
         file_name: document.filename,
+        document_id: document.id,
         collection: document.collectionName,
         page,
         stated_kinds: ['pdf'],

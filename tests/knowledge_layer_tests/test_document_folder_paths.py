@@ -152,7 +152,7 @@ class TestSubtreeRewrite:
         store.set_folder_path("proj_b", "a.pdf", "Brandschutz")
 
         count, moved = store.rewrite_folder_paths_moved("proj_a", "Brandschutz", None)
-        assert (count, sorted(moved)) == (2, ["a.pdf", "b.pdf"])
+        assert (count, sorted(moved)) == (2, [("a.pdf", None), ("b.pdf", None)])
         assert store.get_folder_path("proj_a", "b.pdf") == "Fluchtwege"
         assert store.get_folder_path("proj_b", "a.pdf") == "Brandschutz"
 

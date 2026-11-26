@@ -66,7 +66,7 @@ describe('compareRevisionVisually', () => {
     vi.unstubAllEnvs()
   })
 
-  it('asks for READ access to both documents, tells the backend their file names and the page, and returns boxes and words', async () => {
+  it('asks for READ access to both documents, tells the backend their ids beside their file names and the page, and returns boxes and words', async () => {
     const result = await compareRevisionVisually(session, 'doc-b', 'doc-a', 2)
 
     expect(getAccessibleDocument).toHaveBeenCalledWith(session, 'doc-b', 'read')
@@ -75,13 +75,34 @@ describe('compareRevisionVisually', () => {
     const [url, init] = mockFetch.mock.calls[0]
     expect(url).toBe('http://backend:8000/v1/collections/proj_abc/revision-compare')
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body)).toEqual({ older: 'Grundriss_A.pdf', newer: 'Grundriss_B.pdf', page: 2, purpose: 'person' })
+    expect(JSON.parse(init.body)).toEqual({
+      older: 'Grundriss_A.pdf',
+      newer: 'Grundriss_B.pdf',
+      older_id: 'doc-a',
+      newer_id: 'doc-b',
+      page: 2,
+      purpose: 'person',
+    })
     expect(init.headers).toMatchObject({ 'x-organization-id': 'org-1', 'x-user-id': 'user-1' })
     expect(result).toEqual({
       regions: [REGION],
       summary: ['Die Wand ist nach Osten gerückt.'],
       older_name: 'Grundriss_A.pdf',
       newer_name: 'Grundriss_B.pdf',
+    })
+  })
+
+  it('names each of two same-named documents in different folders by its own id', async () => {
+    documentsById(
+      doc({ id: 'doc-einreichung', filename: 'Plan.pdf', folderId: 'folder-einreichung' }),
+      doc({ id: 'doc-entwurf', filename: 'Plan.pdf', folderId: 'folder-entwurf' }),
+    )
+
+    await compareRevisionVisually(session, 'doc-einreichung', 'doc-entwurf', 1)
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({
+      older_id: 'doc-entwurf',
+      newer_id: 'doc-einreichung',
     })
   })
 
@@ -305,7 +326,12 @@ describe('changedRevisionPages', () => {
     const result = await changedRevisionPages(session, 'doc-b', 'doc-a')
 
     expect(mockFetch.mock.calls[0][0]).toBe('http://backend:8000/v1/collections/proj_abc/revision-pages')
-    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ older: 'Grundriss_A.pdf', newer: 'Grundriss_B.pdf' })
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      older: 'Grundriss_A.pdf',
+      newer: 'Grundriss_B.pdf',
+      older_id: 'doc-a',
+      newer_id: 'doc-b',
+    })
     expect(result).toEqual({ pages: [2, 7], newerPageCount: 9, comparable: true })
   })
 

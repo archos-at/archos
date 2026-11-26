@@ -30,7 +30,13 @@ import {
   type RowResolution,
   type TerminalResolution,
 } from './reconcile-status/ingest-resolution'
-import type { BackendFileEntry, CollectionFiles, RawBackendFile } from './reconcile-status/collection-listing-types'
+import {
+  fileListedFor,
+  listedFileOf,
+  type BackendFileEntry,
+  type CollectionFiles,
+  type RawBackendFile,
+} from './reconcile-status/collection-listing-types'
 
 export type { DocumentMetadata, ListedReading } from './reconcile-status/reading-metadata'
 export type { TerminalResolution } from './reconcile-status/ingest-resolution'
@@ -98,15 +104,18 @@ const loadCollectionFiles = async (collectionName: string): Promise<CollectionFi
   )
   if (!result || result.status === 404 || !Array.isArray(result.body)) return null
 
+  const byId = new Map<string, BackendFileEntry>()
   const byName = new Map<string, BackendFileEntry>()
   const ambiguousNames = new Set<string>()
   for (const file of result.body as RawBackendFile[]) {
     if (!file.file_name) continue
-    if (byName.has(file.file_name)) {
+    const documentId = typeof file.document_id === 'string' && file.document_id.length > 0 ? file.document_id : null
+    if (documentId === null && byName.has(file.file_name)) {
       ambiguousNames.add(file.file_name)
       continue
     }
-    byName.set(file.file_name, {
+    if (documentId !== null && byId.has(documentId)) continue
+    const entry: BackendFileEntry = {
       status: file.status,
       error_message: file.error_message,
       quarantine: file.quarantine,
@@ -121,10 +130,17 @@ const loadCollectionFiles = async (collectionName: string): Promise<CollectionFi
       dossier: file.dossier,
       doc_references: file.doc_references,
       coverage: file.coverage,
-      revision: parseRevisionLinkNames(file),
-    })
+      revision: parseRevisionLinkNames({ ...file, superseded_by: file.superseded_by_id ?? file.superseded_by }),
+    }
+    if (documentId === null) byName.set(file.file_name, entry)
+    else byId.set(documentId, entry)
   }
-  return { byName, ambiguousNames, readingUnavailable: (result.headers ? readHeader(result.headers, READING_UNAVAILABLE_HEADER) : null) === '1' }
+  return {
+    byId,
+    byName,
+    ambiguousNames,
+    readingUnavailable: (result.headers ? readHeader(result.headers, READING_UNAVAILABLE_HEADER) : null) === '1',
+  }
 }
 
 const COLLECTION_FILES_TTL_MS = 15_000
@@ -172,8 +188,7 @@ export const clearCollectionFilesCache = (): void => {
 
 export const readRevisionLinkNames = async (ref: CollectionFileRef): Promise<RevisionLinkNames | null> => {
   const files = await loadCollectionFilesCached(ref.collectionName)
-  if (!files || files.ambiguousNames.has(ref.filename)) return null
-  return files.byName.get(ref.filename)?.revision ?? null
+  return fileListedFor(files, ref)?.revision ?? null
 }
 
 export const refreshCollectionFiles = async (collectionName: string): Promise<void> => {
@@ -204,18 +219,18 @@ export async function describeBackendIngestState(
   }
   const files = await loadCollectionFilesFresh(row.collectionName)
   if (files === null) return { state: 'unreachable' }
-  if (files.ambiguousNames.has(ref.filename)) return { state: 'in-progress' }
+  const listed = listedFileOf(files, ref)
+  if (listed.state === 'ambiguous') return { state: 'in-progress' }
   const resolution = resolveFromCollection(files, ref, jobId)
   if (resolution) return { state: 'terminal', resolution }
-  const file = files.byName.get(ref.filename)
-  if (file && !(file.status === 'failed' && !attributableFailure(jobId))) return { state: 'in-progress' }
+  if (listed.state === 'listed' && !(listed.file.status === 'failed' && !attributableFailure(jobId))) return { state: 'in-progress' }
   return { state: 'absent' }
 }
 
 export const readCollectionReadings = async (
   collectionName: string,
   refs: readonly CollectionFileRef[]
-): Promise<Map<string, ListedReading> | null> => {
+): Promise<Map<CollectionFileRef, ListedReading> | null> => {
   const files = await loadCollectionFilesFresh(collectionName)
   if (!files || files.readingUnavailable) return null
   return readingsIn(files, collectionName, refs)
@@ -323,7 +338,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
       const ref = collectionFileRef(row)
       if (!ref) return
       const files = await loadCollectionFilesCached(row.collectionName)
-      if (!files || files.ambiguousNames.has(ref.filename)) return
+      if (!fileListedFor(files, ref)) return
       const jobId = extractIngestJobId(row.metadata)
       const resolution = resolveFromCollection(files, ref, jobId)
       if (resolution?.status !== 'completed') return
@@ -373,7 +388,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
       const files = await listingFor(row.collectionName)
       const meta = extractMetadata(files, ref)
       if (meta) metaByRow.set(row.id, meta)
-      const revision = files?.byName.get(ref.filename)?.revision
+      const revision = fileListedFor(files, ref)?.revision
       if (revision?.supersededBy) supersededRows.add(row.id)
       if (files && revision && revision.supersedes.length > 0) replacesByRow.set(row.id, { collectionName: row.collectionName, files, names: revision.supersedes })
     })

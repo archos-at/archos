@@ -24,6 +24,8 @@ class SourceEntry:
     tool_name: str = ""
     collection: str | None = None
     shelf: str | None = None
+    document_id: str | None = None
+    folder_path: str | None = None
     doc_class: str | None = None
     authored_by: str | None = None
     source_format: str | None = None

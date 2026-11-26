@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { toFileItem } from '@/features/documents/lib/file-item'
-import { documentNameLookupKey, resolveDocumentsByName } from '@/features/documents/lib/documents-by-name'
+import { resolveDocumentsById } from '@/features/documents/documents-by-id'
 import type { RevisionRef } from '@/lib/documents/revision-links'
 import { useChatStore } from '../store'
 import { useOpenStoredFile } from './use-open-stored-file'
@@ -17,12 +17,9 @@ export const useOpenCurrentRevision = (): ((current: RevisionRef) => Promise<voi
 
   return useCallback(
     async (current: RevisionRef) => {
-      const named = (await resolveDocumentsByName(projectId, [current.filename])).get(
-        documentNameLookupKey(current.filename)
-      )
-      const projekt = named?.project.find((row) => row.id === current.id)
-      const officeShelf = named?.officeShelf.find((row) => row.id === current.id)
-      const row = projekt ?? officeShelf
+      const found = (await resolveDocumentsById(projectId, [current.id])).get(current.id)
+      const projekt = found?.project ?? null
+      const row = projekt ?? found?.officeShelf ?? null
       if (!row) {
         toast.error(t('citationPeek.currentRevisionUnavailable'))
         return

@@ -124,6 +124,7 @@ class TestLinking:
         assert res.status_code == 200
         assert res.json() == {
             "superseded_by": NEWER,
+            "superseded_by_id": None,
             "change_summary": "- Stiege nach Norden\n- Lift neu",
             "change_basis": OLDER,
         }
@@ -189,7 +190,12 @@ class TestLinking:
         res = await _put(app, LINK, _gateway(error=httpx.ConnectError("down")))
 
         assert res.status_code == 200
-        assert res.json() == {"superseded_by": NEWER, "change_summary": None, "change_basis": None}
+        assert res.json() == {
+            "superseded_by": NEWER,
+            "superseded_by_id": None,
+            "change_summary": None,
+            "change_basis": None,
+        }
         assert _docs(store)[OLDER].superseded_by == NEWER
 
     async def test_a_failing_model_keeps_what_the_newer_file_already_says_about_itself(self, app, store):

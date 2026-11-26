@@ -64,7 +64,7 @@ async def _fetch_all(
     start_from: tuple[Any, ...] | None = None,
 ) -> Fetched:
     fetched = await asyncio.gather(
-        *(_fetch(target, filters_for(target.file_name), query, top_k, start_from) for target in targets),
+        *(_fetch(target, filters_for(target), query, top_k, start_from) for target in targets),
         return_exceptions=True,
     )
     answered = [group for group in fetched if not isinstance(group, BaseException)]

@@ -7,20 +7,35 @@ import { restrictedCollectionBase } from '@/lib/authz/folder-access-rule'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
 import { decisionFromRequest, withTurnShelves } from '@/lib/conversation-context'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
-import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
+import {
+  findDocumentImageStorageKey,
+  findDocumentImageStorageKeyById,
+  findDocumentStorageKey,
+  findDocumentStorageKeyById,
+} from '@/lib/documents/document-storage-keys'
 import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
 import { isPersonalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 
-const querySchema = z.object({
-  collection: z.string().min(1),
-  filename: z.string().min(1),
-  organizationId: z.string().min(1).optional(),
-  imageIndex: z.coerce.number().int().min(0).optional(),
-  calibrationsPage: z.coerce.number().int().min(1).optional(),
-})
+type DocumentFileTarget = { readonly documentId: string } | { readonly filename: string }
+
+const querySchema = z
+  .object({
+    collection: z.string().min(1),
+    documentId: z.guid().optional(),
+    filename: z.string().min(1).optional(),
+    organizationId: z.string().min(1).optional(),
+    imageIndex: z.coerce.number().int().min(0).optional(),
+    calibrationsPage: z.coerce.number().int().min(1).optional(),
+  })
+  .transform(({ documentId, filename, ...rest }, ctx) => {
+    const target: DocumentFileTarget | null = documentId ? { documentId } : filename ? { filename } : null
+    if (target) return { ...rest, target }
+    ctx.addIssue({ code: 'custom', message: 'name the document by documentId, or by filename' })
+    return z.NEVER
+  })
 
 type DocumentFileQuery = z.infer<typeof querySchema>
 
@@ -78,13 +93,25 @@ async function requireReadable(
   if (!drawable.includes(collection)) throw new NotFoundError('Document not found')
 }
 
-async function lookUp({ collection, filename, imageIndex }: DocumentFileQuery, organizationId: string | undefined) {
-  if (imageIndex !== undefined) {
-    const image = await findDocumentImageStorageKey(collection, filename, imageIndex, organizationId)
+function imageOf({ collection, target }: DocumentFileQuery, imageIndex: number, organizationId: string | undefined) {
+  return 'documentId' in target
+    ? findDocumentImageStorageKeyById(collection, target.documentId, imageIndex, organizationId)
+    : findDocumentImageStorageKey(collection, target.filename, imageIndex, organizationId)
+}
+
+function documentOf({ collection, target }: DocumentFileQuery, organizationId: string | undefined) {
+  return 'documentId' in target
+    ? findDocumentStorageKeyById(collection, target.documentId, organizationId)
+    : findDocumentStorageKey(collection, target.filename, organizationId)
+}
+
+async function lookUp(query: DocumentFileQuery, organizationId: string | undefined) {
+  if (query.imageIndex !== undefined) {
+    const image = await imageOf(query, query.imageIndex, organizationId)
     if (!image) throw new NotFoundError('Document image not found')
     return { storageKey: image.storageKey, storageBucket: image.storageBucket, contentType: image.contentType }
   }
-  const document = await findDocumentStorageKey(collection, filename, organizationId)
+  const document = await documentOf(query, organizationId)
   if (!document) throw new NotFoundError('Document not found')
   return {
     documentId: document.id,

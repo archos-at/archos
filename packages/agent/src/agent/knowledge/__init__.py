@@ -25,6 +25,7 @@ from .factory import get_documents
 from .factory import get_ingestor
 from .factory import get_retriever
 from .factory import get_superseded_files
+from .factory import get_superseded_ids
 from .factory import get_topic_vocabulary
 from .factory import link_document_revision
 from .factory import list_summary_collections
@@ -39,6 +40,7 @@ from .factory import set_document_change_summary
 from .factory import set_document_display_title
 from .factory import set_document_doc_class
 from .factory import set_document_doc_class_suggestion
+from .factory import set_document_file_name
 from .factory import set_document_folder_path
 from .factory import set_document_page_count
 from .factory import set_document_provenance
@@ -100,6 +102,7 @@ __all__ = [
     "set_document_superseded_by",
     "get_document_superseded_by",
     "get_superseded_files",
+    "get_superseded_ids",
     "set_document_revision_facts",
     "set_document_revision_suggestion",
     "dismiss_document_revision_suggestion",
@@ -111,6 +114,7 @@ __all__ = [
     "get_document_doc_class",
     "get_document_doc_classes",
     "set_document_display_title",
+    "set_document_file_name",
     "get_document_display_title",
     "get_document_display_titles",
     "set_document_folder_path",

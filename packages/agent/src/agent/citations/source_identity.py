@@ -39,6 +39,8 @@ def source_lane(entry: SourceEntry, registry: NormRegistry | None = None) -> tup
 
 
 def document_key(entry: SourceEntry) -> str:
+    if entry.document_id:
+        return f"doc:id:{entry.document_id}"
     filename = ""
     if entry.citation_key:
         filename, _page = parse_citation_key(entry.citation_key)

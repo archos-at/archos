@@ -129,23 +129,25 @@ def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeyp
             asked.update(collection=collection, filters=filters, fields=fields)
             return [SimpleNamespace(payload={vector_store.TEXT_FIELD: NORM_LINE})]
 
-    async def read_pages(collection, file_name, *, wanted=None):
+    async def read_pages(collection, file_name, *, wanted=None, document_id=None):
         return PageText(
             pages=[Page(number=12, text="page twelve", source="text_layer")], origin="stored", page_count=40
         )
 
     attested = LicenceTerms(licence_class="licensed", ai_processing=True)
-    monkeypatch.setattr(render, "document_licence", lambda collection, file_name: attested)
+    monkeypatch.setattr(render, "document_licence", lambda collection, file_name, document_id=None: attested)
     monkeypatch.setattr(vector_store, "get_store", Store)
     monkeypatch.setattr(stored_pages, "read_pages", read_pages)
 
     terms, texts = render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)
 
     assert terms == attested and texts == [NORM_LINE, "page twelve"]
-    assert asked["filters"] == {"file_name": "oenorm_b_1600.pdf", "page_label": "12"}
+    assert asked["filters"] == {"file_name": {"$eq": "oenorm_b_1600.pdf"}, "page_label": "12"}
 
     monkeypatch.setattr(
-        render, "document_licence", lambda collection, file_name: LicenceTerms(licence_class="licensed")
+        render,
+        "document_licence",
+        lambda collection, file_name, document_id=None: LicenceTerms(licence_class="licensed"),
     )
     assert render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)[1] == [], "unattested: no text"
 

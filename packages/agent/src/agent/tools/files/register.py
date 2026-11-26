@@ -53,6 +53,10 @@ def _document(name: str) -> ResolvedDocument | str:
     return resolved.message if isinstance(resolved, Refusal) else resolved
 
 
+def _addressed(resolved: ResolvedDocument) -> dict[str, str]:
+    return {"document": resolved.file_name, **({"document_id": resolved.document_id} if resolved.document_id else {})}
+
+
 async def _move(document: str, target_folder: str, reason: str = "") -> str:
     resolved = _document(document)
     if isinstance(resolved, str):
@@ -65,7 +69,7 @@ async def _move(document: str, target_folder: str, reason: str = "") -> str:
         return f"`{resolved.file_name}` is already in {where}. No proposal needed."
 
     item = {
-        "document": resolved.file_name,
+        **_addressed(resolved),
         "source": resolved.source,
         "current": resolved.folder_path,
         "target_folder": folder,
@@ -95,7 +99,7 @@ async def _rename(document: str, new_name: str, reason: str = "") -> str:
         return f"`{resolved.file_name}` already has that name. No proposal needed."
 
     item = {
-        "document": resolved.file_name,
+        **_addressed(resolved),
         "source": resolved.source,
         "current": resolved.file_name,
         "new_display_name": name,
@@ -142,7 +146,7 @@ async def _assign(document: str, member: str, reason: str = "") -> str:
     if not person:
         return "Error: `member` is empty. Give the person as the user named them."
 
-    item = {"document": resolved.file_name, "source": resolved.source, "member": person, **_reason_field(reason)}
+    item = {**_addressed(resolved), "source": resolved.source, "member": person, **_reason_field(reason)}
     if not await propose_file_operation(operation="assign", title="Datei zuweisen", item=item):
         return _NOT_PROPOSED
     return f"Proposed: `{resolved.file_name}` → {person}. {_PROPOSED}"
@@ -168,8 +172,8 @@ _DESCRIPTION = (
     "card — why exactly this change („gehört zum Bescheid vom 12. März“). Only what you can substantiate from "
     "the file name, content or conversation; nothing invented. The reason is stored with the proposal and "
     "appears among the decisions in later turns.\n"
-    "`document` is the file name exactly as the overview or a listing shows it. One call "
-    "proposes ONE change; several files are several calls."
+    "`document` is the file name exactly as the overview or a listing shows it, or for two files of one name its "
+    "folder path or document id. One call proposes ONE change; several files are several calls."
 )
 
 _OPERATIONS = ("move", "rename", "create_folder", "assign")

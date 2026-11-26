@@ -37,6 +37,8 @@ the thumbnail only. Retrieval kept reading the original through
 * A chunk's `file_name` is the join key every purge and every citation uses.
   Changing where the bytes come from must not change what a chunk is attributed
   to.
+  (Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md), 2026-11-26: a user document's chunks are joined by their
+  `document_id`; `file_name` is the label they carry.)
 * One component owns format policy. Two lists of "which formats" drift, as the
   preview lists already did twice.
 * A converter outage must not cost a document its index.

@@ -9,4 +9,6 @@ from agent_testing.canvas import turn  # noqa: F401
 def _unmarked_documents(monkeypatch):
     from agent.tools.look import register
 
-    monkeypatch.setattr(register, "document_licence", lambda collection, file_name, unindexed=None: None)
+    monkeypatch.setattr(
+        register, "document_licence", lambda collection, file_name, unindexed=None, document_id=None: None
+    )

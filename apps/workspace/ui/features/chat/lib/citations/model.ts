@@ -54,6 +54,7 @@ export interface CitedDocument {
   id: string
   title: string
   fileName?: string
+  storedDocumentId?: string
   collection?: string
   shelf?: Shelf
   url?: string
@@ -317,6 +318,7 @@ export class CitationAccumulator {
     identity: DocumentIdentityInput
     title?: string | null
     fileName?: string | null
+    storedDocumentId?: string | null
     collection?: string | null
     shelf?: Shelf
     shelfFallback?: Shelf
@@ -363,6 +365,7 @@ export class CitationAccumulator {
     }
 
     doc.fileName = doc.fileName || observation.fileName?.trim() || undefined
+    doc.storedDocumentId = doc.storedDocumentId || observation.storedDocumentId?.trim() || undefined
     doc.collection = doc.collection || observation.collection?.trim() || undefined
     const explicitShelf = this.explicitShelves.get(doc) ?? observation.shelf
     if (explicitShelf) {
