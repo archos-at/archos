@@ -31,7 +31,8 @@ import { mailThreadsOfDocuments } from '@/lib/mail-thread/document-threads'
 import { toDocumentWireRow } from '@/lib/documents/list-projection'
 import type { ListedDocument } from '@/lib/documents/shelf-listing'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
-import { NameConflictError, nameConflictOf } from '@/lib/documents/name-conflict'
+import { NameConflictError } from '@/lib/documents/name-conflict'
+import { nameConflictOf } from '@/lib/documents/name-conflict-wire'
 import { DELETE, GET, PATCH } from './route'
 
 const LISTED: ListedDocument = {

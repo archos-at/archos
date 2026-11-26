@@ -7,7 +7,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import type { FileItem, FolderItem } from '../file-types'
 import { refusalOf, shelfRefusalOf, throwUnlessOk, type ShelfRefusal } from '../lib/move-refusal'
-import type { NameConflict } from '@/lib/documents/name-conflict'
+import type { NameConflict } from '@/lib/documents/name-conflict-wire'
 import {
   moveConflictRow,
   movePatchBody,

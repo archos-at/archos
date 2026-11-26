@@ -187,6 +187,7 @@
   "bff/documents/list-query.ts": 583,
   "bff/documents/mail-origin-schema.ts": 421,
   "bff/documents/may-open.ts": 429,
+  "bff/documents/next-free-name.ts": 667,
   "bff/documents/object-cleanup.ts": 276,
   "bff/documents/personal-shelf-door.ts": 453,
   "bff/documents/placement-repository.ts": 252,

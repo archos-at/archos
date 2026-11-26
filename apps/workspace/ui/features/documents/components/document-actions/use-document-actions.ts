@@ -14,7 +14,7 @@ import { documentBinResultSchema } from '@/lib/projects/document-bin-wire'
 import { INGEST_RUNNING } from '@/lib/documents/reingest-codes'
 import { requestReingest } from '../../lib/reingest-request'
 import { requestCancelIngest } from '../../lib/cancel-request'
-import type { NameConflict } from '@/lib/documents/name-conflict'
+import type { NameConflict } from '@/lib/documents/name-conflict-wire'
 import {
   moveConflictRow,
   movePatchBody,

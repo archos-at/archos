@@ -18,13 +18,8 @@ import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findDocumentForSession } from './access'
 import { documentDisplayName } from './display-name'
-import {
-  nameConflictWith,
-  ReplaceUnavailableError,
-  WITHOUT_REPLACE,
-  type NameConflict,
-  type NameConflictResolution,
-} from './name-conflict'
+import { nameConflictWith, ReplaceUnavailableError } from './name-conflict'
+import { WITHOUT_REPLACE, type NameConflict, type NameConflictResolution } from './name-conflict-wire'
 import { refuseUnseenHolder } from './name-holder'
 import { reingestDocument } from './reingest'
 import {

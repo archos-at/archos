@@ -5,7 +5,7 @@ import { XhrUploadError } from '@/lib/http/xhr-upload'
 import { isQuarantinedReplaceBody } from '@/lib/upload-screening/quarantine'
 import type { NameMatch } from '@/lib/upload-screening/name-screen'
 import { nameStopMatchesOf } from '@/lib/upload-screening/name-stop'
-import { nameConflictOf, type NameConflict } from '@/lib/documents/name-conflict'
+import { nameConflictOf, type NameConflict } from '@/lib/documents/name-conflict-wire'
 
 const SCREENING_UNAVAILABLE_CODE = 'UPLOAD_SCREENING_UNAVAILABLE'
 

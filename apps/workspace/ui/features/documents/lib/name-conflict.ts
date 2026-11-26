@@ -4,7 +4,7 @@ import {
   nameConflictOf,
   type NameConflict,
   type NameConflictResolution,
-} from '@/lib/documents/name-conflict'
+} from '@/lib/documents/name-conflict-wire'
 
 export type ConflictChoice = NameConflictResolution
 export type SentConflictChoice = Exclude<ConflictChoice, 'skip'>
