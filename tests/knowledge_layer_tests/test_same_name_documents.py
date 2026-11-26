@@ -17,6 +17,7 @@ from knowledge_layer.read_passage import decode_cursor
 from knowledge_layer.read_passage import encode_cursor
 from knowledge_layer.search import hit_metadata
 from knowledge_layer.search import superseded
+from knowledge_layer.vector_store import document_chunks
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing.reingest import _wait_terminal
 from knowledge_layer_testing.vector_store import FakeEmbedder
@@ -193,6 +194,91 @@ class TestThePreviousVersionOfADocument:
         assert stored_names._replacement_lock_key(SCOPE, PLAN) == f"reingest:{SCOPE}:{PLAN}"
 
 
+class TestTheChunksOfOneDocument:
+    @pytest.fixture()
+    def seeded(self, stores, monkeypatch):
+        monkeypatch.setenv("QDRANT_URL", "http://qdrant.test:6333")
+        write(SCOPE, [record("EG", PLAN, chunk_id="eg-1")], {"document_id": "doc-eg"})
+        write(SCOPE, [record("OG", PLAN, chunk_id="og-1")], {"document_id": "doc-og"})
+        write(SCOPE, [record("vor den Ids", PLAN, chunk_id="legacy-1")])
+        return stores
+
+    def test_are_its_own_and_those_from_before_documents_had_ids(self, seeded):
+        found = {str(point.payload["chunk_id"]) for point in seeded.scroll(SCOPE, document_chunks(PLAN, "doc-eg"))}
+
+        assert found == {"eg-1", "legacy-1"}
+
+    def test_a_licensed_norm_from_before_documents_had_ids_stays_licensed_when_asked_by_id(self, seeded):
+        from knowledge_layer.estate import document_licence
+
+        write(SCOPE, [record("§ 4", "Norm.pdf", chunk_id="norm-1", licence_class="licensed")])
+
+        terms = document_licence(SCOPE, "Norm.pdf", document_id="doc-norm")
+
+        assert terms is not None and terms.licensed
+
+    def test_the_facts_of_its_row_reach_them_and_never_a_namesake(self, seeded, monkeypatch):
+        from knowledge_layer.vector_store import copy_facts
+
+        row = SimpleNamespace(document_id="doc-eg", file_name=PLAN, folder_path="Einreichung", superseded_by="B.txt")
+        monkeypatch.setattr("agent.knowledge.get_documents", lambda scope, names, *, document_ids=None: [row])
+
+        copy_facts(SCOPE, document_ids=["doc-eg"])
+
+        assert {
+            chunk_id: (payload.get("folder_path"), payload.get("superseded")) for chunk_id, payload in _points().items()
+        } == {
+            "eg-1": ("Einreichung", True),
+            "og-1": (None, None),
+            "legacy-1": ("Einreichung", True),
+        }
+
+    def test_a_rename_reaches_them_and_never_a_namesake(self, seeded):
+        renamed = seeded.rewrite_file_name(SCOPE, "doc-eg", "Plan EG.txt", previous_name=PLAN)
+
+        assert renamed == 2
+        assert {chunk_id: payload["file_name"] for chunk_id, payload in _points().items()} == {
+            "eg-1": "Plan EG.txt",
+            "og-1": PLAN,
+            "legacy-1": "Plan EG.txt",
+        }
+
+
+class TestSearchKeepsNamesakesApart:
+    def test_each_namesake_has_its_own_share_of_the_slate(self):
+        from knowledge_layer.search import apply_diversity_cap
+
+        ordered = [_chunk("doc-eg", "EG", page) for page in (1, 2, 3)] + [
+            _chunk("doc-og", "OG", page) for page in (1, 2)
+        ]
+
+        capped = apply_diversity_cap(ordered, top_k=4, max_per_document=2)
+
+        assert [chunk.chunk_id for chunk in capped] == ["doc-eg-1", "doc-eg-2", "doc-og-1", "doc-og-2"]
+
+    def test_focusing_one_namesake_keeps_it_and_its_chunks_from_before_documents_had_ids(self, monkeypatch):
+        from knowledge_layer.search import merge_results
+
+        from agent.common.focus_file import set_turn_intent
+        from agent.knowledge.schema import RetrievalResult
+
+        legacy = _chunk("doc-eg", "vor den Ids", 9)
+        legacy.metadata.pop("document_id")
+        chunks = [_chunk("doc-eg", "EG"), _chunk("doc-og", "OG"), legacy]
+        set_turn_intent(file_name=PLAN, document_id="doc-og")
+        try:
+            merged = merge_results(
+                [RetrievalResult(chunks=chunks, query="q", backend="fake", success=True)],
+                query="q",
+                top_k=5,
+                backend_name="fake",
+            )
+        finally:
+            set_turn_intent()
+
+        assert [chunk.content for chunk in merged.chunks] == ["OG", "vor den Ids"]
+
+
 def _document(document_id: str, folder_path: str, **fields) -> SimpleNamespace:
     return SimpleNamespace(
         file_name=PLAN, document_id=document_id, folder_path=folder_path, display_title=None, **fields
@@ -223,12 +309,17 @@ class _Retriever:
 
 
 def _admits(chunk: Chunk, filters: dict) -> bool:
-    for clause in filters.get("$and", [filters]):
-        ((field, condition),) = clause.items()
-        have = chunk.file_name if field == "file_name" else chunk.metadata.get(field)
-        if field in ("file_name", "document_id") and have != condition["$eq"]:
-            return False
-    return True
+    if "$and" in filters:
+        return all(_admits(chunk, clause) for clause in filters["$and"])
+    if "$or" in filters:
+        return any(_admits(chunk, clause) for clause in filters["$or"])
+    ((field, condition),) = filters.items()
+    if field not in ("file_name", "document_id"):
+        return True
+    have = chunk.file_name if field == "file_name" else chunk.metadata.get(field)
+    if "$exists" in condition:
+        return (have is not None) is condition["$exists"]
+    return have == condition["$eq"]
 
 
 class TestReadingOneOfTwoNamesakes:
@@ -247,8 +338,8 @@ class TestReadingOneOfTwoNamesakes:
 
         assert [target.document_id for target in targets] == ["doc-eg", "doc-og"]
         assert [target.selector for target in targets] == [
-            {"document_id": {"$eq": "doc-eg"}},
-            {"document_id": {"$eq": "doc-og"}},
+            document_chunks(PLAN, "doc-eg"),
+            document_chunks(PLAN, "doc-og"),
         ]
 
     async def test_each_target_reads_only_its_own_chunks(self, listed, monkeypatch):
@@ -259,7 +350,7 @@ class TestReadingOneOfTwoNamesakes:
         fetched = await _fetch_all(targets, _whole_document_filters, PLAN, 10)
 
         assert sorted(chunk.content for chunk in fetched.chunks) == ["Erdgeschoss", "Obergeschoss"]
-        assert retriever.calls == [{"document_id": {"$eq": "doc-eg"}}, {"document_id": {"$eq": "doc-og"}}]
+        assert retriever.calls == [document_chunks(PLAN, "doc-eg"), document_chunks(PLAN, "doc-og")]
 
     def test_a_target_without_an_id_is_read_by_name(self):
         target = PassageTarget(collection="base_corpus", file_name="oib-rl_2.pdf", shelf=None)

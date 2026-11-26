@@ -142,7 +142,7 @@ def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeyp
     terms, texts = render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)
 
     assert terms == attested and texts == [NORM_LINE, "page twelve"]
-    assert asked["filters"] == {"file_name": "oenorm_b_1600.pdf", "page_label": "12"}
+    assert asked["filters"] == {"file_name": {"$eq": "oenorm_b_1600.pdf"}, "page_label": "12"}
 
     monkeypatch.setattr(
         render,

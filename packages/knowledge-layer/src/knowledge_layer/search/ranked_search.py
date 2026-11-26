@@ -15,6 +15,7 @@ from .chunk_noise import noise_notice
 from .document_groups import GROUP_OVERFETCH
 from .document_groups import group_by_document
 from .document_groups import render_document_groups
+from .focus import turn_focus
 
 logger = logging.getLogger(__name__)
 
@@ -202,21 +203,22 @@ class RankedSearch:
             result = await self._with_named_file(entry, result)
         return result
 
-    async def _with_named_file(self, entry, result):
-        try:
-            from agent.common.focus_file import get_focused_file_name
+    def _named_selector(self) -> dict | None:
+        if self.args.file_name:
+            return {"file_name": {"$eq": self.args.file_name}}
+        focus = turn_focus()
+        return focus.selector() if focus else None
 
-            focused = self.args.file_name or get_focused_file_name()
-        except Exception:
-            focused = self.args.file_name
-        if not focused:
+    async def _with_named_file(self, entry, result):
+        selector = self._named_selector()
+        if not selector:
             return result
         try:
             named = await self.engine.retriever.retrieve(
                 query=self.query,
                 collection_name=entry.collection,
                 top_k=self.candidate_k,
-                filters={"file_name": {"$eq": focused}},
+                filters=selector,
             )
             _tag_with_collection(named, entry)
             if getattr(named, "success", False) and named.chunks:
