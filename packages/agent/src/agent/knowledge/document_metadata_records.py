@@ -67,6 +67,7 @@ def _upsert_metadata(
         "person": TAGS_SET_BY_PERSON,
     }
     if document_id:
+        _adopt_unkeyed_row(conn, collection, filename, document_id)
         conn.execute(
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
@@ -84,7 +85,7 @@ def _upsert_metadata(
             f"UPDATE {TABLE_NAME} SET summary = :summary, "
             "tags = CASE WHEN tags_set_by = :person THEN tags ELSE :tags END, "
             "topics = CASE WHEN tags_set_by = :person THEN topics ELSE :topics END "
-            "WHERE collection = :collection AND filename = :filename AND document_id IS NULL"
+            "WHERE collection = :collection AND filename = :filename"
         ),
         params,
     )
@@ -102,10 +103,25 @@ def _upsert_metadata(
     )
 
 
+def _adopt_unkeyed_row(conn, collection: str, filename: str, document_id: str, table: str = TABLE_NAME) -> None:
+    from sqlalchemy import text
+
+    conn.execute(
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        text(
+            f"UPDATE {table} SET document_id = :document_id "
+            "WHERE collection = :collection AND filename = :filename AND document_id IS NULL "
+            f"AND NOT EXISTS (SELECT 1 FROM {table} AS keyed "
+            "WHERE keyed.collection = :collection AND keyed.document_id = :document_id)"
+        ),
+        {"collection": collection, "filename": filename, "document_id": document_id},
+    )
+
+
 def _take_back_retained(store, conn, collection: str, filename: str, *, document_id: str | None = None) -> None:
     from sqlalchemy import text
 
-    where, keyed = _match(filename, document_id)
+    where, keyed = _match(filename, document_id, table=RETAINED_TABLE_NAME)
     params = {"collection": collection, **keyed}
     kept = conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
@@ -174,7 +190,7 @@ def _closes_a_loop(
 def _forget_retained(conn, collection: str, filename: str, *, document_id: str | None = None) -> None:
     from sqlalchemy import text
 
-    where, keyed = _match(filename, document_id)
+    where, keyed = _match(filename, document_id, table=RETAINED_TABLE_NAME)
     conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(f"DELETE FROM {RETAINED_TABLE_NAME} WHERE collection = :collection AND {where}"),
@@ -251,7 +267,7 @@ def _rename_in(conn, table: str, collection: str, document_id: str, file_name: s
     from sqlalchemy import text
 
     params = {"collection": collection, "document_id": document_id, "file_name": file_name}
-    where, keyed = _match(previous, document_id)
+    where, keyed = _match(previous, document_id, table=table)
     renamed = conn.execute(
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         text(
