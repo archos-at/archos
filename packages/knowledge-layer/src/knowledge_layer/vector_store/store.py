@@ -17,6 +17,7 @@ from qdrant_client import models
 from qdrant_client.http.exceptions import ResponseHandlingException
 from qdrant_client.http.exceptions import UnexpectedResponse
 
+from . import name_scope
 from .config import REQUEST_TIMEOUT_SECONDS
 from .config import qdrant_api_key
 from .config import qdrant_url
@@ -233,12 +234,10 @@ class QdrantStore:
             )
         if key != "file_name":
             raise ValueError(f"A document is addressed by file_name or document_id, not {key!r}")
-        return scope_filter(
-            [scope],
-            None,
-            models.FieldCondition(key="file_name", match=models.MatchValue(value=value)),
-            models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD)),
-        )
+        named: list[models.Condition] = [models.FieldCondition(key="file_name", match=models.MatchValue(value=value))]
+        if name_scope.NAMES_SKIP_IDENTIFIED_POINTS:
+            named.append(models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD)))
+        return scope_filter([scope], None, *named)
 
     def set_file_payloads(
         self, scope: str, payloads: Mapping[str, Mapping[str, Any]], *, key: PayloadKey = "file_name"

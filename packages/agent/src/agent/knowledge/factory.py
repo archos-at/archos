@@ -575,27 +575,42 @@ async def get_available_documents_async(collection: str) -> list[AvailableDocume
     return await _get_document_metadata_store().get_all_async(collection)
 
 
+def _missing_documents(collection: str, wanted: Iterable[DocumentRef]) -> list[DocumentRef]:
+    rows = get_available_documents(collection)
+    ids = {doc.document_id for doc in rows if doc.document_id}
+    names = {doc.file_name for doc in rows}
+    unkeyed = {doc.file_name for doc in rows if not doc.document_id}
+
+    def present(ref: DocumentRef) -> bool:
+        if ref.document_id:
+            return ref.document_id in ids or ref.file_name in unkeyed
+        return ref.file_name in names
+
+    return [ref for ref in dict.fromkeys(wanted) if not present(ref)]
+
+
 def reconcile_collection_summaries(
     ingestor: BaseIngestor,
     collection: str,
     file_names: list[str] | None = None,
+    *,
+    documents: Sequence[DocumentRef] | None = None,
 ) -> int:
-    if file_names is not None:
-        indexed_names = set(file_names)
+    if documents is not None or file_names is not None:
+        indexed = [*(documents or ()), *(DocumentRef(name, None) for name in file_names or ())]
     else:
         try:
             indexed_files = ingestor.list_files(collection)
         except Exception as e:
             logger.warning("Reconciliation: failed to list indexed files for %s: %s", collection, e)
             return 0
-        indexed_names = {f.file_name for f in indexed_files if f.status == FileStatus.SUCCESS}
+        indexed = [DocumentRef(f.file_name, f.document_id) for f in indexed_files if f.status == FileStatus.SUCCESS]
 
-    if not indexed_names:
+    if not indexed:
         return 0
 
-    existing_names = {doc.file_name for doc in get_available_documents(collection)}
-    missing_names = indexed_names - existing_names
-    if not missing_names:
+    missing = _missing_documents(collection, indexed)
+    if not missing:
         return 0
 
     from .document_classification import fallback_summary_from_text
@@ -603,11 +618,11 @@ def reconcile_collection_summaries(
     sample_fn = getattr(ingestor, "get_document_text_sample", None)
 
     backfilled = 0
-    for file_name in sorted(missing_names):
+    for file_name, document_id in sorted(missing, key=lambda ref: (ref.file_name, ref.document_id or "")):
         text_sample = None
         if callable(sample_fn):
             try:
-                text_sample = sample_fn(collection, file_name)
+                text_sample = sample_fn(collection, file_name, document_id=document_id)
             except Exception as e:
                 logger.warning("Reconciliation: failed to sample text for %s in %s: %s", file_name, collection, e)
 
@@ -615,7 +630,7 @@ def reconcile_collection_summaries(
         if not summary:
             summary = f"Indexed document: {file_name}"
 
-        register_summary(collection, file_name, summary)
+        register_summary(collection, file_name, summary, document_id=document_id)
         backfilled += 1
         logger.warning(
             "Reconciliation: backfilled missing summary for %s in %s "
@@ -627,7 +642,7 @@ def reconcile_collection_summaries(
     logger.warning(
         "Reconciliation: backfilled %d/%d document(s) missing summaries in %s",
         backfilled,
-        len(indexed_names),
+        len(indexed),
         collection,
     )
     return backfilled

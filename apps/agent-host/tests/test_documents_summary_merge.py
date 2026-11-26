@@ -170,3 +170,29 @@ def test_existing_topics_and_capture_are_not_overwritten():
 
     assert files[0].topics == ["Schnitt"]
     assert files[0].capture == {"camera": "Set"}
+
+
+def test_two_files_of_one_name_each_take_their_own_documents_summary():
+    bestand, entwurf = "aaaaaaaa-0000-4000-8000-00000000000a", "bbbbbbbb-0000-4000-8000-00000000000b"
+    files = [_file("Plan.pdf"), _file("Plan.pdf")]
+    files[0].document_id, files[1].document_id = bestand, entwurf
+    summaries = [
+        AvailableDocument(file_name="Plan.pdf", document_id=entwurf, summary="Der Entwurf."),
+        AvailableDocument(file_name="Plan.pdf", document_id=bestand, summary="Der Bestand.", superseded_by_id=entwurf),
+    ]
+
+    merged = _merge_summaries(files, summaries)
+
+    assert [(file.summary, file.superseded_by_id) for file in merged] == [
+        ("Der Bestand.", entwurf),
+        ("Der Entwurf.", None),
+    ]
+
+
+def test_a_summary_written_before_rows_carried_their_id_still_finds_its_file():
+    files = [_file("Plan.pdf")]
+    files[0].document_id = "aaaaaaaa-0000-4000-8000-00000000000a"
+
+    merged = _merge_summaries(files, [AvailableDocument(file_name="Plan.pdf", summary="Ohne Id.")])
+
+    assert merged[0].summary == "Ohne Id."

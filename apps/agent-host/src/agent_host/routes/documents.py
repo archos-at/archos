@@ -48,8 +48,9 @@ def _merge_summaries(
     if not summaries:
         return files
     doc_by_name = {doc.file_name: doc for doc in summaries}
+    summary_of = _summary_index(summaries)
     for file in files:
-        doc = doc_by_name.get(file.file_name)
+        doc = summary_of(file)
         if doc is None:
             continue
         if file.summary is None and doc.summary:
@@ -72,6 +73,8 @@ def _merge_summaries(
             file.coverage = doc.coverage
         if file.superseded_by is None and doc.superseded_by:
             file.superseded_by = doc.superseded_by
+        if file.superseded_by_id is None and doc.superseded_by_id:
+            file.superseded_by_id = doc.superseded_by_id
         if not file.supersedes and doc.supersedes:
             file.supersedes = doc.supersedes
         if file.change_summary is None and doc.change_summary:
@@ -84,6 +87,22 @@ def _merge_summaries(
     return files
 
 
+def _summary_index(summaries: list[AvailableDocument]) -> Callable[[FileInfo], AvailableDocument | None]:
+    by_id = {doc.document_id: doc for doc in summaries if doc.document_id}
+    by_name: dict[str, list[AvailableDocument]] = {}
+    for doc in summaries:
+        by_name.setdefault(doc.file_name, []).append(doc)
+
+    def summary_of(file: FileInfo) -> AvailableDocument | None:
+        if file.document_id and file.document_id in by_id:
+            return by_id[file.document_id]
+        named = by_name.get(file.file_name, [])
+        candidates = [doc for doc in named if not doc.document_id] or named
+        return candidates[0] if len(candidates) == 1 else None
+
+    return summary_of
+
+
 def _attach_derived_suggestions(
     files: list[FileInfo], summaries: list[AvailableDocument], held_names: Callable[[], set[str] | None]
 ) -> None:
@@ -91,7 +110,7 @@ def _attach_derived_suggestions(
 
     derived = derive_suggestions(summaries, held_names)
     for file in files:
-        suggestion = derived.get(file.file_name)
+        suggestion = derived.get(file.document_id or "") or derived.get(file.file_name)
         if suggestion is not None and file.revision_suggestion is None:
             file.revision_suggestion = suggestion
 

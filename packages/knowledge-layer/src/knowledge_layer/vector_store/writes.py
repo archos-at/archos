@@ -10,6 +10,7 @@ from typing import Any
 
 from agent.common.source_kinds import office_shelf_organization_id
 
+from . import name_scope
 from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .payload import ChunkRecord
 from .payload import document_facts
@@ -127,9 +128,8 @@ def write_chunks(
 ) -> int:
     base = enrichment(scope, config)
     document_id = str((config or {}).get("document_id") or "") or None
-    if document_id:
-        facts = facts_by_file(scope, document_ids=[document_id]).get(document_id, {})
-    else:
+    facts = facts_by_file(scope, document_ids=[document_id]).get(document_id, {}) if document_id else {}
+    if not facts and not (document_id and name_scope.NAMES_SKIP_IDENTIFIED_POINTS):
         facts = facts_by_file(scope, [file_name]).get(file_name, {})
     base.update({key: value for key, value in facts.items() if value is not None})
     return get_store(identity).upsert(scope, records, base)

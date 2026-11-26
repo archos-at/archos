@@ -120,7 +120,7 @@ def resolve_node(rows: Mapping[str, _LinkRow], file_name: str | None, document_i
 
 def _match(filename: str, document_id: str | None, *, table: str = TABLE_NAME) -> tuple[str, dict[str, Any]]:
     if not document_id:
-        return "filename = :filename", {"filename": filename}
+        return "document_id IS NULL AND filename = :filename", {"filename": filename}
     return (
         "(document_id = :document_id OR (document_id IS NULL AND filename = :filename "
         f"AND NOT EXISTS (SELECT 1 FROM {table} AS keyed "
