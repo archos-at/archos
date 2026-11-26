@@ -204,7 +204,7 @@ class TestSuggestRevision:
 
     def test_no_name_of_a_held_file_reaches_the_model(self, job_store, stored):
         job_store.jobs = [_job(("gehalten.pdf", "quarantined"))]
-        job_store.in_flight = {"coll": ["lese.pdf"]}
+        job_store.in_flight = {"coll": [DocumentRef("lese.pdf", None)]}
         rows = [_row("gehalten.pdf"), _row("lese.pdf"), _row("B.pdf")]
         llm = self._llm('{"of": null, "confidence": 0, "reason": ""}')
 

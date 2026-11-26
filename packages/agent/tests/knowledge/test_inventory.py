@@ -108,7 +108,21 @@ class TestDocumentIdentity:
 
         assert kept == [bestand, entwurf]
         rendered = render_inventory_block(kept)
-        assert "(Ordner: Bestand)" in rendered and "(Ordner: Entwurf)" in rendered
+        assert "(Ordner: Bestand) (id aaaaaaaa-0000-4000-8000-00000000000a)" in rendered
+        assert "(Ordner: Entwurf) (id bbbbbbbb-0000-4000-8000-00000000000b)" in rendered
+        assert "`/Name` at the top level" in rendered
+
+    def test_a_name_no_other_document_shares_shows_no_id(self):
+        lone = AvailableDocument(
+            file_name="Schnitt.pdf",
+            collection="proj_1",
+            shelf="project",
+            document_id="cccccccc-0000-4000-8000-00000000000c",
+        )
+
+        rendered = render_inventory_block([lone])
+
+        assert "(id " not in rendered and "`/Name`" not in rendered
 
 
 class TestAllocateInventory:

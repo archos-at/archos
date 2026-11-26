@@ -76,7 +76,17 @@ class TestTwoDocumentsShareAName:
     def test_a_bare_name_is_a_question_even_when_one_of_them_lies_at_the_top_level(self):
         set_turn_documents([*INVENTORY, _row("Plan.pdf", None, str(uuid.uuid4()))])
 
-        assert isinstance(resolve.resolve_document("Plan.pdf"), resolve.Refusal)
+        refused = resolve.resolve_document("Plan.pdf")
+
+        assert isinstance(refused, resolve.Refusal) and "/Name at the top level" in refused.message
+
+    def test_the_top_level_one_is_named_by_a_leading_slash(self):
+        top = str(uuid.uuid4())
+        set_turn_documents([*INVENTORY, _row("Plan.pdf", None, top)])
+
+        hit = resolve.resolve_document("/Plan.pdf")
+
+        assert isinstance(hit, resolve.ResolvedDocument) and hit.document_id == top
 
     @pytest.mark.parametrize(("named", "expected"), [("Entwurf/Plan.pdf", ENTWURF), (BESTAND, BESTAND)])
     def test_the_folder_path_or_the_id_names_one(self, named, expected):

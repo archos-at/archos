@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import type { FileItem } from '../file-types'
+import type { FileItem, FolderItem } from '../file-types'
 import { useDocumentMoves } from './use-document-moves'
 import type { AskNameConflicts, ConflictQuestion } from './use-name-conflict-prompt'
 
@@ -26,12 +26,12 @@ const file = (id: string, folderId: string | null): FileItem => ({
   capture: null,
 })
 
-function harness(initial: FileItem[], ask?: AskNameConflicts) {
+function harness(initial: FileItem[], ask?: AskNameConflicts, folders: FolderItem[] = []) {
   let rows = initial
   const setFiles = vi.fn((action: FileItem[] | ((prev: FileItem[]) => FileItem[])) => {
     rows = typeof action === 'function' ? action(rows) : action
   })
-  const hook = renderHook(() => useDocumentMoves(rows, setFiles, [], ask))
+  const hook = renderHook(() => useDocumentMoves(rows, setFiles, folders, ask))
   return { hook, rows: () => rows }
 }
 
@@ -75,6 +75,37 @@ describe('useDocumentMoves — a name the target folder already holds', () => {
     )
     expect(fetchMock.mock.calls.map(sentBody)).toEqual([{ folderId: 'site' }, { folderId: 'site', onConflict: 'keep_both' }])
     expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 2.jpg' })
+  })
+
+  it('names each document of one name by its folder, so two of them can be told apart and copied', async () => {
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) =>
+      JSON.parse(String(init.body)).onConflict ? new Response('{}', { status: 200 }) : held('a.jpg')
+    )
+    const ask = vi.fn<AskNameConflicts>(async () => null)
+    const folders: FolderItem[] = [
+      { id: 'f-plaene', parentId: null, name: 'Pläne', path: 'Pläne' },
+      { id: 'f-bestand', parentId: 'f-plaene', name: 'Bestand', path: 'Pläne/Bestand' },
+      { id: 'f-entwurf', parentId: 'f-plaene', name: 'Entwurf', path: 'Pläne/Entwurf' },
+    ]
+    const { hook } = harness([{ ...file('a', 'f-bestand') }, { ...file('b', 'f-entwurf'), filename: 'a.jpg' }], ask, folders)
+
+    await act(async () => {
+      await hook.result.current.moveMany(['a', 'b'], 'site', 'Baustelle')
+    })
+
+    expect(ask.mock.calls[0]?.[0].rows.map((row) => row.path).sort()).toEqual(['Pläne/Bestand/a.jpg', 'Pläne/Entwurf/a.jpg'])
+  })
+
+  it('shows a kept-both document under its new name, not a stale label', async () => {
+    fetchMock
+      .mockResolvedValueOnce(held('a.jpg'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ filename: 'a 3.jpg' }), { status: 200 }))
+    const ask = vi.fn<AskNameConflicts>(async () => new Map([['a', 'keep_both' as const]]))
+    const { hook, rows } = harness([{ ...file('a', 'old'), displayName: 'Ansicht.jpg' }], ask)
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 3.jpg', displayName: null })
   })
 
   it('leaves the document where it was when the reader skips or closes the question', async () => {

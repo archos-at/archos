@@ -157,7 +157,8 @@ describe('NameConflictDialog', () => {
       ])
     )
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await screen.findByText('B/Plan.pdf')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0])
     expect(onAnswer).toHaveBeenLastCalledWith(null)
   })
 

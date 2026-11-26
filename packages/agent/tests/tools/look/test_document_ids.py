@@ -8,6 +8,7 @@ from agent_testing import look
 from agent_testing.look import _pdf
 
 from agent.common import bff_http
+from agent.common.source_kinds import Shelf
 from agent.common.stored_file import AmbiguousDocumentName
 from agent.knowledge import AvailableDocument
 from agent.knowledge.inventory import set_turn_documents
@@ -80,7 +81,25 @@ class TestTwoDocumentsShareAName:
         finally:
             set_turn_documents(None)
 
-        assert isinstance(answer, str) and answer.startswith("Ambiguous:") and "at the top level" in answer
+        assert isinstance(answer, str) and answer.startswith("Ambiguous:") and "/Name at the top level" in answer
+
+    async def test_the_top_level_one_is_named_by_a_leading_slash(self, lookups) -> None:
+        top = AvailableDocument(file_name="Plan.pdf", shelf="project", collection="proj_1", document_id=BESTAND)
+        set_turn_documents([top, TWO_PLANS[1]])
+        try:
+            resolved = await resolve.resolve_document("/Plan.pdf")
+        finally:
+            set_turn_documents(None)
+
+        assert isinstance(resolved, resolve.Resolved) and resolved.document_id == BESTAND and lookups == []
+
+    def test_a_look_at_one_of_two_documents_of_a_name_cites_it_by_its_folder(self, two_plans) -> None:
+        from agent.tools.look.place import PlaceFacts
+        from agent.tools.look.place import citation_key
+
+        facts = PlaceFacts("Plan.pdf", "proj_1", Shelf.PROJECT, 2, document_id=ENTWURF, folder="Entwurf")
+
+        assert citation_key(facts) == "Entwurf/Plan.pdf, p.2"
 
     @pytest.mark.parametrize(
         ("named", "expected"),
