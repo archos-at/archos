@@ -45,7 +45,7 @@ function Probe(): null {
 }
 const show = (pathname = '/app/personal/chat') =>
   render(
-    <RailChatsProvider pathname={pathname}>
+    <RailChatsProvider projectIds={['p1', 'p2']} pathname={pathname}>
       <Probe />
     </RailChatsProvider>
   )

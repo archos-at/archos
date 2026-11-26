@@ -40,7 +40,7 @@ const confirmEverySide = (): void => {
 const show = (pathname: string, { confirmed = true }: { confirmed?: boolean } = {}) => {
   if (confirmed) confirmEverySide()
   return render(
-    <RailChatsProvider pathname={pathname}>
+    <RailChatsProvider projectIds={['p1', 'p2']} pathname={pathname}>
       <Probe />
     </RailChatsProvider>
   )
@@ -284,6 +284,16 @@ describe('RailChatsProvider', () => {
 
     test('mounting the rail warms the other side’s chats once, beside its own', () => {
       recordRecentProject('p1')
+      show('/app/personal-shelf')
+      expect(loadServerConversations.mock.calls).toEqual([
+        [undefined, 'personal'],
+        ['p1', 'project'],
+      ])
+    })
+
+    test('a project last opened in another office is not warmed: its chats would answer 404 here', () => {
+      recordRecentProject('p1')
+      recordRecentProject('other-office')
       show('/app/personal-shelf')
       expect(loadServerConversations.mock.calls).toEqual([
         [undefined, 'personal'],

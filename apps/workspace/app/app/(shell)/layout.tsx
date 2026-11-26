@@ -23,13 +23,11 @@ export default async function AppShellLayout({
   overlay: ReactNode
 }): Promise<JSX.Element> {
   const chrome = await runWithTenantSlot(resolveShellChrome)
-  const lastSide = sideOfLastPlace(
-    (await cookies()).get(LAST_PLACE_COOKIE)?.value,
-    chrome.projects.map((project) => project.id)
-  )
+  const projectIds = chrome.projects.map((project) => project.id)
+  const lastSide = sideOfLastPlace((await cookies()).get(LAST_PLACE_COOKIE)?.value, projectIds)
 
   return (
-    <RailChatsProvider>
+    <RailChatsProvider projectIds={projectIds}>
     <ShellNormDialog>
     <AppShellChrome
       projects={chrome.projects}

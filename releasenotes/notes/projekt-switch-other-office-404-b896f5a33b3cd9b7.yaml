@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    If you belong to more than one office, tapping Projekt no longer opens a
+    "not found" page for a project of the office you were in before: it opens
+    the last project of the office you are in now.

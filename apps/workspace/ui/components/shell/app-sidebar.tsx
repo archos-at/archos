@@ -161,9 +161,10 @@ function AppSidebarFrame(props: AppSidebarProps) {
     setMenuOpen(false)
   }, [pathname, paletteOpen, setMenuOpen])
 
+  const projectIds = React.useMemo(() => projects.map((project) => project.id), [projects])
   React.useEffect(() => {
-    pruneProjectSections(projects.map((project) => project.id))
-  }, [projects])
+    pruneProjectSections(projectIds)
+  }, [projectIds])
 
   const groups: RailGroupModel[] = railGroups({ showSkills, showModels, canAccessOfficeShelf, canAccessOfficeStandards, canAccessInbox }).map(
     (group) => ({
@@ -246,7 +247,7 @@ function AppSidebarFrame(props: AppSidebarProps) {
         >
           <SidebarBrand iconRail={iconRail} />
           <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
-            <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} tourAnchor={TOUR_ANCHORS.sides} />
+            <RailModeSwitch mode={mode} projectIds={projectIds} collapsed={iconRail} navigate={navigateSide} tourAnchor={TOUR_ANCHORS.sides} />
           </div>
           {projectId !== null && onSide && <ProjectRecorder projectId={projectId} />}
         </SidebarHeader>
