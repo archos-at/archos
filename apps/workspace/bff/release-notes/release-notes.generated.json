@@ -1030,6 +1030,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On an iPhone, tapping into a chat's input now leaves it right above the keyboard at once, instead of jumping to the top of the screen and sliding slowly back down.",
+            "de": "Wenn Sie auf einem iPhone das Eingabefeld eines Chats antippen, bleibt es jetzt sofort direkt über der Tastatur, statt an den oberen Bildschirmrand zu springen und langsam wieder nach unten zu gleiten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On small phones such as the iPhone 13 mini, the chat no longer runs under the input field, and a quick second tap no longer zooms the page.",
             "de": "Auf kleinen Smartphones wie dem iPhone 13 mini wird der Chat nicht mehr vom Eingabefeld verdeckt, und ein schnelles zweites Tippen zoomt die Seite nicht mehr."
           }
@@ -1104,6 +1112,14 @@
           "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "If you belong to more than one office, tapping Projekt no longer opens a \"not found\" page for a project of the office you were in before: it opens the last project of the office you are in now.",
+            "de": "Wenn Sie mehreren Büros angehören, öffnet ein Tippen auf „Projekt“ bei einem Projekt Ihres vorherigen Büros keine „Nicht gefunden“-Seite mehr, sondern das letzte Projekt Ihres aktuellen Büros."
           }
         },
         {

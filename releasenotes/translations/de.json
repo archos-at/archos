@@ -2748,6 +2748,10 @@
     "de": "Entscheiden zwei Personen gleichzeitig, erfährt die zweite, dass sich der Stand geändert hat, und sieht, was passiert ist."
   },
   {
+    "en": "If you belong to more than one office, tapping Projekt no longer opens a \"not found\" page for a project of the office you were in before: it opens the last project of the office you are in now.",
+    "de": "Wenn Sie mehreren Büros angehören, öffnet ein Tippen auf „Projekt“ bei einem Projekt Ihres vorherigen Büros keine „Nicht gefunden“-Seite mehr, sondern das letzte Projekt Ihres aktuellen Büros."
+  },
+  {
     "en": "If you belong to more than one office, you can switch offices from the menu under your name in the sidebar and, on a phone, from „Mehr“. Before, the switch was only in the menu of the bar above the project overview.",
     "de": "Wenn Sie mehreren Büros angehören, können Sie im Menü unter Ihrem Namen in der Seitenleiste und auf dem Smartphone unter „Mehr“ zwischen den Büros wechseln. Bisher war der Wechsel nur über das Menü in der Leiste oberhalb der Projektübersicht möglich."
   },
@@ -3378,6 +3382,10 @@
   {
     "en": "On a wide screen the bell docks the inbox beside your page: what waits on you comes first, grouped by document and most urgent on top, and an entry opens the chat or the review in place while the inbox stays open for the next one.",
     "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
+  },
+  {
+    "en": "On an iPhone, tapping into a chat's input now leaves it right above the keyboard at once, instead of jumping to the top of the screen and sliding slowly back down.",
+    "de": "Wenn Sie auf einem iPhone das Eingabefeld eines Chats antippen, bleibt es jetzt sofort direkt über der Tastatur, statt an den oberen Bildschirmrand zu springen und langsam wieder nach unten zu gleiten."
   },
   {
     "en": "On an iPhone, tapping into the input of an empty chat no longer lets it drift down the screen: the input stands right above the keyboard, as in a chat that has started.",
