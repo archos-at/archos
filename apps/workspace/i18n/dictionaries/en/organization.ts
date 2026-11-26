@@ -532,6 +532,8 @@ export const organization = {
     ingestTitle: 'Reading documents in',
     ingestNote:
       'Reading uploaded documents in does not count against the daily and monthly limit. It has its own allowance per month, shared by the whole office: three times the monthly limit.',
+    ingestNoteExplicit:
+      'Reading uploaded documents in does not count against the daily and monthly limit. It has its own allowance per month, shared by the whole office and set specifically for your office.',
     ingestOverLimit: 'Allowance exhausted — new documents are stored, and read once it is raised',
     legendTitle: 'Usage by model',
     legendEmpty: 'No LLM usage recorded in this window yet.',

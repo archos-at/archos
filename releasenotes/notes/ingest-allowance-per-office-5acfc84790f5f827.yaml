@@ -1,0 +1,12 @@
+---
+# area: documents
+improvements:
+  - >
+    Your office's monthly allowance for reading uploaded documents in can now
+    be raised for your office on request, for example before a large project
+    folder goes up. The usage page shows the allowance that applies to you.
+operators:
+  - >
+    The platform console's Kontingent dialog sets each office's monthly ingest
+    allowance as an amount in its budget unit, with three times the monthly
+    limit as the default and "Use default" to go back to it.

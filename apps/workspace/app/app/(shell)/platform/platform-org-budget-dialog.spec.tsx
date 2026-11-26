@@ -16,8 +16,18 @@ const budget = {
   explicit: false,
   dayUsed: 25,
   monthUsed: 300,
+  ingest: {
+    unit: 'credit',
+    monthlyAllowance: 30000,
+    defaultMonthlyAllowance: 30000,
+    defaultFactor: 3,
+    explicit: false,
+    monthUsed: 4200,
+  },
   canManage: true,
 }
+const INGEST_LABEL = 'Ingest allowance per month (credits)'
+const ingestUrl = '/api/platform/organizations/org_tenant/ingest-allowance'
 const organization = { id: 'org_tenant', name: 'Planning Office' }
 const onClose = vi.fn()
 const response = (body: unknown, status = 200) => Response.json(body, { status })
@@ -191,5 +201,104 @@ describe('platform organization allowance editor', () => {
     expect(
       screen.getByText('You can view this allowance, but do not have permission to change it.')
     ).toBeDefined()
+  })
+
+  describe('the ingest allowance', () => {
+    const explicitBudget = {
+      ...budget,
+      explicit: true,
+      ingest: { ...budget.ingest, monthlyAllowance: 50000, explicit: true },
+    }
+
+    it('shows the default as a placeholder, and what was read in this month', async () => {
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const field = await screen.findByLabelText(INGEST_LABEL)
+      expect(field).toHaveValue('')
+      expect(field).toHaveAttribute('placeholder', 'Default: 30,000')
+      expect(screen.getByText('Read in this month').nextElementSibling).toHaveTextContent('4,200 credits')
+      expect(screen.getByText('Default')).toBeDefined()
+    })
+
+    it('follows the monthly allowance being typed in the placeholder', async () => {
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const monthly = await screen.findByLabelText('Monthly allowance (credits)')
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '20000')
+      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: 60,000')
+      await userEvent.clear(monthly)
+      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: unlimited')
+    })
+
+    it('saves only the ingest allowance, without pinning the default limits as a policy', async () => {
+      fetchMock.mockResolvedValueOnce(response(budget)).mockResolvedValueOnce(response(explicitBudget.ingest))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      await userEvent.type(await screen.findByLabelText(INGEST_LABEL), '50000')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock).toHaveBeenLastCalledWith(ingestUrl, {
+        credentials: 'same-origin',
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit: 'credit', monthlyAllowance: 50000 }),
+      })
+    })
+
+    it('goes back to the default with one click', async () => {
+      fetchMock.mockResolvedValueOnce(response(explicitBudget)).mockResolvedValueOnce(response(budget.ingest))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      expect(await screen.findByLabelText(INGEST_LABEL)).toHaveValue('50000')
+      expect(screen.getByText('Custom')).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Use default' }))
+      expect(screen.getByLabelText(INGEST_LABEL)).toHaveValue('')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+      expect(fetchMock.mock.calls[1][0]).toBe(ingestUrl)
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ unit: 'credit', monthlyAllowance: null })
+    })
+
+    it('saves the limits first, then the ingest allowance, when both changed', async () => {
+      fetchMock
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response(explicitBudget))
+        .mockResolvedValueOnce(response(explicitBudget.ingest))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const monthly = await screen.findByLabelText('Monthly allowance (credits)')
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '20000')
+      const ingest = screen.getByLabelText(INGEST_LABEL)
+      await userEvent.clear(ingest)
+      await userEvent.type(ingest, '0')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+      expect(fetchMock.mock.calls.map((call) => [call[0], call[1].method])).toEqual([
+        ['/api/platform/organizations/org_tenant/budgets', undefined],
+        ['/api/platform/organizations/org_tenant/budgets', 'PUT'],
+        [ingestUrl, 'PUT'],
+      ])
+      expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ unit: 'credit', monthlyAllowance: 0 })
+    })
+
+    it('refuses a negative amount and names the ingest failure', async () => {
+      fetchMock.mockResolvedValueOnce(response(budget)).mockResolvedValueOnce(response({}, 500))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const ingest = await screen.findByLabelText(INGEST_LABEL)
+      await userEvent.type(ingest, '-5')
+      expect(screen.getByRole('alert')).toHaveTextContent('or leave blank for the default')
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+      await userEvent.clear(ingest)
+      await userEvent.type(ingest, '5')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not save the ingest allowance.'))
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('is read-only without the manage permission', async () => {
+      fetchMock.mockResolvedValue(response({ ...explicitBudget, canManage: false }))
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      expect(await screen.findByLabelText(INGEST_LABEL)).toHaveAttribute('readonly')
+      expect(screen.queryByRole('button', { name: 'Use default' })).toBeNull()
+    })
   })
 })

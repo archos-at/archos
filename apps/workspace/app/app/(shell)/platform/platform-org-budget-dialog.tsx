@@ -23,7 +23,12 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { formatCredits, formatTokens } from '@/lib/format'
-import { fetchPlatformOrgBudget, PlatformBudgetRequestError } from '@/lib/budgets/platform-client'
+import {
+  fetchPlatformOrgBudget,
+  PlatformBudgetRequestError,
+  putPlatformIngestAllowance,
+} from '@/lib/budgets/platform-client'
+import { ingestAllowancePutSchema } from '@/lib/budgets/ingest-allowance-contract'
 import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
 import { formatDecimalInput, parseDecimalInput } from '@/lib/text/parse-decimal'
 
@@ -36,6 +41,15 @@ const readLimit = (raw: string, locale: string): LimitDraft => {
   if (parsed.status === 'invalid')
     return { ok: false, message: parsed.reason === 'ambiguous' ? 'ambiguous' : 'invalid' }
   const inRange = platformOrgBudgetPutSchema.shape.dailyLimit.safeParse(parsed.value).success
+  return inRange ? { ok: true, value: parsed.value } : { ok: false, message: 'invalid' }
+}
+
+const readIngestAllowance = (raw: string, locale: string): LimitDraft => {
+  const parsed = parseDecimalInput(raw, locale)
+  if (parsed.status === 'blank') return { ok: true, value: null }
+  if (parsed.status === 'invalid')
+    return { ok: false, message: parsed.reason === 'ambiguous' ? 'ambiguous' : 'invalid' }
+  const inRange = ingestAllowancePutSchema.shape.monthlyAllowance.safeParse(parsed.value).success
   return inRange ? { ok: true, value: parsed.value } : { ok: false, message: 'invalid' }
 }
 
@@ -57,6 +71,7 @@ export function PlatformOrgBudgetDialog({
   const [daily, setDaily] = useState('')
   const [monthly, setMonthly] = useState('')
   const [note, setNote] = useState('')
+  const [ingest, setIngest] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -67,6 +82,9 @@ export function PlatformOrgBudgetDialog({
         setBudget(result)
         setDaily(formatDecimalInput(result.dailyLimit, locale))
         setMonthly(formatDecimalInput(result.monthlyLimit, locale))
+        setIngest(
+          result.ingest.explicit ? formatDecimalInput(result.ingest.monthlyAllowance, locale) : ''
+        )
       })
       .catch(() => {
         if (!cancelled) setError(true)
@@ -88,19 +106,41 @@ export function PlatformOrgBudgetDialog({
           note: note.trim() || null,
         })
       : null
-  const valid = draft?.success === true
-  const dirty =
+  const ingestDraft = readIngestAllowance(ingest, locale)
+  const valid = draft?.success === true && ingestDraft.ok
+  const limitsChanged =
     budget !== null &&
-    (!budget.explicit ||
-      (dailyDraft.ok && dailyDraft.value !== budget.dailyLimit) ||
+    ((dailyDraft.ok && dailyDraft.value !== budget.dailyLimit) ||
       (monthlyDraft.ok && monthlyDraft.value !== budget.monthlyLimit) ||
       note.trim() !== '')
+  const ingestChanged =
+    budget !== null &&
+    ingestDraft.ok &&
+    ingestDraft.value !== (budget.ingest.explicit ? budget.ingest.monthlyAllowance : null)
+  const saveLimits = budget !== null && (limitsChanged || (!budget.explicit && !ingestChanged))
+  const dirty = budget !== null && (limitsChanged || !budget.explicit || ingestChanged)
+  const ingestDefault =
+    budget === null
+      ? null
+      : monthlyDraft.ok
+        ? monthlyDraft.value === null
+          ? null
+          : monthlyDraft.value * budget.ingest.defaultFactor
+        : budget.ingest.defaultMonthlyAllowance
 
   const save = async (): Promise<void> => {
-    if (!draft?.success || !canManage) return
+    if (!budget || !draft?.success || !ingestDraft.ok || !canManage) return
     setSaving(true)
+    let step: 'limits' | 'ingest' = 'limits'
     try {
-      await fetchPlatformOrgBudget(organization.id, draft.data)
+      if (saveLimits) await fetchPlatformOrgBudget(organization.id, draft.data)
+      step = 'ingest'
+      if (ingestChanged) {
+        await putPlatformIngestAllowance(organization.id, {
+          unit: budget.unit,
+          monthlyAllowance: ingestDraft.value,
+        })
+      }
       toast.success(t('orgBudgets.saved'))
       onClose()
     } catch (error) {
@@ -108,7 +148,9 @@ export function PlatformOrgBudgetDialog({
         t(
           error instanceof PlatformBudgetRequestError && error.status === 409
             ? 'orgBudgets.unitChanged'
-            : 'orgBudgets.saveError'
+            : step === 'ingest'
+              ? 'orgBudgets.ingestSaveError'
+              : 'orgBudgets.saveError'
         )
       )
     } finally {
@@ -151,6 +193,71 @@ export function PlatformOrgBudgetDialog({
         />
         {message ? <FieldError id={`${id}-error`}>{message}</FieldError> : null}
       </Field>
+    )
+  }
+
+  const ingestSection = (): JSX.Element | null => {
+    if (!budget) return null
+    const id = 'org-budget-ingest'
+    const message = ingestDraft.ok
+      ? null
+      : ingestDraft.message === 'ambiguous'
+        ? t('numberField.ambiguous')
+        : t('orgBudgets.ingestInvalid')
+    return (
+      <section className="flex flex-col gap-3 border-t pt-4" aria-labelledby={`${id}-title`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 id={`${id}-title`} className="text-sm font-medium">
+            {t('orgBudgets.ingestTitle')}
+          </h3>
+          <Badge variant={budget.ingest.explicit ? 'secondary' : 'outline'}>
+            {t(
+              budget.ingest.explicit
+                ? 'orgBudgets.ingestExplicitBadge'
+                : 'orgBudgets.ingestDefaultBadge'
+            )}
+          </Badge>
+        </div>
+        <dl className="min-w-0">
+          <dt className="text-muted-foreground text-xs">{t('orgBudgets.ingestUsedMonth')}</dt>
+          <dd className="mt-0.5 truncate text-sm font-medium tabular-nums">
+            {formatAmount(budget.ingest.monthUsed)} {unitLabel}
+          </dd>
+        </dl>
+        <Field>
+          <FieldLabel htmlFor={id}>{t('orgBudgets.ingestLabel', { unit: unitLabel })}</FieldLabel>
+          <div className="flex gap-2">
+            <Input
+              id={id}
+              inputMode="decimal"
+              autoComplete="off"
+              className="tabular-nums"
+              value={ingest}
+              placeholder={
+                ingestDefault === null
+                  ? t('orgBudgets.ingestDefaultUnlimited')
+                  : t('orgBudgets.ingestDefaultPlaceholder', {
+                      amount: formatAmount(ingestDefault),
+                    })
+              }
+              onChange={(event) => setIngest(event.target.value)}
+              disabled={saving}
+              readOnly={!canManage}
+              aria-invalid={message ? true : undefined}
+              aria-describedby={message ? `${id}-error ${id}-hint` : `${id}-hint`}
+            />
+            {canManage && ingest.trim() !== '' ? (
+              <Button type="button" variant="ghost" onClick={() => setIngest('')} disabled={saving}>
+                {t('orgBudgets.ingestUseDefault')}
+              </Button>
+            ) : null}
+          </div>
+          {message ? <FieldError id={`${id}-error`}>{message}</FieldError> : null}
+          <FieldDescription id={`${id}-hint`}>
+            {t('orgBudgets.ingestHint', { factor: budget.ingest.defaultFactor })}
+          </FieldDescription>
+        </Field>
+      </section>
     )
   }
 
@@ -203,6 +310,7 @@ export function PlatformOrgBudgetDialog({
           )}
           <FieldDescription id="org-budget-hint">{t('orgBudgets.limitHint')}</FieldDescription>
         </div>
+        {ingestSection()}
         {canManage ? (
           <Field>
             <FieldLabel htmlFor="org-budget-note">{t('orgBudgets.note')}</FieldLabel>

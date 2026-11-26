@@ -259,12 +259,19 @@ reading documents in is paid from an allowance of its own:
 - **Work limits leave it out**: `consumed()` in `budgets/spend-windows.ts` is
   the one place a limit reads spend, and it subtracts the ingest share. Org,
   member and project limits all go through it.
-- **Its ceiling**: per organization and UTC month, `INGEST_ALLOWANCE_FACTOR`
-  (3) times the organization's monthly limit (`budgets/ingest-limit.ts`). It
-  has no setting of its own: raising the monthly limit raises it. Every office
+- **Its ceiling**: per organization and UTC month, the amount a platform
+  operator set for the organization's current budget unit, or by default
+  `INGEST_ALLOWANCE_FACTOR` (3) times its monthly limit
+  (`effectiveIngestLimit` in `budgets/ingest-limit.ts`, ADR-0199). The amount
+  lives in the platform-owned setting `ingestMonthlyAllowance`
+  (`{ credit?, token? }`). It is written only through
+  `PUT /api/platform/organizations/:id/ingest-allowance`, and the office cannot
+  write it. Without an amount, raising the monthly limit raises the ceiling. A
+  set amount stays put when the monthly limit changes, and an amount for one
+  unit never applies to the other: an office that moves to its own key falls
+  back to its token amount, or the default. 0 stops new readings. Every office
   is run with a monthly limit (product decision, KAN-53, 2026-11-18); the code
-  still reads a missing one as "no ceiling". It exists so a fault cannot spend
-  without bound, not as a commercial limit.
+  still reads a missing one, with no amount set, as "no ceiling".
 - **Enforced at the start of a job, never inside one**: `dispatchIngest`
   refuses to start a new ingestion once the allowance is spent and fails the
   row with `INGEST_ALLOWANCE_SPENT_MESSAGE` (the file stays stored; "read
@@ -281,6 +288,13 @@ reading documents in is paid from an allowance of its own:
   the whole office against the office's ceiling (`getIngestAllowance`), also
   for a member and under an admin's member or project filter, because the
   refusal is office-wide.
+  The sentence under it names the factor of three only for the default. When
+  an operator set the amount (`ingest.explicit`), it says so instead.
+- **What the operator sees**: the platform console's "Kontingent" dialog
+  (`platform-org-budget-dialog.tsx`) shows this month's ingestion and the
+  amount, with the default it replaces as the placeholder. "Standard
+  verwenden" clears it back to the default. `GET .../budgets` carries it as
+  `ingest`.
 
 Enforcement points:
 
@@ -312,7 +326,8 @@ Enforcement points:
 | GET | `/api/organization/model-config/models` | org models admin | model search; `creditsPerRequest` (the reference request priced at the active list) for a credit organization, `null` on an own key; never per-token USD |
 | POST | `/api/internal/usage` | `x-grid-internal-token` service token | ledger write path (backend tracker); rows are priced here |
 | GET/PUT | `/api/platform/pricing` | `platform:settings:view` / `manage` | the price list, its bounds, the version trail |
-| GET/PUT | `/api/platform/organizations/:organizationId/budgets` | `platform:organizations:view` / `manage` | view usage and effective daily/monthly limits, or supersede the org policy in its current unit; a stale unit is rejected with 409 |
+| GET/PUT | `/api/platform/organizations/:organizationId/budgets` | `platform:organizations:view` / `manage` | view usage, effective daily/monthly limits and the ingest allowance (`ingest`), or supersede the org policy in its current unit; a stale unit is rejected with 409 |
+| PUT | `/api/platform/organizations/:organizationId/ingest-allowance` | `platform:organizations:manage` | `{ unit, monthlyAllowance }`: set the ingest allowance for the current unit, `null` back to the default; a stale unit is rejected with 409; audited as `org.ingest_allowance.updated` |
 | GET | `/api/platform/overview` | `platform:organizations:view` | cost (with the own-key share apart), revenue (price), credits and tokens per organization and in total, plus the active price list; the UI shows `costUsd − ownKeyCostUsd` as the platform's cost |
 
 ## UI (org page → "Usage & budgets")

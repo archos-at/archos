@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { PlatformIngestAllowance } from './ingest-allowance-contract'
 import type { UsageOverview } from './service'
 
 export const platformOrgBudgetPutSchema = z.object({
@@ -18,6 +19,7 @@ export interface PlatformOrgBudget {
   explicit: boolean
   dayUsed: number
   monthUsed: number
+  ingest: PlatformIngestAllowance
   canManage: boolean
 }
 

@@ -22,6 +22,9 @@ vi.mock('@/lib/cache', () => ({
   invalidateCachedPrefix: async () => {},
 }))
 
+const orgSettings = vi.fn(async (_organizationId: string): Promise<{ settings: Record<string, unknown> }> => ({ settings: {} }))
+vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: (id: string) => orgSettings(id) }))
+
 const findActivePolicy = vi.fn<(...args: unknown[]) => Promise<BudgetPolicy | null>>()
 const sumRollupTotals = vi.fn()
 
@@ -65,6 +68,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   isOrgOnOwnKey.mockResolvedValue(false)
   findActivePolicy.mockResolvedValue(null)
+  orgSettings.mockResolvedValue({ settings: {} })
 })
 
 describe('the rollup keeps the ingest share of a day apart', () => {
@@ -99,7 +103,7 @@ describe('the limits of day-to-day work leave ingestion out', () => {
 describe('the ingest allowance', () => {
   it('is three times the monthly limit, spent by the month\'s ingestion only', async () => {
     sumRollupTotals.mockResolvedValue({ day: window(0), month: window(2500, 2000) })
-    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'credit', limit: 3000, used: 2000, events: 4, remaining: 1000, spent: false })
+    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'credit', limit: 3000, defaultLimit: 3000, explicit: false, used: 2000, events: 4, remaining: 1000, spent: false })
   })
 
   it('follows an explicit monthly limit', async () => {
@@ -111,7 +115,33 @@ describe('the ingest allowance', () => {
   it('is unlimited where the month is, and counts tokens on an own key', async () => {
     isOrgOnOwnKey.mockResolvedValue(true)
     sumRollupTotals.mockResolvedValue({ day: window(0), month: window(0, 0, 9000, 7000) })
-    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'token', limit: null, used: 7000, events: 4, remaining: null, spent: false })
+    expect(await getIngestAllowance('org_1')).toEqual({ unit: 'token', limit: null, defaultLimit: null, explicit: false, used: 7000, events: 4, remaining: null, spent: false })
+  })
+
+  it('is the amount an operator set for the office, in place of the default', async () => {
+    orgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { credit: 50000 } } })
+    sumRollupTotals.mockResolvedValue({ day: window(0), month: window(4000, 4000) })
+    expect(await getIngestAllowance('org_1')).toMatchObject({ limit: 50000, defaultLimit: 3000, explicit: true, remaining: 46000, spent: false })
+  })
+
+  it('caps ingestion where the month itself has no limit, and 0 stops new readings', async () => {
+    isOrgOnOwnKey.mockResolvedValue(true)
+    orgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { token: 0 } } })
+    sumRollupTotals.mockResolvedValue({ day: window(0), month: window(0) })
+    expect(await getIngestAllowance('org_1')).toMatchObject({ unit: 'token', limit: 0, defaultLimit: null, explicit: true, spent: true })
+  })
+
+  it('never reads an amount set in credits as tokens after the office moves to its own key', async () => {
+    isOrgOnOwnKey.mockResolvedValue(true)
+    orgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { credit: 50000 } } })
+    sumRollupTotals.mockResolvedValue({ day: window(0), month: window(0) })
+    expect(await getIngestAllowance('org_1')).toMatchObject({ unit: 'token', limit: null, explicit: false })
+  })
+
+  it('ignores a malformed setting and falls back to the default', async () => {
+    orgSettings.mockResolvedValue({ settings: { ingestMonthlyAllowance: { credit: -5, token: 'lots' } } })
+    sumRollupTotals.mockResolvedValue({ day: window(0), month: window(0) })
+    expect(await getIngestAllowance('org_1')).toMatchObject({ limit: 3000, explicit: false })
   })
 
   it('is spent at its ceiling, and reads as not spent when it cannot be read', async () => {

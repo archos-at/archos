@@ -157,6 +157,14 @@ describe('PlatformOverview', () => {
           explicit: true,
           dayUsed: 0,
           monthUsed: 0,
+          ingest: {
+            unit: 'credit',
+            monthlyAllowance: 3000,
+            defaultMonthlyAllowance: 3000,
+            defaultFactor: 3,
+            explicit: false,
+            monthUsed: 0,
+          },
           canManage: true,
         }),
       })

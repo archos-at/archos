@@ -192,4 +192,19 @@ describe('BudgetUsageCard — spend visualization', () => {
     expect(daily).not.toHaveAttribute('aria-invalid')
     expect(save).not.toBeDisabled()
   })
+
+  test.each([
+    [false, 'three times the monthly limit'],
+    [true, 'set specifically for your office'],
+  ])('explains the ingest allowance by where it came from (set by an operator: %s)', async (explicit, copy) => {
+    stubFetch({
+      ...(usageBody([model('alpha-model', 1, 30)], { dailyLimit: 10, monthlyLimit: 100 }) as object),
+      ingest: { month: { amount: 40, events: 3 }, monthlyLimit: explicit ? 5000 : 300, explicit },
+    })
+    render(<BudgetUsageCard isAdmin={false} />)
+
+    const ingest = await screen.findByTestId('ingest-usage')
+    expect(ingest).toHaveTextContent(copy)
+    expect(ingest).not.toHaveTextContent(explicit ? 'three times' : 'set specifically')
+  })
 })

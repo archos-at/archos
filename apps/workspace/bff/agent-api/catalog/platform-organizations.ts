@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ingestAllowancePutSchema } from '@/lib/budgets/ingest-allowance-contract'
 import { platformOrgBudgetPutSchema } from '@/lib/budgets/platform-contract'
 import { storageQuotaPutSchema, uploadLimitPutSchema } from '@/lib/storage/contract'
 import type { AgentOperation } from '../operation'
@@ -50,8 +51,10 @@ export const platformOrganizationOperations = [
     domain: 'platform',
     summary: 'Read an organization’s credit budget',
     description:
-      'The daily and monthly credit limits of one organization and what the platform default would give it. ' +
-      'Organization ids come from platform-overview-get. Change it with platform-org-budget-update.',
+      'The daily and monthly credit limits of one organization and what the platform default would give it, and under ' +
+      '`ingest` its monthly allowance for reading uploaded documents in, with the default it replaces and this month\'s use. ' +
+      'Organization ids come from platform-overview-get. Change the limits with platform-org-budget-update, the ingest ' +
+      'allowance with platform-org-ingest-allowance-update.',
     method: 'GET',
     path: '/api/platform/organizations/[organizationId]/budgets',
     params: organizationParams,
@@ -69,6 +72,21 @@ export const platformOrganizationOperations = [
     params: organizationParams,
     body: platformOrgBudgetPutSchema,
     load: () => import('@/app/api/platform/organizations/[organizationId]/budgets/route'),
+  },
+  {
+    name: 'platform-org-ingest-allowance-update',
+    domain: 'platform',
+    summary: 'Set an organization’s monthly allowance for reading documents in',
+    description:
+      'Sets how much reading uploaded documents in (OCR, vision, embeddings, the intake reading) one organization may ' +
+      'spend per UTC month, as an amount in its budget unit; null goes back to the default of three times its monthly ' +
+      'limit, 0 stops new readings. Pass the `unit` platform-org-budget-get reports: an amount set for one unit never ' +
+      'applies to the other, and a stale unit answers 409. Separate from the daily and monthly limits. Audited.',
+    method: 'PUT',
+    path: '/api/platform/organizations/[organizationId]/ingest-allowance',
+    params: organizationParams,
+    body: ingestAllowancePutSchema,
+    load: () => import('@/app/api/platform/organizations/[organizationId]/ingest-allowance/route'),
   },
   {
     name: 'platform-org-usage-get',
