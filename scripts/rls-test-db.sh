@@ -177,7 +177,7 @@ if [ "${1:-}" = "--only" ]; then
   rename_rls_roles
   release_databases
   echo "==> running $* as app_rw"
-  env $RELEASE_URLS \
+  export $RELEASE_URLS
   TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     bun_test "$@"
