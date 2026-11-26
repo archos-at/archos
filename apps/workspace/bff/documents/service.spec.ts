@@ -191,7 +191,7 @@ import {
   listDocumentVersionSummaries,
   nextVersionNumber,
 } from './version-repository'
-import { LiveFilenameTakenError, ReplacedDocumentGoneError } from './unique-conflicts'
+import { LiveFilenameTakenError, RACED_UPLOAD_ATTEMPTS, ReplacedDocumentGoneError } from './unique-conflicts'
 import { isVlmConfigured } from '@/lib/documents/vlm-capability'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 import { makeDocument, makeLiveDocumentMatch, makeProject } from '@/test-utils/db-fixtures'
@@ -1815,7 +1815,7 @@ describe('renameDocument', () => {
     )
     vi.mocked(requireProjectAccess).mockImplementation(async (_s, _projectId, permission) => {
       if (permission === 'project:manage') throw new NotFoundError('Project not found')
-      return { role: 'project-member', closed: false, readsBecauseClosed: false }
+      return { role: 'project-viewer', closed: false, readsBecauseClosed: false }
     })
 
     const details = await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request()).catch((error: ConflictError) => error.details)
@@ -3088,6 +3088,23 @@ describe('an upload into a folder that holds the name: the Finder’s three answ
     expect(admitOrDiscard).toHaveBeenCalledTimes(2)
     expect(vi.mocked(admitOrDiscard).mock.calls[1]?.[2]).toMatchObject({ filename: 'plan 3.pdf' })
     expect(result.filename).toBe('plan 3.pdf')
+  })
+
+  it('„Beide behalten“ keeps picking the next free name while racing uploads take it, a few times and no more', async () => {
+    vi.mocked(findFreeDocumentName)
+      .mockResolvedValueOnce('plan 2.pdf')
+      .mockResolvedValueOnce('plan 3.pdf')
+      .mockResolvedValueOnce('plan 4.pdf')
+    vi.mocked(admitOrDiscard)
+      .mockRejectedValueOnce(new LiveFilenameTakenError('plan 2.pdf'))
+      .mockRejectedValueOnce(new LiveFilenameTakenError('plan 3.pdf'))
+
+    expect((await into('keep_both')).filename).toBe('plan 4.pdf')
+
+    vi.mocked(admitOrDiscard).mockReset().mockRejectedValue(new LiveFilenameTakenError('plan 9.pdf'))
+    await expect(into('keep_both')).rejects.toMatchObject({ status: 409, details: { reason: 'live_name_taken' } })
+    expect(admitOrDiscard).toHaveBeenCalledTimes(RACED_UPLOAD_ATTEMPTS)
+    vi.mocked(admitOrDiscard).mockReset().mockResolvedValue(undefined)
   })
 
   it('„Überspringen“ leaves the folder as it was and names the document that is there', async () => {

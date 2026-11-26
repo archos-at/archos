@@ -92,8 +92,10 @@ vi.mock('./shelf-upload', () => ({
   uploadToShelf: vi.fn(async () => ({ documentId: 'doc-there', jobId: 'job-1', status: 'pending', filename: 'fluchtwegplan.pdf' })),
 }))
 vi.mock('@/lib/projects/document-bin', () => ({
+  assertMayBinDocument: vi.fn(async () => ({})),
   moveDocumentToBin: vi.fn(async () => ({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-26T00:00:00.000Z' })),
 }))
+vi.mock('./name-holder', () => ({ refuseUnseenHolder: vi.fn(async () => undefined) }))
 
 vi.mock('@/lib/db/schema/documents', () => ({
   documents: {
@@ -121,7 +123,9 @@ import { ForbiddenError } from '@/lib/api/errors'
 import { reingestDocument } from './reingest'
 import { findFreeDocumentName, findLiveDocumentByFilename } from './repository'
 import { uploadToShelf } from './shelf-upload'
-import { moveDocumentToBin } from '@/lib/projects/document-bin'
+import { assertMayBinDocument, moveDocumentToBin } from '@/lib/projects/document-bin'
+import { ConflictError } from '@/lib/api/errors'
+import { refuseUnseenHolder } from './name-holder'
 import { makeLiveDocumentMatch } from '@/test-utils/db-fixtures'
 import { MOVED_SINCE_MESSAGE, moveDocumentToFolder, moveDocumentsToFolders } from './move-to-folder'
 
@@ -692,6 +696,32 @@ describe('moveDocumentToFolder into a folder that holds the name', () => {
     expect(db.updates).toHaveLength(0)
   })
 
+  it('„Ersetzen“ checks first that the moved document may go to the bin, and changes nothing when it may not', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+    const held = new ConflictError('This document is under a legal hold.', { reason: 'legal-hold' })
+    vi.mocked(assertMayBinDocument).mockRejectedValueOnce(held)
+    const request = new Request('https://grid.test/api/documents/doc-1/folder')
+
+    await expect(
+      moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'replace' }, SESSION, { request }),
+    ).rejects.toBe(held)
+
+    expect(assertMayBinDocument).toHaveBeenCalledWith(SESSION, 'doc-1')
+    expect(uploadToShelf).not.toHaveBeenCalled()
+    expect(moveDocumentToBin).not.toHaveBeenCalled()
+  })
+
+  it('tells nothing about a held document of somebody else in the way: the guard answers before any conflict is built', async () => {
+    db.selects = [[DOCUMENT], [FOLDER]]
+    vi.mocked(refuseUnseenHolder).mockRejectedValueOnce(new ConflictError('taken', { reason: 'name_taken' }))
+
+    await expect(moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1' }, SESSION)).rejects.toMatchObject({
+      details: { reason: 'name_taken' },
+    })
+    expect(refuseUnseenHolder).toHaveBeenCalledWith(SESSION, THERE, 'Fluchtwegplan.pdf')
+    expect(findFreeDocumentName).not.toHaveBeenCalled()
+  })
+
   it('answers a move that lost the name to a racing one with the conflict, not a 500', async () => {
     vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValueOnce(null).mockResolvedValue(THERE)
     db.selects = [[DOCUMENT], [FOLDER]]
@@ -711,5 +741,36 @@ describe('moveDocumentToFolder into a folder that holds the name', () => {
     const [outcome] = await moveDocumentsToFolders([{ documentId: 'doc-1', folderId: 'folder-1' }], SESSION)
 
     expect(outcome).toMatchObject({ documentId: 'doc-1', ok: false, conflict: { existingDocumentId: 'doc-there' } })
+  })
+})
+
+describe('moveDocumentToFolder on a person’s own shelf, which has no bin', () => {
+  const MINE = { ...DOCUMENT, projectId: null, scope: 'personal', ownerUserId: 'user-1', collectionName: 'personal_user-1' }
+  const THERE = makeLiveDocumentMatch({ id: 'doc-there', filename: 'fluchtwegplan.pdf', folderId: 'folder-1', scope: 'personal', projectId: null })
+
+  beforeEach(() => {
+    vi.mocked(findLiveDocumentByFilename).mockReset().mockImplementation(async (_org, place) => (place.folderId === 'folder-1' ? THERE : null))
+    vi.mocked(uploadToShelf).mockClear()
+    vi.mocked(assertMayBinDocument).mockClear()
+  })
+
+  it('offers only „Beide behalten“ and „Überspringen“ in the conflict', async () => {
+    db.selects = [[MINE], [{ id: 'folder-1', path: 'Entwürfe' }]]
+
+    const result = await moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1' }, SESSION)
+
+    expect(result).toMatchObject({ ok: false, conflict: { reason: 'name_conflict', choices: ['keep_both', 'skip'] } })
+  })
+
+  it('refuses „Ersetzen“ with 409 replace_unavailable before it reads or writes anything, as it would delete the document for good', async () => {
+    db.selects = [[MINE], [{ id: 'folder-1', path: 'Entwürfe' }]]
+    const request = new Request('https://grid.test/api/documents/doc-1/folder')
+
+    await expect(
+      moveDocumentToFolder({ documentId: 'doc-1', folderId: 'folder-1', onConflict: 'replace' }, SESSION, { request }),
+    ).rejects.toMatchObject({ status: 409, details: { reason: 'replace_unavailable', documentId: 'doc-1', choices: ['keep_both', 'skip'] } })
+    expect(assertMayBinDocument).not.toHaveBeenCalled()
+    expect(uploadToShelf).not.toHaveBeenCalled()
+    expect(db.updates).toHaveLength(0)
   })
 })

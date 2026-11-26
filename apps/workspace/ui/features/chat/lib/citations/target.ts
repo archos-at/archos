@@ -118,8 +118,11 @@ const storedByName = (
   isStoredShelf: boolean
 ): StoredDocumentRef | undefined => {
   const named = rows.filter((row) => row.filename.toLowerCase() === wanted)
-  if (shelf === undefined) return named[0]
-  return isStoredShelf ? named.find((row) => row.shelf === undefined || row.shelf === shelf) : undefined
+  const inScope =
+    shelf === undefined ? named : isStoredShelf ? named.filter((row) => row.shelf === undefined || row.shelf === shelf) : []
+  const first = inScope[0]
+  const namesakes = new Set(inScope.filter((row) => row.shelf === first?.shelf).map((row) => row.id))
+  return namesakes.size === 1 ? first : undefined
 }
 
 const addressTarget = (doc: CitedDocument, url: string, snippet: string | undefined): CitationTarget =>

@@ -250,19 +250,30 @@ describe('resolveCitationTarget', () => {
     })
   })
 
-  test('a citation without a stored id (an older answer) falls back to the first document of its name', () => {
+  test('a citation without a stored id (an older answer) falls back to its name, the project before the office shelf', () => {
+    const projectCopy: StoredDocumentRef = { ...storedDocuments[0], shelf: 'project' }
     const shadowed: StoredDocumentRef = {
       id: 'archiv-2',
       filename: 'Brandschutzkonzept.pdf',
       contentType: 'application/pdf',
+      shelf: 'office_shelf',
     }
     const target = targetFor(
       { url: '', content: '[KB] Brandschutzkonzept.pdf' },
-      [...storedDocuments, shadowed],
+      [projectCopy, shadowed],
       baseCorpusFiles
     )
 
     expect(target).toMatchObject({ document: { id: 'doc-1' } })
+  })
+
+  test('a citation without a stored id opens neither of two documents of its name on one shelf', () => {
+    const target = targetFor({ url: '', content: '[KB] Plan.pdf, p.3' }, [
+      { id: 'doc-bestand', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' },
+      { id: 'doc-entwurf', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' },
+    ])
+
+    expect(target).toMatchObject({ kind: 'info' })
   })
 
   describe('two documents of one name in different folders', () => {
