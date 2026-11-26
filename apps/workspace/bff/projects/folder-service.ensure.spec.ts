@@ -60,7 +60,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 const session = { userId: 'user-1', organizationId: 'org-1' } as AuthorizedSession
 
-const TENANT = { organizationId: 'org-1', scope: 'project' }
+const TENANT = { organizationId: 'org-1', scope: 'project', ownerUserId: null }
 
 interface Row {
   id: string

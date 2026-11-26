@@ -67,7 +67,8 @@ export const useAuth = (): AuthContext => {
     }
   }
 
-  const isLoading = sessionLoading || tokenLoading
+  const tokenPending = !!user && !accessToken && !tokenError
+  const isLoading = sessionLoading || tokenLoading || tokenPending
   const isAuthenticated = !!user && !!accessToken
 
   return {

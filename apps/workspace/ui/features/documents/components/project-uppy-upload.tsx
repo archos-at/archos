@@ -2,18 +2,19 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import { cn } from '@/lib/utils'
-import { Camera, ChevronDown, FolderPlus, FolderUp, Images, Mail, Upload } from 'lucide-react'
+import { Camera, ChevronDown, FolderUp, Images, Mail, MailPlus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuItemText,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import { useInSectionToolRow, useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
+import { useInSectionToolRow, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLocale, useTranslations } from '@/i18n'
 import { captureCopy } from '@/i18n/namespaces/capture'
@@ -22,6 +23,7 @@ import { formatBytes } from '@/lib/format'
 import { useAppConfig } from '@/shared/context'
 import { DEFAULT_ACCEPTED_FILE_TYPES, DEFAULT_MAX_FILE_SIZE } from '../constants'
 import { withZipAccepted } from '../lib/zip-types'
+import { withMailArchivesAccepted } from '../lib/mail-archive'
 import { documentsOnlyAccept, photoIntake, prepareSitePhotos } from '../lib/site-photo'
 
 interface ProjectUppyUploadProps {
@@ -37,6 +39,8 @@ interface ProjectUppyUploadProps {
   pickFilesRef?: MutableRefObject<(() => void) | null>
   pickFolderRef?: MutableRefObject<(() => void) | null>
   onSendByMail?: () => void
+  onImportMailArchive?: () => void
+  acceptsMailArchives?: boolean
 }
 
 export function ProjectUppyUpload({
@@ -50,6 +54,8 @@ export function ProjectUppyUpload({
   pickFilesRef,
   pickFolderRef,
   onSendByMail,
+  onImportMailArchive,
+  acceptsMailArchives = false,
 }: ProjectUppyUploadProps) {
   const t = useTranslations(filesCopy)
   const tCapture = useTranslations(captureCopy)
@@ -69,8 +75,6 @@ export function ProjectUppyUpload({
   }, [pickFilesRef, pickFolderRef])
   const buttonLabel = label ?? t('upload.upload')
   const tier = useSectionToolTier()
-  const yields = useSectionPrimaryYields()
-  const newFolder = useSectionNewFolder()
   const headerInstance = useInSectionToolRow() && !glyphOnly
   const compact = headerInstance && tier === 'narrow'
   const fileUpload = useAppConfig().fileUpload
@@ -81,7 +85,8 @@ export function ProjectUppyUpload({
     imageUploadBlockedReason: fileUpload?.imageUploadBlockedReason ?? null,
   })
   const photoEntries = allowFolders && touch
-  const filesAccept = photoEntries ? documentsOnlyAccept(acceptedTypes) : acceptedTypes
+  const documentsAccept = photoEntries ? documentsOnlyAccept(acceptedTypes) : acceptedTypes
+  const filesAccept = acceptsMailArchives ? withMailArchivesAccepted(documentsAccept) : documentsAccept
 
   const handleChange =
     (source: 'camera' | 'picker' = 'picker') =>
@@ -158,7 +163,7 @@ export function ProjectUppyUpload({
       onClick={allowFolders ? undefined : () => inputRef.current?.click()}
       disabled={isUploading}
       size={size}
-      variant={headerInstance && yields ? 'secondary' : variant}
+      variant={headerInstance ? 'secondary' : variant}
       className={cn('gap-2', compact && 'gap-1 px-2.5')}
       title={compact ? buttonLabel : undefined}
     >
@@ -245,19 +250,22 @@ export function ProjectUppyUpload({
               {t('upload.uploadFolder')}
             </DropdownMenuItem>
           )}
-          {headerInstance && newFolder && (
-            <DropdownMenuItem onSelect={newFolder} data-testid="project-upload-new-folder">
-              <FolderPlus className="size-4" aria-hidden />
-              {t('folders.newFolder')}
-            </DropdownMenuItem>
-          )}
-          {onSendByMail && (
+          {(onSendByMail || onImportMailArchive) && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
-                <Mail className="size-4" aria-hidden />
-                <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
-              </DropdownMenuItem>
+              <DropdownMenuLabel>{t('upload.mails')}</DropdownMenuLabel>
+              {onSendByMail && (
+                <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
+                  <MailPlus className="size-4" aria-hidden />
+                  <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
+                </DropdownMenuItem>
+              )}
+              {onImportMailArchive && (
+                <DropdownMenuItem onSelect={onImportMailArchive} data-testid="project-upload-import-mail-archive">
+                  <Mail className="size-4" aria-hidden />
+                  <DropdownMenuItemText title={t('upload.importMailArchive')} hint={t('upload.importMailArchiveHint')} />
+                </DropdownMenuItem>
+              )}
             </>
           )}
           {/* What the grid's dashed „Dateien hierher ziehen“ tile said, where the hand already is: the page takes a drop
@@ -266,6 +274,7 @@ export function ProjectUppyUpload({
           <p className="text-muted-foreground px-2.5 pb-1.5 pt-1 text-xs leading-snug" role="note" data-testid="project-upload-limits">
             {!touch && <span className="block">{t('uploadZone.dropAnywhere')}</span>}
             {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
+            {acceptsMailArchives && <span className="mt-1 block">{t('uploadZone.mailArchives')}</span>}
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

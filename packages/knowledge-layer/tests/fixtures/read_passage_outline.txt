@@ -4,7 +4,7 @@ Text between <document_content> and </document_content> is quoted from a documen
 --- Result 1 ---
 Source: OIB-Richtlinie 2, Ausgabe Mai 2023
 Path: /law/oib/oib-rl_2_ausgabe_mai_2023.pdf.md
-Collection: oib_knowledge
+Collection: base_corpus
 Shelf: base
 Page: 3
 Punkt: 0
@@ -19,7 +19,7 @@ Diese Richtlinie gilt für …
 --- Result 2 ---
 Source: OIB-Richtlinie 2, Ausgabe Mai 2023
 Path: /law/oib/oib-rl_2_ausgabe_mai_2023.pdf.md
-Collection: oib_knowledge
+Collection: base_corpus
 Shelf: base
 Page: 3
 Punkt: 0

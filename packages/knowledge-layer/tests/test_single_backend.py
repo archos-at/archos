@@ -3,10 +3,10 @@ from knowledge_layer.register import _setup_backend
 
 
 def test_a_config_that_still_names_the_backend_loads():
-    config = KnowledgeRetrievalConfig(backend="llamaindex", collection_name="oib_knowledge")
+    config = KnowledgeRetrievalConfig(backend="llamaindex", collection_name="base_corpus")
 
     assert not hasattr(config, "backend")
-    assert config.collection_name == "oib_knowledge"
+    assert config.collection_name == "base_corpus"
 
 
 def test_setup_always_wires_llamaindex(monkeypatch):
@@ -21,7 +21,7 @@ def test_setup_always_wires_llamaindex(monkeypatch):
 
 
 def test_a_config_that_still_names_a_chroma_dir_loads():
-    config = KnowledgeRetrievalConfig(chroma_dir="/tmp/chroma_data", collection_name="oib_knowledge")
+    config = KnowledgeRetrievalConfig(chroma_dir="/tmp/chroma_data", collection_name="base_corpus")
 
     assert not hasattr(config, "chroma_dir")
     assert "persist_dir" not in _setup_backend(config)[1]

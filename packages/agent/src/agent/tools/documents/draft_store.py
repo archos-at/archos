@@ -19,6 +19,12 @@ from langgraph.store.base import Item
 from agent.common import is_postgres_dsn
 
 from .cards import emit_draft_card
+from .draft_values import BASE64
+from .draft_values import DERIVED_FROM_KEY
+from .draft_values import derived_from_value
+from .draft_values import draft_bytes
+from .draft_values import stored_bytes
+from .draft_values import stored_size
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,6 @@ MAX_DRAFT_BYTES = 256 * 1024
 
 MAX_RUN_FILE_BYTES = 25 * 1024 * 1024
 
-BASE64 = "base64"
 
 VERSION_KEY = "grid_draft_version"
 
@@ -42,6 +47,10 @@ FILED_STATE_KEY = "grid_filed_state"
 FILING_KEYS = (FILED_DOCUMENT_KEY, FILED_VERSION_KEY, FILED_HASH_KEY, FILED_STATE_KEY)
 
 FILED_AT_DRAFT_VERSION_KEY = "grid_filed_at_draft_version"
+
+FILED_KIND_KEY = "filed_kind"
+
+FILED_AS_REVISION = "revision"
 
 MADE_BY_KEY = "made_by"
 
@@ -77,10 +86,6 @@ def normalize_draft_text(text: str) -> str:
     return unicodedata.normalize("NFC", text)
 
 
-def draft_bytes(text: str) -> int:
-    return len(text.encode("utf-8"))
-
-
 @dataclass(frozen=True)
 class DraftUsage:
     total_bytes: int
@@ -91,6 +96,8 @@ class DraftUsage:
     encoding: str = "utf-8"
     file_bytes: int = 0
     made_by: str = ""
+    derived_from: dict[str, str] = field(default_factory=dict)
+    filed_kind: str = ""
 
     @property
     def is_binary(self) -> bool:
@@ -105,6 +112,11 @@ def filing_from_value(value: dict) -> dict[str, str]:
     return {key: value[key] for key in FILING_KEYS if isinstance(value.get(key), str) and value[key]}
 
 
+def own_keys(value: dict) -> dict:
+    keys = (*FILING_KEYS, FILED_AT_DRAFT_VERSION_KEY, FILED_KIND_KEY, MADE_BY_KEY, DERIVED_FROM_KEY)
+    return {key: value[key] for key in keys if key in value}
+
+
 def filing_record(body: dict) -> dict[str, str]:
     version = body.get("version")
     version = version if isinstance(version, dict) else {}
@@ -116,14 +128,6 @@ def filing_record(body: dict) -> dict[str, str]:
     }
 
 
-def stored_size(value: dict) -> int:
-    raw = value.get("content")
-    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
-    if value.get("encoding") == BASE64:
-        return len(base64.b64decode(text)) if text else 0
-    return draft_bytes(text)
-
-
 def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     total = 0
     file_bytes = 0
@@ -133,12 +137,14 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
     filing: dict[str, str] = {}
     filed_at_version = 0
     made_by = ""
+    derived_from: dict[str, str] = {}
+    filed_kind = ""
     for item in items:
         raw = item.value.get("content")
         text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
         size = stored_size(item.value)
         file_bytes += size
-        if item.value.get("encoding") != BASE64:
+        if item.value.get("encoding") != BASE64 and item.value.get(MADE_BY_KEY) != MADE_BY_RUN:
             total += size
         if str(item.key) == file_path:
             content = text
@@ -147,6 +153,8 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
             filing = filing_from_value(item.value)
             filed_at_version = int(item.value.get(FILED_AT_DRAFT_VERSION_KEY) or 0)
             made_by = str(item.value.get(MADE_BY_KEY) or "")
+            derived_from = derived_from_value(item.value)
+            filed_kind = str(item.value.get(FILED_KIND_KEY) or "")
     return DraftUsage(
         total_bytes=total,
         content=content,
@@ -156,18 +164,14 @@ def usage_from_items(items: list[Item], file_path: str) -> DraftUsage:
         encoding=encoding,
         file_bytes=file_bytes,
         made_by=made_by,
+        derived_from=derived_from,
+        filed_kind=filed_kind,
     )
 
 
 RUN_TEXT_SUFFIXES = (".md", ".txt", ".csv", ".json", ".svg", ".html", ".xml", ".js", ".mjs", ".ts")
 
 MAX_RUN_TEXT_BYTES = 64 * 1024
-
-
-def stored_bytes(value: dict) -> bytes:
-    raw = value.get("content")
-    text = "\n".join(raw) if isinstance(raw, list) else str(raw or "")
-    return base64.b64decode(text) if value.get("encoding") == BASE64 else text.encode("utf-8")
 
 
 def run_file_value(file_path: str, data: bytes) -> dict:
@@ -277,34 +281,48 @@ class DraftBackend(StoreBackend):
             offset += _PAGE_SIZE
         return usage_from_items(items, file_path)
 
-    def _record(self, file_path: str, version: int, filing: dict[str, str]) -> None:
+    def _own(self, file_path: str) -> dict:
+        item = self._get_store().get(self._get_namespace(), file_path)
+        return own_keys(item.value) if item is not None else {}
+
+    async def _aown(self, file_path: str) -> dict:
+        item = await self._get_store().aget(self._get_namespace(), file_path)
+        return own_keys(item.value) if item is not None else {}
+
+    def _record(self, file_path: str, version: int, own: dict) -> None:
         store = self._get_store()
         namespace = self._get_namespace()
         item = store.get(namespace, file_path)
         if item is None:
             return
-        value = {**item.value, VERSION_KEY: version, **filing}
+        value = {**item.value, **own, VERSION_KEY: version}
+        filing = filing_from_value(value)
         store.put(namespace, file_path, value)
         emit_draft_card(
             path=file_path,
             content=str(value.get("content") or ""),
             version=version,
             filing=filing,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
+            derived_from=derived_from_value(value),
         )
 
-    async def _arecord(self, file_path: str, version: int, filing: dict[str, str]) -> None:
+    async def _arecord(self, file_path: str, version: int, own: dict) -> None:
         store = self._get_store()
         namespace = self._get_namespace()
         item = await store.aget(namespace, file_path)
         if item is None:
             return
-        value = {**item.value, VERSION_KEY: version, **filing}
+        value = {**item.value, **own, VERSION_KEY: version}
+        filing = filing_from_value(value)
         await store.aput(namespace, file_path, value)
         emit_draft_card(
             path=file_path,
             content=str(value.get("content") or ""),
             version=version,
             filing=filing,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
+            derived_from=derived_from_value(value),
         )
 
     async def arecord_filing(
@@ -313,14 +331,20 @@ class DraftBackend(StoreBackend):
         filing: dict[str, str],
         *,
         draft_version: int | None = None,
+        kind: str | None = None,
     ) -> None:
         store = self._get_store()
         namespace = self._get_namespace()
         item = await store.aget(namespace, file_path)
         if item is None:
             return
-        stamp = {FILED_AT_DRAFT_VERSION_KEY: draft_version} if draft_version is not None else {}
-        await store.aput(namespace, file_path, {**item.value, **filing, **stamp})
+        value = {**item.value, **filing}
+        if draft_version is not None:
+            value[FILED_AT_DRAFT_VERSION_KEY] = draft_version
+        if kind is not None:
+            value.pop(FILED_KIND_KEY, None)
+            value.update({FILED_KIND_KEY: kind} if kind else {})
+        await store.aput(namespace, file_path, value)
 
     def write(self, file_path: str, content: str) -> WriteResult:
         text = normalize_draft_text(content)
@@ -328,9 +352,10 @@ class DraftBackend(StoreBackend):
         refusal = write_refusal(usage, file_path, text)
         if refusal is not None:
             return WriteResult(error=refusal)
+        own = self._own(file_path)
         result = super().write(file_path, text)
         if result.error is None:
-            self._record(file_path, usage.version + 1, usage.filing)
+            self._record(file_path, usage.version + 1, own)
         return result
 
     async def awrite(self, file_path: str, content: str) -> WriteResult:
@@ -339,9 +364,10 @@ class DraftBackend(StoreBackend):
         refusal = write_refusal(usage, file_path, text)
         if refusal is not None:
             return WriteResult(error=refusal)
+        own = await self._aown(file_path)
         result = await super().awrite(file_path, text)
         if result.error is None:
-            await self._arecord(file_path, usage.version + 1, usage.filing)
+            await self._arecord(file_path, usage.version + 1, own)
         return result
 
     def edit(
@@ -357,9 +383,10 @@ class DraftBackend(StoreBackend):
         refusal = edit_refusal(usage, file_path, old_text, new_text, replace_all=replace_all)
         if refusal is not None:
             return EditResult(error=refusal)
+        own = self._own(file_path)
         result = super().edit(file_path, old_text, new_text, replace_all)
         if result.error is None:
-            self._record(file_path, usage.version + 1, usage.filing)
+            self._record(file_path, usage.version + 1, own)
         return result
 
     async def aedit(
@@ -375,9 +402,10 @@ class DraftBackend(StoreBackend):
         refusal = edit_refusal(usage, file_path, old_text, new_text, replace_all=replace_all)
         if refusal is not None:
             return EditResult(error=refusal)
+        own = await self._aown(file_path)
         result = await super().aedit(file_path, old_text, new_text, replace_all)
         if result.error is None:
-            await self._arecord(file_path, usage.version + 1, usage.filing)
+            await self._arecord(file_path, usage.version + 1, own)
         return result
 
     async def afiles(self) -> list[tuple[str, bytes]]:
@@ -400,33 +428,81 @@ class DraftBackend(StoreBackend):
         data = base64.b64decode(usage.content) if usage.is_binary else usage.content.encode("utf-8")
         return data, usage
 
-    async def awrite_run_file(self, file_path: str, data: bytes, *, previous_size: int) -> str | None:
+    async def awrite_run_file(
+        self, file_path: str, data: bytes, *, derived_from: dict[str, str] | None = None
+    ) -> str | None:
         refusal = path_refusal(file_path) or _root_write_refusal(file_path)
         if refusal is not None:
             return refusal
         usage = await self.ausage(file_path)
-        projected = usage.file_bytes - previous_size + len(data)
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        kept = dict(existing.value) if existing is not None else {}
+        projected = usage.file_bytes - (stored_size(kept) if existing is not None else 0) + len(data)
         if projected > MAX_RUN_FILE_BYTES:
             return (
                 f"Cannot keep {file_path} because this conversation's files would exceed "
                 f"{MAX_RUN_FILE_BYTES // (1024 * 1024)} MB. Write fewer or smaller files."
             )
-        store = self._get_store()
-        namespace = self._get_namespace()
-        existing = await store.aget(namespace, file_path)
-        kept = dict(existing.value) if existing is not None else {}
         now = datetime.now(UTC).isoformat()
+        origin = derived_from or derived_from_value(kept)
         value = {
             **kept,
             **run_file_value(file_path, data),
+            **({DERIVED_FROM_KEY: origin} if origin else {}),
             "created_at": kept.get("created_at", now),
             "modified_at": now,
             VERSION_KEY: usage.version + 1,
             MADE_BY_KEY: MADE_BY_RUN,
         }
         await store.aput(namespace, file_path, value)
-        emit_draft_card(path=file_path, content="", version=usage.version + 1, filing=usage.filing, size=len(data))
+        self._card(file_path, value, size=len(data))
         return None
+
+    def _card(self, file_path: str, value: dict, *, size: int, removed: bool = False) -> None:
+        emit_draft_card(
+            path=file_path,
+            content="",
+            version=int(value.get(VERSION_KEY) or 1),
+            filing=filing_from_value(value),
+            size=size,
+            filed_at_version=int(value.get(FILED_AT_DRAFT_VERSION_KEY) or 0),
+            derived_from=derived_from_value(value),
+            removed=removed,
+        )
+
+    async def aremove(self, file_path: str, *, version: int | None = None) -> bool:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        existing = await store.aget(namespace, file_path)
+        if existing is None:
+            return False
+        if version is not None and int(existing.value.get(VERSION_KEY) or 0) != version:
+            return False
+        await store.adelete(namespace, file_path)
+        self._card(file_path, existing.value, size=stored_size(existing.value), removed=True)
+        return True
+
+    async def aversions(self, paths: list[str]) -> dict[str, int]:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        items = [(path, await store.aget(namespace, path)) for path in paths]
+        return {path: int(item.value.get(VERSION_KEY) or 0) for path, item in items if item is not None}
+
+    async def afilings(self, paths: list[str]) -> dict[str, dict[str, str]]:
+        store = self._get_store()
+        namespace = self._get_namespace()
+        filings: dict[str, dict[str, str]] = {}
+        for path in paths:
+            item = await store.aget(namespace, path)
+            filing = filing_from_value(item.value) if item is not None else {}
+            if filing:
+                filings[path] = filing
+        return filings
+
+    async def aerase(self) -> int:
+        return await _erase(self._get_store(), self._get_namespace())
 
 
 async def _build_store(dsn: str) -> BaseStore:
@@ -498,14 +574,17 @@ async def get_draft_backend(conversation_id: str, dsn: str | None = None) -> Dra
 
 
 async def delete_conversation_drafts(conversation_id: str, dsn: str | None = None) -> int:
-    store = await get_draft_store(dsn)
-    namespace = draft_namespace(conversation_id)
+    dropped = await _erase(await get_draft_store(dsn), draft_namespace(conversation_id))
+    logger.info("Working directory of conversation %s dropped: %d file(s)", conversation_id, dropped)
+    return dropped
+
+
+async def _erase(store: BaseStore, namespace: tuple[str, ...]) -> int:
     seen: set[str] = set()
     while True:
         page = await store.asearch(namespace, limit=_PAGE_SIZE)
         keys = [item.key for item in page if item.key not in seen]
         if not keys:
-            logger.info("Working directory of conversation %s dropped: %d file(s)", conversation_id, len(seen))
             return len(seen)
         seen.update(keys)
         for key in keys:

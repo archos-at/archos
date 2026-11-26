@@ -171,5 +171,5 @@ Description: {{ step.description }}
 
         monkeypatch.setattr(inventory_mod, "in_scope_shelves_from_context", lambda: [Shelf.OFFICE_SHELF, Shelf.BASE])
         rendered = render_prompt_template("{{ document_inventory }}", available_documents=[])
-        assert "### Büroablage" in rendered
+        assert "### Bürobibliothek" in rendered
         assert "empty" in rendered.lower()

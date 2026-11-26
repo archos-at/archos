@@ -3,10 +3,12 @@ import { formatCitationsSchema } from '@/lib/citations/citation-wire'
 import {
   createConversationSchema,
   createMessagesSchema,
+  deleteOwnConversationsQuerySchema,
   draftPreviewQuerySchema,
   fileDraftBodySchema,
   generateTitleSchema,
   listConversationsQuerySchema,
+  listAnswerTrailsQuerySchema,
   listMessagesQuerySchema,
   markReadSchema,
   updateConversationSchema,
@@ -49,8 +51,8 @@ export const conversationsOperations = [
     summary: 'List the conversations the person can see',
     description:
       'The conversations the person may open, their own and shared ones, most recently active first, with id, title, project and ' +
-      'unread state. Pass projectId (from project-list) to narrow; page with `nextCursor`. ' +
-      'Take a conversation id from here for conversation-get and conversation-message-list.',
+      'unread state. Narrow with projectId (from project-list) and place; page with `nextCursor`. ' +
+      'Its ids feed conversation-get and conversation-message-list.',
     method: 'GET',
     path: '/api/conversations',
     query: listConversationsQuerySchema,
@@ -110,19 +112,47 @@ export const conversationsOperations = [
     load: () => import('@/app/api/conversations/[id]/route'),
   },
   {
+    name: 'conversation-delete-all',
+    domain: 'conversations',
+    summary: 'Delete all of the person’s own chats on one side',
+    description:
+      'Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats started on the personal side, ' +
+      '`place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. ' +
+      'A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.',
+    method: 'DELETE',
+    path: '/api/conversations',
+    query: deleteOwnConversationsQuerySchema,
+    destructive: true,
+    load: () => import('@/app/api/conversations/route'),
+  },
+  {
     name: 'conversation-message-list',
     domain: 'conversations',
     summary: 'Read the messages of a conversation',
     description:
       'The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, ' +
       'content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. ' +
-      'Message ids feed conversation-message-changes.',
+      'Message ids feed conversation-message-changes. `withheldFrom`, when present, is the first message left out: from that turn on the chat rests on a source the person may not open, so it and everything after are withheld.',
     method: 'GET',
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
     query: listMessagesQuerySchema,
     generatedContent: generatedRows('messages', (message) => message.role === 'assistant'),
     load: () => import('@/app/api/conversations/[id]/messages/route'),
+  },
+  {
+    name: 'conversation-answer-trail-list',
+    domain: 'conversations',
+    summary: 'Read what each answer of a conversation read',
+    description:
+      'Per answer, oldest first within the page, earlier ones through `nextCursor`: the projects and folders it read, each named ' +
+      'only where the person may open it and otherwise withheld, and whether personal memory or the person’s own shelf was in play. ' +
+      'Answers from before these records exist have no entry.',
+    method: 'GET',
+    path: '/api/conversations/[id]/answers/trail',
+    params: conversationParams,
+    query: listAnswerTrailsQuerySchema,
+    load: () => import('@/app/api/conversations/[id]/answers/trail/route'),
   },
   {
     name: 'conversation-message-add',
@@ -256,16 +286,27 @@ export const conversationsOperations = [
   {
     name: 'conversation-draft-file',
     domain: 'conversations',
-    summary: 'File an unfiled draft into the project',
+    summary: 'File a draft into the project, or update what was filed from it',
     description:
-      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project, into ' +
-      '`folderId` under `name` when given, else into the default folder under the title. A same-name ' +
-      'collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.',
+      'Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates ' +
+      'the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person ' +
+      'decides `overChanges`.',
     method: 'POST',
     path: '/api/conversations/[id]/draft/file',
     params: conversationParams,
     body: fileDraftBodySchema,
     load: () => import('@/app/api/conversations/[id]/draft/file/route'),
+  },
+  {
+    name: 'conversation-draft-delete',
+    domain: 'conversations',
+    summary: 'Delete a draft from a conversation',
+    description: 'Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.',
+    method: 'DELETE',
+    path: '/api/conversations/[id]/draft',
+    params: conversationParams,
+    query: draftPreviewQuerySchema,
+    load: () => import('@/app/api/conversations/[id]/draft/route'),
   },
   {
     name: 'answer-feedback-list',

@@ -18,7 +18,7 @@ BYTES = b"PK\x03\x04 a workbook \xff\x00"
 
 async def _run_file(store, path: str = XLSX, data: bytes = BYTES) -> None:  # noqa: ANN001
     backend = DraftBackend(store=store, conversation_id=CONVERSATION)
-    assert await backend.awrite_run_file(path, data, previous_size=0) is None
+    assert await backend.awrite_run_file(path, data) is None
 
 
 async def _file(monkeypatch, responses: list[dict], calls: list, path: str = XLSX) -> str:  # noqa: ANN001

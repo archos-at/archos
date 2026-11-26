@@ -27,6 +27,7 @@ vi.mock('@/lib/conversations/repository', () => ({
 vi.mock('@/lib/sharing/repository', () => ({
   findGrantForSubject: vi.fn(),
   countGrantsForResource: vi.fn(),
+  resourceIdsWithGrants: vi.fn(async () => new Set<string>()),
 }))
 
 vi.mock('@/lib/sharing/service', () => ({ resolveParticipants: vi.fn() }))
@@ -62,7 +63,7 @@ import { threadIsAwaitingHuman } from '@/lib/mentions/service'
 import type { Message } from '@/lib/db/schema/messages'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { resolveRequestsOnReply } from '@/lib/mentions/service'
-import { countGrantsForResource, findGrantForSubject } from '@/lib/sharing/repository'
+import { countGrantsForResource, findGrantForSubject, resourceIdsWithGrants } from '@/lib/sharing/repository'
 import { resolveParticipants } from '@/lib/sharing/service'
 import { resolveEngagement, resolveEngagementFor } from './engagement'
 import { restrictingOtherProjects } from './cross-project-use'
@@ -192,6 +193,23 @@ describe('listing conversations', () => {
   })
 })
 
+describe('which listed chats are shared, for the rail’s people mark (ADR-0193)', () => {
+  it('marks a chat shared by its visibility or by a grant, and asks about every row at once', async () => {
+    const row = (id: string, visibility: string) => ({ id, projectId: null, visibility, title: id }) as never
+    vi.mocked(listVisibleConversations).mockResolvedValue([row('alone', 'private'), row('granted', 'private'), row('project', 'project')])
+    vi.mocked(resourceIdsWithGrants).mockResolvedValue(new Set(['granted']))
+
+    const { conversations } = await listConversations(session)
+
+    expect(resourceIdsWithGrants).toHaveBeenCalledWith('org_1', 'conversation', ['alone', 'granted', 'project'])
+    expect(conversations.map((c) => [c.id, c.shared])).toEqual([
+      ['alone', false],
+      ['granted', true],
+      ['project', true],
+    ])
+  })
+})
+
 describe('creating a temporary conversation (ADR-0180)', () => {
   it('writes the flag with the row, so the first turn already keeps nothing', async () => {
     vi.mocked(insertConversation).mockImplementation(async (values) => values as never)
@@ -207,6 +225,30 @@ describe('creating a temporary conversation (ADR-0180)', () => {
     await createConversation(session, { id: CONVERSATION_ID })
 
     expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ temporary: false }))
+  })
+})
+
+describe('creating a chat in Persönlich (ADR-0193 amendment)', () => {
+  beforeEach(() => {
+    vi.mocked(insertConversation).mockImplementation(async (values) => values as never)
+  })
+
+  it('marks a chat without a project as started in Persönlich when the caller says so', async () => {
+    await createConversation(session, { id: CONVERSATION_ID, personal: true })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: true, projectId: null }))
+  })
+
+  it('does not mark a chat without a project that does not say so, as the agent API creates them', async () => {
+    await createConversation(session, { id: CONVERSATION_ID })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: false }))
+  })
+
+  it('never marks a project chat, whatever the caller sends', async () => {
+    await createConversation(session, { id: CONVERSATION_ID, projectId: PROJECT_ID, personal: true })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: false }))
   })
 })
 

@@ -59,7 +59,7 @@ describe('POST /api/internal/conversations/[id]/erase', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ outcome: 'erased' })
     expect(retryConversationErasure).toHaveBeenCalledWith('org-1', CONVERSATION_ID)
-    expect(scope).toMatchObject({ kind: 'tenant', organizationId: 'org-1' })
+    expect(scope).toEqual({ kind: 'tenant', organizationId: 'org-1', userId: null, systemReader: 'conversation-erasure' })
   })
 
   it('answers 400 without an organization', async () => {

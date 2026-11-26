@@ -18,9 +18,9 @@ vi.mock('@/lib/auth/require-auth', () => ({
     featureFlags: null,
   }),
 }))
-vi.mock('@/lib/office-shelf/service', () => ({ uploadOfficeShelfDocument: vi.fn() }))
+vi.mock('@/lib/base-knowledge/office/norm-intake', () => ({ uploadToOfficeShelf: vi.fn() }))
 
-import { uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
+import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
 import { POST } from './route'
 
 const post = (fields: Record<string, string>) => {
@@ -34,7 +34,7 @@ const post = (fields: Record<string, string>) => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(uploadOfficeShelfDocument).mockResolvedValue({
+  vi.mocked(uploadToOfficeShelf).mockResolvedValue({
     documentId: 'd1',
     jobId: null,
     status: 'uploaded',
@@ -47,32 +47,43 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
     const response = await post({ folderId: 'folder-1', originPath: 'Normen/plan.pdf' })
 
     expect(response.status).toBe(200)
-    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(expect.anything(), expect.any(File), expect.any(Request), {
+    expect(uploadToOfficeShelf).toHaveBeenCalledWith(expect.anything(), expect.any(File), expect.any(Request), {
       folderId: 'folder-1',
       originPath: 'Normen/plan.pdf',
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      originConversationId: null,
+      asNorm: false,
     })
   })
 
   it('uploads to the Archiv root when no folder is named', async () => {
     await post({ folderId: '' })
 
-    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(expect.anything(), expect.any(File), expect.any(Request), {
+    expect(uploadToOfficeShelf).toHaveBeenCalledWith(expect.anything(), expect.any(File), expect.any(Request), {
       folderId: null,
       originPath: null,
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      originConversationId: null,
+      asNorm: false,
     })
+  })
+
+  it('passes on that the file was put under the norms, and reads no other flag for it', async () => {
+    await post({ asNorm: 'true', forStandards: 'true' })
+
+    expect(vi.mocked(uploadToOfficeShelf).mock.calls[0]?.[3]).toMatchObject({ asNorm: true })
+    expect(vi.mocked(uploadToOfficeShelf).mock.calls[0]?.[3]).not.toHaveProperty('forStandards')
   })
 
   it('passes on the document the reader filed it as the new Fassung of', async () => {
     const older = '0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11'
     await post({ revisionOf: older })
 
-    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(
+    expect(uploadToOfficeShelf).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(File),
       expect.any(Request),
@@ -84,7 +95,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
     const response = await post({ revisionOf: 'Grundriss_EG_Index_B.pdf' })
 
     expect(response.status).toBe(400)
-    expect(uploadOfficeShelfDocument).not.toHaveBeenCalled()
+    expect(uploadToOfficeShelf).not.toHaveBeenCalled()
   })
 
   it('refuses a request with no file', async () => {

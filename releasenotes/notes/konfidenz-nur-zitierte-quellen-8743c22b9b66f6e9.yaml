@@ -1,0 +1,6 @@
+---
+# area: answers
+improvements:
+  - >
+    The line above an answer no longer warns about „Aussagen ohne Beleg“; it warns only when a source the answer cites says something else.
+    The „Einschätzung“ label under the answer now says what was checked, such as „3 zitierte Quellen geprüft“, and names a source that says nothing or a statement of law without one.

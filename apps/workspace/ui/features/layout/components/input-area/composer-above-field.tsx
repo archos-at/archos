@@ -1,5 +1,5 @@
 import { Chip } from '@/components/ui/chip'
-import { AnimatePresence } from '@/components/motion'
+import { AnimatePresence, motion } from '@/components/motion'
 import { HeightArrival } from '@/components/motion/height-arrival'
 import { FileChip } from './file-chip'
 import { UploadDestinationNote } from '../UploadDestination'
@@ -109,18 +109,30 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
         </span>
       )}
       {/* While the reader's own answer runs, Enter steers it: said once,
-                small, beside the field, so nobody mistakes the note for a question. */}
-      {controller.steering && (
-        <Chip
-          size="sm"
-          variant="outline"
-          className="mb-1 self-start"
-          title={controller.t('inputArea.steerHint')}
-          data-testid="composer-steer-chip"
-        >
-          {controller.t('inputArea.steerChip')}
-        </Chip>
-      )}
+                small, on the card's top edge, so nobody mistakes the note for a
+                question. Out of the flow: every turn starts and ends with it, and
+                in the flow it grew the composer by a row and shrank it back. */}
+      <AnimatePresence initial={false}>
+        {controller.steering && (
+          <motion.span
+            key="steer-chip"
+            className="pointer-events-none absolute top-0 left-3 z-10 -translate-y-1/2 sm:left-4"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1, transition: controller.holdEnter }}
+            exit={{ opacity: 0, scale: 0.96, transition: controller.holdExit }}
+          >
+            <Chip
+              size="sm"
+              variant="outline"
+              className="bg-card pointer-events-auto"
+              title={controller.t('inputArea.steerHint')}
+              data-testid="composer-steer-chip"
+            >
+              {controller.t('inputArea.steerChip')}
+            </Chip>
+          </motion.span>
+        )}
+      </AnimatePresence>
     </>
   )
 }

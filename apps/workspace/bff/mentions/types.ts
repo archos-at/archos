@@ -54,4 +54,5 @@ export const MENTION_ERROR_REASONS = {
   inviteRequiresOwner: 'mention-invite-requires-owner',
   containerAccessRequired: 'container-access-required',
   rateLimited: 'mention-rate-limited',
+  personalChat: 'mention-personal-chat',
 } as const

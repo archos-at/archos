@@ -12,17 +12,21 @@ const view = (over: Partial<InboundMailAddressView>): InboundMailAddressView => 
   address: ADDRESS,
   canManage: true,
   lastReceivedAt: null,
+  receivedCount: 3,
   droppedLast30Days: 0,
   ownDomainVerifiedShare: null,
+  forwardedFrom: [],
   ...over,
 })
 
 describe('InboundMailHeaderActions', () => {
-  it('copies the address with a press that says so, and opens the details beside it', async () => {
+  it('stands as one „Mail address“ press whose menu copies the address or opens its details', async () => {
     const onOpen = vi.fn()
     render(<InboundMailHeaderActions state={{ kind: 'ready', address: view({}) }} onOpenAddress={onOpen} />)
-    expect(screen.getByTestId('inbound-mail-address-copy')).toHaveTextContent('Copy address')
+    expect(screen.getByTestId('inbound-mail-address-menu')).toHaveTextContent('Mail address')
     expect(screen.getByTestId('inbound-mail-header-address')).not.toHaveTextContent(ADDRESS)
+    await userEvent.click(screen.getByTestId('inbound-mail-address-menu'))
+    expect(await screen.findByTestId('inbound-mail-address-copy')).toHaveTextContent('Copy address')
     await userEvent.click(screen.getByTestId('inbound-mail-address-open'))
     expect(onOpen).toHaveBeenCalledOnce()
   })

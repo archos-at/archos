@@ -1,0 +1,8 @@
+---
+# area: general
+fixes:
+  - >
+    The message field no longer grows when you send a question and shrinks
+    when the answer is done, so the conversation above it stays where it is.
+    The „steering“ label and the note that ARCHOS is an AI fade in without
+    moving anything.

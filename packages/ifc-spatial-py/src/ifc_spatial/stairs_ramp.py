@@ -18,7 +18,7 @@ from ifc_spatial.stairs_records import _Flight
 from ifc_spatial.stairs_records import _Rake
 from ifc_spatial.stairs_records import _Running
 
-from .clearance import _usable_triangles
+from .clearance_triangles import _usable_triangles
 from .envelope import Answer
 from .envelope import MissingFact
 from .envelope import computed

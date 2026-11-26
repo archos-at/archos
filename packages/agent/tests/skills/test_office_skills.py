@@ -13,16 +13,17 @@ from agent.skills.runtime import SkillRuntime
 
 OFFICE = BUILTIN_SKILLS_DIR / "office"
 
-ENTRY = "office-files"
+ENTRY = "execute"
 
 OFFICE_SKILLS = {
-    "office-files",
+    "execute",
     "office-word",
     "office-excel",
     "office-powerpoint",
     "office-pdf",
     "office-pdf-charts",
     "office-html-pdf",
+    "office-design",
 }
 
 JS_FENCE = re.compile(r"^```js\n(.*?)\n```$", re.DOTALL | re.MULTILINE)

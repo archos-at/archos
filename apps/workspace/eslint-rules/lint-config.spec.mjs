@@ -38,7 +38,7 @@ const FIXTURES = {
     'export default function Page({ flag, id }: { flag: boolean; id: string }) {',
     '  if (flag) { const [x] = useState(0); void x }',
     '  useEffect(() => { void id }, [])',
-    '  return <div className="transition-all"><img src="/x.png" alt="" /></div>',
+    '  return <div className="transition-all"><img src="/x.png" alt="" /><input className="focus-visible:ring-2" /><button className="size-7" /></div>',
     '}',
   ].join('\n'),
   'bff/canary.ts': [
@@ -62,6 +62,13 @@ const FIXTURES = {
   ].join('\n'),
   'app/api/internal/usage/route.ts': "import { db } from '@/lib/db'\nexport const handle = db",
   'ui/features/cards/schematics/kit.tsx': "export const size = 'text-sm'",
+  'ui/canary-layout.tsx': [
+    "import { useIsMobile } from '@/hooks/use-is-mobile'",
+    'export function Register() {',
+    '  const isMobile = useIsMobile()',
+    '  return isMobile ? <ul /> : <table />',
+    '}',
+  ].join('\n'),
   'tests/canary.test.ts': 'export const fixture: any = {}',
   'bff/canary-repository.ts': "import { projects } from '@/lib/db/schema'\nexport const table = projects",
   'bff/canary-table.ts': "import { projects } from '@/lib/db/schema/projects'\nexport const table = projects",
@@ -75,11 +82,14 @@ const EXPECTED = [
   ['app/canary/page.tsx', 'react-hooks(exhaustive-deps)'],
   ['app/canary/page.tsx', 'grid(motion-vocabulary)'],
   ['app/canary/page.tsx', 'next(no-img-element)'],
+  ['app/canary/page.tsx', 'grid(field-focus-inside)'],
+  ['app/canary/page.tsx', 'grid(touch-target)'],
   ['bff/canary.ts', 'grid(require-tenant-cache-key)'],
   ['bff/canary.ts', 'grid(no-restricted-syntax)'],
   ['app/api/canary/route.ts', 'eslint(no-restricted-imports)'],
   ['bff/canary-repository.ts', 'eslint(no-restricted-imports)'],
   ['ui/features/cards/schematics/kit.tsx', 'grid(card-type-scale)'],
+  ['ui/canary-layout.tsx', 'grid(layout-before-paint)'],
   ['tests/canary.test.ts', 'typescript(no-explicit-any)'],
 ]
 
@@ -88,10 +98,8 @@ let findings
 
 beforeAll(() => {
   workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-canary-'))
-  const config = fs
-    .readFileSync(path.join(UI, '.oxlintrc.json'), 'utf8')
-    .replace('"./eslint-rules/index.mjs"', JSON.stringify(path.join(UI, 'eslint-rules', 'index.mjs')))
-  fs.writeFileSync(path.join(workdir, '.oxlintrc.json'), config)
+  fs.copyFileSync(path.join(UI, '.oxlintrc.json'), path.join(workdir, '.oxlintrc.json'))
+  fs.symlinkSync(path.join(UI, 'eslint-rules'), path.join(workdir, 'eslint-rules'))
   for (const [file, source] of Object.entries(FIXTURES)) {
     fs.mkdirSync(path.dirname(path.join(workdir, file)), { recursive: true })
     fs.writeFileSync(path.join(workdir, file), `${source}\n`)
@@ -132,16 +140,13 @@ describe('.oxlintrc.json', () => {
   })
 
   it('exempts exactly the files PRE_EXISTING_DB_IMPORTERS lists', () => {
-    const json = fs
-      .readFileSync(path.join(UI, '.oxlintrc.json'), 'utf8')
-      .split('\n')
-      .filter((line) => !line.trim().startsWith('//'))
-      .join('\n')
-    const exempt = JSON.parse(json).overrides.find(
-      (o) => o.rules['typescript/no-restricted-imports'] === 'off' && !o.files.some((f) => f.includes('spec')),
+    const { overrides } = JSON.parse(
+      execFileSync(process.execPath, [OXLINT, '-c', path.join(UI, '.oxlintrc.json'), '--print-config'], { encoding: 'utf8' }),
     )
-    const unescaped = exempt.files.map((f) => f.replace(/\\([[\]])/g, '$1'))
-    expect(unescaped).toEqual(PRE_EXISTING_DB_IMPORTERS.map((file) => file))
+    const exempt = overrides.filter(
+      (o) => o.rules?.['typescript/no-restricted-imports'] === 'allow' && !o.files.some((f) => f.includes('spec')),
+    )
+    expect(exempt.flatMap((o) => o.files)).toEqual(PRE_EXISTING_DB_IMPORTERS)
   })
 
   it('leaves specs out of the tenant-boundary and restricted-syntax rules', () => {

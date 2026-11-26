@@ -27,7 +27,7 @@ export function ProjectFoldersCard({
   return (
     <FolderDropTarget onFiles={onFiles} disabled={!onAddMore}>
       <FilingCard aria-label={t('project.label')} data-testid="filing-project-folders">
-        <div className={cn(ROW, 'bg-muted/40 rounded-t-[14px] border-t-0 font-medium')}>
+        <div className={cn(ROW, 'bg-muted/40 rounded-t-[12px] border-t-0 font-medium')}>
           <span className="min-w-0 truncate">{t('project.inProject')}</span>
           <span className="text-muted-foreground ml-auto text-xs font-normal tabular-nums">
             {t('project.documents', { count: documents })}
@@ -53,7 +53,7 @@ export function ProjectFoldersCard({
             onClick={onAddMore}
             className={cn(
               ROW,
-              'text-muted-foreground hover:text-foreground hover:bg-hover focus-visible:ring-ring/60 w-full rounded-b-[14px] text-left focus-visible:outline-none focus-visible:ring-2'
+              'text-muted-foreground hover:text-foreground hover:bg-hover focus-visible:ring-ring/60 w-full rounded-b-[12px] text-left focus-visible:outline-none focus-visible:ring-2'
             )}
           >
             <Plus className="size-4 shrink-0" aria-hidden />

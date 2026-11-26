@@ -110,18 +110,22 @@ verdict.
 
 **Grundlagen des Büros** (office standards):
 The standards, commentaries, authority directives, guidelines and laws an office holds itself, each a
-Büroablage file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
-check (ADR-0163). A place of its own beside the Büroablage, with folders under one root folder of that name.
+Bürobibliothek file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
+check (ADR-0163). Shown as the Bürobibliothek's place „Normen & Richtlinien“ beside „Dateien“, with topic folders under
+one root folder of that name that the Dateien place never lists; in the UI a single entry is a *Norm* for short and
+its *Art* says whether it is a standard, guideline, directive, commentary or law. One upload serves both tabs:
+a file whose name reads as a norm is proposed in the norm dialog, everything else stays an ordinary file.
 An *Ausgabe* (edition) is the standard's state, a *Fassung* the state of the uploaded file: a newer Ausgabe
 is added beside the earlier one, and an answer uses the one in force on the project's reference day.
 _Code_: `baseKnowledge` (`/app/base-knowledge`, `/api/base-knowledge`, `base-knowledge-*` operations).
-_Avoid_: „Normen" for the whole place (commentaries and directives are not standards); „Version" for an Ausgabe.
+_Avoid_: „Normen" alone for the whole place (commentaries and directives are not standards: it is „Normen &
+Richtlinien“); „Grundlage" in the UI; „Version" for an Ausgabe.
 
 **Shelf**:
 Where a document lives, which decides who may read it and what a search reaches:
-the *Büroablage* (the organization's shelf, formerly „Archiv"; code name
+the *Bürobibliothek* (the organization's shelf; code name
 `officeShelf`, never `archive`, which already means soft-archived), a project, a single chat, or the shared OIB base every organization
-sees. The Büroablage can hold norms an office uploaded itself (ÖNORMEN,
+sees. A project's shelf is shown as its *Ablage*, whose first place is „Dateien“. The Bürobibliothek can hold norms an office uploaded itself (ÖNORMEN,
 Weisungen) that the OIB base does not carry.
 _Code_: `officeShelf` in identifiers, file names and modules (`lib/office-shelf`,
 `OfficeShelfWorkspace`, `canManageOfficeShelf`). Stored and public forms are
@@ -130,7 +134,10 @@ _Code_: `officeShelf` in identifiers, file names and modules (`lib/office-shelf`
 read beside the new name until an operator moves them
 ([runbook](docs/deployment/office-shelf-rename-runbook.md)): the collection
 prefix `archiv_<org>`, the old permission slug, and the history of audit rows.
-_Avoid_: folder; folders organise documents within a shelf, a shelf decides who sees them.
+_Avoid_: folder; folders organise documents within a shelf, a shelf decides who sees them. „Büroablage“ (the name
+until KAN-86): beside the project's „Ablage“ the two names read as one place, so the office's shelf became the
+„Bürobibliothek“, what the office keeps for every project. Answers written under the old name still resolve
+(`RETIRED_SHELF_QUALIFIERS`). „Archiv“, the name before that, meant soft-archived to anyone who had archived a file.
 
 **Dokumentart** (document type):
 What a document is (an OIB-Richtlinie, a law, a standard, a Grundriss, a
@@ -244,9 +251,11 @@ not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
 after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
-ARCHOS reads it. Anyone may write to the address; each mail says whether its
-sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
-bestätigt“), which shapes what is suggested; only a signed mail of a member
+ARCHOS reads it. Anyone may write to the address; each mail opens with one
+verdict on its sender in three levels, „Adresse überprüft“ (the domain confirmed
+it; „Domain bestätigt: …“ under „Details“), „Absender nicht überprüfbar“, and
+„Vorsicht: mögliche Fälschung“, the only one in the danger colour, which shapes
+what is suggested; only a signed mail of a member
 who may file is filed directly.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
 default. Attachments are checked for malware before anyone can file them. Who
@@ -258,7 +267,7 @@ Intake; „annehmen“, „ablehnen“, „freigeben“, „zulassen“, „prü
 and **Zurückgehalten** own those); „übernehmen“ for a mail; „anhängen“ (collides
 with Anhänge); „Abgelegt“ as a mail's state; Quarantäne; „Nachricht“ for an
 e-mail („3 neue E-Mails“); „Absender bestätigt“ (DKIM proves a domain, not a
-person); „Kollege“ for the member a mail names (say *Mitglied*); „mit
+person); „Echte Adresse“ (read as odd); „Kollege“ for the member a mail names (say *Mitglied*); „mit
 Schreibrecht“ (say *wer im Projekt ablegen darf*); “release” for filing a
 held mail (**Zurückgehalten** owns it).
 _Code_: `inbound mail` (`lib/inbound-mail`, `inbound_mails`, operations
@@ -284,13 +293,16 @@ _Code_: the sender class `verified_writer`; the decision's `via = 'sender'`;
 
 **Haben Sie diese E-Mail gesendet?** (did you send this mail?):
 The question a mail that carries a member's address, but does not prove the
-member sent it, puts to that member alone: their domain did not confirm it,
-it is their Bcc copy, it reads as re-sent or misdated, or it was sent
-automatically. Only that member files it („Ja, ich habe diese E-Mail
-gesendet. Ablegen“) or restores it; the project's other members see it under
-„Wartet auf andere“ („Wartet auf {Name}“) and may only dismiss it. A mail whose
+member sent it, puts to that member: their domain did not confirm it, it is
+their Bcc copy, it reads as re-sent or misdated, or it was sent automatically.
+The member files it („Ja, ich habe diese E-Mail gesendet“, then „Ablegen“); any
+other of the project's writers may too, once they checked it is from that
+member („Ich habe geprüft, dass diese E-Mail von {Name} ist“); a confirmation
+never ends in „Ablegen“, which read as if ticking filed. A mail whose
 domain *rejected* it is not asked about but shown as an impersonation
-(„Gibt sich als … aus“), to the member it names in their own words.
+(„Gibt sich als … aus“), to the member it names in their own words; only that
+member files or restores it, the others see „Wartet auf {Name}“ and may only
+dismiss it.
 _Avoid_: „Haben Sie das gesendet?“; „freigeben“, “release”.
 _Code_: the sender class `unverified_writer`; `acknowledgeSender`,
 `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf`
@@ -316,9 +328,18 @@ _Avoid_: Projektadresse, which is where the building stands.
 _Code_: `inbound mail address` (`inbound_mail_addresses`,
 `inbound-mail-address-*`, verb `rotate`).
 
+**bestehende E-Mail-Adresse für das Projekt** (an existing email address for
+the project): An address the office already runs for a project in its own mail
+system (projekt-x@buero.at), redirected to the E-Mail-Adresse des Projekts by a
+rule. A signed To or Cc naming one counts as sent to the project.
+_Avoid_: Projektadresse (the building's), „weiterleiten“ for the Outlook rule
+(a forward comes from the mailbox; say „umleiten“).
+_Code_: `forwarded_from` (`inbound_mail_addresses`), `forwardedFrom`,
+`inbound-mail-address-forwards-set`.
+
 **E-Mail-Verlauf** (mail thread):
 One e-mail conversation filed as one document of Dokumentart *Korrespondenz*:
-each filed e-mail is a section, and each one filed later adds a Fassung, so
+each filed e-mail is a section, *angefügt* (added) to it, and each one filed later adds a Fassung, so
 the newest Fassung holds the whole conversation and ARCHOS cites one e-mail of
 it. E-mails from the project's address and from an imported Outlook archive
 end up in the same E-Mail-Verlauf, each once. Each section keeps its *Original
@@ -327,20 +348,24 @@ a model. An e-mail filed into the wrong Verlauf is *herausgelöst* (moved to
 another or a new one; the earlier Fassungen keep it). Its tab in the preview is
 „E-Mails“.
 _Avoid_: bare „Verlauf“ (the chat's), Thread, Unterhaltung, Version,
-„Nachrichten“ for its tab.
+„Nachrichten“ for its tab; „Fassung“ for what a mail's text becomes when it is
+filed („An E-Mail-Verlauf „…“ anfügen“, never „wird Fassung 4“: a Fassung is a
+document's state, and the reader took it for a plan's).
 _Code_: `mail thread` (`lib/mail-thread`, `mail_threads`, `mail_thread_entries`
 for its e-mails, verb `detach`).
 
 **Verlauf folgen** (follow a mail thread):
-A person's standing, revocable decision about one **E-Mail-Verlauf** („Diesem
-E-Mail-Verlauf folgen“, „Sie folgen diesem E-Mail-Verlauf bis …“, „nicht mehr
-folgen“): while it runs (60 days, renewable up to 180), the text of later
+A person's standing, revocable decision about one **E-Mail-Verlauf**, named in
+the app for what it does („Antworten ohne Klick ablegen“ · „Einschalten“,
+„Antworten werden bis … ohne Klick abgelegt“, „Beenden“; „folgen“ read as
+notifications, and the Postfach's notices say „ohne Klick“ too): while it runs (until 60 days pass with nothing filed into the Verlauf), the text of later
 replies from confirmed domains already in the conversation is added without a
 click, in that person's name; attachments still wait in the
 **E-Mail-Eingang**. It ends when the person or a manager ends it, when it runs
-out, when the person loses access, when the address is replaced, or when an
-e-mail is herausgelöst from that Verlauf.
-_Avoid_: abonnieren, automatisch ablegen.
+out, when the person loses access, when the address is replaced or switched
+off, or when an e-mail is herausgelöst from that Verlauf.
+_Avoid_: abonnieren, automatisch ablegen, „Folgen“ as the press (a
+notification's word).
 _Code_: `follow` / `unfollow` (`mail_thread_follows`, `mail-thread-follow`).
 
 **Original (.eml)** (original):
@@ -388,14 +413,18 @@ that does not match the source word for word, or changes what it negates
 belegt* (not verbatim in the source) and lowers the answer's confidence.
 
 **Confidence** (Sicherheit):
-How far an answer can be relied on: high, medium or low. A grading model reads
-the answer against everything its turn retrieved and read (passages, workspace
-records, the project profile, measurements, readings off drawings) and names
-the statements it relies on that nothing backs or that a source contradicts.
-A statement about the law needs a passage of that law; a record or a
-measurement backs a fact about the office or the building, never the law. A
-quote the source does not hold word for word lowers the level. When the check
-cannot run, no level is shown (*Belegprüfung nicht verfügbar*).
+How far an answer can be relied on: high, medium or low. A checking model
+reads each statement the answer cites against the passage it cites, and looks
+for statements of what a regulation requires without a citation. It names a
+cited source that says something else (*die Quelle sagt etwas anderes*), one
+that says nothing about the statement (*die Quelle sagt dazu nichts*), and law
+stated without a source (*Rechtsaussage ohne Fundstelle*); what the answer says
+about the person, the office or the project, from memory or from earlier in the
+conversation, it does not judge. A contradiction makes the level low, any other
+finding medium. A record or a measurement backs a fact about the office or the
+building, never the law. A quote the source does not hold word for word lowers
+the level. When the check cannot run, no level is shown (*Belegprüfung nicht
+verfügbar*).
 _Code_: `claim_judge`, `confidence_check`.
 
 **Answer kind**:

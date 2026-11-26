@@ -27,7 +27,8 @@ list here. A cleanup shrinks the ratchet's baseline
 |---|---|---|
 | Fassung | `revision` (`lib/documents/revision-*`, `DocumentRevisions`, `revision_diff.py`) | `version`, which is the approval states |
 | the links between Fassungen | `RevisionLinks` (`revision-links.ts`) | `RevisionFacts`, the Index and Rev printed in a title block |
-| Büroablage, Archiv | `officeShelf` (`OFFICE_SHELF`, `lib/office-shelf`, `canManageOfficeShelf`) | `archive`, which already means soft-archived |
+| Bürobibliothek (formerly Büroablage, before that Archiv) | `officeShelf` (`OFFICE_SHELF`, `lib/office-shelf`, `canManageOfficeShelf`) | `archive`, which already means soft-archived |
+| Ablage (a project's documents; its first place is „Dateien“) | `files` (`/app/projects/[id]/files`, `sections.files`) | |
 | Steckbrief | `projectRecord` (`ProjectRecordView`, `project-record-types.ts`, `/api/projects/{id}/project-record`) | |
 | Grundstück, Bauwerk, Projekt (the scope of an intake question) | `plot`, `building`, `project` (`ProjectIntakeScope`); a building's id on the wire is `buildingId` | |
 | ja, nein, offen (an intake answer) | `yes`, `no`, `open` (`YesNoOpen`); the answer mode is `value`, `estimated`, `open` (`IntakeAnswerMode`) | |
@@ -45,7 +46,7 @@ list here. A cleanup shrinks the ratchet's baseline
 | Korrespondenz (Dokumentart) | `correspondence` | `mail` (the format, `source_format: mail`) |
 | Domain bestätigt / nicht bestätigt | `sender_trust` `*_verified` / `*_unverified` (`not_checked` for the archive) | `trusted`, `authenticated sender` |
 | direkt abgelegt (a member's own mail, filed as they sent it) | the sender class `verified_writer`; the decision's `via = 'sender'`; `waitReason` `not_filed` (left waiting) and `paused` (switched off) | `auto_file`, `automatic` (a sender flag: mail sent by a machine) |
-| Haben Sie diese E-Mail gesendet? (a mail only its member may file) | the sender class `unverified_writer`; `acknowledgeSender`, `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf` (`own` / `colleague`) | `release`, `approve` (Freigabe's) |
+| Haben Sie diese E-Mail gesendet? (a mail that claims a member; its member, or a writer who checked it, files it) | the sender class `unverified_writer`; `acknowledgeSender`, `senderReleaseOf` (`own`, `checked_by_writer`, `sender_only`), `ownClaimedMail`, `onlySenderReleases` and the refusal `sender_only` (an impersonation), `mailClaimOf` (`own` / `colleague`) | `release`, `approve` (Freigabe's) |
 | the sender, as the E-Mail-Eingang classes it | `INBOUND_MAIL_SENDER_CLASSES`: `verified_writer`, `unverified_writer`, `office_member`, `external` (`inbound_mails.sender_class`, `lib/inbound-mail/sender-class.ts`) | `sender_trust`, which is the domain's verdict, not who the sender is to the project |
 | Punkt, Absatz (of a norm) | `clause`, `subsection` (`clause_chunking.py`, `build_clause_index.py`; the Qdrant keys `clause_id`, `clause_path`, `chunking: "clause"`; the `read_passage` argument `clause`) | |
 | Richtlinie (OIB) | `guideline` (the Qdrant key `guideline`; `norm_registry.oib_doc_class` returns `guideline`, `guide`, `explanatory_note`, `definitions`, `referenced_standards`, `amendment`) | |
@@ -64,12 +65,21 @@ list here. A cleanup shrinks the ratchet's baseline
 | Aktenvermerk | `fileNote` | |
 | Unterlagen | `documents` (`DocumentsDialog`) | |
 
-Office shelf (Büroablage): `office_shelf` / `officeShelf` everywhere, including
+Office shelf (Bürobibliothek): `office_shelf` / `officeShelf` everywhere, including
 the scope value, `/app/office-shelf`, `/api/office-shelf`, `org:office_shelf:manage`
 and `office_shelf.document.*` audit actions. Never `archive`, which means
 soft-deleted. The one name still `archiv` is the collection prefix `archiv_<org>`
 and the old audit and permission names, which are read beside the new ones until
 the [operator runbook](deployment/office-shelf-rename-runbook.md) has run.
+
+Why the shelf was renamed twice: „Archiv“ read as soft-archived, so it became
+„Büroablage“. Once a project's „Dateien“ became its „Ablage“, „Ablage“ and
+„Büroablage“ read as one place, so the office's shelf became the
+„Bürobibliothek“ (KAN-86): what the office keeps for every project, beside the
+Ablage that is one project's. Only the copy changed; the code name stays
+`officeShelf`. A citation key written under an old name still resolves
+(`RETIRED_SHELF_QUALIFIERS`, `CITATION_KEY_QUALIFIERS`), and
+`tests/test_shelf_name_office_shelf.py` keeps both old names out of the copy.
 
 Qdrant points written before the payload rename still hold the German keys
 (`punkt_id`, `project_facts.bundesland`, ...); every read accepts both until the

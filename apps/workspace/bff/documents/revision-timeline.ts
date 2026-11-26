@@ -59,7 +59,7 @@ export function isPendingVersion(version: Pick<DocumentVersionView, 'state'>): b
 }
 
 export interface VersionAct {
-  key: 'uploaded' | 'submitted' | 'approved' | 'published' | 'changesRequested' | 'rejected'
+  key: 'uploaded' | 'filed' | 'submitted' | 'approved' | 'published' | 'changesRequested' | 'rejected'
   actor: string
   when: string
 }
@@ -108,7 +108,7 @@ export function latestAct(version: DocumentVersionView): VersionAct {
     (best, act) => (best === null || Date.parse(act.when) >= Date.parse(best.when) ? act : best),
     null,
   )
-  return latest ?? { key: 'uploaded', actor: version.createdBy, when: version.createdAt }
+  return latest ?? { key: version.origin === 'filing' ? 'filed' : 'uploaded', actor: version.createdBy, when: version.createdAt }
 }
 
 export const versionContentUrl = (documentId: string, versionId: string): string =>

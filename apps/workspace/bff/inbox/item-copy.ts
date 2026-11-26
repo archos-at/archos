@@ -40,6 +40,8 @@ export function inboxItemCopy(item: InboxItemView, t: Translator, dictionary: un
     actor: item.actorName ?? t('inbox.unknownActor'),
     subject: item.subject ?? t(redacted ? 'inbox.inert' : 'inbox.untitledConversation'),
     related: item.related ?? '',
+    excerpt: item.excerpt ?? '',
+    via: item.via ?? '',
     count: item.count,
     due: item.dueOn ? formatDayRange(item.dueOn, item.dueOn, locale) : '',
     marks: item.openMarks ?? 0,

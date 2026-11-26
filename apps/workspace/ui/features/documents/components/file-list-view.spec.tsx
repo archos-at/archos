@@ -202,6 +202,25 @@ describe('FileListView', () => {
     expect(screen.queryByText('plan.pdf')).not.toBeInTheDocument()
   })
 
+  it('lists an E-Mail-Verlauf by its name and its mails, without a format or a Freigabe', () => {
+    renderList([
+      doc('Stellplatznachweis.md', {
+        contentType: 'text/markdown',
+        tags: ['correspondence'],
+        versionCount: 3,
+        versionState: 'published',
+        mailThread: { entryCount: 3, lastEntryAt: '2026-10-14T07:12:00Z' },
+      }),
+    ])
+    const row = screen.getByTestId('file-list-row')
+    expect(row).toHaveTextContent('Stellplatznachweis')
+    expect(row).not.toHaveTextContent('.md')
+    expect(within(row).getByTestId('file-list-mail-thread')).toBeInTheDocument()
+    expect(within(row).getByTestId('mail-thread-file-facts')).toHaveTextContent(/^3 mails · last /)
+    expect(within(row).getByTestId('file-list-meta')).toHaveTextContent(/^3 mails · last .+ · /)
+    expect(within(row).queryByTestId('document-version-badge')).not.toBeInTheDocument()
+  })
+
   describe('Freigabe column — bulk state where bulk work happens', () => {
     it('names the approval state beside the ingestion status, in the card’s words', () => {
       renderList([doc('Plan.pdf', { versionState: 'in_review', versionCount: 2 })])

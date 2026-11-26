@@ -16,6 +16,21 @@ import { PageSheet } from './pdf-viewer-atoms'
 
 import { PRERENDER_MARGIN, PassageHit, RERASTER_DELAY_MS, ViewSignal, canvasBudget, screenRatio } from './pdf-document-view-helpers'
 
+interface PaintedRaster {
+  doc: PDFDocumentProxy
+  pageNumber: number
+  width: number
+  height: number
+}
+
+function paintedHere(
+  raster: PaintedRaster | null,
+  doc: PDFDocumentProxy,
+  pageNumber: number,
+): raster is PaintedRaster {
+  return raster !== null && raster.doc === doc && raster.pageNumber === pageNumber
+}
+
 interface PdfPageCanvasProps {
   doc: PDFDocumentProxy
   pageNumber: number
@@ -67,6 +82,7 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
   const textLayerRef = useRef<HTMLDivElement | null>(null)
   const [near, setNear] = useState(false)
   const openedPage = useRef<PDFPageProxy | null>(null)
+  const painted = useRef<PaintedRaster | null>(null)
   const [base, setBase] = useState<{ width: number; height: number } | null>(null)
   const scale = base && targetWidth > 0 ? targetWidth / base.width : 1
 
@@ -86,7 +102,7 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         const entry = entries[entries.length - 1]
         if (entry) setNear(entry.isIntersecting)
       },
-      { rootMargin: PRERENDER_MARGIN },
+      { root: frameRef.current, rootMargin: PRERENDER_MARGIN },
     )
     observer.observe(node)
     return () => observer.disconnect()
@@ -99,6 +115,7 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         canvas.width = 0
         canvas.height = 0
       }
+      painted.current = null
       const opened = openedPage.current
       openedPage.current = null
       opened?.cleanup()
@@ -126,13 +143,18 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         dpr: screenRatio(),
         maxPixels: canvasBudget(),
       })
-      if (canvas.width > 0 && sameRaster(canvas, raster)) return
+      if (paintedHere(painted.current, doc, pageNumber) && sameRaster(painted.current, raster)) return
       const viewport = pdfPage.getViewport({ scale: (targetWidth / unscaled.width) * raster.ratio })
+      painted.current = null
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
       const task = pdfPage.render({ canvas, viewport })
       cancelRender = () => task.cancel()
-      await task.promise.catch(() => {})
+      const finished = await task.promise.then(
+        () => true,
+        () => false,
+      )
+      if (finished) painted.current = { doc, pageNumber, width: canvas.width, height: canvas.height }
     }
 
     const start = (): void => {
@@ -142,7 +164,7 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         }
       })
     }
-    const hasBitmap = Boolean(canvas && canvas.width > 0)
+    const hasBitmap = paintedHere(painted.current, doc, pageNumber)
     const timer = hasBitmap ? window.setTimeout(start, RERASTER_DELAY_MS) : null
     if (!hasBitmap) start()
     return () => {
@@ -330,6 +352,8 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         registerRef(pageNumber, node)
       }}
       data-page={pageNumber}
+      data-page-width-pt={base?.width}
+      data-page-height-pt={base?.height}
       role="group"
       aria-label={label}
       style={{ width: targetWidth || undefined, height }}

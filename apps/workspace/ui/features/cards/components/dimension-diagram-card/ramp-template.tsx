@@ -26,7 +26,7 @@ export const rampTemplate = (dims: DimensionCheckData[], t: Translator): Templat
   const yOnRamp = (t: number): number => groundY - riseM * k * t
   const xOnRamp = (t: number): number => x0 + Lm * k * t
 
-  const angle = (Math.atan2(topY - groundY, endX - x0) * 180) / Math.PI
+  const angle = Math.round((Math.atan2(topY - groundY, endX - x0) * 18000) / Math.PI) / 100
   const midX = (x0 + endX) / 2
   const midY = (groundY + topY) / 2
 

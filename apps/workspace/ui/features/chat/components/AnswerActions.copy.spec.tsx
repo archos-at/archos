@@ -47,7 +47,7 @@ describe('AgentResponse', () => {
         timestamp: new Date('2026-08-18T09:00:00Z'),
         title: 'OIB-Richtlinie 2',
         fileName: 'oib-rl_2.pdf',
-        collection: 'oib_knowledge',
+        collection: 'base_corpus',
         kind: 'building_law' as const,
         origin: 'kb' as const,
         page: 18,
@@ -62,12 +62,13 @@ describe('AgentResponse', () => {
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
     })
 
-    test('the citations-resolved action appears only when the answer has sources', () => {
+    test('the copy menu replaces the plain copy only when the answer has sources', () => {
       const { rerender } = render(<AgentResponse content="Die Antwort." />)
-      expect(screen.queryByRole('button', { name: /source references/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
 
       rerender(<AgentResponse content="Die Antwort [1]." citations={citations} />)
-      expect(screen.getByRole('button', { name: /source references/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
     })
 
     test('an answer that is still arriving cannot be copied', () => {

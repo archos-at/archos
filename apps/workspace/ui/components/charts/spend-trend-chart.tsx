@@ -68,7 +68,7 @@ export const SpendTrendChart: FC<SpendTrendChartProps> = ({
               <span
                 className="block w-full rounded-t-[3px]"
                 style={{
-                  backgroundColor: 'var(--chart-series-1)',
+                  backgroundColor: 'var(--data-ink)',
                   height: `${Math.max((point.value / maxValue) * 100, 3)}%`,
                 }}
               />

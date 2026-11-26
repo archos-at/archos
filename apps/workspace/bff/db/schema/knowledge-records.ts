@@ -52,6 +52,21 @@ export interface KnowledgeProvenance {
   viaClient?: string
   text?: KnowledgeTextProvenance
   imported?: { bundle: string; sha256?: string }
+  filedFrom?: { folderId: string | null; upload?: true }
+  cover?: KnowledgeCoverReading
+}
+
+export type KnowledgeReadSource = 'cover' | 'file_name'
+
+export interface KnowledgeCoverOverride {
+  field: 'designation' | 'editionLabel'
+  fileName: string
+}
+
+export interface KnowledgeCoverReading {
+  read: { designation: KnowledgeReadSource | null; editionLabel: KnowledgeReadSource | null; title: KnowledgeReadSource }
+  overrode: KnowledgeCoverOverride[]
+  replaces: { designation: string; editionLabel: string | null }[]
 }
 
 export type FetchSourceOrigin = 'built_in' | 'released' | 'draft'
@@ -79,6 +94,8 @@ export const knowledgeRecords = pgTable('knowledge_records', {
   countryId: text('country_id'),
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  unlistedAt: timestamp('unlisted_at', { withTimezone: true }),
+  unlistedHeadRevisionId: uuid('unlisted_head_revision_id'),
 })
 
 export const knowledgeRevisions = pgTable('knowledge_revisions', {

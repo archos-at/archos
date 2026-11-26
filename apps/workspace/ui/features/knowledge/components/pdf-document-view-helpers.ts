@@ -63,6 +63,15 @@ export const COPIED_FEEDBACK_MS = 1600
 
 export const MIN_QUOTE_LENGTH = 3
 
+export function offsetInContent(
+  rect: { left: number; top: number },
+  content: HTMLElement,
+): { x: number; y: number } {
+  const box = content.getBoundingClientRect()
+  const scale = content.offsetWidth > 0 && box.width > 0 ? box.width / content.offsetWidth : 1
+  return { x: (rect.left - box.left) / scale, y: (rect.top - box.top) / scale }
+}
+
 export interface PassageHit {
   page: number
   rects: HighlightRect[]

@@ -100,10 +100,11 @@ vi.mock('./repository', () => ({
   listDocumentLevelPage: vi.fn().mockResolvedValue({ rows: [], nextCursor: null }),
   findProjectDocumentsByFilenames: vi.fn().mockResolvedValue([]),
   findProjectDocumentsByNames: vi.fn().mockResolvedValue([]),
-  deleteProjectDocument: vi.fn().mockResolvedValue(undefined),
+  deleteShelfDocumentRow: vi.fn().mockResolvedValue(undefined),
   setDocumentDisplayName: vi.fn().mockResolvedValue(undefined),
   setDocumentReconciledStatus: vi.fn().mockResolvedValue(true),
   listFailedDocumentPageInOrg: vi.fn().mockResolvedValue({ ids: [], nextCursor: null }),
+  folderIsInBin: vi.fn(async () => false),
 }))
 
 vi.mock('@/lib/jobs-queue/enqueue', () => ({
@@ -154,7 +155,7 @@ import {
   findProjectDocumentsByFilenames,
   findProjectDocumentsByNames,
   findProjectCollectionsHoldingFilename,
-  deleteProjectDocument,
+  deleteShelfDocumentRow,
   setDocumentDisplayName,
   setDocumentReconciledStatus,
   listFailedDocumentPageInOrg,
@@ -1501,7 +1502,7 @@ describe('deleteDocument', () => {
     await expect(
       deleteDocument(session, 'missing', new Request('http://x'))
     ).rejects.toBeInstanceOf(NotFoundError)
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
   })
 
   it('hands an office shelf document to the office shelf delete, never through project access', async () => {
@@ -1516,7 +1517,7 @@ describe('deleteDocument', () => {
 
     expect(deleteOfficeShelfDocument).toHaveBeenCalledWith(session, 'doc-1', request)
     expect(requireProjectAccess).not.toHaveBeenCalled()
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
   })
 
   it('rejects callers without project:edit (403) before any side effects', async () => {
@@ -1526,7 +1527,7 @@ describe('deleteDocument', () => {
     await expect(deleteDocument(session, 'doc-1', new Request('http://x'))).rejects.toBeInstanceOf(
       ForbiddenError
     )
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
@@ -1541,7 +1542,7 @@ describe('deleteDocument', () => {
     expect((error as ForbiddenError).details).toEqual({ reason: 'folder-read-only' })
     expect(requireFolderWrite).toHaveBeenCalledWith(session, 'proj-1', ['folder-read-only'])
     expect(isCoveredByActiveHold).not.toHaveBeenCalled()
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
@@ -1562,7 +1563,7 @@ describe('deleteDocument', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     expect(s3Client.send).not.toHaveBeenCalled()
     expect(eraseDocumentObjectsOrKeepRow).not.toHaveBeenCalled()
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
@@ -1592,7 +1593,7 @@ describe('deleteDocument', () => {
         String(url).endsWith('/documents') && (init as RequestInit)?.method === 'DELETE'
     )
     expect(purgeCall?.[0]).toBe('http://backend:8000/v1/collections/proj_abc/documents')
-    expect(deleteProjectDocument).toHaveBeenCalledWith('doc-1', 'org-1', 'proj-1')
+    expect(deleteShelfDocumentRow).toHaveBeenCalledWith('doc-1', 'org-1', { kind: 'project', projectId: 'proj-1' })
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'document.deleted', organizationId: 'org-1' })
     )
@@ -1607,7 +1608,7 @@ describe('deleteDocument', () => {
       order.push('objects')
       return { versionsLeft: 0 }
     })
-    vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
+    vi.mocked(deleteShelfDocumentRow).mockImplementationOnce(async () => {
       order.push('row')
     })
 
@@ -1626,7 +1627,7 @@ describe('deleteDocument', () => {
     await expect(deleteDocument(session, 'doc-1', new Request('http://x'))).rejects.toBeInstanceOf(
       UpstreamError
     )
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
@@ -1637,7 +1638,7 @@ describe('deleteDocument', () => {
 
     await deleteDocument(session, 'doc-1', new Request('http://x'))
 
-    expect(deleteProjectDocument).toHaveBeenCalledWith('doc-1', 'org-1', 'proj-1')
+    expect(deleteShelfDocumentRow).toHaveBeenCalledWith('doc-1', 'org-1', { kind: 'project', projectId: 'proj-1' })
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'document.deleted' })
     )
@@ -1655,7 +1656,7 @@ describe('deleteDocument', () => {
       order.push('objects')
       return { versionsLeft: 0 }
     })
-    vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
+    vi.mocked(deleteShelfDocumentRow).mockImplementationOnce(async () => {
       order.push('row')
     })
 
@@ -1731,7 +1732,7 @@ describe('renameDocument', () => {
     await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request())
 
     expect(setDocumentDisplayName).toHaveBeenCalledTimes(1)
-    expect(deleteProjectDocument).not.toHaveBeenCalled()
+    expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
   })
 
   it('treats a rename back to the file name as a clear, not a stored duplicate', async () => {
@@ -1983,7 +1984,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
       await deleteDocument(session, 'doc-agent', new Request('http://x'))
 
       expect(documentCalls()).toHaveLength(0)
-      expect(deleteProjectDocument).toHaveBeenCalledWith('doc-agent', 'org-1', 'proj-1')
+      expect(deleteShelfDocumentRow).toHaveBeenCalledWith('doc-agent', 'org-1', { kind: 'project', projectId: 'proj-1' })
       expect(recordAuditEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'document.deleted' })
       )

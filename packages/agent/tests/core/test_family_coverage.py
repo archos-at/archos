@@ -36,7 +36,7 @@ def knowledge_search(query: str) -> str:
         return "No relevant documents found."
     return (
         f"Found 1 relevant document(s):\n\n--- Result 1 ---\n"
-        f"Source: {name}\nCollection: oib_knowledge\nShelf: base\n"
+        f"Source: {name}\nCollection: base_corpus\nShelf: base\n"
         f"Citation: {name}, p.4\nContent Type: text\nRelevance Score: 0.90\n\nText.\n"
     )
 

@@ -74,6 +74,28 @@ describe('FileWorkList', () => {
     expect(row.textContent).not.toMatch(/Fehler|fehlgeschlagen|error/i)
   })
 
+  test('a file too large to keep says so in words and offers no retry that would fail the same way', () => {
+    render(
+      <FileWorkList
+        works={[
+          {
+            ...made,
+            outcome: 'failed',
+            failedKind: 'make',
+            failedReason: 'too_large',
+            phases: [{ kind: 'make', state: 'failed', attempts: 1, reason: 'too_large' }],
+            steps: 1,
+          },
+        ]}
+      />
+    )
+    expect(screen.getByTestId('file-work-failed')).toHaveTextContent(
+      'Die Datei ist größer, als die Dateien eines Chats zusammen sein dürfen.'
+    )
+    expect(screen.getByTestId('file-work-failed').textContent).not.toMatch(/MB/)
+    expect(screen.queryByTestId('file-work-retry')).not.toBeInTheDocument()
+  })
+
   test('a final failure says what could not be made and puts a retry into the composer', async () => {
     render(
       <FileWorkList

@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, test } from 'vitest'
-import { sanitizeConfidenceCheck } from './confidence-check'
+import { checksCitationsOnly, findingKind, sanitizeConfidenceCheck } from './confidence-check'
 
 describe('sanitizeConfidenceCheck', () => {
   test('keeps a judged check and bounds its findings', () => {
@@ -15,6 +15,40 @@ describe('sanitizeConfidenceCheck', () => {
     const check = sanitizeConfidenceCheck({ status: 'judged', level: 'medium', findings })
     expect(check?.level).toBe('medium')
     expect(check?.findings).toHaveLength(8)
+  })
+
+  test('keeps the cited sources checked, from either spelling', () => {
+    const wire = { status: 'judged', level: 'high', findings: [], sources_checked: 4 }
+    const check = sanitizeConfidenceCheck(wire)
+    expect(check).toEqual({
+      status: 'judged',
+      level: 'high',
+      findings: [],
+      sourcesChecked: 4,
+    })
+    expect(checksCitationsOnly(check)).toBe(true)
+    expect(
+      sanitizeConfidenceCheck({ ...wire, sources_checked: undefined, sourcesChecked: 1 })
+        ?.sourcesChecked
+    ).toBe(1)
+  })
+
+  test('a check without the sources it checked was made under the old rule', () => {
+    expect(checksCitationsOnly(sanitizeConfidenceCheck({ status: 'judged', level: 'low' }))).toBe(
+      false
+    )
+    expect(
+      checksCitationsOnly(
+        sanitizeConfidenceCheck({ status: 'judged', level: 'low', sources_checked: -1 })
+      )
+    ).toBe(false)
+  })
+
+  test('reads an unbacked finding without a source as law without a citation', () => {
+    const base = { statement: 's', reason: '' }
+    expect(findingKind({ ...base, problem: 'unbacked', source: 'none' })).toBe('lawUncited')
+    expect(findingKind({ ...base, problem: 'unbacked', source: '[2] OIB' })).toBe('sourceSilent')
+    expect(findingKind({ ...base, problem: 'contradicted', source: 'none' })).toBe('contradicted')
   })
 
   test('a judged check with no findings on the wire reads as none', () => {

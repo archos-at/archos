@@ -132,7 +132,7 @@ class TestProducerParserContract:
     OIB = Hit(
         file_name="oib-rl_2_ausgabe_mai_2023.pdf",
         page=12,
-        collection="oib_knowledge",
+        collection="base_corpus",
         doc_class="oib_guideline",
         body="Brandabschnitte sind so auszubilden, dass eine Brandausbreitung begrenzt wird.",
     )
@@ -156,14 +156,14 @@ class TestProducerParserContract:
     def test_the_unclassified_hit_is_not_rendered_as_building_law(self):
         projekt, oib, archiv = roundtrip(self.PROJEKT, self.OIB, self.OFFICE_SHELF)
         assert source_lane(projekt) == ("project", "Projektwissen")
-        assert source_lane(archiv) == ("office", "Büroablage")
+        assert source_lane(archiv) == ("office", "Bürobibliothek")
         assert source_lane(oib) == ("building_law_oib", "OIB-Richtlinie")
 
     def test_all_hits_classified(self):
         second = Hit(
             file_name="erlaeuterungen_oib-rl_2.pdf",
             page=3,
-            collection="oib_knowledge",
+            collection="base_corpus",
             doc_class="oib_explanatory_note",
             body="Erlaeuternde Bemerkungen zur Richtlinie 2.",
         )
@@ -179,7 +179,7 @@ class TestProducerParserContract:
         loose = Hit(file_name="lose_notiz.pdf", page=2, body="Handnotiz ohne Collection.")
         loose_entry, oib_entry = roundtrip(loose, self.OIB)
         assert (loose_entry.collection, loose_entry.doc_class) == (None, None)
-        assert (oib_entry.collection, oib_entry.doc_class) == ("oib_knowledge", "oib_guideline")
+        assert (oib_entry.collection, oib_entry.doc_class) == ("base_corpus", "oib_guideline")
 
     def test_single_hit(self):
         (entry,) = roundtrip(self.OIB)
@@ -194,7 +194,7 @@ class TestProducerParserContract:
                     Hit(
                         file_name=f"oib-rl_{index}_ausgabe_mai_2023.pdf",
                         page=index + 1,
-                        collection="oib_knowledge",
+                        collection="base_corpus",
                         doc_class="oib_guideline",
                         body=f"Richtlinientext {index}.",
                     )
@@ -205,7 +205,7 @@ class TestProducerParserContract:
         assert identities(entries) == [hit.identity for hit in hits]
 
     def test_pageless_hit_keeps_a_pageless_citation_key(self):
-        pageless = Hit(file_name="leitfaden.pdf", collection="oib_knowledge", body="Ohne Seitenzahl.")
+        pageless = Hit(file_name="leitfaden.pdf", collection="base_corpus", body="Ohne Seitenzahl.")
         entry, oib_entry = roundtrip(pageless, self.OIB)
         assert entry.citation_key == "leitfaden.pdf"
         assert source_entry_to_wire(entry).get("page") is None
@@ -241,7 +241,7 @@ GOLDEN_HITS = [
     Hit(
         file_name="oib-rl_2_ausgabe_mai_2023.pdf",
         page=12,
-        collection="oib_knowledge",
+        collection="base_corpus",
         doc_class="oib_guideline",
         shelf="base",
         body="Brandabschnitte sind so auszubilden, dass eine Brandausbreitung begrenzt wird.",
@@ -376,7 +376,7 @@ class TestGoldenPathToWire:
     def test_every_chip_names_the_document_it_is_a_passage_of(self):
         _, _, _, wire = run_golden_path()
         assert [source["document_id"] for source in wire] == [
-            "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf",
+            "doc:base_corpus:oib-rl_2_ausgabe_mai_2023.pdf",
             "doc:proj_abc:einreichplan_og.pdf",
         ]
 
@@ -387,7 +387,7 @@ class TestTheNoticeIsInsideTheBytes:
         from agent.common.grounding_block import end_grounding_capture
         from agent.common.grounding_block import get_grounding_block
 
-        hit = Hit(file_name="oib-rl_2_ausgabe_mai_2023.pdf", page=12, collection="oib_knowledge")
+        hit = Hit(file_name="oib-rl_2_ausgabe_mai_2023.pdf", page=12, collection="base_corpus")
         result = SimpleNamespace(success=True, error_message=None, chunks=[hit.chunk()])
         token = begin_grounding_capture()
         try:
@@ -416,7 +416,7 @@ class TestTheTwoReadersAgree:
         Hit(
             file_name="oib-rl_2_ausgabe_mai_2023.pdf",
             page=12,
-            collection="oib_knowledge",
+            collection="base_corpus",
             doc_class="oib_guideline",
             shelf="base",
             clause="3.5.2",
@@ -550,7 +550,7 @@ class TestDocumentKey:
         pages = [
             SourceEntry(
                 citation_key=f"oib-rl_2_ausgabe_mai_2023.pdf, p.{page}",
-                collection="oib_knowledge",
+                collection="base_corpus",
                 source_type="knowledge_layer",
             )
             for page in (5, 12, 18)

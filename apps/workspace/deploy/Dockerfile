@@ -291,6 +291,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/bff/proxy/backend-target.js ./bff
 COPY --from=builder --chown=nextjs:nodejs /app/bff/turns/turn-headers.js ./bff/turns/turn-headers.js
 # And this one to open the shared rate-limit store's Dragonfly connection.
 COPY --from=builder --chown=nextjs:nodejs /app/bff/redis/connect.js ./bff/redis/connect.js
+# And this one to print the boot line once the gateway listens.
+COPY --from=builder --chown=nextjs:nodejs /app/bff/boot-line.js ./bff/boot-line.js
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 

@@ -26,6 +26,7 @@ import type { AuthoredRefKind } from './document-authors'
 import { deleteProjectDocument, findDocumentAuthoredByRef } from './repository'
 import { projectShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
+import { GENERATED_DOCUMENT_FOLDER_NAME } from './generated-folder'
 
 export const GENERATED_DOCUMENT_PRODUCER_REF_KINDS = {
   deep_research: 'agent_run',
@@ -99,7 +100,7 @@ export interface FiledGeneratedDocument {
   alreadyFiled: boolean
 }
 
-export const GENERATED_DOCUMENT_FOLDER_NAME = 'Berichte'
+export { GENERATED_DOCUMENT_FOLDER_NAME }
 
 export interface GeneratedDocumentDestination {
   folderName: string
@@ -123,6 +124,13 @@ export function generatedFilename(title: string, contentType: string, now: Date)
   const stem = title.toLowerCase().endsWith(`.${extension}`) ? title.slice(0, -(extension.length + 1)) : title
   const slug = fileSlug(stem)
   return `${slug || 'document'}-${day}.${extension}`
+}
+
+export function storageName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  const stem = fileSlug(dot > 0 ? name.slice(0, dot) : name, { lowercase: false, maxLength: 120 })
+  return `${stem || 'document'}${extension ? `.${extension}` : ''}`
 }
 
 type ChosenFolder = Pick<FolderRow, 'id' | 'path'> | null
@@ -211,7 +219,7 @@ export async function fileGeneratedDocument(
   const filename = isNamespacedAgentDocument({ authoredByProducer: producer })
     ? agentDocumentFilename(documentId, storedName)
     : storedName
-  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder?.path)
+  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storageName(storedName), folder?.path)
 
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 

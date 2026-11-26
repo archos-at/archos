@@ -960,7 +960,7 @@ This is an example sequence, not a commitment. Migrations start at 0193 [V]. Eac
 | 01-18 | **B8** naming, labels | SourceKind; labels from node records; `at-only-terms.spec.ts`; `knowledge_unavailable` | no Fluchtniveau in a Munich project |
 | 01-25 | **A9** office coverage | region records; contribution | a CH-GR record answers for its office only |
 | 01-25 | **B9** privacy | inventory, erasure, retention ratchet, receipts, backup encryption | removal scan across every store |
-| 2027-03 | **Contract step** (ask first) | drops `norm_registry`, `oib_knowledge`; `pg_dump`, Qdrant snapshot kept 30 d, read alias | 14 days with every org on the new path |
+| 2027-03 | **Contract step** (ask first) | drops `norm_registry` (the corpus is `base_corpus` since 2026-11); `pg_dump`, Qdrant snapshot kept 30 d, read alias | 14 days with every org on the new path |
 
 PR order inside A4: queue and approvals, then preview and golden runs, then rollback and kit. Inside B4: access types, then engines, then sandbox, then the RIS move.
 

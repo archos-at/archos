@@ -44,6 +44,7 @@ def _decide(event="pull_request", light="", base="develop", author="someone", la
         ({"labels": {"backend", "no-release-note"}}, "light"),
         ({"labels": {depth.FULL_LABEL}}, "full"),
         ({"event": "push"}, "full"),
+        ({"event": "merge_group", "light": "true"}, "full"),
         ({"light": "false"}, "full"),
         ({"base": "release/1"}, "full"),
         ({"author": "dependabot[bot]"}, "full"),

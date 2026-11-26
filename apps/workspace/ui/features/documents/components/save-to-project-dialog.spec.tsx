@@ -20,7 +20,7 @@ function Dialog(props: Partial<SaveToProjectDialogProps> = {}) {
     <SaveToProjectDialog
       open
       onOpenChange={vi.fn()}
-      projectId="proj-1"
+      shelf={{ kind: 'project', projectId: 'proj-1' }}
       fileName="Flächenaufstellung.xlsx"
       extension="xlsx"
       onSave={vi.fn()}
@@ -52,6 +52,24 @@ beforeEach(() => {
 })
 
 describe('SaveToProjectDialog', () => {
+  it('lists and files into the folders of Meine Ablage when the shelf is personal', async () => {
+    server.use(
+      http.get('/api/personal-shelf/folders', () =>
+        HttpResponse.json({ folders: [{ id: 'p-notes', name: 'Notizen', parentId: null, path: 'Notizen' }] }),
+      ),
+    )
+    const onSave = vi.fn()
+    const user = userEvent.setup()
+    render(<Dialog shelf={{ kind: 'personal' }} onSave={onSave} />)
+    await ready()
+
+    expect(screen.getByRole('heading', { name: 'Save to Meine Ablage' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open folder “Notizen”' }))
+    await user.click(screen.getByRole('button', { name: 'File' }))
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ folderId: 'p-notes', name: 'Flächenaufstellung.xlsx' }))
+  })
+
   it('prefills the name without its extension and shows the extension beside it, fixed', async () => {
     render(<Dialog />)
     await ready()

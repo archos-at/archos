@@ -95,7 +95,7 @@ class TestMailLanes:
 
 class TestSourceKindLookup:
     def test_known_kind(self):
-        assert source_kind("office").label == "Büroablage"
+        assert source_kind("office").label == "Bürobibliothek"
 
     def test_unknown_kind_fails_open(self):
         assert source_kind("nope").key == DEFAULT_SOURCE_KIND
@@ -115,7 +115,7 @@ class TestWireKind:
         assert wire["lane_label"] == "OIB-Richtlinie"
 
     def test_corpus_collection_is_baurecht(self):
-        entry = SourceEntry(citation_key="anhang.pdf", collection="oib_knowledge", source_type="knowledge_layer")
+        entry = SourceEntry(citation_key="anhang.pdf", collection="base_corpus", source_type="knowledge_layer")
         assert source_entry_to_wire(entry)["kind"] == "building_law"
 
     def test_ris_url_is_baurecht(self):
@@ -148,8 +148,8 @@ class TestNoBindingNote:
 
 
 class TestShelf:
-    def test_the_enum_holds_exactly_the_four_shelves(self):
-        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base"}
+    def test_the_enum_holds_exactly_the_five_shelves(self):
+        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base", "personal"}
 
     @pytest.mark.parametrize(
         "value,expected",
@@ -196,17 +196,18 @@ class TestShelf:
 
     def test_legacy_qualifier_keys_still_parse_to_the_old_vocabulary(self):
         assert scope_for_qualifier("Projektwissen") == "projekt"
-        assert scope_for_qualifier("Büroablage") == "buero"
+        assert scope_for_qualifier("Bürobibliothek") == "buero"
         assert scope_for_qualifier("Basiswissen") == "baurecht"
         assert scope_for_qualifier("Internal") is None
 
     def test_the_shelfs_retired_name_still_parses_and_is_never_written(self):
-        assert shelf_qualifier(Shelf.OFFICE_SHELF) == "Büroablage"
-        assert shelf_for_qualifier("Büroarchiv") is Shelf.OFFICE_SHELF
-        assert scope_for_qualifier("Büroarchiv") == "buero"
-        assert "Büroarchiv" not in SHELF_QUALIFIERS.values()
+        assert shelf_qualifier(Shelf.OFFICE_SHELF) == "Bürobibliothek"
+        for retired in ("Büroablage", "Büroarchiv"):
+            assert shelf_for_qualifier(retired) is Shelf.OFFICE_SHELF
+            assert scope_for_qualifier(retired) == "buero"
+            assert retired not in SHELF_QUALIFIERS.values()
 
-    @pytest.mark.parametrize("qualifier", ["Büroablage", "Büroarchiv"])
+    @pytest.mark.parametrize("qualifier", ["Bürobibliothek", "Büroablage", "Büroarchiv"])
     def test_a_key_under_either_name_strips_to_the_file(self, qualifier):
         from agent.citations.citation_keys import parse_citation_ref
 
@@ -225,7 +226,7 @@ class TestLegacyShelfFallback:
     def test_it_reads_the_known_prefixes(self, collection, expected):
         assert legacy_shelf_for_collection_name(collection) is expected
 
-    @pytest.mark.parametrize("collection", ["oib_knowledge", "some_custom_corpus", "", None])
+    @pytest.mark.parametrize("collection", ["base_corpus", "some_custom_corpus", "", None])
     def test_it_fails_closed_on_anything_else(self, collection):
         assert legacy_shelf_for_collection_name(collection) is None
 

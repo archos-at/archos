@@ -14,3 +14,5 @@ export async function setDocumentLifecycle(
     .set({ lifecycle, updatedAt: new Date() })
     .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId)))
 }
+
+export const MAX_CHANGE_NOTE_CHARS = 500

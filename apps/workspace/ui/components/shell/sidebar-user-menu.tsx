@@ -71,6 +71,7 @@ export interface SidebarUserMenuProps {
   avatarSizeClass?: string
   organizationName?: string | null
   tourAnchor?: string
+  beforeChevron?: string
 }
 
 const THEME_ICONS: Record<ThemeMode, React.ComponentType<{ className?: string }>> = {
@@ -95,6 +96,7 @@ export function SidebarUserMenu({
   avatarSizeClass = 'size-[30px]',
   organizationName = null,
   tourAnchor,
+  beforeChevron,
 }: SidebarUserMenuProps) {
   const { user: authUser, signOut } = useAuth()
   const theme = useLayoutStore((s) => s.theme)
@@ -128,7 +130,7 @@ export function SidebarUserMenu({
           'data-[state=open]:bg-desk in-data-[sidebar=sidebar]:data-[state=open]:bg-selected',
           'active:scale-[0.98] motion-reduce:transition-none',
           compact
-            ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
+            ? 'size-9 justify-center rounded-full p-0 pointer-coarse:size-11'
             : // The 24px disc at 20–44 (the project mark's edge) and a 7px gap
               'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-3',
         )}
@@ -161,6 +163,7 @@ export function SidebarUserMenu({
             {/* 13px at 500, muted as the rail's rows at rest: one step under the 14px ink it had (owner decision 2026-11-11). */}
             <span className="text-muted-foreground group-hover/user:text-foreground min-w-0 flex-1 truncate text-[13px] font-medium">{displayName}</span>
             {/* Says the row opens something, as the switcher's chevrons do. */}
+            {beforeChevron && <span aria-hidden data-slot="user-menu-reserved" className={cn('shrink-0', beforeChevron)} />}
             <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </>
         )}
@@ -262,8 +265,8 @@ export function SidebarUserMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        {/* The tour lives on the projects home; from anywhere else this
-            navigates there first. */}
+        {/* The welcome tour lives on the personal chat; from anywhere but a
+            project this navigates there first. */}
         <DropdownMenuItem onSelect={() => startTour()} className="gap-2">
           <Compass className="size-4 text-muted-foreground" aria-hidden />
           {t('userMenu.productTour')}

@@ -30,7 +30,7 @@ vi.mock('@/lib/documents/document-edits', () => ({
 vi.mock('@/lib/documents/document-listing', () => ({
   resolveProjectDocumentsByName: vi.fn(),
 }))
-vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn() }))
+vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn(), assertMoveKeepsOutOfStandards: vi.fn(async () => undefined) }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({
   listOfficeShelfFolders: vi.fn(),
   ensureOfficeShelfFolderPaths: vi.fn(),
@@ -235,7 +235,7 @@ describe('GET /api/proposals', () => {
     expect((await listOpenProposals({ projectId: PROJECT }, run)).proposals).toEqual([])
   })
 
-  it('lists the Büroablage’s with no project, to any member, decidable by its curators only', async () => {
+  it('lists the Bürobibliothek’s with no project, to any member, decidable by its curators only', async () => {
     const forMember = await listOpenProposals({ shelf: 'office_shelf' }, run)
     expect(forMember.proposals.map((entry) => [entry.proposal.id, entry.proposal.projectId, entry.proposal.canDecide])).toEqual([
       [OFFICE_SHELF, null, false],
@@ -314,7 +314,7 @@ describe('a proposal no conversation made', () => {
   })
 })
 
-describe('the Büroablage', () => {
+describe('the Bürobibliothek', () => {
   it('is decided by its curators: a member gets a 403', async () => {
     await expect(applyProposal(OFFICE_SHELF, run)).rejects.toMatchObject({ status: 403 })
     SESSION.permissions = ['org:office_shelf:manage']

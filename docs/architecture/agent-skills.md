@@ -1103,6 +1103,7 @@ run tries again (the daily ones also retry a few times with backoff).
 | `inbound-mail-sweep` | every minute | `sweepInboundMail` (ADR-0137, [`inbound-mail.md`](inbound-mail.md)) |
 | `source-monitor` | `*/15 * * * *` | `runSourceMonitor` (ADR-0174), off unless the platform has source monitors on |
 | `frist-reminder` | `CRON_TZ=Europe/Vienna 45 6 * * *` | `enqueueDueReminders`, at 06:45 on the office's clock |
+| `base-knowledge-new-editions` | `CRON_TZ=Europe/Vienna 13 5 * * *` | `sweepNewEditionNotices`: per office with `office-standards` on, each active project's binding editions by the chain resolver; whoever manages the Bürobibliothek gets `base_knowledge.new_edition` when a confirmed office norm is no longer the binding edition for at least one of them, resolved once the office holds it or no active project is affected (ADR-0163, amendment „the binding edition comes from the chain resolver“) |
 
 The sweeps that ticked every 30 s now run every minute: Hatchet crons have no
 seconds. The cross-tenant SQL of the prune, the trace erasure and the download
@@ -1208,13 +1209,10 @@ Both pages use the same server shell (session → flag `notFound()` →
 and job management are independent permissions, so each capability is computed
 by the page and passed down.
 
-Run history rows carry the **live** job status, not just the submission badge:
-the history joins its rows against
-`GET /v1/jobs/async/jobs?project_collection=<proj_…>` — the same list the
-History page uses — and shows `Queued / Running / Completed / Failed /
-Cancelled`, repeating every 10 s while a run is still active. Best-effort:
-without the join (backend unreachable, run outside the lookup window) the row
-falls back to its submission badge. The row's action no longer follows that
+Run history rows show the run's status from its `task_runs` row
+(`GET /api/projects/{id}/runs?taskId=`), in the ledger's words and badge
+(`RUN_STATUS_VARIANT`, the `tasks` copy), repeating every 10 s while a run is
+still active; the backend's job store lists nothing (ADR-0191). The row's action no longer follows that
 status — every row opens the thread the run narrates itself in
 (`?session=<conversationId>&run=<runId>`, ADR-0062), and the status only picks
 the words: *View progress* while the run is live, *Open chat* once it is not.

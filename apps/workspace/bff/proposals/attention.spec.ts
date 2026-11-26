@@ -59,7 +59,7 @@ describe('onProposalCreated', () => {
     })
   })
 
-  it('points a Büroablage filing suggestion, which has no project and no chat, at the organization', async () => {
+  it('points a Bürobibliothek filing suggestion, which has no project and no chat, at the organization', async () => {
     await onProposalCreated({
       ...created,
       projectId: null,
@@ -135,7 +135,7 @@ describe('onProposalDecided', () => {
 
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org_1',
-      types: ['agent.proposal_waiting'],
+      types: ['agent.proposal_waiting', 'office_shelf.norm_suggested'],
       anchorId: 'prop_1',
     })
   })

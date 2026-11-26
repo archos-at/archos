@@ -6,16 +6,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cards.card_doctrine import render_card_doctrine
 from agent.cards.catalog import MODEL_BACKED_CARD_TYPES
-from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import render_card_details
-from agent.cards.catalog import render_card_doctrine
 from agent.cards.catalog import render_card_index
-from agent.cards.catalog import retired_refusal
 from agent.cards.catalog import shape_hint_for
 from agent.cards.proposal_cards import SERVER_FILLED_CARD_FIELDS
 from agent.cards.registry import CardRegistry
+from agent.cards.retired_cards import RETIRED_CARD_TYPES
+from agent.cards.retired_cards import retired_refusal
 from agent.cards.surface_card import SURFACE_MAX_CHILDREN
 from agent.cards.surface_card import SURFACE_MAX_LEAVES
 from agent.cards.surface_card import SURFACE_MAX_TABS

@@ -4,6 +4,7 @@ import {
   LICENCE_CLASSES,
   OFFICE_WORK_KINDS,
   type KnowledgeCheckResult,
+  type OfficeWorkKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
 const territoryId = z
@@ -13,6 +14,10 @@ const territoryId = z
   .regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/, 'an ISO 3166 code such as AT or AT-9')
 
 const isoDate = z.iso.date()
+
+export { ASK_FOR_LICENCE } from './licence-step'
+
+export { UNKNOWN_EDITION } from './edition-key'
 
 export const ENTRY_PAGE = 50
 export const MAX_ENTRY_PAGE = 200
@@ -85,7 +90,7 @@ export const recordCheckBodySchema = z
   .strict()
 export type RecordCheckBody = z.infer<typeof recordCheckBodySchema>
 
-export const ENTRY_ATTENTION = ['proposed', 'check_due', 'metadata_only'] as const
+export const ENTRY_ATTENTION = ['proposed', 'newer_edition', 'check_due', 'metadata_only'] as const
 export type EntryAttention = (typeof ENTRY_ATTENTION)[number]
 
 export const listEntriesQuerySchema = z
@@ -97,7 +102,7 @@ export const listEntriesQuerySchema = z
     attention: z
       .enum(ENTRY_ATTENTION)
       .optional()
-      .describe('proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.'),
+      .describe('proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used.'),
     folderId: z
       .guid()
       .optional()
@@ -134,6 +139,14 @@ export interface EntryEdition {
   inForceToday: boolean
 }
 
+export interface BindingStanding {
+  editionLabel: string
+  startsOn: string | null
+  via: { designation: string | null; editionLabel: string | null } | null
+  held: boolean
+  newer: boolean
+}
+
 export interface BaseKnowledgeEntry {
   id: string
   editionId: string
@@ -147,6 +160,7 @@ export interface BaseKnowledgeEntry {
   proposedBy: 'reading' | 'agent' | 'person'
   confirmedBy: string | null
   freshness: Freshness
+  binding: BindingStanding | null
   workId: string
   editions: EntryEdition[]
   folderId: string | null
@@ -157,6 +171,7 @@ export interface BaseKnowledgeEntry {
 export interface EntryCounts {
   all: number
   proposed: number
+  newerEdition: number
   checkDue: number
   metadataOnly: number
 }
@@ -226,3 +241,103 @@ export interface BulkEntryResult {
 export interface BulkEntriesResult {
   results: BulkEntryResult[]
 }
+
+export const MAX_RECOGNIZE_DOCUMENTS = 50
+
+export const recognizeBodySchema = z
+  .object({
+    documentIds: z
+      .array(z.guid())
+      .min(1)
+      .max(MAX_RECOGNIZE_DOCUMENTS)
+      .describe(`Office shelf documents, from document-list; at most ${MAX_RECOGNIZE_DOCUMENTS}.`),
+    asNorm: z.boolean().optional().describe('true: propose each document even when its reading finds no norm.'),
+  })
+  .strict()
+export type RecognizeBody = z.infer<typeof recognizeBodySchema>
+
+export interface NormProposal {
+  entryId: string
+  documentId: string
+  fileName: string
+  kind: OfficeWorkKind
+  designation: string | null
+  editionLabel: string | null
+  topicId: string | null
+  editionOf: { entryId: string; designation: string | null; editionLabel: string } | null
+  duplicate: boolean
+  heldEditions?: string[]
+  upload?: boolean
+  coverOverrode?: { field: 'designation' | 'editionLabel'; fileName: string }[]
+}
+
+export interface PlainUpload {
+  documentId: string
+  fileName: string
+  folderId: string | null
+  folderPath: string | null
+  platformHeld: boolean
+}
+
+export interface NormRecognition {
+  proposals: NormProposal[]
+  plain: PlainUpload[]
+  topics: BaseKnowledgeFolders
+}
+
+export const settleProposalsBodySchema = z
+  .object({
+    rows: z
+      .array(
+        z
+          .object({
+            entryId: z.string().min(1).max(120).describe('A proposal from base-knowledge-recognize.'),
+            notNorm: z.boolean().optional().describe('true: not a norm; the file returns to its folder, not offered again.'),
+            kind: entryFields.kind.optional(),
+            designation: entryFields.designation.optional(),
+            editionLabel: z
+              .string()
+              .trim()
+              .max(120)
+              .nullable()
+              .optional()
+              .describe('Empty or null: no edition, so it stays proposed; omit to keep the read one.'),
+            topicId: z
+              .guid()
+              .nullable()
+              .optional()
+              .describe('From base-knowledge-folder-list; null: the root.'),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(MAX_RECOGNIZE_DOCUMENTS),
+  })
+  .strict()
+export type SettleProposalsBody = z.infer<typeof settleProposalsBodySchema>
+
+export type SettleOutcome = 'confirmed' | 'edition_added' | 'duplicate_removed' | 'duplicate_returned' | 'not_norm' | 'edition_missing' | 'failed'
+
+export interface SettledProposal {
+  entryId: string
+  outcome: SettleOutcome
+  error: string | null
+}
+
+export interface SettleProposalsResult {
+  results: SettledProposal[]
+}
+
+export interface BaseKnowledgeUnlisting {
+  documentId: string
+  folderId: null
+  entryId: string
+  formerFolderId: string | null
+}
+
+export const relistEntryBodySchema = z
+  .object({
+    folderId: z.guid().nullable().optional().describe('The topic folder it lay in; the base-knowledge root when absent or no longer one.'),
+  })
+  .strict()
+export type RelistEntryBody = z.infer<typeof relistEntryBodySchema>

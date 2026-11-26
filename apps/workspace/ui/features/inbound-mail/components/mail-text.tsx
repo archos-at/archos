@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import { CalendarDays, ChevronDown, EyeOff, FileWarning, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CopyableValue } from '@/components/ui/copyable-value'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Quote } from '@/components/ui/quote'
@@ -17,6 +18,7 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export type MailTextState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; text: InboundMailTextView }
 
+/** A link stays text; its domain is said in ink (a look-alike host shows itself) with a press that copies it. */
 function InertText({ text }: { text: string }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
@@ -25,8 +27,18 @@ function InertText({ text }: { text: string }): JSX.Element {
         run.kind === 'text' ? (
           <span key={index}>{run.value}</span>
         ) : (
-          <span key={index} title={t('text.linkTitle', { domain: run.domain })} className="text-muted-foreground underline decoration-dotted underline-offset-2">
-            {run.value}
+          <span key={index} data-testid="mail-text-link">
+            <span title={t('text.linkTitle', { domain: run.domain })} className="text-muted-foreground break-all underline decoration-dotted underline-offset-2">
+              {run.value}
+            </span>{' '}
+            <span className="text-xs">
+              <span className="text-foreground font-medium" data-testid="mail-text-link-domain">
+                {t('text.linkDomain', { domain: run.domain })}
+              </span>{' '}
+              <CopyableValue value={run.value} className="mx-0 align-baseline text-xs pointer-coarse:align-middle">
+                {t('text.linkCopy')}
+              </CopyableValue>
+            </span>
           </span>
         )
       )}

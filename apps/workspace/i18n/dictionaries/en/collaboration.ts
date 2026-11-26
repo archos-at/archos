@@ -4,6 +4,7 @@ export const collaboration = {
     title: 'You no longer have the rights to view this chat',
     description:
       'Access to a folder this chat draws on has changed since it was shared. Ask someone who can read those folders, or your administrator.',
+    withheldFrom: 'From here on, the chat draws on a source you may not open.',
   },
   sharing: {
     title: 'Share',
@@ -94,6 +95,11 @@ export const collaboration = {
         'This person may not read every folder with restricted access this conversation draws on, so it cannot be shared with them.',
       restrictedContentSelf:
         'You may not read every folder with restricted access this conversation draws on, so you cannot take it over.',
+      personalShelfContent:
+        'This chat read from your own files. Whoever sees it sees its answers, never the files. After that it no longer reads from them.',
+      personalShelfContentNotOwner:
+        'This chat read from the own files of the person who started it. Only they can share it further.',
+      personalShelfConfirm: 'Share anyway',
       restrictedContentProject:
         'This conversation draws on a folder with restricted access, so it cannot be made visible to the whole project. Share it with individual people who may read that folder instead.',
       crossProjectContent:
@@ -207,11 +213,29 @@ export const collaboration = {
   },
 
   inbox: {
-    title: 'Inbox',
-    dock: {
-      close: 'Close the inbox',
-      all: 'All entries and the archive',
+    bell: {
+      late: '{count} overdue',
+      news: '{count, plural, one {# news item} other {# news items}}',
+      open: 'Open inbox',
+      back: 'Leave the inbox',
     },
+    page: {
+      done: 'Mark as done',
+      review: 'Open in the review view',
+      personal: 'Personal',
+      back: 'Back',
+      opened: 'Opened entry',
+      go: 'Open',
+      sheet: 'Page {page}',
+      openPlace: 'Open {sheet}, annotation {number} in the review',
+      onRevision: 'This annotation is on revision {revision}, not on the current one.',
+      earlierRevision: 'This annotation is on an earlier revision.',
+      thread: 'Annotation thread',
+      markFailed: 'The annotation could not be loaded. Open it in the review.',
+      archiveKey: 'Archive (E)',
+      nextHere: '{count, plural, one {# more in this document} other {# more in this document}}',
+    },
+    title: 'Inbox',
     navLabel: 'Inbox',
     badgeAria:
       '{count, plural, one {# item needs} other {# items need}} your attention',
@@ -223,10 +247,10 @@ export const collaboration = {
       archived: 'Archived',
       ariaLabel: 'Filter inbox',
     },
-    markAllRead: 'Mark all as read',
+    archiveAll: 'Archive all',
     archive: 'Archive',
     undo: 'Undo',
-    markAllReadShort: 'All read',
+    archivedAll: 'Inbox cleared',
     archived: 'Archived',
     unarchive: 'Restore',
     unarchived: 'Restored',
@@ -342,6 +366,15 @@ export const collaboration = {
         body: 'On “{subject}” — read and reply in My feedback.',
         bodyNoSubject: 'Read and reply in My feedback.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject} is no longer the binding edition',
+        body: 'Edition {related} is binding. Affects: {excerpt}',
+        variants: {
+          via: {
+            body: 'Edition {related} is binding, under {via}. Affects: {excerpt}',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Your organization is running out of storage',
         body: '{subject} of the storage quota is in use. Once it is full, uploads will start failing — delete documents you no longer need, or ask whoever runs {productName} for you to raise the quota.',
@@ -420,7 +453,7 @@ export const collaboration = {
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
-        body: 'What was imported until then stays in the project. The import list under Files gives the reason.',
+        body: 'What was imported until then stays in the project. The import list under Documents gives the reason.',
       },
       taskRunFailed: {
         title: '{productName} could not finish “{subject}”',
@@ -501,8 +534,8 @@ export const collaboration = {
       agentProposalWaiting: {
         title: '{productName} has a proposal for you',
         body: 'The proposal is in the chat. Apply or dismiss it there; nothing changes until then.',
-        bodyProject: 'The proposal waits on the file under Files. Apply or dismiss it there; nothing changes until then.',
-        bodyOrganization: 'The proposal waits on the file in the office filing. Apply or dismiss it there; nothing changes until then.',
+        bodyProject: 'The proposal waits on the file under Documents. Apply or dismiss it there; nothing changes until then.',
+        bodyOrganization: 'The proposal waits on the file in the office library. Apply or dismiss it there; nothing changes until then.',
         variants: {
           move: { title: '{productName} suggests a new place for files' },
           rename: { title: '{productName} suggests a rename' },
@@ -511,6 +544,7 @@ export const collaboration = {
           memory: { title: '{productName} would like to remember a note' },
           project_profile: { title: '{productName} suggests a change to the project context' },
           operation: { title: '{productName} suggests an action' },
+          office_shelf_norm: { title: '{productName} suggests a norm for the office library' },
         },
       },
       agentIntakeReady: {
@@ -683,10 +717,10 @@ export const collaboration = {
         body: 'Look at where each file should go. Nothing moves until you apply it.',
         variants: {
           office: {
-            titleOne: 'The sort of the office filing is ready to review: 1 file',
-            titleMany: 'The sort of the office filing is ready to review: {count} files',
-            titleNone: 'The sort of the office filing is ready to review',
-            title: 'The sort of the office filing is ready to review',
+            titleOne: 'The sort of the office library is ready to review: 1 file',
+            titleMany: 'The sort of the office library is ready to review: {count} files',
+            titleNone: 'The sort of the office library is ready to review',
+            title: 'The sort of the office library is ready to review',
           },
         },
       },
@@ -708,7 +742,7 @@ export const collaboration = {
         titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
         title: 'Mails to “{subject}” expire in {noticeDays} days',
         titleResolved: 'No mail to “{subject}” is about to expire',
-        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
+        body: 'What nobody files by then expires, and can be restored for {restoreDays} days after.',
         variants: {
           unconfirmed: {
             body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',
@@ -749,6 +783,19 @@ export const collaboration = {
       inboundMailRejected: {
         title: 'Your mail to “{subject}” was dismissed',
         body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+        variants: {
+          reported: {
+            titleRelated: 'Someone posed as you in “{subject}”: {related}',
+            title: 'Someone posed as you in “{subject}”',
+            body: '{actor} reported the forged mail and dismissed it. Whoever gets such a mail in your name should know: it did not come from you.',
+          },
+        },
+      },
+      inboundMailFraudReported: {
+        titleRedacted: 'A forged mail was reported in a project',
+        titleRelated: 'Forged mail as {related} in “{subject}”: do not pay, do not reply',
+        title: 'Forged mail in “{subject}”: do not pay, do not reply',
+        body: '{actor} reported it and dismissed it in Project mail. Please do not pay and do not reply. Check your mail program for the same mail.',
       },
       inboundMailExpired: {
         title: 'Your mail to “{subject}” was not filed in time',
@@ -771,22 +818,61 @@ export const collaboration = {
         },
       },
       inboundMailAppended: {
-        titleOne: 'A reply was appended to a mail thread in “{subject}”',
-        titleMany: '{count} replies were appended to a mail thread in “{subject}”',
-        title: 'Replies were appended to a mail thread in “{subject}”',
-        body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
+        titleOne: 'A reply was appended to a mail thread in “{subject}” without a click',
+        titleMany: '{count} replies were appended to a mail thread in “{subject}” without a click',
+        title: 'Replies were appended to a mail thread in “{subject}” without a click',
+        body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click. Attachments without an existing folder wait in Project mail.',
+        variants: {
+          with_attachments: {
+            titleOne: 'A reply and its attachments were filed in “{subject}” without a click',
+            titleMany: '{count} replies and their attachments were filed in “{subject}” without a click',
+            title: 'Replies and their attachments were filed in “{subject}” without a click',
+            body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click: the text into the mail thread, the attachments into the folders {productName} suggested. Whatever had no existing folder waits in Project mail.',
+          },
+        },
       },
       mailThreadFollowExpiring: {
-        title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',
-        titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
-        body: 'Renew it so later replies keep being appended.',
+        title: 'Replies in a mail thread in “{subject}” are filed without a click for only {followNoticeDays} more days',
+        titleResolved: 'Filing without a click in a mail thread in “{subject}” was renewed or ended',
+        body: 'Renew it in the mail thread under “Mails” so later replies keep being appended without a click.',
+      },
+      mailThreadFollowEnded: {
+        title: 'Replies in a mail thread in “{subject}” are no longer filed without a click',
+        body: 'Later replies wait in Project mail until someone files them.',
+        variants: {
+          access_lost: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: your access to it ended' },
+          document_gone: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: it was deleted' },
+          project_closed: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: the project was closed' },
+          detached: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: a mail was detached from it',
+            body: 'Switch it on again in the mail thread under “Mails” so later replies are appended without a click again.',
+          },
+          revoked_by_manager: {
+            title: '{actor} ended filing without a click for you in a mail thread in “{subject}”',
+            titleNoActor: 'A project manager ended filing without a click for you in a mail thread in “{subject}”',
+          },
+          address_rotated: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: the project mail address was replaced',
+            body: 'Replies to the old address no longer arrive. Switch it on again in the mail thread once the new address is in use.',
+          },
+          thread_full: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: it is full',
+            body: 'Later replies wait in Project mail. File them as a new mail thread that continues this one.',
+          },
+        },
       },
       rootSortFailed: {
         title: 'The sort of “{subject}” stopped',
         body: 'What was moved until then stays. Open the files to see the reason.',
         variants: {
-          office: { title: 'The sort of the office filing stopped' },
+          office: { title: 'The sort of the office library stopped' },
         },
+      },
+      officeShelfNormSuggested: {
+        title: '{actor} suggests a norm for the office library',
+        titleNoActor: 'A norm is suggested for the office library',
+        titleResolved: 'The suggestion for the office library is decided',
+        body: 'From “{subject}”. In the office library every project finds it.',
       },
       unknown: {
         title: 'Something happened',
@@ -813,6 +899,25 @@ export const collaboration = {
       failed: 'That did not go through. Nothing has changed.',
       stale: 'Someone decided first. The current revision is in the file.',
       reload: 'Open current revision',
+    },
+    normNotice: {
+      uploadEdition: 'Upload the new edition',
+      viewEdition: 'View',
+      viewEditionLabel: 'View {subject} in Standards & guidelines',
+    },
+    normSuggestion: {
+      accept: 'Take into the office library',
+      decline: 'Decline',
+      visibility: 'Everyone in the office can see it then.',
+      accepted: 'Confirmed and in the office library. The project keeps a reference.',
+      unconfirmed: 'In the office library, but waiting for confirmation under Standards & guidelines: {reason}',
+      declined: 'Declined. The norm stays in the project.',
+      failed: 'That did not go through: {reason}',
+      stale: 'Someone has already decided.',
+      confirmBody:
+        'Check the type, designation and edition. Once confirmed the norm goes under Standards & guidelines, visible to everyone in the office, and the project keeps a reference.',
+      later: 'The suggestion keeps waiting in the inbox.',
+      editionNeeded: 'Enter the edition. Without one the norm cannot be confirmed.',
     },
   },
 

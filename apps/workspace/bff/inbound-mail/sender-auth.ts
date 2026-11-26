@@ -46,6 +46,7 @@ export interface SenderAuthentication {
 export interface AuthenticateSenderOptions {
   projectToken: string
   inboundDomain: string
+  forwardedFrom?: readonly string[]
   envelopeFrom?: string | null
   resolver?: DNSResolver
   deadlineMs?: number
@@ -88,17 +89,25 @@ export function signedFieldNames(signature: DKIMResult): string[] {
   return [...new Set(names)].slice(0, MAX_SIGNED_HEADERS)
 }
 
-function signsProjectRecipient(signature: DKIMResult, projectToken: string, inboundDomain: string): boolean {
+export interface ProjectRecipients {
+  projectToken: string
+  inboundDomain: string
+  forwardedFrom: readonly string[]
+}
+
+export function namesProject(address: string, recipients: ProjectRecipients): boolean {
+  const parsed = parseInboundAddress(address, recipients.inboundDomain)
+  if (parsed.kind === 'token') return parsed.token === recipients.projectToken
+  return parsed.kind === 'foreign' && recipients.forwardedFrom.includes(asciiLower(address.trim()))
+}
+
+function signsProjectRecipient(signature: DKIMResult, recipients: ProjectRecipients): boolean {
   for (const line of signature.signingHeaders?.headers ?? []) {
     const colon = line.indexOf(':')
     const name = asciiLower(line.slice(0, Math.max(0, colon)).trim())
     if (name !== 'to' && name !== 'cc') continue
     const value = line.slice(colon + 1).replace(/\r?\n/g, '')
-    const named = mailboxes(value).some((mailbox) => {
-      const parsed = parseInboundAddress(mailbox.address, inboundDomain)
-      return parsed.kind === 'token' && parsed.token === projectToken
-    })
-    if (named) return true
+    if (mailboxes(value).some((mailbox) => namesProject(mailbox.address, recipients))) return true
   }
   return false
 }
@@ -229,7 +238,11 @@ async function evaluate(raw: Uint8Array, options: AuthenticateSenderOptions): Pr
     reason: 'dkim_pass',
     signerDomain: asciiLower(admitting.signingDomain ?? '') || null,
     signedHeaders: signedFieldNames(admitting),
-    signedRecipientNamesProject: signsProjectRecipient(admitting, asciiLower(options.projectToken), authservId),
+    signedRecipientNamesProject: signsProjectRecipient(admitting, {
+      projectToken: asciiLower(options.projectToken),
+      inboundDomain: authservId,
+      forwardedFrom: (options.forwardedFrom ?? []).map(asciiLower),
+    }),
     authenticationResults: evidence,
   }
 }

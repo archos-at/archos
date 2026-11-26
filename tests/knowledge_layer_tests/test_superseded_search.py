@@ -17,7 +17,7 @@ from agent.knowledge.scoping import ScopedCollection
 
 PROJECT = "proj_1"
 OFFICE_SHELF = "archiv_1"
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 
 DOCS = [
     AvailableDocument(file_name="Statik_Index_B.pdf", collection=PROJECT, shelf="project", folder_path="Statik"),

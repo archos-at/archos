@@ -1,11 +1,21 @@
 import { z } from 'zod'
 import { MAX_MENTIONS_PER_MESSAGE } from '@/lib/limits/catalog'
 import { AGENT_KINDS, isAgentKind } from '@/lib/agent-kind'
+import {
+  boxOfPoints,
+  isMeasureShape,
+  keptReadingSchema,
+  MEASURE_SHAPES,
+  measurePointsSchema,
+  PIN_SHAPES,
+  pointsProblem,
+  type PagePoint,
+} from './measure-shapes'
 
 export const ANNOTATION_KINDS = ['hint', 'question', 'defect'] as const
 export type AnnotationKind = (typeof ANNOTATION_KINDS)[number]
 
-export const ANNOTATION_SHAPES = ['point', 'region'] as const
+export const ANNOTATION_SHAPES = [...PIN_SHAPES, ...MEASURE_SHAPES] as const
 export type AnnotationShape = (typeof ANNOTATION_SHAPES)[number]
 
 export const ANNOTATION_AUTHORS = ['person', ...AGENT_KINDS] as const
@@ -58,6 +68,7 @@ const placeFields = {
   y: unit,
   w: unit.nullable().optional(),
   h: unit.nullable().optional(),
+  points: measurePointsSchema.nullable().optional(),
 }
 
 type PlaceInput = {
@@ -66,9 +77,17 @@ type PlaceInput = {
   y: number
   w?: number | null
   h?: number | null
+  points?: PagePoint[] | null
 }
 
 export function placeProblem(place: PlaceInput): string | null {
+  const points = pointsProblem(place.shape, place.points)
+  if (points) return points
+  if (isMeasureShape(place.shape)) {
+    if (place.w != null || place.h != null) return 'a measurement has no size'
+    const [x, y] = place.points?.[0] ?? [place.x, place.y]
+    return x === place.x && y === place.y ? null : 'a measurement is placed at its first point'
+  }
   if (place.shape === 'point') return place.w != null || place.h != null ? 'a point has no size' : null
   if (!place.w || !place.h) return 'a region needs a size'
   if (place.x + place.w > 1.000001 || place.y + place.h > 1.000001) return 'a region stays on its page'
@@ -192,6 +211,8 @@ export const annotationViewSchema = z.object({
   y: z.number(),
   w: z.number().nullable(),
   h: z.number().nullable(),
+  points: measurePointsSchema.nullable().optional(),
+  reading: keptReadingSchema.nullable().optional(),
   kind: z.enum(ANNOTATION_KINDS),
   body: z.string(),
   mentions: z.array(markMentionSchema).optional(),
@@ -229,6 +250,7 @@ export type AnnotationView = z.infer<typeof annotationViewSchema>
 export const annotationListResponseSchema = z.object({
   annotations: z.array(annotationViewSchema),
   canAnnotate: z.boolean(),
+  canMeasure: z.boolean().optional(),
   pilotiWakes: z.boolean().default(false),
 })
 export type AnnotationListResponse = z.infer<typeof annotationListResponseSchema>
@@ -272,11 +294,24 @@ export const LIVE_ANNOTATION_STATUSES = ['open', 'proposed'] as const satisfies 
 export const isLive = (annotation: Pick<AnnotationView, 'status'>): boolean =>
   (LIVE_ANNOTATION_STATUSES as readonly AnnotationStatus[]).includes(annotation.status)
 
+export const isMeasurement = (annotation: { shape: string }): boolean => isMeasureShape(annotation.shape)
+
+export const isOpenItem = (annotation: Pick<AnnotationView, 'status' | 'shape'>): boolean =>
+  annotation.status === 'open' && !isMeasurement(annotation)
+
+export const isProposedItem = (annotation: Pick<AnnotationView, 'status' | 'shape'>): boolean =>
+  annotation.status === 'proposed' && !isMeasurement(annotation)
+
 export function isForReader(
-  annotation: Pick<AnnotationView, 'status' | 'assigneeUserId'>,
+  annotation: Pick<AnnotationView, 'status' | 'assigneeUserId' | 'shape'>,
   readerUserId: string | null
 ): boolean {
-  return readerUserId !== null && annotation.status !== 'proposed' && annotation.assigneeUserId === readerUserId
+  return (
+    readerUserId !== null &&
+    annotation.status !== 'proposed' &&
+    !isMeasurement(annotation) &&
+    annotation.assigneeUserId === readerUserId
+  )
 }
 
 export function isGhostMark(
@@ -317,7 +352,10 @@ export function regionAround(place: { page: number; x: number; y: number; w?: nu
   return { page: place.page, x: start(place.x), y: start(place.y), w: POINT_BOX, h: POINT_BOX }
 }
 
-export function annotationBox(annotation: Pick<AnnotationView, 'x' | 'y' | 'w' | 'h'>): [number, number, number, number] {
+export function annotationBox(
+  annotation: Pick<AnnotationView, 'x' | 'y' | 'w' | 'h' | 'points'>
+): [number, number, number, number] {
+  if (annotation.points?.length) return boxOfPoints(annotation.points)
   return [annotation.x, annotation.y, annotation.x + (annotation.w ?? 0), annotation.y + (annotation.h ?? 0)]
 }
 
@@ -431,6 +469,8 @@ export const internalAnnotationSchema = z.object({
   page: z.number().int(),
   shape: z.enum(ANNOTATION_SHAPES),
   box: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  points: measurePointsSchema.nullable().optional(),
+  reading: keptReadingSchema.nullable().optional(),
   kind: z.enum(ANNOTATION_KINDS),
   status: z.enum(ANNOTATION_STATUSES),
   authorKind: z.enum(ANNOTATION_AUTHORS),
@@ -466,6 +506,8 @@ const internalSetMarkSchema = z.object({
   y: z.number(),
   w: z.number().nullable(),
   h: z.number().nullable(),
+  points: measurePointsSchema.nullable().optional(),
+  reading: keptReadingSchema.nullable().optional(),
   kind: z.enum(ANNOTATION_KINDS),
   body: z.string(),
 })

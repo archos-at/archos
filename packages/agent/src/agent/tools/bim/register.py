@@ -1,10 +1,6 @@
 import asyncio
-import json
 import logging
-from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
 
 from pydantic import AliasChoices
 from pydantic import BaseModel
@@ -13,17 +9,15 @@ from pydantic import Field
 from agent.common.action_outcome import ActionOutcome
 from agent.common.action_rows import ActionRow
 from agent.knowledge.bim_query import run_bim_query
-from agent.profile_names import normalize_profile_token
 from agent.project_context import get_organization_id_from_context
 from agent.project_context import get_project_id_from_context
 from agent.tools.bim.failures import NO_ORG_TEXT
 from agent.tools.bim.failures import NO_PROJECT_TEXT
 from agent.tools.bim.failures import QUERY_FAILURES
-from agent.tools.bim.measurement_sources import note_model_read
-from agent.tools.bim.rendering import clipped
-from agent.tools.bim.rendering import listed
-from agent.tools.bim.rendering import render_unresolved
-from agent.tools.bim.rendering import shelf_notice
+from agent.tools.bim.handover import with_query_data
+from agent.tools.bim.query_build import VALID_OPERATIONS
+from agent.tools.bim.query_build import _build_query
+from agent.tools.bim.query_render import _render
 from agent.tools.bim.trace import model_handle
 from agent.tools.bim.trace import record_ifc_call
 from nat.plugin_api import Builder
@@ -34,22 +28,6 @@ from nat.plugin_api import register_function
 __all__ = ["NO_PROJECT_TEXT", "VALID_OPERATIONS", "IfcQueryConfig", "IfcQueryInput", "ifc_query"]
 
 logger = logging.getLogger(__name__)
-
-VALID_OPERATIONS = {
-    "overview",
-    "health",
-    "schedule",
-    "takeoff",
-    "profile",
-    "types",
-    "elements",
-    "element",
-    "properties",
-    "aggregate",
-    "compare",
-    "compliance",
-    "compliance-diff",
-}
 
 _TOOL_DESCRIPTION = (
     "Query the project's IFC/BIM model for EXACT facts about the building: element counts, "
@@ -167,62 +145,6 @@ _TOOL_DESCRIPTION = (
 )
 
 
-_MAIN_USES = frozenset(
-    {
-        "residential",
-        "office",
-        "lodging",
-        "assembly",
-        "healthcare",
-        "agriculture",
-        "manufacturing",
-        "storage",
-        "other",
-    }
-)
-
-
-def _valid_main_use(value: str) -> str:
-    lowered = normalize_profile_token("main_use", value.strip().lower())
-    return lowered if lowered in _MAIN_USES else ""
-
-
-def _valid_building_class(value: int | None) -> int:
-    return value if value and 1 <= value <= 5 else 0
-
-
-def _element_link(
-    project_id: str | None,
-    filename: str | None,
-    global_id: str | None,
-    status: str = "info",
-) -> str:
-    if not project_id or not global_id:
-        return ""
-    tone = status if status in {"pass", "fail", "warning", "info"} else "info"
-    query = f"element={quote(global_id, safe='')}&hl={tone}%3A{quote(global_id, safe='')}"
-    if filename:
-        query = f"model={quote(filename, safe='')}&{query}"
-    return f"/app/projects/{quote(project_id, safe='')}/model?{query}"
-
-
-def _bcf_link(
-    project_id: str | None,
-    filename: str | None,
-    building_class: int | None = 0,
-    main_use: str = "",
-) -> str:
-    if not project_id or not filename:
-        return ""
-    query = f"model={quote(filename, safe='')}"
-    valid_klasse = _valid_building_class(building_class)
-    if valid_klasse:
-        query = f"{query}&buildingClass={valid_klasse}"
-    if main_use:
-        query = f"{query}&mainUse={quote(main_use, safe='')}"
-    return f"/api/projects/{quote(project_id, safe='')}/bim/checks/export?{query}"
-
-
 class IfcQueryInput(BaseModel):
     operation: str = "overview"
     filters: str = ""
@@ -236,378 +158,6 @@ class IfcQueryInput(BaseModel):
     building_class: int = Field(default=0, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
     main_use: str = Field(default="", validation_alias=AliasChoices("main_use", "hauptnutzung"))
     limit: int = 0
-
-
-_BARE_OPS = frozenset({"overview", "types", "health", "schedule", "profile"})
-
-_WHOLE_MODEL_OPS = {
-    "overview": "a summary of the whole model",
-    "types": "the type distribution of the whole model",
-    "health": "the health check of the whole model",
-    "schedule": "the room schedule (Raumbuch) of the whole model",
-    "profile": "the project facts derivable from the whole model",
-    "compare": "a comparison of two complete versions",
-    "element": "a single element",
-    "compliance": "a check of the whole model against the rule catalogue",
-    "compliance-diff": "a check of both versions against the rule catalogue",
-    "properties": "the model's property catalogue (restrictable to one type with 'ifc_type')",
-}
-
-_METRICS = frozenset({"count", "sum", "avg", "min", "max"})
-
-
-@dataclass(frozen=True)
-class _QueryArgs:
-    filters: dict[str, Any]
-    metric: str
-    quantity: str
-    group_by: str
-    global_id: str
-    ifc_type: str
-    limit: int
-    building_class: int | None
-    main_use: str
-
-
-def _parse_filters(filters: str) -> dict[str, Any] | str:
-    if not filters.strip():
-        return {}
-    try:
-        candidate = json.loads(filters)
-    except json.JSONDecodeError:
-        return 'Error: \'filters\' must be a JSON object, e.g. {"ifcTypes": ["IfcWall"]}.'
-    if not isinstance(candidate, dict):
-        return "Error: 'filters' must be a JSON object, not a list or scalar."
-    return candidate
-
-
-def _compliance_query(op: str, args: _QueryArgs) -> dict[str, Any]:
-    query: dict[str, Any] = {"op": op}
-    klasse = _valid_building_class(args.building_class)
-    if klasse:
-        query["buildingClass"] = klasse
-    nutzung = _valid_main_use(args.main_use)
-    if nutzung:
-        query["mainUse"] = nutzung
-    return query
-
-
-def _takeoff_query(args: _QueryArgs) -> dict[str, Any] | str:
-    grouping = args.group_by.lower()
-    if grouping and grouping != "material":
-        return (
-            f"Error: operation 'takeoff' can only group by 'material', not '{args.group_by}'. "
-            "Use 'aggregate' with metric='sum' to group a quantity by storey or type."
-        )
-    return {
-        "op": "takeoff",
-        "quantity": args.quantity or "NetSideArea",
-        "byMaterial": grouping == "material",
-        "filter": args.filters,
-    }
-
-
-def _properties_query(args: _QueryArgs) -> dict[str, Any]:
-    query: dict[str, Any] = {"op": "properties"}
-    if args.ifc_type:
-        query["ifcType"] = args.ifc_type
-    return query
-
-
-def _element_query(args: _QueryArgs) -> dict[str, Any] | str:
-    if not args.global_id:
-        return "Error: operation 'element' needs a global_id (the element's IFC GlobalId)."
-    return {"op": "element", "globalId": args.global_id}
-
-
-def _elements_query(args: _QueryArgs) -> dict[str, Any]:
-    return {"op": "elements", "filter": args.filters, "limit": args.limit, "offset": 0}
-
-
-def _aggregate_query(args: _QueryArgs) -> dict[str, Any] | str:
-    metric = (args.metric or "count").lower()
-    if metric not in _METRICS:
-        return "Error: metric must be one of count, sum, avg, min, max."
-    query: dict[str, Any] = {"op": "aggregate", "filter": args.filters, "metric": metric, "limit": args.limit}
-    if metric != "count" and not args.quantity:
-        return f"Error: metric '{metric}' needs a 'quantity' (e.g. NetFloorArea)."
-    if metric != "count":
-        query["quantity"] = args.quantity
-    if args.group_by.lower() == "property":
-        return (
-            "Error: group_by='property' is not available through this tool. "
-            "Use operation='properties' to see which values a property takes and how many "
-            "elements carry each, or filter on the property and count."
-        )
-    if args.group_by:
-        query["groupBy"] = args.group_by
-    return query
-
-
-_QUERY_BUILDERS: dict[str, Callable[[_QueryArgs], dict[str, Any] | str]] = {
-    "compliance": lambda args: _compliance_query("compliance", args),
-    "compliance-diff": lambda args: _compliance_query("compliance-diff", args),
-    "takeoff": _takeoff_query,
-    "compare": lambda args: {"op": "compare", "limit": 20000},
-    "properties": _properties_query,
-    "element": _element_query,
-    "elements": _elements_query,
-    "aggregate": _aggregate_query,
-}
-
-
-def _build_query(
-    operation: str,
-    filters: str,
-    metric: str,
-    quantity: str,
-    group_by: str,
-    global_id: str,
-    ifc_type: str,
-    limit: int,
-    building_class: int | None = 0,
-    main_use: str = "",
-) -> dict[str, Any] | str:
-    if operation not in VALID_OPERATIONS:
-        return f"Error: unknown operation '{operation}'. Use one of: {', '.join(sorted(VALID_OPERATIONS))}."
-    parsed = _parse_filters(filters)
-    if isinstance(parsed, str):
-        return parsed
-    if parsed and operation in _WHOLE_MODEL_OPS:
-        return (
-            f"Error: operation '{operation}' takes no filters — it returns {_WHOLE_MODEL_OPS[operation]}. "
-            "Use 'elements' or 'aggregate' to ask a filtered question, or drop 'filters'."
-        )
-    if operation in _BARE_OPS:
-        return {"op": operation}
-    args = _QueryArgs(
-        filters=parsed,
-        metric=metric.strip(),
-        quantity=quantity.strip(),
-        group_by=group_by.strip(),
-        global_id=global_id.strip(),
-        ifc_type=ifc_type.strip(),
-        limit=max(1, min(limit, 200)),
-        building_class=building_class,
-        main_use=main_use,
-    )
-    return _QUERY_BUILDERS[operation](args)
-
-
-_clipped = clipped
-
-_Lines = list[str | None]
-
-
-@dataclass(frozen=True)
-class _RenderContext:
-    project_id: str | None
-    filename: str | None
-    building_class: int
-    main_use: str
-
-    def link(self, global_id: Any, status: str = "info") -> str:
-        link = _element_link(self.project_id, self.filename, global_id, status)
-        return f" · Link: {link}" if link else ""
-
-
-def _entry_label(entry: dict[str, Any], storey: bool = True) -> str:
-    label = f"{entry.get('ifcType')} „{entry.get('name') or entry.get('globalId')}“"
-    return f"{label} · {entry.get('storeyName') or '—'}" if storey else label
-
-
-def _render_overview(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    overview = result.get("overview")
-    if not isinstance(overview, dict):
-        return []
-    lines: _Lines = []
-    storeys = overview.get("storeys") or []
-    if storeys:
-        lines.append(
-            "Storeys: "
-            + ", ".join(f"{s.get('name') or '—'} ({s.get('elementCount', 0)} elements)" for s in storeys[:20])
-        )
-        lines.append(clipped(storeys, 20, "storeys"))
-    types = list((overview.get("typeCounts") or {}).items())
-    if types:
-        lines.append("Element types: " + ", ".join(f"{name} ({count})" for name, count in types[:15]))
-        lines.append(clipped(types, 15, "element types"))
-    return lines
-
-
-def _render_elements(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    def row(element: dict[str, Any]) -> str:
-        label = element.get("name") or element.get("tag") or element.get("globalId")
-        storey = element.get("storeyName") or "—"
-        global_id = element.get("globalId")
-        return f"- {element.get('ifcType')} „{label}“ · {storey} · GlobalId {global_id}{ctx.link(global_id)}"
-
-    return listed(result.get("elements") or [], 50, "elements", row)
-
-
-def _render_element(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    element = result.get("element")
-    if not isinstance(element, dict):
-        return []
-    link = _element_link(ctx.project_id, ctx.filename, element.get("globalId"))
-    lines: _Lines = [f"GlobalId: {element.get('globalId')}", f"Link: {link}" if link else None]
-    if element.get("storeyName"):
-        lines.append(f"Storey: {element['storeyName']}")
-    if element.get("materials"):
-        lines.append("Materials: " + ", ".join(element["materials"]))
-    for group in ("properties", "quantities"):
-        for set_name, values in (element.get(group) or {}).items():
-            lines.append(f"{set_name}: " + ", ".join(f"{key}={value}" for key, value in values.items()))
-    return lines
-
-
-def _render_schedule(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    schedule = result.get("schedule")
-    if not isinstance(schedule, dict):
-        return []
-    area_unit = (schedule.get("units") or {}).get("area", "m²")
-
-    def room(entry: dict[str, Any]) -> str:
-        area = entry.get("netFloorArea")
-        return f"  · {entry.get('name')} — {area if area is not None else 'no area'}"
-
-    def storey(entry: dict[str, Any]) -> list[str]:
-        rooms = entry.get("rooms") or []
-        head = f"{entry.get('storeyName')}: {entry.get('netFloorArea')} {area_unit} ({len(rooms)} rooms)"
-        return [head, *listed(rooms, 30, "rooms", room, indent="  ")]
-
-    return listed(schedule.get("storeys") or [], 12, "storeys", storey)
-
-
-def _render_takeoff(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    def row(entry: dict[str, Any]) -> str:
-        missing = f", {entry.get('missing')} without a value" if entry.get("missing") else ""
-        return f"- {entry.get('group')}: {entry.get('value')} ({entry.get('elements')} elements{missing})"
-
-    return listed(result.get("takeoff") or [], 40, "groups", row)
-
-
-def _shopping_row(entry: dict[str, Any]) -> str:
-    count = entry.get("elements")
-    where = "on one element" if count == 1 else f"on {count} elements"
-    return f"- missing: {entry.get('path')} {where} (decides: {', '.join(entry.get('rules') or [])})"
-
-
-def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
-
-    def verdict(entry: dict[str, Any]) -> str:
-        name = entry.get("name") or entry.get("globalId")
-        return f"  ✗ {rule.get('richtlinie')} {name}: {entry.get('reading')}{ctx.link(entry.get('globalId'), 'fail')}"
-
-    failed = int(rule.get("failed") or 0)
-    undecidable = int(rule.get("undecidable") or 0)
-    hint = f" — {rule['hint']}" if rule.get("hint") else ""
-    head = f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable{hint}"
-    lines = [head] if rule.get("ruleId") and (failed or undecidable) else []
-    return lines + listed(rule.get("failures") or [], 10, "affected elements", verdict, indent="  ")
-
-
-def _render_compliance(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    lines: _Lines = listed(result.get("complianceShoppingList") or [], 15, "missing properties", _shopping_row)
-    lines += listed(result.get("compliance") or [], 40, "rules", lambda rule: _rule_rows(rule, ctx))
-    bcf = _bcf_link(ctx.project_id, ctx.filename, ctx.building_class, ctx.main_use)
-    if bcf:
-        lines.append(f"BCF export of the open issues: {bcf}")
-    return lines
-
-
-def _render_profile(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    return [
-        f"- {s.get('key')} = {s.get('value')} [{s.get('confidence')}] — {s.get('evidence')}"
-        for s in result.get("profileSuggestions") or []
-    ]
-
-
-def _render_compare(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    comparison = result.get("comparison")
-    if not isinstance(comparison, dict):
-        return []
-
-    def changed_row(entry: dict[str, Any]) -> str:
-        deltas = "; ".join(
-            f"{c.get('field')}: {c.get('before')} → {c.get('after')}" for c in (entry.get("changes") or [])[:6]
-        )
-        return f"~ {_entry_label(entry, storey=False)} — {deltas}"
-
-    added = comparison.get("added") or []
-    removed = comparison.get("removed") or []
-    changed = comparison.get("changed") or []
-    lines: _Lines = [f"+ {_entry_label(entry)}" for entry in added[:25]]
-    lines += [f"- {_entry_label(entry)}" for entry in removed[:25]]
-    lines += [changed_row(entry) for entry in changed[:25]]
-    lines += [
-        clipped(bucket, 25, f"{noun} elements")
-        for bucket, noun in ((added, "new"), (removed, "removed"), (changed, "changed"))
-    ]
-    return lines
-
-
-def _render_properties(result: dict[str, Any], ctx: _RenderContext) -> _Lines:
-    def row(entry: dict[str, Any]) -> str:
-        values = ", ".join(f"{v.get('value')} ({v.get('elements')}×)" for v in (entry.get("values") or [])[:6])
-        kind = "quantity" if entry.get("source") == "quantity" else "property"
-        return f"- [{kind}] {entry.get('set')}.{entry.get('name')}: {values}"
-
-    return listed(result.get("properties") or [], 60, "properties", row)
-
-
-_QUERY_RENDERERS: dict[str, Callable[[dict[str, Any], _RenderContext], _Lines]] = {
-    "overview": _render_overview,
-    "elements": _render_elements,
-    "element": _render_element,
-    "schedule": _render_schedule,
-    "takeoff": _render_takeoff,
-    "compliance": _render_compliance,
-    "compliance-diff": _render_compliance,
-    "profile": _render_profile,
-    "compare": _render_compare,
-    "properties": _render_properties,
-}
-
-_PARTIAL_MODEL_OPS = frozenset({"schedule", "takeoff", "compliance", "compliance-diff", "compare", "profile", "health"})
-
-
-def _truncation_note(op: str) -> str:
-    if op in _PARTIAL_MODEL_OPS:
-        return (
-            "(Warning: these figures cover only part of the model. "
-            "They are NOT totals for the building — mark them as such in the text.)"
-        )
-    return "(More hits exist — narrow the query or aggregate.)"
-
-
-def _render(
-    result: dict[str, Any],
-    project_id: str | None = None,
-    building_class: int = 0,
-    main_use: str = "",
-) -> str:
-    if not result.get("resolved"):
-        return render_unresolved(result, "The model could not be queried.")
-    model = result.get("model") or {}
-    ctx = _RenderContext(project_id, model.get("filename"), building_class, main_use)
-    op = str(result.get("op") or "")
-    note_model_read(ctx.filename, op)
-    lines: _Lines = [
-        shelf_notice(result),
-        f"Model: {ctx.filename}" if ctx.filename else None,
-        str(result.get("summary") or ""),
-        str(result.get("caveat") or ""),
-    ]
-    renderer = _QUERY_RENDERERS.get(op)
-    if renderer is not None:
-        lines += renderer(result, ctx)
-    if result.get("truncated"):
-        lines.append(_truncation_note(op))
-    return "\n".join(line for line in lines if line)
-
-
-_model_handle = model_handle
 
 
 def _trace(
@@ -703,7 +253,8 @@ async def _query(arguments: IfcQueryInput, default_limit: int, outcome: ActionOu
     _trace(query, result)
     outcome.failed = not result.get("resolved")
     outcome.hits = _listed(result) if not outcome.failed else None
-    return _render(result, project_id, arguments.building_class, arguments.main_use.strip().lower())
+    rendered = _render(result, project_id, arguments.building_class, arguments.main_use.strip().lower())
+    return await with_query_data(result, rendered)
 
 
 class IfcQueryConfig(FunctionBaseConfig, name="ifc_query"):

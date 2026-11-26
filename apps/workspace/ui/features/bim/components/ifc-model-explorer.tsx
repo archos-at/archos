@@ -413,9 +413,7 @@ export function IfcElementTable({
       </p>
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
         <table className="w-full text-sm">
-          {/* 80% + `backdrop-blur`: the header is STICKY, so rows scroll under
-              it — the alpha is what there is to blur. */}
-          <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+          <thead className="bg-desk sticky top-0">
             <tr className="text-left">
               <th scope="col" className="px-2 py-1 font-medium">
                 {t('elements.columns.type')}

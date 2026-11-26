@@ -40,7 +40,7 @@ def offline(monkeypatch):
 
 
 async def _search(modes: str, match: str) -> str:
-    config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", match_modes=modes)
+    config = KnowledgeRetrievalConfig(collection_name="base_corpus", match_modes=modes)
     async with knowledge_retrieval(config, MagicMock()) as info:
         return await info.single_fn(info.input_schema(query="Fluchtweg", match=match))
 

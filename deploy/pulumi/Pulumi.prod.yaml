@@ -119,5 +119,7 @@ config:
   grid-oib:cmsEnabled: "false"
   grid-oib:cmsAdminEmail: biglmatthias@gmail.com
   grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:codeRunnerEnabled: "true"
+  grid-oib:browserRendererEnabled: "true"
   grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03
   grid-oib:mcpGatewayLangfuseTraceOrgs: org_01KYVEVMY9X582SSN872SBTR03,org_01M2TTD7J0N620NQ545ZDKSNGR,org_01M34HRAZTEQPTD33H6WM3KY5K

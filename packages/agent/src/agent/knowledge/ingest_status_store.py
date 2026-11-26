@@ -13,6 +13,8 @@ from sqlalchemy import inspect
 from sqlalchemy import text
 
 from agent.common.db_utils import ensure_schema
+from agent.common.source_kinds import BASE_CORPUS_COLLECTION
+from agent.common.source_kinds import LEGACY_BASE_CORPUS_COLLECTION
 
 from . import ingest_settle_push
 from .document_metadata_store import DocumentMetadataStore
@@ -98,6 +100,18 @@ def _add_missing_columns(conn, url: str) -> None:
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_dispatch_key ON ingest_jobs (dispatch_key)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_collection_name ON ingest_jobs (collection_name)"))
+    conn.execute(
+        text(
+            "UPDATE ingest_jobs SET collection_name = :current, "
+            "status_json = REPLACE(status_json, :old_json, :new_json) WHERE collection_name = :legacy"
+        ),
+        {
+            "current": BASE_CORPUS_COLLECTION,
+            "legacy": LEGACY_BASE_CORPUS_COLLECTION,
+            "old_json": f'"{LEGACY_BASE_CORPUS_COLLECTION}"',
+            "new_json": f'"{BASE_CORPUS_COLLECTION}"',
+        },
+    )
 
 
 def _now(url: str) -> str:
@@ -137,6 +151,7 @@ def interrupted(status: IngestionJobStatus) -> IngestionJobStatus:
         detail.status = FileStatus.FAILED
         detail.error_message = INTERRUPTED_MESSAGE
         detail.failure_category = verdict.category
+        detail.failure_reason = verdict.reason
         detail.retryable = verdict.retryable
     return failed
 

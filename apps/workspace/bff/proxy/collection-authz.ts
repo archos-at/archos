@@ -5,7 +5,8 @@ const PROJECT_UPLOAD: readonly ProjectPermission[] = ['project:documents:write',
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { officeShelfCollectionNames } from '@/lib/office-shelf/collection'
 import { isOfficeShelfCollectionName } from '@/lib/office-shelf/collection-prefix'
-import { sessionCollectionName } from '@/lib/retrieval-scope/collection-scope'
+import { isPersonalShelfCollectionName, personalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import { isBaseCorpusCollection, sessionCollectionName } from '@/lib/retrieval-scope/collection-scope'
 import { getProjectFolderAccess, restrictedCollectionBase } from '@/lib/authz/folder-access'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -89,9 +90,10 @@ export interface ValidateCollectionOptions {
   deps?: CollectionAuthzDeps
 }
 
-const FIRST_PARTY_UPLOAD: Record<'proj_' | 'office_shelf' | 's_', string> = {
+const FIRST_PARTY_UPLOAD: Record<'proj_' | 'office_shelf' | 'personal' | 's_', string> = {
   proj_: '/api/documents/upload',
   office_shelf: '/api/documents/upload (scope=office_shelf)',
+  personal: '/api/documents/upload (scope=personal)',
   s_: '/api/session/documents/upload',
 }
 
@@ -103,7 +105,7 @@ function refuseChunkOnlyDelete(route: string): Response {
   return errorEnvelope(403, 'FORBIDDEN', `Delete through ${route}`)
 }
 
-function refuseRawUpload(prefix: 'proj_' | 'office_shelf' | 's_'): Response {
+function refuseRawUpload(prefix: keyof typeof FIRST_PARTY_UPLOAD): Response {
   return errorEnvelope(403, 'FORBIDDEN', `Upload through ${FIRST_PARTY_UPLOAD[prefix]}`)
 }
 
@@ -140,9 +142,7 @@ async function authorizeCollection(
   const wholeCollectionDelete = method === 'DELETE' && subPath.length === 0
   const upload = method === 'POST' && subPath[0] === 'documents'
   const fileDelete = method === 'DELETE' && subPath[0] === 'documents'
-  const baseName = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
-
-  if (collectionName === baseName) {
+  if (isBaseCorpusCollection(collectionName)) {
     return errorEnvelope(400, 'INVALID_COLLECTION', 'Uploads to the base corpus are not allowed')
   }
 
@@ -190,6 +190,17 @@ async function authorizeCollection(
       !canManageOfficeShelf(session)
     ) {
       return handleAuthzError(new ForbiddenError())
+    }
+    return null
+  }
+
+  if (isPersonalShelfCollectionName(collectionName)) {
+    if (wholeCollectionDelete) return refuseWholeCollectionDelete()
+    if (upload) return refuseRawUpload('personal')
+    if (fileDelete) return refuseChunkOnlyDelete('/api/documents/[id]')
+    if (!session?.organizationId) return handleAuthzError(new ForbiddenError())
+    if (personalShelfCollectionName(session.organizationId, session.userId) !== collectionName) {
+      return handleAuthzError(new NotFoundError())
     }
     return null
   }

@@ -17,7 +17,7 @@
 The platform is the **workspace in which a planning office runs its work**: every
 project, every process, the whole organization. Architects work inside
 **projects**. A project holds its intake (the facts that decide the rest of
-it), its files and the office's Büroablage, its building model (IFC, opened in
+it), its files and the office's Bürobibliothek, its building model (IFC, opened in
 the browser), its tasks and research, and its team. What the office knows
 carries from one project to the next, through project and organization memory.
 
@@ -168,7 +168,7 @@ or security, and every tenant-data mutation goes through one audited layer.
 The workspace surfaces, each with its own doc:
 
 - **Projects and intake:** [projects guide](../user-guides/projects.md)
-- **Files, Büroablage and document roles:** [documents guide](../user-guides/documents.md), [the agent in the file system](filesystem-design.md), [document roles](document-roles.md)
+- **Files, Bürobibliothek and document roles:** [documents guide](../user-guides/documents.md), [the agent in the file system](filesystem-design.md), [document roles](document-roles.md)
 - **Building model (IFC):** [IFC models guide](../user-guides/bim-models.md)
 - **Tasks and jobs:** §5.12 below, and [projects guide, Jobs](../user-guides/projects.md#jobs-feature-flagged)
 - **Research and reports:** [reports the agent writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
@@ -189,7 +189,7 @@ onto the message. → `docs/architecture/backend-deep-dive.md` §2.
 
 ### 5.2 The two knowledge systems
 Every normative claim is grounded in a passage retrieved this turn from the
-project, the Büroablage, or the Austrian building-regulation corpus. Not every
+project, the Bürobibliothek, or the Austrian building-regulation corpus. Not every
 answer is a ruling.
 
 The agent deliberately separates **retrieval** from **memory** — they answer
@@ -197,8 +197,9 @@ different questions and reach the agent differently:
 
 - **Retrieval (RAG) — "the library, searched on demand."** The OIB corpus,
   uploaded documents, and chat attachments live as embeddings in Qdrant,
-  queried per turn and scoped by a base64url `X-Grid-Collection-Scope` header:
-  `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`. Legal claims
+  queried per turn and scoped by the turn's signed scope (its decision, or a
+  run's signed envelope):
+  `[base_corpus, archiv_<org>, proj_<id>, s_<conversation>]`. Legal claims
   must ground here and are cited.
 - **Memory & context — "the briefing, carried every turn."** The intake profile
   and agent-curated project/org memory are compact text, **injected into every
@@ -215,7 +216,7 @@ project | web`) are a labelling dimension *within* it, not a second hierarchy:
 
 | Level | Documents (Qdrant) | Learned state (`app`) | Visible to |
 |---|---|---|---|
-| Platform | `oib_knowledge` (OIB corpus) | platform lessons | everyone |
+| Platform | `base_corpus` (OIB corpus) | platform lessons | everyone |
 | Organization | `archiv_<org>` (Archiv, ADR-0024, feature-gated) | — | that org |
 | Project | `proj_<id>` (uploaded documents) | project memory | project members |
 | Conversation | `s_<conversation>` (chat attachments) | — | that conversation |
@@ -339,8 +340,10 @@ agent with its retrieval tools.
 ## 6. Key flows
 
 **A chat turn.** Browser opens a WebSocket → `server.js` resolves the session and
-attaches `X-Grid-Collection-Scope` + `x-grid-project-context` +
-`x-grid-project-memory` (base64url) → proxies the upgrade to the backend → the
+attaches the signed request-context envelope (no scope) → proxies the upgrade to
+the backend → each turn fetches its signed decision (`POST
+/api/internal/turn-decision`) and its prompt blocks (`POST
+/api/internal/turn-context`) → the
 LangGraph workflow retrieves in scope (or replies directly), verifies citations,
 generates the answer + any cards → streams back → the UI renders text, sources,
 and cards.
@@ -371,7 +374,7 @@ marks it purged. Restore is possible only while the row is un-claimed.
 | **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not a scheduled task, which is a `task_definitions` row in `app` (§5.12), document summaries |
 | **`checkpoints`** (Postgres) | backend | LangGraph conversation checkpoints (thread state) |
 | **SeaweedFS** (`grid-documents`) | BFF writes, backend/purger read | OIB PDFs + uploaded documents, keyed by org/project |
-| **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `oib_knowledge`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |
+| **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `base_corpus`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |
 
 Schema evolves via Drizzle migrations (`apps/workspace/migrations/`, applied on
 frontend start). → `docs/database/`.

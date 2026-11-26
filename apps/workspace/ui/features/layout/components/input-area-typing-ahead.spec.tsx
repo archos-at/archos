@@ -32,7 +32,7 @@ const mockEnsureConversationExists = vi.fn(async () => {})
 function mockChatState() {
   return {
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: 'project-1', messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]
@@ -328,6 +328,16 @@ describe('InputArea', () => {
           )
           expect(screen.getByTestId('composer-steer-chip')).toHaveTextContent('steering')
           expect(screen.getByRole('button', { name: /stop response/i })).toBeInTheDocument()
+        })
+
+        test('the chip stands out of the flow, so the composer keeps its height as turns start and end', () => {
+          offerSteering()
+          startOwnTurn()
+          render(<InputArea isAuthenticated={true} connectionMode="sse" />)
+
+          const chip = screen.getByTestId('composer-steer-chip')
+          expect(chip.parentElement?.className).toMatch(/(^|\s)absolute(\s|$)/)
+          expect(chip.className).not.toMatch(/(^|\s)mb-/)
         })
 
         test('Enter sends the note into the running turn, not a question, and clears the field', async () => {

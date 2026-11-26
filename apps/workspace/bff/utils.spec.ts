@@ -1,6 +1,7 @@
 // @disk-inputs: ui/styles/tokens.css
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import postcss from 'postcss'
 import { describe, expect, it } from 'vitest'
 import { TYPE_SCALE, cn } from './utils'
 
@@ -12,8 +13,11 @@ describe('cn', () => {
   })
 
   it('knows every size the tokens declare', () => {
-    const tokens = readFileSync(join(__dirname, '../ui/styles/tokens.css'), 'utf8')
-    const sizes = [...tokens.matchAll(/^\s*--text-([a-z]+(?:-[a-z]+)*):\s*[\d.]+rem/gm)].map((match) => match[1])
+    const tokens = postcss.parse(readFileSync(join(__dirname, '../ui/styles/tokens.css'), 'utf8'))
+    const sizes: string[] = []
+    tokens.walkDecls(/^--text-[a-z]+(?:-[a-z]+)*$/, (declaration) => {
+      if (/^[\d.]+rem$/.test(declaration.value)) sizes.push(declaration.prop.slice('--text-'.length))
+    })
     expect(sizes.length).toBeGreaterThan(0)
     expect([...TYPE_SCALE].sort()).toEqual([...new Set(sizes)].sort())
   })

@@ -3,6 +3,7 @@ import { baseKnowledgeOperations } from './base-knowledge'
 import { baseKnowledgeTimeOperations } from './base-knowledge-time'
 import { knowledgeContextOperations } from './knowledge-context'
 import { bimOperations } from './bim'
+import { binOperations } from './bins'
 import { collaborationOperations } from './collaboration'
 import { consultOperations } from './consult'
 import { conversationsOperations } from './conversations'
@@ -27,6 +28,7 @@ export type OperationName = (
   | typeof documentsOperations
   | typeof savedSearchOperations
   | typeof foldersOperations
+  | typeof binOperations
   | typeof mailOperations
   | typeof reviewOperations
   | typeof conversationsOperations
@@ -52,6 +54,7 @@ const unordered: readonly AgentOperation[] = [
   ...documentsOperations,
   ...savedSearchOperations,
   ...foldersOperations,
+  ...binOperations,
   ...mailOperations,
   ...reviewOperations,
   ...conversationsOperations,

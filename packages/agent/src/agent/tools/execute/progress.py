@@ -38,7 +38,25 @@ MAX_LISTED = 8
 
 _PATH_LITERAL = re.compile(r"""(["'`])(/workspace/[^"'`$\n]+?\.[A-Za-z0-9]{1,5})\1""")
 
+_TEMPLATE_PATH = re.compile(r"""`(/workspace/[^`\n]*\$\{[^`\n]*\.[A-Za-z0-9]{1,5})`""")
+
+_TEMPLATE_PART = re.compile(r"\$\{[^}]*\}")
+
+UNNAMED_PART = "…"
+
+REASON_TOO_LARGE = "too_large"
+
+REASON_NOT_WRITTEN = "not_written"
+
 _READ_CALL = re.compile(r"readFile\w*\(\s*$")
+
+_WRITE_CALL = re.compile(r"(?:writeFile|appendFile)\w*\(\s*$")
+
+_ASSIGNED = re.compile(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$")
+
+WRITE = "write"
+
+READ = "read"
 
 
 @dataclass(frozen=True)
@@ -46,6 +64,7 @@ class RunPlan:
     writes: tuple[str, ...] = ()
     reads: tuple[str, ...] = ()
     editing: tuple[str, ...] = ()
+    written: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,20 +81,40 @@ def _name(path: str) -> str:
     return clip(path, MAX_NAME_CHARS)
 
 
-def _named_paths(code: str) -> list[tuple[str, bool]]:
+def _role(code: str, start: int) -> str:
+    before = code[:start]
+    if _WRITE_CALL.search(before):
+        return WRITE
+    if _READ_CALL.search(before):
+        return READ
+    assigned = _ASSIGNED.search(before)
+    if assigned is None:
+        return ""
+    name = re.escape(assigned.group(1))
+    if re.search(rf"(?:writeFile|appendFile)\w*\(\s*{name}\b", code):
+        return WRITE
+    if re.search(rf"readFile\w*\(\s*{name}\b", code):
+        return READ
+    return ""
+
+
+def _named_paths(code: str) -> list[tuple[str, str]]:
+    literal = [(match.start(), match.group(2)) for match in _PATH_LITERAL.finditer(code)]
+    template = [
+        (match.start(), _TEMPLATE_PART.sub(UNNAMED_PART, match.group(1))) for match in _TEMPLATE_PATH.finditer(code)
+    ]
     return [
-        (match.group(2), bool(_READ_CALL.search(code[: match.start()])))
-        for match in _PATH_LITERAL.finditer(code)
-        if not match.group(2).startswith(INPUT_PREFIX)
+        (path, _role(code, start)) for start, path in sorted(literal + template) if not path.startswith(INPUT_PREFIX)
     ]
 
 
 def plan_run(code: str, existing: Container[str]) -> RunPlan:
     named = _named_paths(code)
-    writes = list(dict.fromkeys(path for path, read in named if not read))
-    reads = list(dict.fromkeys(path for path, read in named if read and path in existing))
+    writes = list(dict.fromkeys(path for path, role in named if role != READ))
+    reads = list(dict.fromkeys(path for path, role in named if role == READ and path in existing))
     checked = tuple(path for path in reads if path not in writes)
-    return RunPlan(tuple(writes), checked, tuple(path for path in writes if path in existing))
+    written = tuple(dict.fromkeys(path for path, role in named if role == WRITE))
+    return RunPlan(tuple(writes), checked, tuple(path for path in writes if path in existing), written)
 
 
 def _scalar_result(value: Any) -> str | None:
@@ -133,19 +172,43 @@ class FileRunProgress:
         step = status_step(self.slot, key, values=values, **self._detail(), **finished)
         turn_status.emit_step(step, started=started)
 
-    def finish(self, status: str, *, kept: list[KeptFile], elapsed_ms: int, value: Any = None) -> None:
+    def finish(
+        self,
+        status: str,
+        *,
+        kept: list[KeptFile],
+        elapsed_ms: int,
+        value: Any = None,
+        refused: tuple[str, ...] = (),
+    ) -> None:
         made = [_name(file.path) for file in kept if file.new]
         changed = [_name(file.path) for file in kept if not file.new]
-        result = _scalar_result(value) if status == "ok" and not kept else None
-        _hold(_Held(self.plan.writes, self.attempt, bool(kept) and status == "ok"))
+        failed = _not_kept(self.plan, kept, refused) if status == "ok" else []
+        result = _scalar_result(value) if status == "ok" and not kept and not failed else None
+        _hold(_Held(self.plan.writes, self.attempt, bool(kept) and status == "ok" and not failed))
         self._emit(
             started=False,
             status=status,
             made=made[:MAX_LISTED],
             changed=changed[:MAX_LISTED],
+            failed=[name for name, _ in failed][:MAX_LISTED],
+            failed_reasons=[reason for _, reason in failed][:MAX_LISTED],
             elapsed_ms=max(0, elapsed_ms),
             result=result,
         )
+
+
+def _not_kept(plan: RunPlan, kept: list[KeptFile], refused: tuple[str, ...]) -> list[tuple[str, str]]:
+    kept_names = {_name(file.path) for file in kept}
+    failed = [(_name(path), REASON_TOO_LARGE) for path in refused]
+    named = {name for name, _ in failed}
+    for path in plan.written:
+        name = _name(path)
+        unchanged = path in plan.editing
+        if unchanged or name in kept_names or name in named or (UNNAMED_PART in name and (kept or failed)):
+            continue
+        failed.append((name, REASON_NOT_WRITTEN))
+    return failed
 
 
 def _attempt(writes: tuple[str, ...]) -> int:

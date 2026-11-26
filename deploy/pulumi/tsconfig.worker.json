@@ -4,7 +4,7 @@
   // of its own because `@cloudflare/workers-types` declares the same globals
   // as `@types/node` (fetch, Response, ReadableStream) with different shapes,
   // so the two cannot share one program. `tsconfig.json` excludes the spec;
-  // `npm run typecheck` runs this one after it.
+  // `bun run typecheck` runs this one after it.
   "compilerOptions": {
     "strict": true,
     "noEmit": true,

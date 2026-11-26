@@ -8,7 +8,7 @@ describe('compareRevisionHref', () => {
     )
   })
 
-  it('works for the Büroablage link too, and keeps a hash', () => {
+  it('works for the Bürobibliothek link too, and keeps a hash', () => {
     expect(compareRevisionHref('/app/office-shelf?doc=doc-b#top', 'doc-a')).toBe(
       '/app/office-shelf?doc=doc-b&compare=doc-a#top'
     )

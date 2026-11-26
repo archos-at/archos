@@ -1,11 +1,8 @@
 ---
 name: office-html-pdf
 description: >
-  Use when a PDF has to look designed (a report with a cover, colours, a
-  layout), when the person wants a diagram (Mermaid: a process, a schedule, an
-  organisation), or a PNG picture of HTML or a chart. HTML and CSS rendered by
-  Puppeteer in a headless Chromium. Read `office-files` first for the run
-  contract.
+  A PDF with a designed layout, a Mermaid diagram or a PNG? Code that works in
+  this sandbox.
 metadata:
   agents: researcher
   title: HTML zu PDF, Diagramme, Screenshots
@@ -13,7 +10,7 @@ metadata:
 
 # HTML to PDF, Mermaid, screenshots
 
-Read `office-files` first if you have not this conversation.
+Read `execute` first if you have not this conversation.
 
 ## Which tool
 
@@ -41,7 +38,8 @@ so in one sentence, without naming the engine. On "busy", run once more first.
   every request the page makes, except `data:` and `blob:` URLs. Put the HTML
   in with `page.setContent(html)`; read a file from `/workspace/` and pass its
   text, or embed it as a `data:` URL (an image, an SVG).
-- Fonts: "Source Sans 3" (also `sans-serif`) and "Source Code Pro" (also
+- Fonts: "Hanken Grotesk" (the house face, 400 to 600 with italics), "Source
+  Sans 3" (also `sans-serif`) and "Source Code Pro" (also
   `monospace`) are installed. No other web font loads.
 - Mermaid: `await page.addScriptTag({ url: "http://assets.local/mermaid.min.js" })`
   is the one script the page may load. Render with `htmlLabels: false`, so the
@@ -52,13 +50,17 @@ so in one sentence, without naming the engine. On "busy", run once more first.
 
 ## A report as PDF
 
-`@page` sets the paper and margins; `preferCSSPageSize: true` makes `page.pdf`
-take them. Keep a table row on one page with `break-inside: avoid`. Page
-numbers go in `footerTemplate`, which uses its own fonts and sizes: set them.
+`htmlPage({ title, body })` from `house-style` wraps your body in the house
+CSS (`office-design`): A4 with margins through `@page`, type, tables (`class="n"`
+right-aligns a number cell), and the blocks `meta`, `lead`, `figures`, `band`,
+`finding` and `cover`. `pdfOptions(footer)` gives `page.pdf` the footer with
+page numbers. Add your own `<style>` in the body for anything else, in the same
+colours (`colors`).
 
 ```js
 import puppeteer from "@cloudflare/puppeteer";
 import { writeFile } from "node:fs/promises";
+import { format, htmlPage, pdfOptions } from "house-style";
 
 const rooms = [
   { room: "Wohnen/Essen", storey: "EG", area: 38.4 },
@@ -67,45 +69,32 @@ const rooms = [
   { room: "Bad", storey: "OG", area: 7.9 },
 ];
 
-const area = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const escape = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export default async function () {
   const total = rooms.reduce((sum, r) => sum + r.area * 100, 0) / 100;
-  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><style>
-    @page { size: A4; margin: 22mm 18mm 20mm; }
-    body { font-family: "Source Sans 3", sans-serif; font-size: 10.5pt; color: #1f2933; }
-    h1 { font-size: 22pt; font-weight: 600; margin: 0 0 2mm; }
-    .meta { color: #616e7c; margin-bottom: 8mm; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; font-weight: 600; border-bottom: 1.2pt solid #1f2933; padding: 2mm 0; }
-    td { border-bottom: 0.5pt solid #cbd2d9; padding: 1.8mm 0; }
-    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
-    tr { break-inside: avoid; }
-    tfoot td { font-weight: 600; border-bottom: none; border-top: 1.2pt solid #1f2933; }
-  </style></head><body>
+  const html = htmlPage({
+    title: "Flächenaufstellung",
+    body: `
     <h1>Flächenaufstellung</h1>
-    <div class="meta">Wohnhaus Musterweg 4 · Stand ${new Intl.DateTimeFormat("de-DE").format(new Date())}</div>
+    <div class="meta">Wohnhaus Musterweg 4 · Stand ${format.date(new Date())}</div>
+    <div class="figures">
+      <div><b>${format.area(total)}</b><span>Nutzfläche gesamt</span></div>
+      <div><b>${rooms.length}</b><span>Räume</span></div>
+    </div>
     <table>
       <thead><tr><th>Raum</th><th>Geschoss</th><th class="n">Fläche m²</th></tr></thead>
-      <tbody>${rooms.map((r) => `<tr><td>${escape(r.room)}</td><td>${r.storey}</td><td class="n">${area.format(r.area)}</td></tr>`).join("")}</tbody>
-      <tfoot><tr><td>Summe</td><td></td><td class="n">${area.format(total)}</td></tr></tfoot>
+      <tbody>${rooms.map((r) => `<tr><td>${escape(r.room)}</td><td>${r.storey}</td><td class="n">${format.number(r.area)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td>Summe</td><td></td><td class="n">${format.number(total)}</td></tr></tfoot>
     </table>
-  </body></html>`;
+    <div class="finding"><strong>Prüfen</strong> Die Fläche des Bads liegt unter dem Raumprogramm (8,50 m²).</div>`,
+  });
 
   const browser = await puppeteer.launch(env.BROWSER);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      displayHeaderFooter: true,
-      headerTemplate: "<span></span>",
-      footerTemplate: `<div style="font: 8pt 'Source Sans 3'; width: 100%; padding: 0 18mm; text-align: right; color: #616e7c">
-        Seite <span class="pageNumber"></span> von <span class="totalPages"></span></div>`,
-    });
+    const pdf = await page.pdf(pdfOptions("Wohnhaus Musterweg 4 · Flächenaufstellung"));
     await writeFile("/workspace/Flächenaufstellung.pdf", pdf);
     return { file: "/workspace/Flächenaufstellung.pdf", total, bytes: pdf.length };
   } finally {
@@ -143,7 +132,7 @@ export default async function () {
         theme: "neutral",
         htmlLabels: false,
         flowchart: { htmlLabels: false },
-        themeVariables: { fontFamily: '"Source Sans 3", sans-serif' },
+        themeVariables: { fontFamily: '"Hanken Grotesk", sans-serif' },
       });
       return (await mermaid.render("ablauf", source)).svg;
     }, diagram);
@@ -183,7 +172,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 export default async function () {
   const diagram = encodeURIComponent(await readFile("/workspace/Ablauf.svg", "utf8"));
-  const html = `<body style="margin:0; font-family: 'Source Sans 3'; background:#f5f7fa">
+  const html = `<body style="margin:0; font-family: 'Hanken Grotesk'; background:#ffffff">
     <div id="card" style="width:900px; padding:32px; background:#fff">
       <h2 style="margin:0 0 16px; font-weight:600">Projektstand KW 47</h2>
       <img src="data:image/svg+xml,${diagram}" style="width:100%">

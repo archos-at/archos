@@ -1,0 +1,7 @@
+---
+# area: agents
+operators:
+  - >
+    An agent no longer sees the titles of chats that read their owner's Meine
+    Ablage, in the conversation list, the workspace search or the inbox, unless
+    it may draw on that shelf itself.

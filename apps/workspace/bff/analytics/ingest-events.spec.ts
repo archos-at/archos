@@ -12,6 +12,7 @@ import {
   announceIngestStarted,
   announceIngestsFinished,
   errorReasonOf,
+  failureReasonOf,
   fileTypeOf,
   resetIngestFailureLimiterForTests,
   type FinishedIngest,
@@ -275,6 +276,17 @@ describe('errorReasonOf', () => {
   })
 })
 
+describe('failureReasonOf', () => {
+  it("takes the worker's reason, else the message prefix, and never a value that is not a slug", () => {
+    expect(failureReasonOf({ errorMessage: 'Meier GmbH.pdf is encrypted', failureReason: 'encrypted' })).toBe('encrypted')
+    expect(failureReasonOf({ errorMessage: 'interrupted: lost', failureReason: null })).toBe('interrupted')
+    expect(failureReasonOf({ errorMessage: 'interrupted: lost', failureReason: 'unknown' })).toBe('interrupted')
+    expect(failureReasonOf({ errorMessage: 'Meier GmbH.pdf is encrypted', failureReason: 'Meier GmbH' })).toBe('unknown')
+    expect(failureReasonOf({ errorMessage: 'Meier GmbH.pdf is encrypted' })).toBe('unknown')
+    expect(failureReasonOf({ errorMessage: null, failureReason: null })).toBeUndefined()
+  })
+})
+
 describe('a failed ingest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -309,6 +321,29 @@ describe('a failed ingest', () => {
     const [error, , properties] = captureException.mock.calls[0] as unknown as [Error, unknown, Record<string, unknown>]
     expect(error.message).toBe('document ingest failed: interrupted')
     expect(properties).toMatchObject({ organization_id: 'org-1', document_id: 'doc-1', error_reason: 'interrupted' })
+  })
+
+  it.each([
+    ['no_content', 'No content extracted (file may be password-protected, corrupted, or empty)'],
+    ['encrypted', 'Meier GmbH.pdf is encrypted'],
+    ['raw_binary_content', 'Raw PDF/binary content detected; refusing to index'],
+  ])('names a failure without a prefix %s on the event and the exception', (failureReason, errorMessage) => {
+    announceIngestsFinished(
+      'org-1',
+      [{ ...failed, errorMessage, failureReason, failureCategory: 'deterministic', retryable: false }],
+      'read',
+      1_000
+    )
+
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ error_reason: failureReason, error_category: 'deterministic' }),
+      })
+    )
+    const [error, , properties] = captureException.mock.calls[0] as unknown as [Error, unknown, Record<string, unknown>]
+    expect(error.message).toBe(`document ingest failed: ${failureReason}`)
+    expect(properties).toMatchObject({ error_reason: failureReason, error_category: 'deterministic' })
+    expect(JSON.stringify([captureServer.mock.calls, captureException.mock.calls])).not.toContain('Meier')
   })
 
   it('spends five exceptions per reason in a window, and still sends every event', () => {

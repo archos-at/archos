@@ -12,6 +12,7 @@ import { projectsCopy } from '@/i18n/namespaces/projects'
 import type { ClosingIntent, IntakeView } from '@/lib/project-intake/types'
 import { usePressed } from '../../hooks/use-pressed'
 import { formatMonth } from '../completed-note'
+import { BuildingsCard, type ChangeBuilding } from '../profile/buildings-card'
 import { ClassCard } from '../profile/class-card'
 import { FindingsCard } from '../profile/findings-card'
 import { finishDecisions } from '../profile/profile-review'
@@ -21,17 +22,30 @@ import type { SetupStepProps } from './types'
 
 export interface ProfileStepProps extends SetupStepProps {
   onComplete: () => Promise<boolean>
+  onChangeBuilding: ChangeBuilding
 }
 
-export function ProfileStep({ view, projectId, canDecide, busy, onDecide, onComplete, onGoTo }: ProfileStepProps): JSX.Element {
+export function ProfileStep({ view, projectId, canDecide, busy, onDecide, onComplete, onChangeBuilding, onGoTo }: ProfileStepProps): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const decide = { canDecide, busy, onDecide }
   const finished = view.status === 'completed'
   return (
     <div className="mx-auto w-full max-w-[1040px]" data-testid="setup-step-profile">
       <h1 className="sr-only">{t('heading')}</h1>
+      {(canDecide || view.buildings.length > 1) && (
+        <div className="mb-4 md:mb-5">
+          <BuildingsCard
+            buildings={view.buildings}
+            derivations={view.derivations}
+            canDecide={canDecide}
+            busy={busy}
+            onChangeBuilding={onChangeBuilding}
+            onAnswer={() => onGoTo('questions')}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] md:gap-5">
-        <ClassCard derivations={view.derivations} onAnswer={() => onGoTo('questions')} />
+        <ClassCard derivations={view.derivations} buildings={view.buildings} onAnswer={() => onGoTo('questions')} />
         <RulesCard view={view} />
       </div>
       {view.contradictions.length > 0 && (
@@ -47,6 +61,7 @@ export function ProfileStep({ view, projectId, canDecide, busy, onDecide, onComp
           projectId={projectId}
           groups={view.groups}
           derivations={view.derivations}
+          buildings={view.buildings}
           reading={view.status === 'reading'}
           editable={!finished}
           {...decide}

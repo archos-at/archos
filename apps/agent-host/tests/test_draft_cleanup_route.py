@@ -90,6 +90,20 @@ class TestTheDeletion:
         assert response.content == b""
         assert _keys(store, CONVERSATION) == []
 
+    async def test_the_conversations_tool_results_are_gone(self, client, prod_token, store, monkeypatch) -> None:
+        from agent.tools.execute import tool_data
+
+        monkeypatch.setattr(tool_data.project_context, "get_conversation_id_from_context", lambda: CONVERSATION)
+        line = await tool_data.keep_tool_data(
+            tool_data.ToolData(tool="ifc_query", operation="schedule", about="Raumdaten aus dem Modell", content={})
+        )
+        assert line.startswith("Data for execute: r1")
+
+        assert _delete(client).status_code == 204
+
+        left = store.search(tool_data.data_namespace(CONVERSATION))
+        assert [(item.key, item.value) for item in left] == [(tool_data.ERASED_KEY, {"erased": True})]
+
     async def test_another_conversations_working_directory_stands(self, client, prod_token, store) -> None:
         await _write(store, CONVERSATION, "befund")
         await _write(store, OTHER, "befund")
@@ -97,6 +111,12 @@ class TestTheDeletion:
         assert _delete(client).status_code == 204
 
         assert _keys(store, CONVERSATION) == []
+        assert _keys(store, OTHER) == [f"{DRAFT_ROOT}befund.md"]
+
+    async def test_an_id_that_climbs_out_deletes_nothing(self, client, prod_token, store) -> None:
+        await _write(store, OTHER, "befund")
+
+        assert _delete(client, f"x..{OTHER}").status_code == 400
         assert _keys(store, OTHER) == [f"{DRAFT_ROOT}befund.md"]
 
     def test_a_conversation_that_never_wrote_a_draft_is_a_204(self, client, prod_token) -> None:

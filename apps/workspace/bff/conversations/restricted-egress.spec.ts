@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('./personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('./restricted-use', () => ({ recordedRestrictedFolders: vi.fn(), recordedSourceProjects: vi.fn() }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: vi.fn() }))
@@ -14,12 +15,15 @@ import type { AccessFolder } from '@/lib/authz/folder-access'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { findProjectDocumentsByFilenames, type DocumentListRow } from '@/lib/documents/repository'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
+import { personalShelfUseOf } from './personal-shelf-use'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import {
   confinementRefusal,
   folderRestrictsReading,
   requireMayFileFrom,
   requireMayLeaveConversation,
   requirePlanDocumentsOpen,
+  type FilingRelease,
 } from './restricted-egress'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -49,6 +53,7 @@ beforeEach(() => {
   vi.mocked(recordedRestrictedFolders).mockResolvedValue([])
   vi.mocked(recordedSourceProjects).mockResolvedValue([])
   vi.mocked(listProjectFolderTree).mockResolvedValue(TREE)
+  vi.mocked(personalShelfUseOf).mockResolvedValue(null)
 })
 
 async function refusal(promise: Promise<unknown>): Promise<ConversationConfinedError> {
@@ -59,6 +64,53 @@ async function refusal(promise: Promise<unknown>): Promise<ConversationConfinedE
   expect(error).toBeInstanceOf(ConversationConfinedError)
   return error as ConversationConfinedError
 }
+
+describe('a chat that read its owner’s shelf (ADR-0193, rule 4)', () => {
+  beforeEach(() => {
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: 'user_owner' })
+  })
+
+  it.each(['deepResearch', 'task', 'profilePatch', 'memory'] as const)('lets nothing leave it as %s', async (action) => {
+    const error = await refusal(requireMayLeaveConversation({ conversationId: CONV, locale: 'de' }, ORG, action))
+    expect(error.details).toEqual({ action: 'personalShelf' })
+    expect(error.message).toContain('Meine Ablage')
+  })
+
+  it('files only into its owner’s own shelf, never into a project', async () => {
+    const error = await refusal(requireMayFileFrom({ conversationId: CONV, locale: 'de' }, destination(VERTRAEGE)))
+    expect(error.details).toEqual({ action: 'personalShelf' })
+    await expect(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_owner'), folderId: null },
+      ),
+    ).resolves.toBeUndefined()
+    await refusal(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_other'), folderId: null },
+      ),
+    )
+  })
+})
+
+describe('a chat the caller may not see, someone else’s personal one (0269)', () => {
+  beforeEach(() => {
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: null })
+  })
+
+  it('lets nothing leave it and files it nowhere, not even into a personal shelf', async () => {
+    expect((await refusal(requireMayLeaveConversation({ conversationId: CONV, locale: 'de' }, ORG, 'memory'))).details).toEqual({
+      action: 'personalShelf',
+    })
+    await refusal(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_owner'), folderId: null },
+      ),
+    )
+  })
+})
 
 describe('requireMayLeaveConversation — runs, tasks and the profile', () => {
   it.each(['deepResearch', 'task', 'profilePatch'] as const)(
@@ -224,5 +276,41 @@ describe('a conversation that drew on another project (ADR-0094)', () => {
 
     await expect(requireMayLeaveConversation(origin, ORG, 'task')).resolves.toBeUndefined()
     await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+  })
+})
+
+describe('a person releases what the sources would keep in (confidential release)', () => {
+  const lift = vi.fn<FilingRelease['lift']>()
+  const origin = { conversationId: CONV, locale: 'de' as const, release: { lift } }
+
+  beforeEach(() => lift.mockReset().mockResolvedValue(undefined))
+
+  it('hands a refused filing from a restricted folder or another project to the release, and files when it passes', async () => {
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
+    await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([])
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    await expect(requireMayFileFrom(origin, destination('open'))).resolves.toBeUndefined()
+    expect(lift).toHaveBeenCalledTimes(2)
+  })
+
+  it('refuses as before when the release refuses', async () => {
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    lift.mockImplementationOnce((_conversation, _locale, _destination, refused) => Promise.reject(refused))
+    expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('filing')
+  })
+
+  it('never releases without a person behind the call, nor content of someone’s own shelf', async () => {
+    vi.mocked(recordedSourceProjects).mockResolvedValue(['project_other'])
+    await refusal(requireMayFileFrom({ conversationId: CONV, locale: 'de' }, destination('open')))
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: 'user_me' })
+    expect((await refusal(requireMayFileFrom(origin, destination('open')))).action).toBe('personalShelf')
+    expect(lift).not.toHaveBeenCalled()
+  })
+
+  it('does not ask for a release where the sources already allow the folder', async () => {
+    vi.mocked(recordedRestrictedFolders).mockResolvedValue([VERTRAEGE])
+    await expect(requireMayFileFrom(origin, destination(FEES))).resolves.toBeUndefined()
+    expect(lift).not.toHaveBeenCalled()
   })
 })

@@ -155,7 +155,7 @@ const SNAPSHOT = {
     { kind: 'confidence_capped', reason: 'quote_unverified', occurrences: 14, share: 0.03 },
   ],
   sourceMix: [
-    { dimension: 'tool', label: 'oib_knowledge_search', turns: 118 },
+    { dimension: 'tool', label: 'base_corpus_search', turns: 118 },
     { dimension: 'origin', label: 'kb', turns: 104 },
     { dimension: 'tool', label: 'ris_search_tool', turns: 74 },
     { dimension: 'origin', label: 'ris', turns: 69 },

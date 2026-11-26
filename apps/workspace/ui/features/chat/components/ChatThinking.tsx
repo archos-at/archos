@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, type ReactNode, memo, useId, useMemo, useState, useTransition } from 'react'
+import { type FC, type ReactNode, memo, useId, useMemo, useRef, useState, useTransition } from 'react'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
@@ -15,7 +15,10 @@ import {
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { motion, AnimatePresence, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { HeightArrival } from '@/components/motion/height-arrival'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { SlideBelowScope, useSlideBelow } from '@/components/motion/slide-below'
+import { useHeightGlide } from '@/components/motion/height-glide'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
@@ -89,6 +92,24 @@ const JOIN = '\u00A0· '
 
 const PHASE_NOTE_MIN_GAP_MS = 3000
 
+type SettleVariant = 'panel' | 'single' | 'no-research'
+
+const SettleFrame: FC<{ variant: SettleVariant; children: ReactNode }> = ({ variant, children }) => {
+  const frameRef = useRef<HTMLDivElement>(null)
+  useHeightGlide(frameRef, variant)
+  const [arrivedAs] = useState(variant)
+  return (
+    <div ref={frameRef} className="w-full">
+      <div
+        key={variant}
+        className={cn(variant !== arrivedAs && 'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none')}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 const ChatThinkingView: FC<ChatThinkingProps> = ({
   steps,
   isThinking = true,
@@ -114,6 +135,9 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
 }) => {
   const t = useTranslations(chatCopy)
   const reducedMotion = useReducedMotion()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const blocksRef = useRef<HTMLDivElement>(null)
+  const settleBlocks = useSlideBelow(blocksRef, panelRef)
   const showTechnicalSteps = useLayoutStore((s) => s.showTechnicalReasoning)
 
   const [disclosure, setDisclosure] = useState<Disclosure>(() => ({
@@ -141,10 +165,12 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   )
   const fallbackId = useId()
   const anchorPrefix = answerSourceAnchorPrefix(answerId ?? fallbackId)
-  const citationScope = (node: ReactNode) => (
-    <CitationScope documents={sourceCards} anchorPrefix={anchorPrefix}>
-      {node}
-    </CitationScope>
+  const citationScope = (node: ReactNode, variant: SettleVariant) => (
+    <SettleFrame variant={variant}>
+      <CitationScope documents={sourceCards} anchorPrefix={anchorPrefix}>
+        {node}
+      </CitationScope>
+    </SettleFrame>
   )
   const sourceCount = sourceCards.length
 
@@ -280,19 +306,21 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     const Glyph = askedBack ? CircleHelp : status === 'flagged' ? TriangleAlert : CircleMinus
     const tone = askedBack ? 'text-brand' : status === 'flagged' ? 'text-warning' : 'text-muted-foreground'
     return (
-      <div
-        data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
-        className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
-      >
-        <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
-          <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
-          {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
-          {warning && JOIN + warning.text}
-        </p>
-        <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
-          {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
-        </p>
-      </div>
+      <SettleFrame variant="no-research">
+        <div
+          data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
+          className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
+        >
+          <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
+            <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
+            {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
+            {warning && JOIN + warning.text}
+          </p>
+          <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
+            {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
+          </p>
+        </div>
+      </SettleFrame>
     )
   }
   if (status === 'done' && !worst && overview.single && works.length === 0 && !showTechnicalSteps) {
@@ -331,12 +359,13 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
             </span>
           )}
         </p>
-      </div>
+      </div>,
+      'single'
     )
   }
 
   return citationScope(
-    <div className="@container w-full rounded-surface bg-muted shadow-xs">
+    <div ref={panelRef} className="@container w-full rounded-surface bg-muted shadow-xs">
       <Collapsible open={open || opening} onOpenChange={handleOpenChange}>
         <CollapsibleTrigger asChild aria-controls={undefined /* no CollapsibleContent to name */}>
           {/* The trigger's name is the PHASE and the panel (`sr-only` below),
@@ -348,7 +377,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
             type="button"
             data-derivation-trigger
             className={cn(
-              'group relative flex min-h-12 w-full cursor-pointer items-center justify-between rounded-control px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
+              'group relative flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-surface px-4 py-3 text-left outline-none transition-colors duration-snap ease-out motion-reduce:transition-none',
               FOCUS_RING_INSET
             )}
           >
@@ -362,7 +391,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                 the reader's eye. The label gives way (ellipsis) instead; the
                 trigger's `sr-only` name above carries it whole. */}
             <span
-              className="relative flex min-w-0 flex-nowrap items-center gap-x-2"
+              className="relative mr-auto flex min-w-0 flex-nowrap items-center gap-x-2"
               aria-hidden="true"
             >
               {/* Fixed icon slot, shared by every state: without it the text
@@ -429,10 +458,29 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
               )}
             </span>
 
-            <span className="relative flex shrink-0 items-center gap-2" aria-hidden="true">
+            {/* No box: a part that comes, goes or rolls stands left of the ones that stay. */}
+            <span className="contents" aria-hidden="true">
+              {/* While the label is the activity, the summary sits here once
+                  the PANEL is 28rem wide: beside it, at 390 px, the label read
+                  only „Such…" (Herleitung audit, 2026-09). A container query,
+                  not `sm:`: a wide window with a narrow chat column is a phone
+                  to this header. From the answer's first word the label IS the
+                  summary, and this slot stays empty for good. */}
+              <AnimatePresence mode="popLayout" initial={false}>
+                {shimmer && (
+                  <motion.span
+                    key={`summary:${summaryLabel}`}
+                    data-derivation-summary
+                    className="hidden shrink-0 text-xs text-muted-foreground @md:inline"
+                    {...swap}
+                  >
+                    {summaryLabel}
+                  </motion.span>
+                )}
+              </AnimatePresence>
               {/* The ending word rolls like the label beside it. `wait` left
                   the slot empty for the whole exit before the next word came. */}
-              <span className="relative overflow-y-clip empty:hidden">
+              <span className="relative shrink-0 overflow-y-clip empty:hidden">
                 <AnimatePresence mode="popLayout" initial={false}>
                   {endingWord && (
                     <motion.span key={endingWord} className="block text-xs font-medium text-muted-foreground" {...roll}>
@@ -441,25 +489,21 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                   )}
                 </AnimatePresence>
               </span>
-              <AnimatePresence mode="popLayout" initial={false}>
-                {showElapsed && (
-                  <motion.span
-                    key="elapsed"
-                    className="min-w-[3.5ch] text-right text-xs font-medium tabular-nums text-muted-foreground"
-                    {...swap}
-                  >
-                    {formatElapsed(shownSeconds)}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              {/* While the label is the activity, the summary sits here once
-                  the PANEL is 28rem wide: beside it, at 390 px, the label read
-                  only „Such…" (Herleitung audit, 2026-09). A container query,
-                  not `sm:`: a wide window with a narrow chat column is a phone
-                  to this header. From the answer's first word the label IS the
-                  summary, and this slot stays empty for good. */}
-              {shimmer && <span className="hidden text-xs text-muted-foreground @md:inline">{summaryLabel}</span>}
-              <ChevronDown className="size-4 text-muted-foreground transition-transform duration-quick ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+              {(isThinking || isWaiting) && (
+                <span
+                  data-derivation-elapsed
+                  className="w-[4ch] shrink-0 text-left text-xs font-medium tabular-nums text-muted-foreground"
+                >
+                  <AnimatePresence initial={false}>
+                    {showElapsed && (
+                      <motion.span key="elapsed" className="block" {...swap}>
+                        {formatElapsed(shownSeconds)}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+              )}
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-quick ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
             </span>
           </button>
         </CollapsibleTrigger>
@@ -485,7 +529,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
               exit="leave"
               className="overflow-hidden [overflow-anchor:none]"
             >
-              <div>
+              <SlideBelowScope.Provider value={settleBlocks}>
+              <div ref={blocksRef} className="relative">
                   {(!filesOnly || showTechnicalSteps) && (
                     <div className="border-base border-t px-2 pb-3 pt-3 sm:px-4">
                       <ReasoningFlow
@@ -543,6 +588,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                   )}
 
               </div>
+              </SlideBelowScope.Provider>
             </motion.div>
           )}
         </AnimatePresence>
@@ -562,26 +608,34 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
           still in flight (FIX 3) show a calm "checking for a finished answer"
           line; only once recovery has settled with nothing found do we prompt
           a resend. */}
-      {isInterrupted && isRecoveryPending ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <Spinner
-            size="xs"
-            className="mt-0.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.recoveringNotice')}
-          </span>
-        </div>
-      ) : isInterrupted ? (
-        <div className="flex items-start gap-2 border-t border-border px-4 pb-3 pt-2.5">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
-          <span className="text-xs leading-relaxed text-muted-foreground" role="status">
-            {t('thinking.interruptedNotice')}
-          </span>
-        </div>
-      ) : null}
-    </div>
+      <AnimatePresence initial={false}>
+        {isInterrupted && (
+          <HeightArrival key="interrupted" testId="thinking-interrupted">
+            <div className="relative border-t border-border px-4 pb-3 pt-2.5">
+              <AnimatePresence initial={false} mode="popLayout">
+                <motion.div
+                  key={isRecoveryPending ? 'recovering' : 'interrupted'}
+                  className="flex items-start gap-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: enter }}
+                  exit={{ opacity: 0, transition: leave }}
+                >
+                  {isRecoveryPending ? (
+                    <Spinner size="xs" className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
+                  )}
+                  <span className="text-xs leading-relaxed text-muted-foreground" role="status">
+                    {t(isRecoveryPending ? 'thinking.recoveringNotice' : 'thinking.interruptedNotice')}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </HeightArrival>
+        )}
+      </AnimatePresence>
+    </div>,
+    'panel'
   )
 }
 

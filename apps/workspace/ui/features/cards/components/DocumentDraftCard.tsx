@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnapExit } from '@/components/motion'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
 import { StackedLabel } from '@/components/ui/stacked-label'
@@ -17,7 +17,16 @@ import { fetchConversationDraft } from '../lib/document-draft-preview'
 import { CARD_SHELL } from './card-chrome'
 import { ClampedText } from './ClampedText'
 import { DocumentDraftPreviewDialog } from './DocumentDraftPreviewDialog'
-import { DRAFT_ACTION, DraftConflictNotice, DraftSaveDialog, openFiledInPlace } from './draft-filing-parts'
+import {
+  DRAFT_ACTION,
+  DraftConflictNotice,
+  DraftMenu,
+  DraftSaveDialog,
+  ProjectChangeNotice,
+  openFiledInPlace,
+} from './draft-filing-parts'
+import { ConfidentialReleaseNotice } from './confidential-release-notice'
+import { useDraftLife } from '../hooks/use-draft-life'
 
 interface DocumentDraftCardProps {
   title: string
@@ -27,6 +36,8 @@ interface DocumentDraftCardProps {
   documentId?: string | null
   versionId?: string | null
   versionState?: DocumentVersionState | null
+  filedDraftVersion?: number | null
+  removed?: boolean | null
   messageId?: string
   cardKey: string
   decisionsMustPersist?: boolean
@@ -38,7 +49,9 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
   const isMobile = useIsMobile()
   const reduced = useReducedMotion()
   const filing = useDraftFiling(props)
-  const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling, isSubmitting } = filing
+  const life = useDraftLife(props)
+  const { conversationId, projectId, shownFiled, shownDocumentId, href, isFiling } = filing
+  const openLabel = filing.personal ? t('cards.documentDraft.personal.open') : t('cards.documentDraft.open')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
@@ -65,8 +78,27 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
     void loadPreview()
   }
 
+  if (life.removed) {
+    return (
+      <Card data-testid="document-draft-card" data-removed="true" className={cn(CARD_SHELL, 'gap-1 p-5')}>
+        <SectionLabel>{t('cards.fileDraft.removed')}</SectionLabel>
+        <ClampedText className="card-title text-muted-foreground">{title}</ClampedText>
+        <p className="card-caption text-muted-foreground">
+          {t('cards.fileDraft.removedNote')}
+          {shownFiled && ` ${t('cards.fileDraft.removedFiled')}`}
+        </p>
+        {shownFiled && href && shownDocumentId && (
+          <a href={href} className={DRAFT_ACTION} data-testid="document-draft-open">
+            {openLabel}
+          </a>
+        )}
+      </Card>
+    )
+  }
+
   return (
-    <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'gap-2 p-5')}>
+    <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'relative gap-2 p-5')}>
+      <DraftMenu life={life} name={title} filed={shownFiled} onRemoved={() => {}} className="absolute right-2 top-2" />
       <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
 
       <div className="flex min-w-0 flex-col">
@@ -82,7 +114,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             data-testid="document-draft-state"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: reduced ? motionInstant : motionQuick }}
-            exit={{ opacity: 0, transition: reduced ? motionInstant : motionQuickExit }}
+            exit={{ opacity: 0, transition: reduced ? motionInstant : motionSnapExit }}
           >
             {filing.stateLabel}
           </motion.span>
@@ -100,10 +132,13 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             aria-disabled={isFiling || undefined}
             aria-busy={isFiling || undefined}
-            onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+            onClick={() => setSaveOpen(true)}
             data-testid="document-draft-file"
           >
-            <StackedLabel busy={isFiling} idle={t('cards.documentDraft.file')} working={t('cards.documentDraft.filing')} />
+            <StackedLabel
+              busy={isFiling}
+              idle={filing.personal ? t('cards.documentDraft.personal.file') : t('cards.documentDraft.file')}
+              working={t('cards.documentDraft.filing')} />
           </button>
         )}
 
@@ -113,25 +148,26 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
             className={DRAFT_ACTION}
             data-testid="document-draft-open"
             onClick={(event) =>
-              openFiledInPlace(event, { documentId: shownDocumentId, projectId: projectId as string, href, isMobile })
+              projectId && openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })
             }
           >
-            {t('cards.documentDraft.open')}
+            {openLabel}
           </a>
         )}
 
-        {filing.canSubmit && (
+        {filing.canUpdate && (
           <button
             type="button"
             className={DRAFT_ACTION}
-            aria-disabled={isSubmitting || undefined}
-            aria-busy={isSubmitting || undefined}
-            onClick={() => void filing.submit()}
+            aria-disabled={isFiling || undefined}
+            aria-busy={isFiling || undefined}
+            onClick={() => void filing.update()}
+            data-testid="document-draft-update"
           >
             <StackedLabel
-              busy={isSubmitting}
-              idle={t('cards.documentDraft.submit')}
-              working={t('cards.documentDraft.submitting')}
+              busy={isFiling}
+              idle={filing.personal ? t('cards.documentDraft.personal.update') : t('cards.fileDraft.updateInProject')}
+              working={t('cards.fileDraft.updating')}
             />
           </button>
         )}
@@ -144,9 +180,18 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
+      <ConfidentialReleaseNotice filing={filing} />
+      <ProjectChangeNotice filing={filing} name={title} onFileAsOwn={() => setSaveOpen(true)} />
 
-      {filing.canFile && (
-        <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
+      {(filing.canFile || filing.projectChange) && (
+        <DraftSaveDialog
+          filing={filing}
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          title={title}
+          path={path}
+          asOwn={Boolean(filing.projectChange)}
+        />
       )}
 
       {!shownFiled && conversationId && (

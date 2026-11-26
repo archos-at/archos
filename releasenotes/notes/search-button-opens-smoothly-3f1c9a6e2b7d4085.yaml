@@ -1,0 +1,6 @@
+---
+# area: search
+fixes:
+  - >
+    Clicking the search button now opens search with a short fade, instead of
+    the panel appearing all at once. Ctrl+K still opens it instantly.

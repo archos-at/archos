@@ -44,6 +44,7 @@ export interface LayoutProbe {
   loaf: LoafRecord[]
   scrollCalls: ScrollCall[]
   reading: ReadingLine
+  composerHeights: number[]
 }
 
 export interface TurnClock {
@@ -61,6 +62,7 @@ export const initialLayoutProbe = (): LayoutProbe => ({
   loaf: [],
   scrollCalls: [],
   reading: { answerInViewAtFirstWord: null, firstProseMaxDelta: 0, lastLineMaxDelta: 0, worst: null },
+  composerHeights: [],
 })
 
 const describe = (node: Node | null | undefined): string => {
@@ -165,7 +167,22 @@ export const observeLayout = (probe: LayoutProbe, clock: TurnClock): (() => void
 
   teardown.push(watchScrollCalls(probe, live, since, afterSettle))
   teardown.push(watchReadingLine(probe.reading, clock, live, since))
+  teardown.push(watchComposerHeight(probe.composerHeights, clock))
   return () => teardown.forEach((stop) => stop())
+}
+
+const watchComposerHeight = (heights: number[], clock: TurnClock): (() => void) => {
+  let raf = 0
+  const frame = () => {
+    raf = requestAnimationFrame(frame)
+    if (clock.sentAt === 0) return
+    const composer = document.querySelector<HTMLElement>('[data-testid="composer-root"]')
+    if (!composer) return
+    const height = composer.offsetHeight
+    if (heights.at(-1) !== height) heights.push(height)
+  }
+  raf = requestAnimationFrame(frame)
+  return () => cancelAnimationFrame(raf)
 }
 
 const watchScrollCalls = (

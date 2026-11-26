@@ -2,19 +2,13 @@ import type { en } from '../en'
 
 export const shortcuts: typeof en.shortcuts = {
   palette: {
-    title: 'Befehlspalette',
-    description: 'Projekt oder Aktion suchen und direkt dorthin springen.',
-    placeholder: 'Befehl eingeben oder suchen…',
-    empty: 'Keine Ergebnisse gefunden.',
-    groups: {
-      projects: 'Projekte',
-      currentProject: 'Aktuelles Projekt',
-      general: 'Allgemein',
-    },
-    intake: 'Einrichtung',
+    title: 'Suche',
+    description: 'Dateien, Chats und Projekte im ganzen Büro finden und öffnen.',
+    placeholder: 'Dateien, Chats und Projekte finden …',
+    general: 'Allgemein',
     toggleTheme: 'Design umschalten',
     hints: {
-      move: 'bewegen',
+      move: 'wählen',
       open: 'öffnen',
       close: 'schließen',
       all: 'alle Treffer',
@@ -37,7 +31,7 @@ export const shortcuts: typeof en.shortcuts = {
     },
     projectScopeNote: 'Bereichs-Kürzel öffnen den Bereich des Projekts, in dem Sie gerade sind.',
     items: {
-      palette: 'Befehlspalette öffnen',
+      palette: 'Suche öffnen',
       cheatsheet: 'Diese Übersicht anzeigen',
       dismiss: 'Dialog oder Menü schließen',
       sendMessage: 'Nachricht senden',
@@ -61,15 +55,15 @@ export const shortcuts: typeof en.shortcuts = {
       inboundMailOpen: 'E-Mail öffnen',
       inboundMailSelect: 'E-Mail auswählen',
       inboundMailPreview: 'Anhang ansehen',
-      inboundMailFile: 'Wie gezeigt ablegen',
+      inboundMailFile: 'Einordnen (in der Übersicht: Ablegen)',
       inboundMailDismiss: 'E-Mail verwerfen',
     },
     disableHint: 'Tastaturkürzel lassen sich in den Profileinstellungen deaktivieren.',
   },
   preference: {
     title: 'Tastaturkürzel',
-    description: 'Schnelle Navigation mit Befehlspalette und Kurzbefehlen.',
+    description: 'Schnelle Navigation mit Suche und Kurzbefehlen.',
     label: 'Tastaturkürzel aktivieren',
-    hint: 'Schaltet die Befehlspalette (Strg+K / ⌘K) und alle Kurzbefehle auf diesem Gerät ein oder aus.',
+    hint: 'Schaltet das Kürzel für die Suche (Strg+K / ⌘K) und alle Kurzbefehle auf diesem Gerät ein oder aus.',
   },
 }

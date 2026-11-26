@@ -43,6 +43,13 @@ describe.each([
     expect(text).not.toMatch(/kein Cookie-Einwilligungsbanner|no cookie consent banner/i)
   })
 
+  it('names the display cookies of the application, last_place and chat_resume', () => {
+    const cookies = content.privacy.sections.find((section) => /7\. /.test(section.heading ?? ''))
+    const text = (cookies?.paragraphs ?? []).join('\n')
+    expect(text).toContain('last_place')
+    expect(text).toContain('chat_resume.')
+  })
+
   it('does not claim that email or name reach product analytics', () => {
     expect(flatten(content.privacy)).toMatch(/E-Mail-Adresse und Ihr Name werden nicht|email address and name are not sent/)
   })

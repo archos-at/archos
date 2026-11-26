@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Deleting a chat now also removes every file attached to it from search.

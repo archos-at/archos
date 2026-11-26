@@ -1,0 +1,10 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone, Persönlich has its own tab bar again: Chat starts a new
+    personal chat, Meine Ablage opens your own files, and Mehr lists the
+    office and your account.
+  - >
+    On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you
+    can move between your own chats and a project's from anywhere.

@@ -22,7 +22,7 @@ from agent.knowledge.schema import RetrievalResult
 from agent.knowledge.scoping import ScopedCollection
 
 PROJECT = "proj_1"
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 HIT = FolderHit(PROJECT, "Einreichung/Pläne", "Einreichpläne Index C, Grundrisse und Schnitte.", "fresh", 0.81)
 
 

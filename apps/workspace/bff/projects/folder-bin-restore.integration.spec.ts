@@ -44,6 +44,7 @@ import {
   wipe,
   withPlatformAccess,
 } from './folder-bin.fixtures'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -111,10 +112,10 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
   describe('restoring', () => {
     it('brings the folder back with exactly the access it had, and reads its documents into the right collections', async () => {
       const before = await Promise.all([gf, bh, pl].map((session) => visibleDocumentNames(session)))
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.admin })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.admin })
       expect(await visibleDocumentNames(bh)).toEqual(['Archiv.pdf', 'Lageplan.pdf', 'Plan.pdf'])
 
-      const restored = await bin.restoreFolderFromBin(gf, { projectId, folderId: folder.admin })
+      const restored = await bin.restoreFolderFromBin(gf, { shelf: projectShelf(projectId), folderId: folder.admin })
       expect(restored).toMatchObject({ restoredTo: 'original', folders: 3, documents: 3 })
       expect(await Promise.all([gf, bh, pl].map((session) => visibleDocumentNames(session)))).toEqual(before)
       expect(await access.getHiddenFolderIds(pl, projectId)).toEqual(expect.arrayContaining([folder.contracts, folder.old]))
@@ -140,9 +141,9 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
           VALUES (${ORG}, 'user_colleague', 'Lohnzettel.pdf', 'k/Lohnzettel.pdf', ${COLLECTION}, 'processing', 'project', ${projectId}::uuid, ${folder.admin}::uuid)
         `)
       )
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.admin })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.admin })
       const countFor = async (session: typeof gf) =>
-        (await bin.listFolderBin(session, projectId)).entries.find((entry) => entry.folderId === folder.admin)?.documents
+        (await bin.listFolderBin(session, projectShelf(projectId))).entries.find((entry) => entry.folderId === folder.admin)?.documents
       expect(await countFor(gf)).toBe(3)
       expect(await countFor(manager)).toBe(4)
     })
@@ -150,8 +151,8 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     it('marks the documents processing in the restore itself, so a restore cut off never leaves one reading indexed', async () => {
       const quarantined = await insertDocument('Gesperrt.pdf', folder.officeShelf)
       await inOrg(() => db.execute(sql`UPDATE documents SET status = 'quarantined' WHERE id = ${quarantined}::uuid`))
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      await bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
 
       const [job] = await queuedJobs('restore_folder_bin')
       for (const id of [doc.plan, doc.officeShelf]) {
@@ -165,8 +166,8 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
     it('fails a restored document there is nothing to read from, rather than leaving it indexed with no chunks', async () => {
       await inOrg(() => db.execute(sql`UPDATE documents SET storage_key = '' WHERE id = ${doc.officeShelf}::uuid`))
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      await bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const [job] = await queuedJobs('restore_folder_bin')
       const finished = await runRestoreJob(pl, job.payload)
       expect(finished.counts).toMatchObject({ queued: 1, failed: 1 })
@@ -195,8 +196,8 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
         db.execute(sql`UPDATE documents SET published_version_id = v.id FROM document_versions v
                        WHERE documents.id = ${report}::uuid AND v.document_id = documents.id`)
       )
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      await bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const [job] = await queuedJobs('restore_folder_bin')
       await runRestoreJob(pl, job.payload)
       expect(vi.mocked(lifecycle.redispatchPublishedVersion).mock.calls.map(([, row, priority]) => [row.id, priority])).toEqual([
@@ -206,8 +207,8 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('stops the walk when the requester lost the project, and leaves the rest to the sweep', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      await bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const [job] = await queuedJobs('restore_folder_bin')
       const revoked = sessionOf('user_pl', PL, ['project:view'])
       await expect(runRestoreJob(revoked, job.payload)).resolves.toMatchObject({ cursor: null })
@@ -216,22 +217,22 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('needs write on the deleted folder: a reader sees the entry but may not restore it', async () => {
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
-      const listing = await bin.listFolderBin(bh, projectId)
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
+      const listing = await bin.listFolderBin(bh, projectShelf(projectId))
       expect(listing.entries.map((entry) => [entry.name, entry.canRestore])).toEqual([['Verträge', false]])
-      await expect(bin.restoreFolderFromBin(bh, { projectId, folderId: folder.contracts })).rejects.toMatchObject({ status: 403 })
-      expect((await bin.listFolderBin(pl, projectId)).entries).toEqual([])
-      await expect(bin.restoreFolderFromBin(pl, { projectId, folderId: folder.contracts })).rejects.toMatchObject({ status: 404 })
+      await expect(bin.restoreFolderFromBin(bh, { shelf: projectShelf(projectId), folderId: folder.contracts })).rejects.toMatchObject({ status: 403 })
+      expect((await bin.listFolderBin(pl, projectShelf(projectId))).entries).toEqual([])
+      await expect(bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.contracts })).rejects.toMatchObject({ status: 404 })
     })
 
     it('in a closed project the manager restores, and nobody else does (ADR-0090)', async () => {
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
       projectState.closed = true
       try {
-        expect((await bin.listFolderBin(gf, projectId)).entries.map((entry) => entry.canRestore)).toEqual([false])
-        await expect(bin.restoreFolderFromBin(gf, { projectId, folderId: folder.contracts })).rejects.toMatchObject({ status: 403 })
-        expect((await bin.listFolderBin(manager, projectId)).entries.map((entry) => entry.canRestore)).toEqual([true])
-        const restored = await bin.restoreFolderFromBin(manager, { projectId, folderId: folder.contracts })
+        expect((await bin.listFolderBin(gf, projectShelf(projectId))).entries.map((entry) => entry.canRestore)).toEqual([false])
+        await expect(bin.restoreFolderFromBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })).rejects.toMatchObject({ status: 403 })
+        expect((await bin.listFolderBin(manager, projectShelf(projectId))).entries.map((entry) => entry.canRestore)).toEqual([true])
+        const restored = await bin.restoreFolderFromBin(manager, { shelf: projectShelf(projectId), folderId: folder.contracts })
         expect(restored.restoredTo).toBe('original')
         expect((await folderState(folder.contracts))?.deleted_at).toBeNull()
       } finally {
@@ -240,18 +241,18 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('restores to the project root, and says so, when the parent is gone', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.officeShelf })
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      const restored = await bin.restoreFolderFromBin(pl, { projectId, folderId: folder.officeShelf })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.officeShelf })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      const restored = await bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.officeShelf })
       expect(restored.restoredTo).toBe('root')
       expect(await folderState(folder.officeShelf)).toMatchObject({ deleted_at: null, parent_id: null, path: 'Archiv' })
       expect(await visibleDocumentNames(pl)).toContain('Archiv.pdf')
     })
 
     it('refuses while a living sibling holds the name, and changes nothing', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await insertFolder('Pläne', null, 'Pläne', null)
-      await expect(bin.restoreFolderFromBin(pl, { projectId, folderId: folder.plans })).rejects.toMatchObject({
+      await expect(bin.restoreFolderFromBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })).rejects.toMatchObject({
         status: 409,
         details: { reason: bin.FOLDER_NAME_TAKEN_REASON },
       })

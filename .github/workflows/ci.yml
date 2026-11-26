@@ -5,6 +5,8 @@ on:
     branches: [develop, "release/**"]
   pull_request:
     branches: [develop, "release/**", "claude/**"]
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -88,16 +90,16 @@ jobs:
         with:
           filters: .github/filters.yml
           token: ''
-          base: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
 
       - name: Images this run must build
         id: images
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           . ci/git_auth.sh
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+          if [ "$GITHUB_EVENT_NAME" != push ]; then
             python3 ci/image_inputs.py plan --base "$BASE"
           else
             python3 ci/image_inputs.py plan --registry "$GITHUB_REPOSITORY_OWNER"
@@ -118,7 +120,7 @@ jobs:
         if: steps.reuse.outputs.hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
         run: |
           . ci/git_auth.sh
           python3 ci/pinned_images.py new "$BASE"
@@ -131,7 +133,7 @@ jobs:
           DEPTH: ${{ steps.depth.outputs.depth }}
           DEPTH_REASON: ${{ steps.depth.outputs.reason }}
           PY_MODE: ${{ steps.pysel.outputs.py_mode }}
-          BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
           BASE_REASON: ${{ steps.green.outputs.reason }}
           REUSED: ${{ steps.reuse.outputs.hit }}
           TIERS: ${{ toJSON(steps.filter.outputs) }}
@@ -179,6 +181,7 @@ jobs:
       - name: Backend lint (ruff)
         run: task be:lint -- --output-format=github
       - name: Secret scan (gitleaks)
+        if: ${{ !vars.CI_RUNNER }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -187,6 +190,14 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
             zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
             --log-opts="$range"
+      - name: Secret scan (gitleaks, the runner image's binary)
+        if: ${{ vars.CI_RUNNER }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          gitleaks detect --source "$GITHUB_WORKSPACE" --redact -v --log-opts="$range"
 
 
   repo-tests:
@@ -229,7 +240,7 @@ jobs:
         run: |
           . ci/git_auth.sh
           ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           enable-cache: true
       - uses: ./.github/actions/setup-task
@@ -297,7 +308,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
-      image: semgrep/semgrep:1.177.0
+      image: ${{ !vars.CI_RUNNER && 'semgrep/semgrep:1.177.0' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Semgrep scan
@@ -324,7 +335,7 @@ jobs:
         shard: [1, 2, 3, 4]
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -336,6 +347,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -361,7 +375,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: backend-coverage-*
@@ -387,7 +401,7 @@ jobs:
         suite: [agent_host, sources, claim queues]
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -399,6 +413,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -433,7 +450,7 @@ jobs:
           - { suite: sources }
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -445,6 +462,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -474,7 +494,7 @@ jobs:
           EXTRA_JSON: ${{ needs.changes.outputs.py_extra }}
         run: |
           # The named test files that belong to this suite, in its first shard.
-          case "$SUITE" in core) root='^(tests|evals)/' ;; api) root='^apps/agent-host/tests/' ;; sources) root='^packages/(knowledge-layer|public-sources|ris-adapter|tavily-web-search)/' ;; esac
+          case "$SUITE" in core) root='^(tests|evals|packages/agent/tests)/' ;; api) root='^apps/agent-host/tests/' ;; sources) root='^packages/(knowledge-layer|public-sources|ris-adapter|tavily-web-search)/' ;; esac
           extra=""
           if [ -z "$SHARD" ] || [ "${SHARD%%/*}" = 1 ]; then
             extra="$(jq -r --arg root "$root" '[.[] | select(test($root))] | join(" ")' <<<"$EXTRA_JSON")"
@@ -564,7 +584,8 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      - run: >-
+      - if: ${{ !vars.CI_RUNNER }}
+        run: >-
           npx --yes playwright@1.63.0 install-deps chromium
           || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
       - run: task website:verify
@@ -625,17 +646,55 @@ jobs:
           echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
+  infra-preview:
+    name: Infra (pulumi preview against staging)
+    needs: changes
+    if: >-
+      needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: infra-preview-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - name: Install program and policy-pack deps
+        working-directory: deploy/pulumi
+        run: bun install --frozen-lockfile && bun install --frozen-lockfile --cwd policy
+      - name: Install Pulumi
+        working-directory: deploy/pulumi
+        run: |
+          version="$(node -p "require('@pulumi/pulumi/package.json').version")"
+          curl -fsSL https://get.pulumi.com -o "$RUNNER_TEMP/install-pulumi.sh"
+          sh "$RUNNER_TEMP/install-pulumi.sh" --version "$version"
+      - name: Preview against staging
+        working-directory: deploy/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          ALLOW_STATE_LOSS: ${{ contains(github.event.pull_request.labels.*.name, 'infra:destroys-state') && '1' || '' }}
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          scripts/preview-pull-request.sh
+
   packages:
     name: Standalone packages (packages/)
     needs: changes
     if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           enable-cache: true
           cache-dependency-glob: packages/ifc-spatial-py/uv.lock
@@ -695,7 +754,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           enable-cache: true
           cache-suffix: agent-engine
@@ -718,7 +777,7 @@ jobs:
     name: Hatchet engine tests
     needs: changes
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.hatchet == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -793,6 +852,8 @@ jobs:
           path: .trivy-cache/fanal
           key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
       - run: bash ci/trivy_scan.sh pins.txt
+        env:
+          NO_DOCKER: ${{ vars.CI_RUNNER != '' }}
       - name: Save the layer analysis
         if: always() && hashFiles('.trivy-cache/fanal/**') != ''
         continue-on-error: true
@@ -804,8 +865,8 @@ jobs:
   image:
     name: Image build (${{ matrix.name }})
     needs: changes
-    if: needs.changes.outputs.depth == 'full' && github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    if: needs.changes.outputs.depth == 'full' && github.event_name != 'push' && needs.changes.outputs.build != '[]'
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -832,7 +893,7 @@ jobs:
     name: Image build + push (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.build != '[]'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -863,7 +924,7 @@ jobs:
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -899,7 +960,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
@@ -917,7 +978,7 @@ jobs:
           PY
       - name: Name the tree this run tested
         id: tree
-        if: github.event_name == 'pull_request' && needs.changes.outputs.depth == 'full'
+        if: github.event_name != 'push' && needs.changes.outputs.depth == 'full'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -927,7 +988,7 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/green-run.txt"
           echo "tree=$tree" >> "$GITHUB_OUTPUT"
       - name: Record this tree as green
-        if: github.event_name == 'pull_request' && steps.tree.outputs.tree != ''
+        if: github.event_name != 'push' && steps.tree.outputs.tree != ''
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

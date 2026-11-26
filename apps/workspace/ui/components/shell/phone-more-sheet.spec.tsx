@@ -52,7 +52,7 @@ describe('PhoneMoreSheet', () => {
 
     const sheet = await screen.findByRole('dialog')
     const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
-    expect(links).toEqual(['automation', 'officeShelf', 'baseKnowledge', 'search', 'profile', 'memory', 'organization', 'whats-new'])
+    expect(links).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'whats-new'])
     for (const name of ['Chat', 'Files', 'Overview']) {
       expect(within(sheet).queryByRole('link', { name })).toBeNull()
     }
@@ -83,7 +83,7 @@ describe('PhoneMoreSheet', () => {
     const list = await screen.findByRole('dialog', { name: 'Switch project' })
     expect(within(list).getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument()
     expect(within(list).getByRole('button', { name: 'Sanierung Amtshaus Favoriten' })).toBeInTheDocument()
-    expect(within(list).getByRole('link', { name: 'View all projects' })).toBeInTheDocument()
+    expect(within(list).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
 
     await user.click(within(list).getByRole('button', { name: 'Back to More' }))
     expect(await screen.findByRole('dialog', { name: 'More' })).toBeInTheDocument()
@@ -93,5 +93,27 @@ describe('PhoneMoreSheet', () => {
     render(<PhoneMoreSheet projectId={null} authRequired {...flags} />)
     act(() => useShellOverlays.getState().setMoreSheetOpen(true))
     expect(document.querySelector('[data-project-selector]')).toBeNull()
+  })
+
+  test('under Persönlich it lists the office and the account, no project, and holds no side switch: that stands at the top of the chat (ADR-0193)', async () => {
+    render(<PhoneMoreSheet projectId={null} pathname="/app/personal/chat" authRequired {...flags} />)
+    act(() => useShellOverlays.getState().setMoreSheetOpen(true))
+    const sheet = await screen.findByRole('dialog', { name: 'More' })
+
+    expect(within(sheet).queryByTestId('rail-mode-switch')).toBeNull()
+    expect(sheet.querySelector('[data-project-selector]')).toBeNull()
+    const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
+    expect(links).toEqual(['officeShelf', 'search', 'profile', 'memory', 'organization', 'whats-new'])
+  })
+
+  test('asked for the project list, it opens on the list, one tap from another project', async () => {
+    const projects = [
+      { id: 'p1', name: 'Seestadt' },
+      { id: 'p2', name: 'Amtshaus' },
+    ]
+    render(<PhoneMoreSheet projectId="p1" projects={projects} projectName="Seestadt" authRequired {...flags} />)
+    act(() => useShellOverlays.getState().setMoreSheetOpen(true, 'projects'))
+    const list = await screen.findByRole('dialog', { name: 'Switch project' })
+    expect(within(list).getByRole('button', { name: 'Amtshaus' })).toBeInTheDocument()
   })
 })

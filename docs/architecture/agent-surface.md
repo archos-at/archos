@@ -321,7 +321,7 @@ The meta-tools are written once, `metaToolsFor` in `discovery-meta-tools.ts`, pe
 the domain list is the office door's (never `platform`), and the agent's
 `call-operation` says a write comes back as a proposal. The agent's client reads its variant from
 `packages/agent/src/agent/tools/workspace/meta_tools.json`, which `meta-tools.spec.ts`
-writes (`UPDATE_FIXTURES=1`) and holds current; Python keeps no copy and renames
+writes (`task generate`) and holds current; Python keeps no copy and renames
 only the tool names to its own (`workspace__call`).
 
 `search-operations` matches plain words, never a pattern (a regular expression
@@ -591,8 +591,7 @@ ceiling.
 **Changing an entry.**
 
 1. Edit the entry, with a `reason` unless it becomes `OFFERED`.
-2. `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts app/api/mcp/workspace-eval.fixture.spec.ts`
-   rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
+2. `task generate` rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
    workspace eval's catalog (what the agent sees).
 3. `.venv/bin/pytest packages/agent/tests/tools/test_exposure_config.py` checks that
    every `native:<tool>` is a tool the agent has.
@@ -622,6 +621,7 @@ ceiling.
 | `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-measure` |
 | `dxf_measure` | `dxf-measure` |
 | `read_file`, `list_files`, `look`, `law_lookup` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
+| `drawing_measure` | `drawing-measure` (`external: false` while the tool is behind the `drawing-measure` entitlement, ADR-0190) |
 
 Both paths stay open for the file operations the agent also has `propose_file_change`
 for (move, rename, folders, assignments: the native tool refuses a chat in no
@@ -650,7 +650,8 @@ reply, compare Fassungen, ask about a box, open at a place, reference a
 document with `#` in the composer, show in the asker's viewer) with its `canvas`
 and its `chat` form. A form is a rendering (a component, a card type, a step
 kind), an `exempt` line (the surface has no meaning for it), or a `gap` that
-names the slice closing it; the spec fails a gap whose card now exists, so a
+names the slice closing it (`V<n>` of the ADR-0128 plan, or `<plan> slice <n>`
+for another build spec's, as `drawing-measure slice 6`); the spec fails a gap whose card now exists, so a
 closed gap does not stay written down as open.
 
 `parity.config.spec.ts` fails when an op of `internalAnnotationRequestSchema` or
@@ -666,8 +667,8 @@ turn whose page declared it (`user_message.client_tools`), and only the asker's
 live page runs it, after reading the document again in that person's session
 with `document-get`, the read every door already offers. It has no route of
 its own: no agent moves somebody else's screen, because the tool is the agent's
-own and the page that runs it is the asker's. Regenerate with
-`UPDATE_FIXTURES=1 bunx vitest run src/lib/surface-parity/parity.config.spec.ts`.
+own and the page that runs it is the asker's. Regenerate it with
+`task generate`.
 
 ## What deserves a tool
 
@@ -690,7 +691,7 @@ It is not a new Python tool.
 An outside agent's client also gets what it reads before its first call, and
 the workflows a person starts from it (`lib/agent-api/door/`). The prose is
 Markdown beside the module, embedded by `door/docs.spec.ts`
-(`UPDATE_FIXTURES=1` regenerates `docs.generated.ts`); edit the Markdown.
+(`task generate` regenerates `docs.generated.ts`); edit the Markdown.
 
 | Resource | What |
 |---|---|
@@ -753,6 +754,28 @@ SHOULD, and Claude's connector UI showed no icon for an SVG-only list. Without a
 pinned origin the server lists the SVG mark alone. They add about 4 KB to a `search` mode `tools/list`. `tools` mode lists
 none on its tools: per-operation or per-domain icons would repeat ~700 bytes on
 ~300 tools against a 1,000 character budget a tool.
+
+### Cache hints and trace context
+
+The 2026-07-28 revision puts `ttlMs` and `cacheScope` on the list and read
+results (`door/cache-hints.ts`): `server/discover`, `tools/list`,
+`prompts/list` and `resources/templates/list` for ten minutes, the catalog
+resource too (they follow the person's permissions), `resources/list` for one
+minute (the projects change; `list_changed` says when), and the guide, the
+glossary and the onboarding guide for an hour (they change with a deploy). All
+are `private`, never for a shared cache. A tool call has no cache field in the
+spec: a client still runs `project-list` each time it wants the list.
+
+A request whose `_meta` carries a W3C `traceparent` keeps its trace id as
+`client_trace_id` on the `agent-tool-call` trace, so the calls of one client
+turn are found together, and `trace_linked` says so on the PostHog event. The
+trace's own id stays ours: Langfuse upserts by id, so a caller-chosen one would
+let a caller rename or retag any trace whose id it knows.
+
+On the stream for `taskIds`, each ask is followed in 15-second waits, so a
+client that went away stops costing reads within 15 seconds; a read that fails
+ends the stream without its result, so the client listens again rather than
+taking the asks for ended.
 
 ### Listening
 
@@ -927,9 +950,9 @@ Do this in the same change that adds or changes the route. The exemplar is
    applies. Separately, an operation whose answer holds projects, documents,
    task runs or conversations declares `links:`
    ([Links into the app](#links-into-the-app)).
-9. **Run the gate**: `cd apps/workspace && bunx vitest run src/lib/agent-api/`. If
-   your route was in the baseline, the "baseline only shrinks" test lists it;
-   `UPDATE_FIXTURES=1` rewrites it and `tests/fixtures/exposure.json`; commit the diff.
+9. **Run the gate**: `cd apps/workspace && bunx vitest run bff/agent-api/`, then
+   `task generate`, which rewrites `tests/fixtures/exposure.json` and the other
+   fixtures the catalog feeds; commit the diff.
 
 ### Naming
 
@@ -1241,9 +1264,9 @@ on `internalApiRoute`; on `apiRoute` the walker would demand an operation.
 `exposure.config.spec.ts` holds the exposure config itself
 ([below](#the-exposure-config)).
 
-`agent-reachability-baseline.json` held the routes that predate the rule. It is
-empty now and never grows. `UPDATE_FIXTURES=1 bunx vitest run src/lib/agent-api/` rewrites it
-after you cover a route, and the diff is the review.
+The routes that predated the rule were covered one by one until none was left,
+and the baseline that listed them is gone: every route now has an operation or
+a stated exemption, or `agent-reachability.spec.ts` fails.
 
 ## Telemetry
 
@@ -1331,7 +1354,11 @@ An agent can also ask the agent itself (ADR-0124,
 `agent-ask-create` (`catalog/consult.ts`) calls `POST /api/agent-asks`, which
 runs a headless turn (ADR-0106) as the person in their own private thread, with
 the trigger `agent_consult`, waits up to 40 seconds and otherwise answers
-`working` for `agent-ask-get` to poll. The organization's `piloti-ask` switch
+`working`. `agent-ask-get` then waits up to 40 seconds itself by default
+(`waitSeconds: 0` reads the ask as it is), so a model that calls it straight
+away makes one call per 40 seconds of answer rather than one per second; on
+prod in November 2026 a claude.ai chat made up to nine reads an ask when the
+read returned at once. The organization's `piloti-ask` switch
 gates it, and the turn's budget pays for it.
 A completed answer carries `answer.sources` (`documentId`, `name`, `page`, and a
 `url` that opens the cited page in the agent for the asker) and `answer.confidence`,
@@ -1378,11 +1405,33 @@ how to wait, per call, in standard MCP:
   person, so the route's own rule (the asker only) decides; an id that names
   none of theirs is `-32602`, a request that does not declare the extension
   `-32021`. The task store is the `agent_asks` table, so any replica answers
-  and `Mcp-Name` routing is not needed. Task status notifications
-  (`subscriptions/listen` with `taskIds`) are not offered; clients poll.
+  and `Mcp-Name` routing is not needed. `tasks/get` reads the ask without
+  waiting (`waitSeconds: 0`): the client paces itself by `pollIntervalMs`.
+- *Task notifications* (`door/task-listen.ts`). A client that declares the
+  extension can open `subscriptions/listen` with `notifications.taskIds` (at
+  most 20) instead of polling. The door serves that stream itself, because the
+  SDK's listen filter drops `taskIds`: it acknowledges the ids that name the
+  person's own asks (others are left out of `notifications/subscriptions/acknowledged`),
+  pushes each ask's `notifications/tasks` (the full task, as `tasks/get` would
+  answer it, the result inline once completed) at once and again on every
+  change, and ends the stream with its result once every ask ended. It follows
+  each ask through `agent-ask-get` waits of 15 seconds; an end reaches the
+  client within the route's 750 ms poll, a start within 15 seconds. A request that does not declare the
+  extension is `-32021`. A listen that also names other filters is served for
+  its `taskIds` only; the client opens a second listen for the rest. Claude's
+  client polls `tasks/get` and does not listen (its docs list
+  `notifications/tasks` as not used), so this serves other clients.
 
 A client that asks for neither, and the 2025-era path, get the single call that
-waits up to 40 seconds.
+waits up to 40 seconds, then `agent-ask-get`'s 40-second waits.
+
+**What a call records about its path.** `agent_operation_called` and the
+`agent-tool-call` trace carry `protocol_era`, `client_tasks` (the call declared
+the tasks extension), `via` (`tool`, or `tasks/get`, `tasks/cancel`,
+`tasks/update`, `subscriptions/listen` for the reads the protocol made rather
+than the model) and, on `agent-ask-create`, `ask_path` (`task`, `progress`,
+`wait`). Without `via`, a client's `tasks/get` and a model's `agent-ask-get`
+were one event, and an ask's read count could not tell which polled.
 
 **The recursion lock.** In-product the agent only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no

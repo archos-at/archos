@@ -612,7 +612,7 @@ class TestToolVocabulary:
 
 
 _RESTRICTED = "proj_abc_r0123456789ab"
-_RESTRICTED_SCOPE = ["oib_knowledge", "proj_abc", _RESTRICTED, "s_c1"]
+_RESTRICTED_SCOPE = ["base_corpus", "proj_abc", _RESTRICTED, "s_c1"]
 _CONTRACT_ROW = {"collection": _RESTRICTED, "file_name": "Honorarvertrag.pdf", "summary": "Honorar 184.000 EUR"}
 
 
@@ -751,7 +751,7 @@ async def test_a_failed_restricted_write_never_becomes_a_card(monkeypatch, scope
 @pytest.mark.asyncio
 async def test_an_open_scope_still_records(monkeypatch):
     _patch_context(monkeypatch)
-    _patch_scope(monkeypatch, ["oib_knowledge", "proj_abc", "s_c1"])
+    _patch_scope(monkeypatch, ["base_corpus", "proj_abc", "s_c1"])
     insert = MagicMock(return_value="item-1")
     assert (
         await _remember(monkeypatch, insert)

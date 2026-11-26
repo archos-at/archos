@@ -1,4 +1,5 @@
 ---
+# area: documents
 security:
   - >
     The project file search now shows a passage from a folder not everyone may

@@ -150,19 +150,6 @@ class InternalJobOutcomeResponse(BaseModel):
     )
 
 
-class ResearchRunItem(BaseModel):
-    job_id: str = Field(..., description="Unique job identifier")
-    status: str = Field(..., description="Current job status")
-    created_at: str | None = Field(None, description="Creation timestamp (ISO format)")
-    conversation_id: str | None = Field(None, description="Conversation the job was submitted from, if any")
-    project_collection: str | None = Field(None, description="Project collection the job was scoped to, if any")
-
-
-class ResearchRunsResponse(BaseModel):
-    jobs: list[ResearchRunItem] = Field(..., description="Matching research runs, newest first")
-    total: int = Field(..., description="Total number of matching runs (before limit/offset)")
-
-
 class AgentInfo(BaseModel):
     agent_type: str = Field(..., description="Agent identifier used in submit requests")
     description: str = Field(..., description="Human-readable description of the agent")

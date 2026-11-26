@@ -23,6 +23,7 @@ export const FEATURE_FLAGS = {
   threadReplies: 'agent-thread-replies',
   agentActs: 'agent-direct-edits',
   agentNotices: 'revision-suggestions',
+  drawingMeasure: 'drawing-measure',
   agentMcp: 'agent-mcp',
   agentMcpAccess: 'agent-mcp-access',
   agentMcpSecrets: 'agent-mcp-secrets',
@@ -51,6 +52,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'agent-thread-replies': 'entitlement',
   'agent-direct-edits': 'entitlement',
   'revision-suggestions': 'entitlement',
+  'drawing-measure': 'entitlement',
   'agent-mcp': 'entitlement',
   'agent-mcp-access': 'entitlement',
   'agent-mcp-secrets': 'entitlement',
@@ -131,6 +133,12 @@ export function isAgentActsEnabled(session: Pick<UserSession, 'featureFlags'>): 
   return isFeatureEnabled(session, FEATURE_FLAGS.agentActs)
 }
 
+/** Whether the organization may have PDF drawings read and measured by the agent (ADR-0190). */
+export function isDrawingMeasureEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
+  return isFeatureEnabled(session, FEATURE_FLAGS.drawingMeasure)
+}
+
+/** Collaboration (ADR-0032…0035). */
 export function isCollaborationEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
   return isFeatureEnabled(session, FEATURE_FLAGS.collaboration)
 }

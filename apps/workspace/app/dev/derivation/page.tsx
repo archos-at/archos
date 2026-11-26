@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, useSearchParams } from 'next/navigation'
 import { ChatThinking } from '@/features/chat/components/ChatThinking'
 import type { CitationSource } from '@/features/chat/types'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
@@ -57,7 +56,7 @@ const step: StoredThinkingStep = {
     },
     {
       key: 'office',
-      label: 'Büroablage',
+      label: 'Bürobibliothek',
       hitCount: 1,
       signal: 'office',
       sources: [{ name: 'Brandschutzkonzept_2023.pdf', detail: 'Referenzprojekt' }],
@@ -71,7 +70,7 @@ const citations: CitationSource[] = [
     content: '[KB] OIB-RL_2_Brandschutz.pdf, p.18',
     citationKey: 'OIB-RL_2_Brandschutz.pdf, p.18',
     fileName: 'OIB-RL_2_Brandschutz.pdf',
-    collection: 'oib_knowledge',
+    collection: 'base_corpus',
     title: 'OIB-Richtlinie 2 – Brandschutz',
     origin: 'kb',
     timestamp: new Date('2024-01-15T14:30:00'),
@@ -153,7 +152,7 @@ const denseStep: StoredThinkingStep = {
     },
     {
       key: 'office',
-      label: 'Büroablage',
+      label: 'Bürobibliothek',
       hitCount: 1,
       signal: 'office',
       sources: [{ name: 'Brandschutzkonzept_2023.pdf', detail: 'Referenzprojekt' }],
@@ -204,7 +203,7 @@ const mergedHits = (
               ? 'OIB-Richtlinie'
               : signal === 'project'
                 ? 'Projektwissen'
-                : 'Büroablage',
+                : 'Bürobibliothek',
           hitCount: laneHits.length,
           signal,
           sources: laneHits.map((hit) => ({ name: hit.name, detail: hit.detail, round })),
@@ -236,7 +235,7 @@ const SPINE_ROUNDS = [
   {
     query: 'Referenzprojekt Sicherheitstreppenhaus RWA',
     reason:
-      'Der Plan zeigt eine RWA im Treppenraum; wie das Büro das zuletzt nachgewiesen hat, steht in der Büroablage.',
+      'Der Plan zeigt eine RWA im Treppenraum; wie das Büro das zuletzt nachgewiesen hat, steht in der Bürobibliothek.',
     hits: [
       { name: 'Brandschutzkonzept_2023.pdf', detail: 'Referenzprojekt', lane: 'office' as const },
     ],
@@ -362,10 +361,7 @@ export default function DerivationPreviewPage() {
     notFound()
   }
 
-  const [variant, setVariant] = useState<string | null>(null)
-  useEffect(() => {
-    setVariant(new URLSearchParams(window.location.search).get('variant'))
-  }, [])
+  const variant = useSearchParams().get('variant')
 
   const narrow = variant === 'phone' || variant === 'fs' || variant === 'fs-edges'
   const common =

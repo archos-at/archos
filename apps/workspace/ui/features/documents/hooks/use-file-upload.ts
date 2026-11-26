@@ -38,13 +38,14 @@ import {
   type UploadTrackedFileContext,
 } from '../lib/upload-tracked-file'
 import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } from './file-upload-types'
+import type { UploadShelf } from '../lib/upload-tracked-file'
 
 export type { UploadFilesOptions } from './file-upload-types'
 
 export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUploadReturn => {
-  const { collectionName, projectId, folderId, officeShelf, conversationProjectId, onComplete, onError } =
+  const { collectionName, projectId, folderId, officeShelf, personalShelf, asNorm = false, conversationProjectId, onComplete, onError } =
     options
-  const shelf: 'project' | 'office_shelf' | 'session' = officeShelf ? 'office_shelf' : projectId ? 'project' : 'session'
+  const shelf: UploadShelf = officeShelf ? 'office_shelf' : personalShelf ? 'personal' : projectId ? 'project' : 'session'
 
   const { idToken } = useAuth()
   const t = useTranslations(filesCopy)
@@ -102,9 +103,9 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       existingTotalSize: sessionFiles.reduce((sum, f) => sum + f.fileSize, 0),
       existingFileCount: sessionFiles.length,
       existingFileNames: new Set(sessionFiles.map((f) => f.fileName)),
-      durableCorpus: Boolean(projectId || officeShelf),
+      durableCorpus: Boolean(projectId || officeShelf || personalShelf),
     }),
-    [sessionFiles, projectId, officeShelf]
+    [sessionFiles, projectId, officeShelf, personalShelf]
   )
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
     UploadOrchestrator.setAuthToken(idToken)
   }, [idToken])
 
-  useUploadOrchestrator({ collectionName, projectId, officeShelf, onComplete, onError })
+  useUploadOrchestrator({ collectionName, projectId, officeShelf, personalShelf, onComplete, onError })
 
   const ensureCollectionExists = useCallback(
     async (collectionName: string): Promise<void> => {
@@ -259,6 +260,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           batchId,
           resolvedFolderId,
           revisionOfFile,
+          asNorm,
           screeningReleased: (file) => options?.screeningReleased?.(file),
           abortControllers: abortControllersRef.current,
           failureCopy,
@@ -359,6 +361,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       projectId,
       folderId,
       shelf,
+      asNorm,
       conversationProjectId,
       validationContext,
       fileUploadConfig,

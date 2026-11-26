@@ -29,6 +29,7 @@ import { installApi } from "./src/app/api";
 import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
+import { installWebMailSecret } from "./src/app/web-mail";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installBrowserRenderer, installBrowserRendererScaling } from "./src/app/browser-renderer";
 import { installCodeRunner, installCodeRunnerScaling } from "./src/app/code-runner";
@@ -45,6 +46,7 @@ import { installHatchetNetworkPolicies } from "./src/platform/hatchet-network-po
 import { installRabbitmq, installRabbitmqOperator } from "./src/platform/rabbitmq";
 import { installBackgroundWorkAlerts } from "./src/platform/background-work-alerts";
 import { installKeda } from "./src/platform/keda";
+import { installCiRunners } from "./src/platform/ci-runners";
 import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
@@ -74,6 +76,9 @@ const gatewayController = installGatewayController(cfg, provider);
 const certManager = installCertManager(cfg, provider, namespace, [gatewayController]);
 if (cfg.ingress.installMetricsServer) {
   installMetricsServer(provider);
+}
+if (cfg.ciRunners.enabled) {
+  installCiRunners(cfg.ciRunners, provider);
 }
 
 const extraBuckets = [
@@ -240,10 +245,12 @@ const legacyBackend = installBackend(
 );
 
 const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
+const webMailSecret = installWebMailSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
   ...(pullSecret ? [pullSecret] : []),
   ...(webCmsSecret ? [webCmsSecret] : []),
+  ...(webMailSecret ? [webMailSecret] : []),
 ]);
 
 const keda = cfg.keda.install ? installKeda(provider) : undefined;

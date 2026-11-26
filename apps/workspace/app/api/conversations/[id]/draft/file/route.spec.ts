@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NotFoundError } from '@/lib/api/errors'
+import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { DocumentListRow } from '@/lib/documents/repository'
@@ -39,10 +39,20 @@ vi.mock('@/lib/documents/repository', async (importOriginal) => ({
 
 vi.mock('@/lib/documents/version-repository', () => ({
   findOpenVersion: vi.fn(),
+  findPublishedVersion: vi.fn(),
+  listDocumentVersions: vi.fn(),
+}))
+
+vi.mock('@/lib/documents/agent-file-revision', () => ({
+  reviseWithAgentWork: vi.fn(),
 }))
 
 vi.mock('@/lib/documents/agent-document', () => ({
   fileAgentDocumentDraft: vi.fn(),
+}))
+
+vi.mock('@/lib/conversations/personal-draft-filing', () => ({
+  fileDraftToPersonalShelf: vi.fn(),
 }))
 
 vi.mock('@/lib/projects/folder-service', () => ({
@@ -53,8 +63,10 @@ import { findConversationInOrg } from '@/lib/conversations/repository'
 import { filingReference } from '@/lib/conversations/draft-filing'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { findDocumentAuthoredByRef, listProjectDocuments } from '@/lib/documents/repository'
-import { findOpenVersion } from '@/lib/documents/version-repository'
+import { listDocumentVersions } from '@/lib/documents/version-repository'
+import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
 import { findProjectFolder } from '@/lib/projects/folder-service'
+import { fileDraftToPersonalShelf } from '@/lib/conversations/personal-draft-filing'
 import { POST } from './route'
 
 const PROJECT = '33333333-3333-4333-8333-333333333333'
@@ -111,13 +123,15 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(201)
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       documentId: DOC,
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: false,
       folderId: 'folder-1',
       folderName: 'Berichte',
+      outcome: 'filed',
+      draftVersion: 2,
     })
     expect(requireResourceAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user_1', organizationId: 'org_1' }),
@@ -138,25 +152,35 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).not.toHaveProperty('actingHuman', false)
   })
 
-  it('converges with the agent filing: an already-filed reference creates nothing', async () => {
+  it('converges with the agent filing: an already-filed reference gets the draft’s content, never a second document', async () => {
     vi.mocked(findDocumentAuthoredByRef).mockResolvedValue({
       id: DOC,
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'draft' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'draft', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
+    vi.mocked(reviseWithAgentWork).mockResolvedValue({
+      document: { id: DOC, folderId: 'folder-1' } as never,
+      version: { id: VERSION, state: 'draft', contentHash: 'sha256:b', versionNumber: 1 } as DocumentVersion,
+      forked: false,
+      unchanged: false,
+    })
 
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(201)
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       documentId: DOC,
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: true,
       folderId: 'folder-1',
       folderName: 'Berichte',
+      outcome: 'updated',
     })
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({ documentId: DOC, ifMatch: 'sha256:a' })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 
@@ -166,14 +190,17 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'in_review' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'in_review', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
+    vi.mocked(reviseWithAgentWork).mockRejectedValue(new ConflictError('in review', { reason: 'in-review' }))
 
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({
       code: 'CONFLICT',
-      details: { reason: 'already-submitted' },
+      details: { reason: 'in-review' },
     })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
@@ -214,13 +241,19 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 
-  it('answers 422 when the conversation has no project to file into', async () => {
+  it('files a draft of a chat without a project into Meine Ablage, never into a project', async () => {
     vi.mocked(findConversationInOrg).mockResolvedValue(conversation({ projectId: null }))
+    vi.mocked(fileDraftToPersonalShelf).mockResolvedValue({ documentId: DOC, versionId: VERSION } as never)
 
     const res = await post({ path: PATH, title: TITLE })
 
-    expect(res.status).toBe(422)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(201)
+    expect(fileDraftToPersonalShelf).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'conv-1', path: 'entwuerfe/aktenvermerk.md' }),
+      expect.objectContaining({ title: TITLE }),
+      expect.any(String),
+      expect.any(Function),
+    )
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 

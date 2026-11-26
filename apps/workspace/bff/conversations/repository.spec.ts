@@ -85,7 +85,7 @@ describe('listVisibleConversations — scoped to a project', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('("conversations"."project_id" = $2 and (')
-    expect(sql).toContain('or ("conversations"."project_id" is null and (')
+    expect(sql).toContain('or ("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(params.slice(0, 2)).toEqual(['org_1', PROJECT_ID])
   })
 
@@ -104,10 +104,10 @@ describe('listVisibleConversations — scoped to a project', () => {
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain(
-      '("conversations"."project_id" is null and ("conversations"."created_by" = $8 or exists (',
+      '("conversations"."project_id" is null and "conversations"."started_in_personal" and ("conversations"."created_by" = $8 or exists (',
     )
-    expect(sql).toContain('"conversations"."visibility" = $12')
-    expect(params[11]).toBe('organization')
+    expect(sql).not.toContain('"conversations"."visibility" = ')
+    expect(params).not.toContain('organization')
     expect(sql.match(/"conversations"\."visibility" <> /g)).toHaveLength(1)
   })
 
@@ -128,22 +128,43 @@ describe('listVisibleConversations — scoped to a project', () => {
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain('order by "conversations"."updated_at" desc')
-    expect(sql).toContain('limit $13')
+    expect(sql).toContain('limit $12')
     expect(params.at(-1)).toBe(CONVERSATION_LIST_LIMIT)
   })
 })
 
+describe('listVisibleConversations — one side of the rail (ADR-0193)', () => {
+  it('`personal`: only the chats without a project, judged as unstamped rows', async () => {
+    await listVisibleConversations('org_1', 'user_me', { place: 'personal' })
+
+    const { sql } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
+    expect(sql).not.toContain('"conversations"."project_id" = ')
+    expect(sql).toContain('order by "conversations"."updated_at" desc')
+  })
+
+  it('`project`: only that project’s chats, none without a project', async () => {
+    await listVisibleConversations('org_1', 'user_me', { projectId: PROJECT_ID, place: 'project' })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('("conversations"."project_id" = $2 and (')
+    expect(sql).not.toContain('"conversations"."project_id" is null')
+    expect(params[1]).toBe(PROJECT_ID)
+  })
+})
+
 describe('listVisibleConversations — no project scope', () => {
-  it('returns only rows the caller owns, was granted, or that are org-visible', async () => {
+  it('returns only rows the caller owns or was granted: a chat without a project is never org-visible', async () => {
     await listVisibleConversations('org_1', 'user_me')
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('"conversations"."created_by" = $2')
     expect(sql).toContain('exists (select 1 from "resource_shares"')
-    expect(sql).toContain('"conversations"."visibility" = $6')
-    expect(params).toContain('organization')
-    expect(sql).not.toContain('"conversations"."project_id"')
+    expect(sql).not.toContain('"conversations"."visibility"')
+    expect(params).not.toContain('organization')
+    expect(sql).toContain('("conversations"."project_id" is not null or "conversations"."started_in_personal")')
+    expect(sql.match(/"conversations"\."project_id"/g)).toHaveLength(1)
     expect(params).not.toContain('project')
   })
 })
@@ -162,16 +183,22 @@ describe('visibleConversationsWhere — over the projects a search reaches', () 
     expect(sql).toContain(
       '("conversations"."project_id" in ($2, $3) and ("conversations"."visibility" <> $4 or "conversations"."created_by" = $5'
     )
-    expect(sql).toContain('or ("conversations"."project_id" is null and (')
+    expect(sql).toContain('or ("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(params.slice(0, 3)).toEqual(['org_1', PROJECT_ID, OTHER_ID])
     expect(sql.match(/"conversations"\."visibility" <> /g)).toHaveLength(1)
   })
 
   it('leaves the unstamped rows out when asked to, and matches nothing for no project and no unstamped rows', () => {
-    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('is null')
+    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('"project_id" is null')
     const none = statement({ projectIds: [], withoutContainer: false }).sql
     expect(none).toContain('false')
     expect(none).not.toContain('"conversations"."project_id"')
+  })
+
+  it('leaves out a chat being deleted in every scope, so no list or search shows it', () => {
+    for (const scope of [null, { projectIds: [PROJECT_ID], withoutContainer: true }, { projectIds: [], withoutContainer: true }]) {
+      expect(statement(scope).sql).toContain('"conversations"."deleted_at" is null')
+    }
   })
 })
 
@@ -209,9 +236,11 @@ describe('deleteConversationInOrg', () => {
   it('carries tenancy in the WHERE clause, not only in the service above it', async () => {
     await deleteConversationInOrg('conv_1', 'org_1')
 
-    expect(captured).toHaveLength(4)
-    expect(captured[3].sql).toContain('"conversation_source_projects"')
-    expect(captured[3].params).toEqual(['org_1', 'conv_1'])
+    expect(captured).toHaveLength(5)
+    expect(captured[2].sql).toContain('"answer_contexts"')
+    expect(captured[2].params).toEqual(['org_1', 'conv_1'])
+    expect(captured[4].sql).toContain('"conversation_source_projects"')
+    expect(captured[4].params).toEqual(['org_1', 'conv_1'])
     const { sql, params } = captured[1]
     expect(sql).toContain('"conversations"."id" = $1')
     expect(sql).toContain('"conversations"."organization_id" = $2')
@@ -221,7 +250,7 @@ describe('deleteConversationInOrg', () => {
   it('takes the record of restricted source folders with the row, in the same organization (ADR-0087, ADR-0088)', async () => {
     await deleteConversationInOrg('conv_1', 'org_1')
 
-    const { sql, params } = captured[2]
+    const { sql, params } = captured[3]
     expect(sql).toContain('delete from "conversation_restricted_folders"')
     expect(sql).toContain('"conversation_restricted_folders"."organization_id" = $1')
     expect(sql).toContain('"conversation_restricted_folders"."conversation_id" = $2')
@@ -238,6 +267,12 @@ describe('deleteConversationInOrg', () => {
     expect(sql).toContain('"answer_feedback"."message_id" in (select "messages"."id"::text from "messages"')
     expect(params).toEqual(['org_1', 'conv_1', 'conv_1', 'org_1'])
     expect(captured[1].sql).toContain('delete from "conversations"')
+  })
+
+  it('erases the answers’ records in the transaction that erases the chat, so a failure keeps neither', async () => {
+    await deleteConversationInOrg('conv_1', 'org_1')
+
+    expect(captured.slice(0, 3).map(({ sql }) => sql.match(/delete from "(\w+)"/)?.[1])).toEqual(['answer_feedback', 'conversations', 'answer_contexts'])
   })
 })
 

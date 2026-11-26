@@ -1,28 +1,34 @@
 'use client'
 
 import { useMemo, type JSX, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
-import { CountPill } from '@/components/ui/count-pill'
-import { PageHeader } from '@/components/ui/page-header'
-import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
-import { SECTION_CONTENT_WIDTH } from '@/components/shell/section-layout'
-import { SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
-import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
+import { SectionPlaceScope, useSectionPlace } from '@/components/shell/section-place'
+import { SectionToolRowScope } from '@/components/shell/section-tool-row'
+import { ShelfHead } from '@/components/shell/shelf-head'
 import { useTranslations } from '@/i18n'
-import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
-import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
+import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-shelf-documents'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
-import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
+import { FolderBinDialog } from './folder-bin-dialog'
+import { binHrefOf } from '../lib/bin-href'
+import { useBinParam } from '../hooks/use-bin-param'
+import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
 
-interface OfficeShelfWorkspaceProps {
+const OFFICE_SHELF_HREF = '/app/office-shelf'
+const OFFICE_SHELF_BIN = { kind: 'office_shelf' } as const
+
+export interface OfficeShelfWorkspaceProps {
   canManage: boolean
   showModels?: boolean
   trailingActions?: ReactNode
   organizationName?: string | null
+  places?: ReactNode
+  onUploadsStored?: (uploads: StoredUpload[]) => void
+  onNormsRecorded?: (documentIds: string[]) => void
+  fileActions?: FileShelf['fileActions']
+  normsInFolders?: boolean
 }
 
 export function OfficeShelfWorkspace({
@@ -30,11 +36,16 @@ export function OfficeShelfWorkspace({
   showModels = false,
   trailingActions,
   organizationName = null,
+  places,
+  onUploadsStored,
+  onNormsRecorded,
+  fileActions,
+  normsInFolders = false,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
   const phone = usePhoneLayout()
-  const search = useShelfSearchMode()
+  const bin = useBinParam()
 
   const shelf: FileShelf = {
     source: 'office',
@@ -48,6 +59,7 @@ export function OfficeShelfWorkspace({
         collectionName: canManage ? collectionName : undefined,
         folderId,
         onComplete,
+        onStored: onUploadsStored,
       }),
     probeNames: probe.officeShelf,
     probeRevisions: probe.officeShelfRevisions,
@@ -57,93 +69,62 @@ export function OfficeShelfWorkspace({
       ingestionComplete: (name) => t('toast.ingestionComplete', { name }),
     },
     showModels,
+    fileActions,
+    bin: { href: binHrefOf(OFFICE_SHELF_HREF) },
   }
 
-  if (search.active) {
-    return (
-      <SearchWorkspace
-        surface={{ kind: 'office_shelf', folderId: search.folderId }}
-        inset
-        autoFocus
-        leading={
-          <>
-            <ShelfSearchBack onClose={search.close} label="backToShelf" />
-            {trailingActions}
-          </>
-        }
-      />
-    )
-  }
 
   return (
     <SectionPlaceScope root={t('title')}>
       <SectionToolRowScope enabled={!phone}>
         <FileWorkspace
           shelf={shelf}
-          onOpenSearch={search.open}
+          renderLevelNotice={
+            normsInFolders && canManage
+              ? ({ folderId, reload }) =>
+                  folderId === null ? null : (
+                    <OfficeShelfFolderNorms key={folderId} folderId={folderId} onChanged={reload} onRecorded={onNormsRecorded} />
+                  )
+              : undefined
+          }
           renderHeader={(controls, { count }) => (
-            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} />
+            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} places={places} />
           )}
         />
       </SectionToolRowScope>
+      <FolderBinDialog shelf={OFFICE_SHELF_BIN} open={bin.open} onOpenChange={bin.setOpen} />
     </SectionPlaceScope>
   )
 }
 
-function OfficeShelfHeader({
+export function OfficeShelfHeader({
   controls,
   count,
   phone,
   trailingActions,
   organizationName,
+  places,
 }: {
   controls: ReactNode
   count: number | null
   phone: boolean
   trailingActions?: ReactNode
   organizationName: string | null
+  places?: ReactNode
 }): JSX.Element {
   const t = useTranslations(officeShelfCopy)
   const place = useSectionPlace()
   return (
-    <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
-      <PageHeader
-        title={
-          place ? (
-            place.title
-          ) : (
-            <span className="inline-flex min-w-0 items-center gap-2">
-              {t('title')}
-              {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
-            </span>
-          )
-        }
-        titleClassName="line-clamp-2"
-        titleTooltip={place?.title}
-        titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
-        crumb={
-          phone ? (
-            place?.phoneTrail
-          ) : organizationName ? (
-            <>
-              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
-              {place && <ChevronRight className="size-3 shrink-0" aria-hidden />}
-              {place?.trail}
-            </>
-          ) : (
-            place?.trail
-          )
-        }
-        crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
-        titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
-        action={trailingActions}
-        actionInline
-      />
-      <SectionToolRow className="mt-4">
-        <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
-          {controls}
-        </div>
-      </SectionToolRow>
-    </div>
+    <ShelfHead
+      data-testid="office-shelf-header"
+      crumb={organizationName ? [organizationName] : []}
+      title={t('title')}
+      count={count}
+      place={place}
+      phone={phone}
+      tools={controls}
+      places={places}
+      action={trailingActions}
+    />
   )
 }

@@ -254,18 +254,26 @@ export const FileWorkRow: FC<{ work: FileWork; defaultOpen?: boolean }> = ({ wor
       {failed && (
         <div data-testid="file-work-failed" className="flex flex-col items-start gap-2 pb-2 pl-[26px]">
           <p className="text-muted-foreground text-[13px] leading-[19px]">
-            {t(work.file ? 'thinking.files.failedNote.file' : 'thinking.files.failedNote.calculate')}
+            {t(
+              work.failedReason === 'too_large'
+                ? 'thinking.files.failedNote.tooLarge'
+                : work.file
+                  ? 'thinking.files.failedNote.file'
+                  : 'thinking.files.failedNote.calculate'
+            )}
           </p>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            data-testid="file-work-retry"
-            onClick={() => useChatStore.getState().setComposerPrefill(retryPrompt(t, work))}
-          >
-            <RotateCcw aria-hidden className="size-3.5" />
-            {t('thinking.files.retry')}
-          </Button>
+          {work.failedReason !== 'too_large' && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              data-testid="file-work-retry"
+              onClick={() => useChatStore.getState().setComposerPrefill(retryPrompt(t, work))}
+            >
+              <RotateCcw aria-hidden className="size-3.5" />
+              {t('thinking.files.retry')}
+            </Button>
+          )}
         </div>
       )}
     </li>

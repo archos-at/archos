@@ -3,8 +3,11 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
+import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
-import { OFFICE_SHELF, projectShelf, type DocumentShelf } from './shelf'
+import { memberReader } from './document-reader'
+import { requirePersonalShelfDoor } from './personal-shelf-door'
+import { OFFICE_SHELF, personalShelf, projectShelf, type DocumentShelf } from './shelf'
 import { listShelfFailedDocuments, summarizeShelfFolders, type ShelfReadFilters } from './repository'
 import type { ShelfSummary } from './shelf-summary-types'
 
@@ -44,9 +47,25 @@ export async function summarizeOfficeShelfDocuments(
   session: AuthorizedSession,
   options: ShelfSummaryOptions = {},
 ): Promise<ShelfSummary> {
-  const reader = await shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
+  const [reader, hiddenFolderIds] = await Promise.all([
+    shelfReaderFor(session, { scope: 'office_shelf', projectId: null }),
+    officeShelfHiddenFolderIds(session),
+  ])
   return readShelfSummary(OFFICE_SHELF, session.organizationId, {
+    hiddenFolderIds,
     reader,
+    authoredBy: options.authoredBy,
+    includeArchived: options.includeArchived,
+  })
+}
+
+export function summarizePersonalShelfDocuments(
+  session: AuthorizedSession,
+  options: ShelfSummaryOptions = {},
+): Promise<ShelfSummary> {
+  requirePersonalShelfDoor(session)
+  return readShelfSummary(personalShelf(session.userId), session.organizationId, {
+    reader: memberReader(session.userId),
     authoredBy: options.authoredBy,
     includeArchived: options.includeArchived,
   })

@@ -32,6 +32,7 @@ type OptionalWireField =
   | 'sourceDeletedAt'
   | 'marks'
   | 'baseKnowledgeEntryId'
+  | 'mailThread'
 
 export function toFileItem(row: DocumentWireRow): FileItem {
   return {
@@ -68,6 +69,7 @@ export function toFileItem(row: DocumentWireRow): FileItem {
     sourceDeletedAt: row.sourceDeletedAt ?? null,
     marks: row.marks ?? null,
     baseKnowledgeEntryId: row.baseKnowledgeEntryId ?? null,
+    mailThread: row.mailThread ?? null,
     retryable: row.retryable ?? true,
   }
 }

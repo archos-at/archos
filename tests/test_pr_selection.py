@@ -154,6 +154,58 @@ def test_python_in_a_support_package_is_python_testmon_sees(mod):
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "select"
 
 
+SPAWNING = {
+    "packages/agent/tests/testing/agent_testing/tool_payloads.py": "subprocess.run([sys.executable, '-c', BUILD])",
+    "packages/agent/tests/core/test_static_prefix_size.py": "from agent_testing.tool_payloads import built_tools",
+    "tests/test_import_weight.py": "subprocess.run([sys.executable, '-c', CODE])",
+    "packages/agent/tests/test_other.py": "from agent_testing.langfuse import trace",
+}
+
+
+def test_package_python_adds_every_test_that_runs_it_in_a_subprocess(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    mode, extra, reason = mod.decide_python(changed, SPAWNING, recorded=True)
+
+    assert (mode, extra) == (
+        "select",
+        ["packages/agent/tests/core/test_static_prefix_size.py", "tests/test_import_weight.py"],
+    )
+    assert "2 that run package code in a subprocess" in reason
+
+
+def test_a_change_to_a_test_adds_no_subprocess_test(mod):
+    assert mod.decide_python(["packages/agent/tests/test_other.py"], SPAWNING, recorded=True)[:2] == ("select", [])
+
+
+def test_the_prompt_size_test_runs_when_a_tool_text_changes(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    extra = mod.decide_python(changed, mod._python_test_files(), recorded=True)[1]
+
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+    assert "packages/agent/tests/common/test_backend_tools_schema.py" in extra
+
+
+def test_package_data_runs_the_prompt_size_test_too(mod):
+    changed = ["packages/agent/src/agent/core/prompts/chat_static.md"]
+
+    mode, extra, _ = mod.decide_python(changed, mod._python_test_files(), recorded=True)
+
+    assert mode == "select"
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+
+
+def test_a_spawning_helper_no_test_connects_to_forces_the_full_suite(mod):
+    tests = {**SPAWNING, "tests/helpers/run.py": "subprocess.run([sys.executable, '-m', 'agent'])"}
+    changed = ["packages/agent/src/agent/core/turn_tools.py"]
+
+    mode, _, reason = mod.decide_python(changed, tests, recorded=True)
+
+    assert mode == "full"
+    assert "tests/helpers/run.py" in reason
+
+
 def test_a_document_a_helper_only_cites_selects_nothing_extra(mod):
     assert mod.decide_python(["packages/AGENTS.md"], TESTS, recorded=True)[:2] == ("select", [])
 
@@ -307,3 +359,25 @@ def test_with_equal_cost_the_smaller_reference_wins(mod):
     )  # a push that answered a review
 
     assert mod.cheaper([whole, since_green], lambda _paths: 0) == since_green
+
+
+TREE_READING = {
+    **TESTS,
+    "tests/test_generated_files.py": 'subprocess.run(["git", "grep", "-l", "-F", "SWITCH"])',
+    "tests/test_repo_layout.py": "files = _run('git ls-files')",
+}
+
+
+def test_a_spec_change_runs_every_test_that_reads_the_whole_tree(mod):
+    mode, extra, reason = mod.decide_python(
+        ["apps/workspace/bff/conversation-context/wire.spec.ts"], TREE_READING, recorded=True
+    )
+
+    assert (mode, extra) == ("select", ["tests/test_generated_files.py", "tests/test_repo_layout.py"])
+    assert "2 that read the whole tracked tree" in reason
+
+
+def test_the_real_tree_readers_are_found(mod):
+    extra = mod.decide_python(["apps/workspace/bff/x.spec.ts"], mod._python_test_files(), recorded=True)[1]
+
+    assert "tests/test_generated_files.py" in extra

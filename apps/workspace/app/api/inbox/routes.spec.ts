@@ -3,9 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -34,10 +34,13 @@ vi.mock('@/lib/inbox/service', () => ({
   markUnread: vi.fn(async () => RESULT),
   archiveItem: vi.fn(async () => RESULT),
   unarchiveItem: vi.fn(async () => RESULT),
+  archiveAll: vi.fn(async () => ({ ...RESULT, archivedAt: '2026-11-24T10:00:00.000Z' })),
+  unarchiveAll: vi.fn(async () => RESULT),
   getInboxSummary: vi.fn(async () => ({ pending: 2 })),
 }))
 
 import {
+  archiveAll,
   archiveItem,
   listInbox,
   markAllRead,
@@ -45,6 +48,7 @@ import {
   markMarksSetReadFor,
   markRead,
   markUnread,
+  unarchiveAll,
   unarchiveItem,
   unreadAnchorsFor,
 } from '@/lib/inbox/service'
@@ -55,6 +59,7 @@ import { POST as unread } from './unread/route'
 import { GET as unreadAnchors } from './unread-anchors/route'
 import { GET as summary } from './summary/route'
 import { DELETE as unarchive, POST as archive } from './[id]/archive/route'
+import { DELETE as restoreAll, POST as emptyInbox } from './archive/route'
 
 type Handler = (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<Response>
 const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
@@ -63,6 +68,8 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
   { pattern: /^\/api\/inbox\/read$/, method: 'POST', handler: read },
   { pattern: /^\/api\/inbox\/unread$/, method: 'POST', handler: unread },
   { pattern: /^\/api\/inbox\/unread-anchors$/, method: 'GET', handler: unreadAnchors },
+  { pattern: /^\/api\/inbox\/archive$/, method: 'POST', handler: emptyInbox },
+  { pattern: /^\/api\/inbox\/archive$/, method: 'DELETE', handler: restoreAll },
   { pattern: /^\/api\/inbox\/([^/]+)\/archive$/, method: 'POST', handler: archive },
   { pattern: /^\/api\/inbox\/([^/]+)\/archive$/, method: 'DELETE', handler: unarchive },
 ]
@@ -76,10 +83,15 @@ async function serve(path: string, init?: RequestInit): Promise<Response> {
   return route.handler(new Request(url, init), { params: Promise.resolve({ id: decodeURIComponent(matched[1] ?? '') }) })
 }
 
+const worker = createRequire(import.meta.url)(join(process.cwd(), 'public', 'sw.js')) as {
+  register: (scope: object) => void
+}
+
 const client = createInboxClient(serve)
 const ITEM = '00000000-0000-4000-8000-000000000001'
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => vi.unstubAllGlobals())
 
 describe('GET /api/inbox', () => {
   it('reads the slice and the page the client names, and hands back the next cursor', async () => {
@@ -123,9 +135,31 @@ describe('POST /api/inbox/read', () => {
     expect(markAllRead).not.toHaveBeenCalled()
   })
 
-  it('is the path the service worker posts a tapped notification to', () => {
-    const worker = readFileSync(join(process.cwd(), 'public', 'sw.js'), 'utf8')
-    expect(worker).toContain(`var READ_PATH = '${INBOX_READ_PATH}'`)
+  it('is where a tapped notification marks its item read, before the item opens', async () => {
+    const listeners: Record<string, (event: Record<string, unknown>) => void> = {}
+    const openWindow = vi.fn(async () => undefined)
+    const fetchCalls: string[] = []
+    vi.stubGlobal('fetch', (path: string, init?: RequestInit) => {
+      fetchCalls.push(path)
+      return serve(path, init)
+    })
+    worker.register({
+      location: { origin: 'https://grid.test' },
+      addEventListener: (type: string, listener: (event: Record<string, unknown>) => void) => {
+        listeners[type] = listener
+      },
+      clients: { matchAll: vi.fn(async () => []), openWindow },
+      registration: {},
+    })
+    let pending: Promise<unknown> = Promise.resolve()
+    listeners.notificationclick?.({
+      notification: { close: vi.fn(), data: { url: '/app/inbox', itemId: ITEM } },
+      waitUntil: (promise: Promise<unknown>) => (pending = promise),
+    })
+    await pending
+    expect(fetchCalls).toEqual([INBOX_READ_PATH])
+    expect(markRead).toHaveBeenCalledWith(SESSION, [ITEM])
+    expect(openWindow).toHaveBeenCalledWith('https://grid.test/app/inbox')
   })
 })
 
@@ -160,5 +194,23 @@ describe('/api/inbox/{id}/archive', () => {
     expect(archiveItem).toHaveBeenCalledWith(SESSION, ITEM)
     await client.unarchive(ITEM)
     expect(unarchiveItem).toHaveBeenCalledWith(SESSION, ITEM)
+  })
+})
+
+describe('/api/inbox/archive', () => {
+  it('empties the inbox with POST and undoes exactly that with DELETE', async () => {
+    expect(await client.archiveAll()).toEqual({ ...RESULT, archivedAt: '2026-11-24T10:00:00.000Z' })
+    expect(archiveAll).toHaveBeenCalledWith(SESSION)
+    expect(await client.unarchiveAll('2026-11-24T10:00:00.000Z')).toEqual(RESULT)
+    expect(unarchiveAll).toHaveBeenCalledWith(SESSION, '2026-11-24T10:00:00.000Z')
+  })
+
+  it('refuses to empty without { all: true }, and to undo without a time', async () => {
+    const send = (method: string, body: unknown) =>
+      serve('/api/inbox/archive', { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    expect((await send('POST', {})).status).toBe(400)
+    expect((await send('DELETE', { archivedAt: 'yesterday' })).status).toBe(400)
+    expect(archiveAll).not.toHaveBeenCalled()
+    expect(unarchiveAll).not.toHaveBeenCalled()
   })
 })

@@ -1,31 +1,55 @@
-// @disk-inputs: deploy/Dockerfile, observability/http-metrics.js, observability/otel-metrics.js, server.js, bff/limits/factory.js, bff/limits/rules.js, bff/limits/ws-frames.js, bff/proxy/backend-target.js, bff/proxy/ws-teardown.js, bff/proxy/ws-upgrade-headers.js, bff/redis/connect.js, bff/turns/turn-headers.js
+// @disk-inputs: deploy/Dockerfile, observability/http-metrics.js, observability/otel-metrics.js, server.js, bff/boot-line.js, bff/limits/factory.js, bff/limits/rules.js, bff/limits/ws-frames.js, bff/proxy/backend-target.js, bff/proxy/ws-teardown.js, bff/proxy/ws-upgrade-headers.js, bff/redis/connect.js, bff/turns/turn-headers.js
 /**
  * @vitest-environment node
  */
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { DockerfileParser, From, ModifiableInstruction, type Instruction } from 'dockerfile-ast'
 import { describe, expect, it } from 'vitest'
+import { importsOf, parseSource, ts } from '@/test-utils/source-ast'
 
 const UI_ROOT = path.resolve(__dirname, '../..')
 
-function relativeRequiresOf(source: string): string[] {
-  const requires: string[] = []
-  for (const match of source.matchAll(/require\(\s*['"](\.\/[^'"]+)['"]\s*\)/g)) {
-    requires.push(match[1].replace(/^\.\//, ''))
-  }
-  return requires
+function relativeRequiresOf(source: ts.SourceFile): string[] {
+  return importsOf(source)
+    .filter(
+      ({ node, specifier }) =>
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'require' &&
+        specifier.startsWith('./'),
+    )
+    .map(({ specifier }) => specifier.slice('./'.length))
+}
+
+function instructionsOf(): Instruction[] {
+  return DockerfileParser.parse(readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')).getInstructions()
+}
+
+function argumentsOf(instruction: Instruction): string[] {
+  return instruction.getArguments().map((argument) => argument.getValue())
+}
+
+function flagOf(instruction: Instruction, name: string): string | null | undefined {
+  if (!(instruction instanceof ModifiableInstruction)) return undefined
+  return instruction.getFlags().find((flag) => flag.getName() === name)?.getValue()
 }
 
 describe('server.js runtime image copies', () => {
-  const source = readFileSync(path.join(UI_ROOT, 'server.js'), 'utf8')
-  const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
-  const requires = relativeRequiresOf(source)
+  const requires = relativeRequiresOf(parseSource('server.js', UI_ROOT))
 
-  it('has relative requires to check (guard against a silently empty regex)', () => {
+  it('has relative requires to check (guard against a silently empty parse)', () => {
     expect(requires.length).toBeGreaterThan(0)
   })
 
-  const copied = [...dockerfile.matchAll(/^COPY .* \.\/(\S+)$/gm)].map((match) => match[1].replace(/\/$/, ''))
+  const copied = instructionsOf()
+    .filter((instruction) => instruction.getKeyword() === 'COPY')
+    .map((instruction) => argumentsOf(instruction).at(-1) ?? '')
+    .filter((destination) => destination.startsWith('./') && destination.length > './'.length)
+    .map((destination) => {
+      const dest = destination.slice('./'.length)
+      return dest.endsWith('/') ? dest.slice(0, -1) : dest
+    })
 
   it.each(requires)('copies %s into the production image', (file) => {
     expect(existsSync(path.join(UI_ROOT, file)), `server.js requires ${file}, which does not exist`).toBe(true)
@@ -34,37 +58,43 @@ describe('server.js runtime image copies', () => {
   })
 })
 
-function stage(dockerfile: string, name: string): string[] {
-  const lines = dockerfile.split('\n')
-  const start = lines.findIndex((line) => new RegExp(`^FROM \\S+ AS ${name}$`).test(line))
+function stage(instructions: Instruction[], name: string): Instruction[] {
+  const start = instructions.findIndex((instruction) => instruction instanceof From && instruction.getBuildStage() === name)
   expect(start, `deploy/Dockerfile has no stage ${name}`).toBeGreaterThanOrEqual(0)
-  const end = lines.findIndex((line, index) => index > start && line.startsWith('FROM '))
-  return lines.slice(start, end === -1 ? undefined : end).filter((line) => line && !line.startsWith('#'))
+  const end = instructions.findIndex((instruction, index) => index > start && instruction instanceof From)
+  return instructions.slice(start, end === -1 ? undefined : end)
 }
 
 describe('runtime image layers', () => {
-  const dockerfile = readFileSync(path.join(UI_ROOT, 'deploy', 'Dockerfile'), 'utf8')
+  const instructions = instructionsOf()
 
   it('installs the production dependencies from the lockfile inputs alone', () => {
-    const sources = stage(dockerfile, 'prod-deps')
-      .filter((line) => line.startsWith('COPY '))
-      .flatMap((line) => line.split(/\s+/).slice(1, -1))
+    const sources = stage(instructions, 'prod-deps')
+      .filter((instruction) => instruction.getKeyword() === 'COPY')
+      .flatMap((instruction) => argumentsOf(instruction).slice(0, -1))
     expect(sources.sort()).toEqual(['bun.lock', 'package.json', 'patches'])
   })
 
   it('ships node_modules from prod-deps, before the build output', () => {
-    const runner = stage(dockerfile, 'runner')
-    const modules = runner.findIndex((line) => /^COPY --from=prod-deps .* \/app\/node_modules \.\/node_modules$/.test(line))
-    const nextOutput = runner.findIndex((line) => line.includes('/app/.next '))
+    const runner = stage(instructions, 'runner')
+    const modules = runner.findIndex(
+      (instruction) =>
+        instruction.getKeyword() === 'COPY' &&
+        flagOf(instruction, 'from') === 'prod-deps' &&
+        argumentsOf(instruction).join(' ') === '/app/node_modules ./node_modules',
+    )
+    const nextOutput = runner.findIndex((instruction) => argumentsOf(instruction).includes('/app/.next'))
     expect(modules, 'the runner must COPY node_modules from prod-deps').toBeGreaterThanOrEqual(0)
     expect(modules).toBeLessThan(nextOutput)
-    expect(runner.filter((line) => line.includes('./node_modules'))).toHaveLength(1)
+    expect(runner.filter((instruction) => argumentsOf(instruction).some((arg) => arg.includes('./node_modules')))).toHaveLength(1)
   })
 
   it('sets GIT_SHA after every layer of the runner', () => {
-    const runner = stage(dockerfile, 'runner')
-    const sha = runner.findIndex((line) => line.startsWith('ARG GIT_SHA'))
-    const lastLayer = runner.findLastIndex((line) => /^(COPY|RUN|ADD) /.test(line))
+    const runner = stage(instructions, 'runner')
+    const sha = runner.findIndex(
+      (instruction) => instruction.getKeyword() === 'ARG' && argumentsOf(instruction)[0]?.startsWith('GIT_SHA'),
+    )
+    const lastLayer = runner.findLastIndex((instruction) => ['COPY', 'RUN', 'ADD'].includes(instruction.getKeyword()))
     expect(sha).toBeGreaterThan(lastLayer)
   })
 })

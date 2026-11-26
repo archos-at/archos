@@ -306,7 +306,7 @@ describe('normalizeAgentAnswerMetadata', () => {
       sources: [kbSource()],
       read_sources: [
         {
-          document_id: 'doc:oib_knowledge:oib-rl_3.pdf',
+          document_id: 'doc:base_corpus:oib-rl_3.pdf',
           citation_key: 'OIB-RL-3.pdf, p.4',
           file_name: 'OIB-RL-3.pdf',
           page: 4,
@@ -326,7 +326,7 @@ describe('normalizeAgentAnswerMetadata', () => {
     const result = normalizeAgentAnswerMetadata({
       read_sources: [
         {
-          document_id: 'doc:oib_knowledge:oib-rl_3.pdf',
+          document_id: 'doc:base_corpus:oib-rl_3.pdf',
           citation_key: 'OIB-RL-3.pdf, p.4',
           file_name: 'OIB-RL-3.pdf',
           page: 4,

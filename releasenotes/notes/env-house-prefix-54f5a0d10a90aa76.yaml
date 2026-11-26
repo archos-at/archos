@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Every AIQ_ environment variable is renamed to GRID_ with the same rest, so

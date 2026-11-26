@@ -1,6 +1,9 @@
 import { BIM_ELEMENTS_PAGE_LIMIT } from '@/lib/bim/types'
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { getJson } from './async-request'
 import type { BimViewerElement } from './model-index'
+
+export const MAX_WALK_ROUNDS = 80
 
 export async function walkBimElements(
   modelId: string,
@@ -32,7 +35,7 @@ export async function walkBimElements(
 
   let offset = PAGE
   let done = false
-  for (let round = 0; round < 80 && !done; round += 1) {
+  for (let round = 0; round < MAX_WALK_ROUNDS && !done; round += 1) {
     const width = Math.min(CONCURRENCY, Math.max(1, known - offset / PAGE))
     if (width <= 0) break
     const offsets = Array.from({ length: width }, (_, index) => offset + index * PAGE)
@@ -43,6 +46,12 @@ export async function walkBimElements(
     }
     offset += width * PAGE
     if (offset / PAGE >= known) done = true
+  }
+  if (!done) {
+    capturePosthogException(new Error('element walk stopped at its round limit'), {
+      source: 'bim-element-walk-capped',
+      collected: collected.length,
+    })
   }
   return collected
 }

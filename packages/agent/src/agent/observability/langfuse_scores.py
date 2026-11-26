@@ -257,10 +257,33 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "confidence-judged-level",
         "CATEGORICAL",
-        "The level the answer check gave the answer (ADR-0139): one model call grading the final answer "
-        "against everything the turn registered, before the quote gate. Not written when the check was "
-        "unavailable or the answer graded nothing.",
+        "The level the answer check derived from its findings (ADR-0197): low with a contradicted finding, "
+        "medium with any other, high with none; before the quote gate, the law gate and the self-report. Not "
+        "written when the check was unavailable or the answer graded nothing.",
         categories=("low", "medium", "high"),
+    ),
+    ScoreDefinition(
+        "confidence-findings-contradicted",
+        "NUMERIC",
+        "How many statements the answer check found contradicted by the evidence: a cited passage that says "
+        "something else, or a passage, record, measurement or reading that plainly contradicts an uncited "
+        "statement (ADR-0197). Written with confidence-judged-level; the comment names them.",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "confidence-findings-source-silent",
+        "NUMERIC",
+        "How many cited statements the answer check found their passage silent on: the [N] resolves, the "
+        "passage says nothing about the statement (ADR-0197). Written with confidence-judged-level.",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "confidence-findings-law-uncited",
+        "NUMERIC",
+        "How many statements of what a regulation requires, allows or forbids the answer made without a "
+        "citation and with no passage in the evidence stating it (ADR-0197). Written with "
+        "confidence-judged-level.",
+        min_value=0,
     ),
     ScoreDefinition(
         "confidence-open-points",
@@ -431,13 +454,21 @@ def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
-def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+def answer_check_scores(
+    level: str | None, open_points: Sequence[str] = (), findings: Sequence[tuple[str, str]] = ()
+) -> list[RuntimeScore]:
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
     named = RuntimeScore(
         "confidence-open-points", float(len(open_points)), comment="; ".join(open_points)[:500] or None
     )
-    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level), named]
+    counts = []
+    for kind in ("contradicted", "source_silent", "law_uncited"):
+        statements = [statement for found, statement in findings if found == kind]
+        name = f"confidence-findings-{kind.replace('_', '-')}"
+        counts.append(RuntimeScore(name, float(len(statements)), comment="; ".join(statements)[:500] or None))
+    judged = RuntimeScore("confidence-judged-level", level)
+    return [_boolean("confidence-judge-unavailable", False), judged, named, *counts]
 
 
 def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore]:

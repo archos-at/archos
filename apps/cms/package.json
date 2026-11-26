@@ -12,7 +12,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start --port 3100",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap && cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "lint": "oxlint --deny-warnings src scripts social tests",
     "test": "vitest run",
     "test:db": "bash scripts/test-db.sh",

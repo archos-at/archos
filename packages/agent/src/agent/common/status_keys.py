@@ -50,9 +50,6 @@ KEY_ACTION_FILE_PROPOSAL = "status.action.fileProposal"
 KEY_ACTION_DRAFT_FILED = "status.action.draftFiled"
 
 
-KEY_ACTION_DRAFT_SUBMITTED = "status.action.draftSubmitted"
-
-
 KEY_ACTION_CODE_RUN = "status.action.codeRun"
 
 
@@ -132,7 +129,6 @@ ALL_STATUS_KEYS: tuple[str, ...] = (
     "status.action.draftEdit",
     "status.action.fileProposal",
     "status.action.draftFiled",
-    "status.action.draftSubmitted",
     "status.action.codeRun",
     "status.action.fileMake",
     "status.action.filesMake",

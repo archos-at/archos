@@ -68,9 +68,11 @@ Every command the client sends is checked before it reaches Chromium:
 
 ## Fonts and Mermaid
 
-The house fonts come from Adobe's npm packages `source-sans` 3.52 and `source-code-pro` 2.42 (OFL-1.1,
-their licences ship in the image) and are the fontconfig defaults for `sans-serif`, `system-ui` and
-`monospace`. Mermaid 12.3 (MIT) is served to pages from the image only.
+Hanken Grotesk, the house face of the agent's PDFs (OFL-1.1, from the npm package
+`@expo-google-fonts/hanken-grotesk` 0.4.3, Regular to SemiBold with italics, its licence in the image),
+is asked for by name. Adobe's npm packages `source-sans` 3.52 and `source-code-pro` 2.42
+(OFL-1.1, their licences ship in the image) are the fontconfig defaults for `sans-serif`, `system-ui`
+and `monospace`. Mermaid 12.3 (MIT) is served to pages from the image only.
 
 ## Image
 

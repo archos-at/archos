@@ -8,6 +8,8 @@
 
 *received 2026-09-30 14:02*
 
+- **Subject:** Statik Tiefgarage
+
 Die Tiefgarage trägt die geforderten zwölf Stellplätze ohne Verstärkung der Decke.
 
 ## 2026-10-02 10:15 · DI Eva Berger (berger-architektur.at)
@@ -16,7 +18,7 @@ Die Tiefgarage trägt die geforderten zwölf Stellplätze ohne Verstärkung der 
 
 - **To:** Mag. Anna Huber (ma37.wien.gv.at)
 - **Cc:** DI Max Weber (statik-weber.at), office (statik-weber.at)
-- **Attachments:** Stellplatznachweis\_B.pdf (filed in /Behörde)
+- **Attachments:** Stellplatznachweis\_B.pdf (filed in Behörde)
 
 Sehr geehrte Frau Mag. Huber,
 

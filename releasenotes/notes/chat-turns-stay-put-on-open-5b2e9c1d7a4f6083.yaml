@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Opening a chat, or sending the first message on a computer, no longer
+    nudges the messages down a few pixels once the chat bar has loaded.

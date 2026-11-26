@@ -18,6 +18,7 @@ from agent.tools.bim.failures import MEASURE_FAILURES
 from agent.tools.bim.failures import NO_ORG_TEXT
 from agent.tools.bim.failures import NO_PROJECT_TEXT
 from agent.tools.bim.failures import UNAVAILABLE_TEXT
+from agent.tools.bim.handover import keep_measure_result
 from agent.tools.bim.measure_bodies import _body_lines
 from agent.tools.bim.measure_bodies import _image_blocks
 from agent.tools.bim.measure_bodies import _model_line
@@ -397,7 +398,12 @@ async def _measure(
     outcome.failed = not source.get("resolved")
     if isinstance(payload, dict) and isinstance(payload.get("elements"), list):
         outcome.hits = len(payload["elements"])
-    return _reply(name, detail, source, payload, handle)
+    reply = _reply(name, detail, source, payload, handle)
+    if not isinstance(reply, str):
+        return reply
+    evidence = _measurement_sources(name, payload, source=source, detail=detail)
+    handed = await keep_measure_result(name, detail, source, payload, evidence)
+    return f"{reply}\n{handed}" if handed else reply
 
 
 class IfcMeasureConfig(FunctionBaseConfig, name="ifc_measure"):

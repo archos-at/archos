@@ -25,6 +25,8 @@ import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { withTenant } from '@/lib/db/tenant-context'
 import { readEstateTree } from '@/lib/estate-tree/service'
 import { buildRequestContextEnvelope, REQUEST_CONTEXT_HEADER_NAMES } from '@/lib/request-context'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
+import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, decisionOf, signDecision } from '@/lib/conversation-context/wire'
 import { POST } from './route'
 
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
@@ -42,14 +44,14 @@ const session = {
   featureFlags: null,
 }
 
-function envelopeHeaders(secret = SECRET) {
+function envelopeHeaders(secret = SECRET, collectionScope = ['base_corpus', 'proj_1']) {
   const { header, signature } = buildRequestContextEnvelope(
     {
       organizationId: 'org_1',
       userId: 'user_requester',
       projectId: PROJECT,
       conversationId: 's_conv_1',
-      collectionScope: ['oib_knowledge', 'proj_1'],
+      collectionScope,
       issuedAt: Date.now(),
     },
     secret,
@@ -77,11 +79,21 @@ describe('POST /api/internal/estate-tree', () => {
 
     expect(response.status).toBe(200)
     expect(vi.mocked(readEstateTree)).toHaveBeenCalledWith(
-      expect.objectContaining({ organizationId: 'org_1', userId: 'user_requester', projectId: PROJECT, conversationId: 's_conv_1', collectionScope: ['oib_knowledge', 'proj_1'] }),
+      expect.objectContaining({ organizationId: 'org_1', userId: 'user_requester', projectId: PROJECT, conversationId: 's_conv_1', collectionScope: ['base_corpus', 'proj_1'] }),
       session,
       { shelf: 'project', limit: 50 },
     )
     expect(vi.mocked(withTenant)).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_requester' }, expect.any(Function))
+  })
+
+  it('takes a socket turn’s shelves from its decision, as the envelope signs none (ADR-0194)', async () => {
+    const closed = closedContext('chat', 's_conv_1')
+    const may = { ...closed.may, shelves: [{ collection: 'proj_1', shelf: 'project' as const }] }
+    const decided = signDecision(decisionOf({ ...closed, may }, { organizationId: 'org_1', userId: 'user_requester' }, null, Date.now()), SECRET)
+    const headers = { ...envelopeHeaders(SECRET, []), [TURN_DECISION_HEADER]: decided.header, [TURN_DECISION_SIGNATURE_HEADER]: decided.signature }
+
+    expect((await POST(request({ shelf: 'project' }, headers))).status).toBe(200)
+    expect(vi.mocked(readEstateTree).mock.calls[0]?.[0]).toMatchObject({ collectionScope: ['proj_1'] })
   })
 
   it('refuses the token alone, a wrong token, and an envelope signed with another secret', async () => {

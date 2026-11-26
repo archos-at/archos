@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    Deleting a file in Meine Ablage works again. It failed because it tried to
+    move the file to a Papierkorb that Meine Ablage does not have; the file is now
+    deleted for good, and the dialog says so before you confirm.

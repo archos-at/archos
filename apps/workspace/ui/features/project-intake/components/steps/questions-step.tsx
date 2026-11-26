@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ArrowRight, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
+import { MobileLayoutOnly } from '@/components/ui/layout-only'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTranslations } from '@/i18n'
@@ -136,22 +137,34 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
 
       {current?.entry ? (
         <div className="flex min-w-0 flex-1 flex-col gap-4 md:max-w-[640px] md:flex-none md:basis-[640px]">
-          {isMobile && note && <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>}
+          {note && (
+            <MobileLayoutOnly>
+              <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>
+            </MobileLayoutOnly>
+          )}
           {ask(current as RoundRow & { entry: RoundEntry })}
         </div>
       ) : (
         <section
-          className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:basis-[640px] md:self-start md:rounded-[14px] md:border md:px-9 md:py-8"
+          className="md:bg-card md:border-border w-full min-w-0 md:max-w-[640px] md:basis-[640px] md:self-start md:rounded-[12px] md:border md:px-9 md:py-8"
           data-testid="questions-done"
         >
-          {isMobile && note && <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>}
+          {note && (
+            <MobileLayoutOnly>
+              <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>
+            </MobileLayoutOnly>
+          )}
           <h2 className="text-[22px] leading-[1.3] font-medium">
             {total > 0 ? t('doneTitle') : reading ? t('waitingTitle') : t('nothingTitle')}
           </h2>
           <p className="text-muted-foreground mt-2.5 text-[15px] leading-normal md:text-sm">
             {total > 0 ? t('done') : reading ? t('waiting') : t('nothing')}
           </p>
-          {isMobile && more && <div className="mt-6">{more}</div>}
+          {more && (
+            <MobileLayoutOnly>
+              <div className="mt-6">{more}</div>
+            </MobileLayoutOnly>
+          )}
           <StepFooter primary={desk} progress={total > 0 ? progress : undefined} />
         </section>
       )}

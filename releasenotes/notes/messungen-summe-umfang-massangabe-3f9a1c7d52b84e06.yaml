@@ -1,0 +1,8 @@
+---
+# area: documents
+features:
+  - >
+    Measurements on a drawing now add up: the list of kept measurements shows a
+    total for lengths and for areas. A measured area also states its perimeter,
+    and a measured distance tells you whether the dimension printed on the plan
+    agrees with it.

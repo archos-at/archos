@@ -136,6 +136,8 @@ const RECORD: AnnotationRecord = {
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Tür T30 fehlt im Fluchtweg',
   basis: null,
@@ -252,7 +254,7 @@ describe('GET /api/documents/[id]/annotations', () => {
   it('carries none on a chat attachment', async () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue({ ...DOC, scope: 'session' } as Document)
 
-    await expect(listAnnotations('doc_1', run)).resolves.toEqual({ annotations: [], canAnnotate: false, pilotiWakes: false })
+    await expect(listAnnotations('doc_1', run)).resolves.toEqual({ annotations: [], canAnnotate: false, canMeasure: false, pilotiWakes: false })
   })
 })
 

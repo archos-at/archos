@@ -11,7 +11,9 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import type { FileItem, FolderItem } from '../file-types'
 import type { DocumentWireRow } from '../lib/file-item'
 import type { FileShelf } from '../lib/file-shelf'
+import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode, type SearchSurface } from '@/features/search'
 import type { RootSortShelf } from '@/lib/filing/root-sort-types'
+import { activeFilterCount } from '../lib/file-filters'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { useFileWorkspaceListing } from '../hooks/use-file-workspace-listing'
 import { useFileWorkspaceChanges } from '../hooks/use-file-workspace-changes'
@@ -55,24 +57,55 @@ export interface FileWorkspaceProps {
   shelf: FileShelf
   renderHeader: (controls: ReactNode, state: { count: number | null }) => ReactNode
   moreEntries?: readonly ActionMenuEntry[]
-  onOpenSearch?: (text: string) => void
   initialFolders?: readonly FolderItem[]
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
+  renderLevelNotice?: (level: { folderId: string | null; revision: string; reload: () => void }) => ReactNode
 }
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
 
-export function FileWorkspace({
+const SEARCH_PLACEHOLDER = {
+  project: 'browser.searchPlaceholderProject',
+  office: 'browser.searchPlaceholderOffice',
+  personal: 'browser.searchPlaceholderPersonal',
+} as const
+
+const SEARCH_BACK = {
+  project: 'backToFiles',
+  office: 'backToShelf',
+  personal: 'backToShelf',
+} as const
+
+function searchSurface(shelf: FileShelf, folderId: string | null): SearchSurface {
+  if (shelf.source === 'project' && shelf.projectId) return { kind: 'project', projectId: shelf.projectId, folderId }
+  return { kind: shelf.source === 'office' ? 'office_shelf' : 'personal', folderId }
+}
+
+export function FileWorkspace(props: FileWorkspaceProps) {
+  const search = useShelfSearchMode()
+  if (!search.active) return <ShelfListing {...props} />
+  const { shelf, renderHeader } = props
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-testid="shelf-search">
+      {renderHeader(<ShelfSearchBack onClose={search.close} label={SEARCH_BACK[shelf.source]} />, { count: null })}
+      <div className="min-h-0 flex-1">
+        <SearchWorkspace surface={searchSurface(shelf, search.folderId)} currentUserId={shelf.currentUserId} inset autoFocus />
+      </div>
+    </div>
+  )
+}
+
+function ShelfListing({
   shelf,
   renderHeader,
   moreEntries,
-  onOpenSearch,
   initialFolders,
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
+  renderLevelNotice,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { canManage, canCollaborate } = shelf
@@ -160,6 +193,8 @@ export function FileWorkspace({
   }, [selectedFolderId, searchingNow, sliceOpen, exitSelection])
   const mayPick = canManage && writableHere
   const pickable = useMemo(() => levelFiles.map((file) => file.id), [levelFiles])
+  const levelRevision = useMemo(() => levelFiles.map((file) => `${file.id}:${file.status ?? ''}`).join('|'), [levelFiles])
+  const levelNotice = searchingNow || sliceOpen ? null : renderLevelNotice?.({ folderId: selectedFolderId, revision: levelRevision, reload: () => void reloadAll() })
   const moveSelection = async (folderId: string | null, folderName: string): Promise<void> => {
     setMoveSheetOpen(false)
     const ids = [...selection.selectedIds]
@@ -177,6 +212,8 @@ export function FileWorkspace({
         onUpload={handleUpload}
         isUploading={isUploading}
         onSendByMail={shelf.inboundMail?.openAddress}
+        onImportMailArchive={shelf.openMailImport}
+        acceptsMailArchives={Boolean(shelf.takeMailArchives)}
         {...props}
       />
     ) : undefined
@@ -213,11 +250,13 @@ export function FileWorkspace({
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      binHref={shelf.bin?.href}
       openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
-      renderFilter={(compact) => (
+      filterCount={activeFilterCount(filters, canCollaborate)}
+      renderFilter={(compact, anchored) => (
         <FileFilterMenu
+          anchored={anchored}
           canCollaborate={canCollaborate}
           filters={filters}
           onFiltersChange={setFilters}
@@ -231,9 +270,9 @@ export function FileWorkspace({
       search={{
         value: search.query,
         onChange: search.setQuery,
-        onSubmit: onOpenSearch ? () => onOpenSearch(search.query.trim()) : search.run,
+        onSubmit: search.run,
         onClear: search.clear,
-        opensSearch: Boolean(onOpenSearch),
+        placeholder: t(SEARCH_PLACEHOLDER[shelf.source]),
       }}
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}
@@ -248,7 +287,7 @@ export function FileWorkspace({
 
   const folderDestinations = useMemo(() => sortedFolderDestinations(folders), [folders])
   const { documentActionsAt } = access
-  const { askAbout, documentScope } = shelf
+  const { askAbout, documentScope, fileActions } = shelf
   const objectMenu = useCallback(
     (file: FileItem, node: ReactNode, asChild: boolean) => (
       <DocumentObjectMenu
@@ -260,6 +299,7 @@ export function FileWorkspace({
         destinations={folderDestinations}
         onOpen={() => selectFile(file.id)}
         onAsk={askAbout ? () => askAbout(file) : undefined}
+        extraEntries={fileActions?.(file)}
         onRenamed={handlers.onRenamed}
         onDeleted={handlers.onDeleted}
         onMoved={moved}
@@ -277,6 +317,7 @@ export function FileWorkspace({
       folderDestinations,
       selectFile,
       askAbout,
+      fileActions,
       handlers,
       moved,
       mayPick,
@@ -359,6 +400,7 @@ export function FileWorkspace({
             uploadFab && (inSheet ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-24')
           )}
         >
+          {levelNotice && <div className={cn(NOTICE_STRIP, 'pb-1')}>{levelNotice}</div>}
           {listingError ? (
             <PaneLoadError message={t('workspace.documentsLoadError')} onRetry={retryListing} />
           ) : (
@@ -419,6 +461,7 @@ export function FileWorkspace({
                 label: t('workspace.uploadDocuments'),
               })}
               brief={briefSurface.brief}
+              unreadHint={briefSurface.unreadHint}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
               selection={

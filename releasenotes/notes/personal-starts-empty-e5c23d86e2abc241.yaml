@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Persönlich now lists only the chats you start there, so it starts empty
+    instead of showing every older chat that had no project.

@@ -14,8 +14,8 @@ import identity, { withName } from '../lib/identity';
 import { photos } from '../lib/media';
 
 // Markup and structure only. Text comes from src/i18n/pages/demo.ts, in both locales.
-// The form hands the answers to the visitor's mail program, addressed to the sales inbox
-// (MailForm; README, "Forms"). Target state: a CRM, see the README roadmap line.
+// The form sends the answers to the sales inbox, or hands them to the visitor's mail program when
+// the site cannot send (MailForm; README, "Forms").
 interface Props {
   locale: Locale;
 }
@@ -56,7 +56,7 @@ const f = c.form;
     </div>
 
     <div slot="aside">
-      <MailForm id="demo" to={identity.email} subject={f.subject} sent={f.sent} checkbox={f.newsletterMail}>
+      <MailForm id="demo" to={identity.email} subject={f.subject} sent={f.sent} delivered={f.delivered} checkbox={f.newsletterMail} locale={locale}>
         <Input id="demo-first-name" name="first-name" label={f.firstName} placeholder={f.firstNamePlaceholder} autocomplete="given-name" required />
         <Input id="demo-last-name" name="last-name" label={f.lastName} placeholder={f.lastNamePlaceholder} autocomplete="family-name" required />
         <Input id="demo-email" name="email" type="email" label={f.email} placeholder={f.emailPlaceholder} autocomplete="email" required />

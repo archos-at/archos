@@ -21,7 +21,7 @@ async def _settle() -> None:
 
 class TestTheRecord:
     def test_a_note_keeps_the_restricted_collections_it_was_shown_under(self):
-        shown = merged(ShownNotes(), ["Honorar 48.000"], ["oib_knowledge", "proj_1", A])
+        shown = merged(ShownNotes(), ["Honorar 48.000"], ["base_corpus", "proj_1", A])
         assert shown.notes == (RestrictedNote("Honorar 48.000", (A,)),)
 
     def test_a_note_seen_again_under_another_scope_keeps_both(self):

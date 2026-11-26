@@ -63,7 +63,7 @@ const locus = (page: number, number: number, passage?: string): CitationSource =
   content: passage ? `[KB] ${OIB}, p.${page}\n${passage}` : `[KB] ${OIB}, p.${page}`,
   citationKey: `${OIB}, p.${page}`,
   fileName: OIB,
-  collection: 'oib_knowledge',
+  collection: 'base_corpus',
   title: 'OIB-Richtlinie 2.1, Ausgabe Mai 2023',
   origin: 'kb',
   kind: 'building_law',
@@ -365,7 +365,7 @@ describe('an inline citation marker', () => {
       await user.click(screen.getByRole('button', { name: /Source 1: Brandschutzkonzept/i }))
       const peek = await screen.findByRole('dialog')
 
-      expect(within(peek).getByRole('link', { name: 'Open in Office filing' })).toHaveAttribute(
+      expect(within(peek).getByRole('link', { name: 'Open in Office library' })).toHaveAttribute(
         'href',
         '/app/office-shelf'
       )

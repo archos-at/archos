@@ -29,11 +29,11 @@ class _FakeLLM:
 
 class TestHydeConfig:
     def test_channel_is_default_off(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
         assert config.hyde_enabled is False
 
     def test_timeout_has_a_bounded_default(self):
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge")
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus")
         assert 1.0 <= config.hyde_timeout_seconds <= 30.0
 
 

@@ -89,9 +89,9 @@ const citations: CitationSource[] = [
     id: 'oib-1',
     content: `[KB] ${OIB}, p.14\nGebäudeklasse 5 umfasst Gebäude mit nicht mehr als sechs oberirdischen Geschoßen.`,
     citationKey: `${OIB}, p.14`,
-    documentId: `doc:oib_knowledge:${OIB}`,
+    documentId: `doc:base_corpus:${OIB}`,
     fileName: OIB,
-    collection: 'oib_knowledge',
+    collection: 'base_corpus',
     title: 'OIB-Richtlinie 2, Ausgabe Mai 2023',
     origin: 'kb',
     kind: 'building_law',
@@ -159,7 +159,7 @@ export default function FileReferencePreview() {
         <Stage />
         <Block
           title="Filenames the answer names are openable"
-          note="Nine names across three shelves — project files, the Büroablage and a document attached to this chat — each a chip that opens the document in the pane beside the answer and makes it what the composer is asking about. Konzept-Entwurf.pdf resolves to nothing and stays prose, which is the rule: a control that opens nothing is worse than plain text. The tinted [1] beside them is a citation and deliberately does not look the same: it carries a claim about a passage, a file reference carries none."
+          note="Nine names across three shelves — project files, the Bürobibliothek and a document attached to this chat — each a chip that opens the document in the pane beside the answer and makes it what the composer is asking about. Konzept-Entwurf.pdf resolves to nothing and stays prose, which is the rule: a control that opens nothing is worse than plain text. The tinted [1] beside them is a citation and deliberately does not look the same: it carries a claim about a passage, a file reference carries none."
         >
           <AgentResponse
             content={answer}

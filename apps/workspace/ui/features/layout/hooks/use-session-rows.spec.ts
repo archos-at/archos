@@ -45,9 +45,15 @@ describe('useSessionRows', () => {
 
   test('the caller may name the project, over the store’s', () => {
     const { conversations } = useChatStore.getState()
-    useChatStore.setState({ conversations: [...conversations, { ...conversation('elsewhere', new Date(2026, 8, 28)), projectId: 'p2' }] })
+    useChatStore.setState({
+      conversations: [
+        ...conversations,
+        { ...conversation('here', new Date(2026, 8, 27)), projectId: 'p1' },
+        { ...conversation('elsewhere', new Date(2026, 8, 28)), projectId: 'p2' },
+      ],
+    })
     const { result } = renderHook(() => useSessionRows('p1'))
-    expect(result.current.map((row) => row.id)).toEqual(['open', 'older'])
+    expect(result.current.map((row) => row.id)).toEqual(['here'])
   })
 
   test('a delta that changes only the messages keeps the same list', () => {
@@ -124,5 +130,34 @@ describe('useSessionRows', () => {
 
     act(() => useChatStore.getState().selectConversation('older'))
     expect(activityOf('older')).toBeNull()
+  })
+
+  describe('each side lists only its own chats (ADR-0193)', () => {
+    beforeEach(() => {
+      const { conversations } = useChatStore.getState()
+      useChatStore.setState({
+        conversations: [
+          ...conversations,
+          { ...conversation('in-p2', new Date(2026, 8, 28)), projectId: 'p2', shared: true },
+          { ...conversation('in-p3', new Date(2026, 8, 29)), projectId: 'p3' },
+        ],
+      })
+    })
+
+    test('Persönlich: only the chats without a project', () => {
+      const { result } = renderHook(() => useSessionRows(null))
+      expect(result.current.map((row) => row.id)).toEqual(['open', 'older'])
+    })
+
+    test('Projekt: only that project’s chats, a shared one marked so', () => {
+      const { result } = renderHook(() => useSessionRows('p2'))
+      expect(result.current.map((row) => [row.id, row.shared])).toEqual([['in-p2', true]])
+    })
+
+    test('the store’s side when the caller names none', () => {
+      useChatStore.setState({ projectId: 'p3' })
+      const { result } = renderHook(() => useSessionRows())
+      expect(result.current.map((row) => row.id)).toEqual(['in-p3'])
+    })
   })
 })

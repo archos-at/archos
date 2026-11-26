@@ -434,7 +434,7 @@ export default function StreamSocketPage() {
             for and the jump button and status dock sit above. In flow, below
             the thread, it measured a layout the product does not have, and
             everything placed from `--composer-h` floated mid-screen. */}
-        <div className="bg-background relative flex h-screen flex-col overflow-hidden" style={columnVars}>
+        <div className="bg-background relative flex h-screen flex-col overflow-hidden [container-type:size]" style={columnVars}>
           {ready && (
             <>
               <ChatArea isAuthenticated />

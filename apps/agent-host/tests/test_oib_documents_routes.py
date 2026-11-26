@@ -35,7 +35,7 @@ from agent_host.jobs import ingest_dispatch
 from agent_host.routes import oib as oib_routes
 from agent_host.routes.oib import add_oib_routes
 
-_COLLECTION = "oib_knowledge"
+_COLLECTION = "base_corpus"
 
 
 def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:

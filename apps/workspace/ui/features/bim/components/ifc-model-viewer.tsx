@@ -2,12 +2,12 @@
 
 import type { JSX } from 'react'
 import dynamic from 'next/dynamic'
-import { MonitorX, RotateCcw } from 'lucide-react'
+import { Boxes, MonitorX, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useLocale, useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
 import { cn } from '@/lib/utils'
-import { useModelViewport, type UseModelViewportOptions } from '../hooks/use-model-viewport'
+import { useModelViewport, type ModelViewport, type UseModelViewportOptions } from '../hooks/use-model-viewport'
 import { formatDownloadProgress } from '../lib/format-value'
 import { ViewerLegend, ViewerNotice, ViewerProgress } from './viewer'
 
@@ -19,65 +19,41 @@ export const IfcViewerCanvasLazy = dynamic(
 export interface IfcModelViewerProps extends UseModelViewportOptions {
   className?: string
   onRetry?: () => void
+  frame?: 'inline' | 'stage'
 }
 
-export function IfcModelViewer({ className, onRetry, ...options }: IfcModelViewerProps): JSX.Element {
-  const t = useTranslations(bimCopy)
-  const viewport = useModelViewport({ ...options, compact: options.compact ?? true })
+const FRAME = {
+  inline: 'bg-desk rounded-control',
+  stage: 'bg-sheet rounded-surface shadow-md',
+} as const
 
-  if (!viewport.webGpu) {
-    return (
-      <div className={cn('rounded-xl border border-dashed', className)}>
-        <ViewerNotice
-          icon={MonitorX}
-          title={t('viewer.unsupported.title')}
-          description={t('viewer.unsupported.description')}
-        />
-      </div>
-    )
-  }
+export function IfcModelViewer({
+  className,
+  onRetry,
+  frame = 'inline',
+  ...options
+}: IfcModelViewerProps): JSX.Element {
+  const t = useTranslations(bimCopy)
+  const shell = cn('relative overflow-hidden', FRAME[frame], className)
+  const viewport = useModelViewport({
+    ...options,
+    compact: options.compact ?? true,
+    onReload: onRetry,
+  })
+
+  const notice = viewportNotice(viewport, t)
+  if (notice) return <div className={shell}>{notice}</div>
 
   if (!viewport.canvasProps) {
     return (
-      <div className={cn('relative overflow-hidden rounded-xl border border-dashed', className)}>
+      <div className={shell}>
         <ModelViewportProgress phase="downloading" percent={null} />
       </div>
     )
   }
 
-  if (viewport.status.phase === 'error') {
-    return (
-      <div className={cn('rounded-xl border border-dashed', className)}>
-        <ViewerNotice
-          icon={MonitorX}
-          title={t('viewer.unavailable.title')}
-          description={t('viewer.unavailable.description')}
-          detail={
-            viewport.status.message
-              ? t('viewer.unavailable.reason', { message: viewport.status.message })
-              : undefined
-          }
-          action={<ViewerRetry onClick={onRetry ?? viewport.download.restart} />}
-        />
-      </div>
-    )
-  }
-
-  if (viewport.download.cancelled) {
-    return (
-      <div className={cn('relative overflow-hidden rounded-xl border border-dashed', className)}>
-        <ViewerNotice
-          icon={MonitorX}
-          title={t('stage.download.cancelled.title')}
-          description={t('stage.download.cancelled.description')}
-          action={<ViewerRetry onClick={viewport.download.restart} label={t('stage.download.restart')} />}
-        />
-      </div>
-    )
-  }
-
   return (
-    <div className={cn('bg-muted relative overflow-hidden rounded-xl border', className)}>
+    <div className={shell}>
       <IfcViewerCanvasLazy {...viewport.canvasProps} className="size-full" />
       <ModelViewportProgress
         phase={viewport.status.phase}
@@ -95,6 +71,43 @@ export function IfcModelViewer({ className, onRetry, ...options }: IfcModelViewe
       />
     </div>
   )
+}
+
+export function viewportNotice(
+  viewport: Pick<ModelViewport, 'webGpu' | 'status' | 'download'>,
+  t: ReturnType<typeof useTranslations>
+): JSX.Element | null {
+  if (!viewport.webGpu) {
+    return (
+      <ViewerNotice
+        icon={MonitorX}
+        title={t('viewer.unsupported.title')}
+        description={t('viewer.unsupported.description')}
+      />
+    )
+  }
+  if (viewport.status.phase === 'error') {
+    return (
+      <ViewerNotice
+        icon={MonitorX}
+        title={t('viewer.unavailable.title')}
+        description={t('viewer.unavailable.description')}
+        detail={viewport.status.cause ? t(`viewer.unavailable.cause.${viewport.status.cause}`) : undefined}
+        action={<ViewerRetry onClick={viewport.download.restart} />}
+      />
+    )
+  }
+  if (viewport.download.cancelled) {
+    return (
+      <ViewerNotice
+        icon={Boxes}
+        title={t('stage.download.cancelled.title')}
+        description={t('stage.download.cancelled.description')}
+        action={<ViewerRetry onClick={viewport.download.restart} label={t('stage.download.restart')} />}
+      />
+    )
+  }
+  return null
 }
 
 export function ViewerRetry({ onClick, label }: { onClick: () => void; label?: string }): JSX.Element {
@@ -122,6 +135,7 @@ export function ModelViewportProgress({
   const { locale } = useLocale()
   if (phase === 'ready' || phase === 'error') return null
   const downloading = phase === 'downloading'
+  const stopLabel = t('stage.download.cancel')
   return (
     <ViewerProgress
       label={t(phase === 'parsing' ? 'stage.building' : 'stage.loading')}
@@ -133,9 +147,7 @@ export function ModelViewportProgress({
             )
           : undefined
       }
-      cancel={
-        downloading && onCancel ? { label: t('stage.download.cancel'), onClick: onCancel } : undefined
-      }
+      cancel={onCancel && phase !== 'idle' ? { label: stopLabel, onClick: onCancel } : undefined}
     />
   )
 }

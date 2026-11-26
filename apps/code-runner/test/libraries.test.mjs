@@ -256,6 +256,29 @@ const CASES = {
     return result;
   },
 
+  async "house-style"() {
+    const result = await ok({
+      source: `import PptxGenJS from "pptxgenjs";
+        import { colors, css, format, houseDeck, typstPreamble, vegaLiteConfig } from "house-style";
+        import { writeFile } from "node:fs/promises";
+        export default async () => {
+          const pptx = new PptxGenJS();
+          const deck = houseDeck(pptx, { footer: "Projekt" });
+          deck.cover({ title: "Titel" });
+          deck.slide("Aussage").addTable(deck.table([["Raum", "m²"], ["Küche", format.number(11.2)]], { numeric: [1] }), deck.tableOptions());
+          await writeFile("/workspace/deck.pptx", await pptx.write({ outputType: "uint8array" }));
+          return { ink: colors.ink, area: format.area(32.4), css: css.includes(colors.ink), typst: typstPreamble.includes(colors.ink), font: vegaLiteConfig.font };
+        }`,
+    });
+    const brand = (await import("../src/house-style/brand/document-colors.json", { with: { type: "json" } })).default;
+    assert.equal(result.value.ink, brand.ink);
+    assert.equal(result.value.area, "32,40 m²");
+    assert.deepEqual([result.value.css, result.value.typst], [true, true]);
+    const zip = await JSZip.loadAsync(returned(result, "/workspace/deck.pptx"));
+    assert.ok(Object.keys(zip.files).some((name) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(name)));
+    assert.match(await zip.file("ppt/slides/slide2.xml").async("string"), /Aussage/);
+    return result;
+  },
   async "decimal.js"() {
     const result = await ok({
       source: `import Decimal from "decimal.js";

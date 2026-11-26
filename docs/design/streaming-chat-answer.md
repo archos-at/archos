@@ -14,7 +14,8 @@ no runtime flag beyond the platform switch below.
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
 the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
-`core/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
+`core/live_answer.py` (`LiveAnswer`) and `core/answer_pipeline.py`
+(`settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
 What the reader sees at every phase and edge of a turn, with the fixture and
 check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).
@@ -540,7 +541,9 @@ in `features/chat/lib/stream-pace.ts`):
   fade it painted every frame (330/s). The veil keeps fps at 57–58, long
   tasks at 2–4 and main thread at 550 ms/s (2026-09).
 - It cuts only at a word gap outside an open `**`, link, code span, fence or
-  table row; a table row appears whole. The search for the next clean cut is
+  table cell; a table row fills cell by cell, each cell whole, and the cells
+  of a table that streams here stand at the top of their row, so a row still
+  filling moves none of its cells. The search for the next clean cut is
   one forward walk that keeps running counts of what `isCleanCut` reads
   (`cleanCutsAfter`): asked position by position, it re-read the whole prefix
   per character inside an open fence, 6.9 ms a frame on a desktop for 3.5k of
@@ -555,7 +558,16 @@ in `features/chat/lib/stream-pace.ts`):
   the first row comes. A row with no cell written yet (`| `) is not a clean
   cut either: it drew as a blank row whose cells then grew one by one, each
   step pushing everything below it down (64 → 84 → 87 → 90 px on a phone,
-  stream audit 2026-10). A check table reserves its status tally's line from
+  stream audit 2026-10). The shape that header and first row decide is the
+  table's for as long as it stays on the page (`table-renderers.tsx`): its
+  stacking (`data-stack`, which `table-shape.ts` would otherwise switch to
+  `always` the moment a later row brings a sentence, restacking the whole
+  table from 420 to 775 px in one frame) and its columns (`useStreamedColumns`:
+  a `<colgroup>` measured before the first paint, and `table-layout: fixed`,
+  so a long cell in a later row cannot narrow the others and rewrap every
+  row). Together they were CLS 0.093 of 0.109 on
+  `/dev/stream-replay?fixture=varianten` at 1280 (2026-11). A table opened
+  already written keeps the automatic layout and its own stacking. A check table reserves its status tally's line from
   its header on and draws no tally while rows arrive, so the chips fade into
   that line when the table closes. One that closes with no tally keeps the
   empty line where it streamed; dropping it pulled the rows up the moment the
@@ -707,8 +719,13 @@ Three rules hold across all of them:
 **One object from the send.** The question's Herleitung header mounts with the
 question row and is the working cue from the first frame: „Denkt nach…" with
 the label's shimmer, a timer from the question's timestamp once it passes two
-seconds (`useElapsedSeconds`, in a reserved `3.5ch` with tabular digits), and
-no typing bubble that a panel later replaces. The steps grow into the same
+seconds (`useElapsedSeconds`, in a slot `4ch` wide that stands for the whole
+live turn, tabular digits read from the left), and no typing bubble that a
+panel later replaces. The parts right of the label (the wide panel's summary,
+the ending word, the clock, the chevron) have no box of their own, and the ones
+that come, go or change stand left of the ones that stay, so none of them
+pushes another; the summary fades to a new line when its count changes. In a
+box of their own they slid left whenever the clock arrived or the summary grew. The steps grow into the same
 object. The header's icon slot holds a spinner while the turn works; the
 screen reader hears the phase, never the per-step phrase, at most once every 3 s.
 

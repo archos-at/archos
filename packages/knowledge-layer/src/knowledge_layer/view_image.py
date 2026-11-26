@@ -1,12 +1,11 @@
 import asyncio
 import base64
-import io
 import logging
-import math
 import os
 from dataclasses import dataclass
 from dataclasses import replace
 
+from agent.common import bff_http
 from agent.common import seaweed_s3
 from agent.common.image_view_budget import MAX_IMAGE_VIEWS_PER_TURN
 from agent.common.image_view_budget import MAX_OVERVIEW_VIEWS_PER_TURN
@@ -16,8 +15,16 @@ from agent.common.image_view_budget import remaining_views_text
 from agent.common.image_view_budget import try_consume_image_view
 from agent.common.source_kinds import office_shelf_organization_id
 from agent.knowledge.restricted_use import note_collections_read
-from knowledge_layer.ingest import detached_pil
-from knowledge_layer.ingest import pdfium_lock
+
+from .sheet.crop_text import CropText
+from .sheet.crop_text import look_text
+from .view_regions import Region
+from .view_regions import parse_region
+from .view_rendering import _crop_image_region
+from .view_rendering import _normalize_image_to_jpeg
+from .view_rendering import _render_page
+from .view_rendering import _render_page_from_bytes
+from .view_rendering import _render_pdf_region
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +33,7 @@ _DEFAULT_MAX_DIM = 2048
 
 _VIEW_IMAGES_ENABLED_ENV = "VIEW_IMAGES_ENABLED"
 
-_JPEG_QUALITY = 90
-
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
-
-_FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
-_INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 
 
 def default_max_dim() -> int:
@@ -61,146 +63,6 @@ def _find_pdf(file_name: str) -> str | None:
     return str(cached) if cached is not None else None
 
 
-def _render_pdf_page(source: str | bytes, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    import pypdfium2 as pdfium
-
-    with pdfium_lock():
-        doc = pdfium.PdfDocument(source)
-        try:
-            page = doc[page_number - 1]
-            try:
-                width_pt, height_pt = page.get_size()
-                longest_pt = max(width_pt, height_pt) or 1.0
-                pil_image = detached_pil(page.render(scale=max_dim / longest_pt))
-            finally:
-                page.close()
-        finally:
-            doc.close()
-
-    rgb = pil_image.convert("RGB")
-    buf = io.BytesIO()
-    rgb.save(buf, format="JPEG", quality=_JPEG_QUALITY)
-    return buf.getvalue(), rgb.width, rgb.height
-
-
-def _render_page(pdf_path: str, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    return _render_pdf_page(pdf_path, page_number, max_dim)
-
-
-def _render_page_from_bytes(pdf_bytes: bytes, page_number: int, max_dim: int) -> tuple[bytes, int, int]:
-    return _render_pdf_page(pdf_bytes, page_number, max_dim)
-
-
-def _normalize_image_to_jpeg(image_bytes: bytes, max_dim: int) -> tuple[bytes, int, int]:
-    from PIL import Image
-
-    pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    longest = max(pil_image.width, pil_image.height) or 1
-    if longest > max_dim:
-        scale = max_dim / longest
-        pil_image = pil_image.resize((max(1, round(pil_image.width * scale)), max(1, round(pil_image.height * scale))))
-    buf = io.BytesIO()
-    pil_image.save(buf, format="JPEG", quality=_JPEG_QUALITY)
-    return buf.getvalue(), pil_image.width, pil_image.height
-
-
-_MIN_REGION_PT = 24.0
-_MAX_REGION_SCALE = 1200 / 72
-_MIN_REGION_PX = 16
-
-Region = tuple[float, float, float, float]
-
-_REGION_FORMAT = (
-    "region is [x, y, w, h]: four shares of the page between 0 and 1, origin top left, "
-    "w and h above 0, x + w and y + h at most 1"
-)
-_EDGE_EPSILON = 1e-6
-
-
-def parse_region(value: object) -> Region:
-    if not isinstance(value, list | tuple) or len(value) != 4:
-        raise ValueError(_REGION_FORMAT)
-    try:
-        x, y, w, h = (float(part) for part in value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(_REGION_FORMAT) from exc
-    if not all(map(math.isfinite, (x, y, w, h))):
-        raise ValueError(_REGION_FORMAT)
-    if not (0 <= x <= 1 and 0 <= y <= 1 and 0 < w <= 1 and 0 < h <= 1):
-        raise ValueError(_REGION_FORMAT)
-    if x + w > 1 + _EDGE_EPSILON or y + h > 1 + _EDGE_EPSILON:
-        raise ValueError(_REGION_FORMAT)
-    return x, y, min(w, 1 - x), min(h, 1 - y)
-
-
-def _grown(start: float, size: float, minimum: float, total: float) -> tuple[float, float]:
-    if size >= minimum or total <= minimum:
-        return (0.0, total) if total <= minimum else (start, size)
-    centre = start + size / 2
-    begin = min(max(centre - minimum / 2, 0.0), total - minimum)
-    return begin, minimum
-
-
-def region_box_pt(region: Region, width_pt: float, height_pt: float) -> tuple[float, float, float, float]:
-    x, y, w, h = region
-    left, box_w = _grown(x * width_pt, w * width_pt, _MIN_REGION_PT, width_pt)
-    top, box_h = _grown(y * height_pt, h * height_pt, _MIN_REGION_PT, height_pt)
-    return left, top, box_w, box_h
-
-
-def region_render_args(
-    region: Region, width_pt: float, height_pt: float, max_dim: int
-) -> tuple[float, tuple[float, float, float, float]]:
-    left, top, box_w, box_h = region_box_pt(region, width_pt, height_pt)
-    scale = min(max_dim / (max(box_w, box_h) or 1.0), _MAX_REGION_SCALE)
-    right = max(width_pt - left - box_w, 0.0)
-    bottom = max(height_pt - top - box_h, 0.0)
-    return scale, (left, bottom, right, top)
-
-
-def _render_pdf_region(
-    source: str | bytes, page_number: int, region: Region, max_dim: int
-) -> tuple[bytes, int, int, bool]:
-    import pypdfium2 as pdfium
-
-    with pdfium_lock():
-        doc = pdfium.PdfDocument(source)
-        try:
-            page = doc[page_number - 1]
-            try:
-                width_pt, height_pt = page.get_size()
-                scale, crop = region_render_args(region, width_pt, height_pt, max_dim)
-                bitmap = page.render(scale=scale, crop=crop, bitmap_maker=pdfium.PdfBitmap.new_native)
-                pil_image = detached_pil(bitmap)
-            finally:
-                page.close()
-        finally:
-            doc.close()
-    widened = region_box_pt(region, width_pt, height_pt)[2:] != (region[2] * width_pt, region[3] * height_pt)
-    rgb = pil_image.convert("RGB")
-    buf = io.BytesIO()
-    rgb.save(buf, format="JPEG", quality=_JPEG_QUALITY)
-    return buf.getvalue(), rgb.width, rgb.height, widened
-
-
-def _crop_image_region(image_bytes: bytes, region: Region, max_dim: int) -> tuple[bytes, int, int, bool]:
-    from PIL import Image
-
-    pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    x0, w0 = _grown(region[0] * pil_image.width, region[2] * pil_image.width, _MIN_REGION_PX, pil_image.width)
-    y0, h0 = _grown(region[1] * pil_image.height, region[3] * pil_image.height, _MIN_REGION_PX, pil_image.height)
-    widened = (w0, h0) != (region[2] * pil_image.width, region[3] * pil_image.height)
-    box = (math.floor(x0), math.floor(y0), math.ceil(x0 + w0), math.ceil(y0 + h0))
-    cropped = pil_image.crop(box)
-    longest = max(cropped.width, cropped.height) or 1
-    if longest > max_dim:
-        scale = max_dim / longest
-        cropped = cropped.resize((max(1, round(cropped.width * scale)), max(1, round(cropped.height * scale))))
-    buf = io.BytesIO()
-    cropped.save(buf, format="JPEG", quality=_JPEG_QUALITY)
-    return buf.getvalue(), cropped.width, cropped.height, widened
-
-
 class StorageLocation(tuple):
     version_id: str | None
     document_id: str | None
@@ -225,13 +87,9 @@ def location_version(location: object) -> str | None:
 async def _resolve_storage_location(
     collection: str, file_name: str, organization_id: str | None = None, image_index: int | None = None
 ) -> StorageLocation | None:
-    base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
-    token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
-    if not base_url or not token:
+    if not bff_http.internal_token():
         return None
     try:
-        import httpx
-
         if organization_id is None:
             organization_id = office_shelf_organization_id(collection)
         params: dict[str, str] = {"collection": collection, "filename": file_name}
@@ -239,15 +97,11 @@ async def _resolve_storage_location(
             params["organizationId"] = organization_id
         if image_index is not None:
             params["imageIndex"] = str(image_index)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{base_url.rstrip('/')}/api/internal/document-file",
-                params=params,
-                headers={"x-internal-token": token, **_envelope_headers()},
-            )
-        if response.status_code != 200:
+        data = await asyncio.to_thread(
+            bff_http.get_json, "/api/internal/document-file", timeout=10.0, query=params, headers=_envelope_headers()
+        )
+        if not isinstance(data, dict):
             return None
-        data = response.json()
         storage_key = data.get("storageKey")
         if not isinstance(storage_key, str) or not storage_key:
             return None
@@ -337,6 +191,7 @@ class View:
     height: int
     region: Region | None = None
     version_id: str | None = None
+    printed: CropText | None = None
 
     def with_text(self, text: str) -> View:
         return replace(self, text=text)
@@ -432,21 +287,15 @@ async def _pdf_view(
         return f"[{tool}] Could not render page {page_number} of '{file_name}': {e}"
     if region is not None:
         note_region_viewed()
-        return View(
-            _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened),
-            jpeg_bytes,
-            width,
-            height,
-            region,
+        text = _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened)
+    else:
+        text = (
+            f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
+            "This is the actual page the retrieved chunk describes — inspect it "
+            "for plans, drawings, scale, dimensions and relationships."
         )
-    return View(
-        f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
-        "This is the actual page the retrieved chunk describes — inspect it "
-        "for plans, drawings, scale, dimensions and relationships.",
-        jpeg_bytes,
-        width,
-        height,
-    )
+    printed = await look_text(source, page_number, region, limits.timeout)
+    return View(text, jpeg_bytes, width, height, region, printed=printed)
 
 
 async def _stored_raster(
@@ -462,7 +311,7 @@ async def _stored_raster(
         return f"[{tool}] Invalid image_index {image_index}: indices are 0-based."
     if not collection:
         return (
-            f"[{tool}] image_index addresses a raster stored beside a project or Büroablage "
+            f"[{tool}] image_index addresses a raster stored beside a project or Bürobibliothek "
             f"document, and '{file_name}' was found in none of this turn's collections."
         )
     location = await _resolve_storage_location(collection, file_name, image_index=image_index)

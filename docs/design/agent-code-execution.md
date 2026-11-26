@@ -16,7 +16,9 @@ draft, checked and marked as made by AI.
 
 So the agent computes instead of writing about computing: totals, ratios and comparisons come from
 code that ran, and the office gets files it opens without explanation. Documents handed to a run are
-processed in code, so only the findings reach the model.
+processed in code, so only the findings reach the model, and so are the results of the agent's other
+tools: a Raumbuch of 300 rooms is built from the model's own figures, not from figures the model
+typed into the code.
 
 ## The parts
 
@@ -38,8 +40,8 @@ Start here; each row names the code and the page that owns its detail.
 
 ## One run
 
-1. The model calls `execute(code, documents)`. The description says JavaScript module, no network,
-   and "read the `office-files` skill first".
+1. The model calls `execute(code, documents, data)`. The description says JavaScript module, no network,
+   and "read the `execute` skill first".
 2. The tool takes the conversation's lock: one run at a time per conversation, so two calls in one
    response never write back from the same snapshot. Runs of different conversations run side by side.
 3. It sends every file of the working directory (`/drafts/x` becomes `/workspace/x`) and the bytes of
@@ -49,11 +51,19 @@ Start here; each row names the code and the page that owns its detail.
    folder part is cut, an empty, `.` or `..` name becomes `document`, and a name already taken (by
    another document, or a working file under `/drafts/in/`) gets ` (2)`, ` (3)` before its extension
    (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
-   `documents read:` line names each document's path.
+   `documents read:` line names each document's path. Each tool result named in `data` (at most 10)
+   goes in beside them, read-only, as JSON ([Tool results as data](#tool-results-as-data)).
+   A document past the tenth is named as not loaded; a document over 32 MiB, or one the remaining
+   budget cannot take, is refused by name and size before anything runs.
 4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
    with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
    it created or changed under `/workspace/`.
-5. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
+5. The runner also lists the files sent in that the run removed (`deleted`); the tool drops them from
+   the working directory (only at the version the run saw), and their card says the draft was deleted.
+   A file written under the file name of a document the run read records it, with the hash of the
+   bytes it read (`derived_from`), so the card can offer it as that document's next Fassung. When the
+   conversation was erased while the run ran, nothing is kept.
+6. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
    that would take the conversation's files past 25 MB, and answers with the status, value, output and
    the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
    and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
@@ -74,6 +84,53 @@ the script can copy an input's bytes into a working file, and that copy leaves t
 A `503 busy` is retried three times with backoff; a runner that cannot be reached answers "nothing
 was run", and the agent may try once more.
 
+## Tool results as data
+
+A tool whose answer is rows worth computing on keeps that answer whole and names it on the last line of
+its text: `Data for execute: r3 (312 rooms, 41.2 KB). execute(data=["r3"]) reads every row of it
+exactly, as JSON at /workspace/in/ifc_query-r3.json`. The model passes `data: ["r3"]`, and the run
+reads `/workspace/in/ifc_query-r3.json` with `readFile`. The figures go from the tool to the script
+without passing through the model, so a long list costs no tokens and cannot be mistyped, and the
+text result can stay clipped (30 rooms per storey) while the file holds every row.
+
+| Tool | Kept | Named in the Herleitung as |
+|---|---|---|
+| `ifc_query` | `schedule`, `elements`, `takeoff`, `aggregate`, `properties`, `compare`, `compliance`, `compliance-diff`, `profile`: the engine's whole result | „Raumdaten aus dem Modell“, „Bauteilliste …“, „Mengen …“, … (`tools/bim/handover.py`) |
+| `ifc_measure` | every answer but `view` and `draw`: the engine's payload, and beside it `measurements`, the evidence values with provenance, method, unit, tolerance and the elements they were read from, as `measurement_sources.py` builds them | „Messwerte aus dem Modell“, „Raumdaten …“, „Bauteilliste …“ |
+| `workspace__call` | `project-profile-get`, `project-get`, `project-overview-get`: the operation's structured answer | „Projektprofil“, „Projektdaten“, „Projektübersicht“ (`WORKSPACE_ABOUT`) |
+
+A table in a document has no tool of its own: the document goes in through `documents` and the run
+reads it (`unpdf`, `exceljs`, `papaparse`).
+
+The file is `{reference, tool, operation, about, model, provenance, rows, result}`: `provenance` says
+in a sentence what the values are (declared by the model's property sets, measured with a tolerance,
+or as the workspace answered), so a script, and the file it writes, can state it. A measurement in
+it is still not a source: it travels to the answer through `measurement_sources.py` as before.
+
+**Kept for the conversation, not the turn.** Earlier turns' tool messages are in the next turn's
+history, so the model can see `r3` there when the person says „mach daraus das Raumbuch“. A
+`ContextVar` per turn would answer that with "unknown"; so a result is a row of the draft store's
+LangGraph store under `("conversation", <id>, "tool-data")` (`tools/execute/tool_data.py`), beside
+the working directory but not in it: it is not a file the person sees, files or downloads, and it
+does not count against the 25 MB. References count up per conversation (`r1`, `r2`, …) under a
+per-conversation lock, and only the latest 20 are kept; the agent host's drafts route deletes them
+with the conversation. Erasure first writes an `erased` marker into the namespace and keeps it; a
+tool still running then keeps nothing, because a write checks the marker before and after and removes
+what it wrote when the conversation was erased meanwhile, whichever process it runs in. Deep research binds no `execute`, so a tool there keeps nothing and names
+nothing (`current_step_scope() != "chat"`).
+
+**Limits, said out loud.** A result over 8 MB is not kept, and the tool's text says so and asks
+for a narrower query. A run takes at most 10 results; more is refused before anything runs. The
+results count against the run's 50 MB of inputs. An unknown or dropped reference is refused with the
+references the conversation holds and what to do: run the tool again and pass the reference it
+names. The script's report has a `data read:` line; the Herleitung names each input in words under
+„Grundlage:“ (the step's `documents`, with no document id), never the reference or the JSON.
+
+**Files, not `input`.** The runner's contract has an `input` the default export receives. Files were
+chosen instead: a run already reads its inputs from `/workspace/in/`, the read-only check and the
+report's paths cover them unchanged, and a script reads several results by name rather than by
+position in one argument.
+
 ## The runner
 
 - **One workerd process per slot, 4 slots per pod** (`CODE_RUNNER_SLOTS`). Self-hosted workerd
@@ -90,7 +147,9 @@ was run", and the agent may try once more.
 - **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
   vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked,
   Forme, and Typst 0.14.2 as WebAssembly with its fonts and diagram packages (fletcher, timeliney,
-  chronos, cetz under LGPL-3.0, shipped unmodified as source).
+  chronos, cetz under LGPL-3.0, shipped unmodified as source), and the first-party `house-style`:
+  the house look of every file (colours from `packages/brand`, a PowerPoint master, CSS for HTML to
+  PDF, a Typst preamble, Word and Excel styles, a Vega-Lite config, German formats).
   Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
   imported. Admission rules: the README.
 - **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 250m CPU
@@ -157,7 +216,7 @@ four measured documents, to be revisited with production peaks.
 The working directory is the draft store the Markdown drafts already used: a LangGraph store on the
 agent's checkpoint database, namespaced by conversation. A file a run writes is kept as text when it
 has a text suffix and is at most 64 KB, otherwise as base64; together a conversation's files take at
-most 25 MB (Markdown drafts keep their own 256 KB cap). A binary file cannot be edited with
+most 25 MB (Markdown drafts keep their own 256 KB cap, which a run's small text files do not count against). A binary file cannot be edited with
 `edit_file`. The directory is deleted with its conversation (the agent host's drafts route).
 
 **A run's file is kept unchecked.** The output check (`agent-file-check.ts`) runs at filing only, so
@@ -184,23 +243,50 @@ before) with the bytes. The BFF:
   relationships, and content that runs when opened (scripts, DDE, PDF actions). CSV is refused with a
   pointer to Excel, because it has no place for the AI marking;
 - **marks it as made by AI** in its own bytes (`agent-file-marking.ts`: OOXML custom properties, XMP
-  in PDF, PNG and SVG), and files it as a generated draft (producer `agent_file`) under the person's
-  session;
-- **replaces** a draft only when the agent filed it with `create_file` and the type is the same.
+  in PDF, PNG and SVG), and files it (producer `agent_file`) under the person's session as version 1
+  `published`, like the person's own upload: the person who files it signs it off, and it is indexed
+  and citable at once (ADR-0054, update of 2026-11-18);
+- **writes the next version** of a document the agent filed (`update_file`) as the next `published`
+  Fassung, always with the same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
+  draft was filed (`ifMatch`), or opened a draft of their own, it answers 409 `changed-in-project`
+  with the Fassung's number. The agent tells the person, who decides on the card; writing over a
+  person's change (`overChanges`) is only ever a person's request, never the agent's;
+- **makes the next Fassung of a project document** the run read (`revise_file`), only when the person
+  asked for it and only for a file (never a Markdown draft), with its Änderungsvermerk
+  (`document_versions.change_note`, migration 0248, written with the bytes), under the person's write
+  access to a document of the same project, with the AI marking in the bytes, published like any
+  filing. It refuses with
+  `changed-in-project` when the document changed since the run read it or a person has a draft open;
+  filed again, the draft stays on this path;
+- **resolves a folder** the agent names (`folder`, by name or path; an unknown one is refused with the
+  folders that exist, `agent-folder.ts`); without one, a file made from a project document goes where
+  that document lies, any other into `Berichte`.
 
-The agent's `file_draft` files into the default folder `Berichte`. The person files the same draft
+One filing truth: the draft keeps the document, version, hash and state it was filed as, and the draft
+version it was filed at. The agent's `file_draft` writes them, and a filing from the card writes them
+back through the agent host (`PUT /v1/drafts/{id}/filing`), so the card and the agent see the same
+document. A card whose draft changed since says „Seit dem Ablegen geändert“. A run that works on a filed
+draft a person changed in the project says so in its report (the internal `status` op).
+
+A filed file keeps its name as the office wrote it (umlauts, ß and spaces; only `/\:*?"<>|` and control
+characters go); its storage key is an ASCII slug on its own, and a download names the plain file name,
+without its `generated/<id>/` namespace, in `filename*`.
+
+The agent's `file_draft` files into the default folder `Berichte` unless it names one. The person files the same draft
 from its card („Ins Projekt ablegen“), choosing folder and name; that path goes through
 `bff/conversations/draft-filing.ts` into the same `fileAgentFileDraft`, with the same check and
 marking ([Filing, in the chat](agent-made-files-ux.md#what-this-change-ships)).
 
 ## The office skills
 
-The builtin collection `office` holds `office-files` (the entry point: the run contract, libraries,
+The builtin collection `office` holds `execute` (the entry point: the run contract, libraries,
 the office's number and date formats, exact calculation, reading the file back, filing) and
 `office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
 `office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the
 browser), one per file type with its
-pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
+pitfalls and worked examples, and `office-design`, the house style: the rules that make a file look
+like a good office made it, and the `house-style` module every example builds on. The office's own
+template or what the person asked for wins over it; nothing forces it. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
 Apache-2.0 document skills were source material, rewritten for this runtime (`NOTICE`).
@@ -235,6 +321,7 @@ an `execute.run` step and four scores ([langfuse.md](../observability/langfuse.m
 | An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |
 | A run as a row of the Herleitung | Built for the person's view: one row per file or calculation, named by what the run made, never by its script ([In der Herleitung](agent-made-files-ux.md#in-der-herleitung)). Open: the script and its inputs with citation keys, for the developer view |
 | A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
+| Tool results reach a run as data: `ifc_query`, `ifc_measure` and the project-profile reads keep their structured answer per conversation (latest 20, 8 MB each) and `execute(data=[…])` puts it read-only at `/workspace/in/<tool>-<ref>.json` ([Tool results as data](#tool-results-as-data)) | Taken 2026-11-18 |
 | Renaming `/drafts/` to `/workspace/` | Open |
 | Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
 | Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |

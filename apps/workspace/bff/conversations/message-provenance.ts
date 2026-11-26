@@ -4,6 +4,7 @@ import { modernizeTurnEventKey, modernizeTurnEventValueName } from './legacy-tur
 import type { RetrievalLedger } from './message-retrieval-ledger'
 import { sanitizeRetrievalLedger } from './message-retrieval-ledger'
 import { sanitizeQuoteStamps, type QuoteStamp } from './message-quote-stamps'
+import { sanitizeMeasure, type StoredMeasure } from './message-measure'
 import { sanitizeConfidenceCheck, type ConfidenceCheck } from './confidence-check'
 import { isChatEffort, type ChatEffort } from '@/lib/reasoning-settings/catalog'
 
@@ -29,6 +30,7 @@ export const ACTION_VERBS = [
   'web',
   'model',
   'workspace',
+  'measure',
 ] as const
 export type ActionVerb = (typeof ACTION_VERBS)[number]
 
@@ -62,6 +64,7 @@ export interface StoredAction {
   incomplete?: boolean
   missing?: boolean
   counts?: StoredActionCounts
+  measure?: StoredMeasure
   elapsedMs?: number
 }
 
@@ -319,6 +322,8 @@ function sanitizeAction(input: unknown): StoredAction | null {
   if (input.missing === true && action.status === 'empty') action.missing = true
   const counts = sanitizeActionCounts(input.counts)
   if (counts) action.counts = counts
+  const measure = verb === 'measure' ? sanitizeMeasure(input.measure) : undefined
+  if (measure) action.measure = measure
   const elapsedMs = nonNegativeInt(input.elapsedMs)
   if (elapsedMs !== undefined) action.elapsedMs = elapsedMs
   const legacy = legacyPlace(action)

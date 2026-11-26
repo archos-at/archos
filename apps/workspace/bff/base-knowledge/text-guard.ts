@@ -1,11 +1,12 @@
 import 'server-only'
 import { licenceMarkOf, textUseOf, type LicenceMark } from './office/text-use'
 import { copyForDocument, documentsWithEntries, type DocumentCopy } from './store/repository'
+import { ASK_FOR_LICENCE } from './wire/licence-step'
 
 export { licenceMarkFields } from './office/text-use'
 
 export function textHeldFor(copy: DocumentCopy | null): boolean {
-  return copy !== null && (!copy.confirmed || textUseOf(copy.licenceClass, copy.terms) === 'metadata_only')
+  return copy !== null && (!copy.confirmed || textUseOf(copy.licenceClass, copy.terms, ASK_FOR_LICENCE) === 'metadata_only')
 }
 
 export async function isTextHeld(organizationId: string, documentId: string): Promise<boolean> {
@@ -32,7 +33,7 @@ export async function copyMarkForIngest(
   documentId: string
 ): Promise<(LicenceMark & { editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
-  return copy?.confirmed ? { ...licenceMarkOf(copy.licenceClass, copy.terms), editionId: copy.editionId } : null
+  return copy?.confirmed ? { ...licenceMarkOf(copy.licenceClass, copy.terms, ASK_FOR_LICENCE), editionId: copy.editionId } : null
 }
 
 export async function licenceOfDocument(
@@ -42,7 +43,7 @@ export async function licenceOfDocument(
   const copy = await copyForDocument(organizationId, documentId)
   if (!copy) return null
   return {
-    ...licenceMarkOf(copy.licenceClass, copy.terms),
+    ...licenceMarkOf(copy.licenceClass, copy.terms, ASK_FOR_LICENCE),
     licensed: copy.licenceClass === 'licensed',
     confirmed: copy.confirmed,
     held: textHeldFor(copy),

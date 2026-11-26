@@ -5,6 +5,9 @@ import { type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { ViewerSurface } from './viewer-surface'
 
+// A sideways scroll box clips both axes, so the row carries the pills' floating shadow (`--elevation-2`, 44 px below) inside itself.
+const DOCK_SHADOW_ROOM = '-my-12 py-12'
+
 export interface ViewerDockProps {
   lead?: ReactNode
   children: ReactNode
@@ -99,13 +102,13 @@ export function ViewerDock({
         whichever pill was hit, and does not care that this element declines
         the pointer itself.
       */}
-      <div className="flex w-full max-w-full items-center justify-center-safe gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className={cn('flex w-full max-w-full items-center justify-center-safe gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', DOCK_SHADOW_ROOM)}>
         {lead && (
-          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1">
+          <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-control">
             {lead}
           </ViewerSurface>
         )}
-        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1">
+        <ViewerSurface className="pointer-events-auto flex shrink-0 items-center gap-1 p-1 [&>button]:rounded-control">
           {children}
           {trail && (
             <>
@@ -120,5 +123,5 @@ export function ViewerDock({
 }
 
 export function ViewerDockSeparator(): JSX.Element {
-  return <span aria-hidden="true" className="mx-0.5 h-6 w-px shrink-0 bg-border" />
+  return <span aria-hidden="true" className="bg-border mx-0.5 h-4 w-px shrink-0" />
 }

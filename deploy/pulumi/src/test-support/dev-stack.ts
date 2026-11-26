@@ -30,6 +30,7 @@ export function devStackConfig(): Record<string, string> {
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
     [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
     [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
+    [`${LEGACY_PROJECT}:ciRunnersGithubAppPrivateKey`]: "placeholder-secret-value",
     [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
   };
 }

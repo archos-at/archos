@@ -28,12 +28,12 @@ def _oib_entry():
         title="OIB-Richtlinie 2",
         source_type="knowledge_layer",
         tool_name="knowledge_search",
-        collection="oib_knowledge",
+        collection="base_corpus",
     )
 
 
 class TestDigestShapedCitationsRejected:
-    _DIGEST_LINE = "oib-rl_2_ausgabe_mai_2023.pdf | oib_knowledge | Seiten 12 | Punkte 3.5.2 | Turn 1"
+    _DIGEST_LINE = "oib-rl_2_ausgabe_mai_2023.pdf | base_corpus | Seiten 12 | Punkte 3.5.2 | Turn 1"
 
     def _report(self, line: str) -> str:
         return f"Die Regel gilt [1].\n\n## Sources\n- [1] {line}"

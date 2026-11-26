@@ -33,7 +33,11 @@ vi.mock('../store', () => ({
 }))
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-vi.mock('./AnswerFeedback', () => ({ AnswerFeedback: () => null }))
+vi.mock('./AnswerFeedback', () => ({
+  AnswerFeedback: () => null,
+  AnswerFeedbackThumbs: () => null,
+  AnswerFeedbackReasons: () => null,
+}))
 
 const animations = vi.hoisted(() => [] as { keyframes: unknown; stops: number }[])
 vi.mock('motion/react', async (importOriginal) => {
@@ -137,7 +141,7 @@ describe('the end of a streamed answer', () => {
     act(() => vi.advanceTimersByTime(3000))
     expect(screen.getByTestId('prose').textContent).toBe(STREAMED)
     rerender(answer(`${STREAMED}\n\n## Quellen\n\n1. OIB-Richtlinie 2, Ausgabe Mai 2023`, false))
-    expect(screen.getByRole('button', { name: /Copy answer/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Copy( answer)?$/ })).toBeInTheDocument()
     expect(useAnswerRevealStore.getState().revealingId).toBeNull()
     expect(signal).toEqual(['m-1', null])
   })

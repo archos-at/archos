@@ -16,6 +16,7 @@ vi.mock('@/lib/conversations/repository', () => ({
 vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: vi.fn((_why: string, fn: () => unknown) => fn()),
   withTenant: vi.fn((_scope: unknown, fn: () => unknown) => fn()),
+  withSystemReader: vi.fn((_organizationId: string, _reader: string, fn: () => unknown) => fn()),
 }))
 vi.mock('./repository', () => ({
   deleteAskQuestion: vi.fn(),
@@ -53,6 +54,7 @@ import {
 } from '@/lib/conversations/repository'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import type { Message } from '@/lib/db/schema/messages'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import type { AgentAskRow } from '@/lib/db/schema/piloti-asks'
 import { findProjectProfile } from '@/lib/projects/repository'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
@@ -187,6 +189,19 @@ describe('askAgent', () => {
     expect(created).toMatchObject({ organizationId: ORG, createdBy: USER, projectId: PROJECT, title: 'Welche Fluchtweglänge gilt?' })
     expect(created?.id).toMatch(/^s_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}$/)
     expect(created?.visibility).toBeUndefined()
+  })
+
+  it('starts a conversation without a project on the person’s personal side, unless personal is false', async () => {
+    await askAgent(SESSION, { question: 'Was gilt zur OIB 2?' }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[0]?.[0]).toMatchObject({ projectId: null, startedInPersonal: true })
+
+    await askAgent(SESSION, { question: 'Was gilt zur OIB 2?', personal: false }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[1]?.[0]).toMatchObject({ projectId: null, startedInPersonal: false })
+  })
+
+  it('never starts a project’s conversation on the personal side, whatever personal says', async () => {
+    await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?', projectId: PROJECT, personal: true }, { waitMs: 0 })
+    expect(vi.mocked(insertConversation).mock.calls[0]?.[0]).toMatchObject({ projectId: PROJECT, startedInPersonal: false })
   })
 
   it('writes the question as the person’s message under the ask’s id, which is the turn’s id', async () => {
@@ -456,7 +471,7 @@ describe('getAsk and cancelAsk', () => {
     await expect(cancelAsk(SESSION, row.id)).rejects.toBeInstanceOf(ConflictError)
   })
 
-  it('stops the turn as the asker, and ends an ask whose turn is not running', async () => {
+  it('stops the turn as the asker, signed headless as the wake stop is, and ends an ask whose turn is not running', async () => {
     row = askRow({ state: 'working' })
     vi.mocked(cancelHeadlessTurn).mockResolvedValue({ kind: 'not_running' })
     const view = await cancelAsk(SESSION, row.id)
@@ -465,7 +480,7 @@ describe('getAsk and cancelAsk', () => {
     const headers = request?.headers ?? {}
     expect(
       verifyRequestContextEnvelope(headers['x-request-context'], headers['x-request-context-sig'], SECRET),
-    ).toMatchObject({ userId: USER, conversationId: THREAD })
+    ).toMatchObject({ userId: USER, conversationId: THREAD, contextKind: 'headless' })
     expect(endAsk).toHaveBeenCalledWith(ORG, row.id, { state: 'canceled' })
     expect(view.state).toBe('canceled')
   })
@@ -559,6 +574,10 @@ describe('endLostAsks (the agent-ask-expiry sweep)', () => {
       ['org_2', lost[1].id, lostAskEnd()],
     ])
     expect(lostAskEnd()).toEqual({ state: 'failed', reason: `${PRODUCT_NAME} did not report the end of its turn within 47 minutes. Ask again.` })
+    expect(vi.mocked(withSystemReader).mock.calls.map(([organizationId, reader]) => [organizationId, reader])).toEqual([
+      [ORG, 'agent-host'],
+      ['org_2', 'agent-host'],
+    ])
   })
 
   it('counts only the asks it ended: an outcome that landed meanwhile stands', async () => {
@@ -591,6 +610,7 @@ describe('recordAskOutcome', () => {
     vi.mocked(findAskById).mockResolvedValue(askRow({ state: 'working' }))
     expect(await recordAskOutcome(outcome)).toBe(true)
     expect(endAsk).toHaveBeenCalledWith(ORG, outcome.turnId, { state: 'completed' })
+    expect(withSystemReader).toHaveBeenCalledWith(ORG, 'agent-host', expect.any(Function))
   })
 
   it.each([

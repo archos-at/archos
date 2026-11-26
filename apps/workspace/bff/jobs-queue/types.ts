@@ -29,6 +29,7 @@ export const BFF_JOB_KINDS = [
   'search_facets_sync',
   'platform_text_index',
   'platform_text_deindex',
+  'erase_conversations',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 
@@ -81,7 +82,7 @@ export const placementReingestPayloadSchema = z.object({
 export type PlacementReingestPayload = z.infer<typeof placementReingestPayloadSchema>
 
 export const restoreFolderBinPayloadSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
   folderId: z.string().min(1),
   jobId: z.guid(),
   requester: requesterSchema,
@@ -90,6 +91,14 @@ export const restoreFolderBinPayloadSchema = z.object({
 })
 export type RestoreFolderBinPayload = z.infer<typeof restoreFolderBinPayloadSchema>
 
+export const eraseConversationsPayloadSchema = z.object({
+  markedAt: z.iso.datetime(),
+  requester: requesterSchema,
+  cursor: z.string().nullable(),
+  counts: countsSchema,
+})
+export type EraseConversationsPayload = z.infer<typeof eraseConversationsPayloadSchema>
+
 export const rootSortPayloadSchema = z.object({
   runId: z.guid(),
   requester: requesterSchema,
@@ -97,7 +106,7 @@ export const rootSortPayloadSchema = z.object({
 export type RootSortPayload = z.infer<typeof rootSortPayloadSchema>
 
 export const purgeBinnedChunksPayloadSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
   folderId: z.string().min(1),
   entryId: z.string().min(1),
   requester: requesterSchema,
@@ -258,6 +267,8 @@ export const inboundMailFilePayloadSchema = z.object({
   projectId: z.string().uuid(),
   mailIds: z.array(z.string().uuid()).min(1).max(20),
   decisionIds: z.array(z.string().uuid()).min(1).max(2_020).optional(),
+  /** The text decisions whose filer said „Nicht automatisch“: filing them starts no follow of their E-Mail-Verlauf. */
+  noFollow: z.array(z.string().uuid()).min(1).max(20).optional(),
   requester: requesterSchema,
 })
 export type InboundMailFilePayload = z.infer<typeof inboundMailFilePayloadSchema>
@@ -267,6 +278,7 @@ export const inboundMailFollowPayloadSchema = z.object({
   mailId: z.string().uuid(),
   followId: z.string().uuid(),
   requester: requesterSchema,
+  waits: z.number().int().nonnegative().default(0),
 })
 export type InboundMailFollowPayload = z.infer<typeof inboundMailFollowPayloadSchema>
 

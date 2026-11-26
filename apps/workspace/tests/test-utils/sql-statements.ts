@@ -118,3 +118,47 @@ export function functionCalls(statements: SqlStatement[], name: string): SqlToke
   }
   return calls
 }
+
+export type ConstraintClause = { statement: SqlStatement; action: string; name: string; check?: SqlToken[] }
+
+const isSymbol = (token: SqlToken | undefined, text: string): boolean => token?.kind === 'symbol' && token.text === text
+const isWord = (token: SqlToken | undefined, word: string): boolean =>
+  token?.kind === 'word' && token.text.toUpperCase() === word.toUpperCase()
+
+function insideParens(tokens: SqlToken[], open: number): SqlToken[] {
+  let depth = 0
+  for (let i = open; i < tokens.length; i += 1) {
+    if (isSymbol(tokens[i], '(')) depth += 1
+    else if (isSymbol(tokens[i], ')')) depth -= 1
+    if (depth === 0) return tokens.slice(open + 1, i)
+  }
+  return tokens.slice(open + 1)
+}
+
+// Every `[ADD|DROP] CONSTRAINT name [CHECK (expression)]`, in ALTER TABLE and in CREATE TABLE.
+// `action` is ADD or DROP, or '' inside CREATE TABLE.
+export function constraintClauses(statements: SqlStatement[]): ConstraintClause[] {
+  return statements.flatMap((statement) => {
+    const { tokens } = statement
+    return tokens.flatMap((token, i) => {
+      if (!isWord(token, 'CONSTRAINT')) return []
+      let at = i + 1
+      while (['IF', 'NOT', 'EXISTS'].some((word) => isWord(tokens[at], word))) at += 1
+      const name = tokens[at]
+      if (name?.kind !== 'word' && name?.kind !== 'quoted') return []
+      const action = ['ADD', 'DROP'].find((word) => isWord(tokens[i - 1], word)) ?? ''
+      const check = isWord(tokens[at + 1], 'CHECK') && isSymbol(tokens[at + 2], '(') ? insideParens(tokens, at + 2) : undefined
+      return [{ statement, action, name: name.text, check }]
+    })
+  })
+}
+
+// The string values listed in `"column" IN ('a', 'b', ...)` within a CHECK expression, in order.
+export function listedValues(expression: SqlToken[], column: string): string[] {
+  const at = expression.findIndex(
+    (token, i) =>
+      token.kind === 'quoted' && token.text === column && isWord(expression[i + 1], 'IN') && isSymbol(expression[i + 2], '('),
+  )
+  if (at === -1) return []
+  return insideParens(expression, at + 2).flatMap((token) => (token.kind === 'string' ? [token.text] : []))
+}

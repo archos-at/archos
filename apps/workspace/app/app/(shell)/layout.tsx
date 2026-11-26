@@ -1,13 +1,19 @@
 import type { JSX } from 'react'
 import { type ReactNode } from 'react'
+import { cookies } from 'next/headers'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
 import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
-import { InboxDock } from '@/features/collaboration/components'
+import { ChatResumeRecorder } from '@/features/chat/components/chat-resume-recorder'
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
+import { PhoneChatSideRowSlot } from '@/components/shell/phone-side-bar'
+import { LAST_PLACE_COOKIE } from '@/components/shell/landing'
+import { sideOfLastPlace } from '@/components/shell/shell-side'
 import { resolveShellChrome } from '@/lib/shell/chrome'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
+import { RecentlyDeleted } from '@/features/projects/components/recently-deleted'
+import { ShellNormDialog } from './shell-norm-dialog'
 
 export default async function AppShellLayout({
   children,
@@ -17,11 +23,18 @@ export default async function AppShellLayout({
   overlay: ReactNode
 }): Promise<JSX.Element> {
   const chrome = await runWithTenantSlot(resolveShellChrome)
+  const lastSide = sideOfLastPlace(
+    (await cookies()).get(LAST_PLACE_COOKIE)?.value,
+    chrome.projects.map((project) => project.id)
+  )
 
   return (
     <RailChatsProvider>
+    <ShellNormDialog>
     <AppShellChrome
       projects={chrome.projects}
+      projectActivity={chrome.projectActivity}
+      projectOverviewAfter={<RecentlyDeleted canManageCompliance={chrome.navFlags.canManageCompliance} />}
       user={chrome.user}
       organizationName={chrome.organizationName}
       authRequired={chrome.authRequired}
@@ -36,8 +49,8 @@ export default async function AppShellLayout({
       showModels={chrome.showModels}
       inboundMail={chrome.inboundMail}
       tours={chrome.tours}
+      lastSide={lastSide}
       overlay={overlay}
-      startDock={{ inbox: chrome.navFlags.canAccessInbox ? <InboxDock /> : undefined }}
     >
       {/* `relative` is load-bearing for the docked chat panels: they position
           against this box, so "the inner edge of the rail" is true by
@@ -52,11 +65,16 @@ export default async function AppShellLayout({
       >
         <RouteFocus />
         <MainScrollMemory />
+        {/* The phone chat's side row stands at the top of the page, not above `main`:
+            leaving or reaching the chat swaps it with the page, so `main` never moves. */}
+        <PhoneChatSideRowSlot />
         {children}
       </main>
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
       <WhatsNewNoticeInShell state={chrome.whatsNew} />
+      <ChatResumeRecorder />
     </AppShellChrome>
+    </ShellNormDialog>
     </RailChatsProvider>
   )
 }

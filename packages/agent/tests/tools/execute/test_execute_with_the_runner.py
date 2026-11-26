@@ -24,6 +24,7 @@ from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.common import bff_http
+from agent.tools.bim import register as ifc_query
 from agent.tools.documents import draft_store
 from agent.tools.documents import register as filing_tools
 from agent.tools.documents.draft_store import DRAFT_ROOT
@@ -64,6 +65,33 @@ export default async function () {
 THROWS = 'export default async function () { throw new Error("Raum fehlt: Zimmer 3"); }'
 
 LOOPS = "export default async function () { for (;;) {} }"
+
+RAUMBUCH = """
+import { readFile, writeFile } from "node:fs/promises";
+import ExcelJS from "exceljs";
+
+export default async function () {
+  const data = JSON.parse(await readFile("/workspace/in/ifc_query-r1.json", "utf8"));
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Raumbuch");
+  sheet.addRow(["Geschoss", "Raum", "GlobalId", "Fläche"]);
+  const cents = {};
+  let total = 0;
+  for (const storey of data.result.schedule.storeys) {
+    for (const room of storey.rooms) {
+      sheet.addRow([storey.storeyName, room.name, room.globalId, room.netFloorArea]);
+      const c = Math.round(room.netFloorArea * 100);
+      cents[storey.storeyName] = (cents[storey.storeyName] ?? 0) + c;
+      total += c;
+    }
+  }
+  const last = sheet.rowCount;
+  sheet.addRow(["", "Summe", "", { formula: `SUM(D2:D${last})`, result: total / 100 }]);
+  await writeFile("/workspace/Raumbuch.xlsx", new Uint8Array(await workbook.xlsx.writeBuffer()));
+  const perStorey = Object.fromEntries(Object.entries(cents).map(([name, c]) => [name, c / 100]));
+  return { rooms: last - 1, total: total / 100, perStorey };
+}
+"""
 
 
 def _missing_toolchain() -> str | None:
@@ -319,3 +347,53 @@ async def test_an_endless_loop_is_stopped_and_reported_as_a_timeout(
     after = await execute(runner_url, "export default async function () { return 6 * 7; }")
     assert after.startswith("status: ok")
     assert "value: 42" in after
+
+
+def _three_hundred_rooms() -> dict[str, Any]:
+    storeys = [
+        {
+            "storeyName": name,
+            "rooms": [
+                {"globalId": f"2O2Fr$t4X7Zf8NOew3F{index:03d}", "name": f"{name}.{index:03d}", "netFloorArea": area}
+                for index in range(100)
+                for area in [round(8 + ((index * 37 + level * 11) % 400) / 100 + index / 7, 2)]
+            ],
+        }
+        for level, name in enumerate(("EG", "OG1", "OG2"))
+    ]
+    return {"resolved": True, "op": "schedule", "model": {"filename": "Wohnbau.ifc"}, "schedule": {"storeys": storeys}}
+
+
+async def test_a_raumbuch_of_300_rooms_is_built_from_a_handed_over_model_result(
+    runner_url: str, conversation: CardRegistry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from decimal import Decimal
+
+    result = _three_hundred_rooms()
+    monkeypatch.setattr(ifc_query, "get_organization_id_from_context", lambda: "org_e2e")
+    monkeypatch.setattr(ifc_query, "get_project_id_from_context", lambda: PROJECT)
+    monkeypatch.setattr(ifc_query, "run_bim_query", lambda **_: result)
+    answer = await ifc_query._query(ifc_query.IfcQueryInput(operation="schedule"), 25)
+    assert "Data for execute: r1 (300 rooms, " in answer
+
+    report = await execute(runner_url, RAUMBUCH, data=["r1"])
+
+    assert report.startswith("status: ok"), report
+    assert "data read: r1 at /workspace/in/ifc_query-r1.json" in report
+    rooms = [(storey["storeyName"], room) for storey in result["schedule"]["storeys"] for room in storey["rooms"]]
+    total = sum(Decimal(str(room["netFloorArea"])) for _, room in rooms)
+    per_storey = {
+        name: float(sum(Decimal(str(room["netFloorArea"])) for storey, room in rooms if storey == name))
+        for name in ("EG", "OG1", "OG2")
+    }
+    value = json.loads(report.split("value: ", 1)[1].splitlines()[0])
+    assert value == {"rooms": 300, "total": float(total), "perStorey": per_storey}
+
+    workbook = openpyxl.load_workbook(io.BytesIO(_bytes(await _stored(f"{DRAFT_ROOT}Raumbuch.xlsx"))))
+    sheet = list(workbook["Raumbuch"].iter_rows(values_only=True))
+    assert len(sheet) == 302
+    assert [(row[0], row[1], row[2], row[3]) for row in sheet[1:301]] == [
+        (storey, room["name"], room["globalId"], room["netFloorArea"]) for storey, room in rooms
+    ]
+    assert sheet[301][1:] == ("Summe", "", "=SUM(D2:D301)")
+    assert sum(Decimal(str(row[3])) for row in sheet[1:301]) == total

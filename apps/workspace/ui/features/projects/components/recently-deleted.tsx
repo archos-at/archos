@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Spinner } from '@/components/ui/spinner'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/ui/load-error'
 import { Button } from '@/components/ui/button'
@@ -87,12 +86,13 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
 
   return (
     <section className="mt-8">
-      <h2 className="text-muted-foreground text-sm font-medium">
-        {t('recentlyDeleted.heading')}
-      </h2>
+      <h2 className="text-muted-foreground text-sm font-medium">{t('recentlyDeleted.heading')}</h2>
       <ul className="mt-2 flex flex-col gap-2">
         {entries.map((entry) => (
-          <li key={entry.id} className="flex items-center justify-between rounded-control border p-3">
+          <li
+            key={entry.id}
+            className="rounded-control flex items-center justify-between border p-3"
+          >
             <div>
               <p className="text-sm font-medium">{entry.displayName}</p>
               <p className="text-muted-foreground text-xs">
@@ -103,7 +103,7 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
                     })}
               </p>
               {entry.status === 'failed' && entry.lastError && (
-                <p className="text-destructive/80 mt-0.5 break-words font-mono text-xs">
+                <p className="text-destructive/80 mt-0.5 font-mono text-xs break-words">
                   {entry.lastError}
                 </p>
               )}
@@ -114,17 +114,8 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
                 size="sm"
                 className="min-w-24"
                 onClick={() => void handleRestore(entry)}
-                disabled={restoringId === entry.id}
+                loading={restoringId === entry.id}
               >
-                <Spinner
-                  size="xs"
-                  aria-hidden={restoringId !== entry.id}
-                  className={
-                    restoringId === entry.id
-                      ? 'duration-snap transition-opacity ease-out motion-reduce:transition-none'
-                      : 'opacity-0'
-                  }
-                />
                 {t('recentlyDeleted.restore')}
               </Button>
             )}

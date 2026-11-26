@@ -176,7 +176,7 @@ def scope(monkeypatch):
 class TestTheTool:
     async def _call(self, **kwargs) -> str:
         builder = MagicMock()
-        builder.get_function_config = MagicMock(return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge"))
+        builder.get_function_config = MagicMock(return_value=KnowledgeRetrievalConfig(collection_name="base_corpus"))
         async with list_files(ListFilesConfig(), builder) as info:
             return await info.single_fn(info.input_schema(**kwargs))
 

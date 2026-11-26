@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     A search over your files or the Archiv that failed to run, for instance

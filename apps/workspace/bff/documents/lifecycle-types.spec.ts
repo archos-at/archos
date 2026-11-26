@@ -44,8 +44,17 @@ describe('the transition table is coherent', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 
-  it('derives the machine-reachable ops from `actor`, and they are exactly three', () => {
-    expect([...AGENT_REACHABLE_OPS].sort()).toEqual(['create', 'submit', 'update'])
+  it('derives the machine-reachable ops from `actor`, and they are exactly four', () => {
+    expect([...AGENT_REACHABLE_OPS].sort()).toEqual(['create', 'file', 'submit', 'update'])
+  })
+
+  it('makes filing a draft the sign-off: it publishes and opens no review round', () => {
+    const rows: readonly DocumentVersionTransition[] = DOCUMENT_VERSION_TRANSITIONS.filter((row) => row.op === 'file')
+    expect(rows.map((row) => `${row.from}:${row.to}`).sort()).toEqual(['draft:published', 'null:published'])
+    for (const row of rows) {
+      expect(row.effects).toContain('ingestPublished')
+      expect(row.effects).not.toContain('openReviewInbox')
+    }
   })
 
   it('makes every decision that asserts content a person’s', () => {
@@ -84,7 +93,7 @@ describe('the transition table is coherent', () => {
   it('asks for `project:documents:generate` exactly where a machine may write', () => {
     const rows: readonly DocumentVersionTransition[] = DOCUMENT_VERSION_TRANSITIONS
     for (const row of rows) {
-      const machineWrite = row.actor === 'either' && (row.op === 'create' || row.op === 'update')
+      const machineWrite = row.actor === 'either' && (row.op === 'create' || row.op === 'update' || row.op === 'file')
       expect(Boolean(row.alsoRequires), `${row.from}:${row.op}`).toBe(machineWrite)
     }
   })

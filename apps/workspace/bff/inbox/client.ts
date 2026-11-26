@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type {
+  InboxArchiveAllResult,
   InboxItemType,
   InboxItemView,
   InboxListFilter,
@@ -27,6 +28,7 @@ export class InboxRequestError extends Error {
 }
 
 const mutationResultSchema = z.object({ affected: z.number(), pending: z.number() })
+const archiveAllResultSchema = mutationResultSchema.extend({ archivedAt: z.string() })
 const unreadAnchorsSchema = z.object({ anchorIds: z.array(z.string()) })
 const summarySchema = z.object({ pending: z.number() })
 const itemSchema = z.custom<InboxItemView>(
@@ -68,6 +70,8 @@ export interface InboxClient {
   markUnread(itemIds: readonly string[]): Promise<InboxMutationResult>
   archive(itemId: string): Promise<InboxMutationResult>
   unarchive(itemId: string): Promise<InboxMutationResult>
+  archiveAll(): Promise<InboxArchiveAllResult>
+  unarchiveAll(archivedAt: string): Promise<InboxMutationResult>
 }
 
 export function createInboxClient(request: InboxFetch = defaultFetch): InboxClient {
@@ -115,6 +119,9 @@ export function createInboxClient(request: InboxFetch = defaultFetch): InboxClie
     markUnread: (itemIds) => call(`${BASE}/unread`, post({ itemIds }), mutationResultSchema),
     archive: (itemId) => call(itemPath(itemId), { method: 'POST' }, mutationResultSchema),
     unarchive: (itemId) => call(itemPath(itemId), { method: 'DELETE' }, mutationResultSchema),
+    archiveAll: () => call(`${BASE}/archive`, post({ all: true }), archiveAllResultSchema),
+    unarchiveAll: (archivedAt) =>
+      call(`${BASE}/archive`, { method: 'DELETE', body: JSON.stringify({ archivedAt }) }, mutationResultSchema),
   }
 }
 

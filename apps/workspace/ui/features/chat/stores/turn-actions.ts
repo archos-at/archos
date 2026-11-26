@@ -76,6 +76,9 @@ export const createTurnActions = (
             )
           : null
       if (completion) effects.push(() => reportAnswerCompleted(completion))
+      if (view.phase !== 'running' && previous?.phase === 'running' && !projection.settled) {
+        effects.push(() => get().maybeGenerateConversationName(conversation.id))
+      }
       if (projection.messages === conversation.messages && !projection.settled) continue
       conversations.set(conversation.id, {
         ...conversation,
@@ -158,6 +161,7 @@ export const createTurnActions = (
         false,
         'dropTurn'
       )
+      get().maybeGenerateConversationName(view.conversationId)
     },
 
     failTurn: (turnId) => {
@@ -206,6 +210,7 @@ export const createTurnActions = (
         false,
         'failTurn'
       )
+      get().maybeGenerateConversationName(view.conversationId)
     },
 
     stopStreaming: () => {

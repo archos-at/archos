@@ -329,7 +329,8 @@ What is measured in production today:
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
 - `document_ingest_finished` in PostHog, one per settled document
   (`bff/analytics/ingest-events.ts`), with `document_id`, `attempt`,
-  `failure_category` (failed only, the stored category), `settled_by` and two
+  `error_reason` (what went wrong, a slug of the worker's closed set),
+  `error_category` (failed only, the stored category), `settled_by` and two
   durations:
   - `processing_ms` is the job's own `started_at` to `completed_at`, from the
     backend's batch status: what the worker spent, queue wait excluded. Absent
@@ -491,5 +492,5 @@ document as before (`settled_by: read` or `sweep`).
 | What did it cost? | `llm_usage_events` where `activity = 'ingest'` and the job id |
 | Who decides the order of jobs? | The `ingest-document` task's concurrency strategy and run priority, ADR-0150; for rows left in `ingest_job_queue` until the cutover drains it, `agent.knowledge.ingest_queue.claim_next` (ADR-0076) |
 | Where is the Hatchet client? | `agent.common.orchestrator_client.client`, ADR-0150; runbook `docs/deployment/hatchet.md` |
-| Where is the vision prompt? | `visual_analysis.build_prompt` over `visual_domains` |
+| Where is the vision prompt? | `visual_prompt.build_prompt` over `visual_domains` |
 | What runs after a document settles? | `apps/workspace/bff/upload-batches/settle.ts` (`onDocumentsSettled`) |

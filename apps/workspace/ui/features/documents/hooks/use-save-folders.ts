@@ -9,8 +9,12 @@ export type SaveFoldersStatus = 'loading' | 'ready' | 'failed'
 
 export type CreateFolderOutcome = { ok: true; folder: FolderItem } | { ok: false; nameTaken: boolean }
 
-export function projectFoldersUrl(projectId: string): string {
-  return `/api/projects/${encodeURIComponent(projectId)}/folders`
+export type SaveShelf = { kind: 'project'; projectId: string } | { kind: 'personal' }
+
+export function shelfFoldersUrl(shelf: SaveShelf): string {
+  return shelf.kind === 'personal'
+    ? '/api/personal-shelf/folders'
+    : `/api/projects/${encodeURIComponent(shelf.projectId)}/folders`
 }
 
 export interface KnownFolders {
@@ -18,8 +22,8 @@ export interface KnownFolders {
   rootAccess: FolderAccessLevel
 }
 
-export function useSaveFolders(projectId: string, enabled: boolean, known?: KnownFolders) {
-  const url = projectFoldersUrl(projectId)
+export function useSaveFolders(shelf: SaveShelf, enabled: boolean, known?: KnownFolders) {
+  const url = shelfFoldersUrl(shelf)
   const [folders, setFolders] = useState<FolderItem[]>(() => [...(known?.folders ?? [])])
   const [rootAccess, setRootAccess] = useState<FolderAccessLevel>(known?.rootAccess ?? 'write')
   const [status, setStatus] = useState<SaveFoldersStatus>(known ? 'ready' : 'loading')

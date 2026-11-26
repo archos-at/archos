@@ -20,7 +20,7 @@ Qdrant's own guidance recommends.
 ## 1. What retrieval has to do
 
 The agent answers from three bodies of text: the legal corpus (`baurecht`), the
-office's own filing (`buero`, the Büroablage) and its projects (`projekt`).
+office's own filing (`buero`, the Bürobibliothek) and its projects (`projekt`).
 Retrieval serves these questions, ordered from most to least frequent:
 
 | Question an architect asks | Retrieval shape |
@@ -123,8 +123,8 @@ alias switch.
 
 | Collection | Holds | Why separate |
 |---|---|---|
-| `corpus_chunks_v1` | The legal corpus per country profile (`oib_knowledge` today) | No tenant. Every office reads it, so it gets a global HNSW, 1 shard and RF 3, and every node serves it locally |
-| `office_chunks_v1` | Every chunk an office owns: Büroablage, projects, restricted folders, conversation uploads | One tenant-partitioned index, which is Qdrant's recommended multitenant layout. `office_id` is indexed `is_tenant`, so each office's data sits together on disk |
+| `corpus_chunks_v1` | The legal corpus per country profile (`base_corpus` today) | No tenant. Every office reads it, so it gets a global HNSW, 1 shard and RF 3, and every node serves it locally |
+| `office_chunks_v1` | Every chunk an office owns: Bürobibliothek, projects, restricted folders, conversation uploads | One tenant-partitioned index, which is Qdrant's recommended multitenant layout. `office_id` is indexed `is_tenant`, so each office's data sits together on disk |
 | `office_documents_v1` | One point per document Fassung: a summary vector plus document metadata | Document-level search, `with_lookup` joins for grouped results, "similar documents", facets |
 
 What does *not* move: project memory, platform lessons and permit records keep
@@ -718,7 +718,7 @@ in the product (ADR-0115):
   export lacks (`--prune`).
 
 What the export could not carry stayed as it was for the backfill before it:
-each point got the ids its collection name implies (the Büroablage's office),
+each point got the ids its collection name implies (the Bürobibliothek's office),
 and the BFF's facts sync filled the project facts.
 
 The rollout first planned five steps behind a flag (infrastructure, a
@@ -777,8 +777,8 @@ itself.
 | Document facts (tags, Dokumentart, superseded, folder) copied again weekly, every live collection, so a copy an edit failed to make (`refresh_facts` never raises) is repaired; counted per file, failed per collection | `POST /v1/maintenance/refresh-document-facts` (`routes/maintenance.py`), `vector_store/writes.py` — `copy_facts`; BFF `platform/vector-reconcile.ts` — `refreshDocumentFacts` |
 | Project facts and status on every chunk of a project, indexed; pushed on profile save, lifecycle move and ingest, swept weekly | `PUT /v1/collections/{c}/project-facts`, `vector_store/payload.py` — `project_payload`; BFF `cross-project/project-facts-mirror.ts` |
 | Cross-project tag pre-filters and the current project's likeness inside the one grouped query (§7 "As built") | `vector_store/boost.py`, `vector_store/search.py` — `grouped_search`; BFF `cross-project/service.ts` — `searchPage` |
-| Project-fact filters in the agent's cross-project contract (`project_facts` on `search` and `find`), judged on the Postgres profile before the page is cut; likeness still ranks | `tools/cross_project/register.py` — `project_facts_filter`; BFF `cross-project/types.ts` — `crossProjectFactsSchema`, `service.ts` — `holdsFacts`, `projectsInScope` |
-| Similar passages („Im Büro behandelt“): the nearest passages to one the reader is looking at, across the collections the BFF authorized (the reader's project, the projects a solo chat reaches with closed ones, the Büroablage), the source document and superseded Fassungen filtered out in the query. A stored chunk is queried by its point id (by `chunk_id`, or a cited passage found in its file by its text), from the corpus by `lookup_from`; a selection is embedded once through the cached query path. Hits are joined to screened rows only (`SCREENED_ONLY`), so a held document never shows. A `retrieve.similar_passages` retriever observation per call | `vector_store/similar.py` — `find_similar`; `POST /v1/collections/similar` (`routes/similar_passages.py`); BFF `lib/similar-passages/service.ts` — `findSimilarPassages` |
+| Project-fact filters in the agent's cross-project contract (`project_facts` on `search` and `find`), judged on the Postgres profile before the page is cut; likeness still ranks | `tools/cross_project/project_facts.py` — `project_facts_filter`; BFF `cross-project/types.ts` — `crossProjectFactsSchema`, `service.ts` — `holdsFacts`, `projectsInScope` |
+| Similar passages („Im Büro behandelt“): the nearest passages to one the reader is looking at, across the collections the BFF authorized (the reader's project, the projects a solo chat reaches with closed ones, the Bürobibliothek), the source document and superseded Fassungen filtered out in the query. A stored chunk is queried by its point id (by `chunk_id`, or a cited passage found in its file by its text), from the corpus by `lookup_from`; a selection is embedded once through the cached query path. Hits are joined to screened rows only (`SCREENED_ONLY`), so a held document never shows. A `retrieve.similar_passages` retriever observation per call | `vector_store/similar.py` — `find_similar`; `POST /v1/collections/similar` (`routes/similar_passages.py`); BFF `lib/similar-passages/service.ts` — `findSimilarPassages` |
 | Grouped answers ordered document by document across projects | `routes/document_search.py` — `_ranked_group_hits` |
 | Operations: every peer scraped by the collector on a keyless metrics port, 13 alert rules held to the collector's real export, quotas, the alias record beside the snapshots, alias-based rebuilds, a second key for rotation, the low-memory load mode, and a runbook whose procedures were drilled against real containers | `data/qdrant.ts`, `data/qdrant-alerts.ts`, `platform/otel-collector.ts` — `qdrantScrape`; `vector_store/rebuild.py`, `scripts/qdrant_rebuild.py`; [`qdrant-runbook.md`](../deployment/qdrant-runbook.md) |
 | The gate measurement (G1b, G2, G6): both paths over one OIB corpus with one set of production vectors, through the production retriever ([results](../audit/qdrant-gates-2026-10.md)) | `task be:eval:qdrant-parity`, `evals/oib-retrieval/src/oib_retrieval/qdrant_parity/` |
@@ -786,7 +786,7 @@ itself.
 | From the sweep: RRF ties ordered by cosine, then chunk id, with a tie straddling the cut fetched whole (repeated calls returned another top-60 for 86 of 105 queries, now 0), in grouped search before the grouping; the settings named once (`RANKING`) and on the span as `ranking` | `vector_store/search.py` — `Ranking`, `RANKING`, `_cosine_ordered_ties`; `register.py` |
 | From the sweep: BM25 never asked for the umlaut stopwords Qdrant's folding lets through (`über`, `für`, …) or for the pieces of a file name | `retrieval.bm25_candidates`, used by `lexical_query.lexical_inputs` |
 | From that measurement: BM25 terms priced by the German mirror's own rule (`german_text.select_terms`), with counts cached per collection size. Cross-project grouped search prices them too, and runs the same exact-term channels, with document frequencies over the union of the searched scopes (the corpus its IDF is computed over). It also found the tokenizer defect, fixed below under "Hardened after review" | `search/lexical_query.py` — `lexical_inputs`; `search/retriever.py` — `_search_grouped_sync`; `retrieval.term_frequencies` |
-| Gate G1: the answer suite through the real agent on the pre-migration Chroma baseline and on Qdrant, one ingest read by both ([results](../audit/qdrant-gates-2026-10.md#g1-answer-quality-pass)) | `task be:eval:answer-suite -- --ingest --corpus data/oib`, `scripts/turn_census/suite.py` — `use_local_corpus` |
+| Gate G1: the answer suite through the real agent on the pre-migration Chroma baseline and on Qdrant, one ingest read by both ([results](../audit/qdrant-gates-2026-10.md#g1-answer-quality-pass)) | `task be:eval:answer-suite -- --ingest --corpus data/oib`, `scripts/turn_census/suite_preflight.py` — `use_local_corpus` |
 
 ### Hardened after review (2026-10-13)
 
@@ -844,7 +844,7 @@ rest stands.
   signed envelope and restricted-folder placement (ADR-0087) are unchanged.
   `office_id`, `project_id`, `grid_document_id` and `document_id` are on every point written
   through ingestion, but the import from Chroma only knows the ones a collection name
-  carries (the Büroablage's office). Moving the envelope to ids, and
+  carries (the Bürobibliothek's office). Moving the envelope to ids, and
   restriction to a `restriction_id` field, is slice 2.
 * **Chroma stays the write-side record.** Its ids decide version retirement
   and partial-attempt cleanup, so Qdrant mirrors it and point ids are the

@@ -118,7 +118,7 @@ class TestTheHeadHoldsAcrossTurns:
         from agent.knowledge.inventory import set_listing_shelf
 
         state = ResearchAgentState(
-            messages=[HumanMessage(content="Welche Dateien liegen in der Büroablage?")],
+            messages=[HumanMessage(content="Welche Dateien liegen in der Bürobibliothek?")],
             project_context=PROJECT,
             available_documents=[
                 {"file_name": "Bauordnung_Wien.pdf", "shelf": "base"},

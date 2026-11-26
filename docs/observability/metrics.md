@@ -37,7 +37,7 @@ collector, so nothing is exported there and every meter is a no-op.
 | Metric | Attributes | From |
 |---|---|---|
 | `knowledge_context.unavailable` | none | The BFF, once per chat turn whose knowledge context could not be read (ADR-0173); since ADR-0175 every turn reads one, and such a turn withholds retrieval, law lookup and classification. Not counted: a failed read of an operation (`project-base-get`, `-confirm`, `classification-evaluate`), of a page (the intake's Steckbrief and its derivations, `project-profile-get`, every few seconds while open) or of a background run; each answers or carries `knowledge_unavailable` instead of an error and logs `knowledge_context_page_read=false`, never the alert's line. Any count is the `knowledge_context_available` alert's condition, a row for the Anwendung area |
-| `grid.provider.limit` | `scope`, and `model` for a per-model limit | The fleet's adaptive limit of model calls in flight (`common/provider_limiter.py`, ADR-0081) |
+| `grid.provider.limit` | `scope`, and `model` for a per-model limit | The fleet's adaptive limit of model calls in flight (`common/limiter_meters.py`, ADR-0081) |
 | `grid.provider.inflight` | | Model calls holding a slot in this process |
 | `grid.provider.wait_seconds` | `class` | Time a call waited for a slot, by priority class |
 | `grid.provider.throttled_total` | `scope`, `model` | Calls the provider answered 429 |

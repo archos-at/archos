@@ -20,6 +20,7 @@ import {
   PORT,
   POSTGRES_POOLER,
   POSTGRES_TUNING,
+  HELM_RELEASE_TIMEOUT_SECONDS,
 } from "../constants";
 import { logicalName, objectName } from "../names";
 import { scaledCpuRequest } from "../config/cpu-requests";
@@ -78,6 +79,7 @@ export function installPostgres(
     {
       chart: "cloudnative-pg",
       version: CNPG_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: opNs.metadata.name,
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
       values: { resources: scaledCpuRequest(PLATFORM_RESOURCES.cnpgOperator), config: { data: CNPG_OPERATOR_CONFIG } },

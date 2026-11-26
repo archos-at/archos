@@ -132,3 +132,59 @@ export const LOOK_STEP_BODIES: Record<string, unknown>[] = [
   look(2, PLANKOPF, 'unten rechts', 'Planstand und Index im Plankopf?', 'Index C, Maßstab 1:100'),
   look(3, TOP_1, 'links unten', 'Fläche Wohnen/Essen Top 1?', '38,42 m²'),
 ]
+
+const measure = (n: number, verb: 'measure' | 'read', status: 'ok' | 'empty', shape: Record<string, unknown> | null) => ({
+  type: 'STEP_FINISHED',
+  step: {
+    id: `action:m${n}`,
+    kind: 'action',
+    call_id: `m${n}`,
+    round: 0,
+    verb,
+    status,
+    query: 'drawing clearance p.1',
+    target: LOOK_SHEET_NAME,
+    document_id: LOOK_SHEET_ID,
+    pages: '1',
+    ...(shape ? { measure: shape } : {}),
+  },
+})
+
+export const MEASURE_STEP_BODIES: Record<string, unknown>[] = [
+  measure(1, 'read', 'ok', null),
+  measure(2, 'measure', 'ok', {
+    quantity: 'clearance',
+    points: [
+      [0.3085, 0.573],
+      [0.3085, 0.5433],
+    ],
+    value: 1.764,
+    unit: 'm',
+    basis: 'estimated',
+    ratio: 100,
+  }),
+  measure(3, 'measure', 'ok', {
+    quantity: 'distance',
+    points: [
+      [0.2122, 0.7548],
+      [0.3406, 0.7548],
+    ],
+    value: 10.795,
+    unit: 'm',
+    basis: 'confirmed',
+    ratio: 100,
+  }),
+  measure(4, 'measure', 'ok', {
+    quantity: 'area',
+    points: [
+      [0.5331, 0.5433],
+      [0.6615, 0.5433],
+      [0.6615, 0.3055],
+      [0.5331, 0.3055],
+    ],
+    value: 152.52,
+    unit: 'm2',
+    basis: 'printed',
+  }),
+  measure(5, 'measure', 'empty', null),
+]

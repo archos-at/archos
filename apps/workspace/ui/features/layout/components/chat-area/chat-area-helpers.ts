@@ -1,7 +1,8 @@
 import type { ChatMessage } from '@/features/chat/types'
 import type { ThinkingEnding } from '@/features/chat/components/ChatThinking'
 import type { TurnView } from '@/lib/turns/turn-fold'
-import { motionQuickExit } from '@/components/motion'
+import type { Transition } from 'motion/react'
+import { motionInstant, motionQuickExit, motionSheetEnter, motionSnap } from '@/components/motion'
 
 const GIST_MAX_CHARS = 120
 
@@ -72,4 +73,16 @@ export const visibleBottom = (container: HTMLElement): number => {
   const composer = Number.parseFloat(getComputedStyle(container).getPropertyValue('--composer-h'))
   const covered = (Number.isFinite(composer) ? composer : COMPOSER_FALLBACK_PX) + LIST_END_GAP_PX
   return container.getBoundingClientRect().bottom - covered
+}
+
+export const welcomeEntrance = ({
+  readerActed,
+  reducedMotion,
+}: {
+  readerActed: boolean
+  reducedMotion: boolean
+}): { initial: { opacity: number; y?: number }; transition: Transition } => {
+  if (reducedMotion) return { initial: { opacity: 0 }, transition: motionInstant }
+  if (readerActed) return { initial: { opacity: 0, y: 16 }, transition: motionSheetEnter }
+  return { initial: { opacity: 0 }, transition: motionSnap }
 }

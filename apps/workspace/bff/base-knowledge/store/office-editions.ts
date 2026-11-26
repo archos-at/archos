@@ -7,7 +7,7 @@ import { ConflictError } from '@/lib/api/errors'
 import { knowledgeEditionRevisions, knowledgeRecords, knowledgeRevisions, knowledgeWorkRevisions, type KnowledgeIdentifiers } from '@/lib/db/schema/knowledge-records'
 import type { EntryValues } from '../wire'
 import { workDesignation } from '../office/work-designation'
-import { appendRevision, bodiesOf, lockEditionWork, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
+import { appendRevision, bodiesOf, dropUnlistedEntry, lockEditionWork, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
 
 type WorkRow = typeof knowledgeWorkRevisions.$inferSelect
 type EditionRow = typeof knowledgeEditionRevisions.$inferSelect
@@ -92,6 +92,7 @@ export async function insertEditionOfWork(
   const copyId = newRecordId('manifestation')
   return withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
+      await dropUnlistedEntry(tx, context.organizationId, documentId)
       const workId = await standaloneWork(tx, earlier, context)
       const ids = { workId, editionId, copyId }
       const header = { organizationId: context.organizationId, documentId, createdBy: context.createdBy }

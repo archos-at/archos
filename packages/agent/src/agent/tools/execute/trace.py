@@ -37,6 +37,7 @@ class RunFacts:
     code_chars: int
     code_sha256: str
     documents_named: int
+    data_named: int = 0
     started_at: float = field(default_factory=now)
     timeout_s: int = 0
     input_files: int = 0
@@ -49,9 +50,11 @@ class RunFacts:
     files_refused: int = 0
 
     @classmethod
-    def of(cls, code: str, documents: list[str] | None) -> RunFacts:
+    def of(cls, code: str, documents: list[str] | None, data: list[str] | None = None) -> RunFacts:
         digest = hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
-        return cls(code_chars=len(code), code_sha256=digest, documents_named=len(documents or []))
+        return cls(
+            code_chars=len(code), code_sha256=digest, documents_named=len(documents or []), data_named=len(data or [])
+        )
 
     def stop(self, status: str, reason: str) -> None:
         self.status, self.reason = status, reason
@@ -88,6 +91,7 @@ def span_input(facts: RunFacts, run: int) -> dict[str, Any]:
         "code_sha256": facts.code_sha256,
         "documents": facts.documents_named > 0,
         "documents_named": facts.documents_named,
+        "data_named": facts.data_named,
         "input_files": facts.input_files,
         "input_bytes": facts.input_bytes,
         "timeout_s": facts.timeout_s,

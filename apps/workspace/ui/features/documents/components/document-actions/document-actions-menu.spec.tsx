@@ -55,9 +55,44 @@ describe('DocumentActionsMenu — what it offers', () => {
   })
 })
 
+describe('DocumentActionsMenu — a surface’s own actions', () => {
+  it('adds them after the document’s own, and runs them', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <DocumentActionsMenu
+        document={DOCUMENT}
+        scope="officeShelf"
+        extraEntries={[{ type: 'item', id: 'as-norm', label: 'Als Norm führen', onSelect, testId: 'document-action-as-norm' }]}
+      />
+    )
+    await openMenu(user)
+
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.at(-1)).toHaveTextContent('Als Norm führen')
+    await user.click(screen.getByTestId('document-action-as-norm'))
+    expect(onSelect).toHaveBeenCalled()
+  })
+
+  it('shows the menu for them alone when the viewer may do nothing else', async () => {
+    const user = userEvent.setup()
+    render(
+      <DocumentActionsMenu
+        document={DOCUMENT}
+        scope="officeShelf"
+        actions={['rename']}
+        canManage={false}
+        extraEntries={[{ type: 'item', id: 'as-norm', label: 'Als Norm führen', onSelect: vi.fn() }]}
+      />
+    )
+    await openMenu(user)
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(1)
+  })
+})
+
 describe('DocumentActionsMenu — deleting', () => {
-  it('asks first, names the document, and reports it upward on confirm', async () => {
-    server.use(http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 204 })))
+  it('asks first, names the document and the bin, and reports it upward on confirm', async () => {
+    server.use(http.post('/api/documents/:id/bin', () => HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })))
     const onDeleted = vi.fn()
     const user = userEvent.setup()
     render(<DocumentActionsMenu document={DOCUMENT} scope="files" onDeleted={onDeleted} />)
@@ -66,18 +101,18 @@ describe('DocumentActionsMenu — deleting', () => {
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
     expect(await screen.findByText('Delete “Einreichplan_EG.pdf”?')).toBeInTheDocument()
-    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
+    expect(screen.getByText(/can be restored/i)).toBeInTheDocument()
 
     await user.click(screen.getByTestId('document-delete-confirm'))
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith('doc-1'))
   })
 
-  it('deletes an Archiv document through the org-scoped route', async () => {
+  it('moves an office shelf document to its bin through the document route', async () => {
     const hits: string[] = []
     server.use(
-      http.delete('/api/documents/:id', ({ params }) => {
+      http.post('/api/documents/:id/bin', ({ params }) => {
         hits.push(String(params.id))
-        return new HttpResponse(null, { status: 204 })
+        return HttpResponse.json({ documentId: params.id, binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
       })
     )
     const user = userEvent.setup()
@@ -91,7 +126,7 @@ describe('DocumentActionsMenu — deleting', () => {
   })
 
   it('leaves the question on screen when the delete fails', async () => {
-    server.use(http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 500 })))
+    server.use(http.post('/api/documents/:id/bin', () => new HttpResponse(null, { status: 500 })))
     const onDeleted = vi.fn()
     const user = userEvent.setup()
     render(<DocumentActionsMenu document={DOCUMENT} scope="files" onDeleted={onDeleted} />)
@@ -107,7 +142,7 @@ describe('DocumentActionsMenu — deleting', () => {
   it('says a legal hold keeps the document, instead of a generic failure', async () => {
     const toastError = vi.spyOn((await import('sonner')).toast, 'error')
     server.use(
-      http.delete('/api/documents/:id', () =>
+      http.post('/api/documents/:id/bin', () =>
         HttpResponse.json(
           { error: 'held', code: 'CONFLICT', details: { reason: 'legal_hold', entityType: 'document' } },
           { status: 409 }

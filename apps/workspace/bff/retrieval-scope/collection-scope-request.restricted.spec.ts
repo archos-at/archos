@@ -10,12 +10,11 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(async () => ({ role: 'project-editor', closed: false, readsBecauseClosed: false })),
 }))
-vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
+vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn(), personalConversationHidden: vi.fn(async () => false) }))
 vi.mock('@/lib/projects/repository', () => ({
   findProjectCollectionName: vi.fn(),
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org-1', deletedAt: null, status: 'active' })),
 }))
-vi.mock('@/lib/user-preferences/repository', () => ({ findUserPreferencesForSession: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
 vi.mock('@/lib/sharing/repository', () => ({ countGrantsForResource: vi.fn() }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({
@@ -54,7 +53,6 @@ import { findConversationTenancy } from '@/lib/conversations/repository'
 import { findProjectCollectionName } from '@/lib/projects/repository'
 import { parseBodyContext, parseQueryContext } from '@/lib/proxy/collection-authz'
 import { countGrantsForResource } from '@/lib/sharing/repository'
-import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { buildCollectionScopeFromRequest } from './collection-scope-request'
 
 const ORG_ID = 'org_1'
@@ -100,9 +98,7 @@ const chatTurn = { projectId: PROJECT_ID, conversationId: CONVERSATION_ID, inter
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('REQUIRE_AUTH', 'true')
-  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(findProjectCollectionName).mockResolvedValue(PROJECT_COLLECTION)
-  vi.mocked(findUserPreferencesForSession).mockResolvedValue(null)
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(countGrantsForResource).mockResolvedValue(0)
   vi.mocked(projectHasCustomOrBinnedFolders).mockResolvedValue(true)
@@ -113,6 +109,7 @@ beforeEach(() => {
     createdBy: null,
     visibility: 'private',
     grantees: [],
+    version: null,
   })
   vi.mocked(resolveMembershipRoles).mockImplementation(async (_org, userId) =>
     userId === 'user_admin' ? ['admin'] : ['member']
@@ -172,6 +169,7 @@ describe('interactive chat scope (ADR-0087)', () => {
       createdBy: 'user_me',
       visibility,
       grantees,
+      version: 1,
     })
 
     it("carries it on the member's own private, ungranted conversation", async () => {

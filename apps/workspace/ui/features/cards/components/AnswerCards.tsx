@@ -4,6 +4,8 @@ import { cardKey } from '../card-decision'
 import { ProjectProfilePatchCard } from './ProjectProfilePatchCard'
 import { MemoryProposalCard } from './MemoryProposalCard'
 import { OperationReceipt } from './ProposalReceipts'
+import { CalibrationReceipt } from './CalibrationProposalPreview'
+import { isCalibrationProposal } from '@/lib/drawing-calibrations/operation'
 import { FileOperationProposalCard } from './FileOperationProposalCard'
 import { CanvasActivityCard } from './CanvasActivityCard'
 import { LookCard } from './LookCard'
@@ -266,6 +268,10 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           documentId={card.document_id}
           versionId={card.version_id}
           versionState={card.version_state}
+          filedDraftVersion={card.filed_draft_version}
+          derivedFromDocumentId={card.derived_from_document_id}
+          derivedFromName={card.derived_from_name}
+          removed={card.removed}
           messageId={messageId}
           cardKey={key}
           decisionsMustPersist={decisionsMustPersist}
@@ -285,6 +291,8 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           documentId={card.document_id}
           versionId={card.version_id}
           versionState={card.version_state}
+          filedDraftVersion={card.filed_draft_version}
+          removed={card.removed}
           messageId={messageId}
           cardKey={key}
           decisionsMustPersist={decisionsMustPersist}
@@ -411,12 +419,16 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
   if (card.type === 'operation_proposal') {
     return (
       <FadeIn distance={6}>
-        <OperationReceipt
-          proposalId={card.proposal_id}
-          title={card.title}
-          operation={card.operation}
-          input={card.input ?? {}}
-        />
+        {isCalibrationProposal(card.operation) ? (
+          <CalibrationReceipt proposalId={card.proposal_id} input={card.input ?? {}} />
+        ) : (
+          <OperationReceipt
+            proposalId={card.proposal_id}
+            title={card.title}
+            operation={card.operation}
+            input={card.input ?? {}}
+          />
+        )}
       </FadeIn>
     )
   }

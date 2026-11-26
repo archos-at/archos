@@ -30,7 +30,13 @@ vi.mock('@/lib/office-shelf/folder-service', () => ({
   ensureOfficeShelfFolderPaths: vi.fn(),
 }))
 
+vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),
+  isOfficeStandardsEnabled: vi.fn(() => false),
+}))
+
 import { ForbiddenError } from '@/lib/api/errors'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import {
   createOfficeShelfFolder,
   deleteOfficeShelfFolder,
@@ -77,6 +83,29 @@ describe('GET /api/office-shelf/folders', () => {
     const body = await response.json()
     expect(body.folders).toHaveLength(1)
     expect(body.folders[0]).toMatchObject({ id: FOLDER_ID, projectId: null, parentId: null, path: 'Normen' })
+  })
+})
+
+describe('GET /api/office-shelf/folders while the office keeps its standards in their own tab', () => {
+  const standards = { ...folder, id: '00000000-0000-4000-8000-000000000002', name: 'Grundlagen des Büros', path: 'Grundlagen des Büros' }
+  const topic = { ...folder, id: '00000000-0000-4000-8000-000000000003', parentId: standards.id, name: 'Brandschutz', path: 'Grundlagen des Büros/Brandschutz' }
+
+  it('leaves the standards tree out of the Ordner tab', async () => {
+    vi.mocked(isOfficeStandardsEnabled).mockReturnValue(true)
+    vi.mocked(listOfficeShelfFolders).mockResolvedValue([folder, standards, topic])
+
+    const body = await (await GET(new NextRequest('https://grid.test/api/office-shelf/folders'), noParams)).json()
+
+    expect(body.folders.map((row: { name: string }) => row.name)).toEqual(['Normen'])
+  })
+
+  it('shows every folder while the standards tab is off', async () => {
+    vi.mocked(isOfficeStandardsEnabled).mockReturnValue(false)
+    vi.mocked(listOfficeShelfFolders).mockResolvedValue([folder, standards, topic])
+
+    const body = await (await GET(new NextRequest('https://grid.test/api/office-shelf/folders'), noParams)).json()
+
+    expect(body.folders).toHaveLength(3)
   })
 })
 
@@ -170,10 +199,10 @@ describe('PATCH and DELETE /api/office-shelf/folders/[folderId]', () => {
     expect(response.status).toBe(400)
   })
 
-  it('deletes and reports where the contents went', async () => {
+  it('moves the folder to the bin and says until when it is restorable', async () => {
     vi.mocked(deleteOfficeShelfFolder).mockResolvedValue({
       ok: true,
-      result: { documentsMoved: 3, foldersMoved: 1 },
+      result: { documentsBinned: 3, foldersBinned: 1, purgeAfter: new Date('2026-12-08T10:00:00.000Z') },
     })
 
     const response = await DELETE(
@@ -182,8 +211,8 @@ describe('PATCH and DELETE /api/office-shelf/folders/[folderId]', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ documentsMoved: 3, foldersMoved: 1 })
-    expect(deleteOfficeShelfFolder).toHaveBeenCalledWith(expect.anything(), FOLDER_ID)
+    expect(await response.json()).toEqual({ documentsBinned: 3, foldersBinned: 1, purgeAfter: '2026-12-08T10:00:00.000Z' })
+    expect(deleteOfficeShelfFolder).toHaveBeenCalledWith(expect.anything(), FOLDER_ID, expect.any(Request))
   })
 
   it('is a 400 for a folder that is not on the shelf', async () => {

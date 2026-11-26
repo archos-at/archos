@@ -1,6 +1,8 @@
 import 'server-only'
+import { bestEffort } from '@/lib/best-effort'
 import type { UserSession } from '@/lib/auth/types'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { isMemoryReflectionEnabled } from '@/lib/workos/feature-flags'
 import { isWebSearchEnabledForOrg } from '@/lib/organizations/service'
@@ -8,16 +10,7 @@ import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { getBudgetStatus } from '@/lib/budgets/service'
 import { announceBudgetBlocked } from '@/lib/budgets/budget-events'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
-import { requesterOf, type RequestPerson } from '@/lib/request-context'
-
-async function bestEffort<T>(what: string, load: () => Promise<T>): Promise<T | null> {
-  try {
-    return await load()
-  } catch (error) {
-    console.warn(`[Turn Context] Failed to ${what}:`, error)
-    return null
-  }
-}
+import { requesterOf, type RequestPerson, type SignedContextKind } from '@/lib/request-context'
 
 export interface TurnBudget {
   remainingOrgUsd: number | null
@@ -43,6 +36,7 @@ export interface TurnContext {
   modelOverrides?: Record<string, string>
   budget?: TurnBudget
   requester?: RequestPerson
+  contextKind?: SignedContextKind
 }
 
 export class TurnBudgetExhaustedError extends Error {
@@ -56,19 +50,19 @@ export class TurnBudgetExhaustedError extends Error {
 
 export async function resolveTurnContext(
   session: UserSession | null,
-  request: { projectId?: string; conversationId?: string }
+  request: { projectId?: string; conversationId?: string; kind?: 'chat' | SignedContextKind; shelves?: false }
 ): Promise<TurnContext> {
   const { projectId, conversationId } = request
-  const {
-    scope,
-    scopedCollections,
-    headerValue,
-    projectId: authorizedProjectId,
-  } = await buildCollectionScopeFromRequest(session, {
-    projectId,
-    conversationId,
-    interactiveChat: true,
-  })
+  const kind = request.kind ?? 'chat'
+  const decided = await resolveConversationScope(
+    session,
+    { projectId, conversationId, kind },
+    { withoutShelves: request.shelves === false }
+  )
+  const scopedCollections = decided.shelves
+  const scope = scopedCollections.map((entry) => entry.collection)
+  const headerValue = encodeCollectionScopeHeader(scopedCollections)
+  const authorizedProjectId = decided.projectId ?? undefined
 
   const context: Omit<TurnContext, 'memoryReflectionEnabled'> & { memoryReflectionEnabled?: boolean } = {
     scope,
@@ -76,6 +70,7 @@ export async function resolveTurnContext(
     header: headerValue,
   }
   if (conversationId) context.conversationId = conversationId
+  if (kind !== 'chat') context.contextKind = kind
   if (session) {
     context.organizationId = session.organizationId
     context.userId = session.userId
@@ -85,7 +80,7 @@ export async function resolveTurnContext(
   }
 
   const organizationId = session?.organizationId
-  const effectiveProjectId = authorizedProjectId ?? projectId
+  const effectiveProjectId = authorizedProjectId
 
   const memoryReflectionEnabled = await isMemoryReflectionEnabled(organizationId)
   const budgetStatus =

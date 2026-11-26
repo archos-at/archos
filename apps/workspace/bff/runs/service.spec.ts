@@ -19,18 +19,20 @@ vi.mock('@/lib/conversations/repository', () => ({
 }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: vi.fn(async (_session: unknown, context: { projectId?: string }) => ({
-    headerValue: 'scope',
-    scope: ['oib_knowledge', `proj_col_${context.projectId}`],
-    scopedCollections: [
-      { collection: 'oib_knowledge', shelf: 'base' },
-      { collection: `proj_col_${context.projectId}`, shelf: 'project' },
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationScope: vi.fn(async (_session: unknown, request: { projectId?: string; kind: string }) => ({
+    kind: request.kind,
+    conversationId: null,
+    audience: { row: { exists: false }, solo: false, version: null },
+    projectId: request.projectId ?? null,
+    projectCollectionName: `proj_col_${request.projectId}`,
+    shelves: [
+      { collection: 'base_corpus', shelf: 'base' },
+      { collection: `proj_col_${request.projectId}`, shelf: 'project' },
     ],
-    projectId: context.projectId,
-    projectCollectionName: `proj_col_${context.projectId}`,
-    conversationId: undefined,
-    verifiedConversationId: undefined,
+    restrictedCollections: [],
+    verifiedConversationId: null,
+    projectReadOnly: false,
   })),
 }))
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(), resolveInboxItemsFor: vi.fn() }))
@@ -39,6 +41,7 @@ vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: 
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
+  withSystemReader: vi.fn(async (_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
   withPlatformAccess: vi.fn(async (_why: string, run: () => Promise<unknown>) => run()),
 }))
 vi.mock('@/lib/jobs/backend-client', async (importOriginal) => ({
@@ -71,8 +74,8 @@ import {
 } from '@/lib/conversations/repository'
 import type { Message } from '@/lib/db/schema/messages'
 import type { TaskRun } from '@/lib/db/schema/task-model'
-import { withTenant } from '@/lib/db/tenant-context'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { withSystemReader } from '@/lib/db/tenant-context'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import {
   addDocumentToBackendJob,
   cancelBackendJob,
@@ -141,7 +144,7 @@ const signedPayload = (caller: JobControlCaller): Record<string, unknown> =>
 
 const expectSignedProject = (caller: JobControlCaller): void => {
   expect(caller.accessToken).toBe('wos-token')
-  expect(buildCollectionScopeFromRequest).toHaveBeenCalledWith(session, { projectId: 'project-1' })
+  expect(resolveConversationScope).toHaveBeenCalledWith(session, { projectId: 'project-1', kind: 'run' })
   const payload = signedPayload(caller)
   expect(payload).toMatchObject({
     organizationId: 'org_1',
@@ -339,7 +342,7 @@ describe('applyRunLedgerOp', () => {
 
   it('enters the tenant the RUN names, never one the op could name', async () => {
     await applyRunLedgerOp(RUN, { op: 'append' }, T1)
-    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1' }, expect.any(Function))
+    expect(withSystemReader).toHaveBeenCalledWith('org_1', 'run-ledger', expect.any(Function))
   })
 
   it('tells the requester once when the run turns to wartet, with the ids that land on the block', async () => {
@@ -631,7 +634,7 @@ describe('writeRunReport', () => {
     })
 
     expect(taskRepository.findRunByBackendJobId).toHaveBeenCalledWith('job-9')
-    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1' }, expect.any(Function))
+    expect(withSystemReader).toHaveBeenCalledWith('org_1', 'run-ledger', expect.any(Function))
     expect(writeMessageContent).toHaveBeenCalledWith(
       CONVERSATION,
       runMessageId(RUN),

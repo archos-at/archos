@@ -274,6 +274,23 @@ describe('a busy step stays readable', () => {
     expect(workKind(first)).toBe('search')
     expect(workKind(second)).toBe('read')
   })
+
+  test('a step that reads a drawing and measures on it is named for both', () => {
+    const action = (id: string, verb: string) => ({
+      id: `action:${id}`,
+      call_id: id,
+      kind: 'action',
+      round: 0,
+      verb,
+      status: 'ok',
+      target: 'Grundriss EG.pdf',
+    })
+    const [both] = workRounds(storedSteps([action('r', 'read'), action('m', 'measure')]))
+    const [measuring] = workRounds(storedSteps([action('m', 'measure')]))
+    expect(workKind(both)).toBe('readMeasure')
+    expect(workKind(measuring)).toBe('measure')
+    expect(translatorFor(chatCopy, 'de')(`thinking.work.kind.${workKind(both)}`)).toBe('Lesen und Messen')
+  })
 })
 
 describe('the link between rows and cards', () => {

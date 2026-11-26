@@ -23,6 +23,12 @@ const renderChart = () =>
 const readout = (): string => screen.getByTestId('spend-trend-readout').textContent ?? ''
 
 describe('SpendTrendChart', () => {
+  test('draws its one series in the brand ink, not in a categorical hue', () => {
+    renderChart()
+    const bar = screen.getByRole('button', { name: /Jul 27/ }).firstElementChild as HTMLElement
+    expect(bar.style.backgroundColor).toBe('var(--data-ink)')
+  })
+
   test('reads the newest day first, without any interaction', () => {
     renderChart()
     expect(readout()).toBe('Jul 29: 5 credits · 1 requests')

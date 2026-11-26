@@ -4,7 +4,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from './access'
-import { findDocumentVersionTransition, type DocumentVersionOp } from './lifecycle-types'
+import { findDocumentVersionTransition, type DocumentVersionOp, type DocumentVersionOrigin } from './lifecycle-types'
 import { OpenVersionExistsError } from './unique-conflicts'
 import { runEffects } from './version-effects'
 import { requireTransitionPermission } from './version-transition-rules'
@@ -15,9 +15,15 @@ import {
   insertPublishedVersion,
 } from './version-repository'
 
+const ORIGIN_BY_OP: Record<CreateVersionInput['op'], DocumentVersionOrigin> = {
+  upload: 'upload',
+  file: 'filing',
+  create: 'draft',
+}
+
 export interface CreateVersionInput {
   document: Document
-  op: Extract<DocumentVersionOp, 'upload' | 'create'>
+  op: Extract<DocumentVersionOp, 'upload' | 'file' | 'create'>
   storageKey: string
   storageBucket: string | null
   contentType: string | null
@@ -51,9 +57,10 @@ export async function createDocumentVersion(
     contentHash: input.contentHash,
     createdBy: session.userId,
     originConversationId: input.originConversationId ?? null,
+    origin: ORIGIN_BY_OP[input.op],
     ...(transition.to === 'published'
-      ? { state: 'published' as const, origin: 'upload' as const, publishedBy: session.userId, publishedAt: now }
-      : { state: transition.to, origin: 'draft' as const }),
+      ? { state: 'published' as const, publishedBy: session.userId, publishedAt: now }
+      : { state: transition.to }),
   }
 
   const promoted = transition.promotes ? await insertPublishedVersion(values) : null

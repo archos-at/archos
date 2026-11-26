@@ -28,7 +28,7 @@ from agent.knowledge.scoping import ScopedCollection
 rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 DIM = 8
-SCOPE = "oib_knowledge"
+SCOPE = "base_corpus"
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
 OIB_21 = "oib-rl_2.1_ausgabe_mai_2023.pdf"
 REPORT = "Brandschutzkonzept.pdf"

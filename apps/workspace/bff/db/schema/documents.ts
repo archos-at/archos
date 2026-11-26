@@ -18,7 +18,7 @@ import { projectFolders } from './project-folders'
 import { conversations } from './conversations'
 import { type ResourceVisibility } from './resource-shares'
 
-export const DOCUMENT_SCOPES = ['project', 'office_shelf', 'session'] as const
+export const DOCUMENT_SCOPES = ['project', 'office_shelf', 'session', 'personal'] as const
 export type DocumentScope = (typeof DOCUMENT_SCOPES)[number]
 
 export const LEGACY_DOCUMENT_SCOPES: Readonly<Record<string, DocumentScope>> = { archiv: 'office_shelf' }
@@ -50,6 +50,7 @@ export const documents = pgTable('documents', {
   scope: text('scope').$type<DocumentScope>().notNull().default('project'),
   conversationId: text('conversation_id'),
   createdBy: text('created_by').notNull(),
+  ownerUserId: text('owner_user_id'),
   authoredBy: text('authored_by').$type<DocumentAuthor>().notNull().default('user'),
   authoredByProducer: text('authored_by_producer'),
   authoredByRef: text('authored_by_ref'),
@@ -117,7 +118,7 @@ export const documents = pgTable('documents', {
   }).onDelete('cascade'),
   folderRequiresShelf: check(
     'documents_folder_requires_project',
-    sql`${table.folderId} IS NULL OR ${table.projectId} IS NOT NULL OR ${table.scope} = 'office_shelf'`
+    sql`${table.folderId} IS NULL OR ${table.projectId} IS NOT NULL OR ${table.scope} IN ('office_shelf', 'personal')`
   ),
   conversationFk: foreignKey({
     name: 'documents_conversation_id_organization_id_fkey',
@@ -128,6 +129,13 @@ export const documents = pgTable('documents', {
     'documents_session_requires_conversation',
     sql`(${table.scope} = 'session') = (${table.conversationId} IS NOT NULL) AND (${table.scope} <> 'session' OR ${table.projectId} IS NULL)`
   ),
+  personalHasOwner: check(
+    'documents_personal_has_owner',
+    sql`(${table.scope} = 'personal') = (${table.ownerUserId} IS NOT NULL) AND (${table.scope} <> 'personal' OR ${table.projectId} IS NULL)`
+  ),
+  personalOwnerListingIdx: index('documents_personal_owner_listing_idx')
+    .on(table.organizationId, table.ownerUserId, table.folderId, table.createdAt.desc(), table.id)
+    .where(sql`${table.scope} = 'personal'`),
   lifecycleKnown: check('documents_lifecycle_known', sql`${table.lifecycle} IN ('active', 'archived')`),
   statusKnown: check(
     'documents_status_known',

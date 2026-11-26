@@ -24,6 +24,9 @@ const client = vi.hoisted(() => ({
   updateTitle: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn(),
+  listReadableMessages: vi.fn(async function (this: { listMessages: (id: string) => Promise<unknown[]> }, id: string) {
+    return { messages: await this.listMessages(id) }
+  }),
   createMessage: vi.fn().mockResolvedValue({}),
   createMessages: vi.fn(),
   newestFrameAge: vi.fn().mockResolvedValue(null),
@@ -31,6 +34,7 @@ const client = vi.hoisted(() => ({
 vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: client }))
 
 import { useChatStore } from '../store'
+import { forgetSideLoads } from './session-server-sync'
 import type { Conversation } from '../types'
 import {
   chatIndexKey,
@@ -81,6 +85,7 @@ const openAndLeaveBeforeTheHistory = async (id: string) => {
 
 describe('a conversation the server listed without its messages', () => {
   beforeEach(() => {
+    forgetSideLoads()
     localStorage.clear()
     vi.clearAllMocks()
     useChatStore.setState({

@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/mail-thread/document-threads', () => ({ mailThreadsOfDocuments: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user_1',

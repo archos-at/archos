@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
-import type { DerivationReview, IntakeDecision, Suggestion, SuggestionGroup } from '@/lib/project-intake/types'
+import type { DerivationReview, IntakeBuilding, IntakeDecision, Suggestion, SuggestionGroup } from '@/lib/project-intake/types'
 import { cn } from '@/lib/utils'
 import { usePressed } from '../../hooks/use-pressed'
 import { buildingNumber } from '../../lib/display'
@@ -29,6 +29,7 @@ export function FindingsCard({
   projectId,
   groups,
   derivations,
+  buildings,
   reading,
   editable,
   ...decide
@@ -36,6 +37,7 @@ export function FindingsCard({
   projectId: string
   groups: readonly SuggestionGroup[]
   derivations: readonly DerivationReview[]
+  buildings: readonly IntakeBuilding[]
   reading: boolean
   editable: boolean
 }): JSX.Element {
@@ -45,13 +47,13 @@ export function FindingsCard({
   const top = topFindings(groups, derivations)
   const rest = restByTopic(groups, top)
   const confirmed = all.filter((item) => item.state === 'confirmed').length
-  const severalBuildings = new Set(all.map((item) => item.buildingId).filter(Boolean)).size > 1
+  const named = buildings.length > 1 || new Set(all.map((item) => item.buildingId).filter(Boolean)).size > 1 ? buildings : null
   const restCount = rest.reduce((sum, group) => sum + group.items.length, 0)
 
   return (
     <section
       aria-labelledby="profile-findings-heading"
-      className="bg-card border-border rounded-[14px] border"
+      className="bg-card border-border rounded-[12px] border"
       data-testid="profile-findings"
     >
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -87,14 +89,14 @@ export function FindingsCard({
               <span>{t('findings.columns.source')}</span>
               <span />
             </div>
-            <FindingRows items={top} severalBuildings={severalBuildings} testId="profile-findings-top" {...decide} />
+            <FindingRows items={top} buildings={named} testId="profile-findings-top" {...decide} />
             <CollapsibleContent data-testid="profile-findings-rest">
               {rest.map((group) => (
                 <div key={group.stage} data-testid={`profile-topic-${group.stage}`}>
                   <SectionLabel as="h3" className="border-border border-t px-4 pb-2 pt-3.5 md:px-[18px]">
                     {group.title}
                   </SectionLabel>
-                  <FindingRows items={group.items} severalBuildings={severalBuildings} {...decide} />
+                  <FindingRows items={group.items} buildings={named} {...decide} />
                 </div>
               ))}
             </CollapsibleContent>
@@ -132,24 +134,32 @@ export function FindingsCard({
 
 function FindingRows({
   items,
-  severalBuildings,
+  buildings,
   testId,
   ...decide
-}: Decide & { items: readonly Suggestion[]; severalBuildings: boolean; testId?: string }): JSX.Element {
+}: Decide & { items: readonly Suggestion[]; buildings: readonly IntakeBuilding[] | null; testId?: string }): JSX.Element {
   return (
     <ul data-testid={testId}>
       {items.map((item) => (
-        <FindingRow key={item.key} item={item} severalBuildings={severalBuildings} {...decide} />
+        <FindingRow key={item.key} item={item} buildings={buildings} {...decide} />
       ))}
     </ul>
   )
 }
 
-function FindingRow({ item, severalBuildings, ...decide }: Decide & { item: Suggestion; severalBuildings: boolean }): JSX.Element {
+function FindingRow({
+  item,
+  buildings,
+  ...decide
+}: Decide & { item: Suggestion; buildings: readonly IntakeBuilding[] | null }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const label = shortLabel(item.label)
+  const { buildingId } = item
   const building =
-    severalBuildings && item.buildingId ? t('findings.building', { number: buildingNumber(item.buildingId) }) : null
+    buildings && buildingId
+      ? (buildings.find((candidate) => candidate.id === buildingId)?.name ??
+        t('findings.building', { number: buildingNumber(buildingId) }))
+      : null
   return (
     <li
       className={cn(

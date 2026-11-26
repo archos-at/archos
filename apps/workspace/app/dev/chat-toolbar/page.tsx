@@ -10,6 +10,7 @@ import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 import { ChatToolbar } from '@/features/layout/components/ChatToolbar'
 import { useChatStore } from '@/features/chat/store'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
+import { markConversationMinted, markConversationOnServer } from '@/features/chat/lib/conversation-on-server'
 import type { ResourceAccessEntry, ResourceSharingState } from '@/lib/sharing/types'
 
 const config: AppConfig = {
@@ -56,7 +57,7 @@ const sharingState = (
 const ROWS = [
   {
     id: 'conv-empty',
-    caption: 'Frischer, leerer Chat — nur die Tür zum Verlauf, ohne Pillen-Rahmen',
+    caption: 'Frischer, leerer Chat — ab sm leer; die Tür zum Verlauf steht nur am Telefon',
     sessionTitle: '',
     started: false,
     state: sharingState('conv-empty', 'private', [ME_ENTRY]),
@@ -81,19 +82,72 @@ const ROWS = [
   },
   {
     id: 'conv-project',
-    caption: 'Projektweit — die Regel ersetzt die Gesichter',
+    caption: 'Projektweit — drei Gesichter, der Rest hinter dem Plus',
     sessionTitle: 'Brandschutz Stiegenhaus',
     started: true,
     state: sharingState('conv-project', 'project', [
       ME_ENTRY,
       entry('u-anna', 'Anna Berger', 'collaborator', 'visibility-project'),
+      entry('u-tom', 'Tom Kainz', 'collaborator', 'visibility-project'),
+      entry('u-lena', 'Lena Fuchs', 'collaborator', 'visibility-project'),
+      entry('u-paul', 'Paul Huber', 'collaborator', 'visibility-project'),
+      entry('u-ida', 'Ida Moser', 'collaborator', 'visibility-project'),
     ]),
   },
 ] as const
 
-const STATES_BY_ID = new Map<string, ResourceSharingState>(
-  ROWS.map((row) => [row.id, row.state]),
-)
+const JOURNEY_ID = 'conv-journey'
+
+const STATES_BY_ID = new Map<string, ResourceSharingState>([
+  ...ROWS.map((row): [string, ResourceSharingState] => [row.id, row.state]),
+  [JOURNEY_ID, sharingState(JOURNEY_ID, 'private', [ME_ENTRY])],
+])
+
+const JOURNEY_FIRST_LINE = 'Was ist eine Abstandsfläche? Antworte in zwei Sätzen.'
+const JOURNEY_NAMED = 'Abstandsflächen nach § 79 der Bauordnung für Wien'
+
+function ToolbarJourney(): JSX.Element {
+  const [step, setStep] = useState(0)
+  const [title, setTitle] = useState('')
+
+  const advance = (): void => {
+    if (step === 0) {
+      markConversationMinted(JOURNEY_ID)
+      const now = new Date()
+      useChatStore.setState({
+        currentConversation: { id: JOURNEY_ID, userId: ME, title: '', createdAt: now, updatedAt: now, messages: [] },
+      })
+      setTimeout(() => setTitle(JOURNEY_FIRST_LINE), 60)
+      setTimeout(() => markConversationOnServer(JOURNEY_ID), 300)
+    } else {
+      setTitle(JOURNEY_NAMED)
+    }
+    setStep((current) => current + 1)
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={advance}
+        className="mx-auto w-full max-w-3xl text-left text-xs text-muted-foreground"
+        data-testid="chat-toolbar-journey"
+      >
+        {step === 0 ? 'Erste Nachricht senden' : 'Den Namen des Chats bringen'}
+      </button>
+      <div className="relative h-20 rounded-lg border border-dashed border-base max-md:h-36">
+        <ChatToolbar
+          sessionTitle={title}
+          conversationId={step === 0 ? null : JOURNEY_ID}
+          currentUserId={ME}
+          isCollaborationEnabled
+          isChatStarted={step > 0}
+          onDeleteSession={() => {}}
+        />
+      </div>
+    </section>
+  )
+}
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __chatToolbarShim?: boolean }
@@ -134,6 +188,7 @@ export default function ChatToolbarPreviewPage(): JSX.Element {
   }
 
   const [ready, setReady] = useState(false)
+  const [journey, setJourney] = useState(false)
   useEffect(() => {
     const isRunning =
       new URLSearchParams(window.location.search).get('variant') === 'running'
@@ -166,6 +221,7 @@ export default function ChatToolbarPreviewPage(): JSX.Element {
           }
         : {}),
     })
+    setJourney(new URLSearchParams(window.location.search).get('case') === 'journey')
     setReady(true)
   }, [])
 
@@ -176,7 +232,9 @@ export default function ChatToolbarPreviewPage(): JSX.Element {
           className="bg-background flex min-h-dvh flex-col gap-8 p-6"
           data-testid="chat-toolbar-preview"
         >
+          {ready && journey && <ToolbarJourney />}
           {ready &&
+            !journey &&
             ROWS.map((row) => (
               <section key={row.id} className="flex flex-col gap-2">
                 <p className="text-muted-foreground mx-auto w-full max-w-3xl text-xs">

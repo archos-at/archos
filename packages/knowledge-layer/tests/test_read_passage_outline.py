@@ -110,7 +110,7 @@ def store(monkeypatch):
     monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
     monkeypatch.setattr(
         "agent.knowledge.scoping.get_scoped_collections_from_context",
-        lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
+        lambda: [ScopedCollection("base_corpus", Shelf.BASE)],
     )
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
@@ -120,7 +120,7 @@ def store(monkeypatch):
 def _builder() -> MagicMock:
     builder = MagicMock()
     builder.get_function_config = MagicMock(
-        return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        return_value=KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     )
     return builder
 
@@ -413,7 +413,7 @@ class TestWhatTheStoreIsAsked:
             ]
         }
         assert call["top_k"] == rp._MAX_OUTLINE_CHUNKS == 160
-        assert call["collection"] == "oib_knowledge"
+        assert call["collection"] == "base_corpus"
 
     async def test_the_fetch_names_the_document_alone(self, store):
         store.outline_chunks = _oib_outline()

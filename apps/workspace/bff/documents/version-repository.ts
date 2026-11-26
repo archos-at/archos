@@ -10,4 +10,4 @@ export { compareAndSwapVersionState, promoteVersionToPublished, LostCompareAndSw
 export type { ReviewRoundWrite } from './version-repository/state-swap'
 export { swapVersionContent } from './version-repository/content-swap'
 export type { VersionStorageColumns, ExpectedVersionContent, SwapVersionContentInput, SwapVersionContentOutcome } from './version-repository/content-swap'
-export { setDocumentLifecycle } from './version-repository/document-lifecycle'
+export { MAX_CHANGE_NOTE_CHARS, setDocumentLifecycle } from './version-repository/document-lifecycle'

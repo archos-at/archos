@@ -193,6 +193,19 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the
   knowledge context's `referenceDateOf` shares). Replaces "every confirmed entry" in the turn block.
+- **The norm directory decides which edition bound** (2026-11-19; replaced by the amendment „the binding edition comes from the chain resolver“ below): where the platform records list the
+  work (matched by designation, `designationKey`) with in-force dates on its editions
+  (`PlatformKnowledge.editionsOf`, `platform/office-read.ts`), the edition in force on the reference day is
+  theirs (`office/binding-edition.ts`, `newestInForce` over the platform's editions), not the office's own
+  dates. When the office holds it (same label, or a day the two share), the turn carries that edition. When
+  it does not, the turn carries none of that work's editions and labels none; it carries a line marked
+  BINDING EDITION NOT HELD that names the edition and the copies the office has, and the block tells the
+  agent not to answer from them, to say which edition bound, and to offer that the office uploads it. Where
+  the records do not list the work or date its editions, the office's own dates decide as before. The block
+  names the day it used, and when it is today, why (no reference day, or no project), so the answer can say
+  so. Trace metadata `base_knowledge_editions_missing` counts the missing lines (`docs/observability/langfuse.md`).
+  The live path needs platform records it does not have yet: no `technical_standard` work with in-force dates
+  is released on dev (2026-11-19), so until they are, every work falls back to the office's dates.
 - **The citation line** of a passage of an office copy carries the same fields a platform edition's does
   (designation, edition label, ids, role, last check, freshness in the platform's tokens), found by the
   passage's `knowledge_edition_id` (`packages/agent/src/agent/citations/office_lines.py`). Wording the line
@@ -201,9 +214,292 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   one short request, each entry through the single-entry service) and `-edition-add`. `base-knowledge-list`
   narrows by folder (with subfolders), attention, kind and a search, and answers counts, folder counts and
   the territories the form offers by name.
+- **Recognising norms in an ordinary upload** (2026-11-19): `base-knowledge-recognize` takes office shelf
+  documents already stored and proposes each one `recognizeNorm` calls a norm, withholding its text; a
+  designation matching a confirmed work is proposed as an edition of it (`editionOf`, `insertEditionOfWork`), and
+  as a `duplicate` when that work already holds the edition. Other files, the OIB guidelines among them, stay
+  where they were uploaded and come back as `plain` with their folder. A document already recorded answers its
+  proposal again. Since the amendment „A recognised norm leaves the Ordner at once“ below, an upload is recognised
+  by the server before its dispatch, so this call mostly answers proposals that already exist.
+  `base-knowledge-settle` answers the proposals: a confirmed one moves into its topic folder (a new edition into
+  its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies (a file
+  under the standards tree goes back to the Ordner folder it came from first; see the amendment below), and one
+  without an edition stays a proposal that keeps the row's Art, Bezeichnung and a cleared Ausgabe
+  (`reviseProposal`, proposed by the person), and moves into the row's topic, so „Jetzt prüfen“ shows them again.
+  While the licence step is off (`ASK_FOR_LICENCE`), settle confirms without asking for the licence statement: a
+  new edition of a work stored as licensed lands licensed, and its text is read like any confirmed copy's (ADR-0164,
+  amendment of 2026-11-19), instead of failing on the attestation. `base-knowledge-unlist` takes a confirmed entry off the base
+  knowledge but keeps its file, moved to the top of the Büroablage; `base-knowledge-remove` still deletes both.
+- **One upload, one norm dialog** (2026-11-19), in place of „Adding a standard is filling in its form“: both
+  tabs of the Büroablage upload through the office shelf's own upload (`useOfficeShelfDocuments`, the same
+  „Hochladen“ control and drop), and what it stored goes to `base-knowledge-recognize`. When any proposal comes
+  back, one dialog lists them all (`NormDialog`: Art with „Keine Norm“, Bezeichnung, Ausgabe, Thema), with a line
+  for the files that are not norms and where they lie; „Bestätigen“ is `base-knowledge-settle`, „Später“ leaves
+  them proposed, and the norms tab's „Jetzt prüfen“ opens them again. A plain file uploaded on the norms tab lands
+  in Ordner, said by a toast with the way there. An upload whose name a document on the other side of the
+  standards tree already holds is stored under a numbered name (see the amendment below). A file reaches the standards tree only through these flows: `PATCH /api/documents/{id}/folder` and
+  a proposed move refuse to take an Ordner file under it, and an upload's `revisionOf` may not cross it. „Als Norm führen“ on an Ordner file opens the dialog for it,
+  „Nicht mehr als Norm führen“ on an entry is `base-knowledge-unlist`, and the folders of the norms tab are its
+  topics („Thema anlegen“).
+
+## Amendment 2026-11-19: norms already in ordinary folders
+
+Offices kept norms in ordinary Büroablage folders long before Normen & Richtlinien existed (one office has a
+folder „Normen“). With the standards tree hidden from the Ordner tab, those files would stay ordinary files
+nobody is told about.
+
+- **Found when the folder is opened, not by a job.** `listFolderNorms` (`bff/base-knowledge/office/folder-norms.ts`)
+  reads the folder's documents (never the standards tree, never the top level) and keeps those `recognizeNorm`
+  calls a norm from their name that are neither recorded as base knowledge nor kept as ordinary files. Nothing is
+  sent to the Postfach: it holds only decisions a person is asked for (ADR-0186), and the state is in the folder.
+- **The decision is in the folder.** The Ordner tab shows a notice in a folder holding such files, to those who
+  may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`takeAsNorm`, which remembers
+  the folder) and then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“,
+  and opens the norm dialog for the files it moved; the folder stays, even empty. „Im Ordner lassen“ writes one row per document to `office_shelf_norm_keeps`, the table a
+  project's „Hier lassen“ uses too (ADR-0185, migration 0256, without a project), and the folder does not offer that document again. Operations:
+  `office-shelf-folder-norms-list` and `office-shelf-folder-norms-decide` (the person's own decision, not the
+  agent's).
+- **What is read is the file name**, as at upload: the title and summary the backend reads later are not in
+  the folder's reading, because reading them for every document of a folder is a backend call per collection.
 
 Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
 cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in
 standards are read (needs licensed test documents and an evaluation of its own), a view of norms the
 platform lists and the office does not hold, and replacing a copy's file (a newer edition, or remove and
 upload, covers it).
+
+## Amendment 2026-11-19: the Stand comes from the platform's editions where it lists the work
+
+Replaced by the amendment „the binding edition comes from the chain resolver“ below: the Stand, the Postfach item and the
+turn now read the resolver, not a lookup of the platform's editions by designation.
+
+A manual „Ist noch aktuell“ every year is busywork for a work whose editions the platform already holds, and
+says nothing in between. So an entry's Stand is decided in one place (`standOf`, `office/listing.ts`):
+
+- **A work the platform lists** (its designation without the edition, `designationKey`, matches a platform work
+  with a dated edition in force today by the one rule, `newestInForce`) is **Aktuell** when the office holds that
+  edition (a confirmed edition starting on or after it, or one with the same label) and **Neuere Ausgabe** when it
+  holds only an older one (`directoryStanding`, `office/freshness.ts`; the platform read is
+  `PlatformKnowledge.directoryEditions`). It asks for no manual check. An office copy with no date and another
+  label cannot be compared and falls back to the check.
+- **Any other work** (most directives, RVS, commentaries, internal guidelines) keeps the manual check:
+  **Geprüft am <Datum>** while fresh, **Prüfung fällig** once overdue; confirming counts as the first check.
+- A proposal is **Zu bestätigen**; an edition the office's own newer one replaces is **Abgelöst**.
+- The norms tab filters by Alle, Zu bestätigen, Neuere Ausgabe and Prüfung fällig (`attention=newer_edition`
+  is new; `metadata_only` stays for agents). The table's last-checked column folds into the Stand.
+- **The Postfach.** A daily Hatchet sweep (`base-knowledge-new-editions`, `office/new-edition-notice.ts`) compares
+  every office holding a confirmed standard and gives whoever may manage its Büroablage
+  (`org:office-shelf:manage`) one `base_knowledge.new_edition` item per work and edition in force: „<Norm>: neue
+  Ausgabe erschienen“, with the active projects whose reference day (`referenceDayOfProfile`) falls on or after
+  that edition's start. The item is resolved by the next sweep once the office holds the edition. It opens the
+  work's newest held edition in Normen & Richtlinien (`?entry=`, where a new edition is uploaded) and offers
+  „Neue Ausgabe hochladen“ there and „Ansehen“ (`?file=`).
+  An office whose `office-standards` flag is off is told nothing, and its open items are resolved
+  (`officeStandardsEnabled`).
+
+Not changed: the turn block and the answer label still read the manual check (`freshness`), so an answer does not
+yet say that the platform lists a newer edition; that changes what shapes an answer and needs its golden run.
+
+What the platform holds today: editions with dates for the OIB guidelines, their explanatory notes and guides
+(`issued_on`, rarely `in_force_from`), and no technical standard (no ÖNORM, EN or DIN work). Until the platform
+lists standards with dated editions, every office ÖNORM keeps the manual check.
+
+## Amendment 2026-11-19: taking a norm off keeps its records, and „Rückgängig“ brings it back
+
+„Nicht mehr als Norm führen“ deleted the document's records, so every Ausgabe, check and the topic were gone and
+the only way back was a fresh proposal. Now:
+
+- **Parked, not deleted** (migration 0257). `base-knowledge-unlist` moves the file to the top of the Büroablage,
+  as before, and parks its records: `knowledge_records.unlisted_at` is set and the head moves to
+  `unlisted_head_revision_id`, so every reader that reads heads sees nothing of the entry, as of an unconfirmed
+  proposal. Every reader by document (`readOfficeEntries`, `documentHasEntry`, `documentsWithEntries`,
+  `entryIdsForDocuments`, `copyForDocument`, the folder notice's reading) reads listed records
+  only. The file's text is read again as an ordinary file's.
+- **Rückgängig.** The entry page unlists at once, without a confirmation, and its toast offers „Rückgängig“:
+  `POST /api/base-knowledge/{entryId}/relist` (the browser's undo, not an agent operation) moves the file back to
+  the topic it lay in (the root when that topic is gone), moves the parked heads back, and reads or withholds the
+  text as the entry's confirmation and text use say. The norm is back as it was: confirmed, the same values, its
+  checks and its topic.
+- **A new proposal replaces a parked entry.** „Als Norm führen“, an upload or a proposal of the same file deletes
+  the parked records in the transaction that writes the new proposal (`dropUnlistedEntry`), with a standalone work
+  no edition uses any more. Restoring the old record on „Als Norm führen“ would confirm a norm without the dialog,
+  so it starts afresh. Deleting the file still deletes everything; „Norm entfernen“ is unchanged.
+
+## Amendment 2026-11-19: a recognised norm leaves the Ordner at once
+
+A behaviour review found the Ordner holding norms nobody had confirmed: an upload landed in the current folder,
+the browser asked for recognition afterwards, and „Später“ said the norms waited under Normen & Richtlinien while
+they stayed in the folder, read in full. Recognition depended on a second browser call that a closed tab, an error
+or the 50-file cut could skip, and the folder scan never looks at the top level.
+
+- **The server recognises an upload before it dispatches it** (`uploadToOfficeShelf`,
+  `bff/base-knowledge/office/norm-intake.ts`, the route `POST /api/documents/upload` for the office shelf). With
+  `office-standards` on, a file whose name `recognizeNorm` calls a norm, uploaded outside the standards tree and not
+  as a `revisionOf`, is stored under the standards root, and `uploadOfficeShelfDocument`'s `beforeDispatch` records
+  its proposal (a confirmed work's new edition when the designation matches), so the dispatch finds the text held.
+  The flag off, nothing is recognised, as before. A file the name screening holds is recognised when the released
+  upload arrives, since it is the same route. `base-knowledge-recognize` now mostly answers proposals that exist; a
+  document it still records (`asNorm`, or a file stored before this change) moves under the standards root as well
+  (`takeAsNorm`), and a file kept as an ordinary file is not offered again unless asked with `asNorm`. The browser
+  still sends at most 50 ids, which now only limits what the dialog shows: the rest wait under „Zu bestätigen“, and
+  the norms tab claims „Keine Norm dabei“ only when it asked about every upload.
+- **The proposal remembers where the file came from**: `provenance.filedFrom.folderId` on the edition revision, the
+  Ordner folder the upload was meant for, the folder the migration took it from, or null for the top level.
+  `reviseProposal` carries it over. **Keine Norm** moves the file back there (the top level when that folder is gone
+  or lies under the standards tree), drops the records, reads the text again, and writes an
+  `office_shelf_norm_keeps` row, so neither the folder scan nor `base-knowledge-recognize` offers it again.
+- **Duplicates and new editions are told by designation and edition, never by file name.** A name a document on
+  the other side of the standards tree holds, or any name already taken when the upload goes into the tree, is
+  stored under the next free numbered name (`Name (2).pdf`, `numberedFilename` as the mail import names its
+  attachments): a norm then comes to the dialog as `editionOf` or `duplicate`, a plain file stays in its Ordner
+  folder. The norms tab's `forStandards` upload, which made a same-named upload a new version of a norm with its
+  old Ausgabe, and `base-knowledge-upload`'s refusal of a name a recorded copy holds are gone. Ordner to Ordner, a
+  name still replaces as a new version.
+- **An Ordner folder stays out of the standards tree**: `PATCH /api/office-shelf/folders/{id}` refuses a parent
+  under it for a folder outside it (`updateOfficeShelfFolder`), as a document's move is refused.
+- **The filing judge leaves base knowledge alone**: a document recorded as base knowledge is neither judged nor
+  moved by an upload batch's filing proposals (`reviewUploadFiling`).
+- **Feedback for a guideline the platform holds**: a lone OIB guideline uploaded on the norms tab is announced as
+  one ARCHOS already knows, and on the Ordner tab, which says nothing about ordinary files, it is announced too.
+
+## Amendment 2026-11-19: the cover page tells the edition
+
+File names often lack the edition or carry a wrong one, while every ÖNORM's first page states its designation,
+its edition („Ausgabe: 2023-02-01“) and what it replaces („Ersatz für ÖNORM B 1600:2017-04-01“); EN and DIN
+covers and a directive's date line do the same.
+
+- **The upload reads the cover before it records the proposal** (`uploadToOfficeShelf`): for a file `recognizeNorm`
+  calls a norm, `readCoverText` (`bff/pdf/cover-text.ts`) reads page 1's text from the bytes the upload holds, or
+  page 2's when page 1 has no text (a cover image), through pdf.js's legacy build in the BFF. `pdfjs-dist` is already
+  a production dependency for the viewer; it is a `serverExternalPackages` entry so it loads from `node_modules` with
+  its own worker module. The read is bounded by `COVER_READ_MS` (1.5 s, about 120 ms to load pdf.js once per process
+  and tens of milliseconds a cover); a scan without text, a file that is not a PDF, a password, an error or the
+  timeout leave the file name's reading, silently. No backend call: the Python tier has no first-page endpoint, and
+  sending the bytes there would cost more than reading one page here.
+- **Only values are kept.** `readCover` (`bff/base-knowledge/office/cover-page.ts`) extracts the designation, title,
+  edition and every replaced edition; `proposalReading` prefers the cover over the file name (keeping the file
+  name's day when the cover gives only its month) and writes the result as the proposal's values, and
+  `provenance.cover` records where each came from (`read`), where the cover disagreed with the file name
+  (`overrode`) and what it replaces (`replaces`). The page text is never stored or indexed, and the text stays held
+  until the proposal is confirmed. A proposal a person revised drops `provenance.cover`. An Ordner file taken as a
+  norm later (`takeAsNorm`) is read by its name, as before: its bytes are not at hand.
+- **The norm dialog** prefills from these values and says „Ausgabe laut Titelseite“ or „Bezeichnung laut
+  Titelseite“ with the file name's value while the field is unchanged (`NormProposal.coverOverrode`).
+- **„Abgelöst“ follows without a new rule.** The new edition joins the held work by the cover's designation
+  (`confirmedWorkOf`), so a file name spelled otherwise („OENORM_B1600_neu.pdf“) still finds it, and it carries the
+  cover's day as `issuedOn`, so once confirmed `editionsOf` makes it the edition in force and `editionReplaced` marks
+  the held one. `listing.ts`, `freshness.ts` and the inbox are unchanged. A replaced edition under another number (a
+  renumbered norm) is recorded in `replaces` but not linked: joining it to the old work would show the new edition
+  under the old designation.
+- `readDesignation` reads a prefix only as a word of its own (followed by a space or a digit), so „ENV 1991-1“ on
+  a cover is not taken for EN 1991-1.
+
+## Amendment 2026-11-19: the binding edition comes from the chain resolver, and nothing punishes the office
+
+Two earlier slices answered "which edition binds" with a check of their own: the Stand, the new-edition sweep and the
+turn read the in-force dates of a platform work matched by designation (`PlatformKnowledge.editionsOf`,
+`directoryStanding`, `editionsForDay`), beside the chain resolver that already follows `makes_binding` routes
+(`static_reference`, `dynamic_reference`, `supersedes`, validity windows) for a Land and a day. The office's norm
+feature is an add-on for what the platform cannot carry (paywalled ÖNORM, EN and DIN norms an office bought), and the
+platform will later carry which norm editions an OIB guideline cites. The user's decision: "Let's do the code side we
+later add those binding stuff in there but we don't punish if the orgs don't have them".
+
+- **One answer to "which edition binds"**: the knowledge context's uses (`context/resolve.ts`), filtered to what a
+  route makes binding (`role: binding`, `via: relation`), keyed by the work's designation without its edition
+  (`designationKey`): `bindingNormsOf`, `office/binding-edition.ts`. An office copy is the binding edition when its
+  label or a day it carries matches (`isSameEdition`); it is an older one when every confirmed copy starts before the
+  binding edition's day (`bindingStanding`, `newer`). `PlatformKnowledge.editionsOf`, its SQL, `directoryStanding`
+  and the entry's `directory` are gone; the entry carries `binding` (`editionLabel`, `startsOn`, `via` = the
+  instrument the route names, `held`, `newer`).
+  - In a project: the turn's own knowledge context, for the project's Land and reference day
+    (`loadTurnContext` hands it to `baseKnowledgeForTurn`).
+  - On the Normen tab and the entry page: the office's home Land today, the knowledge context of a turn without a
+    project (`knowledgeContextForTurn(org, null)`, whose site is the office's assumed subdivision); without one there
+    is no binding information.
+- **Nothing punishes the office.**
+  - A norm the office never bought gets no badge, no Postfach item and no line in the turn. `listedNotHeld` named
+    every platform work with a designation the office did not hold, and told the agent to say „gelistet, kein Text“
+    for one without text; once the platform carries the norms the OIB cites as metadata, that is a negative line per
+    norm in every turn. It now names only works whose text the platform holds (`listedFor`, `platform/office-read.ts`).
+  - An office copy older than the binding edition: the Stand shows „Neuere Ausgabe“ in the informative colour, with
+    „Verbindlich ist heute die Ausgabe …, laut <instrument>“. The turn keeps the office's copy and marks its line
+    OTHER EDITION BINDING with the binding edition, the day and the instrument; `BINDING_EDITION_RULE` lets the answer
+    use the copy but makes it say which edition binds that day. The refusal (do not answer from, quote or paraphrase
+    the other edition) is gone. The day line stays. Trace metadata `base_knowledge_editions_missing` counts the marked
+    lines.
+  - The binding edition held: the Stand is „Aktuell“, the turn says „the edition binding on <day>“ instead of the
+    check, and the answer label carries no overdue check.
+  - No binding information: the office's own dates and the manual check, as before.
+- **The manual check is quieter**: „Prüfung fällig“ is a muted pill, not a warning; the entry page and the viewer's
+  facts say where the Stand comes from („Verbindlich ist heute die Ausgabe …“ from the resolver, or „Vom Büro geprüft
+  am …“). There is no Postfach item for a due check and no roundup.
+- **The Postfach item `base_knowledge.new_edition` is rebased on the resolver.** The daily sweep
+  (`base-knowledge-new-editions`, `office/new-edition-notice.ts`), gated per office on `office-standards`, resolves the
+  binding editions for each active project (at most 200 per office) and tells whoever manages the Büroablage, once
+  per norm and binding edition (`<designation>@<day or label>`), when a confirmed office norm is no longer the binding
+  edition for at least one active project: „ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe“, „Verbindlich
+  ist die Ausgabe …, laut <instrument>. Betrifft: <projects>“, with „Neue Ausgabe hochladen“ and „Ansehen“. Every
+  open item whose anchor is no longer owed is resolved (`resolveOpenItemsOfType` with `keepAnchors`): the office holds
+  the binding edition, or no active project is affected. An office edition that itself supersedes another („Ersatz
+  für …“ on a cover) does not count yet: nothing on this branch records it.
+
+What the platform holds today (2026-11-19): no ÖNORM work and no route to one, so no office norm has binding
+information, the Stand and the turn read as before, and the sweep tells nobody. The answer-shaping change owes its
+golden run on dev.
+
+## Amendment 2026-11-19: no file is lost or taken by a side door
+
+An independent review found six places where the rules above did not hold: a norm went somewhere the person did not
+put it, stayed where the person did not expect it, or was deleted without a word.
+
+- **A new-edition notice is settled only on real resolver data.** `knowledgeContextForTurn` answers
+  `knowledge_unavailable` instead of throwing, which read as "no project binds anything" and resolved every open
+  notice. `noticeNewEditions` now resolves nothing for an office while any active project's context is unavailable,
+  and tells a person again about a notice that is owed again: it skips only recipients holding an unresolved row
+  (`openRecipientsOfGroup`), not every row ever written. `readGroupPayloads` keeps counting resolved rows, which the
+  annotation due reminders rely on.
+- **A new Fassung of an Ordner file stays an ordinary file.** The server never read it as a norm, but the browser
+  sends every stored upload to `base-knowledge-recognize`, which took it by its name. An upload with `revisionOf`
+  outside the standards tree now writes the `office_shelf_norm_keeps` row before dispatch, so recognition and the
+  folder scan leave it alone; „Als Norm führen“ (`asNorm`) still overrides the keep. The rule of
+  `assertRevisionOfOnSameSide` is unchanged.
+- **„Aus Ordnern übernehmen“ and `base-knowledge-propose` take a file as „Als Norm führen“ does**: `proposeBaseKnowledge`
+  moved to `norm-intake.ts` and goes through `takeAsNorm`, so the file moves under the standards root, remembers
+  `filedFrom`, joins a held work as a new edition, and „Keine Norm“ takes it back. The picker on the Normen tab asks
+  `recognize` with `asNorm` and opens the norm dialog for the file.
+- **A duplicate is deleted only when it was uploaded as one.** An upload records `filedFrom.upload: true`
+  (`uploadToOfficeShelf`, `uploadBaseKnowledge`). On „Bestätigen“ a duplicate edition without it (a file taken from
+  an Ordner folder or found under the standards tree) goes back to its folder as an ordinary file and is kept
+  (`duplicate_returned`); an uploaded one is still deleted (`duplicate_removed`). The dialog checks the edition as the
+  person types it with the server's function (`isHeldEdition`, `wire/edition-key.ts`, against
+  `NormProposal.heldEditions`) and says which of the two happens.
+- **An upload on the Normen tab is a norm candidate whatever its name.** The browser sends `asNorm=true` with the
+  upload; the server records the proposal and holds the text before dispatch, under the standards root (or the topic
+  it was uploaded into), with `filedFrom` the Ordner top level for „Keine Norm“. A guideline the platform holds stays
+  an ordinary file, announced as one ARCHOS knows. The Ordner tab keeps name-based recognition.
+- **Taking a norm off remembers it as an ordinary file.** `base-knowledge-unlist` writes the keep row, so the folder
+  notice does not offer the file again; „Rückgängig“ (`relist`) deletes it, and „Als Norm führen“ still works.
+
+## Amendment 2026-11-19: answers say nothing about a due check, and a proposal can be „Keine Norm“ on its page
+
+An independent review found the office still punished in answers: the turn block told the agent to name an
+overdue check in the answer („check OVERDUE …, say so“, „never checked; overdue“), and the answer label marked
+the copy `check_due`. The user decided that the manual check is only the muted pill „Prüfung fällig“ on the norms
+tab and the entry page.
+
+- **The turn block** (`office/turn-block.ts`) asks an answer to name a copy's designation or title and its edition,
+  not when it was checked. A line still carries „last checked <day> (<result>)“ when the office checked it, as
+  information; a copy never checked carries nothing about checks. `checkWords` reads no `overdue`.
+- **The answer label** (`office/answer-label.ts`) says only what a check found: `newer_known`, `superseded`
+  (withdrawn) or `current`, never `check_due`. `checkOverdue` stays on the label for the Langfuse score
+  `base-knowledge-overdue`, which measures the shelf, not the answer; nothing in the agent renders it.
+- **„Keine Norm“ on the entry page.** A proposal offered only „Bestätigen“ and „Norm entfernen“, which deletes the
+  file. It now offers „Keine Norm“ beside them: `POST /api/base-knowledge/settle` with `notNorm`, the dialog's own
+  path, so the file returns to the folder it came from and is remembered. The toast's „In Ordnern zeigen“ opens
+  the file in the Ordner tab (`?doc=`), because the settle result does not name the folder.
+- **The copy says what happens**: the proposal comes from the title page and the file name; a copy never checked
+  shows „Prüfung fällig“; a failed recognition after an upload says the recognised norms wait under „Zu
+  bestätigen“, since the server recorded them at upload, and a failed „Als Norm führen“ says the file stays in its
+  folder (`i18n/norm-copy-promises.spec.ts`).
+
+The answer-shaping change owes its golden run on dev.

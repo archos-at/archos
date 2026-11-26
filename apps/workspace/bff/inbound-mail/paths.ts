@@ -2,16 +2,25 @@ import type { InboundMailListStatus, InboundMailOutcome } from '@/lib/inbound-ma
 
 export const INBOUND_MAIL_READY_ANCHOR = 'ready'
 
+export const INBOUND_MAIL_QUERY_PARAM = 'q'
+
+export interface InboundMailListFilter {
+  status: InboundMailListStatus
+  outcome: InboundMailOutcome | null
+  query?: string
+}
+
 export interface InboundMailPaths {
-  list: (filter: { status: InboundMailListStatus; outcome: InboundMailOutcome | null }) => string
-  mail: (mailId: string, filter: { status: InboundMailListStatus; outcome: InboundMailOutcome | null }) => string
+  list: (filter: InboundMailListFilter) => string
+  mail: (mailId: string, filter: InboundMailListFilter) => string
   files: string
 }
 
-function filterQuery({ status, outcome }: { status: InboundMailListStatus; outcome: InboundMailOutcome | null }): string {
+function filterQuery({ status, outcome, query = '' }: InboundMailListFilter): string {
   const params = new URLSearchParams()
   if (status !== 'waiting') params.set('status', status)
   if (status === 'handled' && outcome) params.set('outcome', outcome)
+  if (query.trim() !== '') params.set(INBOUND_MAIL_QUERY_PARAM, query)
   const text = params.toString()
   return text ? `?${text}` : ''
 }

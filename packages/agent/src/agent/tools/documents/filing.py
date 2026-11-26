@@ -19,8 +19,16 @@ REQUEST_TIMEOUT_SECONDS = 15
 
 
 class FilingError(bff_http.BffError):
-    def __init__(self, message: str, *, status: int | None = None, code: str | None = None) -> None:
+    def __init__(
+        self, message: str, *, status: int | None = None, code: str | None = None, details: Any = None
+    ) -> None:
         super().__init__(message, status=status, code=code)
+        self.details = details if isinstance(details, dict) else {}
+
+    @property
+    def reason(self) -> str:
+        reason = self.details.get("reason")
+        return reason if isinstance(reason, str) else ""
 
 
 def get_document_version_content(
@@ -65,7 +73,10 @@ def post_document_version(payload: dict[str, Any], envelope: SignedEnvelope) -> 
     except bff_http.BffRefusedError as exc:
         logger.warning("Filing refused by the BFF (status=%s code=%s)", exc.status, exc.code)
         raise FilingError(
-            f"the document API refused the call ({exc.status})", status=exc.status, code=exc.code
+            f"the document API refused the call ({exc.status})",
+            status=exc.status,
+            code=exc.code,
+            details=exc.body.get("details"),
         ) from exc
     except bff_http.BffError as exc:
         logger.warning("Filing could not reach the BFF", exc_info=True)

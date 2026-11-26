@@ -1,25 +1,19 @@
 import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withTenant } from '@/lib/db/tenant-context'
-import {
-  ADMISSION_MAX_COLLECTIONS,
-  admitRestrictedUse,
-  drawableRestrictedCollections,
-  markTurnAnswer,
-  recordedRestrictedFolders,
-} from '@/lib/conversations/restricted-use'
+import { withSystemReader } from '@/lib/db/tenant-context'
+import { ADMISSION_MAX_COLLECTIONS, admitRestrictedUse } from '@/lib/conversations/restricted-use'
+import { admitPersonalShelf, splitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
+import { decisionFromRequest } from '@/lib/conversation-context'
 
 type Params = { id: string }
 
-const collectionList = z.array(z.string().min(1).max(200)).max(ADMISSION_MAX_COLLECTIONS).default([])
 
 const restrictedUseSchema = z.object({
   organizationId: z.string().min(1).max(128),
   userId: z.string().min(1).max(128),
   projectId: z.string().min(1).max(128).nullish(),
-  candidates: collectionList,
-  admit: collectionList,
+  admit: z.array(z.string().min(1).max(200)).min(1).max(ADMISSION_MAX_COLLECTIONS),
   answerMessageId: z.guid().nullish(),
 })
 
@@ -37,18 +31,18 @@ export const POST = internalApiRoute<Params>(
       projectId: body.projectId ?? null,
       answerMessageId: body.answerMessageId ?? null,
     }
-    return withTenant({ organizationId: body.organizationId }, async () => {
-      const drawable = await drawableRestrictedCollections(useRequest, body.candidates)
-      if (body.admit.length === 0) {
-        await markTurnAnswer(useRequest)
-        return {
-          drawable,
-          admitted: [],
-          refused: [],
-          recorded: await recordedRestrictedFolders(params.id, body.organizationId),
-        }
+    const decision = decisionFromRequest(request)
+    const { personal, others } = splitPersonalShelf(body.admit)
+    return withSystemReader(body.organizationId, 'agent-host', async () => {
+      const [folders, ownShelf] = await Promise.all([
+        others.length > 0 ? admitRestrictedUse(useRequest, others) : Promise.resolve({ admitted: [], refused: [], recorded: [] }),
+        personal.length > 0 ? admitPersonalShelf(useRequest, personal, decision) : Promise.resolve([]),
+      ])
+      return {
+        admitted: [...folders.admitted, ...ownShelf],
+        refused: [...folders.refused, ...personal.filter((collection) => !ownShelf.includes(collection))],
+        recorded: folders.recorded,
       }
-      return { drawable, ...(await admitRestrictedUse(useRequest, body.admit)) }
     })
   },
   { tenancy: { fromPayload: 'body.organizationId' } }

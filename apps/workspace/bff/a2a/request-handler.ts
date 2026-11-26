@@ -146,8 +146,7 @@ export class AgentA2ARequestHandler implements A2ARequestHandler {
   }
 
   private async read(id: string, waitSeconds: number, recorded = true): Promise<AskView> {
-    const query = waitSeconds > 0 ? { waitSeconds } : {}
-    return viewOf(await this.run('agent-ask-get', { params: { id }, query }, recorded), 'task')
+    return viewOf(await this.run('agent-ask-get', { params: { id }, query: { waitSeconds } }, recorded), 'task')
   }
 
   private async settle(view: AskView, deadline: number): Promise<AskView> {

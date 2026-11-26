@@ -2,11 +2,11 @@ import json
 import logging
 
 from agent.cards import surface_documents as _surface_documents  # noqa: F401
-from agent.cards.catalog import CARD_EXAMPLES as _CARD_EXAMPLES  # noqa: F401
+from agent.cards.card_doctrine import render_card_doctrine
+from agent.cards.card_examples import CARD_EXAMPLES as _CARD_EXAMPLES  # noqa: F401
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import model_facing_card_types
 from agent.cards.catalog import render_card_details
-from agent.cards.catalog import render_card_doctrine
 from agent.cards.catalog import render_card_index
 from agent.cards.catalog import shape_hint_for as _shape_hint_for  # noqa: F401 — re-exported
 from agent.cards.envelope import REFUSED_SHAPE

@@ -27,12 +27,15 @@ _USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf
 
 _SHELF_BLURBS: dict[Shelf, str] = {
     Shelf.BASE: (
-        "always on this request — platform OIB / law corpus. Every turn has this, project or not. Never the Büroablage."
+        "always on this request — platform OIB / law corpus. Every turn has this, project or not. "
+        "Never the Bürobibliothek."
     ),
     Shelf.OFFICE_SHELF: (
         "on every project in this organization — the office's own files. NOT base/OIB, NOT this project's files."
     ),
-    Shelf.PROJECT: ("on every session of this project — this project's files only. NOT the Büroablage, NOT base/OIB."),
+    Shelf.PROJECT: (
+        "on every session of this project — this project's files only. NOT the Bürobibliothek, NOT base/OIB."
+    ),
     Shelf.SESSION: ("only this chat — attachments uploaded here. Not visible in other sessions."),
 }
 
@@ -64,6 +67,12 @@ _LISTING_CUES = (
 
 _SHELF_ONLY_FOLLOWUPS = frozenset(
     {
+        "buerobibliothek",
+        "burobibliothek",
+        "die buerobibliothek",
+        "in der buerobibliothek",
+        "und in der buerobibliothek",
+        "und die buerobibliothek",
         "bueroablage",
         "buroablage",
         "die bueroablage",
@@ -88,6 +97,10 @@ _SHELF_HINTS: tuple[tuple[Shelf, tuple[str, ...]], ...] = (
     (
         Shelf.OFFICE_SHELF,
         (
+            "bürobibliothek",
+            "buerobibliothek",
+            "büro-bibliothek",
+            "office library",
             "büroablage",
             "bueroablage",
             "büro-ablage",
@@ -423,6 +436,16 @@ def _folded_base_lines(count: int) -> list[str]:
     ]
 
 
+_SHELF_LINES: tuple[str, ...] = (
+    "Files sit on four nested shelves. A wider shelf is NOT the narrower one:",
+    "- **Basiswissen** (base) — always on this request. Platform OIB / law. Every turn has this.",
+    "- **Bürobibliothek** (office_shelf) — on every project in this organization. "
+    "The office's own files. NOT base/OIB, NOT this project.",
+    "- **Projektwissen** (project) — on every session of this project. This project's files. NOT the Bürobibliothek.",
+    "- **Private Sitzung** (session) — only this chat. Attachments uploaded here.",
+)
+
+
 def render_inventory_block(
     docs: Sequence[Any],
     *,
@@ -466,17 +489,12 @@ def render_inventory_block(
         "filename here is not a citable source until a retrieval result has returned "
         "a passage from it.",
         "",
-        "Files sit on four nested shelves. A wider shelf is NOT the narrower one:",
-        "- **Basiswissen** (base) — always on this request. Platform OIB / law. Every turn has this.",
-        "- **Büroablage** (office_shelf) — on every project in this organization. "
-        "The office's own files. NOT base/OIB, NOT this project.",
-        "- **Projektwissen** (project) — on every session of this project. This project's files. NOT the Büroablage.",
-        "- **Private Sitzung** (session) — only this chat. Attachments uploaded here.",
+        *_SHELF_LINES,
         "",
         'When the user asks which files you have on a shelf (e.g. "welche Dateien '
-        'hast du in der Büroablage", "was liegt im Projekt", "welche OIB-Richtlinien '
+        'hast du in der Bürobibliothek", "was liegt im Projekt", "welche OIB-Richtlinien '
         "hast du\"), answer ONLY from that shelf's files. If the group is empty, say "
-        "so. Never fill a gap with another shelf. Büroablage is never the OIB corpus. "
+        "so. Never fill a gap with another shelf. Bürobibliothek is never the OIB corpus. "
         "When the group says it is incomplete, or the question narrows by folder, name, "
         "kind or date, `list_files` returns the complete, filtered list.",
         "",
@@ -536,7 +554,7 @@ def render_inventory_block(
 
     if unknown:
         lines.append("### Unattributed")
-        lines.append("Shelf was not stated for these files — do not assign them to Büroablage or Basiswissen.")
+        lines.append("Shelf was not stated for these files — do not assign them to Bürobibliothek or Basiswissen.")
         for doc in unknown:
             summary = _summary_of(doc) or "No summary available"
             lines.append(f"- **{_file_name_of(doc)}**: {summary}")

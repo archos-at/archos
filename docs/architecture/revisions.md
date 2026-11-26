@@ -269,6 +269,10 @@ content of a version. It is not the link between two documents.
   (`origin = 'upload'`, migration 0137). Putting the file there is the assertion;
   no approver column carries the uploader's name. Approval matters for what
   the agent wrote and for revisions that need a second pair of eyes.
+- **A person's filing of a file the agent made is born published too**
+  (`origin = 'filing'`, migration 0249, ADR-0054 update of 2026-11-18). The
+  person who files it signs it off; the version list says „Abgelegt“, not
+  „Hochgeladen“.
 - **The agent answers from the published version** while a newer one is in review,
   and from the previous upload while a person's re-upload is still being read
   or after its reading failed. The section says so („{productName} antwortet weiter aus

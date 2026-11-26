@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { FolderPickerSheet } from './folder-picker-sheet'
+import { FolderPickerList, FolderPickerSheet } from './folder-picker-sheet'
 import { sortedFolderDestinations } from '../lib/folder-path-label'
 
 const DESTINATIONS = sortedFolderDestinations([
@@ -68,5 +68,19 @@ describe('FolderPickerSheet', () => {
   it('treats the top level as „here" when everything stands there', () => {
     render(<Sheet currentFolderId={null} />)
     expect(screen.getByTestId('folder-picker-root')).toBeDisabled()
+  })
+})
+
+describe('FolderPickerList', () => {
+  it('stands inline without a dialog of its own, searches, and hands back the pick', async () => {
+    const user = userEvent.setup()
+    const onPick = vi.fn()
+    render(<FolderPickerList destinations={DESTINATIONS} onPick={onPick} listClassName="max-h-60" />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('folder-picker-list')).toHaveClass('max-h-60')
+    await user.type(screen.getByRole('textbox', { name: 'Search folders' }), 'stat')
+    expect(screen.queryByText('Brandschutz / Fluchtwege')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('folder-picker-c'))
+    expect(onPick).toHaveBeenCalledWith('c', 'Statik')
   })
 })

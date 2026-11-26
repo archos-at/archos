@@ -22,7 +22,7 @@ def _unbound():
 
 def _scope(context: str | None) -> list[str]:
     config = KnowledgeRetrievalConfig(
-        collection_name="oib_knowledge",
+        collection_name="base_corpus",
         include_base_collection=True,
         include_session_collection=True,
         project_collections=["proj_1"],
@@ -37,7 +37,7 @@ def _scope(context: str | None) -> list[str]:
 @pytest.mark.parametrize("profile", [None, AUSTRIAN, GERMAN])
 def test_a_gate_that_reads_austria_searches_the_base_corpus_whatever_the_profile_says(profile: str | None) -> None:
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
-    assert _scope(profile)[0] == "oib_knowledge"
+    assert _scope(profile)[0] == "base_corpus"
 
 
 @pytest.mark.parametrize("gate", ["not_entitled", "knowledge_unavailable", "organization_unplaced"])

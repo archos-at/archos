@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import { useCallback, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 
 import { Button, type ButtonProps } from '@/components/ui/button'
@@ -23,7 +23,6 @@ interface CreateProjectDialogProps {
   label?: string
   variant?: ButtonProps['variant']
   size?: ButtonProps['size']
-  tourAnchor?: string
   addressClients?: CreateProjectFormProps['addressClients']
   initial?: CreateProjectFormProps['initial']
 }
@@ -33,29 +32,27 @@ export function CreateProjectDialog({
   label,
   variant = 'default',
   size = 'default',
-  tourAnchor,
   addressClients,
   initial,
 }: CreateProjectDialogProps): JSX.Element {
   const t = useTranslations(projectsCopy)
   const router = useRouter()
-  const pathname = usePathname()
   const [open, setOpen] = useState(defaultOpen)
 
   const handleOpenChange = useCallback(
     (next: boolean): void => {
       setOpen(next)
-      if (!next && defaultOpen && pathname) {
-        router.replace(pathname, { scroll: false })
+      if (!next && defaultOpen && new URLSearchParams(window.location.search).get('new') === '1') {
+        router.replace(window.location.pathname, { scroll: false })
       }
     },
-    [defaultOpen, pathname, router],
+    [defaultOpen, router],
   )
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant={variant} size={size} data-tour={tourAnchor}>
+        <Button variant={variant} size={size}>
           <Plus className="size-4" />
           {label ?? t('dialog.newProject')}
         </Button>

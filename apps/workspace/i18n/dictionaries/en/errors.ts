@@ -4,14 +4,14 @@ export const errors = {
     title: "We couldn't find that",
     description:
       "The page or project you're looking for doesn't exist, or you no longer have access to it.",
-    action: 'Back to projects',
+    action: 'Back to start',
   },
   appError: {
     code: 'Error',
     title: 'Something went wrong',
-    description: 'An unexpected error occurred. You can try again, or head back to your projects.',
+    description: 'An unexpected error occurred. You can try again, or go back to the start.',
     action: 'Try again',
-    backAction: 'Back to projects',
+    backAction: 'Back to start',
     report: 'Report the error',
     reference: 'Reference: {reference}',
     reportSubject: 'Error in {productName}',
@@ -42,7 +42,11 @@ export const errors = {
       Default: 'An error occurred during authentication.',
     },
   },
+  confidentialRelease:
+    'This draft draws on confidential sources that not everyone who sees the chosen folder may read. Check whether it contains anything confidential from them, and confirm to file it there.',
   confinement: {
+    personalShelf:
+      'This conversation read from „Meine Ablage“, so these steps are blocked in it: filing outside your own shelf, tasks, deep research runs, memory, changes to the project profile, and annotations on documents outside your own shelf. A file from your own shelf enters a project only by a step of its own.',
     deepResearch:
       'This conversation draws on a folder with restricted access or on another project, so it cannot start a deep research run: the run, its title and its report would be visible to everyone in the project, including people who may not read that folder or project.',
     task: 'This conversation draws on a folder with restricted access or on another project, so it cannot create a task: tasks are visible to everyone in the project, including people who may not read that folder or project.',

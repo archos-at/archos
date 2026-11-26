@@ -14,7 +14,7 @@ import {
   insertMessages,
 } from '@/lib/conversations/repository'
 import type { AgentAskRow } from '@/lib/db/schema/piloti-asks'
-import { withPlatformAccess } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withSystemReader } from '@/lib/db/tenant-context'
 import { isUuid } from '@/lib/ids'
 import { memberReader } from '@/lib/documents/visibility'
 import {
@@ -29,7 +29,7 @@ import { HEADLESS_MODE_HEADERS, turnDoorHeaders } from '@/lib/turns/headless-mod
 import type { TurnOutcomeRequest } from '@/lib/turns/outcome-types'
 import { askAnswerMessageId } from '@/lib/turns/answer-ids'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { socketTurnHeaders } from '@/lib/turns/turn-headers.js'
 import { projectValuesFor } from '@/lib/conversations/messages-for-agent'
 import { answerEvidence } from './answer-evidence'
 import { citationStylesFor } from '@/lib/citations/style'
@@ -109,6 +109,7 @@ async function threadFor(
     createdBy: session.userId,
     title: clip(input.question, MAX_TITLE),
     projectId: input.projectId ?? null,
+    startedInPersonal: !input.projectId && input.personal !== false,
   })
   return { conversationId, projectId: input.projectId ?? null, created: true }
 }
@@ -173,7 +174,7 @@ async function startTurn(
     conversationId: ask.conversationId,
     projectId: context.projectId,
     headers: {
-      ...turnContextHeaders(context, { issuedAt: Date.now(), secret: target.secret }),
+      ...socketTurnHeaders(context, { issuedAt: Date.now(), secret: target.secret }),
       ...HEADLESS_MODE_HEADERS,
       ...turnDoorHeaders(actingDoor()),
     },
@@ -234,7 +235,8 @@ export async function endLostAsks(now: Date = new Date()): Promise<number> {
   const lost = await findAsksOpenBefore(new Date(now.getTime() - maxSeconds * 1_000), LOST_ASKS_PER_SWEEP)
   let ended = 0
   for (const ask of lost) {
-    if (await endAsk(ask.organizationId, ask.id, lostAskEnd(maxSeconds))) ended += 1
+    const end = () => endAsk(ask.organizationId, ask.id, lostAskEnd(maxSeconds))
+    if (await withSystemReader(ask.organizationId, 'agent-host', end)) ended += 1
   }
   return ended
 }
@@ -355,8 +357,8 @@ async function stopTurn(row: AgentAskRow): Promise<HeadlessCancelOutcome> {
     conversationId: row.conversationId,
     turnId: row.id,
     headers: {
-      ...turnContextHeaders(
-        { organizationId: row.organizationId, userId: row.requestedBy, conversationId: row.conversationId },
+      ...socketTurnHeaders(
+        { organizationId: row.organizationId, userId: row.requestedBy, conversationId: row.conversationId, contextKind: 'headless' },
         { issuedAt: Date.now(), secret: target.secret },
       ),
       ...HEADLESS_MODE_HEADERS,
@@ -405,5 +407,6 @@ export async function recordAskOutcome(request: TurnOutcomeRequest): Promise<boo
     () => findAskById(request.turnId),
   )
   if (!ask || isTerminalAskState(ask.state) || ask.conversationId !== request.conversationId) return false
-  return (await endAsk(ask.organizationId, ask.id, askEndOf(request))) !== null
+  const ended = await withSystemReader(ask.organizationId, 'agent-host', () => endAsk(ask.organizationId, ask.id, askEndOf(request)))
+  return ended !== null
 }

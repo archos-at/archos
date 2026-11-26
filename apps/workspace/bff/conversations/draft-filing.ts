@@ -6,19 +6,29 @@ import { requireResourceAccess } from '@/lib/sharing/access'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { documentDisplayName, validateDocumentName } from '@/lib/documents/display-name'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
-import { findDocumentAuthoredByRef, listProjectDocuments, DOCUMENT_LIST_LIMIT } from '@/lib/documents/repository'
+import { listProjectDocuments, DOCUMENT_LIST_LIMIT } from '@/lib/documents/repository'
+import { folderOfSource } from '@/lib/documents/agent-folder'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import type { DocumentListRow } from '@/lib/documents/repository'
-import { findOpenVersion } from '@/lib/documents/version-repository'
 import { findConversationInOrg } from './repository'
-import { readConversationDraft } from './draft-preview'
-import { readConversationDraftBytes } from './draft-file'
-import { draftFileType, filedExtension, type DraftFileType } from './draft-media'
+import { readDraftFacts, type DraftFacts } from './draft-preview'
+import { draftFileName, draftFileType, filedExtension, type DraftFileType } from './draft-media'
 import { fileAgentFileDraft } from '@/lib/documents/agent-file'
 import { REFUSED_AGENT_FILE_TYPES } from '@/lib/documents/agent-file-types'
 import { findProjectFolder } from '@/lib/projects/folder-service'
+import { fileDraftToPersonalShelf } from './personal-draft-filing'
+import type { FilingRelease } from './restricted-egress'
+import { filingReleaseOf } from './confidential-release'
 import type { FiledAgentDocumentDraft } from '@/lib/documents/agent-document'
 import type { Locale } from '@/i18n/config'
+import {
+  fileAsRevision,
+  legacyFiling,
+  readDraftWork,
+  recordFiling,
+  refile,
+  type RefilingContext,
+} from './draft-refiling'
 
 export const MAX_FILING_REF_CHARS = 200
 export const MAX_FILING_TITLE_CHARS = 200
@@ -105,8 +115,14 @@ export interface FileConversationDraftInput {
   name?: string
   folderId?: string | null
   force?: boolean
+  as?: 'own' | 'revision'
+  overChanges?: boolean
+  changeNote?: string
+  release?: boolean
   locale?: Locale
 }
+
+export type DraftFilingOutcome = 'filed' | 'unchanged' | 'updated' | 'revised'
 
 export interface FiledConversationDraft {
   documentId: string
@@ -115,6 +131,10 @@ export interface FiledConversationDraft {
   alreadyFiled: boolean
   folderId: string | null
   folderName: string | null
+  outcome: DraftFilingOutcome
+  versionNumber: number | null
+  draftVersion: number
+  revisionOf: { documentId: string; name: string } | null
 }
 
 async function folderNameOf(projectId: string, organizationId: string, folderId: string | null): Promise<string | null> {
@@ -138,13 +158,16 @@ interface FilingTarget {
   path: string
   ref: string
   title: string
+  name?: string
   folderId?: string | null
   request?: Request
   locale?: Locale
+  release?: FilingRelease
 }
 
 async function fileDraftContent(target: FilingTarget, type: DraftFileType): Promise<FiledAgentDocumentDraft> {
   const common = {
+    op: 'file' as const,
     session: target.session,
     projectId: target.projectId,
     ref: target.ref,
@@ -153,67 +176,39 @@ async function fileDraftContent(target: FilingTarget, type: DraftFileType): Prom
     request: target.request,
     originConversationId: target.conversationId,
     locale: target.locale,
+    release: target.release,
   }
-  if (type.filing === 'file') {
-    const draft = await readConversationDraftBytes(target.session, target.conversationId, target.path)
-    return fileAgentFileDraft({ ...common, filename: draft.filename, contentType: type.contentType, bytes: draft.bytes })
-  }
-  const draft = await readConversationDraft(target.session, target.conversationId, target.path)
-  if (draft.encoding !== 'utf-8') {
-    throw new UnprocessableError('This draft is not text and has no file type that can be filed', {
-      reason: 'not-fileable',
-      format: type.format,
-      extension: type.extension,
+  const work = await readDraftWork(target.session, target.conversationId, target.path, type)
+  if (work.kind === 'file') {
+    return fileAgentFileDraft({
+      ...common,
+      filename: target.name ?? draftFileName(target.path),
+      contentType: work.file.contentType,
+      bytes: work.file.bytes,
     })
   }
-  return fileAgentDocumentDraft({ ...common, content: draft.content })
+  return fileAgentDocumentDraft({ ...common, content: work.content })
 }
 
-export async function fileConversationDraft(
+async function sourceFolder(
   session: AuthorizedSession,
-  conversationId: string,
+  projectId: string,
+  facts: DraftFacts,
+): Promise<string | null | undefined> {
+  return facts.derivedFrom ? folderOfSource(session, projectId, facts.derivedFrom.documentId) : undefined
+}
+
+async function fileNew(
+  context: RefilingContext,
   input: FileConversationDraftInput,
-  request?: Request,
+  ref: string,
 ): Promise<FiledConversationDraft> {
-  await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
-
-  const conversation = await findConversationInOrg(conversationId, session.organizationId)
-  if (!conversation) throw new NotFoundError()
-  if (!conversation.projectId) {
-    throw new UnprocessableError('This conversation has no project to file into')
-  }
-  const projectId = conversation.projectId
-
-  const path = normalizeDraftPath(input.path)
-  const type = draftFileType(path)
-  refuseUnfileable(type)
-
+  const { session, conversationId, projectId, path, type, facts } = context
   const title =
     input.name === undefined ? (input.title ?? '').trim() || fallbackTitle(path) : filingName(input.name, filedExtension(type))
-  const destination: Destination =
-    input.folderId === undefined ? { kind: 'default' } : { kind: 'chosen', folderId: input.folderId }
-  if (title.length > MAX_FILING_TITLE_CHARS) {
-    throw new BadRequestError('Title is too long')
-  }
-  const ref = filingReference(conversationId, path)
-
-  const refHit = await findDocumentAuthoredByRef(ref, session.organizationId, projectId, 'agent_document')
-  if (refHit) {
-    const open = await findOpenVersion(refHit.id, session.organizationId)
-    if (open && (open.state === 'draft' || open.state === 'changes_requested')) {
-      return {
-        documentId: refHit.id,
-        versionId: open.id,
-        state: open.state,
-        alreadyFiled: true,
-        folderId: refHit.folderId,
-        folderName: await folderNameOf(projectId, session.organizationId, refHit.folderId),
-      }
-    }
-    throw new ConflictError('This draft has already been filed and is no longer a draft', {
-      reason: 'already-submitted',
-    })
-  }
+  if (title.length > MAX_FILING_TITLE_CHARS) throw new BadRequestError('Title is too long')
+  const folderId = input.folderId === undefined ? await sourceFolder(session, projectId, facts) : input.folderId
+  const destination: Destination = folderId === undefined ? { kind: 'default' } : { kind: 'chosen', folderId }
 
   if (!input.force) {
     const clash = await findSameTitleDocument(projectId, session.organizationId, title, destination)
@@ -227,9 +222,22 @@ export async function fileConversationDraft(
   }
 
   const filed = await fileDraftContent(
-    { session, conversationId, projectId, path, ref, title, folderId: input.folderId, request, locale: input.locale },
+    {
+      session,
+      conversationId,
+      projectId,
+      path,
+      ref,
+      title,
+      name: input.name === undefined ? undefined : title,
+      folderId,
+      request: context.request,
+      locale: context.locale,
+      release: context.release,
+    },
     type,
   )
+  await recordFiling(context, filed.documentId, filed.version)
   return {
     documentId: filed.documentId,
     versionId: filed.version.id,
@@ -237,5 +245,53 @@ export async function fileConversationDraft(
     alreadyFiled: filed.alreadyFiled,
     folderId: filed.folderId,
     folderName: await folderNameOf(projectId, session.organizationId, filed.folderId),
+    outcome: filed.alreadyFiled ? 'unchanged' : 'filed',
+    versionNumber: filed.version.versionNumber ?? null,
+    draftVersion: facts.version,
+    revisionOf: null,
   }
+}
+
+function ownReference(ref: string, filedDocumentId: string): string {
+  const suffix = `-${createHash('sha256').update(filedDocumentId).digest('hex').slice(0, 8)}`
+  return `${ref.slice(0, MAX_FILING_REF_CHARS - suffix.length)}${suffix}`
+}
+
+export async function fileConversationDraft(
+  session: AuthorizedSession,
+  conversationId: string,
+  input: FileConversationDraftInput,
+  request?: Request,
+): Promise<FiledConversationDraft> {
+  await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
+
+  const conversation = await findConversationInOrg(conversationId, session.organizationId)
+  if (!conversation) throw new NotFoundError()
+  const path = normalizeDraftPath(input.path)
+  const type = draftFileType(path)
+  refuseUnfileable(type)
+
+  const facts = await readDraftFacts(session, conversationId, path)
+  const ref = filingReference(conversationId, path)
+  const release = filingReleaseOf(session, input.release === true, request)
+  if (!conversation.projectId) {
+    return fileDraftToPersonalShelf(
+      { session, conversationId, path, type, facts, request, locale: input.locale, release },
+      input,
+      ref,
+      filingName,
+    )
+  }
+  const projectId = conversation.projectId
+  const context: RefilingContext = { session, conversationId, projectId, path, type, facts, request, locale: input.locale, release }
+
+  const nameOf = (folderId: string | null) => folderNameOf(projectId, session.organizationId, folderId)
+  if (input.as === 'revision') return fileAsRevision(context, input, nameOf)
+  const filed = facts.filing ?? (await legacyFiling(context, ref))
+  if (filed && input.as !== 'own') {
+    const refiled = await refile(context, filed, input, nameOf)
+    if (refiled) return refiled
+    return fileNew(context, input, ownReference(ref, filed.documentId))
+  }
+  return fileNew(context, input, filed ? ownReference(ref, filed.documentId) : ref)
 }

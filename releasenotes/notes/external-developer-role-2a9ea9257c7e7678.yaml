@@ -1,0 +1,7 @@
+---
+# area: administration
+operators:
+  - >
+    A new platform role, External Developer, lets an outside developer draft and
+    submit knowledge change requests, manage the base corpus and run golden runs,
+    without review rights, tenant data or Langfuse traces.

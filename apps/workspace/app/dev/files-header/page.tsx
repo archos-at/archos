@@ -14,6 +14,8 @@ import { I18nProvider } from '@/i18n'
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 
+primeInboundMailWaiting('dev', { count: 3, more: false })
+
 function Header() {
   const phone = usePhoneLayout()
   const [view, setView] = useState<FileView>('cards')
@@ -21,7 +23,6 @@ function Header() {
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
   const [query, setQuery] = useState('')
 
-  primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
     <ProjectSectionFrame projectId="dev" projectName="Dev" pathname="/app/projects/dev/files" inboundMail>
       <ProjectSectionActions>

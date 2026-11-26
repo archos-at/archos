@@ -3,10 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync, readdirSync, statSync } from 'fs'
-import path from 'path'
 import { describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/pg-proxy'
+import { nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
 interface CapturedQuery {
   sql: string
@@ -23,35 +22,16 @@ const proxyDb = drizzle(async (sql, params) => {
 vi.mock('@/lib/db', () => ({ getDb: () => proxyDb }))
 
 import { findGrantForSubject } from './repository'
-import { SOURCE_DIRS, srcKey, srcPath } from '@/test-utils/source-tree'
-
-
-function productionSources(directory: string): string[] {
-  const files: string[] = []
-  for (const entry of readdirSync(directory)) {
-    const full = path.join(directory, entry)
-    if (statSync(full).isDirectory()) {
-      if (entry === 'mocks' || entry === 'node_modules') continue
-      files.push(...productionSources(full))
-      continue
-    }
-    if (!/\.(ts|tsx)$/.test(entry)) continue
-    if (/\.(spec|test)\.(ts|tsx)$/.test(entry)) continue
-    files.push(full)
-  }
-  return files
-}
 
 describe('findGrantForSubject — the deliberate non-org-scoped read', () => {
   it('has exactly ONE caller, and it is the access resolver that proved tenancy first', () => {
-    const definition = srcPath('lib/sharing/repository.ts')
+    const definition = 'bff/sharing/repository.ts'
 
-    const callers = SOURCE_DIRS.flatMap((dir) => productionSources(path.join(process.cwd(), dir)))
+    const callers = productionSources()
       .filter((file) => file !== definition)
-      .filter((file) => /\bfindGrantForSubject\b/.test(readFileSync(file, 'utf8')))
-      .map((file) => srcKey(file))
+      .filter((file) => nodesOf(parseSource(file), ts.isIdentifier).some((id) => id.text === 'findGrantForSubject'))
 
-    expect(callers).toEqual(['lib/sharing/access.ts'])
+    expect(callers).toEqual(['bff/sharing/access.ts'])
   })
 
   it('is scoped by resource and subject only — the exception, stated in SQL', async () => {

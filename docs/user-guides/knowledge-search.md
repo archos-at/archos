@@ -10,17 +10,17 @@ ARCHOS searches these sources on its own — you don't need to ask it to "search
 
 ### 1. Basiswissen: OIB-Richtlinien and the law corpus
 
-The OIB (Österreichisches Institut für Bautechnik) guidelines are pre-ingested into a persistent collection named `oib_knowledge`. These PDFs cover Austrian building code regulations. ARCHOS consults this base whenever it needs regulatory or technical building information.
+The OIB (Österreichisches Institut für Bautechnik) guidelines are pre-ingested into the platform's base corpus, a persistent collection named `base_corpus` that holds each country's base documents. These PDFs cover Austrian building code regulations. ARCHOS consults this base whenever it needs regulatory or technical building information.
 
 This collection is part of every question's scope and is **never** auto-deleted.
 
-### 2. Büroablage (organization-wide)
+### 2. Bürobibliothek (organization-wide)
 
-Documents in the office's **Büroablage** are stored in collection `archiv_{orgId}` and searched from every chat of everyone in the organization, alongside the project's own documents. See [The Büroablage](documents.md#the-büroablage-adr-0024).
+Documents in the office's **Bürobibliothek** are stored in collection `archiv_{orgId}` and searched from every chat of everyone in the organization, alongside the project's own documents. See [The Bürobibliothek](documents.md#the-bürobibliothek-adr-0024).
 
 ### 3. Projektwissen (project-scoped)
 
-Documents in a project's **Dateien** are ingested into collection `proj_{projectId}`. Only people with access to that project can search them, and ARCHOS searches them in every chat of that project. How to upload them: [Uploading Documents](documents.md#uploading-documents).
+Documents in a project's **Ablage** are ingested into collection `proj_{projectId}`. Only people with access to that project can search them, and ARCHOS searches them in every chat of that project. How to upload them: [Uploading Documents](documents.md#uploading-documents).
 
 ### 4. Private Sitzung (this chat only)
 
@@ -40,7 +40,7 @@ The chat has no control for choosing sources at the moment: every question goes 
 
 What does narrow a question:
 
-- **A file attached to the chat** binds the next message to that file: „Fass den Inhalt zusammen“ reads the attached file, not the rest of the project or the Büroablage.
+- **A file attached to the chat** binds the next message to that file: „Fass den Inhalt zusammen“ reads the attached file, not the rest of the project or the Bürobibliothek.
 - **Your organization's settings** decide whether web search exists at all (below).
 - **Your access** decides which projects and folders can be searched: ARCHOS's server builds the scope from the chat's project and conversation, never the model.
 
@@ -61,7 +61,7 @@ ARCHOS searches automatically when it decides it needs information it does not h
 
 What ARCHOS found appears with the answer as source cards and chips:
 
-- **Each source names where it comes from** — its kind (OIB-Richtlinie, Projektwissen, Büroablage, Webquelle …), the document's name, the edition when the title states one, the place („S. 7“, „Pkt. 3.1.1“) and the answer's marker („[1]“)
+- **Each source names where it comes from** — its kind (OIB-Richtlinie, Projektwissen, Bürobibliothek, Webquelle …), the document's name, the edition when the title states one, the place („S. 7“, „Pkt. 3.1.1“) and the answer's marker („[1]“)
 - **Clicking a chip opens the source** — a document opens at the cited page, with the passage marked where it can be found; web and RIS sources link out
 - **What was retrieved but not cited** is folded into one card marked „Nicht zitiert“
 
@@ -71,7 +71,7 @@ The details are in the chat guide: [Herleitung](chat.md#herleitung-what-archos-l
 
 ## Document Summaries
 
-Each successfully ingested document gets a short **summary** (if summarization is enabled in the configuration). In a project's Dateien and in the Büroablage it is the description under the file name on the file card, and the file's preview shows it too. ARCHOS also uses the same summaries to know which documents are available before searching them.
+Each successfully ingested document gets a short **summary** (if summarization is enabled in the configuration). In a project's Ablage and in the Bürobibliothek it is the description under the file name on the file card, and the file's preview shows it too. ARCHOS also uses the same summaries to know which documents are available before searching them.
 
 Summaries are generated during ingestion using the configured `summary_model` LLM and stored in a summary registry (SQLite by default, PostgreSQL in a deployment that configures it), which is **separate** from the search index. If summary generation fails during ingestion, a deterministic fallback summary (derived from the document's own text) is generated instead, and a reconciliation pass after every ingestion run backfills any document that still ended up without one — so a document should no longer end up fully searchable while permanently missing from the summaries. If you ever see a document answer targeted search but not "what documents do I have" style questions, it should resolve itself the next time that collection is ingested into; see `docs/architecture/backend-deep-dive.md` §6 for the technical detail.
 
@@ -94,7 +94,7 @@ The system determines which collections to search for each request. This scoping
 
 - **Project context** — if you are working in a project, `proj_{projectId}` is included
 - **Conversation context** — if you have a conversation open, `s_{conversationId}` is included
-- **Büroablage** — `archiv_{orgId}` is included for every signed-in member of an organization
-- **Base knowledge** — `oib_knowledge` is always included as the default collection
+- **Bürobibliothek** — `archiv_{orgId}` is included for every signed-in member of an organization
+- **Base knowledge** — `base_corpus` is always included as the default collection
 
 For technical details, see the [Collection Scoping](../technical-reference/collection-scoping.md) reference.

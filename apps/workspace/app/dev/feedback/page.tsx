@@ -5,7 +5,6 @@ import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
 
 import { I18nProvider } from '@/i18n'
-import { OrgHeader } from '@/components/shell/org-header'
 import { FeedbackProvider, useOpenFeedback } from '@/features/product-feedback/components'
 import { PRODUCT_FEEDBACK_KINDS, type ProductFeedbackKind } from '@/lib/product-feedback/types'
 import { feedbackPreviewApi } from '../_fixtures/feedback-threads'
@@ -38,16 +37,6 @@ function Preview(): JSX.Element {
   return (
     <FeedbackProvider userEmail="maria.huber@buero-nord.at" threadsApi={threadsApi}>
       <OpenOnMount kind={kind} />
-      <OrgHeader
-        user={{ name: 'Maria Huber', email: 'maria.huber@buero-nord.at' }}
-        organizationName="Architekturbüro Nord"
-        authRequired={false}
-        canManageOrganization={false}
-        canViewOrganization
-        canManagePlatform={false}
-        canAccessOfficeShelf
-        canAccessInbox={false}
-      />
       <main className="text-muted-foreground p-8 text-sm">Projekte …</main>
     </FeedbackProvider>
   )

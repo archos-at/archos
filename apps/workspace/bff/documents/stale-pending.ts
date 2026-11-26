@@ -1,5 +1,5 @@
 import 'server-only'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { reconcileDocumentStatuses } from './reconcile-status'
 import { listStalePendingDocuments } from './repository'
 
@@ -22,7 +22,7 @@ export async function reconcileStalePending(now: Date = new Date()): Promise<Sta
   const result: StalePendingSweepResult = { checked: rows.length, organizations: byOrganization.size, errors: 0 }
   for (const [organizationId, group] of byOrganization) {
     try {
-      await withTenant({ organizationId }, () => reconcileDocumentStatuses(group, organizationId, 'sweep'))
+      await withSystemReader(organizationId, 'ingestion-recovery', () => reconcileDocumentStatuses(group, organizationId, 'sweep'))
     } catch (error) {
       console.error('[documents] could not read back pending ingests of', organizationId, error)
       result.errors += 1

@@ -16,6 +16,13 @@ export function agentDocumentFilename(documentId: string, name: string): string 
   return `${AGENT_DOCUMENT_NAMESPACE}${documentId}/${name}`
 }
 
+export function deliveredFilename(filename: string): string {
+  if (!filename.startsWith(AGENT_DOCUMENT_NAMESPACE)) return filename
+  const rest = filename.slice(AGENT_DOCUMENT_NAMESPACE.length)
+  const slash = rest.indexOf('/')
+  return slash >= 0 && slash < rest.length - 1 ? rest.slice(slash + 1) : filename
+}
+
 export function isNamespacedAgentDocument(row: { authoredByProducer: string | null }): boolean {
   return row.authoredByProducer !== null && NAMESPACED_AGENT_PRODUCERS.includes(row.authoredByProducer)
 }

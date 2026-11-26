@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState, type FC } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import { Download } from 'lucide-react'
-import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnapExit } from '@/components/motion'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FittedName } from '@/components/ui/fitted-name'
@@ -19,9 +19,18 @@ import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import { formatBytes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useDraftFiling, type DraftFiling } from '../hooks/use-draft-filing'
+import { useDraftLife } from '../hooks/use-draft-life'
 import { draftFileUrls, type DraftFileUrls } from '../lib/document-draft-preview'
 import { CARD_SHELL, DECISION_BUTTON, DECISION_ROW } from './card-chrome'
-import { DraftConflictNotice, DraftSaveDialog, openFiled, openFiledInPlace } from './draft-filing-parts'
+import {
+  DraftConflictNotice,
+  DraftMenu,
+  DraftSaveDialog,
+  ProjectChangeNotice,
+  openFiled,
+  openFiledInPlace,
+} from './draft-filing-parts'
+import { ConfidentialReleaseNotice } from './confidential-release-notice'
 import { FileDraftThumbnail } from './FileDraftThumbnail'
 import { FileDraftViewer } from './FileDraftViewer'
 
@@ -33,6 +42,10 @@ export interface FileDraftCardProps {
   documentId?: string | null
   versionId?: string | null
   versionState?: DocumentVersionState | null
+  filedDraftVersion?: number | null
+  derivedFromDocumentId?: string | null
+  derivedFromName?: string | null
+  removed?: boolean | null
   messageId?: string
   cardKey: string
   decisionsMustPersist?: boolean
@@ -52,36 +65,87 @@ const FILE_WIDE_BUTTON = cn(FILE_BUTTON, 'max-sm:col-span-2')
 const FiledActions: FC<{ filing: DraftFiling }> = ({ filing }) => {
   const t = useTranslations(chatCopy)
   const isMobile = useIsMobile()
-  const { href, shownDocumentId, projectId, isSubmitting } = filing
+  const { href, shownDocumentId, projectId, isFiling } = filing
   return (
     <div className={DECISION_ROW}>
-      {href && shownDocumentId && projectId && (
+      {href && shownDocumentId && (
         <Button asChild variant="secondary" size="sm" className={DECISION_BUTTON}>
           <a
             href={href}
             data-testid="document-draft-open"
-            onClick={(event) => openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })}
+            onClick={(event) =>
+              projectId && openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })
+            }
           >
-            {t('cards.documentDraft.open')}
+            {filing.personal ? t('cards.documentDraft.personal.open') : t('cards.documentDraft.open')}
           </a>
         </Button>
       )}
-      {filing.canSubmit && (
+      {filing.canUpdate && (
         <Button
           size="sm"
           className={DECISION_BUTTON}
-          aria-disabled={isSubmitting || undefined}
-          aria-busy={isSubmitting || undefined}
-          onClick={() => void filing.submit()}
+          aria-disabled={isFiling || undefined}
+          aria-busy={isFiling || undefined}
+          onClick={() => void filing.update()}
+          data-testid="file-draft-update"
         >
           <StackedLabel
-            busy={isSubmitting}
-            idle={t('cards.documentDraft.submit')}
-            working={t('cards.documentDraft.submitting')}
+            busy={isFiling}
+            idle={filing.personal ? t('cards.documentDraft.personal.update') : t('cards.fileDraft.updateInProject')}
+            working={t('cards.fileDraft.updating')}
           />
         </Button>
       )}
     </div>
+  )
+}
+
+const RemovedDraft: FC<{ name: string; format: string; filing: DraftFiling; focus: boolean }> = ({
+  name,
+  format,
+  filing,
+  focus,
+}) => {
+  const t = useTranslations(chatCopy)
+  const isMobile = useIsMobile()
+  const shell = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focus) shell.current?.focus()
+  }, [focus])
+  const { href, shownDocumentId, projectId, shownFiled } = filing
+  return (
+    <Card
+      ref={shell}
+      tabIndex={-1}
+      data-testid="file-draft-card"
+      data-removed="true"
+      role="group"
+      aria-label={`${format}: ${name}`}
+      className={cn(CARD_SHELL, 'gap-1 p-4 outline-none sm:p-5')}
+    >
+      <SectionLabel>{t('cards.fileDraft.removed')}</SectionLabel>
+      <FittedName text={name} lines={2} className="card-title text-muted-foreground" />
+      <p className="card-caption text-muted-foreground" data-testid="file-draft-removed">
+        {t('cards.fileDraft.removedNote')}
+        {shownFiled && ` ${t('cards.fileDraft.removedFiled')}`}
+      </p>
+      {shownFiled && href && shownDocumentId && (
+        <div className={DECISION_ROW}>
+          <Button asChild variant="secondary" size="sm" className={DECISION_BUTTON}>
+            <a
+              href={href}
+              data-testid="document-draft-open"
+              onClick={(event) =>
+                projectId && openFiledInPlace(event, { documentId: shownDocumentId, projectId, href, isMobile })
+              }
+            >
+              {filing.personal ? t('cards.documentDraft.personal.open') : t('cards.documentDraft.open')}
+            </a>
+          </Button>
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -92,9 +156,12 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
   const reduced = useReducedMotion()
   const isMobile = useIsMobile()
   const filing = useDraftFiling(props)
+  const life = useDraftLife(props)
   const { conversationId, shownFiled, isFiling } = filing
   const [viewerOpen, setViewerOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
+  const [savingOwn, setSavingOwn] = useState(false)
+  const [justRemoved, setJustRemoved] = useState(false)
   const type = useMemo(() => draftFileType(path), [path])
   const name = draftFileName(path) || title
   const urls = props.urls ?? (conversationId ? draftFileUrls(conversationId, path, version) : null)
@@ -103,11 +170,25 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
   const stateLabel = filing.stateLabel
   const facts = [type.extension.toUpperCase() || format, formatBytes(bytes, locale)]
   if (version > 1) facts.push(t('cards.documentDraft.version', { version }))
+  const source =
+    props.derivedFromDocumentId && props.derivedFromName
+      ? { documentId: props.derivedFromDocumentId, name: props.derivedFromName }
+      : null
+
+  if (life.removed) return <RemovedDraft name={name} format={format} filing={filing} focus={justRemoved} />
+
+  const openSave = (own: boolean) => {
+    setSavingOwn(own)
+    setSaveOpen(true)
+  }
 
   const openFile = () => {
+    if (life.superseded) return
     if (shownFiled) {
       if (filing.href && filing.shownDocumentId && filing.projectId) {
         openFiled({ documentId: filing.shownDocumentId, projectId: filing.projectId, href: filing.href, isMobile })
+      } else if (filing.href) {
+        window.location.assign(filing.href)
       }
       return
     }
@@ -120,12 +201,28 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       data-format={type.format}
       role="group"
       aria-label={`${format}: ${name}`}
-      className={cn(CARD_SHELL, 'gap-3 p-4 sm:p-5')}
+      className={cn(CARD_SHELL, 'relative gap-3 p-4 sm:p-5')}
     >
-      <div className="flex min-w-0 gap-4">
-        <FileDraftThumbnail type={type} name={name} urls={shownFiled ? null : urls} onOpen={openFile} />
+      <DraftMenu
+        life={life}
+        name={name}
+        filed={shownFiled}
+        onRemoved={() => setJustRemoved(true)}
+        className="absolute right-2 top-2"
+      />
+      <div className="flex min-w-0 gap-4 pr-8">
+        <FileDraftThumbnail
+          type={type}
+          name={name}
+          urls={shownFiled || life.superseded ? null : urls}
+          onOpen={openFile}
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <SectionLabel>{shownFiled ? t('cards.fileDraft.eyebrowFiled') : t('cards.fileDraft.eyebrow')}</SectionLabel>
+          <SectionLabel>{shownFiled
+              ? filing.personal
+                ? t('cards.documentDraft.personal.eyebrowFiled')
+                : t('cards.fileDraft.eyebrowFiled')
+              : t('cards.fileDraft.eyebrow')}</SectionLabel>
           <FittedName text={title} lines={2} className="card-title text-foreground" />
           <p className="card-caption tabular-nums text-muted-foreground" data-testid="file-draft-facts">
             <span className="sr-only">{format}, </span>
@@ -134,14 +231,16 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
           <AuthorshipLine authoredBy="agent" />
           <p className="card-caption text-muted-foreground" aria-live="polite">
             <AnimatePresence mode="wait" initial={false}>
-              {filing.filedKnown ? (
+              {life.superseded ? (
+                <span data-testid="file-draft-superseded">{t('cards.fileDraft.superseded')}</span>
+              ) : filing.filedKnown ? (
                 <motion.span
                   key={stateLabel}
                   className="inline-block"
                   data-testid="document-draft-state"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: reduced ? motionInstant : motionQuick }}
-                  exit={{ opacity: 0, transition: reduced ? motionInstant : motionQuickExit }}
+                  exit={{ opacity: 0, transition: reduced ? motionInstant : motionSnapExit }}
                 >
                   {stateLabel}
                 </motion.span>
@@ -155,7 +254,7 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
         </div>
       </div>
 
-      {shownFiled ? (
+      {life.superseded ? null : shownFiled ? (
         <FiledActions filing={filing} />
       ) : (
         urls && (
@@ -187,12 +286,12 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
                 className={FILE_WIDE_BUTTON}
                 aria-disabled={isFiling || undefined}
                 aria-busy={isFiling || undefined}
-                onClick={() => (filing.projectId ? setSaveOpen(true) : void filing.file(false))}
+                onClick={() => openSave(false)}
                 data-testid="file-draft-file"
               >
                 <StackedLabel
                   busy={isFiling}
-                  idle={t('cards.documentDraft.file')}
+                  idle={filing.personal ? t('cards.documentDraft.personal.file') : t('cards.documentDraft.file')}
                   working={t('cards.documentDraft.filing')}
                 />
               </Button>
@@ -209,12 +308,22 @@ export const FileDraftCard: FC<FileDraftCardProps> = (props) => {
       )}
 
       <DraftConflictNotice filing={filing} />
+      <ConfidentialReleaseNotice filing={filing} />
+      <ProjectChangeNotice filing={filing} name={name} onFileAsOwn={() => openSave(true)} />
 
-      {filing.canFile && !refused && (
-        <DraftSaveDialog filing={filing} open={saveOpen} onOpenChange={setSaveOpen} title={title} path={path} />
+      {(filing.canFile || filing.projectChange) && !refused && (
+        <DraftSaveDialog
+          filing={filing}
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          title={title}
+          path={path}
+          source={savingOwn ? null : source}
+          asOwn={savingOwn}
+        />
       )}
 
-      {!shownFiled && conversationId && urls && (
+      {!shownFiled && !life.superseded && conversationId && urls && (
         <FileDraftViewer
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}

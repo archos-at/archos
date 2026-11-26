@@ -7,16 +7,17 @@ import { AGENT_DOCUMENT_MEDIA_TYPE, renderAgentDocumentMarkdown } from './agent-
 import { resolveDocumentBranding } from './branding'
 import { contentDigest } from './content-digest'
 import { fileGeneratedDocument, type FiledGeneratedDocument } from './generated'
-import { AGENT_REFUSAL_LOCALE } from '@/lib/conversations/restricted-egress'
+import { AGENT_REFUSAL_LOCALE, type FilingRelease } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import { createDocumentVersion } from './lifecycle'
 import { findDocumentInOrg } from './repository'
 import { internalRead } from '@/lib/documents/document-reader'
-import { findOpenVersion } from './version-repository'
+import { findOpenVersion, findPublishedVersion } from './version-repository'
 
 export { AGENT_DOCUMENT_MEDIA_TYPE, renderAgentDocumentMarkdown }
 
 export interface FileAgentDocumentDraftInput {
+  op: GeneratedDraftOp
   session: AuthorizedSession
   projectId: string
   ref: string
@@ -27,6 +28,7 @@ export interface FileAgentDocumentDraftInput {
   actingHuman?: boolean
   originConversationId?: string | null
   locale?: Locale
+  release?: FilingRelease
 }
 
 export interface FiledAgentDocumentDraft {
@@ -43,6 +45,7 @@ export async function fileAgentDocumentDraft(
   const branding = await resolveDocumentBranding({
     organizationId: input.session.organizationId,
     organizationName,
+    filed: input.op === 'file',
   })
 
   const filed = await fileGeneratedDocument({
@@ -57,13 +60,17 @@ export async function fileAgentDocumentDraft(
     origin: {
       conversationId: input.originConversationId ?? null,
       locale: input.locale ?? AGENT_REFUSAL_LOCALE,
+      release: input.release,
     },
   })
 
   return recordGeneratedDraft(input, filed, contentDigest(new TextEncoder().encode(input.content)))
 }
 
+export type GeneratedDraftOp = 'file' | 'create'
+
 export interface GeneratedDraftContext {
+  op: GeneratedDraftOp
   session: AuthorizedSession
   request?: Request
   actingHuman?: boolean
@@ -79,13 +86,15 @@ export async function recordGeneratedDraft(
   if (!document) throw new NotFoundError('Document not found')
 
   if (filed.alreadyFiled) {
-    const existing = await findOpenVersion(document.id, input.session.organizationId)
+    const existing =
+      (await findOpenVersion(document.id, input.session.organizationId)) ??
+      (await findPublishedVersion(document.id, input.session.organizationId))
     if (existing) return { documentId: document.id, version: existing, alreadyFiled: true, folderId: document.folderId }
   }
 
   const version = await createDocumentVersion(input.session, {
     document,
-    op: 'create',
+    op: input.op,
     storageKey: document.storageKey,
     storageBucket: document.storageBucket,
     contentType: document.contentType,

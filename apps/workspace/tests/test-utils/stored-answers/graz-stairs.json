@@ -23,9 +23,9 @@
             "score": 1, "shelf": "base", "title": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "clause": "Tabelle 3", "number": 1, "origin": "kb",
             "content": "[KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.10",
             "snippet": "Tabelle 3: Stufenhöhe und Stufenauftritt\n\n| Treppenarten | Stufenhöhe in cm Höchstmaß | Stufenauftritt in cm Mindestmaß |\n|---|---|---|\n| Haupttreppen, ausgenommen Wohnungstreppen | 18 | 27 |\n| Wohnungstreppen | 20 | 24 |",
-            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "base_corpus",
             "edition_id": "edition:oib-rl-4-2019", "lane_label": "Basisdokument", "role_since": "2020-09-01", "designation": "OIB-Richtlinie 4",
-            "document_id": "doc:oib_knowledge:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "document_id": "doc:base_corpus:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
             "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.10",
             "edition_label": "Ausgabe April 2019", "binding_status": "declared_binding"
           },
@@ -35,9 +35,9 @@
             "score": 1, "shelf": "base", "title": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "number": 2, "origin": "kb",
             "content": "[KB] oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.4",
             "snippet": "0 Vorbemerkungen\nAlle in dieser Richtlinie angeführten Maße verstehen sich als Fertigmaße nach Vollendung der Bauführung.",
-            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "work_id": "work:oib-rl-4", "language": "de", "file_name": "oib-rl-4-2019-text-bfe3f994b9b6.pdf", "freshness": "check_due", "collection": "base_corpus",
             "edition_id": "edition:oib-rl-4-2019", "lane_label": "Basisdokument", "role_since": "2020-09-01", "designation": "OIB-Richtlinie 4",
-            "document_id": "doc:oib_knowledge:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "document_id": "doc:base_corpus:oib-rl-4-2019-text-bfe3f994b9b6.pdf", "role_labels": ["check_overdue", "unchecked_since"],
             "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-4-2019-text-bfe3f994b9b6.pdf, p.4",
             "edition_label": "Ausgabe April 2019", "binding_status": "declared_binding"
           },

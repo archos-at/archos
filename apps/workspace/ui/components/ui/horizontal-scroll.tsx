@@ -1,6 +1,6 @@
 'use client'
 
-import { type HTMLAttributes, type ReactNode, useLayoutEffect, useRef, useState } from 'react'
+import { type HTMLAttributes, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -27,6 +27,7 @@ export interface HorizontalScrollProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
   'aria-label': string
   cue?: boolean
+  onOverflowChange?: (scrollable: boolean) => void
 }
 
 export function HorizontalScroll({
@@ -35,6 +36,7 @@ export function HorizontalScroll({
   style,
   'aria-label': label,
   cue = false,
+  onOverflowChange,
   ...props
 }: HorizontalScrollProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -66,6 +68,9 @@ export function HorizontalScroll({
 
   const mask = maskFor(overflow)
   const scrollable = overflow.start || overflow.end
+  useEffect(() => {
+    onOverflowChange?.(scrollable)
+  }, [onOverflowChange, scrollable])
   const scroller = (
     <div
       ref={ref}

@@ -87,6 +87,25 @@ describe("contract", () => {
     assert.equal(returned(body, "/workspace/a.txt").toString(), "a changed");
   });
 
+  test("a file sent in and removed by the run is listed as deleted", async () => {
+    const { body } = await runner.run({
+      source: `import { readFile, rm, writeFile } from "node:fs/promises";
+        export default async () => {
+          await rm("/workspace/alt.txt");
+          await writeFile("/workspace/b.txt", await readFile("/workspace/a.txt"));
+          await rm("/workspace/a.txt");
+          return null;
+        }`,
+      files: [
+        { path: "/workspace/alt.txt", base64: b64("alt") },
+        { path: "/workspace/a.txt", base64: b64("a") },
+      ],
+    });
+    assert.equal(body.status, "ok", body.stderr);
+    assert.deepEqual(body.deleted, ["/workspace/a.txt", "/workspace/alt.txt"]);
+    assert.deepEqual(body.files.map((file) => file.path), ["/workspace/b.txt"]);
+  });
+
   test("console output goes to stdout and stderr", async () => {
     const { body } = await runner.run({ source: `export default () => { console.log("out"); console.error("err"); }` });
     assert.equal(body.status, "ok");

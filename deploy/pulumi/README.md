@@ -251,6 +251,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | — | — | `/api/internal/signed/*` (the RFC 9421 signed internal routes, today the project mail webhook) has a route of its own and **no** edge bucket: all of it arrives from Cloudflare's shared egress, so a per-client bucket would let other Cloudflare traffic defer mail. Its edge ceiling is a `Content-Length` of at most 27 MiB matched on the header (Envoy answers 413 otherwise, without buffering a byte), and its upstream budget is 120 s (`SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`). The BFF limits per signing key, address and organization after the signature |
 | `rateLimitS3` | `300`/min | Presigned preview/download URLs (one preview fans out into many GETs) |
 | `rateLimitWeb` | `120`/min | Landing site + blog |
+| `rateLimitWebEnquiryPerHour` | `5`/hour | The website's contact and demo forms (`/api/enquiry`) per client IP. Enforced even with `rateLimitShadowMode` on: each send can mail a confirmation to an address the visitor typed |
 | `rateLimitStoreMaxmemory` | `256mb` | Counter-store dataset cap (floor 256mb — Dragonfly's per-thread boot minimum) |
 | `rateLimitStoreMemoryLimit` | `384Mi` | Counter-store pod memory limit; must exceed maxmemory |
 | `protectDataResources` | `true` | Pulumi `protect` on the CNPG Cluster + SeaweedFS/Qdrant StatefulSets: refuses any delete/replace, so a stray rename or `pulumi destroy` fails loudly instead of destroying data. `false` on scratch stacks; lift one resource with `pulumi state unprotect <urn>` |
@@ -260,7 +261,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `pgStorageSize` | `20Gi` | Per-instance volume (expandable via config — CNPG manages PVCs) |
 | `pgPoolerInstances` | `2` (dev: 1) | PgBouncers in the transaction pooler (`grid-pg-pooler-rw`, ADR-0083), spread across nodes with a PDB when more than 1 |
 | `pgPoolerPoolSize` | `12` | Server connections each PgBouncer opens per (database, role) pair. The plan fails when `pgPoolerInstances x (3 pooled pairs x this + 1)` plus the direct reserve passes `max_connections` (200): prod 74 + 76 = 150, a fresh stack with everything on 196 (`assertPgConnectionBudget`) |
-| `pgPoolerImage` | digest-pinned `ghcr.io/cloudnative-pg/pgbouncer:1.26.0@sha256:…` | PgBouncer image, must be 1.21 or newer (prepared statements in transaction mode). Scanned by the trivy `image-scan` job; override only for a deliberate upgrade |
+| `pgPoolerImage` | digest-pinned `ghcr.io/cloudnative-pg/pgbouncer:1.26.1@sha256:…` | PgBouncer image, must be 1.21 or newer (prepared statements in transaction mode). Scanned by the trivy `image-scan` job; override only for a deliberate upgrade |
 | `pgAppUser` | `aiq` | Role owning all three databases |
 | 🔒 **`pgAppPassword`** | — | Role password; drives every DSN |
 | `pgPrimaryUpdateStrategy` | `unsupervised` | CNPG rolls a changed pod spec (image, restart-requiring parameter, resources) on its own: replicas first, then a switchover to the most aligned replica (`primaryUpdateMethod: switchover`); a 1-instance cluster restarts its primary. `supervised` stops before the primary for a manual `kubectl cnpg promote`. An operator upgrade restarts nothing: the operator chart (`CNPG_CHART_VERSION`, pinned) runs with `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES`. With `switchover`, change `imageName` and PostgreSQL parameters in separate deploys |
@@ -314,9 +315,9 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `geocoderUrl` | _(empty: off)_ | The [Photon](https://github.com/komoot/photon) instance behind the project dialog's address search, passed to the frontend alone as `GEOCODER_URL` (the `bff-jobs` pool does not get it). komoot's public instance needs no account; the adapter asks it for the Austrian bounding box and drops every hit outside AT. Nothing runs in the cluster for it: the frontend reaches it over its open HTTPS egress. Empty (the default since ADR-0159: every keystroke goes to the geocoder, and komoot is in no processor register) leaves address search off, and the dialog's address stays a plain text field, stored as unconfirmed; set `https://photon.komoot.io` to opt a stack in; a value that is no http(s) URL fails the plan |
 | **Malware scanner (ClamAV, ADR-0157)** | | |
 | `malwareScanEnabled` | `false` | clamd and freshclam in a `clamav` Deployment of one (`src/app/clamav.ts`), and `MALWARE_SCAN_URL=tcp://clamav:3310` on the frontend and the `bff-jobs` pool. Off, every scan fails closed (`not-configured`) and nothing that needs a clean scan is filed. Requests 2 GiB of memory; freshclam needs HTTPS egress to `database.clamav.net`. The pod is ready only while its signatures are under 48 hours old. With `networkPolicies` on it admits the frontend and the `bff-jobs` pool alone (`clamav-bff-only`). Its config is `deploy/compose/clamav/{clamd,freshclam}.conf`, shared with Compose |
-| `malwareScanImage` | `clamav/clamav:1.5.4@sha256:…` | The official image with its signatures baked in. Refused unless pinned by digest; keep it equal to the Compose pin. `malwareScanUrl` is refused on every stack: the URL is always the stack's own clamd |
+| `malwareScanImage` | `clamav/clamav:1.5.5@sha256:…` | The official image with its signatures baked in. Refused unless pinned by digest; keep it equal to the Compose pin. `malwareScanUrl` is refused on every stack: the URL is always the stack's own clamd |
 | **SeaweedFS (S3)** | | |
-| `seaweedfsImage` | `chrislusf/seaweedfs:latest` | Prod template pins 3.80 (storage engine) |
+| `seaweedfsImage` | `chrislusf/seaweedfs:4.54` | Prod pins 3.80 (storage engine): change it only with a SeaweedFS upgrade plan |
 | `seaweedfsStorageSize` | `20Gi` | Object-store volume (grow via PVC patch) |
 | `seaweedfsBucket` | `grid-documents` | Documents bucket (auto-created + verified) |
 | `seaweedfsAccessKey` / 🔒 **`seaweedfsSecretKey`** | `grid` / — | S3 identity |
@@ -448,16 +449,29 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `cmsPgInstances` / `cmsPgStorageSize` | `1` / `5Gi` | `cms-pg`'s instances and volume |
 | 🔒 `cmsSecret` / `cmsAdminPassword` / `cmsPgPassword` / `cmsS3SecretKey` / `cmsWebsiteApiKey` / `cmsSocialHandoffApiKey` / `cmsRevalidateToken` / `cmsPreviewSecret` | HMACs of `pgAppPassword` | Each defaults to its own one-way HMAC, so the CMS needs no new secret; set one to rotate it alone. `cmsAdminEmail` defaults to `letsEncryptEmail` |
 | `cmsPgBackupsEnabled` / `cmsPgBackupEndpoint` / `cmsPgBackupAccessKey` / 🔒 `cmsPgBackupSecretKey` / `cmsPgBackupBucket` / `cmsPgBackupRetention` / `cmsPgBackupSchedule` / `cmsPgBackupEncryption` | `false` / — / — / — / `cms-pg-backups` / `30d` / `0 15 2 * * *` / unset | `cms-pg`'s PITR archive, to object storage outside the cluster, as the `backgroundWorkPg*` keys. Turn it on before the first post is written there |
+| **The website's forms** (`apps/website`, contact and demo): the `web-mail` Secret and the website's `SMTP_*` / `ATTIO_API_KEY` env. Unset, both forms hand off to the visitor's mail program | | |
+| `websiteSmtpUser` / 🔒 `websiteSmtpPassword` | unset | The Google Workspace user the forms send through `smtp.gmail.com`, and its app password. Set both or neither; on `dev` and `prod` in the stack's ESC environment (`pulumi env set $ESC pulumiConfig.grid-oib:websiteSmtpPassword … --secret`). The user must be allowed to send as the site's contact address (Gmail, "Send mail as"), or Gmail rewrites the confirmation's sender |
+| 🔒 `attioApiKey` | unset | An Attio API key with write access to people and notes: each enquiry upserts the person by email and attaches the enquiry as a note |
 | **The code runner** (`apps/code-runner`): the `code-runner` Deployment, Service, PDB and KEDA ScaledObject behind the agent's `execute` tool, and the `code-runner-agent-only` NetworkPolicy. Image `code-runner`, built by CI from `apps/code-runner`. Off by default | | |
 | `codeRunnerEnabled` | `false` | Deploy the runner and set `CODE_RUNNER_URL` on the chat tier and `agent-worker` |
 | `codeRunnerImage` | `<imageRegistry>/code-runner:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
 | `codeRunnerMinReplicas` / `codeRunnerMaxReplicas` | `2` / `10` | The ScaledObject's bounds |
-| `codeRunnerCpuTargetPercent` / `codeRunnerMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| `codeRunnerCpuTargetPercent` | `70` | CPU utilisation the ScaledObject scales on (CPU only: an idle pod already holds more than its memory request would allow a memory trigger) |
 | `browserRendererEnabled` | `false` | Needs `codeRunnerEnabled`. Deploy the `browser-renderer` Deployment (headless Chromium, `apps/browser-renderer`), Service, KEDA ScaledObject and the `browser-renderer-code-runner-only` NetworkPolicy (ingress from `code-runner` only, no egress), open the runner's egress to it, and set `BROWSER_RENDERER_ADDR` on the runner. No PDB. The container is the browser's sandbox: `RuntimeDefault` seccomp, no capabilities, read-only root, and Chromium runs `--no-sandbox` ([runbook](../../docs/deployment/code-runner-runbook.md#the-browser-puppeteer-in-a-run)) |
 | `browserRendererImage` | `<imageRegistry>/browser-renderer:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
 | `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
 | `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
 | `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| **CI runners** (ADR-0184): actions-runner-controller and one runner scale set for CI jobs, in `arc-systems` and `arc-runners`. Dev stack only; while the repository is public, only with approval required for every outside contributor's workflow run. Off by default | | |
+| `ciRunnersEnabled` | `false` | Install the controller, the scale set, its NetworkPolicy and the `ci-runner` PriorityClass. On, it needs `networkPolicies`, the three GitHub App keys and a digest-pinned `ciRunnersImage`, or the plan fails naming the missing one |
+| `ciRunnersImage` | — | `ghcr.io/archos-at/ci-runner@sha256:…`, built from `deploy/ci-runner` by the `CI runner image` workflow; a tag is refused |
+| `ciRunnersGithubAppId` / `ciRunnersGithubAppInstallationId` / 🔒 `ciRunnersGithubAppPrivateKey` | — | The GitHub App the controller registers runners with: Actions and Administration read/write on this repository. The key goes into a Secret of its own, not the Helm release's values |
+| `ciRunnersGithubConfigUrl` | `https://github.com/archos-at/archos` | Where the scale set registers |
+| `ciRunnersScaleSetName` | `dev-cluster` | The `runs-on` label, and the value of the repository variable `CI_RUNNER` |
+| `ciRunnersMinRunners` / `ciRunnersMaxRunners` | `0` / `3` | Idle runners cost a pod each; at zero a job waits for one to start. Three is what staging had room for in the ci-shadow trial |
+| `ciRunnersRequestsCpu/Memory`, `ciRunnersLimitsCpu/Memory` | 250m / 4Gi / 3 / 7Gi | Per runner; the CPU request is scaled by `cpuRequestScale` like every other. The CPU limit is also pytest's worker count (`PYTEST_XDIST_AUTO_NUM_WORKERS`), since `-n logical` counts the node's CPUs |
+| `ciRunnersScratchStorageClass` / `ciRunnersScratchSize` | `storageClass` / `15Gi` | Each runner's ephemeral volume for the checkout, caches and `/tmp`, off the node's disk |
+| `ciRunnersNodeGroup` | (unset) | A worker group for the runners alone. Unset, they share staging's nodes at the lowest priority |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
 | `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
@@ -468,7 +482,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 ## Validation (no target cluster required)
 
 ```bash
-npm run typecheck   # tsc: every typed manifest, incl. Gateway/Envoy CRD specs,
+bun run typecheck   # bun check (TypeScript 7): every typed manifest, incl. Gateway/Envoy CRD specs,
                     # the launch-gate tool, and the Email Worker against
                     # @cloudflare/workers-types (tsconfig.worker.json)
 npm run validate    # pulumi preview → schema-check every CustomResource in the

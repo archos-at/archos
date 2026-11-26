@@ -1,7 +1,7 @@
 'use client'
 
 import type { FormEvent, JSX } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Folder, FolderPlus } from 'lucide-react'
 import {
   Breadcrumb,
@@ -28,24 +28,31 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { validateDocumentName, type DocumentNameError } from '@/lib/documents/display-name'
 import { cn } from '@/lib/utils'
 import type { FolderItem } from '../file-types'
-import { useSaveFolders, type KnownFolders } from '../hooks/use-save-folders'
+import { useSaveFolders, type KnownFolders, type SaveShelf } from '../hooks/use-save-folders'
 import { FOLDER_ROW } from './folder-picker-sheet'
 import { folderPath } from './folder-trail'
+import { ChangeNoteField, SaveModeChoice, type SaveMode } from './save-as-revision'
 
 export interface SaveToProjectChoice {
   folderId: string | null
   folderLabel: string
   name: string
+  as?: SaveMode
+  changeNote?: string
 }
 
 export interface SaveToProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  projectId: string
+  shelf: SaveShelf
   fileName: string
   extension: string
   title?: string
   initialFolderId?: string | null
+  initialFolderName?: string
+  locating?: boolean
+  revisionOf?: string
+  changeNote?: string
   knownFolders?: KnownFolders
   pending?: boolean
   error?: string | null
@@ -71,28 +78,54 @@ function mayWrite(folder: FolderItem | undefined, rootAccess: 'read' | 'write'):
 export function SaveToProjectDialog({
   open,
   onOpenChange,
-  projectId,
+  shelf,
   fileName,
   extension,
   title,
   initialFolderId = null,
+  initialFolderName,
+  locating = false,
+  revisionOf,
+  changeNote: initialChangeNote = '',
   knownFolders,
   pending = false,
   error = null,
   onSave,
 }: SaveToProjectDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
-  const { folders, rootAccess, status, load, create } = useSaveFolders(projectId, open, knownFolders)
+  const { folders, rootAccess, status, load, create } = useSaveFolders(shelf, open, knownFolders)
   const [stem, setStem] = useState(() => nameStem(fileName, extension))
   const [nameError, setNameError] = useState<DocumentNameError | null>(null)
   const [currentId, setCurrentId] = useState<string | null>(initialFolderId)
+  const [mode, setMode] = useState<SaveMode>('own')
+  const [changeNote, setChangeNote] = useState(initialChangeNote)
+  const moved = useRef(false)
 
   useEffect(() => {
     if (!open) return
     setStem(nameStem(fileName, extension))
     setNameError(null)
-    setCurrentId(initialFolderId)
-  }, [open, fileName, extension, initialFolderId])
+    setMode('own')
+    setChangeNote(initialChangeNote)
+    moved.current = false
+  }, [open, fileName, extension, initialChangeNote])
+
+  useEffect(() => {
+    if (!open || moved.current) return
+    if (initialFolderId !== null) {
+      setCurrentId(initialFolderId)
+      return
+    }
+    const named = initialFolderName
+      ? folders.find((folder) => (folder.parentId ?? null) === null && folder.name === initialFolderName)
+      : undefined
+    setCurrentId(named?.id ?? null)
+  }, [open, initialFolderId, initialFolderName, folders])
+
+  const moveTo = (folderId: string | null): void => {
+    moved.current = true
+    setCurrentId(folderId)
+  }
 
   const byId = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders])
   const here = currentId === null ? undefined : byId.get(currentId)
@@ -105,14 +138,22 @@ export function SaveToProjectDialog({
         .sort((a, b) => a.name.localeCompare(b.name)),
     [folders, location],
   )
+  const personal = shelf.kind === 'personal'
   const rootLabel = t('folders.allFiles')
   const hereLabel = here?.name ?? rootLabel
   const writable = mayWrite(here, rootAccess)
-  const ready = status === 'ready'
+  const ready = status === 'ready' && !locating
+
+  const asRevision = revisionOf !== undefined && mode === 'revision'
 
   const submit = (event: FormEvent): void => {
     event.preventDefault()
-    if (pending || !ready || !writable) return
+    if (pending) return
+    if (asRevision) {
+      void onSave({ folderId: null, folderLabel: revisionOf, name: '', as: 'revision', changeNote: changeNote.trim() })
+      return
+    }
+    if (!ready || !writable) return
     const chosenStem = nameStem(stem, extension)
     const validated = validateDocumentName(chosenStem === '' ? '' : `${chosenStem}.${extension}`)
     if (!validated.ok) {
@@ -120,7 +161,7 @@ export function SaveToProjectDialog({
       return
     }
     const folderLabel = trail.length === 0 ? rootLabel : trail.map((folder) => folder.name).join(' / ')
-    void onSave({ folderId: location, folderLabel, name: validated.value })
+    void onSave({ folderId: location, folderLabel, name: validated.value, ...(revisionOf !== undefined ? { as: 'own' } : {}) })
   }
 
   return (
@@ -128,11 +169,21 @@ export function SaveToProjectDialog({
       <DialogContent className="sm:max-w-[480px]" closeLabel={t('saveTo.close')} data-testid="save-to-project">
         <form onSubmit={submit} className="flex min-w-0 flex-col gap-5">
           <DialogHeader>
-            <DialogTitle className="pr-10 text-base leading-snug">{title ?? t('saveTo.title')}</DialogTitle>
-            <DialogDescription>{t('saveTo.description')}</DialogDescription>
+            <DialogTitle className="pr-10 text-base leading-snug">{title ?? (personal ? t('saveTo.personalTitle') : t('saveTo.title'))}</DialogTitle>
+            <DialogDescription>
+              {asRevision ? t('saveTo.revisionHint', { name: revisionOf }) : personal ? t('saveTo.personalDescription') : t('saveTo.description')}
+            </DialogDescription>
           </DialogHeader>
 
-          <Field>
+          {revisionOf !== undefined && (
+            <SaveModeChoice revisionOf={revisionOf} value={mode} onChange={setMode} disabled={pending} />
+          )}
+
+          {asRevision && (
+            <ChangeNoteField revisionOf={revisionOf} value={changeNote} onChange={setChangeNote} disabled={pending} />
+          )}
+
+          <Field hidden={asRevision}>
             <FieldLabel htmlFor="save-to-project-name">{t('saveTo.name')}</FieldLabel>
             <div className="flex items-center gap-2">
               <Input
@@ -170,29 +221,29 @@ export function SaveToProjectDialog({
             )}
           </Field>
 
-          <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5" hidden={asRevision}>
             <span className="text-sm font-medium" id="save-to-project-location">
               {t('saveTo.location')}
             </span>
             <Breadcrumb aria-labelledby="save-to-project-location">
               <BreadcrumbList className="gap-1 sm:gap-1">
-                <Crumb label={rootLabel} current={trail.length === 0} onOpen={() => setCurrentId(null)} />
+                <Crumb label={rootLabel} current={trail.length === 0} onOpen={() => moveTo(null)} />
                 {trail.map((folder, index) => (
                   <Crumb
                     key={folder.id}
                     label={folder.name}
                     current={index === trail.length - 1}
-                    onOpen={() => setCurrentId(folder.id)}
+                    onOpen={() => moveTo(folder.id)}
                   />
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
             <FolderLevel
-              status={status}
+              status={locating ? 'loading' : status}
               hereLabel={hereLabel}
               folders={children}
               disabled={pending}
-              onOpen={setCurrentId}
+              onOpen={moveTo}
               onRetry={() => void load()}
             />
             {ready && writable && (
@@ -201,7 +252,7 @@ export function SaveToProjectDialog({
                 parentLabel={hereLabel}
                 onCreate={async (name) => {
                   const outcome = await create(name, location)
-                  if (outcome.ok) setCurrentId(outcome.folder.id)
+                  if (outcome.ok) moveTo(outcome.folder.id)
                   return outcome
                 }}
               />
@@ -226,7 +277,7 @@ export function SaveToProjectDialog({
             <BusyButton
               type="submit"
               busy={pending}
-              blocked={!ready || !writable}
+              blocked={!asRevision && (!ready || !writable)}
               busyLabel={t('saveTo.saving')}
               data-testid="save-to-project-submit"
             >
@@ -251,7 +302,7 @@ function Crumb({ label, current, onOpen }: { label: string; current: boolean; on
           <button
             type="button"
             onClick={onOpen}
-            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 transition-colors focus-visible:outline-none focus-visible:ring-2"
+            className="rounded-inline hover:text-foreground focus-visible:ring-ring min-h-8 pointer-coarse:min-h-11 transition-colors focus-visible:outline-none focus-visible:ring-2"
           >
             {label}
           </button>

@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pytest
 
+from scripts import loop_eval_flags
+from scripts import loop_eval_report
+from scripts import loop_eval_rows
+from scripts import loop_eval_socket
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -24,7 +29,7 @@ loop_eval = _load_loop_eval()
 QUESTIONS = REPO_ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 
 
-def _row(question_id: str, **overrides) -> loop_eval.Observation:
+def _row(question_id: str, **overrides) -> loop_eval_rows.Observation:
     base = {
         "id": question_id,
         "expected_family": "OIB-RL 2",
@@ -43,12 +48,12 @@ def _row(question_id: str, **overrides) -> loop_eval.Observation:
         "ris_citation_resolved": "",
         "error": "",
     }
-    return loop_eval.Observation(**{**base, **overrides})
+    return loop_eval_rows.Observation(**{**base, **overrides})
 
 
 @pytest.fixture(scope="module")
 def questions():
-    return loop_eval.load_questions(QUESTIONS)
+    return loop_eval_rows.load_questions(QUESTIONS)
 
 
 class TestTheQuestionSet:
@@ -98,7 +103,7 @@ class TestOneRow:
         return [{"name": name, "payload": json.dumps(body)} for name, body in payloads]
 
     def test_rounds_checkpoints_and_the_locator_come_off_the_status_events(self):
-        question = loop_eval.Question(id="q", question="?", family="OIB-RL 2", clause="5.1", kind="ruling")
+        question = loop_eval_rows.Question(id="q", question="?", family="OIB-RL 2", clause="5.1", kind="ruling")
         steps = self._steps(
             ("status:retrieval:0", {"tools": ["knowledge_search"]}),
             ("status:checkpoint:0", {"round": 0, "hasConclusion": False, "source": "none"}),
@@ -106,49 +111,51 @@ class TestOneRow:
             ("status:checkpoint:1", {"round": 1, "hasConclusion": True, "source": "argument"}),
         )
 
-        row = loop_eval.observe(question, steps, "… OIB-RL 2, Pkt. 5.1.2 …", {"kind": "ruling", "verdict": {"v": "x"}})
+        row = loop_eval_flags.observe(
+            question, steps, "… OIB-RL 2, Pkt. 5.1.2 …", {"kind": "ruling", "verdict": {"v": "x"}}
+        )
 
         assert (row.rounds, row.read_passage, row.checkpoint_sources) == ("2", "yes", "none>argument")
         assert (row.kind, row.verdict, row.clause_match, row.truncated) == ("ruling", "yes", "yes", "no")
 
     def test_truncation_is_read_off_the_budget_event(self):
-        question = loop_eval.Question(id="q", question="?", family=None, clause=None, kind="direct")
+        question = loop_eval_rows.Question(id="q", question="?", family=None, clause=None, kind="direct")
         steps = self._steps(("status:budget", {"truncated": True, "spent": 7}))
 
-        assert loop_eval.observe(question, steps, "", {}).truncated == "yes"
+        assert loop_eval_flags.observe(question, steps, "", {}).truncated == "yes"
 
     def test_a_child_clause_counts_and_a_sibling_does_not(self):
-        assert loop_eval.clause_matches("5.1", ["5.1.2"]) == "yes"
-        assert loop_eval.clause_matches("5.1", ["5.2"]) == "no"
-        assert loop_eval.clause_matches("5.1", ["5.11"]) == "no"
+        assert loop_eval_flags.clause_matches("5.1", ["5.1.2"]) == "yes"
+        assert loop_eval_flags.clause_matches("5.1", ["5.2"]) == "no"
+        assert loop_eval_flags.clause_matches("5.1", ["5.11"]) == "no"
 
     def test_an_unmeasured_clause_is_blank_and_not_a_miss(self):
-        assert loop_eval.clause_matches(None, ["3.1"]) == ""
-        assert loop_eval.summarise([_row("a", expected_clause="", clause_match="")]).clause_measured == 0
+        assert loop_eval_flags.clause_matches(None, ["3.1"]) == ""
+        assert loop_eval_report.summarise([_row("a", expected_clause="", clause_match="")]).clause_measured == 0
 
     def test_the_clause_scan_reads_the_forms_an_answer_actually_writes(self):
-        assert loop_eval.cited_clauses("Pkt. 3.5.2 und Punkt 5.1, siehe Pkt 4") == ["3.5.2", "5.1", "4"]
+        assert loop_eval_flags.cited_clauses("Pkt. 3.5.2 und Punkt 5.1, siehe Pkt 4") == ["3.5.2", "5.1", "4"]
 
     def test_the_coverage_event_becomes_the_family_column(self):
-        question = loop_eval.Question(id="q", question="?", family="OIB-RL 2", clause=None, kind="walkthrough")
+        question = loop_eval_rows.Question(id="q", question="?", family="OIB-RL 2", clause=None, kind="walkthrough")
         steps = [
             {"name": "status:coverage:2", "payload": '{"family":"2","listed":4,"opened":3}'},
             {"name": "status:coverage:4", "payload": '{"family":"4","listed":1,"opened":1}'},
         ]
 
-        assert loop_eval.observe(question, steps, "", {}).family_coverage == "2 3/4 4 1/1"
+        assert loop_eval_flags.observe(question, steps, "", {}).family_coverage == "2 3/4 4 1/1"
 
     def test_a_turn_that_touched_no_family_leaves_the_cell_empty(self):
-        question = loop_eval.Question(id="q", question="?", family=None, clause=None, kind="direct")
-        assert loop_eval.observe(question, [], "", {}).family_coverage == ""
+        question = loop_eval_rows.Question(id="q", question="?", family=None, clause=None, kind="direct")
+        assert loop_eval_flags.observe(question, [], "", {}).family_coverage == ""
 
 
 class TestLocatorEligible:
     def test_the_name_the_oib_publishes_a_guideline_under_counts(self):
-        question = loop_eval.Question(id="q", question="?", family=None, clause=None, kind="walkthrough")
+        question = loop_eval_rows.Question(id="q", question="?", family=None, clause=None, kind="walkthrough")
         payloads = [("retrieve.knowledge_search", {"input": {"query": "oib-richtlinie_2.2_ausgabe_mai_2023"}})]
 
-        assert loop_eval.flag_locator_eligible(question, payloads, ["knowledge_search"]) == "yes"
+        assert loop_eval_flags.flag_locator_eligible(question, payloads, ["knowledge_search"]) == "yes"
 
 
 class TestTheCsv:
@@ -156,24 +163,24 @@ class TestTheCsv:
         rows = [_row("a"), _row("b", rounds="1", read_passage="no", clause_match="no")]
         path = tmp_path / "run.csv"
 
-        loop_eval.write_csv(path, rows)
+        loop_eval_rows.write_csv(path, rows)
 
-        assert loop_eval.read_csv(path) == rows
+        assert loop_eval_rows.read_csv(path) == rows
 
     def test_the_header_is_the_contract(self, tmp_path: Path):
         path = tmp_path / "old.csv"
         path.write_text("id,rounds\na,2\n", encoding="utf-8")
 
         with pytest.raises(ValueError, match="does not carry this script's columns"):
-            loop_eval.read_csv(path)
+            loop_eval_rows.read_csv(path)
 
     def test_an_error_row_is_written_rather_than_dropped(self, tmp_path: Path):
         path = tmp_path / "run.csv"
-        loop_eval.write_csv(path, [_row("a"), _row("b", kind="", rounds="", error="ReadTimeout: …")])
+        loop_eval_rows.write_csv(path, [_row("a"), _row("b", kind="", rounds="", error="ReadTimeout: …")])
 
-        back = loop_eval.read_csv(path)
+        back = loop_eval_rows.read_csv(path)
         assert [row.id for row in back] == ["a", "b"]
-        assert loop_eval.summarise(back).errors == 1
+        assert loop_eval_report.summarise(back).errors == 1
 
 
 class TestComparing:
@@ -181,58 +188,60 @@ class TestComparing:
         before = [_row("a", rounds="1", read_passage="no")]
         after = [_row("a", rounds="2", read_passage="yes")]
 
-        assert loop_eval.changed_rows(before, after) == [
+        assert loop_eval_report.changed_rows(before, after) == [
             ("a", "rounds", "1", "2"),
             ("a", "read_passage", "no", "yes"),
         ]
 
     def test_an_unchanged_run_moves_nothing(self):
-        assert loop_eval.changed_rows([_row("a")], [_row("a")]) == []
+        assert loop_eval_report.changed_rows([_row("a")], [_row("a")]) == []
 
     def test_a_question_present_in_only_one_run_is_reported_not_joined_away(self):
-        moved = loop_eval.changed_rows([_row("a")], [_row("a"), _row("b", rounds="3")])
+        moved = loop_eval_report.changed_rows([_row("a")], [_row("a"), _row("b", rounds="3")])
 
         assert ("b", "rounds", "—", "3") in moved
         assert all(question_id == "b" for question_id, *_ in moved)
 
     def test_the_expectations_are_not_compared(self):
-        moved = loop_eval.changed_rows([_row("a")], [_row("a", expected_family="OIB-RL 4")])
+        moved = loop_eval_report.changed_rows([_row("a")], [_row("a", expected_family="OIB-RL 4")])
         assert moved == []
 
     def test_the_aggregate_counts_each_measure_separately(self):
         before = [_row("a", read_passage="no", rounds="1"), _row("b", read_passage="no", rounds="1")]
         after = [_row("a", read_passage="yes", rounds="2"), _row("b", read_passage="no", rounds="1")]
 
-        report = loop_eval.format_comparison(before, after)
+        report = loop_eval_report.format_comparison(before, after)
 
         assert "read_passage: 0 → 1 (+1)" in report
         assert "retrieval rounds, total: 2 → 3 (+1)" in report
 
     def test_family_coverage_is_read_as_opened_of_listed(self):
-        assert loop_eval.family_coverage("2 3/4 4 1/1") == [("2", 3, 4), ("4", 1, 1)]
+        assert loop_eval_rows.family_coverage("2 3/4 4 1/1") == [("2", 3, 4), ("4", 1, 1)]
 
     def test_an_empty_or_unreadable_coverage_cell_scores_nothing(self):
-        assert loop_eval.family_coverage("") == []
-        assert loop_eval.family_coverage("2 drei/vier") == []
+        assert loop_eval_rows.family_coverage("") == []
+        assert loop_eval_rows.family_coverage("2 drei/vier") == []
 
     def test_the_aggregate_counts_complete_families_against_touched_ones(self):
         before = [_row("a", family_coverage="2 3/4")]
         after = [_row("a", family_coverage="2 4/4")]
 
-        report = loop_eval.format_comparison(before, after)
+        report = loop_eval_report.format_comparison(before, after)
 
         assert "families read completely: 0 → 1 (+1) of 1 → 1 (+0) touched" in report
 
     def test_a_family_that_became_incomplete_shows_up_per_question(self):
-        moved = loop_eval.changed_rows([_row("a", family_coverage="2 4/4")], [_row("a", family_coverage="2 3/4")])
+        moved = loop_eval_report.changed_rows(
+            [_row("a", family_coverage="2 4/4")], [_row("a", family_coverage="2 3/4")]
+        )
         assert moved == [("a", "family_coverage", "2 4/4", "2 3/4")]
 
     def test_the_checkpoint_source_histogram_is_per_round_not_per_turn(self):
-        summary = loop_eval.summarise([_row("a", checkpoint_sources="none>argument>argument")])
+        summary = loop_eval_report.summarise([_row("a", checkpoint_sources="none>argument>argument")])
         assert summary.checkpoint_sources == {"none": 1, "argument": 2}
 
     def test_a_first_run_compares_against_nothing_without_dividing_by_zero(self):
-        report = loop_eval.format_comparison([], [_row("a")])
+        report = loop_eval_report.format_comparison([], [_row("a")])
         assert "questions: 0 → 1 (+1)" in report
 
 
@@ -245,7 +254,7 @@ class TestCapRetryIsPositional:
             ("status:retrieval:1", {}),
             ("retrieve.knowledge", {"input": {"query": "b"}}),
         ]
-        assert loop_eval.flag_cap_retry(payloads) == "yes"
+        assert loop_eval_flags.flag_cap_retry(payloads) == "yes"
 
     def test_a_cap_on_the_last_fetch_is_not_a_retry(self):
         payloads = [
@@ -253,21 +262,21 @@ class TestCapRetryIsPositional:
             ("retrieve.knowledge", {"input": {"query": "a"}}),
             ("status:width:0", {"kept": 12, "withheld": 3}),
         ]
-        assert loop_eval.flag_cap_retry(payloads) == "no"
+        assert loop_eval_flags.flag_cap_retry(payloads) == "no"
 
     def test_the_input_token_stop_is_a_cap(self):
         payloads = [
             ("status:budget:input", {"limit": 600000, "spent": 600001}),
             ("retrieve.knowledge", {"input": {"query": "b"}}),
         ]
-        assert loop_eval.flag_cap_retry(payloads) == "yes"
+        assert loop_eval_flags.flag_cap_retry(payloads) == "yes"
 
     def test_a_diversity_cap_on_a_retrieved_pool_counts_too(self):
         payloads = [
             ("retrieve.knowledge", {"input": {"dropped_by_cap": 3}}),
             ("retrieve.knowledge", {"input": {"query": "b"}}),
         ]
-        assert loop_eval.flag_cap_retry(payloads) == "yes"
+        assert loop_eval_flags.flag_cap_retry(payloads) == "yes"
 
     def test_no_cap_at_all_is_never_a_retry(self):
         payloads = [
@@ -276,11 +285,11 @@ class TestCapRetryIsPositional:
             ("status:retrieval:1", {}),
             ("retrieve.knowledge", {"input": {"query": "b"}}),
         ]
-        assert loop_eval.flag_cap_retry(payloads) == "no"
+        assert loop_eval_flags.flag_cap_retry(payloads) == "no"
 
 
 class TestTheRisColumns:
-    def _question(self, **overrides) -> loop_eval.Question:
+    def _question(self, **overrides) -> loop_eval_rows.Question:
         base = {
             "id": "einreichung-wien-unterlagen",
             "question": "Welche Unterlagen verlangt die Baubehörde in Wien?",
@@ -288,7 +297,7 @@ class TestTheRisColumns:
             "clause": None,
             "kind": "walkthrough",
         }
-        return loop_eval.Question(**{**base, **overrides})
+        return loop_eval_rows.Question(**{**base, **overrides})
 
     def _steps(self, *payloads: dict) -> list[dict]:
         import json
@@ -306,60 +315,60 @@ class TestTheRisColumns:
     def test_the_old_three_tool_shape_counts_three_calls(self):
         tools = ["ris_catalog_lookup_tool", "ris_search_tool", "ris_fetch_tool", "knowledge_search"]
 
-        assert loop_eval.count_ris_calls(tools) == 3
+        assert loop_eval_flags.count_ris_calls(tools) == 3
 
     def test_the_consolidated_shape_counts_one(self):
-        assert loop_eval.count_ris_calls(["ris_lookup_tool", "knowledge_search"]) == 1
+        assert loop_eval_flags.count_ris_calls(["ris_lookup_tool", "knowledge_search"]) == 1
 
     def test_the_renamed_lookup_counts_and_its_span_is_read(self):
-        assert loop_eval.count_ris_calls(["law_lookup", "ris_lookup_tool", "knowledge_search"]) == 2
+        assert loop_eval_flags.count_ris_calls(["law_lookup", "ris_lookup_tool", "knowledge_search"]) == 2
         span = ("retrieve.law_lookup", {"input": {"round": 0}, "output": {"clause_ids": ["§63Abs1"]}})
 
-        assert loop_eval.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", [span]) == "yes"
+        assert loop_eval_flags.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", [span]) == "yes"
 
     def test_a_turn_that_never_touched_ris_counts_zero(self):
-        assert loop_eval.count_ris_calls(["knowledge_search", "read_passage"]) == 0
+        assert loop_eval_flags.count_ris_calls(["knowledge_search", "read_passage"]) == 0
 
     def test_ris_calls_is_read_off_the_round_announcements(self):
         steps = self._steps(("status:retrieval:0", {"tools": ["ris_lookup_tool"]}))
 
-        row = loop_eval.observe(self._question(), steps, "Antwort", {})
+        row = loop_eval_flags.observe(self._question(), steps, "Antwort", {})
 
         assert row.ris_calls == "1"
 
     def test_a_cited_paragraph_the_turn_retrieved_matches(self):
         payloads = [self._span(clauses=["§63Abs1"])]
 
-        assert loop_eval.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", payloads) == "yes"
+        assert loop_eval_flags.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", payloads) == "yes"
 
     def test_a_cited_paragraph_the_turn_never_retrieved_does_not(self):
         payloads = [self._span(clauses=["§63Abs1"])]
 
-        assert loop_eval.paragraph_matches(self._question(), "… § 99 BO Wien …", payloads) == "no"
+        assert loop_eval_flags.paragraph_matches(self._question(), "… § 99 BO Wien …", payloads) == "no"
 
     def test_a_committed_expectation_outranks_what_the_turn_retrieved(self):
         payloads = [self._span(clauses=["§63"])]
         question = self._question(paragraph="§ 70")
 
-        assert loop_eval.paragraph_matches(question, "… § 63 …", payloads) == "no"
-        assert loop_eval.paragraph_matches(question, "… § 70 Abs 2 …", payloads) == "yes"
+        assert loop_eval_flags.paragraph_matches(question, "… § 63 …", payloads) == "no"
+        assert loop_eval_flags.paragraph_matches(question, "… § 70 Abs 2 …", payloads) == "yes"
 
     def test_a_turn_with_no_paragraph_to_check_is_unmeasured_not_a_miss(self):
-        assert loop_eval.paragraph_matches(self._question(), "Antwort ohne Paragraf", []) == ""
+        assert loop_eval_flags.paragraph_matches(self._question(), "Antwort ohne Paragraf", []) == ""
 
     def test_a_ris_citation_still_in_the_answer_resolved(self):
         payloads = [self._span(keys=["Bauordnung für Wien, § 63 Abs 1"])]
         answer = "Laut Bauordnung für Wien, § 63 Abs 1 sind die Pläne anzuschließen."
 
-        assert loop_eval.flag_ris_citation_resolved(answer, payloads) == "yes"
+        assert loop_eval_flags.flag_ris_citation_resolved(answer, payloads) == "yes"
 
     def test_a_ris_citation_stripped_from_the_answer_did_not(self):
         payloads = [self._span(keys=["Bauordnung für Wien, § 63 Abs 1"])]
 
-        assert loop_eval.flag_ris_citation_resolved("Dazu kann ich nichts sagen.", payloads) == "no"
+        assert loop_eval_flags.flag_ris_citation_resolved("Dazu kann ich nichts sagen.", payloads) == "no"
 
     def test_a_turn_with_no_ris_span_leaves_the_cell_empty(self):
-        assert loop_eval.flag_ris_citation_resolved("Antwort", []) == ""
+        assert loop_eval_flags.flag_ris_citation_resolved("Antwort", []) == ""
 
 
 class TestTheCli:
@@ -373,8 +382,8 @@ class TestTheCli:
 
     def test_compare_needs_no_backend_at_all(self, tmp_path: Path, capsys):
         before, after = tmp_path / "before.csv", tmp_path / "after.csv"
-        loop_eval.write_csv(before, [_row("a", rounds="1")])
-        loop_eval.write_csv(after, [_row("a", rounds="2")])
+        loop_eval_rows.write_csv(before, [_row("a", rounds="1")])
+        loop_eval_rows.write_csv(after, [_row("a", rounds="2")])
 
         assert loop_eval.main(["--compare", str(before), str(after)]) == 0
         assert "rounds" in capsys.readouterr().out
@@ -394,15 +403,19 @@ class TestTheSocket:
         from agent.common import wire_v2
 
         events = [wire_v2.WIRE_EVENT.validate_python(raw) for raw in _recorded(name)]
-        turn = loop_eval.SocketTurn(message_id=events[0].turn_id)
-        replies = [reply for event in events if (reply := loop_eval.read_event(turn, event)) is not None]
+        turn = loop_eval_socket.SocketTurn(message_id=events[0].turn_id)
+        replies = [reply for event in events if (reply := loop_eval_socket.read_event(turn, event)) is not None]
         return turn, replies
 
     def test_an_answered_turn_becomes_a_row(self):
         turn, replies = self._fold("turn-answered.jsonl")
-        question = loop_eval.Question(id="q", question="Fluchtweg GK 4?", family="OIB-RL 2", clause=None, kind="ruling")
+        question = loop_eval_rows.Question(
+            id="q", question="Fluchtweg GK 4?", family="OIB-RL 2", clause=None, kind="ruling"
+        )
 
-        row = loop_eval.observe(question, loop_eval.step_records(turn), turn.result.text, turn.result.answer_meta)
+        row = loop_eval_flags.observe(
+            question, loop_eval_socket.step_records(turn), turn.result.text, turn.result.answer_meta
+        )
 
         assert replies == []
         assert (row.rounds, row.checkpoint_sources, row.kind, row.verdict) == ("1", "argument", "ruling", "yes")
@@ -411,7 +424,7 @@ class TestTheSocket:
     def test_a_retrieval_step_carries_its_query_and_tools(self):
         turn, _ = self._fold("turn-answered.jsonl")
 
-        retrieval = next(r for r in loop_eval.step_records(turn) if r["name"] == "status:retrieval:0")
+        retrieval = next(r for r in loop_eval_socket.step_records(turn) if r["name"] == "status:retrieval:0")
 
         assert retrieval["payload"]["tools"] == ["knowledge_search"]
         assert retrieval["payload"]["values"]["query"] == "Fluchtweglänge GK 4"
@@ -427,7 +440,7 @@ class TestTheSocket:
         assert (frame["type"], frame["turn_id"], frame["answer"]) == (
             "interaction_response",
             turn.message_id,
-            {"text": loop_eval.CLARIFICATION_ANSWER},
+            {"text": loop_eval_socket.CLARIFICATION_ANSWER},
         )
 
     def test_a_failed_turn_raises_rather_than_writing_an_empty_row(self):
@@ -437,9 +450,9 @@ class TestTheSocket:
     def test_an_event_of_another_turn_is_not_folded(self):
         from agent.common import wire_v2
 
-        other = loop_eval.SocketTurn(message_id="someone-else")
+        other = loop_eval_socket.SocketTurn(message_id="someone-else")
         for raw in _recorded("turn-answered.jsonl"):
-            loop_eval.read_event(other, wire_v2.WIRE_EVENT.validate_python(raw))
+            loop_eval_socket.read_event(other, wire_v2.WIRE_EVENT.validate_python(raw))
 
         assert other.steps == {}
         assert other.result is None
@@ -447,7 +460,7 @@ class TestTheSocket:
     def test_a_round_that_reached_a_passage_an_earlier_round_had_is_a_cross_round_fetch(self):
         from agent.common import wire_v2
 
-        turn = loop_eval.SocketTurn(message_id="t")
+        turn = loop_eval_socket.SocketTurn(message_id="t")
         for index in (0, 1):
             turn.steps[f"status:retrieval:{index}"] = wire_v2.RetrievalStep(
                 id=f"status:retrieval:{index}", round=index, key="status.retrieval", tools=["knowledge_search"]
@@ -458,15 +471,18 @@ class TestTheSocket:
             text="",
             retrieval_ledger=[{"index": 0, "docs": [doc]}, {"index": 1, "docs": [doc]}],
         )
-        payloads = loop_eval._status_payloads(loop_eval.step_records(turn))
+        payloads = loop_eval_flags._status_payloads(loop_eval_socket.step_records(turn))
 
-        assert loop_eval.flag_cross_turn(payloads) == "yes"
+        assert loop_eval_flags.flag_cross_turn(payloads) == "yes"
 
     def test_the_socket_url_asks_for_wire_v2_on_one_conversation(self):
         assert (
-            loop_eval.socket_url("https://chat.example/", "c1") == "wss://chat.example/websocket?v=2&conversationId=c1"
+            loop_eval_socket.socket_url("https://chat.example/", "c1")
+            == "wss://chat.example/websocket?v=2&conversationId=c1"
         )
-        assert loop_eval.socket_url("http://localhost:8001", "c1").startswith("ws://localhost:8001/websocket?v=2")
+        assert loop_eval_socket.socket_url("http://localhost:8001", "c1").startswith(
+            "ws://localhost:8001/websocket?v=2"
+        )
 
     def test_one_turn_over_a_served_socket(self):
         import json
@@ -489,11 +505,11 @@ class TestTheSocket:
         with serve(handler, "127.0.0.1", 0) as server:
             threading.Thread(target=server.serve_forever, daemon=True).start()
             port = server.socket.getsockname()[1]
-            steps, answer, envelope = loop_eval._socket_turn(f"http://127.0.0.1:{port}", "Fluchtweg GK 4?", 10)
+            steps, answer, envelope = loop_eval_socket._socket_turn(f"http://127.0.0.1:{port}", "Fluchtweg GK 4?", 10)
             server.shutdown()
 
         assert received[0].text == "Fluchtweg GK 4?"
-        assert received[0].data_sources == list(loop_eval.DATA_SOURCES)
+        assert received[0].data_sources == list(loop_eval_socket.DATA_SOURCES)
         assert answer.startswith("Für **Gebäudeklasse 4**")
         assert envelope["kind"] == "ruling"
         assert any(step["name"] == "status:retrieval:0" for step in steps)
@@ -508,19 +524,19 @@ class TestRunsAndQuestionSetsWrittenBeforeTheRename:
             encoding="utf-8",
         )
 
-        assert [question.clause for question in loop_eval.load_questions(path)] == ["5.1", "3.2"]
+        assert [question.clause for question in loop_eval_rows.load_questions(path)] == ["5.1", "3.2"]
 
     def test_a_run_with_the_old_columns_still_compares(self, tmp_path):
         path = tmp_path / "before.csv"
         header = [
             {"expected_punkt": "expected_clause", "punkt_match": "clause_match"}.get(name, name)
-            for name in loop_eval.FIELDS
+            for name in loop_eval_rows.FIELDS
         ]
         old_header = [
             {"expected_clause": "expected_punkt", "clause_match": "punkt_match"}.get(name, name) for name in header
         ]
         path.write_text(",".join(old_header) + "\n" + ",".join("x" for _ in old_header) + "\n", encoding="utf-8")
 
-        [row] = loop_eval.read_csv(path)
+        [row] = loop_eval_rows.read_csv(path)
 
         assert row.expected_clause == "x" and row.clause_match == "x"

@@ -30,7 +30,7 @@ export const whatsNew: typeof en.whatsNew = {
   },
   areas: {
     projects: 'Projekte & Einrichtung',
-    documents: 'Dateien & Büroablage',
+    documents: 'Ablage & Bürobibliothek',
     answers: 'Fragen & Antworten',
     search: 'Suche',
     'building-law': 'Baurecht & Normen',

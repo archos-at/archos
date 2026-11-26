@@ -63,7 +63,7 @@ export const RETRIEVAL_SETTINGS: readonly RetrievalSettingDefinition[] = [
     min: 1,
     max: 100,
     label: 'Dokumente-Card: Chunks pro Kollektion',
-    description: 'Chunks, die die Dokumente-Card pro Projekt- und Büroablage-Kollektion abruft.',
+    description: 'Chunks, die die Dokumente-Card pro Projekt- und Bürobibliothek-Kollektion abruft.',
   },
   {
     key: 'surface.max_files',

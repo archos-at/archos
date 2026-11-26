@@ -21,7 +21,7 @@ export default async function WhatsNewPage({ searchParams }: WhatsNewPageProps):
 
     return (
       <ShellContent>
-        <BackLink className="touch-target mb-6" fallbackHref="/app/projects" fallbackLabel={t('backToApp')} />
+        <BackLink className="touch-target mb-6" fallbackHref="/app" fallbackLabel={t('backToApp')} />
         <PageHeader className="mb-8" title={t('title')} subtitle={t('subtitle')} />
         <WhatsNewList list={list} />
       </ShellContent>

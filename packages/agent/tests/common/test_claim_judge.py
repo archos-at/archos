@@ -41,7 +41,7 @@ def _sent_evidence(evidence: Evidence) -> str:
 
 
 class _Model:
-    def __init__(self, reply: str = '{"level": "high", "findings": []}', *, error=None, delay=0.0, ending=None):
+    def __init__(self, reply: str = '{"findings": [], "open_points": []}', *, error=None, delay=0.0, ending=None):
         self.reply, self.error, self.delay = reply, error, delay
         self.ending = ending or ({}, {})
         self.bound: list[dict] = []
@@ -141,65 +141,192 @@ class TestThePassagesGoInWhole:
 
 
 class TestTheReply:
-    def test_a_level_and_its_findings_are_read(self):
+    ANSWER = "Die Treppe ist 1,50 m breit [1]. Laut OIB-RL 4 genügen 1,20 m."
+
+    def test_the_findings_are_read_and_the_level_is_derived_from_them(self):
         reply = {
-            "level": "low",
             "findings": [
                 {
                     "statement": "1,50 m breit",
                     "problem": "contradicted",
+                    "citation": "[1]",
+                    "regulation": "none",
                     "reason": "1,10 m im Schnitt",
                     "source": "[1]",
                 },
-                {"statement": "  ", "problem": "unbacked", "reason": "-", "source": "none"},
+                {
+                    "statement": "  ",
+                    "problem": "unbacked",
+                    "citation": "none",
+                    "regulation": "OIB",
+                    "reason": "-",
+                    "source": "none",
+                },
             ],
         }
 
-        check = parse_reply(json.dumps(reply))
+        check = parse_reply(json.dumps(reply), self.ANSWER)
 
         assert check is not None and check.level == "low"
         assert [f.to_wire() for f in check.findings] == [
             {"statement": "1,50 m breit", "problem": "contradicted", "reason": "1,10 m im Schnitt", "source": "[1]"}
         ]
 
-    def test_the_findings_are_bounded(self):
-        many = [{"statement": f"s{i}", "problem": "unbacked", "reason": "r", "source": "none"} for i in range(20)]
+    @pytest.mark.parametrize(
+        ("findings", "level"),
+        [
+            ([], "high"),
+            ([{"problem": "unbacked", "citation": "[1]", "source": "[1]"}], "medium"),
+            ([{"problem": "unbacked", "citation": "none", "regulation": "OIB-RL 4 Mindestbreite"}], "medium"),
+            ([{"problem": "unbacked", "citation": "[1]"}, {"problem": "contradicted", "citation": "[1]"}], "low"),
+        ],
+    )
+    def test_the_level_is_high_without_findings_medium_with_any_low_with_a_contradiction(self, findings, level):
+        full = [{"statement": "s", "reason": "r", "source": "[1]", **f} for f in findings]
 
-        check = parse_reply(json.dumps({"level": "medium", "findings": many}))
+        assert parse_reply(json.dumps({"findings": full}), self.ANSWER).level == level
+
+    def test_an_uncited_statement_that_names_no_regulation_is_no_finding(self):
+        about_the_person = {
+            "statement": "Sie arbeiten seit 2019 im Büro Berger.",
+            "problem": "unbacked",
+            "citation": "none",
+            "regulation": "none",
+            "reason": "no evidence",
+            "source": "none",
+        }
+
+        check = parse_reply(json.dumps({"findings": [about_the_person]}), self.ANSWER)
+
+        assert check.findings == () and check.level == "high"
+
+    def test_an_answer_from_personal_memory_with_cited_sources_keeps_only_the_citation_finding(self):
+        answer = "Sie sind Architektin in Graz und planen gerne Holzbau. Die Treppe ist 1,50 m breit [1]."
+        memory = [
+            {
+                "statement": s,
+                "problem": "unbacked",
+                "citation": "none",
+                "regulation": "none",
+                "reason": "-",
+                "source": "none",
+            }
+            for s in ("Architektin in Graz", "plant gerne Holzbau")
+        ]
+        cited = {
+            "statement": "1,50 m breit",
+            "problem": "contradicted",
+            "citation": "[1]",
+            "regulation": "none",
+            "reason": "1,10 m",
+            "source": "[1] Schnitt",
+        }
+
+        check = parse_reply(json.dumps({"findings": [*memory, cited]}), answer)
+
+        assert [f.statement for f in check.findings] == ["1,50 m breit"]
+
+    def test_a_finding_on_a_marker_the_answer_never_wrote_is_dropped(self):
+        ghost = {
+            "statement": "s",
+            "problem": "unbacked",
+            "citation": "[7]",
+            "regulation": "none",
+            "reason": "r",
+            "source": "[7]",
+        }
+
+        assert parse_reply(json.dumps({"findings": [ghost]}), self.ANSWER).findings == ()
+
+    def test_an_uncited_contradiction_stands_only_with_the_evidence_that_contradicts_it(self):
+        bare = {
+            "statement": "s",
+            "problem": "contradicted",
+            "citation": "none",
+            "regulation": "none",
+            "reason": "r",
+            "source": "none",
+        }
+        named = {**bare, "source": "project-approvals-list"}
+
+        assert parse_reply(json.dumps({"findings": [bare]}), self.ANSWER).findings == ()
+        assert len(parse_reply(json.dumps({"findings": [named]}), self.ANSWER).findings) == 1
+
+    def test_a_cited_finding_without_a_source_is_checked_against_its_marker(self):
+        silent = {
+            "statement": "s",
+            "problem": "unbacked",
+            "citation": "[1]",
+            "regulation": "none",
+            "reason": "r",
+            "source": "none",
+        }
+
+        [finding] = parse_reply(json.dumps({"findings": [silent]}), self.ANSWER).findings
+
+        assert finding.source == "[1]" and claim_judge.finding_kind(finding) == "source_silent"
+
+    def test_the_findings_are_bounded(self):
+        many = [
+            {
+                "statement": f"s{i}",
+                "problem": "unbacked",
+                "citation": "none",
+                "regulation": "OIB",
+                "reason": "r",
+                "source": "none",
+            }
+            for i in range(20)
+        ]
+
+        check = parse_reply(json.dumps({"findings": many}), self.ANSWER)
 
         assert len(check.findings) == claim_judge.MAX_FINDINGS
 
     def test_the_open_points_are_read_trimmed_and_bounded(self):
         points = ["Bindung nicht an der Quelle geprüft", "  ", *(f"Punkt {i}" for i in range(9))]
 
-        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": points}))
+        check = parse_reply(json.dumps({"findings": [], "open_points": points}))
 
         assert check.open_points[0] == "Bindung nicht an der Quelle geprüft"
         assert len(check.open_points) == claim_judge.MAX_OPEN_POINTS and "" not in check.open_points
 
     def test_a_reply_without_open_points_names_none(self):
-        check = parse_reply('{"level": "high", "findings": []}')
+        check = parse_reply('{"findings": []}')
 
         assert check is not None and check.open_points == ()
 
     @pytest.mark.parametrize("value", [None, "Bindung nicht geprüft", [None, 3, {"x": 1}]])
-    def test_open_points_that_are_no_list_of_strings_name_none_and_keep_the_level(self, value):
-        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": value}))
+    def test_open_points_that_are_no_list_of_strings_name_none(self, value):
+        check = parse_reply(json.dumps({"findings": [], "open_points": value}))
 
         assert check is not None and check.level == "high" and check.open_points == ()
 
     def test_the_strings_among_mixed_open_points_are_kept(self):
-        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": [1, "offen: Bindung"]}))
+        check = parse_reply(json.dumps({"findings": [], "open_points": [1, "offen: Bindung"]}))
 
         assert check.open_points == ("offen: Bindung",)
 
     def test_open_points_are_required_by_the_structured_format(self):
         assert "open_points" in claim_judge.CheckReply.model_json_schema()["required"]
 
+    def test_the_grader_returns_no_level_of_its_own(self):
+        assert "level" not in claim_judge.CheckReply.model_json_schema()["properties"]
+
     def test_a_reply_that_is_no_such_object_is_none(self):
         assert parse_reply("Alles belegt.") is None
-        assert parse_reply('{"level": "certain", "findings": []}') is None
-        assert parse_reply('{"findings": []}') is None
+        assert parse_reply('{"findings": [{"statement": "s", "problem": "wrong"}]}') is None
+        assert parse_reply('{"level": "high"}') is None
+
+
+class TestTheGraderChecksCitationsAndLawOnly:
+    def test_it_is_told_what_it_never_checks(self):
+        prompt = claim_judge.SYSTEM_PROMPT
+
+        assert "You check two things and nothing else" in prompt
+        assert "what it recalls from memory or from earlier in the conversation" in prompt
+        assert "a missing source for such a statement means nothing" in prompt
+        assert "a true statement the evidence does not state is unbacked" not in prompt
 
 
 class TestTheCall:
@@ -341,12 +468,12 @@ class TestTheProductionClient:
         assert (outcome.cause, outcome.finish_reason, outcome.truncated) == ("unparseable", "length", True)
         assert outcome.error_type is None and outcome.elapsed_ms is not None
 
-    async def test_a_whole_reply_is_judged(self):
-        chat = _openai_chat(_completion('{"level": "medium", "findings": [], "open_points": []}', "stop", 20))
+    async def test_a_whole_reply_is_judged_and_counts_the_cited_passages_it_was_shown(self):
+        chat = _openai_chat(_completion('{"findings": [], "open_points": []}', "stop", 20))
 
-        outcome = await llm_judge(chat)(_evidence())
+        outcome = await llm_judge(chat)(_evidence(Passage("[1] OIB", "1,50 m", cited=True), Passage("x", "y")))
 
-        assert not isinstance(outcome, Unavailable) and outcome.level == "medium"
+        assert not isinstance(outcome, Unavailable) and outcome.level == "high" and outcome.sources_checked == 1
 
     def test_the_agent_resolves_it_on_the_follow_ups_group_and_has_none_without_a_model(self, monkeypatch):
         from agent.stages import runner

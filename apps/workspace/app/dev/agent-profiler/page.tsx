@@ -91,7 +91,7 @@ const TIMELINE_TURNS = [
     root: span('turn', 'piloti_turn', 0, 18_420, [
       span('node', 'route_question', 40, 820, [span('llm', 'gpt-5.1-mini · classify', 60, 760)]),
       span('node', 'retrieve', 900, 6_300, [
-        span('tool', 'oib_knowledge_search', 920, 2_480),
+        span('tool', 'base_corpus_search', 920, 2_480),
         span('tool', 'ris_search_tool', 940, 5_910),
       ]),
       span('node', 'answer', 7_260, 11_100, [
@@ -109,7 +109,7 @@ const TIMELINE_TURNS = [
     spanCount: 6,
     root: span('turn', 'piloti_turn', 120_000, 9_640, [
       span('node', 'retrieve', 120_030, 4_100, [
-        span('tool', 'oib_knowledge_search', 120_050, 1_920),
+        span('tool', 'base_corpus_search', 120_050, 1_920),
         span('tool', 'web_search', 120_060, 4_050, [], 'Timeout nach 4 s (HTTP 504)'),
       ]),
       span('node', 'answer', 124_200, 5_400, [
@@ -127,7 +127,7 @@ const TIMELINE_TURNS = [
     root: {
       ...span('turn', 'turn', 300_000, 3_120, [
         span('node', 'retrieve', 300_000, 1_240, [
-          span('tool', 'oib_knowledge_search', 300_010, 1_200),
+          span('tool', 'base_corpus_search', 300_010, 1_200),
         ]),
         span('node', 'answer', 301_300, 1_820),
       ]),

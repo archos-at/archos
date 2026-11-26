@@ -14,9 +14,9 @@ export const ViewerSurface = forwardRef<HTMLDivElement, ViewerSurfaceProps>(
         ref={ref}
         data-slot="viewer-surface"
         className={cn(
-          'rounded-2xl',
+          'rounded-surface',
           tone === 'raised'
-            ? 'bg-card/80 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/70'
+            ? 'bg-sheet shadow-md'
             : 'bg-transparent',
           className
         )}

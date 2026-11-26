@@ -18,13 +18,14 @@ vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),
   requireSkillsEnabled: vi.fn().mockReturnValue(null),
   requireTaskAutomationEnabled: vi.fn().mockReturnValue(null),
+  requireFeature: vi.fn().mockReturnValue(null),
 }))
 
 vi.mock('@/lib/tasks/service', () => ({
   listTaskRunViews: vi.fn(),
 }))
 
-import { requireTaskAutomationEnabled } from '@/lib/authz/feature-flags'
+import { FEATURE_FLAGS, requireFeature, requireTaskAutomationEnabled } from '@/lib/authz/feature-flags'
 import { listTaskRunViews } from '@/lib/tasks/service'
 import { GET } from './route'
 
@@ -76,5 +77,26 @@ describe('GET /api/projects/[id]/runs', () => {
 
     expect((await get(`?taskId=${TASK}`)).status).toBe(200)
     expect((await get()).status).toBe(403)
+  })
+
+  it('lists the deep-research runs under the deep-research entitlement, not the task gates', async () => {
+    vi.mocked(requireTaskAutomationEnabled).mockReturnValue(
+      Response.json({ error: 'feature-disabled' }, { status: 403 }),
+    )
+
+    expect((await get('?kind=deep-research')).status).toBe(200)
+    expect(requireFeature).toHaveBeenCalledWith(expect.anything(), FEATURE_FLAGS.deepResearch)
+    expect(listTaskRunViews).toHaveBeenCalledWith(expect.anything(), PROJECT, { limit: 50, kind: 'deep-research' })
+  })
+
+  it('answers 403 for deep-research runs where the organization has no deep research', async () => {
+    vi.mocked(requireFeature).mockReturnValue(Response.json({ code: 'feature_disabled' }, { status: 403 }) as never)
+
+    expect((await get('?kind=deep-research')).status).toBe(403)
+    expect(listTaskRunViews).not.toHaveBeenCalled()
+  })
+
+  it('refuses a kind outside the task vocabulary', async () => {
+    expect((await get('?kind=project_intake')).status).toBe(400)
   })
 })

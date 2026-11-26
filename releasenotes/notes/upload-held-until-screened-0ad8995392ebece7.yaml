@@ -1,4 +1,5 @@
 ---
+# area: documents
 upgrade:
   - >
     An uploaded file now reaches colleagues only once its check for

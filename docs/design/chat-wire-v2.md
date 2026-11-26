@@ -323,6 +323,12 @@ client reads leniently:**
   `x-unknown-as-null` (below): a bundle that knows the field reads a cause
   added later as no reason, and the turn still settles
   (`test_wire_v2_open_tabs.py`, `wire-v2.spec.ts`).
+- `confidence_check.sources_checked` (ADR-0197) is the same case, and it is
+  what tells the two grading rules apart, so `answer_confidence_version` stays
+  `2`: a judged check with it judged citations and statements of law only; one
+  without it was made under ADR-0139's every-statement rule, and the chip shows
+  its level without its findings. An older bundle strips the key and shows the
+  findings as before.
 
 Changing what a known field may hold is a break. `answer_confidence_version`
 is the worked example: the confidence rule changed (the answer check,
@@ -460,7 +466,7 @@ where it emits in v2:
 | Decision records (`status:decision:*`) | `common/decisions.py:478`, `packages/knowledge-layer/src/knowledge_layer/search/decisions.py:167` | technical `StatusStep` |
 | The Trace-Lanes fan-out, which the UI regex-read out of the agent runtime TOOL_END payload (`## Trace-Lanes` + JSON) | `packages/knowledge-layer/src/knowledge_layer/search/trace_lanes.py` `trace_lanes_for_hits`, `read_passage/tool.py`, `ris_adapter/lookup/render.py`, rendered by `common/grounding_block.render_grounding_block` | `render_grounding_block` emits one `SourcesStep` from `block.lanes`, which becomes typed `TraceLane` models rather than a JSON string. That is one producer site for every evidence tool. The `## Trace-Lanes` line in the tool text is left for now; see F2 |
 | Tool calls (agent runtime TOOL steps that the executed-steps chips read) | the runtime's LangChain profiler, through the step adaptor | One `AsyncCallbackHandler` (`action_rows.ToolStepCallback`: `on_tool_start/end/error` → `ToolStep`, basename only), added once to the conversation graph's run config. the runtime's profiler still bills and traces through its own handler |
-| Live prose: `_ProseTokenHandler` → `AnswerStreamSink.push/put/retract` (deltas, `Masthead`, `Snapshot`, `Cards`) | `turn/answer_stream.py`, with `common/answer_prose_stream.py` and `core/answer_pipeline.LiveAnswer` | The handler writes bodies: `TEXT_MESSAGE_START`, coalesced `_CONTENT` (flushed when 50 ms have passed since the last flush, before any other body, and at `on_llm_end`), `_END` when the `answer` string closes, `STATE_SNAPSHOT` from `LiveAnswer.settle` (still in `to_thread`, where the writer works), `masthead`, one `card`/`card_refused` per card (the tools' cards first, then the envelope's, as today), and `answer_retracted`. `LiveAnswer` and the verifier are unchanged |
+| Live prose: `_ProseTokenHandler` → `AnswerStreamSink.push/put/retract` (deltas, `Masthead`, `Snapshot`, `Cards`) | `turn/answer_stream.py`, with `common/answer_prose_stream.py` and `core/live_answer.LiveAnswer` | The handler writes bodies: `TEXT_MESSAGE_START`, coalesced `_CONTENT` (flushed when 50 ms have passed since the last flush, before any other body, and at `on_llm_end`), `_END` when the `answer` string closes, `STATE_SNAPSHOT` from `LiveAnswer.settle` (still in `to_thread`, where the writer works), `masthead`, one `card`/`card_refused` per card (the tools' cards first, then the envelope's, as today), and `answer_retracted`. `LiveAnswer` and the verifier are unchanged |
 | The terminal `ChatResponseChunk` with its extras on `model_extra`, lifted by name in `websocket_reconnect.py` (`_TRANSPARENCY_EXTRA_FIELDS`, `_SKILLS_EXTRA_FIELDS`, `_PERSISTED_EXTRA_FIELDS`) | `turn/response.py` `build_response`, `conversation_register._answer_chunks` | `build_result(state, cards, message_id) -> TurnResult`, a typed model, and `_run` yields `RunFinishedBody`. The lift tables, the `setattr` loops and `common/nat_converters.py` are deleted. A refusal is `RunFinishedBody(outcome="refused")` |
 | Run hand-off (ADR-0062) | `turn/commission.py`, lifted as `run_id`/`run_message_id` | `TurnResult.run`, with `outcome="handed_off"` |
 | Heartbeat | `websocket_reconnect._beat_while_running` (`GridTurnHeartbeat`) | the same task in the handler, writing a `HeartbeatBody` stamped by the turn's sequencer. The `grid_`-prefixed agent runtime workaround model is deleted |

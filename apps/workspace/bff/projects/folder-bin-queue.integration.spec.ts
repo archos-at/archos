@@ -25,6 +25,7 @@ import {
   wipe,
   withPlatformAccess,
 } from './folder-bin.fixtures'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -38,7 +39,7 @@ vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
 }))
 vi.mock('@/lib/documents/document-edits', () => ({
-  eraseProjectDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
+  eraseShelfDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
     const { deleteProjectDocument } = await import('@/lib/documents/repository')
     await deleteProjectDocument(doc.id, doc.organizationId, doc.projectId)
     return true
@@ -111,37 +112,37 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
     it('„Endgültig löschen" that fails on a row the purger gave up on leaves it failed, not pending for nobody', async () => {
       const edits = await import('@/lib/documents/document-edits')
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await giveUpOn(folder.plans)
-      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+      vi.mocked(edits.eraseShelfDocument).mockRejectedValueOnce(new Error('object store down'))
 
-      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+      await expect(bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })).rejects.toThrow('object store down')
 
       expect((await attemptsOf(folder.plans)).status).toBe('failed')
       expect(await claimable()).not.toContain(folder.plans)
-      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).resolves.toMatchObject({ status: 'purged' })
+      await expect(bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })).resolves.toMatchObject({ status: 'purged' })
       expect((await attemptsOf(folder.plans)).status).toBe('purged')
     })
 
     it('a failed „Endgültig löschen" that spends the last attempt ends failed too', async () => {
       const edits = await import('@/lib/documents/document-edits')
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await withPlatformAccess('test: nine failed purges', () =>
         db.execute(sql`UPDATE deletion_queue SET attempts = 9 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
       )
-      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+      vi.mocked(edits.eraseShelfDocument).mockRejectedValueOnce(new Error('object store down'))
 
-      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+      await expect(bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })).rejects.toThrow('object store down')
 
       expect(await attemptsOf(folder.plans)).toEqual({ status: 'failed', attempts: 10 })
     })
 
     it('one with attempts left goes back to pending, and the purger takes it', async () => {
       const edits = await import('@/lib/documents/document-edits')
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      vi.mocked(edits.eraseProjectDocument).mockRejectedValueOnce(new Error('object store down'))
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      vi.mocked(edits.eraseShelfDocument).mockRejectedValueOnce(new Error('object store down'))
 
-      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+      await expect(bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })).rejects.toThrow('object store down')
 
       expect(await attemptsOf(folder.plans)).toEqual({ status: 'pending', attempts: 1 })
       await withPlatformAccess('test: the backoff is over', () =>
@@ -152,7 +153,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('the database refuses a pending row at the cap, so no row waits for a claim that never comes (migration 0227)', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await giveUpOn(folder.plans)
 
       await expect(
@@ -165,11 +166,11 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('a purge finished in a request is not pulled back by the late answer of a second holder', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const [{ id }] = await withPlatformAccess('test: the row id', () =>
         db.execute<{ id: string }>(sql`SELECT id FROM deletion_queue WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
       )
-      await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })
+      await bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })
       expect((await attemptsOf(folder.plans)).status).toBe('purged')
 
       const { markFailed, releaseHeld } = await import('../../purger/db.js')

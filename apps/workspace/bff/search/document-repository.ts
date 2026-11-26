@@ -1,6 +1,7 @@
 import { OFFICE_TIME_ZONE } from '@/lib/format'
 import 'server-only'
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, notInArray, or, sql, type SQL } from 'drizzle-orm'
+import { outsideTheBin } from '@/lib/documents/shelf'
 import { getDb } from '@/lib/db'
 import { executeRows } from '@/lib/db/execute-rows'
 import { documentSearchFacets, type SearchFacetChange } from '@/lib/db/schema/document-search'
@@ -13,7 +14,7 @@ import { nameContains, readFamilyWhere } from '@/lib/documents/repository'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import { likeContains } from '@/lib/text/like-pattern'
 import { factToken } from './facets'
-import { reachReader, type SearchReach } from './reach'
+import { reachHiddenFolderIds, reachReader, type SearchReach } from './reach'
 import type { DocumentFilters, SearchSort } from './search-wire'
 
 const f = documentSearchFacets
@@ -50,10 +51,11 @@ const contentKeyOf = sql`(${documents.collectionName} || chr(31) || ${documents.
 
 export function reachWhere(reach: SearchReach, includeArchived: boolean): SQL | undefined {
   const projectIds = reach.projects.map((reached) => reached.project.id)
-  const hidden = reach.projects.flatMap((reached) => reached.hiddenFolderIds)
+  const hidden = reachHiddenFolderIds(reach)
   const shelves = or(
     projectIds.length > 0 ? and(eq(documents.scope, 'project'), inArray(documents.projectId, projectIds)) : undefined,
-    reach.officeShelf ? eq(documents.scope, 'office_shelf') : undefined
+    reach.officeShelf ? and(eq(documents.scope, 'office_shelf'), outsideTheBin()) : undefined,
+    reach.personal ? and(eq(documents.scope, 'personal'), eq(documents.ownerUserId, reach.personal.userId)) : undefined
   )
   return and(
     eq(documents.organizationId, reach.organizationId),

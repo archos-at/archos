@@ -71,7 +71,7 @@ describe('CustomRolesSection', () => {
     const own = await screen.findByTestId('custom-roles-own')
     const gf = within(own).getByTestId('role-row-org-geschaeftsfuehrung')
     expect(gf).toHaveTextContent('Geschäftsführung')
-    expect(gf).toHaveTextContent('Manage Office filing')
+    expect(gf).toHaveTextContent('Manage Office library')
     expect(gf).toHaveTextContent('Manage AI models')
 
     const platform = screen.getByTestId('custom-roles-environment')
@@ -99,7 +99,7 @@ describe('CustomRolesSection', () => {
     expect(within(dialog).getByText(/do not hold this permission yourself/)).toBeInTheDocument()
 
     fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Projektleitung' } })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Manage Office filing' }))
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Manage Office library' }))
     fireEvent.click(within(dialog).getByTestId('custom-role-save'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())

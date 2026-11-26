@@ -76,7 +76,7 @@
   --stagger-max: 240ms;
   --rise-bleed: 0.16em;
   --unveil-scale: 1.03;
-  --font-sans: "General Sans", "General Sans Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "General Sans", "General Sans Fallback", "General Sans Fallback Roboto", "General Sans Fallback DejaVu", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-logo: Switzer, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --text-display-xl: 500 72px/78px var(--font-sans);
   --text-display: 500 64px/70px var(--font-sans);
@@ -197,6 +197,22 @@
   ascent-override: 97.87%;
   descent-override: 23.26%;
   line-gap-override: 9.69%;
+}
+@font-face {
+  font-family: "General Sans Fallback Roboto";
+  src: local("Roboto"), local("Roboto-Regular");
+  size-adjust: 103.5%;
+  ascent-override: 97.58%;
+  descent-override: 23.19%;
+  line-gap-override: 9.66%;
+}
+@font-face {
+  font-family: "General Sans Fallback DejaVu";
+  src: local("DejaVu Sans"), local("DejaVuSans");
+  size-adjust: 91.6%;
+  ascent-override: 110.26%;
+  descent-override: 26.2%;
+  line-gap-override: 10.92%;
 }
 @font-face {
   font-family: "Switzer";

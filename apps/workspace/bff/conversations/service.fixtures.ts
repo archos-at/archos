@@ -48,6 +48,9 @@ export function stubConversation(
     subjectResourceType: null,
     subjectResourceId: null,
     temporary: false,
+    audienceVersion: 0,
+    personalShelfUsedAt: null,
+    startedInPersonal: false,
     ...tenancy,
   })
 }

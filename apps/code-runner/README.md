@@ -27,7 +27,8 @@ and answers `200` with
 
 ```json
 { "status": "ok", "value": {}, "stdout": "", "stderr": "",
-  "files": [{ "path": "/workspace/out/rooms.xlsx", "base64": "...", "size": 6342 }], "durationMs": 212 }
+  "files": [{ "path": "/workspace/out/rooms.xlsx", "base64": "...", "size": 6342 }], "deleted": [],
+  "durationMs": 212 }
 ```
 
 - `status` is `ok` when the default export returned, `error` when it threw, the module did not
@@ -40,6 +41,8 @@ and answers `200` with
 - `console.log`/`info` go to `stdout`, `console.warn`/`error` and a thrown error's message to `stderr`.
 - `files` holds only files under `/workspace/` that the run created or changed: each file sent in is
   hashed (SHA-256) before the run and compared after it.
+- `deleted` lists the files sent in that are gone after the run (removed or renamed), sorted. The
+  agent removes them from the conversation's working files.
 - `language` defaults to `js`. `ts` strips types with `sucrase` (`transforms: ["typescript"]`) inside
   the worker before the run; plain JavaScript sent as `ts` passes through unchanged, which is what the
   agent sends. The measured cost is about 2 ms per run.
@@ -167,8 +170,10 @@ every slot at its cap at once:
 | **Total**, against 4096 | **3978** |
 
 Four runs at the input and output limits stay under the first row: 4 × 628 MiB plus their files on
-the memory-backed volume (about 100 MB each) is 2912 MiB. An idle pod holds about
-4 × 84 + 50 + 63 ≈ 450 MiB, so the request stays at 1 GiB. The 2 GiB limit before this was short
+the memory-backed volume (about 100 MB each) is 2912 MiB. An idle pod holds 4 × about 230 (a slot
+with the Typst files) + 50 + 63 ≈ 1030 MiB, and production measured 1.13 to 1.18 GiB of working set
+on idle pods (2026-11-20), so the request is 1.5 GiB. The pod scales on CPU only: a memory trigger
+read every idle pod as above its target and held the autoscaler at its maximum. The 2 GiB limit before this was short
 of its own contract: two concurrent runs at the input and output limits measured 1.6 GB together.
 
 ## Running and testing
@@ -297,7 +302,7 @@ markup as `sys.inputs`. A compile error throws with Typst's diagnostics (`main.t
   (`return this`, `return 0`, `return path`, ...). `build/typst.mjs` replaces the call at bundle time
   with a function that answers exactly those and throws on any other.
 - **Fonts and packages are bundled, nothing is fetched.** `libraries.json` under `typst` lists them:
-  Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
+  Hanken Grotesk (the house face, OFL-1.1, from `@expo-google-fonts/hanken-grotesk`), Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
   `fletcher` 0.5.8 (flowcharts), `timeliney` 0.4.0 (Gantt), `chronos` 0.3.0 (sequence), `cetz` 0.4.2,
   0.4.1 and 0.3.4 (the drawing layer each of them pins) and `oxifmt`, each with its sha256. The build
   downloads a package from `packages.typst.org` once, checks the hash, and caches it in
@@ -332,3 +337,9 @@ to `libraries.json` with the same version, commit `bun.lock`, and run `task runn
 refuses a scoped specifier, so a scoped package gets a `name` without `/` and its npm name as
 `package`; with `import` set to the npm name, the runner rewrites that import to `name` before the
 run. `entry` names a local module to bundle instead of the package itself.
+
+A first-party module has no npm package: `"local": true` and its `entry` under `src/`, and the build
+skips the pin and licence checks. `house-style` (`src/house-style/`) is one: the house look of the
+agent's files, built on the brand's print colours, which `packages/brand/sync.mjs` copies into
+`src/house-style/brand/document-colors.json`. Change a colour in `packages/brand/tokens.json`, never
+in that copy.

@@ -57,19 +57,28 @@ describe('the organization target', () => {
     )
   })
 
-  it('deep-links a Büroablage filing suggestion to the Büroablage, where its file row carries it', async () => {
+  it('deep-links a Bürobibliothek filing suggestion to the Bürobibliothek, where its file row carries it', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
     expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
   })
 
-  it('lands an office filing sort on the office shelf with the run open', async () => {
+  it('lands an office library sort on the office shelf with the run open', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
     expect(access!.deepLink({ itemType: 'root_sort.ready', anchorId: 'run-1' })).toBe(
       '/app/office-shelf?rootSort=run-1',
     )
     expect(access!.deepLink({ itemType: 'root_sort.failed', anchorId: null })).toBe('/app/office-shelf')
+  })
+
+  it('opens the norm a new edition appeared for in Normen & Richtlinien, where its upload starts', async () => {
+    const access = await organizationTarget.resolve(makeSession(), 'org_1')
+
+    expect(
+      access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01', entryId: 'edition_1' }),
+    ).toBe('/app/base-knowledge?entry=edition_1')
+    expect(access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01' })).toBe('/app/base-knowledge')
   })
 
   it('falls back to the organization overview for a type with no destination', async () => {
@@ -202,6 +211,8 @@ describe('the project target', () => {
       '/app/projects/proj_1/files?folder=folder%201',
     )
     expect(access!.deepLink({ itemType: 'inbound_mail.decided', anchorId: null })).toBe('/app/projects/proj_1/files')
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: 'mail-9' })).toBe(`${list}/mail-9?status=handled`)
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: null })).toBe(`${list}?status=handled`)
   })
 
   it('redacts the row, rather than throwing, for a project the reader can no longer open', async () => {

@@ -9,10 +9,10 @@ from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
 from knowledge_layer.view_image import _is_enabled
 from knowledge_layer.view_image import _is_standalone_image
-from knowledge_layer.view_image import _normalize_image_to_jpeg
-from knowledge_layer.view_image import _render_page
-from knowledge_layer.view_image import _render_page_from_bytes
 from knowledge_layer.view_image import view_image
+from knowledge_layer.view_rendering import _normalize_image_to_jpeg
+from knowledge_layer.view_rendering import _render_page
+from knowledge_layer.view_rendering import _render_page_from_bytes
 
 _JPEG_BYTES = b"\xff\xd8\xff\xe0test-jpeg-payload"
 
@@ -411,78 +411,85 @@ async def test_project_pdf_fetch_failure_returns_text_only(monkeypatch, tmp_path
 
 @pytest.mark.asyncio
 async def test_resolve_storage_key_fail_open(monkeypatch) -> None:
-    import httpx
     from knowledge_layer.view_image import _resolve_storage_location as _resolve_storage_key
 
-    monkeypatch.delenv("FRONTEND_INTERNAL_URL", raising=False)
+    from agent.common import bff_http
+
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     assert await _resolve_storage_key("proj_1", "plan.png") is None
 
-    class _Response:
-        def __init__(self, status_code, payload):
-            self.status_code = status_code
-            self._payload = payload
+    seen: list[dict] = []
+    answer: dict = {"value": {"storageKey": "org/o1/k.png"}}
 
-        def json(self):
-            return self._payload
+    def get_json(path, *, timeout, query=None, headers=None):
+        assert path == "/api/internal/document-file"
+        seen.append(dict(query or {}))
+        if isinstance(answer["value"], Exception):
+            raise answer["value"]
+        return answer["value"]
 
-    class _Client:
-        response = _Response(200, {"storageKey": "org/o1/k.png"})
-        seen_params = []
-
-        def __init__(self, **_kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return False
-
-        async def get(self, url, *, params, headers):
-            assert url.endswith("/api/internal/document-file")
-            assert headers["x-internal-token"] == "tok"
-            _Client.seen_params.append(params)
-            return self.response
-
-    monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
-    monkeypatch.setattr(httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(bff_http, "get_json", get_json)
 
     assert await _resolve_storage_key("proj_1", "plan.png") == ("org/o1/k.png", None)
-    assert _Client.seen_params[-1] == {"collection": "proj_1", "filename": "plan.png"}
+    assert seen[-1] == {"collection": "proj_1", "filename": "plan.png"}
 
     assert await _resolve_storage_key("archiv_org_1", "plan.png") == ("org/o1/k.png", None)
-    assert _Client.seen_params[-1] == {
-        "collection": "archiv_org_1",
-        "filename": "plan.png",
-        "organizationId": "org_1",
-    }
+    assert seen[-1] == {"collection": "archiv_org_1", "filename": "plan.png", "organizationId": "org_1"}
 
-    assert await _resolve_storage_key("proj_1", "plan.png", organization_id="org_2") == (
-        "org/o1/k.png",
-        None,
-    )
-    assert _Client.seen_params[-1] == {
-        "collection": "proj_1",
-        "filename": "plan.png",
-        "organizationId": "org_2",
-    }
+    assert await _resolve_storage_key("proj_1", "plan.png", organization_id="org_2") == ("org/o1/k.png", None)
+    assert seen[-1] == {"collection": "proj_1", "filename": "plan.png", "organizationId": "org_2"}
 
-    _Client.response = _Response(404, {})
+    answer["value"] = bff_http.BffRefusedError("404", status=404, body={})
     assert await _resolve_storage_key("proj_1", "plan.png") is None
 
-    _Client.response = _Response(200, {"storageKey": ""})
+    answer["value"] = {"storageKey": ""}
     assert await _resolve_storage_key("proj_1", "plan.png") is None
 
-    _Client.response = _Response(200, {"storageKey": "org/o1/k.png", "storageBucket": "grid-org-o1-abcdef123456"})
-    assert await _resolve_storage_key("proj_1", "plan.png") == (
-        "org/o1/k.png",
-        "grid-org-o1-abcdef123456",
-    )
+    answer["value"] = {"storageKey": "org/o1/k.png", "storageBucket": "grid-org-o1-abcdef123456"}
+    assert await _resolve_storage_key("proj_1", "plan.png") == ("org/o1/k.png", "grid-org-o1-abcdef123456")
 
-    _Client.response = _Response(200, {"storageKey": "org/o1/k.png", "storageBucket": ""})
+    answer["value"] = {"storageKey": "org/o1/k.png", "storageBucket": ""}
     assert await _resolve_storage_key("proj_1", "plan.png") == ("org/o1/k.png", None)
+
+
+@pytest.mark.asyncio
+async def test_the_document_file_fetch_carries_the_turn_decision(monkeypatch) -> None:
+    from agent_testing.turn_decision import signed_decision
+    from knowledge_layer.view_image import _resolve_storage_location
+
+    from agent.common import bff_http
+    from agent.common.turn_decision import bind_turn_decision
+    from agent.common.turn_decision import reset_turn_decision
+
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
+    sent: list[dict] = []
+
+    class _Answer:
+        status = 200
+        headers = {"Content-Type": "application/json"}
+
+        def read(self):
+            return b'{"storageKey": "org/o1/k.png"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def _open(request, timeout):
+        sent.append({key.lower(): value for key, value in request.header_items()})
+        return _Answer()
+
+    decision = signed_decision()
+    token = bind_turn_decision(decision)
+    try:
+        monkeypatch.setattr(bff_http._opener, "open", _open)
+        assert await _resolve_storage_location("proj_1", "plan.png") == ("org/o1/k.png", None)
+    finally:
+        reset_turn_decision(token)
+    assert sent[-1]["x-turn-decision"] == decision.header
 
 
 def test_fetch_seaweed_bytes_fail_open(monkeypatch) -> None:

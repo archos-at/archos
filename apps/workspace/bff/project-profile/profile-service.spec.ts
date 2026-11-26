@@ -212,6 +212,17 @@ describe('saveProjectProfile optimistic concurrency (If-Match)', () => {
     expect(syncProjectFacts).not.toHaveBeenCalled()
   })
 
+  it('a patch drops the bindings of a building it removes inside the profile write, as a save does', async () => {
+    await patchProjectProfile(session, 'proj-1', [])
+
+    const inTransaction = vi.mocked(updateProjectProfileIfVersion).mock.calls[0][4]
+    expect(deleteBindingsOutsideBuildings).not.toHaveBeenCalled()
+
+    const tx = {} as never
+    await inTransaction?.(tx, storedState)
+    expect(deleteBindingsOutsideBuildings).toHaveBeenCalledWith('proj-1', buildingIds(storedProfile), tx)
+  })
+
   it('copies the fingerprint after an accepted patch too: one choke point for both', async () => {
     await patchProjectProfile(session, 'proj-1', [])
     expect(syncProjectFacts).toHaveBeenCalledWith('org-1', 'proj-1')

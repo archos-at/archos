@@ -1,0 +1,6 @@
+---
+# area: search
+fixes:
+  - >
+    On a phone, a document's title in the search register is a full
+    finger-sized target, so tapping it opens the document instead of missing.

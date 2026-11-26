@@ -54,6 +54,7 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `conversation-reads.ts` | `conversation_reads` |
 | `conversation-restricted-folders.ts` | `conversation_restricted_folders` |
 | `conversation-source-projects.ts` | `conversation_source_projects` |
+| `answer-contexts.ts` | `answer_contexts` (the per-answer record, ADR-0194) |
 | `document-access-log.ts` | `document_access_log` (the download log) |
 | `document-quarantine-decisions.ts` | `document_quarantine_decisions` (the content gate's decisions owed to the audit trail) |
 | `document-revision-announcements.ts` | `document_revision_announcements` (which new Fassungen `document.new_revision` has announced, once each) |
@@ -173,7 +174,9 @@ export const conversations = pgTable('conversations', {
 | `title` | `text` | | Auto-generated or user-set title |
 | `project_id` | `uuid` | FK → `projects.id` ON DELETE SET NULL | Scopes knowledge collection |
 | `job_id` | `uuid` | FK → `task_definitions.id` ON DELETE SET NULL (repointed by migration `0086`; was `jobs.id`, and the definition ids for job-backed rows are the same uuids) | **Provenance, not ownership**: the definition whose `output='chat'` run was materialised into this thread, or NULL when a person started it (every row before 0044, and the great majority after). `created_by` on a job conversation is still the JOB'S OWNER — a real user id, because the sharing roster, the last-owner invariant, `attributeLegacyAuthor` and audit all read that column as a person — so this column is the only thing that says "nobody typed this". Two behaviours hang off it: rendering the thread with the job's name and a job glyph instead of the owner's face, and filtering it out of the owner's personal sessions list (a weekly job is 52 threads a year) while it stays openable by URL and from the job's run history. `SET NULL`, because deleting a definition must never delete its output. **From PR 1 (ADR-0062) a standing definition owns exactly ONE thread**, and each fire appends its run message to it rather than minting a conversation per fire. The invariant is held by the thread's ID, which is derived from the definition's (`lib/tasks/task-thread.ts`, uuid5) so the primary key plus `ON CONFLICT DO NOTHING` makes „ensure the thread“ idempotent: **this column is NOT unique and cannot become unique**, because every fire before that change stamped its own conversation with the same value, and clearing the duplicates would delete the provenance the column exists for (migration `0091`'s header carries the record). That derived id is also how a reader tells the two apart: the standing thread is shown in the sessions list, the per-fire conversations stay hidden. |
-| `visibility` | `text` | NOT NULL, default `'private'` | `private` \| `project` \| `organization` (ADR-0032). Read on the hot path with the row, so access resolution costs no join. **Migration 0027 backfilled pre-existing rows with a `project_id` to `'project'`** — conversations used to be resolved org-scoped only, so any org member with an id could read any thread; `'project'` keeps access for everyone inside the project and withdraws the accidental org-wide read. Rows with a NULL `project_id` stayed `'private'` (no project membership could describe their audience). |
+| `audience_version` | `integer` | NOT NULL, default `0` (migration 0261, ADR-0194) | Counts the changes of who may read the chat. Bumped by the database, never the app: trigger `conversations_audience_version` on a change of `visibility`, `created_by` or `project_id` (a hand-set value other than the next number is ignored), and `resource_shares_conversation_audience` on an insert, update or delete of a conversation grant. A bump that would be lost (a grant naming another organization's chat, or none) raises; only the delete of an orphaned grant passes. The BFF decides a turn under the version it read and compares it under the audience lock (`decidedUnder`, `bff/conversation-context/audience.ts`); a chat with no row yet is `null` there, never `0` |
+| `personal_shelf_used_at` | `timestamptz` | NULL (migration 0265, ADR-0193) | When a turn of this solo chat without a project first read from its owner's own shelf („Meine Ablage“). Written under the audience lock by the admission (`admitPersonalShelf`, `bff/conversations/personal-shelf-use.ts`); sharing a chat that has it asks its owner first |
+| `visibility` | `text` | NOT NULL, default `'private'` | `private` \| `project` \| `organization` (ADR-0032). Read on the hot path with the row, so access resolution costs no join. **Migration 0027 backfilled pre-existing rows with a `project_id` to `'project'`** — conversations used to be resolved org-scoped only, so any org member with an id could read any thread; `'project'` keeps access for everyone inside the project and withdraws the accidental org-wide read. Rows with a NULL `project_id` stayed `'private'` (no project membership could describe their audience). A chat without a project is read only by its creator, its grantees and a named system reader whatever this says (migration 0269, [row-level security](row-level-security.md#rows-one-person-reads)). |
 | `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
 | `updated_at` | `timestamptz` | NOT NULL, `defaultNow()` | Updated on message activity |
 
@@ -208,7 +211,8 @@ export const messages = pgTable('messages', {
 | `content` | `text` | NOT NULL | Message body |
 | `run_id` | `text` | | The `task_runs` row this message is the account of (migration `0091`, ADR-0062). A run — a deep-research run, a scheduled task — is ONE assistant message in the conversation it was commissioned in, and that message carries the run ledger in `metadata.run_ledger`; this column is what finds it. NULL on every message a person or an ordinary turn wrote. `text` and no foreign key, for the reason `document_versions.origin_conversation_id` has none: the honest constraint would be composite with the tenant column, worth its cost on a row that decides access and not on one that decides rendering. Rendering and lookup only — never authorization, which comes from the conversation. |
 | `metadata` | `jsonb` | | Flexible: see the key list below |
-| `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
+| `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | The client's time when it sends one (`message-insert.ts`), so it can run behind; it orders the display |
+| `received_seq` | `bigint` | NOT NULL, default `nextval('messages_received_seq')` (migration 0266, ADR-0194) | The order in which the server received the message. No insert sets it, so the client cannot move it, and the rows of one batched insert keep their order. The cut for a reader who joined later is taken in this order (`listMessagePage` `until`, `readerCut`). Rows from before 0266 are numbered in `created_at` order |
 
 **`metadata` keys** written by the chat store (`_appendMessage`) and read back by
 `server-message-mapper.ts` when a history rehydrates from the server:
@@ -410,7 +414,8 @@ threw the previous bytes away. That was versioning without the history. Now:
 |---|---|
 | a person uploads a file | version 1, `published`, `origin = 'upload'`, `published_by = created_by` and **no approver** (migration `0137`) — the person who uploaded it IS the assertion, and no review round is invented. Rows written before 0137 carried the uploader in `approved_by`; the migration cleared it |
 | a person re-uploads the same name | version N+1, `published`; version N becomes `superseded` and **keeps its object**, under the `v<n>/` storage prefix it was written to |
-| The agent files a document | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
+| a person files a file the agent made (its card, or `file_draft` at their request) | version 1, `published`, `origin = 'filing'`, `published_by` = the filer and **no approver** (migration `0249`, ADR-0054 update of 2026-11-18): the person who files it signs it off. Filing it again publishes the next Fassung the same way |
+| a background run files its result (a task's report, a deep-research report) | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
 
 `documents.published_version_id` points at the live version and the item's
 `storage_key` / `storage_bucket` / `file_size` / `content_type` / `content_hash`
@@ -451,8 +456,8 @@ reset stays NULL, and stays closed to members.
 
 - `document_versions_state_known` — `draft | in_review | changes_requested | approved | published | superseded | rejected`, generated from `DOCUMENT_VERSION_STATES` so the tuple and the CHECK cannot drift.
 - `document_versions_review_complete` — `(reviewed_by IS NULL) = (reviewed_at IS NULL)`. Copied from `tasks_review_complete` (migration `0075`): a decision is by somebody, at some time, or it is not a decision.
-- `document_versions_published_is_approved` — `state <> 'published' OR origin = 'upload' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)` (migration `0137`). **The publish door.** Only a published version is ever dispatched to the retrieval index, so this makes "indexed ⟹ a person uploaded it or a person approved it" a row invariant rather than a predicate in a fail-open retrieval path.
-- `document_versions_origin_known` — `upload | draft` (migration `0137`, ADR-0104). How the version began: a person's upload, or a draft that is published only through an approval. Defaults to `draft`, the value that demands an approver, so a writer that names none is refused rather than publishing unreviewed bytes.
+- `document_versions_published_is_approved` — `state <> 'published' OR origin IN ('upload', 'filing') OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)` (migration `0137`, widened by `0249`). **The publish door.** Only a published version is ever dispatched to the retrieval index, so this makes "indexed ⟹ a person uploaded it, filed it or approved it" a row invariant rather than a predicate in a fail-open retrieval path.
+- `document_versions_origin_known` — `upload | filing | draft` (migration `0137`, `filing` from `0249`, ADR-0104). How the version began: a person's upload, a person's filing of a file the agent made, or a draft that is published only through an approval. Defaults to `draft`, the value that demands an approver, so a writer that names none is refused rather than publishing unreviewed bytes.
 - `document_versions_refusal_has_comment` — `state NOT IN ('changes_requested', 'rejected') OR review_comment IS NOT NULL`. A refusal with nothing in it is a decision the next attempt cannot act on.
 - `document_versions_submitted_by_actor_known` — `human | agent` (migration `0085`).
 
@@ -1031,6 +1036,7 @@ Nine tables, one job each:
 | `revoked_at`, `revoked_by`, `revoked_reason` | | all three set together (`…_revocation_attributed`); reason `rotated`/`switched_off` | |
 | `cap_notice` | `text` | `nearly_full`/`full` (`inbound_mail_addresses_cap_notice_known`) | What the managers were last told about the staged-bytes caps (sweep 14) |
 | `cap_noticed_at` | `timestamptz` | set exactly with `cap_notice` (`inbound_mail_addresses_cap_noticed_at`) | |
+| `forwarded_from` | `text[]` | NOT NULL, default `{}`; at most 10, lowercase, none empty (`inbound_mail_addresses_forwarded_from_shape`, migration 0250) | The office's existing project addresses that forward here by a rule: a signed To or Cc naming one counts as addressed to the project. A rotation carries it to the new address |
 
 One active address per project (`uniq_inbound_mail_addresses_active_project`,
 partial on `revoked_at IS NULL`); two lazy mints race into a 23505 the service
@@ -1058,7 +1064,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
 | `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
 | `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
-| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
+| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed` (`relaxed_alignment` too until 0250), never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
@@ -1156,7 +1162,10 @@ Nothing reaches a project unless its scan said clean
 
 Triggers:
 - `inbound_mail_parts_decision_guard` (`BEFORE INSERT OR UPDATE OF decision_id`):
-  the named decision must be a `file` (`inbound_mail_parts_decision_files`).
+  the named decision must be a `file` (`inbound_mail_parts_decision_files`);
+  a part flagged since a `sender` decision, or an attachment flagged since a
+  `follow` decision (0252), is not claimed on it
+  (`inbound_mail_parts_sender_files_clean`, `…_follow_files_clean`).
 - `inbound_mail_parts_document_guard` (`BEFORE UPDATE OF document_id`): when
   the document goes, `document_version_id` goes too. Deleting the document
   nulls `document_id` first, after which the composite key to the Fassung is
@@ -1190,22 +1199,32 @@ sent from here.
 | `audited_at` | `timestamptz` | | NULL while owed to the trail |
 
 CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
-no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
-`file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
+no release and no acknowledgement); `…_follow_files_clean` (0252, before it
+`…_follow_appends_text_only`: a follow is a `file` with no release or
+acknowledgement, never a new thread, and an attachment it files goes into a
+folder by id, the root `''` or a Fassung of a document, never a folder to be
+made); `…_destination_when_filing`,
 `…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
 `…_sender_files_clean` (0197: a `sender` decision files, and acknowledges or
 releases nothing).
 
 Trigger `inbound_mail_decisions_guard`:
-- INSERT: a follow files a text, never an attachment
-  (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
-  text and only for it (`…_thread_for_text`). From 0197: `via = 'sender'` only
+- INSERT: a thread is chosen for a filed text and only for it
+  (`…_thread_for_text`). From 0252 (before it a follow filed a text, never an
+  attachment, `…_follow_files_text`): a follow files an attachment only of a
+  mail whose text the same follow appended in the same name, the raw message
+  and the part scanned `clean`, the part without risk flags or content
+  findings (`…_follow_attachment_clean`; the attachment's decision names no
+  thread, so the follower key binds it only through its text's decision). From 0197: `via = 'sender'` only
   on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
   `clean`, the part without risk flags or content findings
-  (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
-  `unverified_writer` mail only by its `sender_user_id`, a `file` with
-  `acknowledged_sender` (`…_claimed_sender_releases`); no `restore` of an
-  `expired` part of an `external` mail (`…_external_expiry_final`). The part and
+  (`…_sender_files_own_verified_mail`); a `file` on an `unverified_writer` mail
+  only with `acknowledged_sender`, and a `file` or `restore` on one whose
+  `sender_reason` is `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm` or
+  `dkim_short_key` (or NULL) only by its `sender_user_id`
+  (`…_claimed_sender_releases`; from 0250, before it every one was its
+  member's alone); 0197's refusal of a `restore` of an `expired` part of an
+  `external` mail (`…_external_expiry_final`) is gone since 0255. The part and
   the mail are read by their full composite keys, under the caller's row-level
   security; SECURITY INVOKER.
 - UPDATE: nothing changes but `audited_at`, once, NULL to a time (`…_immutable`).
@@ -1269,8 +1288,11 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 
 Indexes: `mail_thread_entries_message_id_idx` (project, message_id),
 `mail_thread_entries_author_message_id_idx` (project, author_message_id; set),
-`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`. Legal-hold
-trigger `mail_thread_entries_legal_hold_guard`.
+`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`,
+`mail_thread_entries_sender_idx` (project, `lower(sender_address)`,
+received_at DESC; `source = 'inbound'` only; 0253: the sender memory of the
+single-mail view, since the held mail forgets its sender when it settles).
+Legal-hold trigger `mail_thread_entries_legal_hold_guard`.
 
 ### mail_thread_entry_attachments (D36)
 
@@ -1316,10 +1338,10 @@ other. Index `(project_id, message_id)`. DELETE is not revoked here.
 | `id`, `organization_id`, `project_id` | | | |
 | `thread_id` | `uuid` | FK to `mail_threads` CASCADE | |
 | `user_id` | `text` | person-shaped | The follower: every append is filed as them |
-| `created_at`, `expires_at` | | `expires_at` after `created_at` and at most 180 days later (`mail_thread_follows_window`) | 60 days by default |
+| `created_at`, `expires_at` | | `expires_at` after `created_at` (`mail_thread_follows_window`; 0254 dropped its 180-day bound) | 60 days by default; each mail filed into the Verlauf moves it to 60 days after that filing |
 | `renewed_at` | `timestamptz` | not before `created_at` | |
 | `daily_cap` | `smallint` | 1..50, default 20 | |
-| `expiring_notified_at` | `timestamptz` | | Day 55, once |
+| `expiring_notified_at` | `timestamptz` | | Five days before `expires_at`, once per end; cleared when a filing or a renewal moves the end |
 | `ended_at`, `ended_by`, `ended_reason` | | reason exactly with `ended_at`; `unfollowed`/`expired`/`access_lost`/`address_rotated`/`detached`/`document_gone`/`revoked_by_manager`/`project_closed` (`mail_thread_follows_ended_reason_known`, the vocabulary `MAIL_THREAD_FOLLOW_END_REASONS`); `unfollowed` only by the follower, `revoked_by_manager` only by someone else (`…_person_reason_attributed`) | `ended_by` NULL when the system noticed; for `project_closed` the person who closed the project, or NULL when sweep 12 ended it |
 
 Unique `(id, thread_id, user_id, organization_id)` (what a follow decision's
@@ -1399,13 +1421,48 @@ conversation's creator keeps reading it.
 
 ---
 
+## answer_contexts (migration 0262, ADR-0194)
+
+What one answer was allowed to read and what it read, one row per answer,
+keyed by `(organization_id, message_id)`, the id the agent mints for the turn's
+answer before it reads anything. Written by the BFF only: `recordDecidedAnswer`
+from the signed decision the agent sends to `POST /api/internal/turn-context`, and
+`recordAnswerReads` in the transaction that records an admitted restricted
+folder (`admitSourceFolders`) or a cross-project hand-out
+(`recordCrossProjectHandOut`). The client's `retrievalLedger` stays a display
+aid and is never read for permissions. `deleteConversationInOrg` deletes the
+rows with the chat. Module: `bff/conversation-context/record.ts`.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `organization_id` | `text` | NOT NULL, PK | RLS: `organization_id = current_org()` |
+| `message_id` | `text` | NOT NULL, PK | The answer's id |
+| `conversation_id` | `text` | NOT NULL | No FK: a chat's first turn runs before its row exists. Index `answer_contexts_conversation_idx` |
+| `user_id` | `text` | NOT NULL | The asker |
+| `kind` | `text` | NOT NULL, CHECK `chat`/`run`/`headless`/`external` | |
+| `audience_version` | `integer` | CHECK `>= 0` or NULL | The version the turn was decided under; NULL before the chat's row existed |
+| `solo` | `boolean` | NOT NULL | Whether the asker alone read the chat then |
+| `project_id` | `uuid` | | The turn's project, from the row |
+| `shelves` | `text[]` | NOT NULL, default `{}` | The collections the turn was allowed to search |
+| `other_projects` | `text` | NOT NULL, CHECK `none`/`every-reader`/`chat-projects` | How far beyond its own project a lookup could reach |
+| `workspace_read` | `text` | NOT NULL, CHECK `none`/`document+projectFacts`/`all` | |
+| `personal_memory`, `personal_shelf` | `boolean` | NOT NULL | Whether either was allowed |
+| `read_folders`, `read_projects` | `text[]` | NOT NULL, default `{}` | What the turn actually drew on, as admitted |
+| `read_personal_shelf` | `boolean` | NOT NULL, default `false` | Slice 4 (ADR-0193) writes it |
+| `decided_at` / `updated_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
+
+Its CHECKs and the audience-version triggers are exercised in `scripts/rls-test-db.sh`.
+
+---
+
 ## conversation_source_projects (migration 0125, ADR-0094)
 
 Another project whose content a chat drew on through a cross-project lookup:
 written by the BFF BEFORE a lookup answers (`recordCrossProjectHandOut`, called
 by `POST /api/internal/cross-project/*`), under the same per-conversation lock
 as `conversation_restricted_folders` and every widening of the audience, with
-the check that the audience is the one the lookup searched as. A restricted
+the check that the audience is still at the `audience_version` the lookup
+searched under (migration 0261). A restricted
 folder of that project is recorded beside it, in
 `conversation_restricted_folders`; this row covers what every member of the
 project reads, the root included. Judged at read time through

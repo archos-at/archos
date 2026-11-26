@@ -28,7 +28,10 @@ it) is the same for every turn of an org — with ONE exception, scope: a turn
 without a project is not sent `ifc_query` / `ifc_measure` (`turn_tools.tools_in_scope`),
 which can only say "no project" there and are ~8k tokens of every call, and a turn
 in a project the BFF says holds no IFC (no DXF) is not sent them (`dxf_measure`)
-either (`projectModels` on the turn context; unknown keeps them). A handful of
+either (`projectModels` on the turn context; unknown keeps them). `drawing_measure` is the
+reverse: it is sent only where `projectModels.pdf` is true, which the BFF states for a project that
+holds a PDF in an organization with the `drawing-measure` entitlement, and unknown leaves it unbound; the tool
+refuses a call on the same fact (`common/turn_file_kinds`), since a job's agent binds without this scope. A handful of
 shards per org, never one per toggle combination. The RIS lookup offers `as_of`
 (ADR-0171) on every turn; the `time-editions` switch that bound a second copy of
 it went with ADR-0175. The turn context's building law resolves on one day (today, or a filing
@@ -42,19 +45,27 @@ with a reason in its own envelope; `conversation.py` only routes on it. A label
 decided before the answer can only withhold a capability the answer turned out
 to need.
 
-**Confidence is a groundedness check of the answer** (ADR-0139).
+**Confidence is a check of the answer's citations and its statements of law** (ADR-0139, ADR-0197).
 `finalize_answer` hands ONE model call (`common/claim_judge.py`, the org's
 follow-ups model, temperature 0, after the prose streamed, bounded by
 `JUDGE_TIMEOUT_S`) the question, the final answer and everything the turn
 registered (`answer_check.evidence_for`, `answer_check.turn_check`): the passages in full up to a budget,
 this turn's workspace records and the turn context's profile, inventory and
 `<building_law>` block (`common/workspace_records.py`, never the `SourceRegistry`;
-the block is the records' statement of which edition binds, so an answer that
-names it is not graded unbacked), the measurements,
+the block is the records' statement of which edition binds), the measurements,
 the readings, and which quotations the quote check found. The evidence is
-delimited data; an instruction inside it is ignored. The reply is a level and
-the statements the answer relies on that are unbacked or contradicted
-(`confidence_check`). Two structural gates sit on top, never a word list: the
+delimited data; an instruction inside it is ignored. The check judges two
+things only (ADR-0197): a statement with `[N]` against passage N (contradicted,
+or unbacked when the passage is silent), and a statement of what a regulation
+requires, allows or forbids with no citation (unbacked, source `none`). What the
+answer says about the person, the office or the project, memory, earlier turns,
+general knowledge and reasoning are never findings: the grader is not shown
+where they came from. Code keeps a finding only on a marker the answer wrote,
+an uncited unbacked one only when it names a regulation, an uncited
+contradiction only when it names its evidence (`claim_judge._settled`); the
+grader returns no level, and `claim_judge.level_of` derives it (low with a
+contradiction, medium with any finding, high with none). `confidence_check`
+carries the findings and `sources_checked`. Two structural gates sit on top, never a word list: the
 quote gate (`markers._quote_cap`) and the law gate (`law_unsettled`: an answer
 citing building law the records do not settle is at most medium, ADR-0139's
 amendment), or stating law without the records: a sentence that cites only web
@@ -72,7 +83,10 @@ on, and any one holds the level at medium; the self-report is a ceiling the
 check may lower, never raise. No model, a timeout, an
 error or an unreadable reply surfaces NO level, never a guessed one. Do not put
 rules back in front of the grader: five rounds of word lists, sentence classes
-and aggregation each moved the errors to the other side (ADR-0139). Deep
+and aggregation each moved the errors to the other side (ADR-0139). Do not widen
+what it judges either: a statement whose source the grader was not shown is not
+unbacked, and grading every sentence put „Aussagen ohne Beleg" on correct
+answers from memory (ADR-0197). Deep
 research keeps rule 1, the answer-level floors.
 
 ## Obligations
@@ -90,8 +104,8 @@ research keeps rule 1, the answer-level floors.
 | Add something a turn varies (a fact, a block, a per-tenant switch) to what the model reads | Put it in the turn template (`prompts/*.j2`), the turn context, and name the value in exactly one of `context_layout.TURN_VALUES` (it changes per turn: the note right before the newest question) or `CONVERSATION_VALUES` (it holds for the project: the head after the system prompt, ADR-0177). Both are request-only. The one line after `</turn_context>`, the answer language, is code's decision and appended by `prompt.with_answer_language`: it must be the last text before the question. Never in `chat_static.md`, whose bytes are the system prompt of every turn | `test_turn_context_message.py` (the system prompt byte-identical across two different turns, the context's place, nothing stored), `test_context_layout.py` (a value in neither set, the head byte-identical across turns) and `test_static_prompt_split.py` (`{%` in the static file) |
 | Add a line to `chat_static.md` | Pass the value test first: the agent cannot find it out where it matters (a tool result, a description, the turn context), no code enforces it, and its absence gives a wrong answer nothing catches. State it once, calmly, with its reason. Stay within 5,000 tokens (characters / 4) | `test_static_prompt_split.py::TestByteIdentity::test_the_static_prompt_stays_within_its_budget`; the line-by-line record is `docs/audit/prompt-value-audit-2026-10.md` |
 | Edit `chat_static.md`'s envelope examples or its field-order sentence | Keep `kind` and the masthead fields before `answer`, then `cards` (ADR-0066; `common/answer_prose_stream.py` reads them in that order). Run the answer suite and `test_answer_prose_stream.py`, then `task prompts:push` checks it and `-- --apply` publishes it (a one-way door: ask first) | Nothing: streaming fails open and the masthead just arrives late |
-| Edit a table, status or directive rule in `chat_static.md`'s `<formatting>` (RICH BLOCKS) | Keep the header names, status words and directive names in `apps/workspace/shared/components/MarkdownRenderer/table-shape.ts`, `status-marks.ts` and `directives.ts` in step, the dialect names in `cards/catalog.RETIRED_CARD_REPLACEMENTS`, and the block, marker and `:project` key lists in `common/answer_dialect.py` and `apps/workspace/bff/text/answer-directives.ts` | `packages/agent/tests/common/test_answer_dialect_parity.py` for the two lists; otherwise nothing: the table renders plain, a directive shows as its literal `:::` lines, and a block the server does not know is unwrapped |
-| Change what the answer check is handed or asked, or how its level surfaces | Hand it the FINAL text and everything the turn registered, passages whole up to `EVIDENCE_BUDGET_CHARS` and workspace records within their share (`RECORDS_BUDGET_CHARS`), the turn context in its own field; keep the evidence inside the delimited data block and the system prompt's data instruction; keep records out of the `SourceRegistry`; keep a failed check as no level, and say which failure it was (`claim_judge.Unavailable`, stored as `unavailable_reason` and scored `confidence-judge-unavailable-reason`): an unavailable rate nobody can split by cause cannot be fixed. Run the AT golden run on dev before and after the deploy and put both summaries in the PR or its follow-up ([which run gates a change](../contributing/testing-and-verification.md#which-run-gates-a-change)): its confidence checks and cases A1 and A8 score what the grader decides. The live harness over `tests/fixtures/answer_check/stored_answers_2026-10.json` is optional, before a deploy | `packages/agent/tests/common/test_claim_judge.py` (the injection probe, the budget, the binding, every failure) and `test_answer_check_pipeline.py`; the grading itself only the golden run or the harness sees |
+| Edit a table, status or directive rule in `chat_static.md`'s `<formatting>` (RICH BLOCKS) | Keep the header names, status words and directive names in `apps/workspace/shared/components/MarkdownRenderer/table-shape.ts`, `status-marks.ts` and `directives.ts` in step, the dialect names in `cards/retired_cards.RETIRED_CARD_REPLACEMENTS`, and the block, marker and `:project` key lists in `common/answer_dialect.py` and `apps/workspace/bff/text/answer-directives.ts` | `packages/agent/tests/common/test_answer_dialect_parity.py` for the two lists; otherwise nothing: the table renders plain, a directive shows as its literal `:::` lines, and a block the server does not know is unwrapped |
+| Change what the answer check is handed or asked, or how its level surfaces | Hand it the FINAL text and everything the turn registered, passages whole up to `EVIDENCE_BUDGET_CHARS` and workspace records within their share (`RECORDS_BUDGET_CHARS`), the turn context in its own field; keep the evidence inside the delimited data block and the system prompt's data instruction; keep records out of the `SourceRegistry`; keep what it judges to citations and uncited statements of law, and the level derived by code from the findings (`level_of`, ADR-0197); keep a failed check as no level, and say which failure it was (`claim_judge.Unavailable`, stored as `unavailable_reason` and scored `confidence-judge-unavailable-reason`): an unavailable rate nobody can split by cause cannot be fixed. Run the AT golden run on dev before and after the deploy and put both summaries in the PR or its follow-up ([which run gates a change](../contributing/testing-and-verification.md#which-run-gates-a-change)): its confidence checks and cases A1 and A8 score what the grader decides. The live harness over `tests/fixtures/answer_check/stored_answers_2026-10.json` is optional, before a deploy | `packages/agent/tests/common/test_claim_judge.py` (the injection probe, the budget, the binding, every failure, what it never judges, the level derived from the findings) and `test_answer_check_pipeline.py`; the grading itself only the golden run or the harness sees |
 | Change what the clarify step is given | Edit `ClarifierSettings` on `chat_deepresearcher_agent`, and leave `AgentGroup.CLARIFIER` alone: an org's model choice is stored against it | An org's pinned clarifier model silently stops applying |
 
 ## The names that stay

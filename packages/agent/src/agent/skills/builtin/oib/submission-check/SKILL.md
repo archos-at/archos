@@ -28,7 +28,7 @@ The required documents are in the Bauordnung and the ordinances of this Land.
 Fetch them through RIS. A remembered Viennese list laid over a Lower Austrian
 project is the most expensive way to look complete.
 
-What this office additionally requires is in the Büroablage, not in the
+What this office additionally requires is in the Bürobibliothek, not in the
 Bauordnung. Keep the two apart: what the authority demands, what the office
 demands.
 

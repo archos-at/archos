@@ -2,7 +2,7 @@ import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { getTranslations } from '@/i18n/server'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import { BaseKnowledgeSheet } from './base-knowledge-sheet'
+import { BaseKnowledgePageBody } from './base-knowledge-page-body'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations(baseKnowledgeCopy)
@@ -10,5 +10,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function BaseKnowledgePage(): JSX.Element {
-  return <BaseKnowledgeSheet standalone />
+  return <BaseKnowledgePageBody />
 }

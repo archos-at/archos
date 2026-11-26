@@ -72,7 +72,7 @@ def _to_schema_chunks(chunks: list[corpus.Chunk]):
             display_citation=f"{chunk.file_name} p{chunk.page}",
             content_type="text",
             retrieval_rank=position,
-            metadata={"collection": "oib_knowledge", **chunk.metadata},
+            metadata={"collection": "base_corpus", **chunk.metadata},
         )
         for position, chunk in enumerate(chunks)
     ]

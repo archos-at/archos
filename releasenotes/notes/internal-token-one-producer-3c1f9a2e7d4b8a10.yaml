@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     The workspace no longer calls the backend without the internal service

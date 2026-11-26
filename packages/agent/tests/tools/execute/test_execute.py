@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import base64
+import hashlib
 import json
 from typing import Any
 
@@ -11,7 +13,13 @@ from langgraph.store.memory import InMemoryStore
 from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
+from agent.tools.documents.draft_store import DERIVED_FROM_KEY
 from agent.tools.documents.draft_store import DRAFT_ROOT
+from agent.tools.documents.draft_store import FILED_DOCUMENT_KEY
+from agent.tools.documents.draft_store import FILED_HASH_KEY
+from agent.tools.documents.draft_store import FILED_STATE_KEY
+from agent.tools.documents.draft_store import FILED_VERSION_KEY
+from agent.tools.documents.draft_store import VERSION_KEY
 from agent.tools.documents.draft_store import DraftBackend
 from agent.tools.documents.draft_store import draft_namespace
 from agent.tools.execute import run
@@ -79,7 +87,46 @@ def _ok(files: dict[str, bytes], **extra: Any) -> dict:
         "stderr": "",
         "files": [{"path": path, "base64": _b64(data), "size": len(data)} for path, data in files.items()],
         "durationMs": 42,
+        "deleted": extra.get("deleted", []),
     }
+
+
+class TestOneRunAtATimePerConversation:
+    async def test_runs_of_one_conversation_never_overlap_and_no_lock_is_left(self, store, monkeypatch) -> None:
+        running = 0
+        most = 0
+
+        async def run_code(*args: Any, **kwargs: Any) -> runner_client.RunResult:
+            nonlocal running, most
+            running += 1
+            most = max(most, running)
+            await asyncio.sleep(0.01)
+            running -= 1
+            return runner_client.RunResult(status="ok")
+
+        monkeypatch.setattr(run, "run_code", run_code)
+
+        await asyncio.gather(*(run.execute(RUNNER, "export default () => 1") for _ in range(6)))
+
+        assert most == 1
+        assert run._locks == {}
+
+    async def test_a_held_lock_is_never_dropped_while_many_other_conversations_come_and_go(self) -> None:
+        async with run._lock("held"):
+            for index in range(1000):
+                async with run._lock(f"other-{index}"):
+                    pass
+            assert list(run._locks) == ["held"]
+            waiting = asyncio.ensure_future(_enter(run._lock("held")))
+            await asyncio.sleep(0)
+            assert not waiting.done()
+        await waiting
+        assert run._locks == {}
+
+
+async def _enter(lock: Any) -> None:
+    async with lock:
+        pass
 
 
 class TestARun:
@@ -98,7 +145,7 @@ class TestARun:
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
-        await run.execute(RUNNER, "export default () => 1", timeout_seconds=999)
+        await run.execute(RUNNER, 'export default () => fs.readFile("/workspace/raeume.md")', timeout_seconds=999)
 
         body = seen[0]
         assert body["language"] == "ts"
@@ -273,7 +320,7 @@ class TestInputPaths:
         seen: list[dict] = []
         _runner(monkeypatch, _ok({}), seen)
 
-        await run.execute(RUNNER, "export default () => 1", documents=["a"])
+        await run.execute(RUNNER, "export default () => readdir('/workspace')", documents=["a"])
 
         sent = {f["path"]: base64.b64decode(f["base64"]) for f in seen[0]["files"]}
         assert sent[f"{run.INPUT_DIR}Plan.md"] == b"# alt\n"
@@ -295,6 +342,202 @@ class TestInputPaths:
         answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
 
         assert "not kept" not in answer
+
+
+class TestDeletingAndDeriving:
+    async def test_a_working_file_the_run_deletes_is_removed_and_its_card_says_so(
+        self, store, monkeypatch, registry
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(f"{DRAFT_ROOT}alt.xlsx", b"PK-alt") is None
+        _runner(
+            monkeypatch,
+            _ok({"/workspace/neu.xlsx": b"PK-alt"}, deleted=["/workspace/alt.xlsx"]),
+            [],
+        )
+
+        answer = await run.execute(RUNNER, 'await rename("/workspace/alt.xlsx", "/workspace/neu.xlsx")')
+
+        assert store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}alt.xlsx") is None
+        assert store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}neu.xlsx") is not None
+        assert f"removed from the working directory: {DRAFT_ROOT}alt.xlsx" in answer
+        removed = [card for card in registry.snapshot() if card.get("removed")]
+        assert [card["path"] for card in removed] == [f"{DRAFT_ROOT}alt.xlsx"]
+
+    async def test_a_draft_written_again_while_the_run_ran_is_not_removed(self, store, monkeypatch) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}bleibt.xlsx"
+        assert await backend.awrite_run_file(path, b"PK") is None
+
+        def answer(request: httpx.Request) -> httpx.Response:
+            item = store.get(draft_namespace(CONVERSATION), path)
+            store.put(draft_namespace(CONVERSATION), path, {**item.value, VERSION_KEY: 2})
+            return httpx.Response(200, json=_ok({}, deleted=["/workspace/bleibt.xlsx"]))
+
+        _runner(monkeypatch, answer, [])
+
+        await run.execute(RUNNER, "export default () => 1")
+
+        assert store.get(draft_namespace(CONVERSATION), path) is not None
+
+    async def test_nothing_is_kept_when_the_conversation_was_erased_while_the_run_ran(self, store, monkeypatch) -> None:
+        from agent.tools.execute import tool_data
+
+        async def erased(conversation_id: str) -> bool:
+            return True
+
+        monkeypatch.setattr(run, "is_erased", erased)
+        _runner(monkeypatch, _ok({"/workspace/neu.xlsx": b"PK"}), [])
+
+        answer = await run.execute(RUNNER, "export default () => 1")
+
+        assert answer == run.NO_CONVERSATION
+        assert store.search(draft_namespace(CONVERSATION)) == []
+        assert tool_data.ERASED_KEY == "erased"
+
+    async def test_a_changed_copy_of_a_project_document_records_where_it_came_from(
+        self, store, monkeypatch, registry
+    ) -> None:
+        async def document(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
+            return "proj_p1", "Ordner/Raumbuch.xlsx", b"PK-original", "doc-raumbuch"
+
+        monkeypatch.setattr(run, "_document_bytes", document)
+        _runner(monkeypatch, _ok({"/workspace/Raumbuch.xlsx": b"PK-changed"}), [])
+
+        await run.execute(RUNNER, 'writeFile("/workspace/Raumbuch.xlsx", b)', documents=["Raumbuch.xlsx"])
+
+        item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Raumbuch.xlsx")
+        assert item.value[DERIVED_FROM_KEY] == {
+            "document_id": "doc-raumbuch",
+            "name": "Raumbuch.xlsx",
+            "content_hash": "sha256:" + hashlib.sha256(b"PK-original").hexdigest(),
+        }
+        card = next(card for card in registry.snapshot() if card["type"] == "document_draft")
+        assert (card["derived_from_document_id"], card["derived_from_name"]) == ("doc-raumbuch", "Raumbuch.xlsx")
+
+    async def test_a_new_file_of_the_same_type_under_another_name_is_not_a_copy_of_the_input(
+        self, store, monkeypatch
+    ) -> None:
+        async def document(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
+            return "proj_p1", "Raumbuch.xlsx", b"PK", "doc-raumbuch"
+
+        monkeypatch.setattr(run, "_document_bytes", document)
+        _runner(monkeypatch, _ok({"/workspace/Flaechen.xlsx": b"PK2"}), [])
+
+        await run.execute(RUNNER, 'writeFile("/workspace/Flaechen.xlsx", b)', documents=["Raumbuch.xlsx"])
+
+        item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Flaechen.xlsx")
+        assert DERIVED_FROM_KEY not in item.value
+
+    async def test_a_new_file_of_another_type_is_not_a_copy_of_the_input(self, store, monkeypatch) -> None:
+        async def document(name: str, budget: int) -> tuple[str, str, bytes, str | None]:
+            return "proj_p1", "Raumbuch.xlsx", b"PK", "doc-raumbuch"
+
+        monkeypatch.setattr(run, "_document_bytes", document)
+        _runner(monkeypatch, _ok({"/workspace/Bericht.pdf": b"%PDF"}), [])
+
+        await run.execute(RUNNER, 'writeFile("/workspace/Bericht.pdf", b)', documents=["Raumbuch.xlsx"])
+
+        item = store.get(draft_namespace(CONVERSATION), f"{DRAFT_ROOT}Bericht.pdf")
+        assert DERIVED_FROM_KEY not in item.value
+
+
+class TestAFiledDraftAPersonChanged:
+    async def _filed(self, store: InMemoryStore) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}Raumbuch.xlsx"
+        assert await backend.awrite_run_file(path, b"PK-1") is None
+        await backend.arecord_filing(
+            path,
+            {
+                FILED_DOCUMENT_KEY: "doc-1",
+                FILED_VERSION_KEY: "ver-1",
+                FILED_HASH_KEY: "sha256:filed",
+                FILED_STATE_KEY: "approved",
+            },
+            draft_version=1,
+        )
+
+    def _project(self, monkeypatch: pytest.MonkeyPatch, content_hash: str, seen: list) -> None:
+        from agent.common.bff_http import SignedEnvelope
+        from agent.tools.execute import project_state
+
+        def post(payload: dict, envelope: Any) -> dict:
+            seen.append(payload)
+            return {"documentId": "doc-1", "version": {"contentHash": content_hash, "versionNumber": 3}}
+
+        monkeypatch.setattr(project_state, "_envelope", lambda: SignedEnvelope(header="h", signature="s"))
+        monkeypatch.setattr(project_state, "post_document_version", post)
+
+    async def test_the_run_says_it_worked_on_the_stale_copy(self, store, monkeypatch) -> None:
+        await self._filed(store)
+        seen: list = []
+        self._project(monkeypatch, "sha256:person", seen)
+        _runner(monkeypatch, _ok({}), [])
+
+        answer = await run.execute(RUNNER, 'fs.readFile("/workspace/Raumbuch.xlsx")')
+
+        assert seen == [{"op": "status", "documentId": "doc-1"}]
+        assert f"note: {DRAFT_ROOT}Raumbuch.xlsx was changed in the project by a person since it was filed" in answer
+        assert "(now Fassung 3)" in answer
+
+    async def test_an_unchanged_filing_says_nothing(self, store, monkeypatch) -> None:
+        await self._filed(store)
+        self._project(monkeypatch, "sha256:filed", [])
+        _runner(monkeypatch, _ok({}), [])
+
+        answer = await run.execute(RUNNER, 'fs.readFile("/workspace/Raumbuch.xlsx")')
+
+        assert "note:" not in answer
+
+
+class TestLargeInputs:
+    async def test_documents_past_the_limit_are_named_as_not_loaded(self, store, monkeypatch) -> None:
+        names = [f"d{index}" for index in range(run.MAX_DOCUMENTS + 2)]
+        _documents(monkeypatch, {name: ("proj_a", f"{name}.pdf", b"%PDF") for name in names})
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=names)
+
+        assert len(seen[0]["files"]) == run.MAX_DOCUMENTS
+        assert f"not loaded: 'd{run.MAX_DOCUMENTS}', 'd{run.MAX_DOCUMENTS + 1}'" in answer
+
+    async def test_one_file_past_the_runner_limit_is_refused_by_name_and_size_and_nothing_runs(
+        self, store, monkeypatch
+    ) -> None:
+        from agent.common.stored_file import StoredFileUnavailable
+        from agent.tools.execute.workspace_files import MAX_FILE_BYTES
+
+        def too_large(bucket: str, key: str, budget: int) -> bytes:
+            raise StoredFileUnavailable("too_large", size=MAX_FILE_BYTES + 1)
+
+        _documents(monkeypatch, {"a": ("proj_a", "Bestand.ifc", b"")})
+        monkeypatch.setattr(run, "read_stored_file", too_large)
+        seen: list[dict] = []
+        _runner(monkeypatch, _ok({}), seen)
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        assert seen == []
+        assert answer.startswith("Nothing was run.")
+        assert "'Bestand.ifc' is 32.0 MB" in answer
+
+    async def test_a_file_the_remaining_budget_cannot_take_says_so(self, store, monkeypatch) -> None:
+        from agent.common.stored_file import StoredFileUnavailable
+
+        def too_large(bucket: str, key: str, budget: int) -> bytes:
+            raise StoredFileUnavailable("too_large", size=budget + 1024 * 1024)
+
+        monkeypatch.setattr(run, "MAX_INPUT_BYTES", 2 * 1024 * 1024)
+        _documents(monkeypatch, {"a": ("proj_a", "Plan.pdf", b"")})
+        monkeypatch.setattr(run, "read_stored_file", too_large)
+        _runner(monkeypatch, _ok({}), [])
+
+        answer = await run.execute(RUNNER, "export default () => 1", documents=["a"])
+
+        assert "'Plan.pdf' is 3.0 MB, but only 2.0 MB" in answer
+        assert "Name fewer documents in one run." in answer
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 import 'server-only'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import type { Document } from '@/lib/db/schema/documents'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from './document-status'
 import { reconcileDocumentStatuses } from './reconcile-status'
@@ -20,7 +20,7 @@ export async function settlePushedIngestJobs(jobIds: readonly string[]): Promise
   let settled = 0
   for (const [organizationId, inOrganization] of byOrganization(rows)) {
     try {
-      const reconciled = await withTenant({ organizationId }, () =>
+      const reconciled = await withSystemReader(organizationId, 'ingestion', () =>
         reconcileDocumentStatuses(inOrganization, organizationId, 'push')
       )
       settled += reconciled.filter((row) => !IN_FLIGHT_DOCUMENT_STATUSES.has(row.status)).length

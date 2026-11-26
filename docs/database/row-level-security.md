@@ -92,6 +92,38 @@ not readable-by-everyone; it is not readable at all, and you get
 > **One policy per table.** Two permissive policies OR together, so a second one
 > silently *widens* the first. The coverage spec asserts exactly one.
 
+> **`secure_table` grants DML again.** Calling it on a table that revoked a
+> privilege gives the privilege back: re-run the `REVOKE` after it (0269 does
+> for `message_restricted_use`).
+
+### Rows one person reads
+
+Some rows belong to a person inside the organization, and their policy adds
+that person to the organization's predicate (ADR-0193):
+
+| Rows | Who reads them | Migration |
+|---|---|---|
+| „Meine Ablage“: `documents` and `project_folders` with `owner_user_id`, their versions and search rows | the owner | 0263 |
+| a chat without a project (`conversations.project_id IS NULL`) and what hangs on it: `messages`, `conversation_reads`, `conversation_restricted_folders`, `conversation_source_projects`, `message_restricted_use`, `answer_contexts`, `agent_asks`, `answer_feedback`, and its own attachments (`documents`, `upload_batches` of scope `session`) | its creator, a person with a grant on it in `resource_shares` | 0269 |
+| `personal_memory` | its person | 0229 |
+
+A context with no person (`app.user_id` empty) reads none of these, unless it
+names itself a system reader: `withSystemReader(organizationId, reader, …)`
+with a reader from `SYSTEM_READERS` (`bff/db/tenant-context.ts`), which sets
+`app.system_reader` only when no person is in the context. An internal route
+the agent host calls, a job or a sweep that has to act for such a row names
+its reader; one that acts for a verified person passes that person's
+`userId` instead, which reads no more than they may. A child table asks
+`personal_conversation_hidden(conversation_id)` or `personal_document_hidden(document_id)`,
+SECURITY DEFINER functions that read past the parent's policy.
+
+A hidden row reads as missing, so code that treats a missing row as „new“ or
+„unrestricted“ asks `personalConversationHidden` (`bff/conversations/repository.ts`)
+before it does: the turn's audience (`readConversationAudience`), the scope of
+a turn (`collection-scope-request.ts`), the egress checks
+(`personalShelfUseOf`, `drewOnOtherProjects`) and the memory check
+(`requireConversationKeepsMemory`) refuse instead.
+
 ### Append-only tables
 
 Refuse changes with a trigger, and refuse DELETE to the runtime role with a
@@ -169,6 +201,7 @@ Symptoms map to causes almost one-to-one.
 | `permission denied for table X` | Table not in the boundary, or a tenant writing a `platform_*` table | Add `secure_table('X', …)`; platform writes go through `withPlatformAccess` |
 | `new row violates row-level security policy` | The row's organization ≠ the active one | Usually correct behaviour — check which tenant you meant |
 | Query returns `[]`, no error | Right context, wrong tenant — or a `NULL` `organization_id` row | `SELECT current_org();` inside the same transaction |
+| A worker or internal route finds no personal chat or personal document it was sent | It runs with no person and names no system reader | `withSystemReader` with a reader from `SYSTEM_READERS`, or the verified person's `userId` ([Rows one person reads](#rows-one-person-reads)) |
 | A worker goes quiet, ticks look healthy | Lost its `SET LOCAL ROLE` step-up | See `workers/platform-scope.js`; both workers have specs asserting it |
 
 Confirm what the database thinks it is answering as:
@@ -200,8 +233,10 @@ task db:test:rls          # throwaway cluster, full migration chain, then the su
 
 The same cluster also runs the other suites whose claims are about SQL rather
 than the boundary — the BIM query suites and the memory service's
-consolidation suite (`memory-service.integration.spec.ts`). The list is fixed
-in `scripts/rls-test-db.sh`; a new database-backed spec is added there.
+consolidation suite (`memory-service.integration.spec.ts`). The list is
+`scripts/rls-test-db-suites.txt`, one step and one spec per line, in the order
+the script runs them; a new database-backed spec is added there, under the step
+it belongs to (`integration-suite-coverage.spec.ts` fails one that is missing).
 
 After the suites, the script checks single migrations, each with its down, on a
 database of its own. A new section gets that database from `migrate_until <db>

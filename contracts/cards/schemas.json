@@ -1182,7 +1182,7 @@
       "type": "object"
     },
     "DocumentAnswerCard": {
-      "description": "Project/B\u00fcroablage files the user asked to see.\n\nSystem-emitted by ``surface_documents``. One file or a short browse\nchoice \u2014 same card, the list length is the difference. Never a\ncatalogue. Citations of exactly one project/B\u00fcro file peek without\nthis card (``useCitationPeek``).",
+      "description": "Project/B\u00fcrobibliothek files the user asked to see.\n\nSystem-emitted by ``surface_documents``. One file or a short browse\nchoice \u2014 same card, the list length is the difference. Never a\ncatalogue. Citations of exactly one project/B\u00fcro file peek without\nthis card (``useCitationPeek``).",
       "properties": {
         "documents": {
           "description": "The surfaced files, best match first",
@@ -1275,6 +1275,32 @@
           "title": "Bytes",
           "type": "integer"
         },
+        "derived_from_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The project document the run read this file from, when it is a changed copy of one",
+          "title": "Derived From Document Id"
+        },
+        "derived_from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "That document's name, as the person knows it",
+          "title": "Derived From Name"
+        },
         "document_id": {
           "anyOf": [
             {
@@ -1287,6 +1313,20 @@
           "default": null,
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
+        },
+        "filed_draft_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+          "title": "Filed Draft Version"
         },
         "media_type": {
           "anyOf": [
@@ -1306,6 +1346,19 @@
           "minLength": 1,
           "title": "Path",
           "type": "string"
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True once the draft was deleted from the conversation",
+          "title": "Removed"
         },
         "title": {
           "description": "The document's first heading, or its file name when it has none",
@@ -3949,7 +4002,7 @@
             }
           ],
           "default": null,
-          "description": "Which corpus it came from: 'project' or 'office' (B\u00fcroablage)",
+          "description": "Which corpus it came from: 'project' or 'office' (B\u00fcrobibliothek)",
           "title": "Source"
         },
         "summary": {

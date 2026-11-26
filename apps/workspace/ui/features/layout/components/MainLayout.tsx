@@ -1,8 +1,9 @@
 'use client'
 
 import { type CSSProperties, type FC, useCallback, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useShallow } from 'zustand/react/shallow'
-import { useIsMobile } from '@/hooks/use-is-mobile'
+import { MobileLayoutOnly } from '@/components/ui/layout-only'
 import { ChatToolbar } from './ChatToolbar'
 import { SessionsPanel } from './SessionsPanel'
 import { ChatArea } from './ChatArea'
@@ -10,19 +11,27 @@ import { ComposerScrim } from './ComposerScrim'
 import { InputArea } from './InputArea'
 import { ChatDropZone } from './chat-drop-zone'
 import { RightsLostPanel } from './RightsLostPanel'
+import { WithheldFromHere } from './WithheldFromHere'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
 import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
+import { NewChatMailLine } from './new-chat-mail-line'
 import { useSessionUrl } from '@/hooks/use-session-url'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { ViewerActionHost } from '@/features/documents/components/viewer-action-host'
-import { useComposerMetrics } from '../hooks/use-composer-metrics'
+import { COMPOSER_ON_PHONE_FLOOR, useComposerMetrics } from '../hooks/use-composer-metrics'
+import { useKeyboardUp } from '@/components/shell/use-keyboard-up'
+import { useIsMobileOnceKnown } from '@/hooks/use-is-mobile-once-known'
+import { cn } from '@/lib/utils'
+import { useChatStarted, useLinkedChatPending } from '../hooks/use-chat-started'
 import { useSessionRows } from '../hooks/use-session-rows'
+import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
+import { chatSideOf } from '@/components/shell/rail-mode'
 import { motion } from '@/components/motion'
-import { selectThreadPhase } from '../lib/thread-phase'
+import { useArrivalPredicted, useThreadPhase } from '../hooks/use-thread-phase'
 import { TOOLBAR_CLEAR_VAR, toolbarClearance } from '../lib/toolbar-clearance'
 
 interface MainLayoutProps {
@@ -42,7 +51,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     currentConversationId,
     currentConversationTitle,
     currentConversationLocked,
-    messageCount,
+    currentConversationPartlyReadable,
     currentUserId,
     projectId,
   } = useChatStore(
@@ -50,13 +59,18 @@ export const MainLayout: FC<MainLayoutProps> = ({
       currentConversationId: s.currentConversation?.id,
       currentConversationTitle: s.currentConversation?.title,
       currentConversationLocked: s.currentConversation?.contentLocked === true,
-      messageCount: s.currentConversation?.messages?.length ?? 0,
+      currentConversationPartlyReadable: s.currentConversation?.withheldFrom !== undefined,
       currentUserId: s.currentUserId,
       projectId: s.projectId,
     }))
   )
-  const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty')
-  const sessions = useSessionRows()
+  const linkedChatPending = useLinkedChatPending()
+  const isThreadEmpty = useThreadPhase() === 'empty' && !linkedChatPending
+  const chatStarted = useChatStarted()
+  const routeSide = chatSideOf(usePathname() ?? '')
+  const sessions = useSessionRows(routeSide)
+  const chatSide = routeSide === undefined ? (projectId ?? null) : routeSide
+  const deleteFeedback = useChatDeleteFeedback()
 
   const selectConversation = useChatStore((s) => s.selectConversation)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
@@ -64,15 +78,15 @@ export const MainLayout: FC<MainLayoutProps> = ({
   const deleteAllConversations = useChatStore((s) => s.deleteAllConversations)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
 
-  const isMobile = useIsMobile()
   const peekedFile = useFilePreviewStore((s) => s.file)
   const previewHidden = useFilePreviewStore((s) => s.hidden)
   const previewMode = useFilePreviewStore((s) => s.mode)
   const expandFile = useFilePreviewStore((s) => s.expand)
   const tFiles = useTranslations(filesCopy)
 
+  const keyboardUp = useKeyboardUp()
   const { composerRef, columnVars, composerStyle, composerMotion } =
-    useComposerMetrics(isThreadEmpty)
+    useComposerMetrics(isThreadEmpty, keyboardUp, { predicted: useArrivalPredicted(), phone: useIsMobileOnceKnown() })
 
   const [toolbarHeight, setToolbarHeight] = useState<number | null>(null)
   const toolbarVars = useMemo<CSSProperties>(
@@ -100,20 +114,30 @@ export const MainLayout: FC<MainLayoutProps> = ({
   }, [startNewSessionDraft, clearSessionUrl])
 
   const handleDeleteSession = useCallback(
-    (sessionId: string) => {
+    async (sessionId: string) => {
       const wasCurrentSession = currentConversationId === sessionId
-      deleteConversation(sessionId)
-      if (wasCurrentSession) {
-        clearSessionUrl()
+      try {
+        await deleteConversation(sessionId)
+      } catch (error) {
+        deleteFeedback.failed(error, 'one')
+        throw error
       }
+      if (wasCurrentSession) clearSessionUrl()
     },
-    [deleteConversation, currentConversationId, clearSessionUrl]
+    [deleteConversation, currentConversationId, clearSessionUrl, deleteFeedback]
   )
 
-  const handleDeleteAllSessions = useCallback(() => {
-    deleteAllConversations()
-    clearSessionUrl()
-  }, [deleteAllConversations, clearSessionUrl])
+  const handleDeleteAllSessions = useCallback(async () => {
+    const openBefore = useChatStore.getState().currentConversation?.id ?? null
+    try {
+      const result = await deleteAllConversations({ projectId: chatSide })
+      deleteFeedback.deletedAll(result)
+      if (openBefore && result.deleted.includes(openBefore)) clearSessionUrl()
+    } catch (error) {
+      deleteFeedback.failed(error, 'all')
+      throw error
+    }
+  }, [deleteAllConversations, chatSide, clearSessionUrl, deleteFeedback])
 
   const content = (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
@@ -123,7 +147,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             whole column is the drop target for attachments, toolbar and
             transcript included, not only the composer card (`ChatDropZone`). */}
         <ChatDropZone
-          className="flex min-w-0 flex-col overflow-hidden"
+          className={cn('flex min-w-0 flex-col overflow-hidden [container-type:size]', COMPOSER_ON_PHONE_FLOOR)}
           style={{
             width: '100%',
             ...columnVars,
@@ -139,7 +163,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
               whole pill row over the fade, with the thread readable behind it. */}
           <div
             aria-hidden="true"
-            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,3.5rem)+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,3.5rem)-0.5rem)] to-transparent"
+            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))+0.5rem)] sm:h-[calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))-0.5rem)] sm:from-[length:calc(var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))-0.5rem)] to-transparent"
           />
 
           {/* The thread header: an opaque band in the page's tone over the top of
@@ -148,32 +172,40 @@ export const MainLayout: FC<MainLayoutProps> = ({
           <ChatToolbar
             sessionTitle={currentConversationTitle}
             onNewSession={handleNewSession}
-            isChatStarted={messageCount > 0}
+            isChatStarted={chatStarted}
+            onDeleteSession={handleDeleteSession}
             conversationId={currentConversationId ?? null}
             isCollaborationEnabled={canCollaborate}
             currentUserId={currentUserId}
             onHeightChange={setToolbarHeight}
           />
 
-          {isMobile && peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
-            <button data-attr="chat-expand-file"
-              type="button"
-              onClick={expandFile}
-              className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,env(safe-area-inset-top))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
-            >
-              <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                {documentDisplayName(peekedFile)}
-              </span>
-              <span className="text-muted-foreground shrink-0 text-xs">
-                {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
-              </span>
-            </button>
+          {peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
+            <MobileLayoutOnly>
+              <button data-attr="chat-expand-file"
+                type="button"
+                onClick={expandFile}
+                className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+4.125rem))] sm:top-[var(--chat-toolbar-clear,calc(max(0.5rem,var(--chat-inset-top,env(safe-area-inset-top)))+3.625rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
+              >
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {documentDisplayName(peekedFile)}
+                </span>
+                <span className="text-muted-foreground shrink-0 text-xs">
+                  {previewHidden ? tFiles('assignment.showFile') : tFiles('assignment.expandFile')}
+                </span>
+              </button>
+            </MobileLayoutOnly>
           )}
 
-          {/* A chat the reader may no longer read has no transcript and no
-              composer here (ADR-0088): nothing of it is mounted, so nothing of
-              it is fetched or drawn. */}
-          {currentConversationLocked ? (
+          {/* A chat the reader may no longer read whole (ADR-0088) has no
+              composer. They see what comes before its first answer resting on
+              a source they may not open (ADR-0194), or nothing of it. */}
+          {currentConversationLocked && currentConversationPartlyReadable ? (
+            <>
+              <ChatArea isAuthenticated={isAuthenticated} onSignIn={onSignIn} canCollaborate={false} />
+              <WithheldFromHere />
+            </>
+          ) : currentConversationLocked ? (
             <RightsLostPanel />
           ) : (
             <>
@@ -222,7 +254,9 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <ConversationPrivacyLine
                   conversationId={currentConversationId ?? null}
                   canCollaborate={canCollaborate}
+                  statesTemporary={chatStarted}
                 />
+                {!chatStarted && <NewChatMailLine projectId={projectId ?? null} />}
               </motion.div>
             </>
           )}
@@ -241,6 +275,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
         onDeleteAllSessions={handleDeleteAllSessions}
         onRenameSession={updateConversationTitle}
         projectId={projectId ?? undefined}
+        side={chatSide ? 'project' : 'personal'}
       />
     </div>
   )

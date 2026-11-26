@@ -1,5 +1,5 @@
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
-import { fileDraftBodySchema } from '@/lib/conversations/conversation-wire'
+import { appFileDraftBodySchema } from '@/lib/conversations/conversation-wire'
 import { fileConversationDraft } from '@/lib/conversations/draft-filing'
 import { getLocale } from '@/i18n/server'
 
@@ -7,7 +7,7 @@ type Params = { id: string }
 
 export const POST = apiRoute<Params>(
   async ({ session, params, request }) => {
-    const body = await parseJsonBody(request, fileDraftBodySchema)
+    const body = await parseJsonBody(request, appFileDraftBodySchema)
     return fileConversationDraft(
       session,
       params.id,
@@ -17,6 +17,10 @@ export const POST = apiRoute<Params>(
         name: body.name,
         folderId: body.folderId,
         force: body.force,
+        as: body.as,
+        overChanges: body.overChanges,
+        changeNote: body.changeNote,
+        release: body.release === true,
         locale: await getLocale(),
       },
       request,

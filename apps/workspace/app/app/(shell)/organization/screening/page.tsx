@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { FolderX, ScanSearch } from 'lucide-react'
+import { FolderX, ScanSearch, ShieldAlert } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { UploadScreeningCard } from '@/features/organization/components/upload-screening-card'
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 import { getDeletedFolderContentPolicy } from '@/lib/organizations/deleted-folder-content'
+import { ConfidentialReleaseCard } from '@/features/organization/components/confidential-release-card'
+import { confidentialReleaseForbidden } from '@/lib/organizations/confidential-release'
 import { getTranslations } from '@/i18n/server'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 
@@ -43,6 +45,22 @@ export default async function OrganizationScreeningPage(): Promise<JSX.Element> 
             <DeletedFolderContentCard
               canEdit={hasPermission(session, ORG_PERMISSIONS.settingsManage)}
               initial={await getDeletedFolderContentPolicy(session.organizationId)}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldAlert className="size-4 text-muted-foreground" aria-hidden />
+              {t('confidentialRelease.title')}
+            </CardTitle>
+            <CardDescription>{t('confidentialRelease.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConfidentialReleaseCard
+              canEdit={hasPermission(session, ORG_PERMISSIONS.settingsManage)}
+              initial={await confidentialReleaseForbidden(session.organizationId)}
             />
           </CardContent>
         </Card>

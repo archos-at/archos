@@ -47,7 +47,7 @@ SECRET = "internal-test-token"  # noqa: S105  # pragma: allowlist secret
 REPO = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO / "apps" / "workspace" / "tests" / "fixtures" / "run-envelope.schema.json"
 IDENTITY = {"organization_id": "org-1", "user_id": "user-1", "project_id": "proj-1"}
-SCOPE = [{"collection": "oib_knowledge", "shelf": "base"}, {"collection": "proj_1", "shelf": "project"}]
+SCOPE = [{"collection": "base_corpus", "shelf": "base"}, {"collection": "proj_1", "shelf": "project"}]
 HOUR_MS = 60 * 60 * 1000
 
 
@@ -190,7 +190,6 @@ def _skill_body(**overrides: Any) -> dict[str, Any]:
         "project_id": "proj-1",
         "run_id": "run-1",
         "owner_email": "requester@example.com",
-        "collection_scope": ["oib_knowledge", "proj_1"],
     }
     body.update(overrides)
     return body
@@ -477,6 +476,7 @@ class TestTheWireContract:
 
 _HMAC_SITES = {
     ("packages/agent/src/agent/project_context.py", "from_envelope"),  # verifies, compare_digest
+    ("packages/agent/src/agent/common/turn_decision.py", "verify_decision"),  # verifies, compare_digest
     ("apps/agent-host/src/agent_host/auth/utils.py", "_build_pseudonymous_trace_user_id"),  # trace ids
     ("apps/agent-host/src/agent_host/auth/utils.py", "_build_pseudonymous_trace_client_id"),  # trace ids
 }

@@ -1,0 +1,8 @@
+---
+# area: answers
+improvements:
+  - >
+    An open chat now names itself at the top: its title, a menu to rename or
+    delete it, and the date of the last change, and on the right who sees it,
+    „Nur Sie“ for a chat you have not shared. The same menu stands at each
+    chat in the sidebar.

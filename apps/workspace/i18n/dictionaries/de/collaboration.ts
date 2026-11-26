@@ -6,6 +6,7 @@ export const collaboration: typeof en.collaboration = {
     title: 'Ihnen fehlen inzwischen die Rechte, um diesen Chat zu sehen',
     description:
       'Der Zugriff auf einen Ordner, aus dem dieser Chat stammt, hat sich seit dem Teilen geändert. Fragen Sie eine Person, die diese Ordner lesen darf, oder Ihre Administration.',
+    withheldFrom: 'Ab hier stützt sich der Chat auf eine Quelle, die Sie nicht öffnen dürfen.',
   },
   sharing: {
     title: 'Teilen',
@@ -100,6 +101,11 @@ export const collaboration: typeof en.collaboration = {
         'Diese Person darf nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt. Deshalb kann er nicht mit ihr geteilt werden.',
       restrictedContentSelf:
         'Sie dürfen nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt, und können ihn deshalb nicht übernehmen.',
+      personalShelfContent:
+        'Dieser Chat hat aus „Meine Ablage“ gelesen. Wer ihn sieht, sieht seine Antworten, nie die Dateien. Danach liest er nicht mehr aus Ihrer Ablage.',
+      personalShelfContentNotOwner:
+        'Dieser Chat hat aus der persönlichen Ablage der Person gelesen, die ihn begonnen hat. Nur sie kann ihn weiter teilen.',
+      personalShelfConfirm: 'Trotzdem teilen',
       restrictedContentProject:
         'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff und kann deshalb nicht für das ganze Projekt sichtbar gemacht werden. Teilen Sie ihn mit einzelnen Personen, die den Ordner lesen dürfen.',
       crossProjectContent:
@@ -214,11 +220,29 @@ export const collaboration: typeof en.collaboration = {
   },
 
   inbox: {
-    title: 'Postfach',
-    dock: {
-      close: 'Postfach schließen',
-      all: 'Alle Einträge, auch archivierte',
+    bell: {
+      late: '{count} überfällig',
+      news: '{count, plural, one {# Neuigkeit} other {# Neuigkeiten}}',
+      open: 'Postfach öffnen',
+      back: 'Postfach verlassen',
     },
+    page: {
+      done: 'Als erledigt markieren',
+      review: 'In der Prüfansicht öffnen',
+      personal: 'Persönlich',
+      back: 'Zurück',
+      opened: 'Geöffneter Eintrag',
+      go: 'Öffnen',
+      sheet: 'Seite {page}',
+      openPlace: '{sheet}, Anmerkung {number} in der Prüfansicht öffnen',
+      onRevision: 'Diese Anmerkung steht auf Fassung {revision}, nicht auf der aktuellen.',
+      earlierRevision: 'Diese Anmerkung steht auf einer früheren Fassung.',
+      thread: 'Verlauf der Anmerkung',
+      markFailed: 'Die Anmerkung konnte nicht geladen werden. Öffnen Sie sie in der Prüfansicht.',
+      archiveKey: 'Archivieren (E)',
+      nextHere: '{count, plural, one {Noch # in diesem Dokument} other {Noch # in diesem Dokument}}',
+    },
+    title: 'Postfach',
     navLabel: 'Postfach',
     badgeAria:
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
@@ -230,10 +254,10 @@ export const collaboration: typeof en.collaboration = {
       archived: 'Archiviert',
       ariaLabel: 'Postfach filtern',
     },
-    markAllRead: 'Alle als gelesen markieren',
+    archiveAll: 'Alle archivieren',
     archive: 'Archivieren',
     undo: 'Rückgängig',
-    markAllReadShort: 'Alle gelesen',
+    archivedAll: 'Postfach geleert',
     archived: 'Archiviert',
     unarchive: 'Wiederherstellen',
     unarchived: 'Wiederhergestellt',
@@ -349,6 +373,15 @@ export const collaboration: typeof en.collaboration = {
         body: 'Zu „{subject}“ – in „Mein Feedback“ lesen und antworten.',
         bodyNoSubject: 'In „Mein Feedback“ lesen und antworten.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject} ist nicht mehr die verbindliche Ausgabe',
+        body: 'Verbindlich ist die Ausgabe {related}. Betrifft: {excerpt}',
+        variants: {
+          via: {
+            body: 'Verbindlich ist die Ausgabe {related}, laut {via}. Betrifft: {excerpt}',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Der Speicherplatz Ihrer Organisation wird knapp',
         body: '{subject} des Speicherkontingents sind belegt. Sobald es voll ist, schlagen Uploads fehl – löschen Sie nicht mehr benötigte Dokumente oder bitten Sie den Betreiber Ihrer {productName}-Installation, das Kontingent zu erhöhen.',
@@ -427,7 +460,7 @@ export const collaboration: typeof en.collaboration = {
       },
       mailImportFailed: {
         title: 'Der Import von „{subject}“ wurde abgebrochen',
-        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste unter Dateien nennt den Grund.',
+        body: 'Was bis dahin importiert war, bleibt im Projekt. Die Importliste in der Ablage nennt den Grund.',
       },
       taskRunFailed: {
         title: '{productName} konnte „{subject}“ nicht abschließen',
@@ -508,8 +541,8 @@ export const collaboration: typeof en.collaboration = {
       agentProposalWaiting: {
         title: '{productName} hat einen Vorschlag für Sie',
         body: 'Der Vorschlag steht im Chat. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyProject: 'Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
-        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Büroablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyProject: 'Der Vorschlag steht bei der Datei in der Ablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
+        bodyOrganization: 'Der Vorschlag steht bei der Datei in der Bürobibliothek. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.',
         variants: {
           move: { title: '{productName} schlägt einen neuen Ablageort vor' },
           rename: { title: '{productName} schlägt eine Umbenennung vor' },
@@ -518,6 +551,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Bürobibliothek vor' },
         },
       },
       agentIntakeReady: {
@@ -690,10 +724,10 @@ export const collaboration: typeof en.collaboration = {
         body: 'Prüfen Sie, wohin jede Datei soll. Verschoben wird erst, was Sie übernehmen.',
         variants: {
           office: {
-            titleOne: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: 1 Datei',
-            titleMany: 'Die Sortierung der Büroablage ist bereit zur Durchsicht: {count} Dateien',
-            titleNone: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
-            title: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
+            titleOne: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: 1 Datei',
+            titleMany: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht: {count} Dateien',
+            titleNone: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
+            title: 'Die Sortierung der Bürobibliothek ist bereit zur Durchsicht',
           },
         },
       },
@@ -715,7 +749,7 @@ export const collaboration: typeof en.collaboration = {
         titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
         title: 'E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
         titleResolved: 'Keine E-Mail an „{subject}“ läuft mehr ab',
-        body: 'Was bis dahin niemand ablegt, läuft ab. Die E-Mail eines Mitglieds lässt sich danach noch {restoreDays} Tage wiederherstellen, eine von außerhalb des Büros nicht.',
+        body: 'Was bis dahin niemand ablegt, läuft ab und lässt sich danach noch {restoreDays} Tage wiederherstellen.',
         variants: {
           unconfirmed: {
             body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden. Was niemand ablegt, läuft ab.',
@@ -756,6 +790,19 @@ export const collaboration: typeof en.collaboration = {
       inboundMailRejected: {
         title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
         body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+        variants: {
+          reported: {
+            titleRelated: 'Jemand hat sich in „{subject}“ als Sie ausgegeben: {related}',
+            title: 'Jemand hat sich in „{subject}“ als Sie ausgegeben',
+            body: '{actor} hat die gefälschte E-Mail gemeldet und verworfen. Wer so eine E-Mail in Ihrem Namen bekommt, sollte wissen: Sie kam nicht von Ihnen.',
+          },
+        },
+      },
+      inboundMailFraudReported: {
+        titleRedacted: 'In einem Projekt wurde eine gefälschte E-Mail gemeldet',
+        titleRelated: 'Gefälschte E-Mail als {related} in „{subject}“: nicht zahlen, nicht antworten',
+        title: 'Gefälschte E-Mail in „{subject}“: nicht zahlen, nicht antworten',
+        body: '{actor} hat sie gemeldet und im E-Mail-Eingang verworfen. Bitte nicht zahlen und nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.',
       },
       inboundMailExpired: {
         title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
@@ -778,22 +825,67 @@ export const collaboration: typeof en.collaboration = {
         },
       },
       inboundMailAppended: {
-        titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
-        titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
-        title: 'Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
-        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge warten im E-Mail-Eingang.',
+        titleOne: 'Eine Antwort wurde ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        titleMany: '{count} Antworten wurden ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        title: 'Antworten wurden ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        body: 'Abgelegt, als hätten Sie es selbst getan, weil Sie Antworten in diesem E-Mail-Verlauf ohne Klick ablegen lassen. Anhänge ohne bestehenden Ordner warten im E-Mail-Eingang.',
+        variants: {
+          with_attachments: {
+            titleOne: 'Eine Antwort samt Anhängen wurde in „{subject}“ ohne Klick abgelegt',
+            titleMany: '{count} Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
+            title: 'Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
+            body: 'Abgelegt, als hätten Sie es selbst getan, weil Sie Antworten in diesem E-Mail-Verlauf ohne Klick ablegen lassen: der Text in den E-Mail-Verlauf, die Anhänge in die Ordner, die {productName} vorgeschlagen hat. Was keinen bestehenden Ordner hat, wartet im E-Mail-Eingang.',
+          },
+        },
       },
       mailThreadFollowExpiring: {
-        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
-        titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
-        body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
+        title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nur noch {followNoticeDays} Tage ohne Klick abgelegt',
+        titleResolved: 'Das Ablegen ohne Klick in einem E-Mail-Verlauf in „{subject}“ ist verlängert oder beendet',
+        body: 'Verlängern Sie es im E-Mail-Verlauf unter „E-Mails“, damit spätere Antworten weiter ohne Klick angefügt werden.',
+      },
+      mailThreadFollowEnded: {
+        title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt',
+        body: 'Spätere Antworten warten im E-Mail-Eingang, bis jemand sie ablegt.',
+        variants: {
+          access_lost: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil Ihr Zugriff auf ihn weggefallen ist',
+          },
+          document_gone: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil er gelöscht wurde',
+          },
+          project_closed: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil das Projekt abgeschlossen wurde',
+          },
+          detached: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil eine E-Mail aus ihm herausgelöst wurde',
+            body: 'Schalten Sie es im E-Mail-Verlauf unter „E-Mails“ wieder ein, damit spätere Antworten wieder ohne Klick angefügt werden.',
+          },
+          revoked_by_manager: {
+            title: '{actor} hat das Ablegen ohne Klick für Sie in einem E-Mail-Verlauf in „{subject}“ beendet',
+            titleNoActor: 'Die Projektverwaltung hat das Ablegen ohne Klick für Sie in einem E-Mail-Verlauf in „{subject}“ beendet',
+          },
+          address_rotated: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil die E-Mail-Adresse des Projekts ersetzt wurde',
+            body: 'Antworten an die alte Adresse kommen nicht mehr an. Schalten Sie es im E-Mail-Verlauf wieder ein, sobald die neue Adresse verwendet wird.',
+          },
+          thread_full: {
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil er voll ist',
+            body: 'Spätere Antworten warten im E-Mail-Eingang. Legen Sie sie als neuen E-Mail-Verlauf ab, der diesen fortsetzt.',
+          },
+        },
       },
       rootSortFailed: {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',
         body: 'Was bis dahin verschoben wurde, bleibt. Öffnen Sie die Dateien, um den Grund zu sehen.',
         variants: {
-          office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
+          office: { title: 'Die Sortierung der Bürobibliothek wurde abgebrochen' },
         },
+      },
+      officeShelfNormSuggested: {
+        title: '{actor} schlägt eine Norm für die Bürobibliothek vor',
+        titleNoActor: 'Eine Norm wird für die Bürobibliothek vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Bürobibliothek ist entschieden',
+        body: 'Aus „{subject}“. In der Bürobibliothek finden alle Projekte sie.',
       },
       unknown: {
         title: 'Es gab Aktivität',
@@ -821,6 +913,25 @@ export const collaboration: typeof en.collaboration = {
       failed: 'Das hat nicht geklappt. Es hat sich nichts geändert.',
       stale: 'Jemand hat zuerst entschieden – die aktuelle Fassung liegt in der Datei.',
       reload: 'Aktuelle Fassung öffnen',
+    },
+    normNotice: {
+      uploadEdition: 'Neue Ausgabe hochladen',
+      viewEdition: 'Ansehen',
+      viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
+    },
+    normSuggestion: {
+      accept: 'In die Bürobibliothek übernehmen',
+      decline: 'Ablehnen',
+      visibility: 'Danach ist sie für alle im Büro sichtbar.',
+      accepted: 'Bestätigt und in der Bürobibliothek. Das Projekt behält einen Verweis.',
+      unconfirmed: 'Liegt in der Bürobibliothek, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
+      declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
+      failed: 'Das hat nicht geklappt: {reason}',
+      stale: 'Jemand hat schon entschieden.',
+      confirmBody:
+        'Prüfen Sie Art, Bezeichnung und Ausgabe. Bestätigt kommt die Norm unter Normen & Richtlinien, für alle im Büro sichtbar, und das Projekt behält einen Verweis.',
+      later: 'Der Vorschlag wartet weiter im Postfach.',
+      editionNeeded: 'Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.',
     },
   },
 

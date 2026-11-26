@@ -102,6 +102,50 @@ export async function unarchiveInboxItem(
   return rows.length > 0
 }
 
+export async function archiveAllInboxItems(
+  organizationId: string,
+  recipientUserId: string,
+  types: InboxTypeScope,
+  at: Date,
+): Promise<number> {
+  const db = getDb()
+  const rows = await db
+    .update(inboxItems)
+    .set({ archivedAt: at, readAt: sql`coalesce(${inboxItems.readAt}, ${at.toISOString()}::timestamptz)`, count: 0 })
+    .where(
+      and(
+        eq(inboxItems.organizationId, organizationId),
+        eq(inboxItems.recipientUserId, recipientUserId),
+        isNull(inboxItems.archivedAt),
+        typeFilter(types),
+      ),
+    )
+    .returning({ id: inboxItems.id })
+  return rows.length
+}
+
+export async function unarchiveInboxItemsArchivedAt(
+  organizationId: string,
+  recipientUserId: string,
+  types: InboxTypeScope,
+  at: Date,
+): Promise<number> {
+  const db = getDb()
+  const rows = await db
+    .update(inboxItems)
+    .set({ archivedAt: null })
+    .where(
+      and(
+        eq(inboxItems.organizationId, organizationId),
+        eq(inboxItems.recipientUserId, recipientUserId),
+        eq(inboxItems.archivedAt, at),
+        typeFilter(types),
+      ),
+    )
+    .returning({ id: inboxItems.id })
+  return rows.length
+}
+
 export async function archiveInboxItem(
   organizationId: string,
   recipientUserId: string,

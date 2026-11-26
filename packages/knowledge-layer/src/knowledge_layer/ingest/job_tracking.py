@@ -91,9 +91,11 @@ def _settle_file(file_detail: FileProgress, status: FileStatus, chunks_created: 
     if status == FileStatus.FAILED:
         verdict = classify_failure(error, exc)
         file_detail.failure_category = verdict.category
+        file_detail.failure_reason = verdict.reason
         file_detail.retryable = verdict.retryable
     else:
         file_detail.failure_category = None
+        file_detail.failure_reason = None
         file_detail.retryable = None
 
 

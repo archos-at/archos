@@ -62,6 +62,12 @@ describe('FilePreviewPane › mail', () => {
     expect(screen.queryByTestId('mail-provenance-row')).toBeNull()
   })
 
+  it('says in its header that it is a mail thread and how many mails it holds, never a Freigabe', async () => {
+    render(<FilePreviewPane file={{ ...threadFile, versionCount: 3, versionState: 'published' as const }} projectId="proj-1" viewerUserId="user_x" />)
+    await waitFor(() => expect(screen.getByTestId('file-preview-facts')).toHaveTextContent('Mail thread · 3 mails'))
+    expect(screen.queryByTestId('file-preview-lifecycle-badge')).toBeNull()
+  })
+
   it('lands a `?mailEntry=` link on its mail', async () => {
     const target = thread.entries[0]
     params.current = new URLSearchParams({ doc: thread.documentId, mailEntry: target.id })

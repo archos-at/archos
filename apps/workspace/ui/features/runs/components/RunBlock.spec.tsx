@@ -159,10 +159,10 @@ describe('RunBlock — the body', () => {
     )
   })
 
-  it('badges an OIB document and a Bauordnung by their authority, in the law family', () => {
+  it('badges a Bauordnung by its authority, and an OIB-Richtlinie, whose name says OIB, not twice', () => {
     render(<RunBlock ledger={researching()} title={TITLE} />)
     const [first] = screen.getAllByTestId('run-step')
-    expect(within(first!).getByText('OIB')).toBeInTheDocument()
+    expect(within(first!).queryByText('OIB')).toBeNull()
     expect(within(first!).getByText('RIS')).toBeInTheDocument()
   })
 
@@ -210,6 +210,11 @@ describe('RunBlock — the fold', () => {
     expect(screen.queryByTestId('run-body')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: new RegExp(TITLE) }))
     expect(screen.getByTestId('run-body')).toBeInTheDocument()
+  })
+
+  it('is a 44px row to a finger: its title is one line of 12px type', () => {
+    render(<RunBlock ledger={finished('doc-1')} title={TITLE} />)
+    expect(screen.getByRole('button', { name: new RegExp(TITLE) })).toHaveClass('pointer-coarse:min-h-11')
   })
 
   it('honours defaultOpen on a terminal run', () => {

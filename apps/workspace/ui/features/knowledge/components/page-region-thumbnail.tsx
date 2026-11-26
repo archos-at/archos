@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties, type FC } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FC, type ReactNode } from 'react'
 import { FileX2, Lock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSeenOnce } from '@/hooks/use-seen-once'
@@ -18,6 +18,12 @@ const WAITING_ASPECT = 3 / 2
 
 type State = { status: 'waiting' } | DrawnPlace
 
+export interface DrawnFrame {
+  mark: PageRegion['box']
+  width: number
+  height: number
+}
+
 export interface PageRegionThumbnailProps {
   place: PagePlace
   clip?: boolean
@@ -30,6 +36,7 @@ export interface PageRegionThumbnailProps {
   onDrawn?: (drawn: { image?: ImageClip }) => void
   onDenied?: () => void
   marks?: readonly PageRegion[]
+  overlay?: (frame: DrawnFrame) => ReactNode
   className?: string
   [data: `data-${string}`]: string | undefined
 }
@@ -55,6 +62,7 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   onDrawn,
   onDenied,
   marks,
+  overlay,
   className,
   ...data
 }) => {
@@ -162,7 +170,9 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
         {!drawn && (
           <Skeleton role="status" className="absolute inset-0 rounded-none" aria-label={t('placeThumbnail.loading')} />
         )}
-        {shown.length > 0 && <RegionMarks regions={shown} color={color} />}
+        {overlay && drawn?.mark
+          ? overlay({ mark: drawn.mark, width: drawn.width, height: drawn.width / drawn.aspect })
+          : shown.length > 0 && <RegionMarks regions={shown} color={color} />}
       </PageSheet>
     </div>
   )

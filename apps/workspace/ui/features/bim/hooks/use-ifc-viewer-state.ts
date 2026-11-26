@@ -40,7 +40,6 @@ export function useIfcViewerState(props: IfcViewerCanvasProps) {
   const overlaySvgRef = useRef<SVGSVGElement | null>(null)
   const overlayLabelsRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<RendererLike | null>(null)
-  const geometryRef = useRef<{ dispose(): void } | null>(null)
   const [ready, setReady] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -121,7 +120,6 @@ export function useIfcViewerState(props: IfcViewerCanvasProps) {
     overlaySvgRef,
     overlayLabelsRef,
     rendererRef,
-    geometryRef,
     ready,
     setReady,
     hovering,

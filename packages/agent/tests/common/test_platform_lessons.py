@@ -1,5 +1,7 @@
 import httpx
 import pytest
+from agent_testing.bff import FakeBff
+from agent_testing.bff import fake_bff
 
 from agent.common.platform_lessons import get_platform_lessons_digest
 from agent.common.platform_lessons import is_in_holdout_slice
@@ -21,29 +23,8 @@ def _clean_cache(monkeypatch):
     reset_platform_lessons_cache()
 
 
-def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> dict:
-    calls = {"n": 0}
-
-    class FakeResponse:
-        def __init__(self, body: object) -> None:
-            self._body = body
-
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> object:
-            return self._body
-
-    def fake_get(url, **kwargs):
-        calls["n"] += 1
-        calls["url"] = url
-        calls["token"] = kwargs.get("headers", {}).get("x-internal-token")
-        if error is not None:
-            raise error
-        return FakeResponse(payload)
-
-    monkeypatch.setattr(httpx, "get", fake_get)
-    return calls
+def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> FakeBff:
+    return fake_bff(monkeypatch, payload, error=error)
 
 
 class TestSanitize:
@@ -71,7 +52,7 @@ class TestResolution:
     def test_no_token_yields_none_without_fetch(self, monkeypatch):
         calls = _mock_bff(monkeypatch, {"digest": DIGEST})
         assert get_platform_lessons_digest() is None
-        assert calls["n"] == 0
+        assert calls.n == 0
 
     def test_digest_resolves(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
@@ -98,22 +79,22 @@ class TestResolution:
         calls = _mock_bff(monkeypatch, {"digest": DIGEST})
         assert get_platform_lessons_digest() == DIGEST
         assert get_platform_lessons_digest() == DIGEST
-        assert calls["n"] == 1
+        assert calls.n == 1
 
     def test_negative_result_cached(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         calls = _mock_bff(monkeypatch, {"digest": None})
         assert get_platform_lessons_digest() is None
         assert get_platform_lessons_digest() is None
-        assert calls["n"] == 1
+        assert calls.n == 1
 
     def test_frontend_internal_url_and_token_respected(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://bff:3000/")
         calls = _mock_bff(monkeypatch, {"digest": None})
         get_platform_lessons_digest()
-        assert calls["url"] == "http://bff:3000/api/internal/platform-lessons/digest"
-        assert calls["token"] == "tok"
+        assert calls.calls[-1].url == "http://bff:3000/api/internal/platform-lessons/digest"
+        assert calls.calls[-1].headers["x-internal-token"] == "tok"
 
 
 class TestHoldout:
@@ -156,7 +137,7 @@ class TestHoldoutSuppression:
             lambda key, fallback: 100 if key == "lessons.holdout_pct" else fallback,
         )
         assert get_platform_lessons_digest("conv-1") is None
-        assert calls["n"] == 0
+        assert calls.n == 0
 
     def test_treated_conversation_still_receives_the_digest(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
@@ -243,7 +224,7 @@ class TestResolutionCarriesTheArmAndTheLessons:
         assert is_in_holdout_slice("conv-8", 10)
         resolution = resolve_platform_lessons("conv-8")
         assert (resolution.arm, resolution.digest, resolution.lesson_ids) == ("holdout", None, ())
-        assert calls["n"] == 0
+        assert calls.n == 0
 
     def test_arm_is_off_without_a_conversation_to_key_on(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
@@ -278,4 +259,4 @@ class TestResolutionCarriesTheArmAndTheLessons:
         _holdout_pct(monkeypatch, 0)
         assert resolve_platform_lessons("conv-0").lesson_ids == (LESSON_A,)
         assert resolve_platform_lessons("conv-1").lesson_ids == (LESSON_A,)
-        assert calls["n"] == 1
+        assert calls.n == 1

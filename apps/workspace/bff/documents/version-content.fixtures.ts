@@ -48,6 +48,7 @@ export function version(overrides: Partial<DocumentVersion> = {}): DocumentVersi
     submittedAt: null,
     reviewedBy: null,
     reviewedAt: null,
+    changeNote: null,
     approvedBy: null,
     approvedAt: null,
     publishedBy: null,

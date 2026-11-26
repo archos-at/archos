@@ -163,6 +163,31 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
     return {file for file, text in test_files.items() if Path(file).name.startswith("test_") and imports.search(text)}
 
 
+SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
+READS_THE_TREE = re.compile(r"""["']git["'],\s*["'](?:grep|ls-files)["']|\bgit (?:grep|ls-files)\b""")
+
+
+def _tree_readers(test_files: dict[str, str]) -> set[str]:
+    return {
+        file for file, text in test_files.items() if Path(file).name.startswith("test_") and READS_THE_TREE.search(text)
+    }
+
+
+def _spawners(test_files: dict[str, str]) -> tuple[set[str], str | None]:
+    spawners: set[str] = set()
+    for file, text in test_files.items():
+        if not SPAWNS_PYTHON.search(text):
+            continue
+        if Path(file).name.startswith("test_"):
+            spawners.add(file)
+            continue
+        importers = _importers(file, test_files)
+        if importers is None:
+            return set(), file
+        spawners |= importers
+    return spawners, None
+
+
 def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
     if not recorded:
         return "full", [], "no recorded testmon database to select from"
@@ -188,6 +213,16 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{path} is package data no test names"
         extra |= named
     reason = f"{len(changed)} changed files; testmon selects, plus {len(extra)} test files naming a non-Python change"
+    if any(_matches(path, PY_PACKAGE_SRC) for path in changed):
+        spawners, unconnected = _spawners(test_files)
+        if unconnected:
+            return "full", [], f"{unconnected} runs Python in a subprocess, and no test file connects to it"
+        extra |= spawners
+        reason += f" and {len(spawners)} that run package code in a subprocess"
+    tree_readers = _tree_readers(test_files) - set(changed)
+    if tree_readers:
+        extra |= tree_readers
+        reason += f" and {len(tree_readers)} that read the whole tracked tree"
     return "select", sorted(extra), reason
 
 
@@ -223,6 +258,8 @@ def _python_test_files() -> dict[str, str]:
         for path in (ROOT / root).rglob("*.py"):
             relative = path.relative_to(ROOT).as_posix()
             if root == "packages" and "/tests/" not in f"/{relative}" and "/testing/" not in f"/{relative}":
+                continue
+            if "/.venv/" in f"/{relative}":
                 continue
             files[relative] = path.read_text(encoding="utf-8", errors="ignore")
     return files

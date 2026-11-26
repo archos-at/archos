@@ -4,11 +4,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  orgPhoneTabs,
+  personalPhoneTabs,
   phoneBackTarget,
   phoneTabBarHiddenOnRoute,
   projectPhoneTabs,
 } from './phone-tabs'
+import { collaborationCopy } from '@/i18n/namespaces/collaboration'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { projectSection } from './project-sections'
 
 const ALL = { canAccessOfficeShelf: true, canAccessInbox: true }
@@ -43,12 +45,12 @@ describe('inside a project', () => {
     ])
   })
 
-  it('links where the rail links: a fresh chat, the files, the overview, the org Postfach', () => {
+  it('links the chat tab back to the chat the person left, and the rest where the rail links', () => {
     const hrefs = Object.fromEntries(
       projectPhoneTabs('p1', '/app/projects/p1/files', ALL).map((tab) => [tab.key, tab.href])
     )
     expect(hrefs).toEqual({
-      chat: '/app/projects/p1/chat?new=1',
+      chat: '/app/projects/p1/chat',
       files: '/app/projects/p1/files',
       settings: '/app/projects/p1/settings',
       inbox: '/app/inbox',
@@ -77,7 +79,7 @@ describe('inside a project', () => {
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })
 
-  it('names each tab with the rail label, and marks it as a tour stop', () => {
+  it('names each tab with the rail label (the files and settings tabs with their short ones), and marks it as a tour stop', () => {
     const [chat, files, settings, inbox, more] = projectPhoneTabs(
       'p1',
       '/app/projects/p1/chat',
@@ -88,11 +90,11 @@ describe('inside a project', () => {
       tourAnchor: 'section-chat',
     })
     expect(files).toMatchObject({
-      label: { namespace: 'nav', key: 'sections.files' },
+      label: { namespace: 'nav', key: 'sections.filesShort' },
       tourAnchor: 'section-files',
     })
     expect(settings).toMatchObject({
-      label: { namespace: 'nav', key: 'sections.settings' },
+      label: { namespace: 'nav', key: 'sections.settingsShort' },
       tourAnchor: 'section-settings',
     })
     expect(inbox).toMatchObject({ label: { namespace: 'collaboration', key: 'inbox.navLabel' } })
@@ -103,26 +105,16 @@ describe('inside a project', () => {
   })
 })
 
-describe('above a project', () => {
-  it('carries Projekte, the Büroablage and the Postfach, and no "Mehr"', () => {
-    expect(keys(orgPhoneTabs('/app/projects', ALL))).toEqual(['projects', 'officeShelf', 'inbox'])
+describe('on a page with no side of its own (ADR-0196)', () => {
+  it('keeps the side’s tabs, lights the Postfach on the Postfach, and „Mehr“ on what „Mehr“ leads to', () => {
+    expect(lit(projectPhoneTabs('p1', '/app/inbox', ALL))).toEqual(['inbox'])
+    expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
+    expect(lit(personalPhoneTabs('/app/profile', ALL))).toEqual(['more'])
   })
 
-  it('carries only what the organization has', () => {
-    expect(keys(orgPhoneTabs('/app/projects', NONE))).toEqual(['projects'])
-  })
-
-  it('lights Projekte on the projects home, a doorway while its sheet stands, and nothing on an account page', () => {
-    expect(lit(orgPhoneTabs('/app/projects', ALL))).toEqual(['projects'])
-    expect(lit(orgPhoneTabs('/app/office-shelf', ALL))).toEqual(['officeShelf'])
-    expect(lit(orgPhoneTabs('/app/profile', ALL))).toEqual([])
-    expect(lit(orgPhoneTabs('/app/organization/access', ALL))).toEqual([])
-  })
-
-  it('points the welcome tour at its doorways', () => {
-    const [, officeShelf, inbox] = orgPhoneTabs('/app/projects', ALL)
-    expect(officeShelf?.tourAnchor).toBe('office-shelf')
-    expect(inbox?.tourAnchor).toBe('inbox')
+  it('points the welcome tour at the Postfach on either side', () => {
+    expect(projectPhoneTabs('p1', '/app/projects', ALL).find((tab) => tab.key === 'inbox')?.tourAnchor).toBe('inbox')
+    expect(personalPhoneTabs('/app/projects', ALL).find((tab) => tab.key === 'inbox')?.tourAnchor).toBe('inbox')
   })
 })
 
@@ -171,12 +163,62 @@ describe('the phone header back', () => {
 })
 
 describe('the Postfach looks like itself', () => {
-  it('wears one glyph everywhere, and not the Büroablage’s box beside it', () => {
-    const inboxTab = orgPhoneTabs('/app/projects', ALL).find((tab) => tab.key === 'inbox')
-    const officeShelfTab = orgPhoneTabs('/app/projects', ALL).find((tab) => tab.key === 'officeShelf')
+  it('wears one glyph everywhere, and not the Bürobibliothek’s box beside it', () => {
+    const inboxTab = projectPhoneTabs('p1', '/app/projects', ALL).find((tab) => tab.key === 'inbox')
     expect(inboxTab?.icon).toBe(projectSection('inbox')?.icon)
-    expect(inboxTab?.icon).not.toBe(officeShelfTab?.icon)
     expect(projectSection('inbox')?.icon).not.toBe(projectSection('officeShelf')?.icon)
     expect(projectSection('inbox')?.icon.displayName).toBe('Bell')
   })
+})
+
+describe('under Persönlich (ADR-0193)', () => {
+  it('carries its own places: the personal chat, Meine Ablage, the Postfach and "Mehr", in that order', () => {
+    const tabs = personalPhoneTabs('/app/personal/chat', ALL)
+    expect(keys(tabs)).toEqual(['chat', 'personalShelf', 'inbox', 'more'])
+    expect(tabs.find((tab) => tab.key === 'chat')).toMatchObject({ href: '/app/personal/chat' })
+    expect(tabs.find((tab) => tab.key === 'personalShelf')).toMatchObject({
+      href: '/app/personal-shelf',
+      label: { namespace: 'nav', key: 'personalShelf' },
+    })
+  })
+
+  it('lights the place the reader is in, and "Mehr" elsewhere', () => {
+    expect(lit(personalPhoneTabs('/app/personal/chat', ALL))).toEqual(['chat'])
+    expect(lit(personalPhoneTabs('/app/personal-shelf', ALL))).toEqual(['personalShelf'])
+    expect(lit(personalPhoneTabs('/app/personal/memory', ALL))).toEqual(['more'])
+  })
+
+  it('drops the Postfach for a reader without one, and keeps "Mehr" last', () => {
+    expect(keys(personalPhoneTabs('/app/personal/chat', NONE))).toEqual(['chat', 'personalShelf', 'more'])
+  })
+
+  it('never carries a project’s places', () => {
+    expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('files')
+    expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('settings')
+  })
+})
+
+describe('every label of the project bar fits its tab on a 360px phone', () => {
+  // A fifth of 360px less the bar's 8px and the label's 4px. Widths measured in Chromium at 12px semibold (the open tab),
+  // 2026-11-24: "Documents" at 66.5px was cut by a tenth of a pixel. A new label is measured before it is added here.
+  const ROOM_PX = (360 - 8) / 5 - 4
+  const MEASURED_PX: Record<string, number> = {
+    Chat: 28.2, Ablage: 40.3, Projekt: 42, Postfach: 51.8, Mehr: 30.2,
+    Files: 26.7, Project: 41.8, Inbox: 31.9, More: 30.1, Documents: 66.5,
+  }
+
+  for (const locale of ['de', 'en'] as const) {
+    it(locale, () => {
+      for (const tab of projectPhoneTabs('p1', '/app/projects/p1/chat', ALL)) {
+        const copy = tab.label.namespace === 'nav' ? navCopy : collaborationCopy
+        const text = tab.label.key
+          .split('.')
+          .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], copy.messages[locale])
+        expect(typeof text, `${tab.key} in ${locale}`).toBe('string')
+        const width = MEASURED_PX[text as string]
+        expect(width, `„${String(text)}“ has not been measured`).toBeDefined()
+        expect(width, `„${String(text)}“`).toBeLessThanOrEqual(ROOM_PX)
+      }
+    })
+  }
 })

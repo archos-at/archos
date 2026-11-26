@@ -60,7 +60,7 @@ export function FolderDropArea({
           type="button"
           onClick={onPickFolder}
           disabled={disabled}
-          className="border-border bg-card hover:border-ring focus-visible:ring-ring/60 flex w-full flex-col items-center justify-center gap-3 rounded-[14px] border-2 border-dashed px-6 py-14 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60 md:py-20"
+          className="border-border bg-card hover:border-ring focus-visible:ring-ring/60 flex w-full flex-col items-center justify-center gap-3 rounded-[12px] border-2 border-dashed px-6 py-14 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60 md:py-20"
         >
           <span className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-full">
             <FolderUp className="size-6" aria-hidden />

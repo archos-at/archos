@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     Deleting a role now also asks about folders in the Papierkorb or in a

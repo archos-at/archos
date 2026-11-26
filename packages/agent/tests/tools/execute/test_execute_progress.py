@@ -92,7 +92,7 @@ class TestThePlan:
     def test_a_written_path_is_a_write_and_an_input_is_not(self) -> None:
         code = 'await readFile("/workspace/in/Raumliste.xlsx"); await writeFile("/workspace/Raumbuch.xlsx", b)'
         plan = progress.plan_run(code, {"/workspace/in/Raumliste.xlsx"})
-        assert plan == progress.RunPlan(writes=("/workspace/Raumbuch.xlsx",))
+        assert plan == progress.RunPlan(writes=("/workspace/Raumbuch.xlsx",), written=("/workspace/Raumbuch.xlsx",))
 
     def test_reading_back_an_existing_file_is_a_check(self) -> None:
         code = 'const wb = await readFile("/workspace/Raumbuch.xlsx"); return wb.length'
@@ -102,6 +102,11 @@ class TestThePlan:
     def test_writing_an_existing_file_is_an_edit(self) -> None:
         plan = progress.plan_run(WRITE_XLSX, {"/workspace/Raumbuch.xlsx"})
         assert plan.editing == ("/workspace/Raumbuch.xlsx",)
+
+    def test_a_path_held_in_a_variable_and_read_is_a_read_never_a_write(self) -> None:
+        code = 'const src = "/workspace/raumbuch.xlsx"; const wb = await readFile(src); return wb.length'
+        plan = progress.plan_run(code, {"/workspace/raumbuch.xlsx"})
+        assert (plan.writes, plan.written, plan.reads) == ((), (), ("/workspace/raumbuch.xlsx",))
 
     def test_a_path_held_in_a_variable_still_counts(self) -> None:
         code = 'const out = "/workspace/Bericht.docx"; await writeFile(out, b)'
@@ -152,7 +157,7 @@ class TestTheStepTheChatShows:
 
     async def test_an_existing_file_rewritten_is_an_edit(self, store, monkeypatch, registry, emitted) -> None:
         backend = DraftBackend(store=store, conversation_id=CONVERSATION)
-        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1", previous_size=0)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1")
         _runner(monkeypatch, [_answer(files={"/workspace/Raumbuch.xlsx": b"PK2"})])
 
         await run.execute(RUNNER, WRITE_XLSX)
@@ -200,3 +205,66 @@ class TestTheStepTheChatShows:
         finished = _runs(emitted)[-1]
         assert (finished.detail["documents"], finished.detail["document_ids"]) == (["Raumliste.xlsx"], ["doc-7"])
         assert finished.detail["result"] == "12"
+
+
+class TestTheStepTellsTheTruth:
+    async def test_a_file_only_read_through_a_variable_is_no_failure(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}raumbuch.xlsx", b"PK1")
+        _runner(monkeypatch, [_answer(value=3)])
+
+        await run.execute(RUNNER, 'const src = "/workspace/raumbuch.xlsx"; return (await readFile(src)).length')
+
+        assert _runs(emitted)[-1].detail["failed"] == []
+
+    async def test_a_file_rewritten_with_the_same_bytes_is_no_failure(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        await backend.awrite_run_file(f"{DRAFT_ROOT}Raumbuch.xlsx", b"PK1")
+        _runner(monkeypatch, [_answer()])
+
+        await run.execute(RUNNER, WRITE_XLSX)
+
+        assert _runs(emitted)[-1].detail["failed"] == []
+
+    async def test_a_file_refused_for_its_size_is_a_failure_with_the_reason(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        monkeypatch.setattr("agent.tools.documents.draft_store.MAX_RUN_FILE_BYTES", 1)
+        _runner(monkeypatch, [_answer(files={"/workspace/Raumbuch.xlsx": b"PK-too-big"})])
+
+        await run.execute(RUNNER, WRITE_XLSX)
+
+        finished = _runs(emitted)[-1]
+        assert finished.detail["made"] == []
+        assert finished.detail["failed"] == ["Raumbuch.xlsx"]
+        assert finished.detail["failed_reasons"] == [progress.REASON_TOO_LARGE]
+
+    async def test_a_planned_file_the_run_never_wrote_is_a_failure(self, store, monkeypatch, registry, emitted) -> None:
+        _runner(monkeypatch, [_answer()])
+
+        await run.execute(RUNNER, WRITE_XLSX)
+
+        finished = _runs(emitted)[-1]
+        assert finished.detail["status"] == "ok"
+        assert (finished.detail["failed"], finished.detail["failed_reasons"]) == (
+            ["Raumbuch.xlsx"],
+            [progress.REASON_NOT_WRITTEN],
+        )
+
+    async def test_a_template_path_with_an_extension_is_a_file_and_finishes_with_the_kept_name(
+        self, store, monkeypatch, registry, emitted
+    ) -> None:
+        code = 'const name = "Raumbuch"; await writeFile(`/workspace/${name}.xlsx`, bytes)'
+        _runner(monkeypatch, [_answer(files={"/workspace/Raumbuch.xlsx": b"PK"})])
+
+        await run.execute(RUNNER, code)
+
+        started, finished = _runs(emitted)
+        assert started.key == status_keys.KEY_ACTION_FILE_MAKE
+        assert started.values == {"file": "….xlsx", "format": "xlsx"}
+        assert finished.detail["made"] == ["Raumbuch.xlsx"]
+        assert finished.detail["failed"] == []

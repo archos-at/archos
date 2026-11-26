@@ -9,15 +9,15 @@ import { researchCopy } from '@/i18n/namespaces/research'
 export interface DeleteAllSessionsConfirmationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-  count?: number
+  onConfirm: () => void | Promise<void>
+  side: 'personal' | 'project'
 }
 
 export const DeleteAllSessionsConfirmationModal: FC<DeleteAllSessionsConfirmationModalProps> = ({
   open,
   onOpenChange,
   onConfirm,
-  count,
+  side,
 }) => {
   const t = useTranslations(researchCopy)
   const tc = useTranslations(commonCopy)
@@ -27,14 +27,12 @@ export const DeleteAllSessionsConfirmationModal: FC<DeleteAllSessionsConfirmatio
       open={open}
       onOpenChange={onOpenChange}
       tone="warning"
-      title={t('deleteModals.all.title')}
+      title={side === 'personal' ? t('deleteModals.all.titlePersonal') : t('deleteModals.all.titleProject')}
       description={
         <>
           {t('deleteModals.aboutToDelete')}{' '}
           <span className="font-medium text-foreground">
-            {count && count > 0
-              ? t('deleteModals.all.countSessions', { count })
-              : t('deleteModals.all.allSessions')}
+            {side === 'personal' ? t('deleteModals.all.whatPersonal') : t('deleteModals.all.whatProject')}
           </span>
           {t('deleteModals.lossSuffix')}
         </>
@@ -43,8 +41,9 @@ export const DeleteAllSessionsConfirmationModal: FC<DeleteAllSessionsConfirmatio
       cancelLabel={tc('actions.cancel')}
       onConfirm={onConfirm}
     >
-      {/* Scope reassurance: delete-all is project-local (UX-8). */}
-      <p className="text-sm">{t('deleteModals.all.scopeNote')}</p>
+      <p className="text-sm">
+        {side === 'personal' ? t('deleteModals.all.scopeNotePersonal') : t('deleteModals.all.scopeNoteProject')}
+      </p>
       <p className="text-sm">{t('deleteModals.cannotReverse')}</p>
     </ConfirmDialog>
   )

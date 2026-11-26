@@ -1871,7 +1871,7 @@ def knowledge_search(query: str) -> str:
         "Found 1 relevant document(s):\n\n"
         "--- Result 1 ---\n"
         "Source: OIB-330.pdf\n"
-        "Collection: oib_knowledge\n"
+        "Collection: base_corpus\n"
         "Page: 12\n"
         "Citation: OIB-330.pdf, p.12\n"
         "Content Type: text\n"
@@ -1905,7 +1905,7 @@ class TestChatQuoteVerification:
         populate_from_config(
             [
                 {
-                    "id": "oib_knowledge",
+                    "id": "base_corpus",
                     "name": "OIB Knowledge",
                     "description": "Search the internal OIB knowledge base.",
                     "tools": ["knowledge_search"],
@@ -1983,7 +1983,7 @@ class TestChatRepairPass:
         populate_from_config(
             [
                 {
-                    "id": "oib_knowledge",
+                    "id": "base_corpus",
                     "name": "OIB Knowledge",
                     "description": "Search the internal OIB knowledge base.",
                     "tools": ["knowledge_search"],
@@ -2361,15 +2361,19 @@ class TestKnowledgeInventoryIsNotCitable:
 
     def test_chat_prompt_teaches_the_four_shelves(self):
         source = self._prompt("core/prompts/system.j2")
-        for mount, name in (("/project/", "Projektwissen"), ("/office/", "Büroablage"), ("/chat/", "Private Sitzung")):
+        for mount, name in (
+            ("/project/", "Projektwissen"),
+            ("/office/", "Bürobibliothek"),
+            ("/chat/", "Private Sitzung"),
+        ):
             assert f"{mount} is {name}" in source or f"{mount} {name}" in source
         assert "/law/oib/ Basiswissen" in source
         rendered = self._render(source, self.DOCUMENTS)
-        assert "Büroablage is never the OIB corpus" in rendered
+        assert "Bürobibliothek is never the OIB corpus" in rendered
 
     def test_grouped_inventory_does_not_mix_oib_into_office_shelf(self):
         documents = [
-            {"file_name": "oib-rl_2.pdf", "summary": "Brandschutz.", "shelf": "base", "collection": "oib_knowledge"},
+            {"file_name": "oib-rl_2.pdf", "summary": "Brandschutz.", "shelf": "base", "collection": "base_corpus"},
             {
                 "file_name": "Buero-Standard.pdf",
                 "summary": "Detail.",
@@ -2378,7 +2382,7 @@ class TestKnowledgeInventoryIsNotCitable:
             },
         ]
         rendered = self._render(self._prompt("core/prompts/system.j2"), documents)
-        office_shelf = rendered.split("### Büroablage", 1)[1].split("### ", 1)[0]
+        office_shelf = rendered.split("### Bürobibliothek", 1)[1].split("### ", 1)[0]
         assert "Buero-Standard.pdf" in office_shelf
         assert "oib-rl_2.pdf" not in office_shelf
 
@@ -2840,16 +2844,14 @@ class TestTheDraftingRulesLiveInTheTools:
         for phrase in ("leg das ins Projekt", "ablegen", "abspeichern"):
             assert phrase in _FILE_DRAFT_DESCRIPTION
         assert "not on your own after every write" in _FILE_DRAFT_DESCRIPTION
-        assert "DRAFT" in _FILE_DRAFT_DESCRIPTION
-        assert "nobody has approved it" in _FILE_DRAFT_DESCRIPTION
 
-    def test_submitting_needs_an_explicit_request(self):
+    def test_filing_is_the_users_sign_off_and_asks_for_no_approval(self):
         from agent.tools.documents.register import _FILE_DRAFT_DESCRIPTION
 
-        assert "Call with `submit=true` only when the user asks for approval" in _FILE_DRAFT_DESCRIPTION
-        assert "„ablegen“ alone is not such a request" in _FILE_DRAFT_DESCRIPTION
-        assert "unchanged" in _FILE_DRAFT_DESCRIPTION
-        assert "project's editors" in _FILE_DRAFT_DESCRIPTION
+        assert "the user who files it signs it off" in _FILE_DRAFT_DESCRIPTION
+        assert "marked as made by you" in _FILE_DRAFT_DESCRIPTION
+        assert "submit" not in _FILE_DRAFT_DESCRIPTION
+        assert "DRAFT" not in _FILE_DRAFT_DESCRIPTION
 
 
 class TestTheDelegationRulesLiveInTheTool:

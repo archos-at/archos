@@ -9,6 +9,7 @@ export {
   openRecipientsOf,
   resolveInboxItemsAnchoredOn,
   resolveInboxItemsFor,
+  resolveInboxItemsOfType,
   retractInboxOccurrenceAnchoredOn,
   rewriteInboxPayloadsAnchoredOn,
 } from './inbox-resolution'
@@ -17,8 +18,9 @@ export type { InboxResolutionTarget } from './repository'
 export type { ListInboxParams } from './inbox-listing'
 export { getInboxSummary, listInbox, unreadAnchorsFor, viewInboxItemAs } from './inbox-listing'
 export { decodeInboxCursor, encodeInboxCursor } from './inbox-cursor'
-export type { InboxMutationResult } from './types'
+export type { InboxArchiveAllResult, InboxMutationResult } from './types'
 export {
+  archiveAll,
   archiveItem,
   markAllRead,
   markAnchorItemsReadFor,
@@ -26,5 +28,6 @@ export {
   markRead,
   markResourceItemsReadFor,
   markUnread,
+  unarchiveAll,
   unarchiveItem,
 } from './inbox-mutations'

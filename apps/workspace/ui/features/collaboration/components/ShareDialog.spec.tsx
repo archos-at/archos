@@ -63,6 +63,7 @@ const grant = vi.fn(async () => true)
 const changeRole = vi.fn(async () => true)
 const revoke = vi.fn(async () => true)
 const escalate = vi.fn(async () => true)
+const confirmPersonalShelf = vi.fn(async () => true)
 const refresh = vi.fn()
 const dismissFailure = vi.fn()
 const reloadCandidates = vi.fn()
@@ -91,6 +92,7 @@ function sharing(overrides: Partial<UseSharingResult> = {}): UseSharingResult {
     changeRole,
     revoke,
     escalate,
+    confirmPersonalShelf,
     ...overrides,
   }
 }
@@ -546,6 +548,23 @@ describe('ShareDialog — refusals', () => {
     expect(screen.getByTestId('share-failure')).toHaveTextContent(
       'That person is not a member of this project yet. Add them to the project first.',
     )
+  })
+
+  test('a chat that read the owner’s own files asks them, and shares only once they confirm (ADR-0193)', async () => {
+    const user = userEvent.setup()
+    renderDialog({ failure: { reason: 'personal-shelf-content', message: null, confirmable: true } })
+
+    expect(screen.getByTestId('share-failure')).toHaveTextContent('Whoever sees it sees its answers, never the files.')
+    expect(confirmPersonalShelf).not.toHaveBeenCalled()
+    await user.click(screen.getByTestId('confirm-personal-shelf'))
+    expect(confirmPersonalShelf).toHaveBeenCalledTimes(1)
+  })
+
+  test('someone other than the chat’s creator is told so, and offered no confirmation', () => {
+    renderDialog({ failure: { reason: 'personal-shelf-content', message: null, confirmable: false } })
+
+    expect(screen.getByTestId('share-failure')).toHaveTextContent('Only they can share it further.')
+    expect(screen.queryByTestId('confirm-personal-shelf')).toBeNull()
   })
 
   test('an unrecognised refusal still surfaces — a failed change never looks like it worked', () => {

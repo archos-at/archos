@@ -46,36 +46,36 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeSharedStore:
 
 
 def test_a_bump_is_visible_to_the_next_read_of_the_same_collection(store: FakeSharedStore) -> None:
-    assert collection_version.current("oib_knowledge") == 0
+    assert collection_version.current("base_corpus") == 0
 
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
 
-    assert collection_version.current("oib_knowledge") == 1
+    assert collection_version.current("base_corpus") == 1
 
 
 def test_each_collection_carries_its_own_version(store: FakeSharedStore) -> None:
-    collection_version.bump("oib_knowledge")
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
+    collection_version.bump("base_corpus")
 
-    assert collection_version.current("oib_knowledge") == 2
+    assert collection_version.current("base_corpus") == 2
     assert collection_version.current("project_42") == 0
 
 
 def test_a_second_replica_sees_the_first_replicas_bump(store: FakeSharedStore) -> None:
-    collection_version.bump("oib_knowledge")
-    seen_by_writer = collection_version.current("oib_knowledge")
+    collection_version.bump("base_corpus")
+    seen_by_writer = collection_version.current("base_corpus")
 
     collection_version.reset_local_versions()
 
-    assert collection_version.current("oib_knowledge") == seen_by_writer
+    assert collection_version.current("base_corpus") == seen_by_writer
 
 
 def test_an_unresolvable_version_reads_as_unknown_rather_than_zero(store: FakeSharedStore) -> None:
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
     collection_version.reset_local_versions()  # a replica that has never resolved it
     store.answering = False
 
-    assert collection_version.current("oib_knowledge") is None
+    assert collection_version.current("base_corpus") is None
 
 
 def test_a_caller_skips_its_cache_entirely_when_the_version_is_unknown(store: FakeSharedStore) -> None:
@@ -86,20 +86,20 @@ def test_a_caller_skips_its_cache_entirely_when_the_version_is_unknown(store: Fa
             return None
         return (collection, version, query)
 
-    assert cache_key("oib_knowledge", "OIB 6") is not None
+    assert cache_key("base_corpus", "OIB 6") is not None
 
     collection_version.reset_local_versions()
     store.answering = False
 
-    assert cache_key("oib_knowledge", "OIB 6") is None
+    assert cache_key("base_corpus", "OIB 6") is None
 
 
 def test_the_memo_spares_the_store_a_round_trip_per_query(store: FakeSharedStore) -> None:
-    collection_version.current("oib_knowledge")
+    collection_version.current("base_corpus")
     calls_after_first = store.calls
 
     for _ in range(20):
-        collection_version.current("oib_knowledge")
+        collection_version.current("base_corpus")
 
     assert store.calls == calls_after_first
 
@@ -109,19 +109,19 @@ def test_the_memo_expires_so_another_replicas_write_becomes_visible(
 ) -> None:
     monkeypatch.setattr(collection_version, "MEMO_TTL_SECONDS", 0.0)
 
-    assert collection_version.current("oib_knowledge") == 0
+    assert collection_version.current("base_corpus") == 0
 
-    store.values["knowledge:collection-version:oib_knowledge"] = 9
+    store.values["knowledge:collection-version:base_corpus"] = 9
 
-    assert collection_version.current("oib_knowledge") == 9
+    assert collection_version.current("base_corpus") == 9
 
 
 def test_a_bump_refreshes_the_memo_immediately_on_the_writing_replica(store: FakeSharedStore) -> None:
-    collection_version.current("oib_knowledge")  # warm the memo at 0
+    collection_version.current("base_corpus")  # warm the memo at 0
 
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
 
-    assert collection_version.current("oib_knowledge") == 1
+    assert collection_version.current("base_corpus") == 1
 
 
 def test_concurrent_bumps_never_lose_an_increment(store: FakeSharedStore) -> None:
@@ -130,7 +130,7 @@ def test_concurrent_bumps_never_lose_an_increment(store: FakeSharedStore) -> Non
 
     def bump_many() -> None:
         for _ in range(per_thread):
-            collection_version.bump("oib_knowledge")
+            collection_version.bump("base_corpus")
 
     workers = [threading.Thread(target=bump_many) for _ in range(threads)]
     for worker in workers:
@@ -138,20 +138,20 @@ def test_concurrent_bumps_never_lose_an_increment(store: FakeSharedStore) -> Non
     for worker in workers:
         worker.join()
 
-    assert store.values["knowledge:collection-version:oib_knowledge"] == threads * per_thread
-    assert collection_version.current("oib_knowledge") == threads * per_thread
+    assert store.values["knowledge:collection-version:base_corpus"] == threads * per_thread
+    assert collection_version.current("base_corpus") == threads * per_thread
 
 
 def test_a_bump_lost_to_an_outage_is_applied_once_the_store_returns(store: FakeSharedStore) -> None:
-    collection_version.bump("oib_knowledge")
-    assert collection_version.current("oib_knowledge") == 1
+    collection_version.bump("base_corpus")
+    assert collection_version.current("base_corpus") == 1
 
     store.answering = False
-    collection_version.bump("oib_knowledge")  # never reaches the store
+    collection_version.bump("base_corpus")  # never reaches the store
     store.answering = True
 
-    assert collection_version.current("oib_knowledge") == 2
-    assert store.values["knowledge:collection-version:oib_knowledge"] == 2
+    assert collection_version.current("base_corpus") == 2
+    assert store.values["knowledge:collection-version:base_corpus"] == 2
 
 
 def test_an_evicted_counter_is_lifted_back_instead_of_restarting_at_one(
@@ -159,20 +159,20 @@ def test_an_evicted_counter_is_lifted_back_instead_of_restarting_at_one(
 ) -> None:
     monkeypatch.setattr(collection_version, "MEMO_TTL_SECONDS", 0.0)
     for _ in range(5):
-        collection_version.bump("oib_knowledge")
-    assert collection_version.current("oib_knowledge") == 5
+        collection_version.bump("base_corpus")
+    assert collection_version.current("base_corpus") == 5
 
     store.values.clear()
 
-    assert collection_version.current("oib_knowledge") == 5
-    assert store.values["knowledge:collection-version:oib_knowledge"] == 5
+    assert collection_version.current("base_corpus") == 5
+    assert store.values["knowledge:collection-version:base_corpus"] == 5
 
 
 def test_versions_never_go_backwards(store: FakeSharedStore) -> None:
     seen = []
     for _ in range(5):
-        collection_version.bump("oib_knowledge")
-        version = collection_version.current("oib_knowledge")
+        collection_version.bump("base_corpus")
+        version = collection_version.current("base_corpus")
         assert version is not None
         seen.append(version)
 
@@ -181,12 +181,12 @@ def test_versions_never_go_backwards(store: FakeSharedStore) -> None:
 
 
 def test_without_a_shared_store_the_in_process_counter_is_the_authority() -> None:
-    assert collection_version.current("oib_knowledge") == 0
+    assert collection_version.current("base_corpus") == 0
 
-    collection_version.bump("oib_knowledge")
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
+    collection_version.bump("base_corpus")
 
-    assert collection_version.current("oib_knowledge") == 2
+    assert collection_version.current("base_corpus") == 2
 
 
 def test_a_bug_in_the_store_call_degrades_to_unknown_not_to_a_stale_hit(
@@ -195,14 +195,14 @@ def test_a_bug_in_the_store_call_degrades_to_unknown_not_to_a_stale_hit(
     def boom(*_args: object, **_kwargs: object) -> int:
         raise RuntimeError("dragonfly client exploded")
 
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")
     collection_version.reset_local_versions()
     monkeypatch.setattr(collection_version.cache, "eval_script", boom)
 
-    assert collection_version.current("oib_knowledge") is None
+    assert collection_version.current("base_corpus") is None
 
 
 def test_a_bump_that_cannot_reach_the_store_does_not_raise(store: FakeSharedStore) -> None:
     store.answering = False
 
-    collection_version.bump("oib_knowledge")
+    collection_version.bump("base_corpus")

@@ -1,12 +1,11 @@
 import type { ProposedChangeKind, ProposedChangeStatus } from '@/lib/proposals/types'
+import type { WorkspaceRead } from '@/lib/conversation-context/types'
 
 export const WORKSPACE_BLOCK_HEADER = 'WORKSPACE v1'
 
 export const MAX_WORKSPACE_PROPOSALS = 8
 
 export const MAX_PROPOSAL_LINE_CHARS = 200
-
-export type ConversationAudience = 'solo' | 'shared' | 'unknown'
 
 export interface WorkspaceProposalFact {
   id: string
@@ -20,7 +19,7 @@ export interface WorkspaceFacts {
   organizationRole: string | null
   projectRole: string | null
   project: { id: string; name: string; status: string } | null
-  conversation: { id: string; audience: ConversationAudience } | null
+  conversation: { id: string; workspaceRead: WorkspaceRead } | null
   inboxWaiting: number | null
   activeRuns: number | null
   proposals: WorkspaceProposalFact[]
@@ -50,10 +49,12 @@ function proposalLine(proposal: WorkspaceProposalFact): string {
 function audienceLine(conversation: WorkspaceFacts['conversation']): string {
   if (!conversation) return 'conversation: none (a run outside a chat)'
   const audience = {
-    solo: 'solo (only the asker reads it)',
-    shared: 'shared (others read it, so no workspace read runs here; writes are still proposed)',
-    unknown: 'audience unknown (a workspace read may be refused as in a shared conversation)',
-  }[conversation.audience]
+    all: 'solo (only the asker reads it)',
+    'document+projectFacts':
+      "shared (others read it, so a workspace read runs only on a document or a project's facts that every " +
+      'reader may open; writes are still proposed)',
+    none: 'no workspace read runs here (who reads it could not be decided); writes are still proposed',
+  }[conversation.workspaceRead]
   return `conversation: ${conversation.id} · ${audience}`
 }
 
@@ -91,6 +92,10 @@ export function proposalSummaryOf(kind: ProposedChangeKind, payload: unknown): s
   if (kind === 'operation' && typeof record.summary === 'string') return record.summary
   if (kind === 'memory' && typeof record.content === 'string') return `remember: ${record.content}`
   if (kind === 'project_profile') return 'change the project profile'
+  if (kind === 'office_shelf_norm') {
+    const count = Array.isArray(record.documents) ? record.documents.length : 1
+    return `move ${count} norm(s) into the office shelf`
+  }
   if (kind === 'file_operation') {
     const operation = typeof record.operation === 'string' ? record.operation : 'change'
     const count = Array.isArray(record.operations) ? record.operations.length : 1

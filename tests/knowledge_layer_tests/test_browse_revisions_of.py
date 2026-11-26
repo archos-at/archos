@@ -296,7 +296,7 @@ class TestOnlyWhatTheTurnMayList:
 def _builder() -> MagicMock:
     builder = MagicMock()
     builder.get_function_config = MagicMock(
-        return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        return_value=KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     )
     return builder
 

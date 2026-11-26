@@ -6,7 +6,7 @@ import { HeightExpand } from '@/components/motion/height-arrival'
 import { cn } from '@/lib/utils'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
 import { MarkdownSlotProvider } from '@/shared/components/MarkdownRenderer/slot-context'
-import { handleNearestCitationTap } from '../hooks/use-nearest-citation-tap'
+import { nearestCitationTapFrame } from '../hooks/use-nearest-citation-tap'
 import { AnswerCitations } from './AnswerCitations'
 import { DiagramFilingProvider } from '@/features/diagrams/diagram-filing-context'
 import { NestedMarkdownPluginsProvider } from '@/shared/components/MarkdownRenderer/nested-plugins-context'
@@ -17,13 +17,12 @@ import { CardSlotLiveProvider } from './CardSlotArrival'
 import { AnswerDataProvider } from '@/shared/components/MarkdownRenderer/answer-block-context'
 import { AnswerProjectStrip } from '@/shared/components/MarkdownRenderer/project-binding'
 import { LookupFoundNothingNote } from './agent-response/answer-notes'
-import { AnswerDetails } from './agent-response/answer-details'
+import { AnswerFooter } from './agent-response/answer-footer'
 import { StreamingCaret } from './agent-response/answer-role'
 import { proseClass } from './agent-response/answer-prose'
 import { AgentResponseProps } from './agent-response/agent-response-props'
 import { useAgentResponseController } from './agent-response/use-agent-response-controller'
 import { memo } from 'react'
-import { AnswerFeedback } from './AnswerFeedback'
 
 const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
   const controller = useAgentResponseController(props)
@@ -42,7 +41,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             >
               <div
                 ref={controller.frameRef}
-                onClick={handleNearestCitationTap}
+                {...nearestCitationTapFrame}
                 className={cn(
                   'flex w-full flex-col gap-2 overflow-hidden break-words',
                   controller.dimmed
@@ -117,40 +116,10 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             If that changes, <AnswerActions /> drops into the row below. */}
                 {controller.reserveMetaRow && (
                   <div
-                    className={controller.hasMetaRow ? 'flex min-h-6 flex-col gap-1.5' : 'min-h-6'}
+                    className={controller.hasMetaRow ? undefined : 'min-h-6'}
                     aria-hidden={controller.hasMetaRow ? undefined : true}
                   >
-                    {controller.memoryChip}
-                    {controller.hasDetailsContent && (
-                      <AnswerDetails
-                        conversationId={controller.conversationId}
-                        messageId={controller.messageId}
-                        hasConfidence={controller.hasConfidence}
-                        answerConfidence={controller.answerConfidence}
-                        answerConfidenceCappedReason={controller.answerConfidenceCappedReason}
-                        answerConfidenceReason={controller.answerConfidenceReason}
-                        confidenceCheck={controller.confidenceCheck}
-                        answerConfidenceVersion={controller.answerConfidenceVersion}
-                        skillsActivated={controller.skillsActivated}
-                        skillsHidden={controller.skillsHidden}
-                        showReasoning={controller.showReasoning}
-                        researchTruncated={controller.researchTruncated}
-                        truncationReason={controller.truncationReason}
-                        degradedReasons={controller.degradedReasons}
-                        citationsRemoved={controller.citationsRemoved}
-                        readSources={controller.readSources}
-                        hasAnswerSources={controller.hasAnswerSources}
-                        timestamp={controller.timestamp}
-                        answerDurationMs={controller.answerDurationMs}
-                      />
-                    )}
-                    {controller.hasFeedback && controller.messageId && (
-                      <AnswerFeedback
-                        pending={controller.inert}
-                        messageId={controller.messageId}
-                        conversationId={controller.conversationId}
-                      />
-                    )}
+                    <AnswerFooter controller={controller} sources={null} withActions={false} />
                   </div>
                 )}
               </div>
@@ -160,6 +129,19 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
       </AnswerDataProvider>
     )
   }
+
+  const sources = (
+    <div className="flex min-w-48 flex-1 empty:hidden">
+      <AnswerSourcesRow
+        documents={controller.documents}
+        anchorPrefix={controller.anchorPrefix}
+        routingDecision={controller.routingDecision}
+        isStreaming={controller.live || controller.cutShort}
+        withDivider={false}
+        layout="strip"
+      />
+    </div>
+  )
 
   return (
     <AnswerDataProvider value={controller.answerData}>
@@ -210,7 +192,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             one considered object with sections — not a card floating in a tray. */}
                 <div
                   ref={controller.frameRef}
-                  onClick={handleNearestCitationTap}
+                  {...nearestCitationTapFrame}
                   className={cn(
                     'bg-card flex flex-col gap-2 px-4 pt-[18px] pb-[17px] break-words sm:px-[22px]',
                     controller.dimmed
@@ -293,69 +275,21 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                 >
                   <div
                     className={cn(
-                      'duration-base flex flex-col gap-2.5 border-t px-4 pt-3 pb-[14px] transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
+                      'duration-base flex flex-col gap-1.5 border-t px-4 py-1.5 transition-opacity ease-out motion-reduce:transition-none sm:px-[22px]',
                       controller.live && controller.mountedLive && 'invisible opacity-0'
                     )}
                     data-testid="answer-footer"
                   >
                     <LookupFoundNothingNote show={controller.lookupFoundNothing === true} />
-                    <AnswerSourcesRow
-                      documents={controller.documents}
-                      anchorPrefix={controller.anchorPrefix}
-                      routingDecision={controller.routingDecision}
-                      isStreaming={controller.live || controller.cutShort}
-                      withDivider={false}
-                    />
-                    {controller.reserveMetaRow && (
+                    {controller.reserveMetaRow ? (
                       <div
-                        className={
-                          controller.hasMetaRow
-                            ? 'flex min-h-6 flex-wrap items-center gap-2'
-                            : 'min-h-6'
-                        }
+                        className={controller.hasMetaRow ? undefined : 'min-h-6'}
                         aria-hidden={controller.hasMetaRow ? undefined : true}
                       >
-                        {/* Copy the answer out — markdown, with or without its sources
-                    written out. Before the disclosure: "take this with you" is
-                    what the reader wants first; the details are the afterthought.
-                    `compact` feedback: the thumbs stay on this line and their
-                    disclosure takes the next one full-width. */}
-                        {controller.hasDetailsContent ? (
-                          <AnswerDetails
-                            conversationId={controller.conversationId}
-                            messageId={controller.messageId}
-                            hasConfidence={controller.hasConfidence}
-                            answerConfidence={controller.answerConfidence}
-                            answerConfidenceCappedReason={controller.answerConfidenceCappedReason}
-                            answerConfidenceReason={controller.answerConfidenceReason}
-                            confidenceCheck={controller.confidenceCheck}
-                            answerConfidenceVersion={controller.answerConfidenceVersion}
-                            skillsActivated={controller.skillsActivated}
-                            skillsHidden={controller.skillsHidden}
-                            showReasoning={controller.showReasoning}
-                            researchTruncated={controller.researchTruncated}
-                            truncationReason={controller.truncationReason}
-                            degradedReasons={controller.degradedReasons}
-                            citationsRemoved={controller.citationsRemoved}
-                            readSources={controller.readSources}
-                            hasAnswerSources={controller.hasAnswerSources}
-                            timestamp={controller.timestamp}
-                            answerDurationMs={controller.answerDurationMs}
-                            before={controller.answerActions}
-                            beside={controller.memoryChip}
-                            after={controller.feedback}
-                          />
-                        ) : (
-                          <>
-                            {controller.answerActions}
-                            {controller.memoryChip}
-                            {controller.hasMetaRow && (
-                              <span className="flex-1" aria-hidden="true" />
-                            )}
-                            {controller.feedback}
-                          </>
-                        )}
+                        <AnswerFooter controller={controller} sources={sources} />
                       </div>
+                    ) : (
+                      sources
                     )}
                   </div>
                 </HeightExpand>

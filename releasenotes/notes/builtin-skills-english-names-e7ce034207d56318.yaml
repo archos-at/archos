@@ -1,4 +1,5 @@
 ---
+# area: tasks
 upgrade:
   - >
     The built-in skills have English names: /submission-check, /fire-safety,

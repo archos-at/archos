@@ -42,6 +42,9 @@ browser                     BFF (frontend)                     object store     
   │ inbox: what arrived       ◀── reconciliation / sweep, once every filed document has been read
 ```
 
+- **Start.** The person uploads the archive in Dateien like any file, with
+  Hochladen or a drop; the shelf hands it to the import instead of storing it
+  ([`file-upload-and-explorer.md`](../ux/file-upload-and-explorer.md#an-outlook-archive-is-uploaded-like-any-file)).
 - **Upload.** `lib/mail-import/client.ts` sends the parts the server does not
   hold yet, three at a time. A failed part is retried for fifteen minutes,
   waiting while the browser is offline, so a Wi-Fi roam or a closed lid does
@@ -257,8 +260,9 @@ Verläufe. Each batch is:
 **The list of imports** (`GET /api/projects/[id]/mail-imports`,
 `mail-import-list`) is a keyset page, newest first: 20 by default, at most 50
 (`MAIL_IMPORT_LIST_PAGE_SIZE`, `MAIL_IMPORT_LIST_PAGE_MAX` in
-`lib/mail-import/types.ts`), with `nextCursor` for the next. The import dialog
-reads the first page, and while an import runs reads it again when the
+`lib/mail-import/types.ts`), with `nextCursor` for the next. The project's
+Dateien reads the first page, for the import dialog and the line it shows while
+an import runs, and while an import runs reads it again when the
 project's shelf says `shelf.changed` (the job announces each slice and its
 end, `announceToShelf` in `lib/mail-import/job.ts`) and once a minute otherwise
 (`useMailImports`). Each import shows `threadsCreated`, `threadsAppended`

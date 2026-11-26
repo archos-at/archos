@@ -1,0 +1,8 @@
+---
+# area: agents
+improvements:
+  - >
+    A new conversation your connected agent starts with ARCHOS without naming
+    a project now lands under Persönlich, so you find it in your chats, and ARCHOS can draw on
+    your Meine Ablage for it. Your agent can still keep a question out of
+    Persönlich.

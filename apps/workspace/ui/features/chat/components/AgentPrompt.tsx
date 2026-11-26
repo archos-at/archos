@@ -3,7 +3,7 @@
 import { type FC, type ReactNode, useCallback, useMemo, useState } from 'react'
 import { ChevronDown, MessageSquare } from 'lucide-react'
 import { useIsPresent } from 'motion/react'
-import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnapExit } from '@/components/motion'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { DECISION_BUTTON, DECISION_ROW } from '@/features/cards/components/card-chrome'
@@ -299,7 +299,7 @@ const AnswerSlotBody: FC<{ children: ReactNode }> = ({ children }) => {
       inert={!present}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: reduced ? motionInstant : motionQuick }}
-      exit={{ opacity: 0, transition: reduced ? motionInstant : motionQuickExit }}
+      exit={{ opacity: 0, transition: reduced ? motionInstant : motionSnapExit }}
     >
       {children}
     </motion.div>

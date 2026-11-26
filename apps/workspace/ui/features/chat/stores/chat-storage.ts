@@ -67,7 +67,7 @@ const updatedAtMs = (conversation: { updatedAt: Date | string }): number =>
   new Date(conversation.updatedAt).getTime() || 0
 
 const entryOf = (conversation: Conversation): ConversationEntry => {
-  const { messages: _messages, ...entry } = conversation
+  const { messages: _messages, titleProvisional: _expectsNameThisSession, ...entry } = conversation
   return entry
 }
 
@@ -126,6 +126,7 @@ const restorableMessages = (messages: ChatMessage[]): ChatMessage[] =>
   messages.filter(
     (m) =>
       m.isStreaming !== true &&
+      m.unsent !== true &&
       !(m.messageType === 'error' && m.errorData?.errorCode?.startsWith('connection.'))
   )
 

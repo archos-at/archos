@@ -128,10 +128,10 @@ applies to an open chat once the page is reloaded.
 
 **Organisation → Quarantäne.** A quarantined file shows which terms or checks
 matched, never the matched text beyond a masked sample. Organization admins,
-the project's admins and, for the Büroablage, its curators can:
+the project's admins and, for the Bürobibliothek, its curators can:
 
-- **Look at it** („Ansehen"), which opens it in the project's Dateien or in the
-  Büroablage, where it is filed. A chat attachment has no such view.
+- **Look at it** („Ansehen"), which opens it in the project's Ablage or in the
+  Bürobibliothek, where it is filed. A chat attachment has no such view.
 - **Allow** it („Zulassen"). ARCHOS then reads it like any other upload. The
   decision applies to exactly these bytes: uploading a changed version screens
   it again.
@@ -159,7 +159,7 @@ decision to allow it, with the terms and checks that matched but never the
 matched text.
 
 **Who sees a quarantined file.** Only the person who uploaded it and the people
-above. For everyone else in the project, or in the Büroablage, it is not there:
+above. For everyone else in the project, or in the Bürobibliothek, it is not there:
 it is missing from the file list, the search, the project overview and the
 model list, and its download, preview and thumbnail answer as if it did not
 exist. ARCHOS's assistant never reads it. Restoring a folder from the
@@ -435,15 +435,18 @@ absent for everyone, organization admins included: not listed, not searchable,
 not in ARCHOS's answers, not openable or downloadable from a link. Its
 documents are taken out of ARCHOS's search index at once.
 
-This is a project's Files. A folder in the **Büroablage** has no Papierkorb:
-deleting it moves its documents and subfolders into the folder above.
+This is a project's Ablage. The **Bürobibliothek** has a Papierkorb of its own
+that works the same way (ADR-0195), with two differences: whoever may manage the
+Bürobibliothek deletes, restores and deletes for good there, and a folder or a
+document under a legal hold cannot be deleted at all. A topic of Normen &
+Richtlinien still moves its norms into the topic above when it is deleted.
 
 You may delete a folder when you may edit it and every folder inside it. If it
 holds a folder you may not read, or may only read, ARCHOS refuses with „Dieser
 Ordner enthält Inhalte, die Sie nicht löschen dürfen" and deletes nothing; it
 does not say which folder.
 
-**The Papierkorb** (the bin icon in Files) lists the deleted folders you may
+**The Papierkorb** (the bin in the Ablage's header, a window over the page) lists the deleted folders you may
 read: who deleted each, when, what it holds and when it will be deleted for
 good. For 14 days (your operator may set up to 23) a folder can be
 **restored**, with its access list, its subfolders and its documents, by anyone

@@ -1,0 +1,8 @@
+---
+# area: projects
+improvements:
+  - >
+    The project overview now opens at once over the page you are on, as search
+    does, from every way in: the header, the project picker, the search palette,
+    G then P and the phone's project list. The page underneath stays exactly as
+    it was while you look, and Escape brings you back to it.

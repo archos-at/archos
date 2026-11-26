@@ -118,11 +118,13 @@ field at its default, and each is reset at the turn boundary in
   **Two rules, and the turn says which** (`answer_confidence_version`). Chat
   surfaces the answer check's level (ADR-0139, `markers.surface_checked_confidence`):
   one model call on the follow-ups model, at temperature 0 after the prose
-  streamed, grades the final answer against everything the turn registered
+  streamed, is handed the final answer and everything the turn registered
   (`common/claim_judge.py`; passages in full up to a budget, this turn's
   workspace records from `common/workspace_records.py`, the profile and the
-  inventory, measurements, readings, and what the quote check found), and
-  returns a level and the statements it found unbacked or contradicted
+  inventory, measurements, readings, and what the quote check found). It
+  reads each cited statement against its passage and looks for statements of
+  law without a citation, nothing else (ADR-0197); code keeps the findings it
+  can tie to the answer and derives the level from them
   (`TurnResult.confidence_check`). Three caps sit on top, in this order: the
   quote gate below (medium under a verified citation, low without one), the law
   gate (`"law_unsettled"`, at most medium), and the answer's own ceiling
@@ -664,12 +666,15 @@ the folder.
 
 ### Collection scoping (multitenancy)
 
-Every backend call carries a base64url `X-Grid-Collection-Scope` header =
-`[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+Every turn reads a signed scope =
+`[base_corpus, archiv_<org>, proj_<id>, s_<conversation>]`, built in
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` through the
+conversation-context module: a chat turn's signed decision (`may.shelves`), or
+the signed request-context envelope (`collectionScope`) of a run, job or
+external call. No plain scope header is sent or read (ADR-0194). This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
+`REQUIRE_AUTH=false`). `base_corpus` is in every scope, whatever the project's
 site. Its entry is signed with the countries the request may read (`base-entry.ts`):
 the office's corpus countries, and for a project those of them its own knowledge
 context reads (`projectCorpusCountries`, ADR-0173 `retrieval.countries`). So an unplaced
@@ -737,11 +742,11 @@ this.
 `core/conversation_register.py`, aggregated across the collections in the
 request's header-based scope (or the base + session collection fallback when
 no scope header is present). Identity is `(collection, file_name)` — the same
-filename on the Büroablage and in a project is two documents (ADR-0047). The
+filename on the Bürobibliothek and in a project is two documents (ADR-0047). The
 cap (`AVAILABLE_DOCUMENTS_MAX`) keeps user-shelf files (archiv / project
 / session) first so the OIB corpus cannot evict them; a previous
 sort-then-slice let ~40 OIB filenames eat the window and made "welche Dateien
-hast du in der Büroablage" answer from Basiswissen. The prompt block is grouped
+hast du in der Bürobibliothek" answer from Basiswissen. The prompt block is grouped
 by shelf (`agent.knowledge.inventory.render_inventory_block`) and empty
 in-scope shelves render as empty rather than being omitted. The same list is
 then shared by the agent, clarifier, and deep-research paths for that turn
@@ -834,7 +839,7 @@ together:
    text back out of Qdrant (a structural fetch). The per-job call is **scoped** to the job's own
    successful files (`file_names=[...]`), so the caller's known-indexed set is
    diffed directly and the full `list_files` metadata scan — O(collection
-   size) on every single-file upload, painful on the large `oib_knowledge`
+   size) on every single-file upload, painful on the large `base_corpus`
    corpus — is skipped; the unscoped full-collection diff remains available
    for manual/out-of-band reconciliation.
 
@@ -1428,7 +1433,7 @@ system — each plane has its own storage, admin surface, and priority):
 | Plane | Holds | Lives | Managed via | Priority rule |
 |---|---|---|---|---|
 | **Catalog** | verified RIS pointers, prose legal facts (`binding_note`), open TODOs (`review_note`), non-RIS stubs (MA 37, ÖNORM) | norm store (DB) seeded from `configs/norms/<cc>/registry.yml` | `/app/platform` norms editor + verify-and-pick | tells the agent *where law lives* and *what binds what* |
-| **Corpus** | full norm texts inside the RAG (OIB PDFs today) | per-country base collection — `NormsFile.corpus_collection` (AT: `oib_knowledge`) | `/app/platform` Base-Knowledge upload/sync | requirements are cited from here (normative documents only) |
+| **Corpus** | full norm texts inside the RAG (OIB PDFs today) | per-country base collection — `NormsFile.corpus_collection` (AT: `base_corpus`) | `/app/platform` Base-Knowledge upload/sync | requirements are cited from here (normative documents only) |
 | **Project/parcel** | uploads incl. Flächenwidmungs-/Bebauungsplan (tag-classified at ingestion) | project collections in the RAG | project Files UI | **per-parcel source of truth**: `parcel_note` renders tagged plans into the agent's prompt as the governing source for Widmung/Bauklasse/Höhe — above OIB and Bauordnung |
 
 Country expansion touches data, not architecture: a new
@@ -1457,7 +1462,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   passages: `packages/agent/src/agent/knowledge/law_lookup/`), and by `ris_fetch_document` in
   deep research, which still drives the three older RIS tools itself.
 - **The OIB corpus is not in the catalog.** The `oib_corpus_files` table and its
-  objects → `oib_knowledge` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
+  objects → `base_corpus` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
   Erläuterung / Begriffsbestimmungen / Zitierte Normen / Änderungsdokument)
   derives from the filename (`norm_registry.oib_doc_class`). The 15
   `aenderungen_*` diff files and the superseded `zitierte_normen` revision are
@@ -1549,7 +1554,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
 - **Display tagging** — `lane_for_hit` / `citations/source_identity.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
-  Projektwissen / Büroablage / Web via collection origin) for the research
+  Projektwissen / Bürobibliothek / Web via collection origin) for the research
   fan-out UI. Deterministic tagging only — no chunk-metadata dependency.
 
 ## 6c. IFC/BIM models — the building as queryable data (ADR-0045, 2026-08-08)
@@ -1835,21 +1840,14 @@ still deferred; this is pull-based reconciliation instead.
 carry cards (§3; the async job path generates them post-hoc in the
 runner). And the research tab can 403 — see §9.
 
-**Collection-scope re-injection gap — now diagnosable (fixed 2026-07-16,
-`f8093a0`)**: the `X-Grid-Collection-Scope` header is captured once at submit
-time (`core/conversation_register.py`) and threaded into the async job payload
-as `collection_scope`. The research worker only re-injects it into its own
-request context conditionally — `apps/agent-host/src/agent_host/jobs/agent_job_setup.py`
-(`_inject_scope_headers`) does `if collection_scope is not None:` before base64url-encoding it back
-onto the header. When the scope is absent, `knowledge_retrieval` inside the
-worker falls back to legacy config-based resolution (base collection +
-session collection only — see `docs/technical-reference/collection-scoping.md`).
-Because `project_collections` is `[]` in the shipped configs, project
-collections are **never** searched in that fallback path for the affected
-job. The fallback behavior is unchanged, but it is no longer silent: the
-`elif` branch for `deep_research_agent` jobs now logs a one-time WARNING
-(job id, whether the request looked authenticated/project-scoped) at exactly
-the point the re-injection would otherwise be skipped.
+**A job's scope is its signed envelope's (ADR-0194, slice 3b).** The job
+payload carries no `collection_scope`; the worker reads the scope, the project
+collection its access is keyed by (`signed_job_scope` in
+`apps/agent-host/src/agent_host/jobs/submit.py`) and its organization from the
+run's signed envelope, and binds the run's identity (never a scope) for a run
+whose envelope is refused, expired or absent (`bind_worker_identity` in
+`packages/agent/src/agent/project_context.py`). A deep-research job without an
+envelope logs a WARNING and searches the legacy config path.
 
 **Durable checkpointing (backlog T3-8, 2026-07-16, `5bea711`)**: optional
 LangGraph checkpointing for the deep-research graph, configured via
@@ -2228,14 +2226,9 @@ office's skills (`resolve_served_skills`) under `/skills/office/`. Full design a
   deep-research prompts no longer gate document *awareness* on the list being
   non-empty (§6) — only the *listing* still is, which is cosmetic once the
   list itself is reliable.
-- **Async job collection-scope fallback — fixed 2026-07-16 (`f8093a0`)** —
-  `collection_scope` is still only re-injected into the research worker context
-  when present (behavior unchanged: absent scope still drops
-  project-collection search for that job, §7), but the degradation is no
-  longer silent: `agent_job_setup.py` logs a one-time WARNING (job id, whether the
-  request looked authenticated/project-scoped) at the point it would
-  otherwise skip re-injection, so the gap is diagnosable from logs instead of
-  invisible.
+- **Async job collection-scope fallback — superseded by ADR-0194 slice 3b** —
+  a job's scope is its signed envelope's, never a payload field; a
+  deep-research job without an envelope logs a WARNING (§7).
 - **Deep-research tool-result pruning defeats prompt-prefix caching — fixed
   2026-07-16 (`0b5d29d`)** — `ToolResultPruningMiddleware` now records
   truncation per message id and freezes it once applied (monotonic), instead

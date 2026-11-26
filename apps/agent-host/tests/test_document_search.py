@@ -227,7 +227,7 @@ async def test_search_in_scope_collection_allowed(app, monkeypatch):
         res = await client.post(
             "/v1/collections/proj_a/search",
             json={"query": "q"},
-            headers=_scope_headers(["oib_knowledge", "proj_a"], secret="s3cr3t"),
+            headers=_scope_headers(["base_corpus", "proj_a"], secret="s3cr3t"),
         )
 
     assert res.status_code == 200
@@ -507,7 +507,7 @@ async def test_grouped_search_narrows_to_documents_reading_types_and_references_
 def test_the_reading_filters_compile_in_the_one_scope_filter():
     from knowledge_layer.vector_store import scope_filter
 
-    from agent_host.models.requests import GroupedSearchFilters
+    from agent_host.models.document_search import GroupedSearchFilters
     from agent_host.routes.document_search import grouped_filters
 
     filters = grouped_filters(
@@ -752,7 +752,7 @@ async def test_a_document_filter_names_the_files_whose_passages_carry_no_id(app)
 
 
 def test_the_prefilter_mode_names_how_the_bff_narrowed_the_query():
-    from agent_host.models.requests import GroupedSearchFilters
+    from agent_host.models.document_search import GroupedSearchFilters
     from agent_host.routes.document_search import prefilter_mode
 
     assert prefilter_mode(None) == "none"

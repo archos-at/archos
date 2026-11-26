@@ -167,7 +167,7 @@ class TestAFiledMailIsListedInTheWordsOfItsVerlauf:
 def _builder() -> MagicMock:
     builder = MagicMock()
     builder.get_function_config = MagicMock(
-        return_value=KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        return_value=KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     )
     return builder
 
@@ -177,7 +177,7 @@ def scope(monkeypatch):
     monkeypatch.setattr(
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [
-            ScopedCollection("oib_knowledge", Shelf.BASE),
+            ScopedCollection("base_corpus", Shelf.BASE),
             ScopedCollection("proj_1", Shelf.PROJECT),
             ScopedCollection("archiv_1", Shelf.OFFICE_SHELF),
         ],
@@ -197,7 +197,7 @@ class TestListFilesTool:
 
     async def test_reads_the_turns_uncapped_rows(self, scope):
         text = await self._call(folder="Plaene/Grundrisse")
-        assert "2 file(s) on Projektwissen and Büroablage and Private Sitzung" in text
+        assert "2 file(s) on Projektwissen and Bürobibliothek and Private Sitzung" in text
         assert "Grundriss_OG1.pdf" in text
 
     async def test_falls_back_to_the_scope_when_no_rows_are_bound(self, scope, monkeypatch):
@@ -209,7 +209,7 @@ class TestListFilesTool:
         monkeypatch.setattr("agent.knowledge.get_available_documents_async", _documents)
         text = await self._call()
         assert "proj_1.pdf" in text and "archiv_1.pdf" in text
-        assert "oib_knowledge.pdf" not in text
+        assert "base_corpus.pdf" not in text
 
     async def test_rejects_arguments_it_cannot_honour(self, scope):
         assert "must be" in await self._call(shelf="alles")
@@ -291,7 +291,7 @@ def search_with(monkeypatch, scope):
 
 
 async def _exact(**kwargs) -> str:
-    config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+    config = KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
     async with knowledge_retrieval(config, MagicMock()) as info:
         return await info.single_fn(info.input_schema(match="exact", **kwargs))
 
@@ -304,7 +304,7 @@ class TestExactSearch:
                     _chunk("Grundriss_EG.pdf", "Tür T30-2 im Brandabschnitt BA-03", page=1, chunk_id="1"),
                     _chunk("Schnitt_A-A.pdf", "Trennwand zu BA-03, ba-03 Nord", page=4, chunk_id="2"),
                     _chunk("Leitfaden_Buero.pdf", "Beispiel BA-03", page=9, chunk_id="3", collection="archiv_1"),
-                    _chunk("oib-rl_2.pdf", "BA-03 BA-03 BA-03", page=2, chunk_id="4", collection="oib_knowledge"),
+                    _chunk("oib-rl_2.pdf", "BA-03 BA-03 BA-03", page=2, chunk_id="4", collection="base_corpus"),
                 ]
             )
         )
@@ -312,10 +312,10 @@ class TestExactSearch:
         assert "Citation: Schnitt_A-A.pdf, p.4" in text
         assert '## Matches for "BA-03"' in text
         assert "- Schnitt_A-A.pdf (Projektwissen): 2×, p. 4" in text
-        assert "- Leitfaden_Buero.pdf (Büroablage): 1×, p. 9" in text
+        assert "- Leitfaden_Buero.pdf (Bürobibliothek): 1×, p. 9" in text
         table = text[text.index("## Matches") :]
         assert table.index("Schnitt_A-A.pdf") < table.index("oib-rl_2.pdf")
-        assert {call["collection"] for call in store.calls} == {"proj_1", "archiv_1", "oib_knowledge"}
+        assert {call["collection"] for call in store.calls} == {"proj_1", "archiv_1", "base_corpus"}
 
     async def test_a_folder_narrows_to_the_files_filed_under_it(self, search_with):
         store = search_with(_TextStore([]))
@@ -342,7 +342,7 @@ class TestExactSearch:
 
     async def test_an_unknown_mode_is_refused(self, search_with):
         search_with(_TextStore([]))
-        config = KnowledgeRetrievalConfig(collection_name="oib_knowledge", include_base_collection=True)
+        config = KnowledgeRetrievalConfig(collection_name="base_corpus", include_base_collection=True)
         async with knowledge_retrieval(config, MagicMock()) as info:
             out = await info.single_fn(info.input_schema(query="BA-03", match="fuzzy"))
         assert "`match` must be" in out
@@ -462,8 +462,8 @@ class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
         await _exact(query="BA-03", filters={"content_type": "text"})
         by_collection = {call["collection"]: call["filters"] for call in store.calls}
         assert by_collection["proj_1"] is None and by_collection["archiv_1"] is None
-        assert {"content_type": "text"} in by_collection["oib_knowledge"]["$and"]
-        assert {"chunking": {"$ne": "page"}} in by_collection["oib_knowledge"]["$and"]
+        assert {"content_type": "text"} in by_collection["base_corpus"]["$and"]
+        assert {"chunking": {"$ne": "page"}} in by_collection["base_corpus"]["$and"]
 
 
 class _FailingStore(_TextStore):
@@ -493,7 +493,7 @@ class TestAStoreOutageIsNeverANo:
             retriever._find_text_sync("proj_1", "x", None, 5)
 
     async def test_every_collection_failing_says_the_search_did_not_run(self, search_with):
-        search_with(_FailingStore([], {"proj_1", "archiv_1", "oib_knowledge"}))
+        search_with(_FailingStore([], {"proj_1", "archiv_1", "base_corpus"}))
         text = await _exact(query="BA-03")
         assert "could not run" in text
         assert "No match for" not in text and "solid no" not in text
@@ -542,7 +542,7 @@ class TestListFilesHonoursTheTurn:
         text = await self._call()
         assert "Leitfaden_Buero.pdf" in text
         assert "Grundriss_EG.pdf" not in text
-        assert "1 file(s) on Büroablage and Private Sitzung" in text
+        assert "1 file(s) on Bürobibliothek and Private Sitzung" in text
 
     async def test_a_restriction_that_would_leave_nothing_keeps_everything(self, scope, turn_shelves):
         set_turn_documents([_doc("Grundriss_EG.pdf", "Plaene")])
@@ -660,7 +660,7 @@ class TestAShelfTheTurnRemoved:
         turn_shelves({"office_shelf", "session", "base"})
         text = await self._call(shelf="project")
         assert "Keine Datei" not in text
-        assert "to Büroablage, Private Sitzung and Basiswissen" in text
+        assert "to Bürobibliothek, Private Sitzung and Basiswissen" in text
         assert "so Projektwissen is not listed here" in text
         assert "Grundriss_EG.pdf" not in text
 

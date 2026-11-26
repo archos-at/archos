@@ -50,7 +50,6 @@ class TestTheTurnStartIsObservable:
         )
 
         for name in (
-            "setup.restricted_use",
             "setup.project_context",
             "setup.session_registry",
             "setup.subject_document",

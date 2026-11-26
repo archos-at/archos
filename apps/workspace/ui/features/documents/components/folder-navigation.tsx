@@ -61,14 +61,14 @@ export function FolderBreadcrumbRow({
   mayWriteAt,
   rootToolsElsewhere = false,
   itemCount,
-  emptyLevel = false,
   searching = false,
   rootLabel,
+  newFolderLabel,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
   rootLabel?: string
+  newFolderLabel?: string
   searching?: boolean
   itemCount?: number
-  emptyLevel?: boolean
   onCreateFolder?: FolderNavProps['onCreateFolder']
   children?: ReactNode
   rootToolsElsewhere?: boolean
@@ -104,7 +104,7 @@ export function FolderBreadcrumbRow({
   const tabSlot = useSectionTabActionsSlot()
   const placeSlot = useSectionPlaceSlot()
   const tier = useSectionToolTier()
-  const folderInMenu = tabSlot && tier !== null && tier !== 'wide' && !readOnly && onCreateFolder !== undefined
+  const folderInMenu = tabSlot && tier !== null && !readOnly && onCreateFolder !== undefined
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const openNewFolder = useCallback(() => setNewFolderOpen(true), [])
   const tools = (
@@ -113,17 +113,17 @@ export function FolderBreadcrumbRow({
       {readOnly ? (
         <FolderReadOnlyBadge testId="folder-level-read-only" />
       ) : (
-        onCreateFolder && !folderInMenu && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
+        onCreateFolder && !folderInMenu && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} label={newFolderLabel} />
       )}
     </>
   )
   const inRow = (
     <>
-      <ProjectSectionTabActions newFolder={folderInMenu ? openNewFolder : undefined} emptyLevel={emptyLevel}>
+      <ProjectSectionTabActions newFolder={folderInMenu ? openNewFolder : undefined}>
         {tools}
       </ProjectSectionTabActions>
       {folderInMenu && (
-        <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onCreate={(name) => onCreateFolder(name, currentFolderId ?? undefined)} />
+        <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onCreate={(name) => onCreateFolder(name, currentFolderId ?? undefined)} label={newFolderLabel} />
       )}
     </>
   )
@@ -457,10 +457,10 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        {/* 56px at every width, radius 10, elevation 1, a chevron at its end (the ⋯ comes in left of it): a sheet that
-            opens, not a press. One line for the name, cut at its end with the whole name as its title: a name of three
+        {/* 56px, 48px on a phone where it stands one to a row, radius 10, elevation 1, a chevron at its end (the ⋯ comes
+            in left of it): a sheet that opens, not a press. One line for the name, cut at its end with the whole name as its title: a name of three
             lines made its row 138px beside rows of 82 (finding 6), and a folder's start is what tells it apart. */}
-        <FileTileBody className="flex h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-3 phone:gap-2.5 phone:pr-10">
+        <FileTileBody className="flex h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-3 phone:h-12 phone:gap-2.5 phone:pr-10">
           {/* One glyph, still: what says „this opens“ is the sheet's own fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
@@ -499,7 +499,7 @@ export function FolderCard({
 export function FolderCardSkeleton(): JSX.Element {
   return (
     <TileShell interactive={false} data-folder-tile="" data-testid="folder-card-skeleton">
-      <FileTileBody className={cn(FOLDER_SHEET, 'flex flex-1 items-center gap-3 py-2 pl-3 pr-2.5')}>
+      <FileTileBody className={cn(FOLDER_SHEET, 'flex h-14 flex-1 items-center gap-3 py-2 pl-3 pr-2.5 phone:h-12')}>
         <span className={FOLDER_WELL}>
           <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
         </span>

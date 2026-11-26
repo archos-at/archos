@@ -101,7 +101,9 @@ export function stampFor(
     case 'rejected':
       return { state: to, reviewedBy: session.userId, reviewedAt: now, reviewComment: comment }
     case 'published':
-      return { state: to, publishedBy: session.userId, publishedAt: now }
+      return transition.op === 'file'
+        ? { state: to, origin: 'filing', publishedBy: session.userId, publishedAt: now }
+        : { state: to, publishedBy: session.userId, publishedAt: now }
     case 'draft':
       return { state: to, reviewComment: null, reviewedBy: null, reviewedAt: null }
     default:

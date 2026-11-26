@@ -147,7 +147,7 @@ catalog omits them entirely).
 
 | `type` | Shows | Emitted by |
 |---|---|---|
-| `document_grid` | project/Büroablage files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
+| `document_grid` | project/Bürobibliothek files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
 | `memory_proposal` **(interactive)** | a finding to be written to org- or project-scoped memory, for the user to confirm. With `proposal_id` it is the receipt of a stored `memory` proposal (same frame as the file card, `ProposalReceipt`): the note, its kind and confidence, where it goes, „Ersetzt: …“ for a correction, „Übernehmen“ / „Verwerfen“ for whoever `canDecide`, „Nur im Projekt merken“ for an office note, and who decided when. Without one, the browser writes it, as before | the `remember` tool |
 | `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von {productName} erstellt" byline; „Ins Projekt ablegen" files it, then the card opens it in the project and submits it for approval. A Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made is drawn by `FileDraftCard` instead (first page, Öffnen, Herunterladen; [agent-made-files-ux.md](../design/agent-made-files-ux.md)). One card per path per turn: a rewrite replaces the turn's earlier card | the working directory's `write_file` / `edit_file`, `execute` |
 | `task_created` | work the agent has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
@@ -449,7 +449,7 @@ drift `test_seeded_answer_cards_survive_the_read_path` exists to catch.
 A card type is retired by **deleting** it: the pydantic model leaves the
 `AnswerCard` union, the generated schemas are regenerated, and the frontend drops
 its renderer. The name moves into `RETIRED_CARD_REPLACEMENTS` in
-`cards/catalog.py` with one line saying what carries its content now. That map
+`cards/retired_cards.py` with one line saying what carries its content now. That map
 is the whole of what survives, and it exists for the model, not for stored
 data: `validate_model_card` (the envelope's `cards` and `emit_card`) refuses a
 retired name by its declared type, before the shape check could send it to the
@@ -499,9 +499,9 @@ they would have made. A match is a reason, not an obligation.
 
 ### Where the doctrine lives, and which surface gets which half
 
-The text is assembled by `render_card_doctrine()` in `cards/catalog.py` — the
-framing-free module that already owns `render_card_index` / `render_card_details`
-— because there are TWO surfaces that produce cards and only one of them used to
+The text is assembled by `render_card_doctrine()` in `cards/card_doctrine.py`,
+beside `cards/catalog.py`, the framing-free module that owns `render_card_index` /
+`render_card_details`, because there are TWO surfaces that produce cards and only one of them used to
 be taught how to choose.
 
 `register.py` composes `render_card_doctrine()` with the envelope redirect note
@@ -664,9 +664,9 @@ sanctioned path, carrying **real** data:
   opens a named file; **`mode=one` + `query`** opens the best match;
   **`mode=many`** only when two or three files of the same kind are
   nearly tied. **`shelf=office_shelf` / `shelf=project`** keeps the search on
-  one shelf so a Büroablage browse cannot pull project files. A question
+  one shelf so a Bürobibliothek browse cannot pull project files. A question
   that only *lists* what is on a shelf ("welche Dateien hast du im
-  Büroablage") is answered from the shelf-grouped inventory, not this
+  Bürobibliothek") is answered from the shelf-grouped inventory, not this
   tool. Never invent names. See [ADR-0026](../adr/) for
   source-kind doctrine.
 
@@ -759,7 +759,8 @@ on the server. `catalog.tsx` is the server-safe half (component APIs,
   source verification removed is dropped, never renumbered onto the source
   that now holds N: sanitize's map lists only survivors. An empty map leaves
   numbers as they are, and each is kept only if it is cited (applied in
-  `answer_pipeline.py` on the settled frame and after sanitisation). Code is
+  `live_answer.py` on the settled frame and in `answer_pipeline.py` after
+  sanitisation). Code is
   left alone: `S[1]` in a mermaid fence or `x[1]` in inline code is not a
   citation. A `Text` left blank is dropped with its tab or child; when the
   surface cannot stand without it, the one card left becomes the card, and
@@ -985,7 +986,7 @@ without re-plumbing generation or transport.
 5. Add a fixture to the `/dev/cards` gallery, then capture it and attach the
    capture to the PR (`docs/ux/visual-screenshots.md`).
 6. **Give it a trigger in the doctrine** (`render_card_doctrine` in
-   `cards/catalog.py`) — which question calls for it, in the same
+   `cards/card_doctrine.py`) — which question calls for it, in the same
    "trigger → card" form as the rest. A type that is only listed in the index is
    a renderer nobody is asked for, which is a renderer nobody sees; that is
    exactly how the schematic cards once sat behind a disclaimer. The trigger row

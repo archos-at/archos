@@ -144,7 +144,12 @@ describe('chat wire v2 frames from a newer server', () => {
     ;(raw.result as Raw).confidence_check = { status: 'unavailable', unavailable_reason: reason }
     const event = parseWireEvent(raw)
     if (event?.type !== 'RUN_FINISHED') throw new Error('an unknown cause must not drop the RUN_FINISHED')
-    expect(event.result.confidence_check).toEqual({ status: 'unavailable', level: null, unavailable_reason: null })
+    expect(event.result.confidence_check).toEqual({
+      status: 'unavailable',
+      level: null,
+      unavailable_reason: null,
+      sources_checked: null,
+    })
   })
 
   it('strips a raw payload off a step, so no tool text reaches the fold', () => {

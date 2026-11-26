@@ -32,12 +32,12 @@ def test_stored_doc_class_wins_over_chunk_metadata():
         DocumentMetadataStore._tables_initialized.discard(db_url)
         configure_summary_db(db_url)
 
-        register_summary("oib_knowledge", "doc.pdf", "A document.")
-        assert set_document_doc_class("oib_knowledge", "doc.pdf", "oib_guideline")
+        register_summary("base_corpus", "doc.pdf", "A document.")
+        assert set_document_doc_class("base_corpus", "doc.pdf", "oib_guideline")
 
         result = SimpleNamespace(
             success=True,
-            chunks=[_chunk(file_name="doc.pdf", collection="oib_knowledge", doc_class="oib_guide")],
+            chunks=[_chunk(file_name="doc.pdf", collection="base_corpus", doc_class="oib_guide")],
             error_message=None,
         )
         text = format_results(result, "q")
@@ -56,7 +56,7 @@ def test_falls_back_to_chunk_metadata_when_store_empty():
 
         result = SimpleNamespace(
             success=True,
-            chunks=[_chunk(file_name="orphan.pdf", collection="oib_knowledge", doc_class="oib_guide")],
+            chunks=[_chunk(file_name="orphan.pdf", collection="base_corpus", doc_class="oib_guide")],
             error_message=None,
         )
         text = format_results(result, "q")
@@ -71,14 +71,14 @@ def test_stored_display_title_is_the_source_label():
         DocumentMetadataStore._tables_initialized.discard(db_url)
         configure_summary_db(db_url)
 
-        register_summary("oib_knowledge", "oib-rl_2_ausgabe_mai_2023.pdf", "Brandschutz.")
+        register_summary("base_corpus", "oib-rl_2_ausgabe_mai_2023.pdf", "Brandschutz.")
         from agent.knowledge.factory import set_document_display_title
 
-        assert set_document_display_title("oib_knowledge", "oib-rl_2_ausgabe_mai_2023.pdf", "Custom OIB Name")
+        assert set_document_display_title("base_corpus", "oib-rl_2_ausgabe_mai_2023.pdf", "Custom OIB Name")
 
         result = SimpleNamespace(
             success=True,
-            chunks=[_chunk(file_name="oib-rl_2_ausgabe_mai_2023.pdf", collection="oib_knowledge", doc_class=None)],
+            chunks=[_chunk(file_name="oib-rl_2_ausgabe_mai_2023.pdf", collection="base_corpus", doc_class=None)],
             error_message=None,
         )
         text = format_results(result, "q")
@@ -97,7 +97,7 @@ def test_display_title_falls_back_to_derived_default():
 
         result = SimpleNamespace(
             success=True,
-            chunks=[_chunk(file_name="oib-rl_2_ausgabe_mai_2023.pdf", collection="oib_knowledge", doc_class=None)],
+            chunks=[_chunk(file_name="oib-rl_2_ausgabe_mai_2023.pdf", collection="base_corpus", doc_class=None)],
             error_message=None,
         )
         text = format_results(result, "q")

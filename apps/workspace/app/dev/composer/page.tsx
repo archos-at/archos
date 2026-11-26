@@ -32,14 +32,17 @@ export default function ComposerPreviewPage() {
 
   const hasHydrated = useChatStore((state) => state.hasHydrated)
   const [ready, setReady] = useState(false)
+  const [place, setPlace] = useState<string | null>(null)
   useEffect(() => {
     if (!hasHydrated) return
+    const asked = new URLSearchParams(window.location.search).get('place')
+    setPlace(asked)
     useChatStore.setState({
       currentUserId: VIEWER_ID,
       currentConversation: {
         id: CONVERSATION_ID,
         userId: VIEWER_ID,
-        projectId: 'dev',
+        projectId: asked === 'personal' ? null : 'dev',
         title: 'Brandschutz Stiegenhaus Nord',
         messages: [],
         createdAt: new Date('2026-07-29T09:00:00Z'),
@@ -47,7 +50,7 @@ export default function ComposerPreviewPage() {
       },
       hasHydrated: true,
     })
-    publishThreadRole(CONVERSATION_ID, 'viewer')
+    publishThreadRole(CONVERSATION_ID, asked ? 'owner' : 'viewer')
     useLayoutStore.setState({ knowledgeLayerAvailable: true })
     setReady(true)
   }, [hasHydrated])
@@ -83,7 +86,11 @@ export default function ComposerPreviewPage() {
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">
-              ↓ viewer in a shared thread — read-only
+              {place === 'personal'
+                ? '↓ owner, a chat without a project (?place=personal)'
+                : place
+                  ? '↓ owner, a project chat (?place=project)'
+                  : '↓ viewer in a shared thread — read-only'}
             </div>
             {ready && (
               <InputArea isAuthenticated connectionMode="sse" canCollaborate />

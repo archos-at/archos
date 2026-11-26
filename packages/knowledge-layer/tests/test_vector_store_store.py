@@ -121,8 +121,8 @@ def test_search_never_crosses_scopes(store):
 
 
 def test_corpus_and_office_scopes_land_in_different_collections(store):
-    store.upsert("oib_knowledge", [_record("OIB-Richtlinie 2", "rl2.pdf")])
-    store.upsert("archiv_org1", [_record("Büroablage", "ablage.pdf")])
+    store.upsert("base_corpus", [_record("OIB-Richtlinie 2", "rl2.pdf")])
+    store.upsert("archiv_org1", [_record("Bürobibliothek", "ablage.pdf")])
     corpus = store.client.count(schema.ALIASES[schema.Physical.CORPUS]).count
     office = store.client.count(schema.ALIASES[schema.Physical.OFFICE]).count
     assert (corpus, office) == (1, 1)
@@ -176,35 +176,35 @@ def test_hit_cosine_is_the_true_dense_similarity(store):
 
 def test_ne_keeps_points_without_the_field(store):
     store.upsert(
-        "oib_knowledge",
+        "base_corpus",
         [
             _record("alt", "a.pdf"),
             _record("seite", "a.pdf", chunking="page"),
             _record("punkt", "a.pdf", chunking="punkt"),
         ],
     )
-    assert store.count("oib_knowledge", {"chunking": {"$ne": "page"}}) == 2
+    assert store.count("base_corpus", {"chunking": {"$ne": "page"}}) == 2
 
 
 def test_a_point_still_carrying_the_old_punkt_keys_is_found_under_the_clause_names(store):
     store.upsert(
-        "oib_knowledge",
+        "base_corpus",
         [
             _record("alt", "a.pdf", punkt_id="3.5", punkt_depth=2, chunking="punkt"),
             _record("neu", "a.pdf", clause_id="3.5", clause_depth=2, chunking="clause"),
             _record("andere", "a.pdf", clause_id="4.1", clause_depth=1, chunking="clause"),
         ],
     )
-    assert store.count("oib_knowledge", {"clause_id": {"$eq": "3.5"}}) == 2
-    assert store.count("oib_knowledge", {"clause_depth": {"$in": [2]}}) == 2
-    assert store.count("oib_knowledge", {"chunking": "clause"}) == 3
-    assert store.count("oib_knowledge", {"chunking": {"$ne": "clause"}}) == 0
+    assert store.count("base_corpus", {"clause_id": {"$eq": "3.5"}}) == 2
+    assert store.count("base_corpus", {"clause_depth": {"$in": [2]}}) == 2
+    assert store.count("base_corpus", {"chunking": "clause"}) == 3
+    assert store.count("base_corpus", {"chunking": {"$ne": "clause"}}) == 0
 
 
 def test_int_and_string_spellings_meet(store):
-    store.upsert("oib_knowledge", [_record("Punkt", "rl.pdf", clause_depth=1, page_label=4)])
-    assert store.count("oib_knowledge", {"clause_depth": {"$in": ["1"]}}) == 1
-    assert store.count("oib_knowledge", {"page_label": {"$in": [4]}}) == 1
+    store.upsert("base_corpus", [_record("Punkt", "rl.pdf", clause_depth=1, page_label=4)])
+    assert store.count("base_corpus", {"clause_depth": {"$in": ["1"]}}) == 1
+    assert store.count("base_corpus", {"page_label": {"$in": [4]}}) == 1
 
 
 def test_deletes_address_scope_file_and_chunk(store):
@@ -428,9 +428,9 @@ def test_a_text_index_built_with_another_tokenizer_is_reported_loudly(fresh_stor
     assert store.client.get_collection(name).payload_schema[schema.TEXT_FIELD].params.tokenizer == "multilingual"
 
     caplog.clear()
-    store.upsert("oib_knowledge", [_record("x", "a.pdf")])  # a fresh collection behind the other alias
+    store.upsert("base_corpus", [_record("x", "a.pdf")])  # a fresh collection behind the other alias
     with caplog.at_level("ERROR", logger="knowledge_layer.vector_store.schema"):
-        schema.ensure_payload_indexes(store.client, store.alias("oib_knowledge"))
+        schema.ensure_payload_indexes(store.client, store.alias("base_corpus"))
     assert not caplog.records
 
 
@@ -551,7 +551,7 @@ def test_a_refusal_is_never_retried_and_an_outage_gives_up(store, monkeypatch):
 
 def test_the_metadata_keys_the_chunkers_write_are_filterable(store):
     store.upsert(
-        "oib_knowledge",
+        "base_corpus",
         [
             _record(
                 "Punkt",
@@ -576,9 +576,9 @@ def test_the_metadata_keys_the_chunkers_write_are_filterable(store):
         {"image_index": 0},
         {"drawing_type": {"$eq": "Grundriss"}},
     ):
-        assert store.count("oib_knowledge", filters) == 1, filters
+        assert store.count("base_corpus", filters) == 1, filters
     with pytest.raises(ValueError, match="'drawing_data'.*not an indexed payload field"):
-        store.count("oib_knowledge", {"drawing_data": "x"})
+        store.count("base_corpus", {"drawing_data": "x"})
 
 
 def test_a_string_boolean_is_read_for_what_it_says():

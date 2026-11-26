@@ -4,18 +4,22 @@ import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
-import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailPartRow, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import {
+  inboundMailDecisions,
+  inboundMailParts,
+  inboundMails,
+  type InboundMailDecisionRow,
+  type InboundMailPartRow,
+  type InboundMailRow,
+} from '@/lib/db/schema/inbound-mail'
 import { mailThreads } from '@/lib/db/schema/mail-thread'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '@/lib/documents/visibility'
+import { OPEN_PART_STATES, partInState } from './waiting-count-repository'
 
-export const OPEN_PART_STATES = ['waiting', 'filing'] as const
-
-const partInState = (states: readonly string[]) =>
-  sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id}
-      AND p.state IN (${sql.join(states.map((state) => sql`${state}`), sql`, `)}))`
+export { countWaitingMailsByProject, OPEN_PART_STATES } from './waiting-count-repository'
 
 export interface MailListPosition {
   receivedAt: string
@@ -56,17 +60,6 @@ export async function listProjectMails(
   return rows.map((row) => ({ mail: row.mail, position: { receivedAt: String(row.receivedAtText), id: row.mail.id } }))
 }
 
-export async function countWaitingMailsByProject(projectIds: readonly string[]): Promise<Map<string, number>> {
-  if (projectIds.length === 0) return new Map()
-  const rows = await getDb()
-    .select({ projectId: inboundMails.projectId, count: sql<string>`count(*)` })
-    .from(inboundMails)
-    .where(and(inArray(inboundMails.projectId, [...projectIds]), eq(inboundMails.status, 'waiting'), partInState(OPEN_PART_STATES)))
-    .groupBy(inboundMails.projectId)
-    .limit(projectIds.length)
-  return new Map(rows.map((row) => [row.projectId, Number(row.count)]))
-}
-
 export async function findProjectMail(projectId: string, mailId: string, executor: DbExecutor = getDb()): Promise<InboundMailRow | null> {
   const [row] = await executor
     .select()
@@ -104,6 +97,16 @@ export async function findFollowDeciders(mailIds: readonly string[]): Promise<Ma
   return new Map(rows.map((row) => [row.mailId, row.decidedBy]))
 }
 
+export async function findFiledVias(mailIds: readonly string[]): Promise<Map<string, InboundMailDecisionRow['via']>> {
+  if (mailIds.length === 0) return new Map()
+  const rows = await getDb()
+    .select({ partId: inboundMailParts.id, via: inboundMailDecisions.via })
+    .from(inboundMailParts)
+    .innerJoin(inboundMailDecisions, eq(inboundMailDecisions.id, inboundMailParts.decisionId))
+    .where(and(inArray(inboundMailParts.mailId, [...mailIds]), eq(inboundMailParts.state, 'filed')))
+  return new Map(rows.map((row) => [row.partId, row.via]))
+}
+
 export interface ThreadDocument {
   threadId: string
   documentId: string
@@ -113,6 +116,7 @@ export interface ThreadDocument {
   nextVersion: number
   entryCount: number
   renderedBytes: number
+  participantDomains: string[]
 }
 
 export async function findThreadDocuments(projectId: string, threadIds: readonly string[]): Promise<ThreadDocument[]> {
@@ -129,6 +133,7 @@ export async function findThreadDocuments(projectId: string, threadIds: readonly
       nextVersion: sql<string>`(SELECT coalesce(max(v.version_number), 0) + 1 FROM document_versions v WHERE v.document_id = ${documents.id})`,
       entryCount: mailThreads.entryCount,
       renderedBytes: mailThreads.renderedBytes,
+      participantDomains: mailThreads.participantDomains,
     })
     .from(mailThreads)
     .innerJoin(documents, and(eq(documents.id, mailThreads.documentId), eq(documents.projectId, mailThreads.projectId)))
@@ -151,6 +156,7 @@ export async function findThreadDocuments(projectId: string, threadIds: readonly
     nextVersion: Number(row.nextVersion),
     entryCount: row.entryCount,
     renderedBytes: row.renderedBytes,
+    participantDomains: row.participantDomains,
   }))
 }
 

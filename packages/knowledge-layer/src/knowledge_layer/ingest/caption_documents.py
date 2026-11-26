@@ -127,7 +127,7 @@ def visual_documents(
 ) -> list[Any]:
     from llama_index.core import Document
 
-    from knowledge_layer.ingest import visual_analysis
+    from knowledge_layer.ingest import visual_rendering
 
     prefix = _VISUAL_PREFIXES.get(content_type, "IMAGE")
     base = {
@@ -152,7 +152,7 @@ def visual_documents(
                     "drawing_data": payload["drawing_data"],
                 },
             )
-            for payload in visual_analysis.segment_payloads(analysis)
+            for payload in visual_rendering.segment_payloads(analysis)
         ]
 
     metadata = dict(base)

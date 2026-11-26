@@ -1,5 +1,17 @@
+from typing import Annotated
+from typing import Literal
+
+from pydantic import AliasChoices
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import StringConstraints
+
+from agent.knowledge.dossier import DocumentType
+
+from .requests import ProjectFacts
+from .requests import ProjectStatus
+from .requests import _FactToken
 
 
 class DocumentSearchRequest(BaseModel):
@@ -42,4 +54,114 @@ class DocumentSearchHit(BaseModel):
 class DocumentSearchResponse(BaseModel):
     hits: list[DocumentSearchHit] = Field(
         default_factory=list, description="Matched documents (one per file), sorted by score descending"
+    )
+
+
+_DocumentId = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        to_lower=True,
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+    ),
+]
+
+_FileName = Annotated[str, StringConstraints(min_length=1, max_length=500)]
+
+_ReferenceText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class SimilarityWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    federal_state: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("federal_state", "bundesland"))
+    building_class: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("building_class", "gebaeudeklasse"))
+    building_class_adjacent: float = Field(
+        0, ge=0, le=100, validation_alias=AliasChoices("building_class_adjacent", "gebaeudeklasse_adjacent")
+    )
+    construction_method: float = Field(
+        0, ge=0, le=100, validation_alias=AliasChoices("construction_method", "bauweise")
+    )
+    use: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("use", "nutzung"))
+    use_max: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("use_max", "nutzung_max"))
+    work_type: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("work_type", "vorhabensart"))
+
+    def to_store(self) -> dict[str, float]:
+        return self.model_dump()
+
+
+class SearchBoost(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    facts: ProjectFacts
+    weights: SimilarityWeights
+
+
+class GroupedSearchFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_types: list[_FactToken] = Field(
+        default_factory=list,
+        max_length=40,
+        description="The document's tags of the document-type group (Plan, Detail, ...). Not `reading_types`.",
+    )
+    disciplines: list[_FactToken] = Field(default_factory=list, max_length=40)
+    document_ids: list[_DocumentId] = Field(
+        default_factory=list,
+        max_length=1000,
+        description="Only passages of these documents (the BFF's document ids, `document_id` on the chunks).",
+    )
+    file_names: list[_FileName] = Field(
+        default_factory=list,
+        max_length=1000,
+        description=(
+            "The same documents' file names, for the passages that carry no `document_id` (written before "
+            "the field existed, or copied from Chroma): any of `document_ids` or of these. Only with `document_ids`."
+        ),
+    )
+    reading_types: list[DocumentType] = Field(
+        default_factory=list,
+        max_length=24,
+        description=(
+            "The dossier's document type, as ingestion read it (`fire_safety_concept`, `site_plan`, ...). "
+            "Not `document_types`, which reads the tags a person or the tagger set."
+        ),
+    )
+    refers_to: list[_ReferenceText] = Field(
+        default_factory=list,
+        max_length=8,
+        description=(
+            "Documents that refer to any of these: what a person types (`ÖNORM B 1600`, `EP-05`, "
+            "`Brandschutzkonzept`) or a `kind:key` token as the projection holds it (`norm:önorm b 1600`). "
+            "A text no reference is read from matches nothing."
+        ),
+    )
+    project_facts: ProjectFacts | None = Field(
+        None,
+        description=(
+            "Only projects holding any of each listed fact's values (a fact left empty does not filter). "
+            "Read from the facts mirrored onto the points, so a project whose facts were never mirrored "
+            "does not match."
+        ),
+    )
+    project_status: list[ProjectStatus] = Field(default_factory=list, max_length=3)
+
+
+class GroupedDocumentSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000, description="Natural-language search query")
+    collections: list[str] = Field(..., min_length=1, max_length=500, description="Collections to rank together")
+    groups: int = Field(20, ge=1, le=200, description="Max collections in the answer, best first")
+    files_per_group: int = Field(3, ge=1, le=20, description="Max documents per collection")
+    snippet_max_chars: int = Field(300, ge=100, le=1500, description="Max characters of each document's snippet")
+    filters: GroupedSearchFilters | None = Field(None, description="Narrow the search before ranking")
+    boost: SearchBoost | None = Field(None, description="The current project's facts, to lift similar projects")
+    purpose: Literal["workspace_search"] | None = Field(
+        None,
+        description=(
+            "Who asks, when this route should trace the search itself: `workspace_search` (the BFF's search, "
+            "ADR-0136) is a `retrieve.workspace_search` observation. Absent for the cross-project lookup, which "
+            "Piloti's `project_lookup` tool already traces."
+        ),
     )

@@ -1,0 +1,6 @@
+---
+# area: bim
+fixes:
+  - >
+    The toolbar at the bottom of the model viewer casts its full shadow again;
+    it used to stop in a hard line just below the buttons.

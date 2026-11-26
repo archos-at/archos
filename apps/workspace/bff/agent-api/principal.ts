@@ -12,7 +12,7 @@ import {
 import { type JWTVerifyGetKey, createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose'
 import { ApiError } from '@/lib/api/errors'
 import { requireVerifiedContext, requirePinnedSession } from '@/lib/api/internal-envelope'
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { resolveMemberSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { FEATURE_FLAGS, type KnownFeatureFlag } from '@/lib/authz/feature-flags'
 import { getPlatformOrganizationId, isPlatformStaff } from '@/lib/authz/platform'
@@ -33,6 +33,8 @@ import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { AGENT_KIND, type AgentKind } from '@/lib/agent-kind'
+import { decisionFromRequest } from '@/lib/conversation-context'
+import type { ConversationDecision } from '@/lib/conversation-context/wire'
 
 export type AgentActor = 'external_agent' | AgentKind
 
@@ -44,6 +46,7 @@ export interface AgentPrincipal {
   conversationId?: string | null
   projectId?: string | null
   answerMessageId?: string | null
+  decision?: ConversationDecision | null
   sensitiveOptIns?: readonly Sensitivity[]
   door?: AgentDoor
 }
@@ -189,7 +192,7 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
 }
 
 function freshSession(userId: string, organizationId: string): Promise<AuthorizedSession | null> {
-  return resolvePinnedRequesterSession({ userId, email: null, organizationId })
+  return resolveMemberSession({ userId, email: null, organizationId })
 }
 
 async function platformPrincipal(auth: AuthInfo, userId: string): Promise<AgentPrincipal | AuthChallenge> {
@@ -222,6 +225,7 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
   if (denied) return challenge(denied)
   try {
     const context = requireVerifiedContext(request)
+    const decision = decisionFromRequest(request)
     const session = await requirePinnedSession(context)
     return {
       actor: AGENT_KIND,
@@ -231,6 +235,7 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
       conversationId: context.conversationId,
       projectId: context.projectId,
       answerMessageId: answerMessageIdOf(request),
+      decision,
     }
   } catch (error) {
     if (error instanceof ApiError) {

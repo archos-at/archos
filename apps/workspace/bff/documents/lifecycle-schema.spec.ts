@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { z } from 'zod'
 import { documentLifecycleJsonSchema, toJsonSchema } from './lifecycle-schema'
 import {
@@ -17,14 +17,7 @@ const FIXTURE = join(process.cwd(), 'tests/fixtures/document-lifecycle.schema.js
 describe('document lifecycle JSON Schema', () => {
   it('matches the committed fixture the Python tier loads', () => {
     const generated = `${JSON.stringify(documentLifecycleJsonSchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') {
-      writeFileSync(FIXTURE, generated, 'utf8')
-    }
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The wire schemas changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture ' +
-        'in the same change, so the Python tool and this tier cannot disagree.',
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('exports every schema the contract map names, and only those', () => {
@@ -41,6 +34,8 @@ describe('document lifecycle JSON Schema', () => {
     expect(options.map((option) => option.properties.op.const).sort()).toEqual([
       'create',
       'create_file',
+      'revise_file',
+      'status',
       'submit',
       'update',
       'update_file',

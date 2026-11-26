@@ -21,6 +21,8 @@ export function fixtureId(name: string): string {
 export const FOLDERS: FolderOption[] = [
   { id: fixtureId('folder:behoerde'), parentId: null, name: 'Behörde', path: 'Behörde', writable: true },
   { id: fixtureId('folder:bescheide'), parentId: fixtureId('folder:behoerde'), name: 'Bescheide', path: 'Behörde/Bescheide', writable: true },
+  { id: fixtureId('folder:plaene'), parentId: null, name: 'Pläne', path: 'Pläne', writable: true },
+  { id: fixtureId('folder:fassade'), parentId: fixtureId('folder:plaene'), name: 'Fassade', path: 'Pläne/Fassade', writable: true },
   { id: fixtureId('folder:tragwerk'), parentId: null, name: 'Tragwerk', path: 'Tragwerk', writable: true },
   { id: fixtureId('folder:korrespondenz'), parentId: null, name: 'Korrespondenz', path: 'Korrespondenz', writable: true },
   { id: fixtureId('folder:vertraege'), parentId: null, name: 'Verträge', path: 'Verträge', writable: false },

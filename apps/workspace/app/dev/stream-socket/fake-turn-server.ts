@@ -222,7 +222,7 @@ export const installFakeTurnServer = (
             type: 'CUSTOM',
             name: 'hello',
             ts: Date.now(),
-            value: { build: 'dev', accepts: ['cancel_turn.shown'] },
+            value: { build: 'dev', accepts: ['cancel_turn.shown', 'steer'] },
           })
         )
         sink.onOpen()

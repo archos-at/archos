@@ -101,7 +101,7 @@ describe.skipIf(!url)('restricted use against Postgres (migrations 0112, 0111)',
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
-  let use: typeof import('./restricted-use')
+  let use: typeof import('./restricted-use') & typeof import('./audience-widening')
   let repo: typeof import('./repository')
   let upsertGrant: typeof import('@/lib/sharing/repository').upsertGrant
   let projectId = ''
@@ -181,7 +181,7 @@ describe.skipIf(!url)('restricted use against Postgres (migrations 0112, 0111)',
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
-    use = await import('./restricted-use')
+    use = { ...(await import('./restricted-use')), ...(await import('./audience-widening')) }
     repo = await import('./repository')
     upsertGrant = (await import('@/lib/sharing/repository')).upsertGrant
     const folderAccess = await import('@/lib/authz/folder-access')
@@ -445,8 +445,9 @@ describe.skipIf(!url)('restricted use against Postgres (migrations 0112, 0111)',
     })
     const admission = await inOrg(ORG, () => use.admitRestrictedUse(request(drew, admitted), [restricted]))
     expect(admission.admitted).toEqual([restricted])
-    await inOrg(ORG, () => use.markTurnAnswer(request(drew, later)))
-    await inOrg(ORG, () => use.markTurnAnswer(request(open, openAnswer)))
+    const { markAnswerRestrictedUse } = await import('@/lib/conversations/restricted-use-repository')
+    await inOrg(ORG, () => markAnswerRestrictedUse(db, ORG, drew, later))
+    await inOrg(ORG, () => markAnswerRestrictedUse(db, ORG, open, openAnswer))
 
     const vote = (messageId: string, claimed: string | null, voter: string, comment: string) =>
       inOrg(ORG, () =>

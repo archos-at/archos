@@ -104,10 +104,10 @@ def _backend(retriever: Retriever, rows=None, stored=None) -> EstateBackend:
 
 @pytest.fixture(autouse=True)
 def _setup(monkeypatch):
-    from knowledge_layer.browse import tool as browse
+    from knowledge_layer.browse import exact as browse_exact
 
-    monkeypatch.setattr(browse, "_collection_filter", lambda collection, **_kwargs: None)
-    monkeypatch.setattr(scope_module, "resolve_base_collection", lambda _config: "oib_knowledge")
+    monkeypatch.setattr(browse_exact, "_collection_filter", lambda collection, **_kwargs: None)
+    monkeypatch.setattr(scope_module, "resolve_base_collection", lambda _config: "base_corpus")
     token = begin_grounding_capture()
     try:
         yield

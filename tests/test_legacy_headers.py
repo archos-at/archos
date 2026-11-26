@@ -20,6 +20,7 @@ from agent_host.legacy_headers import with_legacy_names
 
 ROOT = Path(__file__).resolve().parents[1]
 WS_PROXY = ROOT / "apps" / "workspace" / "bff" / "proxy" / "ws-upgrade-headers.js"
+RETIRED_STILL_STRIPPED = frozenset({"x-collection-scope"})
 
 
 def test_a_renamed_header_keeps_the_name_its_readers_still_accept():
@@ -68,4 +69,6 @@ def test_the_websocket_proxy_strips_every_name_the_backend_now_reads():
     script = "process.stdout.write(JSON.stringify([...require(process.argv[1]).SERVICE_HEADERS]))"
     result = subprocess.run([node, "-e", script, str(WS_PROXY)], capture_output=True, text=True, timeout=30, check=True)
 
-    assert set(json.loads(result.stdout)) | {"x-internal-token"} == {name.decode() for name in SERVICE_HEADERS}
+    stripped = set(json.loads(result.stdout)) | {"x-internal-token"}
+    assert stripped == {name.decode() for name in SERVICE_HEADERS} | RETIRED_STILL_STRIPPED
+    assert not RETIRED_STILL_STRIPPED & {name.decode() for name in SERVICE_HEADERS}

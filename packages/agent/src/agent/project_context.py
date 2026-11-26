@@ -1,4 +1,5 @@
 import base64
+import contextvars
 import hashlib
 import hmac
 import json
@@ -40,7 +41,6 @@ TOOL_CONTEXT_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 }
 
 
-COLLECTION_SCOPE_HEADER = "x-grid-collection-scope"
 MODEL_OVERRIDES_HEADER = "x-grid-model-overrides"
 BUDGET_HEADER = "x-grid-budget"
 DISABLED_SOURCES_HEADER = "x-grid-disabled-sources"
@@ -118,24 +118,6 @@ def _base64url_decode_text(raw: str) -> str:
         return raw
 
 
-def _read_encoded_header(name: str) -> str | None:
-    raw = _read_header(name)
-    if not raw:
-        return None
-    return _base64url_decode_text(raw)
-
-
-def _read_json_header(name: str) -> Any | None:
-    raw = _read_header(name)
-    if not raw:
-        return None
-    try:
-        return json.loads(_base64url_decode_text(raw))
-    except Exception:
-        logger.debug("Failed to decode/parse %s as JSON", name, exc_info=True)
-        return None
-
-
 def _normalize_raw_id(value: str | None) -> str | None:
     if not value:
         return None
@@ -201,11 +183,6 @@ def _as_epoch_millis(value: Any) -> int | None:
     return int(value)
 
 
-def _read_memory_reflection_flag() -> bool:
-    raw = _read_header(MEMORY_REFLECTION_FEATURE_HEADER)
-    return (raw or "").strip().lower() == "true"
-
-
 @dataclass(frozen=True)
 class RequestContext:
     organization_id: str | None = None
@@ -237,24 +214,7 @@ class RequestContext:
         )
         if envelope is not None:
             return envelope
-
-        scope_entries = _as_scope_entries(_read_json_header(COLLECTION_SCOPE_HEADER))
-        return cls(
-            organization_id=_normalize_raw_id(_read_header(ORGANIZATION_ID_HEADER)),
-            user_id=_normalize_raw_id(_read_header(USER_ID_HEADER)),
-            project_id=_normalize_raw_id(_read_header(PROJECT_ID_HEADER)),
-            collection_scope=_scope_names(scope_entries),
-            collection_scope_entries=scope_entries,
-            project_context=normalize_project_context(_read_encoded_header(PROJECT_CONTEXT_HEADER)),
-            project_memory=normalize_project_context(
-                _read_encoded_header(PROJECT_MEMORY_HEADER), max_chars=MEMORY_HEADER_MAX_CHARS
-            ),
-            org_instructions=normalize_org_instructions(_read_encoded_header(ORG_INSTRUCTIONS_HEADER)),
-            model_overrides=_as_str_dict(_read_json_header(MODEL_OVERRIDES_HEADER)),
-            budget=_as_dict(_read_json_header(BUDGET_HEADER)),
-            disabled_sources=_as_str_list(_read_json_header(DISABLED_SOURCES_HEADER)),
-            memory_reflection_enabled=_read_memory_reflection_flag(),
-        )
+        return _worker_identity.get() or cls()
 
     @classmethod
     def from_envelope(
@@ -272,14 +232,16 @@ class RequestContext:
             logger.warning("Failed to base64url-decode X-Grid-Request-Context envelope", exc_info=True)
             return None
 
-        if secret:
-            expected = hmac.new(secret.encode("utf-8"), raw_json.encode("utf-8"), hashlib.sha256).hexdigest()
-            if not sig or not hmac.compare_digest(expected, sig):
-                logger.warning(
-                    "X-Grid-Request-Context envelope signature missing or invalid; "
-                    "treating the envelope as absent (possible tamper)"
-                )
-                return None
+        if not secret:
+            logger.warning("Request-context envelope refused: INTERNAL_API_TOKEN is not set to verify it")
+            return None
+        expected = hmac.new(secret.encode("utf-8"), raw_json.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not sig or not hmac.compare_digest(expected, sig):
+            logger.warning(
+                "X-Grid-Request-Context envelope signature missing or invalid; "
+                "treating the envelope as absent (possible tamper)"
+            )
+            return None
 
         try:
             payload = json.loads(raw_json)
@@ -325,41 +287,28 @@ class RequestContext:
             raw(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
             secret,
         )
-        if envelope is not None:
-            return envelope
+        return envelope if envelope is not None else cls()
 
-        def json_field(name: str) -> Any | None:
-            value = raw(name)
-            if not value:
-                return None
-            try:
-                return json.loads(_base64url_decode_text(value))
-            except Exception:
-                return None
 
-        def text_field(name: str, max_chars: int) -> str | None:
-            value = raw(name)
-            if not value:
-                return None
-            return normalize_project_context(_base64url_decode_text(value), max_chars=max_chars)
+_worker_identity: contextvars.ContextVar[RequestContext | None] = contextvars.ContextVar(
+    "worker_identity", default=None
+)
 
-        scope_entries = _as_scope_entries(json_field(COLLECTION_SCOPE_HEADER))
-        return cls(
-            organization_id=_normalize_raw_id(raw(ORGANIZATION_ID_HEADER)),
-            user_id=_normalize_raw_id(raw(USER_ID_HEADER)),
-            project_id=_normalize_raw_id(raw(PROJECT_ID_HEADER)),
-            collection_scope=_scope_names(scope_entries),
-            collection_scope_entries=scope_entries,
-            project_context=text_field(PROJECT_CONTEXT_HEADER, 4000),
-            project_memory=text_field(PROJECT_MEMORY_HEADER, 2000),
-            org_instructions=normalize_org_instructions(
-                _base64url_decode_text(raw(ORG_INSTRUCTIONS_HEADER) or "") or None
-            ),
-            model_overrides=_as_str_dict(json_field(MODEL_OVERRIDES_HEADER)),
-            budget=_as_dict(json_field(BUDGET_HEADER)),
-            disabled_sources=_as_str_list(json_field(DISABLED_SOURCES_HEADER)),
-            memory_reflection_enabled=(raw(MEMORY_REFLECTION_FEATURE_HEADER) or "").strip().lower() == "true",
+
+def _identity_part(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def bind_worker_identity(
+    *, organization_id: object, user_id: object, project_id: object
+) -> contextvars.Token[RequestContext | None]:
+    return _worker_identity.set(
+        RequestContext(
+            organization_id=_identity_part(organization_id),
+            user_id=_identity_part(user_id),
+            project_id=_identity_part(project_id),
         )
+    )
 
 
 def get_profile_context_from_context() -> str | None:

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, type JSX } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { FileText, Upload } from 'lucide-react'
 import {
@@ -8,13 +9,17 @@ import {
   bulkBaseKnowledge,
   confirmBaseKnowledge,
   recordBaseKnowledgeCheck,
+  relistBaseKnowledge,
   removeBaseKnowledge,
+  unlistBaseKnowledge,
   setBaseKnowledgeLicence,
+  settleNorms,
   updateBaseKnowledge,
   type BaseKnowledgeRemovalReceipt,
   type BaseKnowledgeEntry,
   type BaseKnowledgeFolder,
 } from '@/adapters/api/base-knowledge-client'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -28,13 +33,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BackControl } from '@/components/shell/back-link'
+import { OFFICE_SHELF_FILES_HREF } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import type { EntryValues } from '@/lib/base-knowledge/wire'
+import { ASK_FOR_LICENCE, type EntryValues } from '@/lib/base-knowledge/wire'
 import { Chip } from '@/components/ui/chip'
-import { day, StatusChip, TextUseChip } from './entry-atoms'
+import { CurrencyNote, day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
-import { editionReplaced } from '@/lib/base-knowledge/office/listing'
+import { editionReplaced, standFromBinding } from '@/lib/base-knowledge/office/listing'
 
 interface EntryPageProps {
   entry: BaseKnowledgeEntry | null
@@ -155,6 +161,7 @@ function LicenceSection({
   run: Run
 }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
+  if (!ASK_FOR_LICENCE) return null
   if (values.licenceClass !== 'licensed') {
     return entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
   }
@@ -282,31 +289,25 @@ function CheckSection({
   run: Run
 }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { locale } = useLocale()
   const file = useRef<HTMLInputElement>(null)
-  const { lastCheck, intervalDays } = entry.freshness
+  const { intervalDays } = entry.freshness
   return (
     <section className="space-y-3" data-testid="base-knowledge-check">
       <SectionLabel as="h3">{t('detail.checkSection')}</SectionLabel>
-      <p className="text-muted-foreground text-sm">
-        {t('detail.checkWhy', { days: intervalDays })}
-      </p>
       <p className="text-sm">
-        {lastCheck
-          ? t('detail.lastCheck', {
-              date: day(lastCheck.checkedAt, locale),
-              result: t(`detail.checkResult.${lastCheck.result}`),
-            })
-          : t('detail.neverChecked')}
+        <CurrencyNote entry={entry} />
       </p>
+      {!standFromBinding(entry) && <p className="text-muted-foreground text-sm">{t('detail.checkWhy', { days: intervalDays })}</p>}
       {canManage && (
         <>
-          <div className="flex flex-wrap gap-2">
-            {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
-            <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>
-              {t('detail.checkCurrent')}
-            </Button>
-          </div>
+          {!standFromBinding(entry) && (
+            <div className="flex flex-wrap gap-2">
+              {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
+              <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>
+                {t('detail.checkCurrent')}
+              </Button>
+            </div>
+          )}
           <div className="space-y-1">
             <input
               ref={file}
@@ -351,12 +352,38 @@ function SheetBody({
   adding,
 }: Omit<EntryPageProps, 'entry' | 'onClose'> & { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
+  const router = useRouter()
   const [values, setValues] = useState<EntryValues>(entry.values)
   const [attest, setAttest] = useState({ licence: false, ai: false })
   const [removing, setRemoving] = useState(false)
   const { busy, run } = useRun(onChanged)
   const proposed = entry.status === 'proposed'
-  const needsAttest = proposed && values.licenceClass === 'licensed' && !attest.licence
+  const needsAttest = ASK_FOR_LICENCE && proposed && values.licenceClass === 'licensed' && !attest.licence
+  const name = entry.values.designation ?? entry.fileName
+  const undo = async ({ entryId, formerFolderId }: { entryId: string; formerFolderId: string | null }) => {
+    try {
+      onChanged(await relistBaseKnowledge(entryId, formerFolderId))
+      capturePosthog('norm_relisted')
+      toast.success(t('detail.relisted', { name }))
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
+    }
+  }
+  const unlist = () =>
+    run(async () => {
+      const unlisting = await unlistBaseKnowledge(entry.id)
+      capturePosthog('norm_unlisted')
+      toast.success(t('detail.unlisted', { name }), { action: { label: t('detail.undo'), onClick: () => void undo(unlisting) } })
+      return null
+    }, null)
+  const notNorm = () =>
+    run(async () => {
+      const [result] = (await settleNorms({ rows: [{ entryId: entry.id, notNorm: true }] })).results
+      if (result?.outcome !== 'not_norm') throw new Error(result?.error ?? '')
+      const file = `${OFFICE_SHELF_FILES_HREF}?doc=${encodeURIComponent(entry.documentId)}`
+      toast.success(t('detail.notNormDone', { name }), { action: { label: t('norms.showInFolders'), onClick: () => router.push(file) } })
+      return null
+    }, null)
   const save = () =>
     proposed
       ? run(() =>
@@ -395,7 +422,7 @@ function SheetBody({
           values={values}
           onChange={setValues}
           disabled={!canManage || busy}
-          showLicence={proposed}
+          showLicence={proposed && ASK_FOR_LICENCE}
           territories={territories}
         />
       </section>
@@ -435,7 +462,16 @@ function SheetBody({
       )}
       {!proposed && <CheckSection entry={entry} canManage={canManage} busy={busy} run={run} />}
       {canManage && (
-        <div className="border-t pt-4">
+        <div className="flex flex-wrap gap-2 border-t pt-4">
+          {proposed ? (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void notNorm()} data-testid="base-knowledge-not-norm">
+              {t('norms.notNorm')}
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void unlist()} data-testid="base-knowledge-unlist">
+              {t('detail.unlist')}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

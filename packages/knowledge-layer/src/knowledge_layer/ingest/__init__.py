@@ -9,6 +9,8 @@ _LAZY: dict[str, str] = {
     "pdf_page_texts": ".pdf_text",
     "SCREENING_UNAVAILABLE": ".file_ingest",
     "VISUAL_PAGE_MIN_TEXT_CHARS": ".limits",
+    "VLM_FLEET_CONCURRENCY": ".vision_calls",
+    "INGEST_PAGE_READ_PARALLELISM": ".page_reads",
     "page_texts_for_visual_heuristic": ".text_chunks",
     "resolve_vlm_api_key": ".vision_credentials",
     "resolve_vlm_credential": ".vision_credentials",
@@ -104,6 +106,7 @@ _LAZY: dict[str, str] = {
     "_strip_watermark_lines": ".pdf_text",
     "_summary_from_drawing_fields": ".caption_documents",
     "pdfium_lock": ".pdfium_guard",
+    "pdfium_pause": ".pdfium_guard",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
@@ -114,6 +117,7 @@ __all__ = [
     "ChunkVersion",
     "DOCUMENT_DELETED_DURING_INGEST",
     "EMBED_EXCLUDED_METADATA_KEYS",
+    "INGEST_PAGE_READ_PARALLELISM",
     "INGEST_READER_VERSION",
     "Line",
     "LlamaIndexIngestor",
@@ -141,6 +145,7 @@ __all__ = [
     "ScreeningRules",
     "ScreeningVerdict",
     "VISUAL_PAGE_MIN_TEXT_CHARS",
+    "VLM_FLEET_CONCURRENCY",
     "_END_OF_BODY_RE",
     "_PreviousVersion",
     "_build_image_caption_document",
@@ -188,6 +193,7 @@ __all__ = [
     "page_texts_for_visual_heuristic",
     "pdf_page_texts",
     "pdfium_lock",
+    "pdfium_pause",
     "provenance_from_config",
     "put_part",
     "put_raster",

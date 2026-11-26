@@ -197,6 +197,8 @@ function labelOf(proposal: Exclude<ProposedChangeView, { kind: 'file_operation' 
       return proposal.payload.summary
     case 'project_profile':
       return proposal.payload.title
+    case 'office_shelf_norm':
+      return proposal.payload.documents.map((document) => document.designation ?? document.name).join(', ')
   }
 }
 

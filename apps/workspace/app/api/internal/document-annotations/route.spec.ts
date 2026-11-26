@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/api/internal-envelope', () => ({
   requireVerifiedContext: vi.fn(),
@@ -54,6 +55,8 @@ vi.mock('@/lib/annotations/attention', () => ({
 }))
 
 import { requirePinnedSession, requireVerifiedContext } from '@/lib/api/internal-envelope'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
+import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, decisionOf, signDecision } from '@/lib/conversation-context/wire'
 import { LEGACY_AGENT_DIRECT_EDITS_OFF } from '@/lib/authz/legacy-feature-flags'
 import { listAnnotationsForAgent, proposeAnnotations, replyToAnnotation } from '@/lib/annotations/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -108,11 +111,11 @@ const CONTEXT = {
   collectionScope: ['proj_1_docs'],
 } as Partial<VerifiedRequestContext> as VerifiedRequestContext
 
-const post = (body: unknown) =>
+const post = (body: unknown, extra: Record<string, string> = {}) =>
   POST(
     new Request('https://example.test/api/internal/document-annotations', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-grid-internal-token': SECRET },
+      headers: { 'content-type': 'application/json', 'x-grid-internal-token': SECRET, ...extra },
       body: JSON.stringify(body),
     })
   )
@@ -178,7 +181,7 @@ describe('POST /api/internal/document-annotations', () => {
     await expect(response.json()).resolves.toEqual({
       documentId: DOC_ID,
       documentName: 'Grundriss EG.pdf',
-      proposed: [{ id: 'ann_1', number: 4, page: 1, shape: 'region', x: 0.1, y: 0.2, w: 0.3, h: 0.1, kind: 'defect', body: PROPOSAL.body }],
+      proposed: [{ id: 'ann_1', number: 4, page: 1, shape: 'region', x: 0.1, y: 0.2, w: 0.3, h: 0.1, points: null, reading: null, kind: 'defect', body: PROPOSAL.body }],
     })
   })
 
@@ -211,6 +214,22 @@ describe('POST /api/internal/document-annotations', () => {
     expect(response.status).toBe(200)
     expect(proposeAnnotations).toHaveBeenCalledWith(SESSION, OTHER_DOC, [PROPOSAL])
     await expect(response.json()).resolves.toMatchObject({ documentId: OTHER_DOC, documentName: 'Schnitt A-A.pdf' })
+  })
+
+  it('takes a socket turn’s shelves from its decision, as the envelope signs none (ADR-0194)', async () => {
+    vi.mocked(findConversationInOrg).mockResolvedValue({ subjectResourceType: null, subjectResourceId: null } as Partial<Conversation> as Conversation)
+    vi.mocked(requireVerifiedContext).mockReturnValue({ ...CONTEXT, collectionScope: [] })
+    const closed = closedContext('chat', 'conv_1')
+    const may = { ...closed.may, shelves: [{ collection: 'proj_1_docs', shelf: 'project' as const }] }
+    const decided = signDecision(decisionOf({ ...closed, may }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), SECRET)
+
+    const response = await post(
+      { op: 'propose', documentId: OTHER_DOC, proposals: [PROPOSAL] },
+      { [TURN_DECISION_HEADER]: decided.header, [TURN_DECISION_SIGNATURE_HEADER]: decided.signature },
+    )
+
+    expect(response.status).toBe(200)
+    expect(proposeAnnotations).toHaveBeenCalledWith(SESSION, OTHER_DOC, [PROPOSAL])
   })
 
   it('treats a named document outside the signed scope as unknown', async () => {
@@ -411,6 +430,8 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Laufbreite im Treppenhaus unter 1,20 m.',
   basis: null,

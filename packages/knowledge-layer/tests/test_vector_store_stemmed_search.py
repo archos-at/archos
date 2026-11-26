@@ -29,7 +29,7 @@ from agent.knowledge.scoping import ScopedCollection
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_stem"
-BASE = "oib_knowledge"
+BASE = "base_corpus"
 TEXTS = {
     "Plural.pdf": "Die Fluchtwegbreiten betragen im Erdgeschoss 1,20 m.",
     "Singular.pdf": "Die Fluchtwegbreite beträgt 1,20 m.",

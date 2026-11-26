@@ -42,4 +42,9 @@ describe('DocumentArchiveAction', () => {
 
     expect(onArchive).toHaveBeenCalledTimes(1)
   })
+
+  it('is a 44px press under a finger in its compact form, so no clipping parent can shrink its catchment', () => {
+    render(<DocumentArchiveAction compact filename="Aktenvermerk.pdf" onArchive={() => undefined} />)
+    expect(screen.getByTestId('document-lifecycle-archive')).toHaveClass('pointer-coarse:min-h-11')
+  })
 })

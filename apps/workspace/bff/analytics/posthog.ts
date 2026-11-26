@@ -15,6 +15,7 @@ import {
   type PostHogIdentity,
 } from './posthog-config'
 import { isControlFlowExceptionEvent, isFrameworkControlFlow } from './control-flow-error'
+import { isOpaqueScriptErrorEvent } from './opaque-script-error'
 import { SENSITIVE_QUERY_KEYS, scrubDeep } from './posthog-scrub'
 
 export { DISABLED_POSTHOG_CONFIG, postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity }
@@ -41,6 +42,8 @@ export type PostHogEvent =
   | 'citation_opened'
   | 'document_opened'
   | 'ifc_model_opened'
+  | 'ifc_model_load_failed'
+  | 'ifc_model_load_stopped'
   | 'product_feedback_submitted'
   | 'document_uploaded'
   | 'chat_message_sent'
@@ -67,6 +70,10 @@ export type PostHogEvent =
   | 'inbound_mail_filed_outcome_opened'
   | 'inbound_mail_address_copied'
   | 'inbound_mail_address_contact_saved'
+  | 'norm_dialog_shown'
+  | 'norm_dialog_settled'
+  | 'norm_unlisted'
+  | 'norm_relisted'
 
 let initialized = false
 
@@ -152,6 +159,7 @@ export const buildSessionRecordingOptions = (sampleRate: number): SessionRecordi
 export const scrubEvent: BeforeSendFn = (capture) => {
   if (!capture) return capture
   if (isControlFlowExceptionEvent(capture.event, capture.properties)) return null
+  if (isOpaqueScriptErrorEvent(capture.event, capture.properties)) return null
   const properties =
     capture.event === '$snapshot'
       ? Object.fromEntries(

@@ -10,9 +10,9 @@ from pydantic import model_validator
 from agent.cards.card_model import CardModel
 from agent.cards.card_model import flatten_card_markup
 from agent.cards.catalog import INTERACTIVE_CARD_TYPES
-from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
-from agent.cards.catalog import retired_refusal
+from agent.cards.retired_cards import RETIRED_CARD_TYPES
+from agent.cards.retired_cards import retired_refusal
 
 SURFACE_LAYOUTS: frozenset[str] = frozenset({"Row", "Column", "Tabs"})
 

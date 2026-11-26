@@ -1,5 +1,5 @@
 import * as k8s from "@pulumi/kubernetes";
-import { PLATFORM_RESOURCES } from "../constants";
+import { PLATFORM_RESOURCES, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { scrapeAnnotations } from "./scrape";
 import { scaledCpuRequest } from "../config/cpu-requests";
 
@@ -17,6 +17,7 @@ export function installKeda(provider: k8s.Provider): k8s.helm.v3.Release {
     {
       chart: "keda",
       version: KEDA_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ns.metadata.name,
       repositoryOpts: { repo: "https://kedacore.github.io/charts" },
       values: {

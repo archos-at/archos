@@ -18,4 +18,5 @@ runs:
       shell: bash
       env:
         BUN_VERSION: ${{ inputs.version }}
-      run: npm i -g "bun@${BUN_VERSION}"
+      run: |
+        [ "$(bun --version 2>/dev/null)" = "$BUN_VERSION" ] || npm i -g "bun@${BUN_VERSION}"

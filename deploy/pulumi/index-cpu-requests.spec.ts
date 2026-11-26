@@ -14,6 +14,7 @@ import {
   resourceBlocks,
   stackConfig,
 } from "./src/test-support/render-stack";
+import { ciRunnersStackConfig } from "./src/test-support/stack-config";
 
 const RESOURCES = captureResources();
 
@@ -38,6 +39,7 @@ const EVERYTHING_ON = {
   "grid-oib:seaweedfsBackupEndpoint": "https://backup.example.test",
   "grid-oib:seaweedfsBackupAccessKey": "backup",
   "grid-oib:seaweedfsBackupSecretKey": "backup-secret", // pragma: allowlist secret
+  ...ciRunnersStackConfig(),
 };
 const TOPOLOGIES = ["split", "single"];
 

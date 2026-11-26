@@ -175,7 +175,7 @@ async function runIn(ws, run) {
   if (collected.error) {
     return { ...outcome, status: "error", stderr: explainedStderr(`${outcome.stderr}${outcome.stderr ? "\n" : ""}${collected.error}`), files: [] };
   }
-  return { ...outcome, files: collected.files };
+  return { ...outcome, files: collected.files, deleted: collected.deleted };
 }
 
 async function execute(ws, run) {
@@ -209,10 +209,12 @@ async function collectChanged(ws, sent) {
   const entries = await ws.fs.find(WORKSPACE_ROOT, "**", { limit: LIMITS.maxEntries + 1 });
   if (entries.length > LIMITS.maxEntries) return { error: `The run left more than ${LIMITS.maxEntries} entries under ${WORKSPACE_ROOT}/.` };
   const files = [];
+  const present = new Set();
   let total = 0;
   for (const entry of entries) {
     if (entry.type !== "file") continue;
     const path = entry.path.startsWith("/") ? entry.path : `${WORKSPACE_ROOT}/${entry.path}`;
+    present.add(path);
     const bytes = new Uint8Array(await new Response(await ws.fs.readFile(path)).arrayBuffer());
     if (sent.get(path) === (await sha256(bytes))) continue;
     total += bytes.byteLength;
@@ -222,5 +224,6 @@ async function collectChanged(ws, sent) {
     files.push({ path, base64: Buffer.from(bytes).toString("base64"), size: bytes.byteLength });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
-  return { files };
+  const deleted = [...sent.keys()].filter((path) => !present.has(path)).sort();
+  return { files, deleted };
 }

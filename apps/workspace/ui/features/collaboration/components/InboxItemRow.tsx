@@ -52,10 +52,13 @@ import { Composer } from '@/features/documents/components/review/composer'
 import { useFocusBackOnClose } from '@/features/documents/components/review/focus-return'
 import { MentionText } from './MentionText'
 import { InboxItemFace } from './InboxItemFace'
-import { MARK_CLIENT, useMarkAnswer, type InboxMarkClient } from '../hooks/use-mark-answer'
+import { MARK_CLIENT, useMarkAnswer, wakesAgent, type InboxMarkClient } from '../hooks/use-mark-answer'
 import { InboxItemCaption } from './InboxItemCaption'
 import { inboxDue } from '../lib/inbox-due'
 import { InboxReviewDecision, type InboxReviewClient } from './InboxReviewDecision'
+import type { InboxNormDecisionClient } from './InboxNormSuggestionDecision'
+import { InboxNormActions, InboxNormLines } from './InboxNormNotice'
+import { normNoticeOf } from '../lib/inbox-norm-notice'
 import { isPlainClick } from '../lib/plain-click'
 import { UploadReportLines } from '@/features/uploads/components/upload-report'
 
@@ -72,6 +75,7 @@ export interface InboxItemRowProps {
   viewerId?: string | null
   markClient?: InboxMarkClient
   reviewClient?: InboxReviewClient
+  normDecisionClient?: InboxNormDecisionClient
 }
 
 export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(function InboxItemRow(
@@ -86,6 +90,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     viewerId = null,
     reviewClient = documentLifecycleClient,
     markClient = MARK_CLIENT,
+    normDecisionClient,
   },
   ref,
 ): JSX.Element {
@@ -182,8 +187,9 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     item.resourceType === 'document' &&
     item.anchorId !== null &&
     item.subject !== null
+  const normNotice = redacted ? null : normNoticeOf(item)
   const showBody =
-    body !== null && !answerHere && !answerInReview && !canDecideReview && (!item.excerpt || isWarning || redacted)
+    body !== null && !normNotice && !answerHere && !answerInReview && !canDecideReview && (!item.excerpt || isWarning || redacted)
   const chatName = item.subject ?? t('inbox.untitledConversation')
   const place =
     item.resourceType === 'conversation' &&
@@ -312,7 +318,9 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
           {/* Two lines when it is the row's only body (what a colleague
               asked, what changed): one cut the sentence in its middle. One
               line under a body, which already said what the row is. */}
-          {item.excerpt && (
+          {normNotice && <InboxNormLines notice={normNotice} body={body} className="mt-1" />}
+
+          {item.excerpt && !normNotice && (
             <Quote
               as="p"
               className={cn(
@@ -343,6 +351,17 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
               — so triage opens the file, it does not pretend to compare. */}
           {canDecideReview && <InboxReviewDecision item={item} reviewClient={reviewClient} onOpen={onOpen} />}
 
+          {normNotice && (
+            <InboxNormActions
+              item={item}
+              notice={normNotice}
+              decisionClient={normDecisionClient}
+              onFollow={(event) => {
+                if (isPlainClick(event)) onOpen?.(item)
+              }}
+            />
+          )}
+
           {answerHere && replying && item.anchorId && (
             <div className="relative z-10 mt-2 space-y-1.5" data-testid="inbox-mark-reply-form">
               <Composer
@@ -353,7 +372,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
                 }
                 submitLabel={t('inbox.mark.send')}
                 documentId={item.resourceId}
-                mentionAgent={item.pilotiWakes === true}
+                mentionAgent={wakesAgent(item)}
                 describeFailure={() => t('inbox.mark.failed')}
                 onSubmit={sendReply}
                 onEscape={() => setReplying(false)}

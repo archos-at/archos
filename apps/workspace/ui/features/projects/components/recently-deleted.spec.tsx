@@ -57,6 +57,16 @@ describe('RecentlyDeleted', () => {
     expect(screen.getByRole('button', { name: /Restore/i })).toBeDefined()
   })
 
+  test('the idle Restore button holds only its label, no hidden spinner pushing it off centre', async () => {
+    vi.stubGlobal('fetch', mockFetch(200, [entry]))
+
+    render(<RecentlyDeleted canManageCompliance />)
+
+    const restore = await screen.findByRole('button', { name: /Restore/i })
+    expect(restore.querySelector('[data-slot="spinner"]')).toBeNull()
+    expect(restore).not.toHaveAttribute('aria-busy')
+  })
+
   test('shows a retryable error state on a real failure, and retry re-fetches', async () => {
     const fetchSpy = vi
       .fn()
@@ -72,5 +82,23 @@ describe('RecentlyDeleted', () => {
 
     expect(await screen.findByText('Neubau Wohnbau')).toBeDefined()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  test('while a restore runs, its button is busy and a second press sends nothing', async () => {
+    let finish: (value: unknown) => void = () => {}
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [entry] })
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+      .mockResolvedValue({ ok: true, status: 200, json: async () => [] })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    render(<RecentlyDeleted canManageCompliance />)
+    const restore = await screen.findByRole('button', { name: /Restore/i })
+    await userEvent.click(restore)
+    await waitFor(() => expect(restore).toHaveAttribute('aria-busy', 'true'))
+    await userEvent.click(restore)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    finish({ ok: true, status: 200, json: async () => ({}) })
   })
 })

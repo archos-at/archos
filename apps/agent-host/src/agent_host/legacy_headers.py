@@ -12,7 +12,6 @@ SERVICE_HEADERS: frozenset[bytes] = frozenset(
     for name in (
         "x-answer-message-id",
         "x-budget",
-        "x-collection-scope",
         "x-context-transport",
         "x-disabled-sources",
         "x-feature-memory-reflection",

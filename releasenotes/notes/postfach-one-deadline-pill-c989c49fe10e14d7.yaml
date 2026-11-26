@@ -1,0 +1,7 @@
+---
+# area: collaboration
+fixes:
+  - >
+    In the Postfach a Frist always looks the same, a small pill with a clock,
+    ochre when it is overdue or due soon and with the date written as
+    24.10.2026.

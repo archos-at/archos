@@ -140,6 +140,8 @@ export function archiveEntryOf(input: {
     inboundMailId: null,
     mailImportId: mailImport.id,
     messageId: message.messageId,
+    baseSubject: message.baseSubject.slice(0, 500),
+    threadIndexGuid: message.threadIndexGuid,
     sentAt: message.sentAt,
     receivedAt: message.receivedAt,
     heading: input.heading,

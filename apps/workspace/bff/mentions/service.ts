@@ -110,6 +110,7 @@ export async function applyMessageMentions(
   await enforceMentionBounds(session, targets.length)
 
   const access = await requireResourceAccess(session, resourceType, resourceId, 'collaborator')
+  if (humanTargets.length > 0 && isPersonalChat(resourceType, access)) throw personalChatRefusal()
 
   const [directory, participants] = await Promise.all([
     loadOrganizationDirectory(session.organizationId),
@@ -202,6 +203,17 @@ async function resolveReachableTargets(
   const projectId = access.container.projectId
   if (!projectId || targetIds.length === 0) return new Set(targetIds)
   return filterUsersWithProjectAccess(session, projectId, targetIds)
+}
+
+function isPersonalChat(resourceType: ShareableResourceType, access: ResourceAccess): boolean {
+  return resourceType === 'conversation' && access.container.projectId === null
+}
+
+function personalChatRefusal(): ForbiddenError {
+  return new ForbiddenError(
+    'A chat without a project has no mentions. Share it through Teilen to bring someone in.',
+    { reason: MENTION_ERROR_REASONS.personalChat },
+  )
 }
 
 function containerAccessRefusal(targetId: string): BadRequestError {
@@ -410,6 +422,9 @@ export async function listMentionCandidates(
   session: AuthorizedSession,
   conversationId: string,
 ): Promise<MentionCandidatesResponse> {
+  const access = await requireResourceAccess(session, 'conversation', conversationId, 'collaborator')
+  if (isPersonalChat('conversation', access)) return { candidates: [], canInvite: false }
+
   const roster = await loadCandidateRoster(session, 'conversation', conversationId, 'collaborator')
   const canInvite = roleSatisfies(roster.access.role, 'owner')
 

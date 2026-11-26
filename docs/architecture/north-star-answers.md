@@ -75,7 +75,8 @@ Gründerzeithaus Hubergasse 14 in 1160 Wien:
   Fluchtniveau; the neighbour's Gutachten states one (13,80 m) for its own
   house.
 - **visual** (`proj_visual_eval`, [`tests/fixtures/visual/drawings.json`](../../tests/fixtures/visual/drawings.json)):
-  three drawings rendered at suite start, whose values are on the sheet and in
+  five drawings rendered at suite start (three raster sheets, one vector, EP-03, and EP-04, a sheet of the
+  measuring engine's ground-truth set that the `measure` rows ask about), whose values are on the sheet and in
   no indexed text. EG Index B has five doors and Index A four; the Wohnen
   dimension is 5,24 in Index B and 5,04 in Index A.
 
@@ -925,8 +926,9 @@ fact, and an estimate goes nowhere near the confirmed facts.
 
 **Checks.** Row `ns-gk-unstated`: a read or search, „Fluchtniveau“,
 „10,65“ and „11 m“ in the answer, judge `separates_sources`. Langfuse:
-`answer-confidence` not high; the check's findings name the unstated
-Gebäudeklasse as unbacked.
+`answer-confidence` not high. The answer check no longer names an uncited
+project fact (ADR-0197); it names the Gebäudeklasse only when the answer states
+what the law requires for it without a citation.
 
 ---
 

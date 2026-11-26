@@ -1,6 +1,6 @@
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { vi, describe, test, expect, beforeEach } from 'vitest'
+import { vi, describe, test, expect, beforeAll, beforeEach } from 'vitest'
 import { AgentResponse } from './AgentResponse'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { ChatStoreWithHydration } from '../store'
@@ -8,6 +8,7 @@ import type { AnswerCard } from '@/shared/cards/schemas'
 import { calculationCard } from './AgentResponse.fixtures'
 import { useAnswerFileReferences } from '../hooks/use-answer-file-references'
 import { resetDecidedProposals } from '@/features/cards/decided-proposals'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 
 const storeFixture = vi.hoisted(() => ({ projectId: null as string | null }))
 
@@ -40,6 +41,8 @@ vi.mock('../hooks/use-answer-file-references', async (importOriginal) => {
 vi.mock('@/shared/components/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: { content: string }) => <span>{content}</span>,
 }))
+
+beforeAll(rendererSettled)
 
 describe('AgentResponse', () => {
   beforeEach(() => {
@@ -110,6 +113,11 @@ describe('AgentResponse', () => {
     await user.click(screen.getByTestId('answer-details-trigger'))
 
     expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument()
+  })
+
+  test('the details trigger is a 44px row to a finger, not a catchment the frame clips', () => {
+    render(<AgentResponse content="Response" timestamp="2024-01-15T14:30:00Z" />)
+    expect(screen.getByTestId('answer-details-trigger')).toHaveClass('pointer-coarse:size-11')
   })
 
   test('a cut-off marks the details trigger instead of opening it under the reader', () => {

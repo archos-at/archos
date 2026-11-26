@@ -125,9 +125,12 @@ Check a source record with `.venv/bin/python -m public_sources test <id>`.
   cycle), `ris_adapter._FEDERAL_STATE_PARAMS` (RIS filter keys), and
   `intake-definition.ts` options. A parity test pinning the Python copies to
   `norm_registry` is the cheap guard.
-- **`oib_knowledge` default:** NormsFile default, three config YAMLs
-  (`COLLECTION_NAME` fallback), and `collection-scope.ts`. One shared corpus
-  holds every country; the knowledge context filters it by `country_id`.
+- **The base corpus name:** `base_corpus`, one constant per language
+  (`BASE_CORPUS_COLLECTION` in `agent/common/source_kinds.py` and
+  `bff/retrieval-scope/collection-scope.ts`). One shared corpus holds every
+  country; the knowledge context filters it by `country_id`. It was
+  `oib_knowledge` until 2026-11; the backend moves what is stored under the old
+  name by itself (the base-corpus sync, the Python schema runners, migration 0270).
 
 ## What is country-neutral already
 
@@ -292,7 +295,6 @@ module names, routes, document classes and rule ids.
 | `knowledge/doc_class_vocabulary.py`, `bff/knowledge/doc-class.ts`, `bff/source-kinds.ts`, `ui/.../citations/model.ts`, `common/norm_registry.py` (61) | Document classes and lanes `oib_guideline`, `building_law_oib_*`, their labels ("OIB-Richtlinie") and `isOibBinding` | A work's `kind` and `designation` from the records; whether it binds is the relation the chain resolves (ADR-0168), never the class name |
 | `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `designation: 'OIB-Richtlinie 4'` with `edition: 'Ausgabe Mai 2023'`, the thresholds in code. Whether a rule judges at a site is read from the knowledge context (`bff/bim/rule-basis.ts`), not from a territory in code | Rulesets run by the one evaluator (ADR-0166), selected by the site |
 | The built-in skills under `skills/builtin/oib/` (23) and the prompts (50 in all), tool descriptions in `agent/tools` | OIB named in skill, prompt and tool text a model reads | Text that names the kind of source; the turn's knowledge context names the works |
-| `oib_knowledge` as the collection default (three YAMLs, `collection-scope.ts`) | A collection named for one publisher | One shared corpus under a neutral name, filtered by `country_id` |
 
 ### 4. Corpus file names (33 hits)
 

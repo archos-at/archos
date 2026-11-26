@@ -5,6 +5,7 @@ import { getHiddenFolderIds } from '@/lib/authz/folder-access'
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { MAIL_THREAD_MAX_ENTRIES, MAIL_THREAD_MAX_RENDERED_BYTES } from '@/lib/mail-thread/mail-thread-vocabulary'
 import {
+  domainOf,
   MAX_SHOWN_THREAD_CANDIDATES,
   threadPreselection,
   type SenderEvidence,
@@ -23,11 +24,14 @@ import {
   type ThreadDocument,
 } from './repository'
 
-export function senderEvidenceOf(mail: Pick<InboundMailRow, 'senderTrust' | 'senderFlags' | 'signedHeaders'>): SenderEvidence {
+export function senderEvidenceOf(
+  mail: Pick<InboundMailRow, 'senderTrust' | 'senderFlags' | 'signedHeaders' | 'senderAddress'>,
+): SenderEvidence {
   return {
     senderTrust: mail.senderTrust ?? 'external_unverified',
     senderFlags: mail.senderFlags,
     signedHeaders: mail.signedHeaders,
+    senderDomain: domainOf(mail.senderAddress),
   }
 }
 
@@ -54,7 +58,7 @@ export function threadCandidatesFor(
     }
     if (shown.length >= MAX_SHOWN_THREAD_CANDIDATES) continue
     const full = threadIsFull(thread)
-    const { preselected, blocks } = threadPreselection(match, sender)
+    const { preselected, blocks } = threadPreselection(match, sender, thread)
     shown.push({
       threadId: thread.threadId,
       documentId: thread.documentId,
@@ -98,7 +102,7 @@ export function partCandidatesFor(
 }
 
 export function filedAsFor(
-  part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>,
+  part: Pick<InboundMailPartRow, 'kind' | 'documentId' | 'documentVersionId'>,
   documents: ReadonlyMap<string, CandidateDocument>,
   versions: ReadonlyMap<string, number>,
   hiddenFolders: ReadonlySet<string>,
@@ -106,21 +110,21 @@ export function filedAsFor(
   const document = part.documentId ? documents.get(part.documentId) : undefined
   if (!document || !readable(document.folderId, hiddenFolders)) return null
   return {
-    name: document.name,
+    name: part.kind === 'message' ? document.name.replace(/\.md$/i, '') : document.name,
     folderPath: document.folderPath,
     version: part.documentVersionId ? (versions.get(part.documentVersionId) ?? null) : null,
   }
 }
 
 export interface ViewerCandidates {
-  threads(mail: Pick<InboundMailRow, 'threadMatch' | 'senderTrust' | 'senderFlags' | 'signedHeaders'>): {
+  threads(mail: Pick<InboundMailRow, 'threadMatch' | 'senderTrust' | 'senderFlags' | 'signedHeaders' | 'senderAddress'>): {
     shown: InboundMailThreadCandidateView[]
     hidden: number
   }
   part(part: Pick<InboundMailPartRow, 'duplicateOfDocumentId' | 'revisionCandidateDocumentId'>): PartCandidates
   readsFolder(folderId: string | null): boolean
   readsDocument(documentId: string): boolean
-  filedAs(part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>): InboundMailFiledAsView | null
+  filedAs(part: Pick<InboundMailPartRow, 'kind' | 'documentId' | 'documentVersionId'>): InboundMailFiledAsView | null
 }
 
 export async function candidatesFor(
