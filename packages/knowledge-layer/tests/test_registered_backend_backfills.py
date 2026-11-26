@@ -86,7 +86,7 @@ def bff(monkeypatch) -> Iterator[type[_Bff]]:
     _Bff.documents = {SCOPE: [{"id": DOCUMENT_ID, "filename": "alt.pdf", "folderId": None}]}
     _Bff.asked = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Bff)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setenv("INTERNAL_API_TOKEN", TOKEN)
