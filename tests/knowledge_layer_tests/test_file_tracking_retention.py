@@ -158,3 +158,14 @@ class TestRowsThatPredateTheCollectionColumn:
             assert _names("proj_a") == {"b.pdf"}
         finally:
             ingest_status_store._initialized.discard(url)
+
+    def test_forgetting_a_document_by_id_keeps_its_namesakes_records(self, sqlite_db):
+        for job_id, document_id in (("eg", "doc-eg"), ("og", "doc-og")):
+            job = _job(job_id, JobState.FAILED, {"Plan.pdf": FileStatus.FAILED})
+            job.metadata["document_id"] = document_id
+            ingest_status_store.put(job)
+
+        assert ingest_status_store.forget_file("proj_a", "Plan.pdf", document_id="doc-eg") == 1
+
+        assert ingest_status_store.get("eg") is None
+        assert ingest_status_store.get("og") is not None

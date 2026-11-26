@@ -107,7 +107,7 @@ export function FolderUploadDialog({
         ref={contentRef}
         className={cn(
           'flex flex-col gap-0 overflow-hidden p-0 outline-none! max-sm:px-0',
-          batch || sole ? 'sm:max-w-xl' : 'sm:max-w-lg',
+          batch || sole || single?.conflict ? 'sm:max-w-xl' : 'sm:max-w-lg',
         )}
         fullScreenOnMobile={batch}
         closeLabel={t('folderUpload.close')}

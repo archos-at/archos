@@ -19,6 +19,7 @@ from agent.common.source_kinds import LEGACY_BASE_CORPUS_COLLECTION
 from . import ingest_settle_push
 from .document_metadata_store import DocumentMetadataStore
 from .ingest_failures import classify_failure
+from .schema import FileProgress
 from .schema import FileStatus
 from .schema import IngestionJobStatus
 from .schema import JobState
@@ -448,7 +449,14 @@ def collection_jobs(collection_name: str, within_seconds: int) -> list[Ingestion
     return sorted((status for status in seen if status is not None), key=lambda s: (_submitted(s), s.job_id))
 
 
-def forget_file(collection_name: str, file_name: str) -> int:
+def _details_kept(status: IngestionJobStatus, file_name: str, document_id: str | None) -> list[FileProgress]:
+    owner = status.metadata.get("document_id")
+    if document_id and isinstance(owner, str) and owner:
+        return [] if owner == document_id else status.file_details
+    return [detail for detail in status.file_details if detail.file_name != file_name]
+
+
+def forget_file(collection_name: str, file_name: str, *, document_id: str | None = None) -> int:
     url = _db_url()
     if not url:
         return 0
@@ -468,7 +476,7 @@ def forget_file(collection_name: str, file_name: str) -> int:
             status = _as_read(conn, url, status_json, stale)
             if status is None or _is_live(status):
                 continue
-            kept = [detail for detail in status.file_details if detail.file_name != file_name]
+            kept = _details_kept(status, file_name, document_id)
             if len(kept) == len(status.file_details):
                 continue
             if kept:

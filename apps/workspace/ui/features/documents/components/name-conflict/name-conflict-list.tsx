@@ -68,53 +68,49 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
       </div>
       <ul className="divide-y">
         {rows.map((row) => (
-          <li
-            key={row.key}
-            className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-            data-testid="name-conflict-row"
-          >
-            <div className="min-w-0 space-y-0.5">
-              <p className="font-mono text-xs text-foreground [overflow-wrap:anywhere]">
-                {row.path.split('/').map((segment, index) => (
-                  <Fragment key={index}>
-                    {index > 0 && (
-                      <>
-                        /<wbr />
-                      </>
-                    )}
-                    {segment}
-                  </Fragment>
-                ))}
-              </p>
-              <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]" data-testid="name-conflict-outcome">
+          <li key={row.key} className="space-y-1.5 py-2.5" data-testid="name-conflict-row">
+            <p className="font-mono text-xs text-foreground [overflow-wrap:anywhere]">
+              {row.path.split('/').map((segment, index) => (
+                <Fragment key={index}>
+                  {index > 0 && (
+                    <>
+                      /<wbr />
+                    </>
+                  )}
+                  {segment}
+                </Fragment>
+              ))}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <p className="min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]" data-testid="name-conflict-outcome">
                 {outcome(row)}
               </p>
+              <ToggleGroup
+                type="single"
+                segmented
+                size="sm"
+                value={row.choice}
+                onValueChange={(value) => {
+                  const picked = choicesOf(row).find((choice) => choice === value)
+                  if (picked) choose(row, picked)
+                }}
+                disabled={locked}
+                aria-label={t('nameConflicts.choiceFor', { name: row.path })}
+                className="shrink-0"
+              >
+                {choicesOf(row).map((choice) => (
+                  <ToggleGroupItem
+                    key={choice}
+                    value={choice}
+                    className="text-xs"
+                    title={choice === 'keep_both' ? t('nameConflicts.keepBothAs', { name: row.keepBothAs }) : undefined}
+                    data-testid={`name-conflict-${choice}`}
+                  >
+                    {t(`nameConflicts.${CHOICE_LABEL[choice]}`)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
-            <ToggleGroup
-              type="single"
-              segmented
-              size="sm"
-              value={row.choice}
-              onValueChange={(value) => {
-                const picked = choicesOf(row).find((choice) => choice === value)
-                if (picked) choose(row, picked)
-              }}
-              disabled={locked}
-              aria-label={t('nameConflicts.choiceFor', { name: row.path })}
-              className="shrink-0"
-            >
-              {choicesOf(row).map((choice) => (
-                <ToggleGroupItem
-                  key={choice}
-                  value={choice}
-                  className="text-xs"
-                  title={choice === 'keep_both' ? t('nameConflicts.keepBothAs', { name: row.keepBothAs }) : undefined}
-                  data-testid={`name-conflict-${choice}`}
-                >
-                  {t(`nameConflicts.${CHOICE_LABEL[choice]}`)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
           </li>
         ))}
       </ul>

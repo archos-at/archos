@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +21,7 @@ export function NameConflictDialog({ prompt }: { prompt: Pick<NameConflictPrompt
   const t = useTranslations(filesCopy)
   const { question, resolve } = prompt
   const [choices, setChoices] = useState<Map<string, ConflictChoice>>(new Map())
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setChoices(new Map(question?.rows.map((row) => [row.key, row.choice]) ?? []))
@@ -36,7 +37,12 @@ export function NameConflictDialog({ prompt }: { prompt: Pick<NameConflictPrompt
   return (
     <Dialog open={question !== null} onOpenChange={(open) => !open && resolve(null)}>
       <DialogContent
-        className="flex max-h-[min(44rem,90dvh)] flex-col gap-0 p-0 sm:max-w-xl"
+        ref={contentRef}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          contentRef.current?.focus()
+        }}
+        className="flex max-h-[min(44rem,90dvh)] flex-col gap-0 p-0 outline-none! sm:max-w-xl"
         closeLabel={t('nameConflicts.dialog.cancel')}
         data-testid="name-conflict-dialog"
         data-operation={operation}

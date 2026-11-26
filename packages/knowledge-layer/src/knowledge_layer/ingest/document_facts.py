@@ -119,15 +119,13 @@ def _record_summary(
     provenance: dict[str, Any],
 ) -> None:
     from agent.knowledge import register_summary
-    from agent.knowledge import set_document_reading
 
     collection_name, file_name, previous = run.collection_name, file.file_name, file.previous
-    document_id = file.document_id
     revision_rows = revisions.read_rows(collection_name) if facts.revision_model else []
     summary_before = revisions.previous_summary(revision_rows, previous)
 
     register_summary(
-        collection_name, file_name, facts.summary, tags=facts.tags, topics=facts.topics, document_id=document_id
+        collection_name, file_name, facts.summary, tags=facts.tags, topics=facts.topics, document_id=file.document_id
     )
     revision_facts = row_facts.store_read_facts(
         collection_name,
@@ -136,49 +134,68 @@ def _record_summary(
         photo=file.photo,
         config=run.config,
         replaced=previous is not None,
-        document_id=document_id,
+        document_id=file.document_id,
     )
-
-    reading, references = _reading_of(
-        all_documents,
-        facts.dossier,
-        _predecessor_dossier(revision_rows, previous, facts.confirmed_older, facts.confirmed_older_id),
-    )
-    set_document_reading(
-        collection_name,
-        file_name,
-        dossier=reading,
-        references=references,
-        coverage=file.coverage,
-        document_id=document_id,
-    )
+    _record_reading(run, file, facts, all_documents, revision_rows)
 
     _record_doc_class(run, file, enrichment)
     _carry_person_facts(run, file, facts)
     _carry_provenance_and_links(run, file, provenance)
 
     if facts.revision_model:
-        ingestor._bounded(
-            "Fassung",
-            file_name,
-            limits.REVISION_TIMEOUT_SECONDS,
-            revisions.record_revisions,
-            collection_name,
-            file_name,
-            replaced=previous is not None,
-            rows=revision_rows,
-            previous=summary_before,
-            summary=facts.summary,
-            doc_class=file.doc_class,
-            tags=facts.tags,
-            llm=ingestor.summary_llm,
-            confirmed_older=facts.confirmed_older,
-            revision_facts=revision_facts,
-            document_id=document_id,
-            confirmed_older_id=facts.confirmed_older_id,
-        )
+        _record_revisions(ingestor, run, file, facts, revision_rows, summary_before, revision_facts)
 
     logger.info(f"  Summary generated ({len(facts.summary)} chars)")
+
+
+def _record_reading(
+    run: JobRun, file: FileRun, facts: _Facts, all_documents: list[Any], revision_rows: list[Any]
+) -> None:
+    from agent.knowledge import set_document_reading
+
+    reading, references = _reading_of(
+        all_documents,
+        facts.dossier,
+        _predecessor_dossier(revision_rows, file.previous, facts.confirmed_older, facts.confirmed_older_id),
+    )
+    set_document_reading(
+        run.collection_name,
+        file.file_name,
+        dossier=reading,
+        references=references,
+        coverage=file.coverage,
+        document_id=file.document_id,
+    )
+
+
+def _record_revisions(
+    ingestor: Any,
+    run: JobRun,
+    file: FileRun,
+    facts: _Facts,
+    revision_rows: list[Any],
+    summary_before: str | None,
+    revision_facts: dict[str, Any] | None,
+) -> None:
+    ingestor._bounded(
+        "Fassung",
+        file.file_name,
+        limits.REVISION_TIMEOUT_SECONDS,
+        revisions.record_revisions,
+        run.collection_name,
+        file.file_name,
+        replaced=file.previous is not None,
+        rows=revision_rows,
+        previous=summary_before,
+        summary=facts.summary,
+        doc_class=file.doc_class,
+        tags=facts.tags,
+        llm=ingestor.summary_llm,
+        confirmed_older=facts.confirmed_older,
+        revision_facts=revision_facts,
+        document_id=file.document_id,
+        confirmed_older_id=facts.confirmed_older_id,
+    )
 
 
 def _record_doc_class(run: JobRun, file: FileRun, enrichment: Any) -> None:

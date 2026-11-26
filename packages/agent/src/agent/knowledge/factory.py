@@ -12,14 +12,31 @@ from agent.common.db_utils import redact_db_url
 
 from .base import BaseIngestor
 from .base import BaseRetriever
-from .document_classification import MAX_TOPIC_VOCABULARY
 from .document_metadata_constants import DocumentRef
-from .schema import FileStatus
+from .factory_reads import find_tmp_upload_names  # noqa: F401 - the facade's name
+from .factory_reads import get_available_documents  # noqa: F401 - the facade's name
+from .factory_reads import get_available_documents_async  # noqa: F401 - the facade's name
+from .factory_reads import get_document_display_title  # noqa: F401 - the facade's name
+from .factory_reads import get_document_display_titles  # noqa: F401 - the facade's name
+from .factory_reads import get_document_doc_class  # noqa: F401 - the facade's name
+from .factory_reads import get_document_doc_class_suggestions  # noqa: F401 - the facade's name
+from .factory_reads import get_document_doc_classes  # noqa: F401 - the facade's name
+from .factory_reads import get_document_folder_paths  # noqa: F401 - the facade's name
+from .factory_reads import get_document_person_tags  # noqa: F401 - the facade's name
+from .factory_reads import get_document_person_topics  # noqa: F401 - the facade's name
+from .factory_reads import get_document_provenance  # noqa: F401 - the facade's name
+from .factory_reads import get_document_revision_suggestions  # noqa: F401 - the facade's name
+from .factory_reads import get_document_superseded_by  # noqa: F401 - the facade's name
+from .factory_reads import get_documents  # noqa: F401 - the facade's name
+from .factory_reads import get_superseded_files  # noqa: F401 - the facade's name
+from .factory_reads import get_superseded_ids  # noqa: F401 - the facade's name
+from .factory_reads import get_topic_vocabulary  # noqa: F401 - the facade's name
+from .factory_reads import list_summary_collections  # noqa: F401 - the facade's name
+from .factory_reconcile import reconcile_collection_summaries  # noqa: F401 - the facade's name
 
 if TYPE_CHECKING:
     from .document_metadata_store import DocumentMetadataStore
     from .document_metadata_store import LinkOutcome
-    from .schema import AvailableDocument
 
 logger = logging.getLogger(__name__)
 
@@ -311,12 +328,6 @@ def set_document_tags_by_person(
     return changed
 
 
-def get_document_person_tags(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, list[str]]:
-    return _get_document_metadata_store().get_person_tags_batch(collection, filenames, document_ids=document_ids)
-
-
 def set_document_topics_by_person(
     collection: str, filename: str, topics: list[str] | None, *, document_id: str | None = None
 ) -> bool:
@@ -324,16 +335,6 @@ def set_document_topics_by_person(
     if changed:
         _mirror_document(collection, filename, document_id)
     return changed
-
-
-def get_document_person_topics(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, list[str]]:
-    return _get_document_metadata_store().get_person_topics_batch(collection, filenames, document_ids=document_ids)
-
-
-def get_topic_vocabulary(collection: str, limit: int = MAX_TOPIC_VOCABULARY) -> list[str]:
-    return _get_document_metadata_store().get_topic_vocabulary(collection, limit)
 
 
 def set_document_capture(
@@ -415,33 +416,11 @@ def dismiss_document_revision_suggestion(
     )
 
 
-def get_document_superseded_by(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_superseded_by_batch(collection, filenames, document_ids=document_ids)
-
-
-def get_superseded_files(collection: str) -> dict[str, str]:
-    return _get_document_metadata_store().get_superseded_files(collection)
-
-
-def get_superseded_ids(collection: str) -> dict[str, str]:
-    return _get_document_metadata_store().get_superseded_ids(collection)
-
-
 def set_document_revision_suggestion(
     collection: str, filename: str, suggestion: dict[str, Any] | None, *, document_id: str | None = None
 ) -> bool:
     return _get_document_metadata_store().set_revision_suggestion(
         collection, filename, suggestion, document_id=document_id
-    )
-
-
-def get_document_revision_suggestions(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_revision_suggestions_batch(
-        collection, filenames, document_ids=document_ids
     )
 
 
@@ -462,10 +441,6 @@ def set_document_doc_class(
     return changed
 
 
-def get_document_doc_class(collection: str, filename: str, *, document_id: str | None = None) -> str | None:
-    return _get_document_metadata_store().get_doc_class(collection, filename, document_id=document_id)
-
-
 def set_document_doc_class_suggestion(
     collection: str, filename: str, doc_class: str | None, *, document_id: str | None = None
 ) -> bool:
@@ -474,36 +449,12 @@ def set_document_doc_class_suggestion(
     )
 
 
-def get_document_doc_class_suggestions(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_doc_class_suggestions_batch(
-        collection, filenames, document_ids=document_ids
-    )
-
-
-def get_document_doc_classes(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_doc_classes_batch(collection, filenames, document_ids=document_ids)
-
-
 def set_document_display_title(
     collection: str, filename: str, display_title: str | None, *, document_id: str | None = None
 ) -> bool:
     return _get_document_metadata_store().set_display_title(
         collection, filename, display_title, document_id=document_id
     )
-
-
-def get_document_display_title(collection: str, filename: str, *, document_id: str | None = None) -> str | None:
-    return _get_document_metadata_store().get_display_title(collection, filename, document_id=document_id)
-
-
-def get_document_display_titles(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_display_titles_batch(collection, filenames, document_ids=document_ids)
 
 
 def set_document_folder_path(
@@ -525,26 +476,12 @@ def set_document_folder_path(
     return changed
 
 
-def get_document_folder_paths(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> dict[str, str]:
-    return _get_document_metadata_store().get_folder_paths_batch(collection, filenames, document_ids=document_ids)
-
-
-def find_tmp_upload_names(collection: str, filenames: list[str]) -> list[str]:
-    return _get_document_metadata_store().find_tmp_upload_names(collection, filenames)
-
-
 def set_document_provenance(
     collection: str, filename: str, provenance: dict[str, str] | None, *, document_id: str | None = None
 ) -> bool:
     return _get_document_metadata_store().set_provenance(
         collection, filename, provenance or None, document_id=document_id
     )
-
-
-def get_document_provenance(collection: str, filename: str, *, document_id: str | None = None) -> dict[str, str] | None:
-    return _get_document_metadata_store().get_provenance(collection, filename, document_id=document_id)
 
 
 def rewrite_document_folder_paths(collection: str, from_path: str, to_path: str | None) -> int:
@@ -555,97 +492,6 @@ def rewrite_document_folder_paths(collection: str, from_path: str, to_path: str 
         mark_folders(collection, [from_path])
         _mirror_documents(collection, moved, folders_only=True)
     return count
-
-
-def list_summary_collections() -> list[str]:
-    return _get_document_metadata_store().list_collections()
-
-
-def get_available_documents(collection: str) -> list[AvailableDocument]:
-    return _get_document_metadata_store().get_all(collection)
-
-
-def get_documents(
-    collection: str, filenames: list[str], *, document_ids: list[str] | None = None
-) -> list[AvailableDocument]:
-    return _get_document_metadata_store().get_many(collection, filenames, document_ids=document_ids)
-
-
-async def get_available_documents_async(collection: str) -> list[AvailableDocument]:
-    return await _get_document_metadata_store().get_all_async(collection)
-
-
-def _missing_documents(collection: str, wanted: Iterable[DocumentRef]) -> list[DocumentRef]:
-    rows = get_available_documents(collection)
-    ids = {doc.document_id for doc in rows if doc.document_id}
-    names = {doc.file_name for doc in rows}
-    unkeyed = {doc.file_name for doc in rows if not doc.document_id}
-
-    def present(ref: DocumentRef) -> bool:
-        if ref.document_id:
-            return ref.document_id in ids or ref.file_name in unkeyed
-        return ref.file_name in names
-
-    return [ref for ref in dict.fromkeys(wanted) if not present(ref)]
-
-
-def reconcile_collection_summaries(
-    ingestor: BaseIngestor,
-    collection: str,
-    file_names: list[str] | None = None,
-    *,
-    documents: Sequence[DocumentRef] | None = None,
-) -> int:
-    if documents is not None or file_names is not None:
-        indexed = [*(documents or ()), *(DocumentRef(name, None) for name in file_names or ())]
-    else:
-        try:
-            indexed_files = ingestor.list_files(collection)
-        except Exception as e:
-            logger.warning("Reconciliation: failed to list indexed files for %s: %s", collection, e)
-            return 0
-        indexed = [DocumentRef(f.file_name, f.document_id) for f in indexed_files if f.status == FileStatus.SUCCESS]
-
-    if not indexed:
-        return 0
-
-    missing = _missing_documents(collection, indexed)
-    if not missing:
-        return 0
-
-    from .document_classification import fallback_summary_from_text
-
-    sample_fn = getattr(ingestor, "get_document_text_sample", None)
-
-    backfilled = 0
-    for file_name, document_id in sorted(missing, key=lambda ref: (ref.file_name, ref.document_id or "")):
-        text_sample = None
-        if callable(sample_fn):
-            try:
-                text_sample = sample_fn(collection, file_name, document_id=document_id)
-            except Exception as e:
-                logger.warning("Reconciliation: failed to sample text for %s in %s: %s", file_name, collection, e)
-
-        summary = fallback_summary_from_text(text_sample) if text_sample else None
-        if not summary:
-            summary = f"Indexed document: {file_name}"
-
-        register_summary(collection, file_name, summary, document_id=document_id)
-        backfilled += 1
-        logger.warning(
-            "Reconciliation: backfilled missing summary for %s in %s "
-            "(primary summary path silently produced no row for an ingested document)",
-            file_name,
-            collection,
-        )
-
-    logger.warning(
-        "Reconciliation: backfilled %d/%d document(s) missing summaries in %s",
-        backfilled,
-        len(indexed),
-        collection,
-    )
-    return backfilled
 
 
 def unregister_summary(

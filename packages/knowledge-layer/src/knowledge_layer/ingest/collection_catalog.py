@@ -273,7 +273,7 @@ class CollectionCatalog:
     def delete_document(
         self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
     ) -> bool:
-        forgotten = ingest_status_store.forget_file(collection_name, file_name)
+        forgotten = ingest_status_store.forget_file(collection_name, file_name, document_id=document_id)
         found = self._chunks_of_document(collection_name, document_id, self._spellings_in(collection_name, file_name))
         chunks = [(chunk_id, stored) for chunk_id, stored, _claimed in found]
         names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
