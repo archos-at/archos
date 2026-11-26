@@ -256,7 +256,7 @@ class TestTheRow:
         restricted = "proj_1_r0123456789ab"
         monkeypatch.setattr(resolve, "probe_collections", lambda: [restricted])
 
-        async def locate(collection, file_name, organization_id=None, image_index=None):
+        async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
             return ("key", None) if collection == restricted else None
 
         monkeypatch.setattr(view, "_resolve_storage_location", locate)
@@ -279,7 +279,7 @@ class TestTheRow:
         restricted = "proj_1_r0123456789ab"
         monkeypatch.setattr(resolve, "probe_collections", lambda: [restricted])
 
-        async def locate(collection, file_name, organization_id=None, image_index=None):
+        async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
             return ("key", None) if collection == restricted else None
 
         monkeypatch.setattr(view, "_resolve_storage_location", locate)

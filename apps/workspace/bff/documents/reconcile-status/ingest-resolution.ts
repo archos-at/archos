@@ -4,7 +4,7 @@ import { reportsQuarantine, storedQuarantineVerdictOf, type StoredQuarantineVerd
 import type { DocumentScreeningOutcome } from '@/lib/db/schema/documents'
 import { parseIngestFailureCategory, type IngestFailureFacts } from '../retry-policy'
 import type { CollectionFileRef } from '../collection-file-ref'
-import type { CollectionFiles } from './collection-listing-types'
+import { fileListedFor, type CollectionFiles } from './collection-listing-types'
 
 export interface TerminalResolution {
   status: 'completed' | 'failed' | 'quarantined' | 'cancelled'
@@ -112,7 +112,7 @@ export const resolveFromCollection = (
   ref: CollectionFileRef,
   jobId: string | null
 ): TerminalResolution | null => {
-  const file = files?.byName.get(ref.filename)
+  const file = fileListedFor(files, ref)
   if (!file) return null
   if (file.status === 'success') return { status: 'completed', errorMessage: null, failure: NO_FAILURE_FACTS }
   if (file.status === 'failed' && attributableFailure(jobId)) {

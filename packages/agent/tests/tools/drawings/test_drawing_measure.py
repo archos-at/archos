@@ -595,3 +595,34 @@ async def test_points_off_any_linework_are_refused_unless_the_agent_asks_for_non
 
     assert "No number" in snapped
     assert "distance: " in free and "No number" not in free
+
+
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
+
+
+async def test_a_resolved_document_is_read_by_its_id_not_by_a_name_another_folder_shares(
+    store: _Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agent.tools.canvas.target import Target
+
+    async def resolve(document: str) -> Resolved:
+        return Resolved(FILE, COLLECTION, Target(DRAFT, FILE, COLLECTION))
+
+    monkeypatch.setattr(sheet_source, "resolve_document", resolve)
+
+    await _run(operation="sheet")
+
+    assert store.looked_up[-1]["query"]["documentId"] == DRAFT  # type: ignore[attr-defined]
+
+
+async def test_a_name_the_bff_finds_twice_asks_which_one_and_reads_nothing(
+    store: _Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def ambiguous(path: str, **kwargs: Any) -> dict[str, Any]:
+        raise bff_http.BffRefusedError("refused", status=409, body={"details": {"reason": "ambiguous_name"}})
+
+    monkeypatch.setattr(sheet_source.bff_http, "get_json", ambiguous)
+
+    text = await _run(operation="sheet")
+
+    assert "Ambiguous: more than one document here is called" in text and store.reads == 0

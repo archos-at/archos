@@ -76,14 +76,20 @@ def _reading_of(
     return reading, references
 
 
+def _is_confirmed_older(row: Any, confirmed_older: str | None, confirmed_older_id: str | None) -> bool:
+    if confirmed_older_id:
+        return getattr(row, "document_id", None) == confirmed_older_id
+    return bool(confirmed_older) and getattr(row, "file_name", None) == confirmed_older
+
+
 def _predecessor_dossier(
-    rows: Sequence[Any], stored_names: Sequence[str], confirmed_older: str | None
+    rows: Sequence[Any], previous: Any, confirmed_older: str | None, confirmed_older_id: str | None = None
 ) -> tuple[str, Any] | None:
-    wanted = [*stored_names, *([confirmed_older] if confirmed_older else [])]
-    for name in wanted:
-        row = next((row for row in rows if getattr(row, "file_name", None) == name), None)
-        if row is not None and getattr(row, "dossier", None):
-            return name, row.dossier
+    own = [row for row in rows if previous is not None and previous.holds(row)]
+    named = [row for row in rows if _is_confirmed_older(row, confirmed_older, confirmed_older_id)]
+    for row in [*own, *named]:
+        if getattr(row, "dossier", None):
+            return row.file_name, row.dossier
     return None
 
 

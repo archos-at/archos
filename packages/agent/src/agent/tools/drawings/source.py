@@ -10,6 +10,7 @@ from agent.common import bff_http
 from agent.common import seaweed_s3  # noqa: F401 - patched by the tests through this module
 from agent.common.stored_file import DOCUMENT_FILE_PATH  # noqa: F401 - the route the tests assert on
 from agent.common.stored_file import StoredFileUnavailable
+from agent.common.stored_file import ambiguous_name_message
 from agent.common.stored_file import locate_stored_file
 from agent.common.stored_file import read_stored_file
 from agent.drawings.dxf_source import UnreadableDrawingError
@@ -68,7 +69,9 @@ async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> Loa
     headers = bff_http.SignedEnvelope(header=header, signature=signature).headers()
     try:
         site = await asyncio.wait_for(
-            asyncio.to_thread(_site, resolved.collection, resolved.file_name, headers, building_layers),
+            asyncio.to_thread(
+                _site, resolved.collection, resolved.file_name, headers, building_layers, resolved.document_id
+            ),
             PARSE_TIMEOUT_S,
         )
     except SiteUnavailableError as exc:
@@ -79,8 +82,14 @@ async def load_site(document: str, building_layers: tuple[str, ...] = ()) -> Loa
     return LoadedSite(resolved.file_name, site)
 
 
-def _site(collection: str, file_name: str, headers: dict[str, str], building_layers: tuple[str, ...]) -> Site:
-    bucket, key = _locate(collection, file_name, headers)
+def _site(
+    collection: str,
+    file_name: str,
+    headers: dict[str, str],
+    building_layers: tuple[str, ...],
+    document_id: str | None = None,
+) -> Site:
+    bucket, key = _locate(collection, file_name, headers, document_id)
     cache_key = (bucket, key, tuple(layer.upper() for layer in building_layers))
     with _CACHE_LOCK:
         parsing = _PARSING.setdefault(cache_key, threading.Lock())
@@ -123,12 +132,13 @@ _REASONS = {
     "no_store": "This deployment cannot read stored files (no object-store credential).",
     "too_large": "The DXF is larger than 150 MB; ask for an extract of the area in question.",
     "read_failed": "The stored DXF could not be read; try again shortly.",
+    "ambiguous": ambiguous_name_message("{name}"),
 }
 
 
-def _locate(collection: str, file_name: str, headers: dict[str, str]) -> tuple[str, str]:
+def _locate(collection: str, file_name: str, headers: dict[str, str], document_id: str | None) -> tuple[str, str]:
     try:
-        return locate_stored_file(collection, file_name, headers)
+        return locate_stored_file(collection, file_name, headers, document_id=document_id)
     except StoredFileUnavailable as exc:
         raise SiteUnavailableError(_REASONS[exc.reason].format(name=file_name)) from exc
 

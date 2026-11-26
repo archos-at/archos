@@ -10,68 +10,96 @@ if TYPE_CHECKING:
 
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
+from agent.knowledge.document_metadata_helpers import _batch_bind
+from agent.knowledge.document_metadata_helpers import _batch_keys
+from agent.knowledge.document_metadata_helpers import _batch_match
 from agent.knowledge.document_metadata_helpers import _current_doc_class
 from agent.knowledge.document_metadata_helpers import _decode_page_count
 from agent.knowledge.document_metadata_helpers import _encode_page_count
 from agent.knowledge.document_metadata_helpers import _escape_like
+from agent.knowledge.document_metadata_helpers import _match
+from agent.knowledge.document_metadata_helpers import _stamp
 
 
-def set_doc_class(store, collection: str, filename: str, doc_class: str | None) -> bool:
-    return store._update_column(collection, filename, "doc_class", _current_doc_class(doc_class))
+def set_doc_class(
+    store, collection: str, filename: str, doc_class: str | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(
+        collection, filename, "doc_class", _current_doc_class(doc_class), document_id=document_id
+    )
 
 
-def get_doc_class(store, collection: str, filename: str) -> str | None:
-    return _current_doc_class(store._get_column(collection, filename, "doc_class"))
+def get_doc_class(store, collection: str, filename: str, *, document_id: str | None = None) -> str | None:
+    return _current_doc_class(store._get_column(collection, filename, "doc_class", document_id=document_id))
 
 
-def get_doc_classes_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    found = store._get_column_batch(collection, filenames, "doc_class")
+def get_doc_classes_batch(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> dict[str, str]:
+    found = store._get_column_batch(collection, filenames, "doc_class", document_ids=document_ids)
     return {name: _current_doc_class(value) for name, value in found.items()}
 
 
-def set_doc_class_suggestion(store, collection: str, filename: str, doc_class: str | None) -> bool:
-    return store._update_column(collection, filename, "doc_class_suggestion", _current_doc_class(doc_class))
+def set_doc_class_suggestion(
+    store, collection: str, filename: str, doc_class: str | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(
+        collection, filename, "doc_class_suggestion", _current_doc_class(doc_class), document_id=document_id
+    )
 
 
-def get_doc_class_suggestions_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    found = store._get_column_batch(collection, filenames, "doc_class_suggestion")
+def get_doc_class_suggestions_batch(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> dict[str, str]:
+    found = store._get_column_batch(collection, filenames, "doc_class_suggestion", document_ids=document_ids)
     return {name: _current_doc_class(value) for name, value in found.items()}
 
 
-def set_display_title(store, collection: str, filename: str, display_title: str | None) -> bool:
-    return store._update_column(collection, filename, "display_title", display_title)
+def set_display_title(
+    store, collection: str, filename: str, display_title: str | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(collection, filename, "display_title", display_title, document_id=document_id)
 
 
-def get_display_title(store, collection: str, filename: str) -> str | None:
-    return store._get_column(collection, filename, "display_title")
+def get_display_title(store, collection: str, filename: str, *, document_id: str | None = None) -> str | None:
+    return store._get_column(collection, filename, "display_title", document_id=document_id)
 
 
-def get_display_titles_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    return store._get_column_batch(collection, filenames, "display_title")
+def get_display_titles_batch(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> dict[str, str]:
+    return store._get_column_batch(collection, filenames, "display_title", document_ids=document_ids)
 
 
-def set_folder_path(store, collection: str, filename: str, folder_path: str | None) -> bool:
-    return store._update_column(collection, filename, "folder_path", folder_path)
+def set_folder_path(
+    store, collection: str, filename: str, folder_path: str | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(collection, filename, "folder_path", folder_path, document_id=document_id)
 
 
-def get_folder_path(store, collection: str, filename: str) -> str | None:
-    return store._get_column(collection, filename, "folder_path")
+def get_folder_path(store, collection: str, filename: str, *, document_id: str | None = None) -> str | None:
+    return store._get_column(collection, filename, "folder_path", document_id=document_id)
 
 
-def get_folder_paths_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    return store._get_column_batch(collection, filenames, "folder_path")
+def get_folder_paths_batch(
+    store, collection: str, filenames: list[str], *, document_ids: list[str] | None = None
+) -> dict[str, str]:
+    return store._get_column_batch(collection, filenames, "folder_path", document_ids=document_ids)
 
 
-def set_provenance(store, collection: str, filename: str, provenance: dict[str, str] | None) -> bool:
+def set_provenance(
+    store, collection: str, filename: str, provenance: dict[str, str] | None, *, document_id: str | None = None
+) -> bool:
     import json
 
-    return store._update_column(collection, filename, "provenance", json.dumps(provenance) if provenance else None)
+    encoded = json.dumps(provenance) if provenance else None
+    return store._update_column(collection, filename, "provenance", encoded, document_id=document_id)
 
 
-def get_provenance(store, collection: str, filename: str) -> dict[str, str] | None:
+def get_provenance(store, collection: str, filename: str, *, document_id: str | None = None) -> dict[str, str] | None:
     import json
 
-    raw = store._get_column(collection, filename, "provenance")
+    raw = store._get_column(collection, filename, "provenance", document_id=document_id)
     if not raw:
         return None
     try:
@@ -82,19 +110,23 @@ def get_provenance(store, collection: str, filename: str) -> dict[str, str] | No
     return decoded if isinstance(decoded, dict) else None
 
 
-def set_capture(store, collection: str, filename: str, capture: dict[str, Any] | None) -> bool:
+def set_capture(
+    store, collection: str, filename: str, capture: dict[str, Any] | None, *, document_id: str | None = None
+) -> bool:
     import json
 
-    return store._update_column(collection, filename, "capture", json.dumps(capture) if capture else None)
+    encoded = json.dumps(capture) if capture else None
+    return store._update_column(collection, filename, "capture", encoded, document_id=document_id)
 
 
-def set_revision_facts(store, collection: str, filename: str, facts: dict[str, Any] | None) -> bool:
+def set_revision_facts(
+    store, collection: str, filename: str, facts: dict[str, Any] | None, *, document_id: str | None = None
+) -> bool:
     import json
 
     normalised = normalise_revision_facts(facts)
-    return store._update_column(
-        collection, filename, "revision_facts", json.dumps(normalised, ensure_ascii=False) if normalised else None
-    )
+    encoded = json.dumps(normalised, ensure_ascii=False) if normalised else None
+    return store._update_column(collection, filename, "revision_facts", encoded, document_id=document_id)
 
 
 def set_reading(
@@ -105,38 +137,46 @@ def set_reading(
     dossier: dict[str, Any] | None,
     references: list[dict[str, Any]] | None,
     coverage: dict[str, Any] | None,
+    document_id: str | None = None,
 ) -> bool:
     import json
 
     written = True
     for column, value in (("dossier", dossier), ("doc_references", references), ("coverage", coverage)):
         encoded = json.dumps(value, ensure_ascii=False) if value else None
-        written = store._update_column(collection, filename, column, encoded) and written
+        written = store._update_column(collection, filename, column, encoded, document_id=document_id) and written
     return written
 
 
-def set_page_count(store, collection: str, filename: str, page_count: int | None) -> bool:
-    return store._update_column(collection, filename, "page_count", _encode_page_count(page_count))
+def set_page_count(
+    store, collection: str, filename: str, page_count: int | None, *, document_id: str | None = None
+) -> bool:
+    return store._update_column(
+        collection, filename, "page_count", _encode_page_count(page_count), document_id=document_id
+    )
 
 
-def get_page_count(store, collection: str, filename: str) -> int | None:
-    return _decode_page_count(store._get_column(collection, filename, "page_count"))
+def get_page_count(store, collection: str, filename: str, *, document_id: str | None = None) -> int | None:
+    return _decode_page_count(store._get_column(collection, filename, "page_count", document_id=document_id))
 
 
-def set_change_summary(store, collection: str, filename: str, summary: str | None, basis: str | None) -> bool:
+def set_change_summary(
+    store, collection: str, filename: str, summary: str | None, basis: str | None, *, document_id: str | None = None
+) -> bool:
     from sqlalchemy import text
 
     text_value = (summary or "").strip() or None
     basis_value = (basis or "").strip() or None if text_value else None
+    where, keyed = _match(filename, document_id)
     try:
         with store._sync_engine.connect() as conn:
             result = conn.execute(
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
-                    f"UPDATE {TABLE_NAME} SET change_summary = :summary, change_basis = :basis "
-                    "WHERE collection = :collection AND filename = :filename"
+                    f"UPDATE {TABLE_NAME} SET change_summary = :summary, change_basis = :basis{_stamp(document_id)} "
+                    f"WHERE collection = :collection AND {where}"
                 ),
-                {"summary": text_value, "basis": basis_value, "collection": collection, "filename": filename},
+                {"summary": text_value, "basis": basis_value, "collection": collection, **keyed},
             )
             conn.commit()
             return (result.rowcount or 0) > 0
@@ -145,17 +185,21 @@ def set_change_summary(store, collection: str, filename: str, summary: str | Non
         return False
 
 
-def _update_column(store, collection: str, filename: str, column: str, value: Any) -> bool:
+def _update_column(
+    store, collection: str, filename: str, column: str, value: Any, *, document_id: str | None = None
+) -> bool:
     from sqlalchemy import text
 
+    where, keyed = _match(filename, document_id)
     try:
         with store._sync_engine.connect() as conn:
             result = conn.execute(
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
-                    f"UPDATE {TABLE_NAME} SET {column} = :value WHERE collection = :collection AND filename = :filename"
+                    f"UPDATE {TABLE_NAME} SET {column} = :value{_stamp(document_id)} "
+                    f"WHERE collection = :collection AND {where}"
                 ),
-                {"value": value, "collection": collection, "filename": filename},
+                {"value": value, "collection": collection, **keyed},
             )
             conn.commit()
             updated = (result.rowcount or 0) > 0
@@ -169,15 +213,16 @@ def _update_column(store, collection: str, filename: str, column: str, value: An
         return False
 
 
-def _get_column(store, collection: str, filename: str, column: str) -> str | None:
+def _get_column(store, collection: str, filename: str, column: str, *, document_id: str | None = None) -> str | None:
     from sqlalchemy import text
 
+    where, keyed = _match(filename, document_id)
     try:
         with store._sync_engine.connect() as conn:
             result = conn.execute(
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                text(f"SELECT {column} FROM {TABLE_NAME} WHERE collection = :collection AND filename = :filename"),
-                {"collection": collection, "filename": filename},
+                text(f"SELECT {column} FROM {TABLE_NAME} WHERE collection = :collection AND {where}"),
+                {"collection": collection, **keyed},
             )
             row = result.first()
             return row[0] if row and row[0] else None
@@ -186,26 +231,34 @@ def _get_column(store, collection: str, filename: str, column: str) -> str | Non
         return None
 
 
-def _get_column_batch(store, collection: str, filenames: list[str], column: str) -> dict[str, str]:
-    if not filenames:
+def _get_column_batch(
+    store, collection: str, filenames: list[str], column: str, *, document_ids: list[str] | None = None
+) -> dict[str, str]:
+    asked = _batch_match(filenames, document_ids)
+    if asked is None:
         return {}
-    from sqlalchemy import bindparam
     from sqlalchemy import text
 
+    where, params = asked
+    names, ids = set(filenames), set(document_ids or ())
     result: dict[str, str] = {}
     try:
         with store._sync_engine.connect() as conn:
             rows = conn.execute(
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                text(
-                    f"SELECT filename, {column} FROM {TABLE_NAME} "
-                    "WHERE collection = :collection AND filename IN :filenames"
-                ).bindparams(bindparam("filenames", expanding=True)),
-                {"collection": collection, "filenames": list(filenames)},
+                _batch_bind(
+                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    text(
+                        f"SELECT filename, document_id, {column} FROM {TABLE_NAME} "
+                        f"WHERE collection = :collection AND {where}"
+                    ),
+                    params,
+                ),
+                {"collection": collection, **params},
             )
             for row in rows:
-                if row[1]:
-                    result[row[0]] = row[1]
+                if row[2]:
+                    for key in _batch_keys(row[0], row[1], names, ids):
+                        result[key] = row[2]
     except Exception as e:
         logger.warning("Failed to batch-get %s for %s: %s", column, collection, e)
         return {}

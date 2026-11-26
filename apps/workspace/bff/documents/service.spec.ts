@@ -901,12 +901,29 @@ describe('joinHitsToFiles', () => {
     expect(joinHitsToFiles(hits, [older, other])).toEqual([])
   })
 
-  it('resolves a filename collision to the most-recent row', () => {
+  it('joins a hit to neither row when two rows of its collection carry its name and it names no document id', () => {
     const hits = [
       { file_name: 'plan.pdf', score: 0.7, snippet: 'x', page_number: null, collection: 'c' },
     ]
-    const [row] = joinHitsToFiles(hits, [older, newer])
-    expect(row.id).toBe('new')
+    expect(joinHitsToFiles(hits, [older, newer])).toEqual([])
+  })
+
+  it('joins each hit to the row of the document id it names, two same-named rows apart', () => {
+    const hits = [
+      { file_name: 'plan.pdf', score: 0.9, snippet: 'aus Entwurf', page_number: 1, collection: 'c', document_id: 'old' },
+      { file_name: 'plan.pdf', score: 0.6, snippet: 'aus Einreichung', page_number: 2, collection: 'c', document_id: 'new' },
+    ]
+    expect(joinHitsToFiles(hits, [older, newer]).map((r) => [r.id, r.snippet])).toEqual([
+      ['old', 'aus Entwurf'],
+      ['new', 'aus Einreichung'],
+    ])
+  })
+
+  it('drops a hit whose document id has no row, rather than falling back to its name', () => {
+    const hits = [
+      { file_name: 'plan.pdf', score: 0.7, snippet: 'x', page_number: null, collection: 'c', document_id: 'gone' },
+    ]
+    expect(joinHitsToFiles(hits, [older])).toEqual([])
   })
 
   it('coerces a missing page_number to null', () => {
@@ -1022,9 +1039,8 @@ describe('joinHitsToFiles', () => {
       ])
     })
 
-    it('still resolves a collision inside one collection to the most-recent row', () => {
-      const reuploaded = { ...open, id: 'open-older', createdAt: new Date('2026-02-01T00:00:00Z') }
-      expect(joinHitsToFiles([hitIn('proj_abc')], [reuploaded, open]).map((r) => r.id)).toEqual(['open-root'])
+    it('does not hand a hit naming a document of another collection to that document', () => {
+      expect(joinHitsToFiles([{ ...hitIn('proj_abc'), document_id: 'gf-intern' }], [open, restricted])).toEqual([])
     })
   })
 })
@@ -1718,7 +1734,7 @@ describe('renameDocument', () => {
 
     const [url, init] = mockFetch.mock.calls.at(-1) ?? []
     expect(String(url)).toBe(
-      'http://backend:8000/v1/collections/proj_abc/documents/plan.pdf/display-title'
+      'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/display-title'
     )
     expect((init as RequestInit)?.method).toBe('PATCH')
     expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({
@@ -2061,7 +2077,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
         },
       ])
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/visual-details`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/visual-details'
       )
     })
   })
@@ -2089,7 +2105,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
         tags: ['Gutachten'],
       })
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/tags`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/tags'
       )
     })
 
@@ -2178,7 +2194,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
       await renameDocument(session, 'doc-1', 'Einreichplan.pdf', new Request('http://x'))
 
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/display-title`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/display-title'
       )
     })
   })

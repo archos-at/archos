@@ -10,6 +10,7 @@ from typing import Any
 
 from agent.common.source_kinds import office_shelf_organization_id
 
+from . import name_scope
 from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .payload import ChunkRecord
 from .payload import document_facts
@@ -31,16 +32,37 @@ from .store import get_store
 logger = logging.getLogger(__name__)
 
 
-def facts_by_file(scope: str, file_names: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
-    if file_names is None:
+def _documents(scope: str, file_names: Iterable[str] | None, document_ids: Iterable[str] | None) -> list[Any]:
+    if file_names is None and document_ids is None:
         from agent.knowledge import get_available_documents
 
-        documents = get_available_documents(scope)
-    else:
-        from agent.knowledge import get_documents
+        return list(get_available_documents(scope))
+    from agent.knowledge import get_documents
 
-        documents = get_documents(scope, sorted(set(file_names)))
-    return {document.file_name: document_facts(document) for document in documents}
+    names = sorted(set(file_names or ()))
+    ids = sorted({str(document_id) for document_id in document_ids or () if document_id})
+    if not ids:
+        return list(get_documents(scope, names))
+    return list(get_documents(scope, names, document_ids=ids))
+
+
+def _facts_by_key(documents: Iterable[Any]) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    by_name: dict[str, dict[str, Any]] = {}
+    for document in documents:
+        document_id = getattr(document, "document_id", None)
+        if document_id:
+            by_id[str(document_id)] = document_facts(document)
+        else:
+            by_name[document.file_name] = document_facts(document)
+    return by_id, by_name
+
+
+def facts_by_file(
+    scope: str, file_names: Iterable[str] | None = None, *, document_ids: Iterable[str] | None = None
+) -> dict[str, dict[str, Any]]:
+    by_id, by_name = _facts_by_key(_documents(scope, file_names, document_ids))
+    return {**by_name, **by_id}
 
 
 def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -105,7 +127,10 @@ def write_chunks(
     config: Mapping[str, Any] | None = None,
 ) -> int:
     base = enrichment(scope, config)
-    facts = facts_by_file(scope, [file_name]).get(file_name, {})
+    document_id = str((config or {}).get("document_id") or "") or None
+    facts = facts_by_file(scope, document_ids=[document_id]).get(document_id, {}) if document_id else {}
+    if not facts and not (document_id and name_scope.NAMES_SKIP_IDENTIFIED_POINTS):
+        facts = facts_by_file(scope, [file_name]).get(file_name, {})
     base.update({key: value for key, value in facts.items() if value is not None})
     return get_store(identity).upsert(scope, records, base)
 
@@ -113,20 +138,45 @@ def write_chunks(
 FOLDER_FACTS = frozenset({"folder_path", FOLDER_FIELD})
 
 
-def copy_facts(scope: str, file_names: Iterable[str] | None = None, *, fields: Iterable[str] | None = None) -> int:
+def _only(facts: dict[str, dict[str, Any]], wanted: set[str] | None) -> dict[str, dict[str, Any]]:
+    if wanted is None:
+        return facts
+    return {key: {name: value for name, value in values.items() if name in wanted} for key, values in facts.items()}
+
+
+def copy_facts(
+    scope: str,
+    file_names: Iterable[str] | None = None,
+    *,
+    document_ids: Iterable[str] | None = None,
+    fields: Iterable[str] | None = None,
+) -> int:
     store = get_store()
-    facts = facts_by_file(scope, file_names)
     wanted = set(fields) if fields is not None else None
-    if wanted is not None:
-        facts = {name: {key: value for key, value in values.items() if key in wanted} for name, values in facts.items()}
-    store.set_file_payloads(scope, facts)
+    documents = _documents(scope, file_names, document_ids)
+    names = {str(document.document_id): document.file_name for document in documents if document.document_id}
+    by_id, by_name = (_only(facts, wanted) for facts in _facts_by_key(documents))
+    store.set_file_payloads(scope, by_id, key="document_id", names=names)
+    store.set_file_payloads(scope, by_name, key="file_name")
     if wanted is None or "doc_class" in wanted:
-        store.restore_chunk_doc_classes(scope, [name for name, values in facts.items() if "doc_class" not in values])
-    return len(facts)
+        unclassified_ids = [document_id for document_id, values in by_id.items() if "doc_class" not in values]
+        store.restore_chunk_doc_classes(scope, unclassified_ids, key="document_id", names=names)
+        store.restore_chunk_doc_classes(scope, [name for name, values in by_name.items() if "doc_class" not in values])
+    return len(by_id) + len(by_name)
 
 
-def refresh_facts(scope: str, file_names: Iterable[str] | None = None, *, fields: Iterable[str] | None = None) -> None:
+def refresh_facts(
+    scope: str,
+    file_names: Iterable[str] | None = None,
+    *,
+    document_ids: Iterable[str] | None = None,
+    fields: Iterable[str] | None = None,
+) -> None:
     try:
-        copy_facts(scope, file_names, fields=fields)
+        copy_facts(scope, file_names, document_ids=document_ids, fields=fields)
     except Exception:  # noqa: BLE001 - see the docstring
         logger.warning("Qdrant: copying the facts of %s onto its points failed", scope, exc_info=True)
+
+
+def rewrite_file_name(scope: str, document_id: str, file_name: str, *, previous_name: str | None = None) -> int:
+    return get_store().rewrite_file_name(scope, document_id, file_name, previous_name=previous_name)

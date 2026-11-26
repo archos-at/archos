@@ -58,6 +58,7 @@ const addWireCitations = (
       },
       title: citation.title,
       fileName,
+      storedDocumentId: citation.storedDocumentId,
       collection: citation.collection,
       shelf: citation.shelf,
       shelfFallback: parsed?.shelf,

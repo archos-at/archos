@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetDocumentsByNameCache, setDocumentsByNameFetch } from '@/features/documents/lib/documents-by-name'
+import { resetDocumentsByIdCache, setDocumentsByIdFetch } from '@/features/documents/documents-by-id'
 import type { ProfileEvidence } from '@/lib/project-intake/types'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 import { fakePdfjsRuntime, fakeTextRun, type FakePdfState } from '@/test-utils/pdfjs-fake'
@@ -38,6 +39,7 @@ describe('PageExcerpt', () => {
     resetExcerptDocuments()
     restoreObservers = installLayoutObservers()
     resetDocumentsByNameCache()
+    resetDocumentsByIdCache()
     state.fail = false
     state.destroyed = 0
     state.pages = [{ items: [fakeTextRun('Schnitt A-A', 760, 120) ] }, { items: [fakeTextRun(QUOTE, 400, 220)] }]
@@ -60,7 +62,34 @@ describe('PageExcerpt', () => {
   })
   afterEach(() => {
     setDocumentsByNameFetch()
+    setDocumentsByIdFetch()
     restoreObservers()
+  })
+
+  describe('two project documents of one name, in different folders', () => {
+    const DRAFT = '22222222-2222-4222-8222-222222222222'
+    const pdf = (id: string) => ({ id, filename: 'E-02 Schnitt.pdf', createdAt: '2026-10-14T08:30:00.000Z', contentType: 'application/pdf' })
+
+    it('draws no excerpt rather than a page of the wrong one when the evidence names only the file', async () => {
+      byName.mockImplementation(async () => new Response(JSON.stringify({ documents: [pdf('doc-bestand'), pdf('doc-entwurf')] })))
+      render(ui([evidence('E-02 Schnitt.pdf', 2)], true))
+      await waitFor(() => expect(screen.getByTestId('page-excerpt')).toHaveAttribute('data-state', 'unavailable'))
+    })
+
+    it('opens the one the evidence names by id, and asks nothing by name', async () => {
+      const byId = vi.fn(async (_path: string, init?: RequestInit) => {
+        const ids = (JSON.parse(String(init?.body ?? '{}')) as { ids?: string[]; scope?: string }).ids ?? []
+        const office = String(init?.body).includes('"office_shelf"')
+        return new Response(JSON.stringify({ documents: office ? [] : ids.map(pdf) }))
+      })
+      setDocumentsByIdFetch(byId)
+      const named = { ...evidence('E-02 Schnitt.pdf', 2), documentId: DRAFT }
+      render(ui([named], true))
+
+      await waitFor(() => expect(screen.getByTestId('page-excerpt')).toHaveAttribute('data-state', 'drawn'))
+      expect(byName).not.toHaveBeenCalled()
+      expect(byId.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))).toContainEqual({ projectId: 'project-1', ids: [DRAFT] })
+    })
   })
 
   it('fetches nothing until the excerpt is asked for, then draws the page with the quote marked', async () => {

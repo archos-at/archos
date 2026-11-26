@@ -146,6 +146,7 @@ export async function dispatchIngest(
     file_name: extras.fileName ?? null,
     ...(extras.priority === 'bulk' ? { priority: 'bulk' } : {}),
     ...(extras.revisionOf ? { revision_of: extras.revisionOf } : {}),
+    ...(extras.revisionOf && extras.revisionOfId ? { revision_of_id: extras.revisionOfId } : {}),
     ...(extras.documentType ? { document_type: extras.documentType } : {}),
     ...(extras.mailThread ? { mail_thread: extras.mailThread } : {}),
     ...(extras.mailOrigin && !extras.mailThread ? { mail_origin: extras.mailOrigin } : {}),

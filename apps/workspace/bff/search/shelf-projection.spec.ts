@@ -39,8 +39,8 @@ beforeEach(() => vi.clearAllMocks())
 describe('runSearchFacetsSyncSlice', () => {
   it('writes the rows the listing knows and marks the shelf synced on its last page', async () => {
     repository.listShelfDocumentsForProjection.mockResolvedValue([doc(1), doc(2)])
-    vi.mocked(readCollectionReadings).mockResolvedValue(
-      new Map([['plan-1.pdf', { metadata: { summary: 's' }, superseded: false }]])
+    vi.mocked(readCollectionReadings).mockImplementation(async (_collectionName, refs) =>
+      new Map(refs.filter((ref) => ref.documentId === doc(1).id).map((ref) => [ref, { metadata: { summary: 's' }, superseded: false }]))
     )
 
     const result = await runSearchFacetsSyncSlice('org-1', payload)

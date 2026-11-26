@@ -83,6 +83,19 @@ class TestInFlightFiles:
 
         assert ingest_status_store.in_flight_files(["s_test"]) == {"s_test": ["plan.pdf"]}
 
+    def test_two_namesakes_in_flight_are_two_documents_and_one_name(self, sqlite_db):
+        from agent.knowledge.document_metadata_constants import DocumentRef
+
+        for job_id, document_id in (("job-eg", "doc-eg"), ("job-og", "doc-og")):
+            job = _job_with_files(job_id, JobState.PROCESSING, {"Plan.pdf": FileStatus.INGESTING})
+            job.metadata["document_id"] = document_id
+            ingest_status_store.put(job)
+
+        documents = ingest_status_store.in_flight_documents(["s_test"])["s_test"]
+
+        assert sorted(documents) == [DocumentRef("Plan.pdf", "doc-eg"), DocumentRef("Plan.pdf", "doc-og")]
+        assert ingest_status_store.in_flight_files(["s_test"]) == {"s_test": ["Plan.pdf"]}
+
     def test_a_finished_job_is_not_in_flight(self, sqlite_db):
         ingest_status_store.put(_job_with_files("job-1", JobState.COMPLETED, {"plan.pdf": FileStatus.SUCCESS}))
 

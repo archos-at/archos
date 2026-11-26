@@ -44,7 +44,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     async def run_snap_targets(request: Any) -> dict[str, Any]:
         if not turn_file_kinds.turn_states("pdf"):
             return {"refused": "not_enabled"}
-        seen.append({"request": request.model_dump(), "user": RequestContext.from_context().user_id})
+        seen.append({"request": request.model_dump(exclude_none=True), "user": RequestContext.from_context().user_id})
         return ANSWER
 
     monkeypatch.setattr(drawing_snap_targets, "run_snap_targets", run_snap_targets)
@@ -91,3 +91,11 @@ def test_it_refuses_an_unknown_field_and_a_page_below_one(client, calls) -> None
     for body in ({**BODY, "points": [[0.1, 0.1]]}, {**BODY, "page": 0}):
         assert client.post(DRAWING_SNAP_TARGETS_PATH, json=body, headers=_headers()).status_code == 422
     assert calls == []
+
+
+def test_the_drawing_named_by_its_id_reaches_the_targets(client, calls) -> None:
+    document_id = "bbbbbbbb-0000-4000-8000-00000000000b"
+    body = {**BODY, "document_id": document_id, "stated_kinds": ["pdf"]}
+
+    assert client.post(DRAWING_SNAP_TARGETS_PATH, json=body, headers=_headers()).status_code == 200
+    assert str(calls[0]["request"]["document_id"]) == document_id

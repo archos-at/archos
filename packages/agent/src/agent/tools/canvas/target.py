@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.common.bff_http import SignedEnvelope
+from agent.common.estate_paths import estate_path
 from agent.common.focus_file import get_focused_document_id
 from agent.common.focus_file import get_focused_file_name
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
+from agent.common.stored_file import AmbiguousDocumentName
+from agent.common.stored_file import ambiguous_name_message
 from agent.knowledge.inventory import get_turn_documents
 
 from .client import lookup_document_id
@@ -59,6 +62,19 @@ class Unresolved:
 class _Row:
     file_name: str
     collection: str
+    folder_path: str = ""
+    document_id: str | None = None
+    shelf: Shelf | None = None
+
+    @property
+    def paths(self) -> frozenset[str]:
+        relative = f"{self.folder_path}/{self.file_name}" if self.folder_path else self.file_name
+        estate = estate_path(self.shelf, self.folder_path, self.file_name)
+        return frozenset(_key(path) for path in (relative, f"/{relative}", estate) if path)
+
+    def shown(self) -> str:
+        where = f" in „{self.folder_path}“" if self.folder_path else " at the top level"
+        return f"`{self.file_name}`{where}" + (f" (document id {self.document_id})" if self.document_id else "")
 
 
 def _rows() -> list[_Row]:
@@ -66,21 +82,33 @@ def _rows() -> list[_Row]:
     for row in get_turn_documents():
         file_name = _nfc(str(_attr(row, "file_name") or ""))
         collection = str(_attr(row, "collection") or "")
-        if file_name and collection and parse_shelf(_attr(row, "shelf")) in _DOCUMENT_SHELVES:
-            rows.append(_Row(file_name, collection))
+        shelf = parse_shelf(_attr(row, "shelf"))
+        if file_name and collection and shelf in _DOCUMENT_SHELVES:
+            folder = _nfc(str(_attr(row, "folder_path") or "")).strip("/")
+            document_id = str(_attr(row, "document_id") or "").strip() or None
+            rows.append(_Row(file_name, collection, folder, document_id, shelf))
     return rows
 
 
 def _named(rows: list[_Row]) -> str:
-    shown = [f"`{row.file_name}`" for row in rows[:_MAX_NAMED]]
+    shared = {
+        _key(row.file_name) for row in rows if sum(_key(other.file_name) == _key(row.file_name) for other in rows) > 1
+    }
+    shown = [row.shown() if _key(row.file_name) in shared else f"`{row.file_name}`" for row in rows[:_MAX_NAMED]]
     rest = len(rows) - len(shown)
     return ", ".join(shown) + (f" (and {rest} more)" if rest > 0 else "")
+
+
+def row_with_id(document_id: str) -> _Row | None:
+    return next((row for row in _rows() if row.document_id == document_id), None)
 
 
 def match_document(name: str) -> _Row | Unresolved:
     wanted = _key(name)
     rows = _rows()
     for candidates in (
+        [row for row in rows if row.document_id and row.document_id == name.strip()],
+        [row for row in rows if "/" in wanted and wanted in row.paths],
         [row for row in rows if _key(row.file_name) == wanted],
         [row for row in rows if _key(row.file_name.rsplit(".", 1)[0]) == wanted],
         [row for row in rows if wanted in _key(row.file_name)],
@@ -89,8 +117,9 @@ def match_document(name: str) -> _Row | Unresolved:
             return candidates[0]
         if len(candidates) > 1:
             return Unresolved(
-                f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask which document is meant, "
-                "and call the tool again with the exact file name in `document`.",
+                f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask which document is meant, and call "
+                "the tool again with its exact file name, or with its folder path (Ordner/Name, /Name at the top "
+                "level) or document id when two share a name, in `document`.",
                 ambiguous=True,
             )
     return Unresolved(
@@ -110,18 +139,27 @@ async def resolve_target(document: str, envelope: SignedEnvelope) -> Target | Un
     if not named:
         return Target(get_focused_document_id(), get_focused_file_name())
     if is_uuid(named):
+        if (listed := row_with_id(named)) is not None:
+            return Target(named, listed.file_name, listed.collection)
         focus_id = get_focused_document_id()
         return Target(named, get_focused_file_name() if focus_id == named else None)
     row = match_document(named)
     if isinstance(row, Unresolved):
         return row
-    document_id = await asyncio.to_thread(lookup_document_id, row.collection, row.file_name, envelope)
+    if row.document_id:
+        return Target(row.document_id, row.file_name, row.collection)
+    try:
+        document_id = await asyncio.to_thread(lookup_document_id, row.collection, row.file_name, envelope)
+    except AmbiguousDocumentName:
+        return Unresolved(ambiguous_name_message(row.file_name), ambiguous=True)
     if document_id is None:
         return Unresolved(_CANNOT_NAME)
     return Target(document_id, row.file_name, row.collection)
 
 
-def collection_of(file_name: str) -> str | None:
+def collection_of(file_name: str, document_id: str | None = None) -> str | None:
+    if document_id and (listed := row_with_id(document_id)) is not None:
+        return listed.collection
     wanted = _key(file_name)
     found = {row.collection for row in _rows() if _key(row.file_name) == wanted}
     return found.pop() if len(found) == 1 else None

@@ -48,6 +48,10 @@ class Resolution:
     file: EstateFile | None
     note: str = ""
     suggestions: list[str] = field(default_factory=list)
+    question: str = ""
+
+    def miss(self, path: str) -> str:
+        return self.question or no_such_file(path, self.suggestions)
 
 
 @dataclass

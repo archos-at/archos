@@ -97,7 +97,7 @@ class TestTheFolderCard:
     async def test_a_real_readme_keeps_its_name(self) -> None:
         real = FileRow(file_name="README.md", shelf="project", collection="proj_a", folder="Einreichung")
 
-        async def pages(collection, file_name, *, wanted=None):
+        async def pages(collection, file_name, *, wanted=None, document_id=None):
             from knowledge_layer import stored_pages
 
             return stored_pages.PageText(

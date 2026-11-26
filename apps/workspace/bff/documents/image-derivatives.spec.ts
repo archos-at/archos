@@ -19,13 +19,20 @@ vi.mock('@/lib/storage/bucket', () => ({
 
 vi.mock('./repository', () => ({
   findStorageKeyByIdAndCollection: vi.fn(),
-  findStorageKeyByCollectionAndFilename: vi.fn(),
+  findStorageKeysByCollectionAndFilename: vi.fn(),
+  findReadableStorageKeyById: vi.fn(),
 }))
 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { MAX_STORED_IMAGES_PER_DOCUMENT } from '@/lib/s3'
-import { findStorageKeyByCollectionAndFilename, findStorageKeyByIdAndCollection } from './repository'
-import { findDocumentImageStorageKey, presignDocumentImageUpload } from './document-storage-keys'
+import { findReadableStorageKeyById, findStorageKeyByIdAndCollection, findStorageKeysByCollectionAndFilename } from './repository'
+import {
+  findDocumentImageStorageKey,
+  findDocumentImageStorageKeyById,
+  findDocumentStorageKey,
+  findDocumentStorageKeyById,
+  presignDocumentImageUpload,
+} from './document-storage-keys'
 
 const DOC_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 const row = { id: 'd1', storageKey: 'org/o1/project/p1/doc/d1/plan.pdf', storageBucket: 'grid-org-o1-abcdef123456', versionId: null }
@@ -71,7 +78,7 @@ describe('presignDocumentImageUpload', () => {
 
 describe('findDocumentImageStorageKey', () => {
   it('derives the raster key from the owning row, never from the caller', async () => {
-    vi.mocked(findStorageKeyByCollectionAndFilename).mockResolvedValue({ ...row, contentType: 'application/pdf' })
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([{ ...row, contentType: 'application/pdf' }])
 
     await expect(findDocumentImageStorageKey('proj_1', 'plan.pdf', 5)).resolves.toEqual({
       storageKey: 'org/o1/project/p1/doc/d1/_img/5.jpg',
@@ -81,10 +88,49 @@ describe('findDocumentImageStorageKey', () => {
   })
 
   it('answers null for an unknown pair or an index past the ceiling', async () => {
-    vi.mocked(findStorageKeyByCollectionAndFilename).mockResolvedValue(null)
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([])
     await expect(findDocumentImageStorageKey('proj_1', 'plan.pdf', 0)).resolves.toBeNull()
 
-    vi.mocked(findStorageKeyByCollectionAndFilename).mockResolvedValue({ ...row, contentType: 'application/pdf' })
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([{ ...row, contentType: 'application/pdf' }])
     await expect(findDocumentImageStorageKey('proj_1', 'plan.pdf', MAX_STORED_IMAGES_PER_DOCUMENT)).resolves.toBeNull()
+  })
+
+  it('derives the raster of the document the id names', async () => {
+    vi.mocked(findReadableStorageKeyById).mockResolvedValue({ ...row, id: DOC_ID, contentType: 'application/pdf' })
+
+    await expect(findDocumentImageStorageKeyById('proj_1', DOC_ID, 1)).resolves.toMatchObject({
+      storageKey: 'org/o1/project/p1/doc/d1/_img/1.jpg',
+    })
+    expect(findReadableStorageKeyById).toHaveBeenCalledWith(DOC_ID, 'proj_1', undefined)
+    expect(findStorageKeysByCollectionAndFilename).not.toHaveBeenCalled()
+  })
+})
+
+describe('findDocumentStorageKey', () => {
+  const draft = { ...row, id: 'doc-entwurf', storageKey: 'org/o1/project/p1/doc/doc-entwurf/Plan.pdf', contentType: 'application/pdf' }
+  const submission = { ...row, id: 'doc-einreichung', storageKey: 'org/o1/project/p1/doc/doc-einreichung/Plan.pdf', contentType: 'application/pdf' }
+
+  it('answers the one document a name names', async () => {
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([draft])
+    await expect(findDocumentStorageKey('proj_1', 'Plan.pdf')).resolves.toEqual(draft)
+  })
+
+  it('refuses a name two live documents carry as ambiguous, rather than answering the newest', async () => {
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([submission, draft])
+    await expect(findDocumentStorageKey('proj_1', 'Plan.pdf')).rejects.toMatchObject({
+      status: 409,
+      details: { reason: 'ambiguous_name' },
+    })
+  })
+
+  it('refuses the same name for a stored raster too', async () => {
+    vi.mocked(findStorageKeysByCollectionAndFilename).mockResolvedValue([submission, draft])
+    await expect(findDocumentImageStorageKey('proj_1', 'Plan.pdf', 0)).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('answers each of two same-named documents by its id', async () => {
+    vi.mocked(findReadableStorageKeyById).mockImplementation(async (id) => [draft, submission].find((doc) => doc.id === id) ?? null)
+    await expect(findDocumentStorageKeyById('proj_1', 'doc-entwurf')).resolves.toEqual(draft)
+    await expect(findDocumentStorageKeyById('proj_1', 'doc-einreichung')).resolves.toEqual(submission)
   })
 })

@@ -18,3 +18,10 @@ def fresh_qdrant_store(monkeypatch) -> Iterator[Any]:
     from knowledge_layer_testing import vector_store as qdrant_testing
 
     yield from qdrant_testing.fresh_store(monkeypatch)
+
+
+@pytest.fixture
+def local_qdrant_store(monkeypatch) -> Iterator[Any]:
+    from knowledge_layer_testing import vector_store as qdrant_testing
+
+    yield from qdrant_testing.local_store(monkeypatch)

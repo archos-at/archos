@@ -5,6 +5,7 @@ from agent.lazy_exports import lazy_exports
 _LAZY: dict[str, str] = {
     "FamilyUnreadable": ".tool",
     "LABEL_FILTERS": ".tool",
+    "ORDER_FILTERS": ".tool",
     "PassageTarget": ".tool",
     "RangeRefused": ".tool",
     "ReadCursor": ".tool",
@@ -29,7 +30,9 @@ _LAZY: dict[str, str] = {
     "_passage_filters": ".tool",
     "_passage_result": ".tool",
     "_range_order": ".tool",
+    "_resolve_targets": ".tool",
     "_store_silent_message": ".tool",
+    "_whole_document_filters": ".tool",
     "_without_overlap": ".tool",
 }
 
@@ -38,6 +41,7 @@ __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
 __all__ = [
     "FamilyUnreadable",
     "LABEL_FILTERS",
+    "ORDER_FILTERS",
     "PassageTarget",
     "RangeRefused",
     "ReadCursor",
@@ -56,7 +60,9 @@ __all__ = [
     "_passage_filters",
     "_passage_result",
     "_range_order",
+    "_resolve_targets",
     "_store_silent_message",
+    "_whole_document_filters",
     "_without_overlap",
     "decode_cursor",
     "encode_cursor",

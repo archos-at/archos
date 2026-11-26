@@ -83,4 +83,20 @@ describe('findRevisionCounterparts', () => {
     expect(await findRevisionCounterparts('org-1', 'proj_abc', [], SCREENED_ONLY)).toEqual([])
     expect(captured).toHaveLength(0)
   })
+
+  it('looks a reference up by id as well as by name, so a link stored as a document id finds its document', async () => {
+    const id = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
+
+    await findRevisionCounterparts('org-1', 'proj_abc', [id, 'f2.pdf'], SCREENED_ONLY)
+
+    expect(captured).toHaveLength(1)
+    expect(captured[0].sql).toMatch(/"documents"\."id" in \(/)
+    expect(captured[0].params).toContain(id)
+  })
+
+  it('asks by name only for a reference that is not an id', async () => {
+    await findRevisionCounterparts('org-1', 'proj_abc', ['f2.pdf'], SCREENED_ONLY)
+
+    expect(captured[0].sql).not.toMatch(/"documents"\."id" in \(/)
+  })
 })

@@ -7,7 +7,7 @@ export const CHAT_TURN_DEADLINE_SECONDS = 2700.0 as const
 export const BATCH_STATUS_MAX_IDS = 200 as const
 
 /** The keys `POST /v1/ingest` reads: the fields of `IngestRequest` in `apps/agent-host/src/agent_host/models/requests.py`. */
-export const INGEST_REQUEST_FIELDS = ["licence_class", "ai_processing_attested", "quote_max_chars", "knowledge_edition_id", "file_ref", "collection", "document_id", "byte_size", "project_id", "project_facts", "user_id", "priority", "thumbnail_upload_url", "preview_ref", "extraction_ref", "folder_path", "document_type", "file_name", "revision_of", "authored_by", "approved_by", "approved_at", "producer", "mail_thread", "mail_origin", "screening"] as const
+export const INGEST_REQUEST_FIELDS = ["licence_class", "ai_processing_attested", "quote_max_chars", "knowledge_edition_id", "file_ref", "collection", "document_id", "byte_size", "project_id", "project_facts", "user_id", "priority", "thumbnail_upload_url", "preview_ref", "extraction_ref", "folder_path", "document_type", "file_name", "revision_of", "revision_of_id", "authored_by", "approved_by", "approved_at", "producer", "mail_thread", "mail_origin", "screening"] as const
 
 /** The priorities `POST /v1/ingest` accepts: `IngestRequest.priority` in `apps/agent-host/src/agent_host/models/requests.py`. */
 export const INGEST_PRIORITIES = ["interactive", "bulk"] as const

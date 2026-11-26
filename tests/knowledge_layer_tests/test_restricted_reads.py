@@ -285,7 +285,7 @@ def image_tool(monkeypatch):
 
     asked: list[tuple[str, str]] = []
 
-    async def _resolve(collection, file_name, organization_id=None, image_index=None):
+    async def _resolve(collection, file_name, organization_id=None, image_index=None, document_id=None):
         asked.append((collection, file_name))
         return ("org/doc/Gehalt.png", None)
 

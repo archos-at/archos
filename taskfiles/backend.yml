@@ -240,7 +240,8 @@ tasks:
   be:test:postgres:
     desc: >-
       The folder card builder's Postgres branch (production's SQL), the rename of
-      the row-level-security roles, and the metadata store's mail records, against a
+      the row-level-security roles, and the metadata store's mail records and its
+      keying by document id, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
       - >-
@@ -248,3 +249,4 @@ tasks:
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
         packages/agent/tests/knowledge/test_mail_facts.py
+        packages/agent/tests/knowledge/test_document_metadata_identity.py

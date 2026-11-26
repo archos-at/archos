@@ -9,7 +9,7 @@ import { commonLabels } from "../platform/namespaces";
 import { onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext, hardenedJobSecurityContext } from "../platform/security";
 import { BACKFILL_POD, BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
-import { AppSecrets, AppWiring, backendQdrantEnv } from "./config";
+import { AppSecrets, AppWiring, backendEnv, backendQdrantEnv } from "./config";
 import { backfillDatabaseEnv } from "./job-env";
 import { scaledCpuRequest } from "../config/cpu-requests";
 
@@ -48,7 +48,21 @@ export interface QdrantBackfill extends Common {
   kind: "qdrant";
   command: string[];
 }
-export type Backfill = SqlBackfill | QdrantBackfill;
+export interface BackendBackfill extends Common {
+  kind: "backend";
+  command: string[];
+}
+export type Backfill = SqlBackfill | QdrantBackfill | BackendBackfill;
+
+export const BACKEND_BACKFILL_ENV = [
+  "QDRANT_URL",
+  "QDRANT_API_KEY",
+  "QDRANT_SHARD_NUMBER",
+  "QDRANT_REPLICATION_FACTOR",
+  "SUMMARY_DB",
+  "FRONTEND_INTERNAL_URL",
+  "INTERNAL_API_TOKEN",
+] as const;
 
 function invalid(name: string, why: string): never {
   throw new Error(`backfill ${name}: ${why}`);
@@ -88,14 +102,14 @@ function readManifest(dir: string, name: string): Backfill {
       apply: raw.apply as string,
     };
   }
-  if (kind === "qdrant") {
+  if (kind === "qdrant" || kind === "backend") {
     const { command } = raw;
     if (!Array.isArray(command) || command.length === 0 || !command.every((c) => typeof c === "string" && c)) {
       invalid(name, "command must be the dry run's argv in the backend image");
     }
     return { ...common, kind, command: command as string[] };
   }
-  return invalid(name, `kind must be sql or qdrant, got ${JSON.stringify(kind)}`);
+  return invalid(name, `kind must be sql, qdrant or backend, got ${JSON.stringify(kind)}`);
 }
 
 export function loadBackfills(dir = BACKFILLS_DIR): Backfill[] {
@@ -137,7 +151,12 @@ function sqlContainer(b: SqlBackfill): Container {
 
 export const QDRANT_SEQUENCE = 'set -e; "$@"; "$@" --apply; "$@" --check';
 
-function qdrantContainer(w: AppWiring, cfg: DeployConfig, b: QdrantBackfill): Container {
+function backendBackfillEnv(w: AppWiring): Container["env"] {
+  const wanted = new Set<string>(BACKEND_BACKFILL_ENV);
+  return backendEnv(w).filter((e) => typeof e.name === "string" && wanted.has(e.name));
+}
+
+function backendImageContainer(w: AppWiring, cfg: DeployConfig, b: QdrantBackfill | BackendBackfill): Container {
   return {
     name: b.name,
     image: backendImage(cfg),
@@ -149,7 +168,7 @@ function qdrantContainer(w: AppWiring, cfg: DeployConfig, b: QdrantBackfill): Co
       runAsGroup: UID.backend,
     },
     resources: scaledCpuRequest(LIGHT_WORKER_RESOURCES),
-    env: backendQdrantEnv(w),
+    env: b.kind === "qdrant" ? backendQdrantEnv(w) : backendBackfillEnv(w),
     command: ["sh", "-c", QDRANT_SEQUENCE, b.name, ...b.command],
   };
 }
@@ -191,7 +210,7 @@ export function installBackfills(
             restartPolicy: "Never",
             ...onNodeGroup(cfg.nodeGroups.app),
             volumes: [{ name: "backfills", configMap: { name: scripts.metadata.name } }],
-            initContainers: due.map((b) => (b.kind === "sql" ? sqlContainer(b) : qdrantContainer(w, cfg, b))),
+            initContainers: due.map((b) => (b.kind === "sql" ? sqlContainer(b) : backendImageContainer(w, cfg, b))),
             containers: [
               {
                 name: "done",

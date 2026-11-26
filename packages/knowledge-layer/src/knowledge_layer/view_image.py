@@ -14,6 +14,11 @@ from agent.common.image_view_budget import note_region_viewed
 from agent.common.image_view_budget import remaining_views_text
 from agent.common.image_view_budget import try_consume_image_view
 from agent.common.source_kinds import office_shelf_organization_id
+from agent.common.stored_file import DOCUMENT_FILE_PATH
+from agent.common.stored_file import AmbiguousDocumentName
+from agent.common.stored_file import ambiguous_name_message
+from agent.common.stored_file import document_file_query
+from agent.common.stored_file import names_several_documents
 from agent.knowledge.restricted_use import note_collections_read
 
 from .sheet.crop_text import CropText
@@ -85,20 +90,25 @@ def location_version(location: object) -> str | None:
 
 
 async def _resolve_storage_location(
-    collection: str, file_name: str, organization_id: str | None = None, image_index: int | None = None
+    collection: str,
+    file_name: str,
+    organization_id: str | None = None,
+    image_index: int | None = None,
+    *,
+    document_id: str | None = None,
 ) -> StorageLocation | None:
     if not bff_http.internal_token():
         return None
     try:
         if organization_id is None:
             organization_id = office_shelf_organization_id(collection)
-        params: dict[str, str] = {"collection": collection, "filename": file_name}
+        params = document_file_query(collection, file_name, document_id)
         if organization_id:
             params["organizationId"] = organization_id
         if image_index is not None:
             params["imageIndex"] = str(image_index)
         data = await asyncio.to_thread(
-            bff_http.get_json, "/api/internal/document-file", timeout=10.0, query=params, headers=_envelope_headers()
+            bff_http.get_json, DOCUMENT_FILE_PATH, timeout=10.0, query=params, headers=_envelope_headers()
         )
         if not isinstance(data, dict):
             return None
@@ -116,6 +126,11 @@ async def _resolve_storage_location(
             version_id if isinstance(version_id, str) and version_id else None,
             document_id if isinstance(document_id, str) and document_id else None,
         )
+    except bff_http.BffRefusedError as refusal:
+        if names_several_documents(refusal):
+            raise AmbiguousDocumentName(file_name) from None
+        logger.warning("look: storage-key lookup refused for %s/%s", collection, file_name, exc_info=True)
+        return None
     except Exception:  # noqa: BLE001 - fail-open contract
         logger.warning("look: storage-key lookup failed for %s/%s", collection, file_name, exc_info=True)
         return None
@@ -306,6 +321,7 @@ async def _stored_raster(
     region: Region | None,
     limits: ViewLimits,
     tool: str,
+    document_id: str | None = None,
 ) -> View | str:
     if image_index < 0:
         return f"[{tool}] Invalid image_index {image_index}: indices are 0-based."
@@ -314,7 +330,7 @@ async def _stored_raster(
             f"[{tool}] image_index addresses a raster stored beside a project or Bürobibliothek "
             f"document, and '{file_name}' was found in none of this turn's collections."
         )
-    location = await _resolve_storage_location(collection, file_name, image_index=image_index)
+    location = await _resolve_storage_location(collection, file_name, image_index=image_index, document_id=document_id)
     if location is None:
         return (
             f"[{tool}] No stored image {image_index} for '{file_name}' (the hit "
@@ -341,14 +357,14 @@ async def _stored_raster(
 
 
 async def _uploaded_image(
-    file_name: str, collection: str, region: Region | None, limits: ViewLimits, tool: str
+    file_name: str, collection: str, region: Region | None, limits: ViewLimits, tool: str, document_id: str | None
 ) -> View | str:
     if not collection:
         return (
             f"[{tool}] '{file_name}' is an uploaded image, and it was found in none of this "
             "turn's collections. Name it exactly as the inventory or a hit lists it."
         )
-    location = await _resolve_storage_location(collection, file_name)
+    location = await _resolve_storage_location(collection, file_name, document_id=document_id)
     if location is None:
         return (
             f"[{tool}] Could not locate the stored file for '{file_name}' "
@@ -371,7 +387,13 @@ async def _uploaded_image(
 
 
 async def _stored_pdf(
-    file_name: str, page_number: int, collection: str, region: Region | None, limits: ViewLimits, tool: str
+    file_name: str,
+    page_number: int,
+    collection: str,
+    region: Region | None,
+    limits: ViewLimits,
+    tool: str,
+    document_id: str | None,
 ) -> View | str:
     if not collection:
         return (
@@ -379,7 +401,7 @@ async def _stored_pdf(
             "base-corpus document nor in one of this turn's collections. Name it exactly as "
             "the inventory or a hit lists it."
         )
-    location = await _resolve_storage_location(collection, file_name)
+    location = await _resolve_storage_location(collection, file_name, document_id=document_id)
     if location is None:
         return (
             f"[{tool}] Could not locate the stored file for '{file_name}' "
@@ -448,6 +470,7 @@ async def render_view(
     *,
     limits: ViewLimits | None = None,
     tool: str = "look",
+    document_id: str | None = None,
 ) -> View | str:
     limits = limits or ViewLimits()
     collection = (collection or "").strip()
@@ -457,7 +480,11 @@ async def render_view(
         return refusal
     if page_number < 1:
         return f"[{tool}] Invalid page number {page_number}: pages are 1-based."
-    return _with_remaining(await _view(file_name, page_number, collection, image_index, parsed, limits, tool))
+    try:
+        viewed = await _view(file_name, page_number, collection, image_index, parsed, limits, tool, document_id)
+    except AmbiguousDocumentName:
+        return f"[{tool}] {ambiguous_name_message(file_name)}"
+    return _with_remaining(viewed)
 
 
 async def view_image(
@@ -491,12 +518,13 @@ async def _view(
     parsed: Region | None,
     limits: ViewLimits,
     tool: str,
+    document_id: str | None,
 ) -> View | str:
     if image_index is not None:
-        return await _stored_raster(file_name, page_number, collection, image_index, parsed, limits, tool)
+        return await _stored_raster(file_name, page_number, collection, image_index, parsed, limits, tool, document_id)
     if _is_standalone_image(file_name):
-        return await _uploaded_image(file_name, collection, parsed, limits, tool)
-    pdf_path = await asyncio.to_thread(_find_pdf, file_name)
+        return await _uploaded_image(file_name, collection, parsed, limits, tool, document_id)
+    pdf_path = None if document_id else await asyncio.to_thread(_find_pdf, file_name)
     if pdf_path is not None:
         return await _pdf_view(pdf_path, page_number, parsed, limits, file_name, "", tool)
-    return await _stored_pdf(file_name, page_number, collection, parsed, limits, tool)
+    return await _stored_pdf(file_name, page_number, collection, parsed, limits, tool, document_id)

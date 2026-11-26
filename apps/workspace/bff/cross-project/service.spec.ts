@@ -89,7 +89,7 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
         ...row,
       })),
       ...(state.siblingRows.get(projectId) ?? []),
-    ] as unknown as Array<{ filename: string; collectionName: string; createdAt: Date; authoredBy: string }>
+    ] as unknown as Array<{ id: string; filename: string; collectionName: string; createdAt: Date; authoredBy: string }>
   return {
     BACKEND_SEARCH_MAX_COLLECTIONS: actual.BACKEND_SEARCH_MAX_COLLECTIONS,
     projectsWithinCollectionCap: actual.projectsWithinCollectionCap,

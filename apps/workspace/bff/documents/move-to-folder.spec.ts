@@ -144,7 +144,7 @@ describe('moveDocumentToFolder', () => {
     expect(result.ok).toBe(true)
     expect(db.updates[0].folderId).toBe('folder-1')
     expect(fetchSpy.mock.calls[0][0]).toBe(
-      'http://backend:8000/v1/collections/proj_1/documents/Fluchtwegplan.pdf/folder-path',
+      'http://backend:8000/v1/collections/proj_1/documents/by-id/doc-1/folder-path',
     )
     expect(mirrorBody()).toEqual({ folder_path: 'Brandschutz/Fluchtwege' })
   })
@@ -535,7 +535,7 @@ describe('moveDocumentToFolder on the Archiv shelf', () => {
     expect(db.updates[0].folderId).toBe('folder-1')
     expect(requireProjectAccess).not.toHaveBeenCalled()
     expect(fetchSpy.mock.calls[0][0]).toBe(
-      'http://backend:8000/v1/collections/archiv_org-1/documents/Fluchtwegplan.pdf/folder-path',
+      'http://backend:8000/v1/collections/archiv_org-1/documents/by-id/doc-1/folder-path',
     )
     expect(mirrorBody()).toEqual({ folder_path: 'Normen/Brandschutz' })
   })

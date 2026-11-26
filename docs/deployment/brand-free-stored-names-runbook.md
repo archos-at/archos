@@ -180,12 +180,12 @@ the producer, so the prefix means nothing, and then renames it.
   The base corpus, law lookups and the vector reconcile sweep still delete by
   name: their points have no document row.
 - **Follow-up, not in this phase (owner decision):** `document_metadata` and
-  `document_revision_retained` are keyed by `(collection, filename)`, and so are
-  the listing, the tags, title and folder-path routes, the facets and the BFF's
-  search joins. After step 2 the purge no longer depends on the name, but the
-  summaries and metadata still join on it. Re-keying them by `document_id` is
-  its own project; until then step 3 rewrites the namespace in Postgres,
-  `document_metadata`, `document_revision_retained` and Qdrant together.
+  `document_revision_retained` were keyed by `(collection, filename)`, so step 3
+  rewrote the namespace in Postgres, `document_metadata`,
+  `document_revision_retained` and Qdrant together. They are keyed by
+  `document_id` since the documents-unique-per-folder change: its
+  `document-metadata-document-id` and `qdrant-document-id-stamp` backfills
+  (`after-switch`) give every row and point of a live user document its id.
 - **Contract:** stop writing `grid_document_id`, drop its index, run a batched
   `delete_payload` of it, and delete the legacy modules.
 

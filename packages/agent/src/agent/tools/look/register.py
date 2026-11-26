@@ -96,7 +96,13 @@ async def licence_of(resolved: Any) -> Any:
     if not collection:
         return None if getattr(resolved, "target", None) is None else unknown
     office = legacy_shelf_for_collection_name(collection) == Shelf.OFFICE_SHELF
-    return await asyncio.to_thread(document_licence, collection, resolved.file_name, unknown if office else None)
+    return await asyncio.to_thread(
+        document_licence,
+        collection,
+        resolved.file_name,
+        unknown if office else None,
+        document_id=getattr(resolved, "document_id", None),
+    )
 
 
 def refuse_unattested_look(licence: Any) -> None:
@@ -226,7 +232,14 @@ async def _run_look(
             result: list[dict] | str = resolved
         else:
             render = render_view(
-                resolved.file_name, page, resolved.collection, image_index, region, limits=limits, tool=TOOL
+                resolved.file_name,
+                page,
+                resolved.collection,
+                image_index,
+                region,
+                limits=limits,
+                tool=TOOL,
+                document_id=resolved.document_id,
             )
             if _may_glow(resolved):
                 _, rendered = await asyncio.gather(

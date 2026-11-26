@@ -4,8 +4,11 @@ import json
 import logging
 from collections.abc import Callable
 from collections.abc import Sequence
+from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
+from agent.knowledge.document_metadata_store import dismissed_revision_ids
 from agent.knowledge.document_metadata_store import dismissed_revisions
 from agent.knowledge.document_revisions import TITLE_BLOCK_CONFIDENCE
 from agent.knowledge.document_revisions import RevisionDocument
@@ -52,11 +55,25 @@ NAME_SERIES_CONFIDENCE = 0.9
 
 
 def _open_to_link(older: Any, newer: Any) -> bool:
+    if older.file_name == newer.file_name:
+        return False
     return not older.superseded_by and not newer.superseded_by and older.file_name not in (newer.supersedes or ())
 
 
 def _refused(newer: Any, older: Any) -> bool:
-    return older.file_name in dismissed_revisions(newer.revision_suggestion)
+    return _refused_by(newer.revision_suggestion, older)
+
+
+def _refused_by(suggestion: Any, older: Any) -> bool:
+    older_id = getattr(older, "document_id", None)
+    if older_id and older_id in dismissed_revision_ids(suggestion):
+        return True
+    return older.file_name in dismissed_revisions(suggestion)
+
+
+def _older_of(older: Any) -> dict[str, str]:
+    older_id = getattr(older, "document_id", None)
+    return {"of": older.file_name, **({"of_id": older_id} if older_id else {})}
 
 
 def _facts_only(row: Any) -> RevisionDocument:
@@ -90,7 +107,7 @@ def _title_block_pair(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any
             _facts_only(older),
         )
         suggestion = {
-            "of": older.file_name,
+            **_older_of(older),
             "confidence": TITLE_BLOCK_CONFIDENCE,
             "reason": reason,
             "basis": "title_block",
@@ -121,7 +138,7 @@ def _name_pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
             continue
         reason = f"Index/Datum im Dateinamen: {revision_label(head.revision)} nach {revision_label(older.revision)}"
         suggestion = {
-            "of": older.item.file_name,
+            **_older_of(older.item),
             "confidence": NAME_SERIES_CONFIDENCE,
             "reason": reason,
             "basis": "name",
@@ -130,14 +147,29 @@ def _name_pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
     return pairs
 
 
-def derive_suggestions(rows: Sequence[Any], held_names: Callable[[], set[str] | None]) -> dict[str, dict[str, Any]]:
+@dataclass(frozen=True)
+class Held:
+    ids: frozenset[str] = frozenset()
+    names: frozenset[str] = frozenset()
+    unidentified: frozenset[str] = frozenset()
+
+    def holds(self, row: Any) -> bool:
+        document_id = getattr(row, "document_id", None)
+        if document_id:
+            return document_id in self.ids or row.file_name in self.unidentified
+        return row.file_name in self.names
+
+
+def derive_suggestions(rows: Sequence[Any], held_documents: Callable[[], Held | None]) -> dict[str, dict[str, Any]]:
     if not _pairs(rows):
         return {}
-    held = held_names()
+    held = held_documents()
     if held is None:
         return {}
-    visible = [row for row in rows if row.file_name not in held]
-    return {newer.file_name: suggestion for newer, _, suggestion in _pairs(visible)}
+    visible = [row for row in rows if not held.holds(row)]
+    return {
+        getattr(newer, "document_id", None) or newer.file_name: suggestion for newer, _, suggestion in _pairs(visible)
+    }
 
 
 def _pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
@@ -172,20 +204,26 @@ def revision_document(
     )
 
 
-def held_file_names(collection: str) -> set[str] | None:
+def held_documents(collection: str) -> Held | None:
     try:
         from agent.knowledge import ingest_status_store
 
-        in_flight = ingest_status_store.in_flight_files([collection]).get(collection, [])
+        in_flight = ingest_status_store.in_flight_documents([collection]).get(collection, [])
         jobs = ingest_status_store.collection_jobs(collection, HELD_LOOKBACK_SECONDS)
     except Exception:  # noqa: BLE001 — unknown holds nothing back, so nothing is sent
         logger.warning("Could not read the held files of %s; no Fassung suggestion", collection, exc_info=True)
         return None
-    quarantined: dict[str, bool] = {}
+    quarantined: dict[tuple[str, str | None], bool] = {}
     for job in jobs:
+        document_id = ingest_status_store.job_document_id(job)
         for detail in job.file_details:
-            quarantined[detail.file_name] = detail.screening == "quarantined"
-    return set(in_flight) | {name for name, held in quarantined.items() if held}
+            quarantined[(detail.file_name, document_id)] = detail.screening == "quarantined"
+    held = [*in_flight, *(key for key, is_held in quarantined.items() if is_held)]
+    return Held(
+        ids=frozenset(document_id for _name, document_id in held if document_id),
+        names=frozenset(name for name, _document_id in held),
+        unidentified=frozenset(name for name, document_id in held if not document_id),
+    )
 
 
 def read_rows(collection: str) -> list[Any]:
@@ -198,17 +236,43 @@ def read_rows(collection: str) -> list[Any]:
         return []
 
 
-def previous_summary(rows: Sequence[Any], stored_names: Sequence[str]) -> str | None:
-    wanted = set(stored_names)
+def previous_summary(rows: Sequence[Any], previous: Any) -> str | None:
+    if previous is None:
+        return None
     for row in rows:
-        if row.file_name in wanted and (row.summary or "").strip():
+        if previous.holds(row) and (row.summary or "").strip():
             return row.summary
     return None
 
 
-def candidate_documents(file_name: str, rows: Sequence[Any], held: set[str]) -> list[RevisionDocument]:
-    own = next((row for row in rows if row.file_name == file_name), None)
-    refused = set(dismissed_revisions(own.revision_suggestion)) if own is not None else set()
+def _is_own_row(row: Any, file_name: str, document_id: str | None) -> bool:
+    row_id = getattr(row, "document_id", None)
+    if document_id and row_id:
+        return row_id == document_id
+    return row.file_name == file_name
+
+
+def _candidate_rows(file_name: str, rows: Sequence[Any], held: Held, document_id: str | None) -> list[Any]:
+    own = next((row for row in rows if _is_own_row(row, file_name, document_id)), None)
+    suggestion = own.revision_suggestion if own is not None else None
+    return [
+        row
+        for row in rows
+        if row.file_name != file_name
+        and not row.superseded_by
+        and (row.summary or "").strip()
+        and not held.holds(row)
+        and not _refused_by(suggestion, row)
+    ]
+
+
+def candidate_documents(
+    file_name: str, rows: Sequence[Any], held: Held, *, document_id: str | None = None
+) -> list[RevisionDocument]:
+    return _revision_documents(_candidate_rows(file_name, rows, held, document_id))
+
+
+def _revision_documents(rows: Sequence[Any]) -> list[RevisionDocument]:
     return [
         revision_document(
             row.file_name,
@@ -218,12 +282,13 @@ def candidate_documents(file_name: str, rows: Sequence[Any], held: set[str]) -> 
             revision_facts=row.revision_facts,
         )
         for row in rows
-        if row.file_name != file_name
-        and not row.superseded_by
-        and (row.summary or "").strip()
-        and row.file_name not in held
-        and row.file_name not in refused
     ]
+
+
+def _with_older_id(suggestion: dict[str, Any], candidates: Sequence[Any]) -> dict[str, Any]:
+    named = [row for row in candidates if row.file_name == suggestion.get("of")]
+    older_id = getattr(named[0], "document_id", None) if len(named) == 1 else None
+    return {**suggestion, "of_id": older_id} if older_id else suggestion
 
 
 def suggest_revision(
@@ -236,24 +301,25 @@ def suggest_revision(
     tags: Sequence[str] | None,
     llm: Any,
     revision_facts: dict[str, Any] | None = None,
+    document_id: str | None = None,
 ) -> dict[str, Any] | None:
-    held = held_file_names(collection)
+    held = held_documents(collection)
     if held is None:
         return None
-    candidates = candidate_documents(file_name, rows, held)
+    candidates = _candidate_rows(file_name, rows, held, document_id)
     if not candidates:
         return None
     verdict = judge_revision(
         revision_document(file_name, summary=summary, doc_class=doc_class, tags=tags, revision_facts=revision_facts),
-        candidates,
+        _revision_documents(candidates),
         llm,
     )
     if verdict is None:
         return None
     from agent.knowledge import set_document_revision_suggestion
 
-    suggestion = verdict.as_suggestion()
-    set_document_revision_suggestion(collection, file_name, suggestion)
+    suggestion = _with_older_id(verdict.as_suggestion(), candidates)
+    set_document_revision_suggestion(collection, file_name, suggestion, document_id=document_id)
     return suggestion
 
 
@@ -264,6 +330,7 @@ def record_change(
     previous: str | None,
     summary: str,
     llm: Any,
+    document_id: str | None = None,
 ) -> str | None:
     from agent.knowledge import set_document_change_summary
 
@@ -274,7 +341,7 @@ def record_change(
             RevisionDocument(file_name=file_name, summary=summary),
             llm,
         )
-    set_document_change_summary(collection, file_name, change, file_name if change else None)
+    set_document_change_summary(collection, file_name, change, file_name if change else None, document_id=document_id)
     return change
 
 
@@ -297,25 +364,27 @@ def confirm_revision(
     doc_class: str | None,
     tags: Sequence[str] | None,
     llm: Any,
+    document_id: str | None = None,
+    older_id: str | None = None,
 ) -> bool:
-    if older == file_name:
+    if _is_own_row(SimpleNamespace(file_name=older, document_id=older_id), file_name, document_id):
         return False
     from agent.knowledge import link_document_revision
     from agent.knowledge import set_document_change_summary
     from agent.knowledge.document_metadata_store import LinkOutcome
 
-    outcome = link_document_revision(collection, older, file_name)
+    outcome = link_document_revision(collection, older, file_name, older_id=older_id, newer_id=document_id)
     if outcome is not LinkOutcome.LINKED:
         logger.warning("Fassung chosen at upload: %s over %s in %s refused (%s)", file_name, older, collection, outcome)
         return False
     if llm is None:
         return True
-    older_row = next((row for row in read_rows(collection) if row.file_name == older), None)
+    older_row = next((row for row in read_rows(collection) if _is_own_row(row, older, older_id)), None)
     if older_row is None:
         return True
     change = summarize_change(
         RevisionDocument(
-            file_name=older,
+            file_name=older_row.file_name,
             summary=older_row.summary or "",
             doc_class=older_row.doc_class,
             tags=tuple(older_row.tags or ()),
@@ -324,7 +393,7 @@ def confirm_revision(
         llm,
     )
     if change:
-        set_document_change_summary(collection, file_name, change, older)
+        set_document_change_summary(collection, file_name, change, older_row.file_name, document_id=document_id)
     return True
 
 
@@ -341,13 +410,23 @@ def record_revisions(
     llm: Any,
     confirmed_older: str | None = None,
     revision_facts: dict[str, Any] | None = None,
+    document_id: str | None = None,
+    confirmed_older_id: str | None = None,
 ) -> None:
-    if confirmed_older and confirm_revision(
-        collection, file_name, confirmed_older, summary=summary, doc_class=doc_class, tags=tags, llm=llm
+    if (confirmed_older or confirmed_older_id) and confirm_revision(
+        collection,
+        file_name,
+        confirmed_older or "",
+        summary=summary,
+        doc_class=doc_class,
+        tags=tags,
+        llm=llm,
+        document_id=document_id,
+        older_id=confirmed_older_id,
     ):
         return
     if replaced:
-        record_change(collection, file_name, previous=previous, summary=summary, llm=llm)
+        record_change(collection, file_name, previous=previous, summary=summary, llm=llm, document_id=document_id)
         return
     suggest_revision(
         collection,
@@ -358,4 +437,5 @@ def record_revisions(
         tags=tags,
         llm=llm,
         revision_facts=revision_facts,
+        document_id=document_id,
     )

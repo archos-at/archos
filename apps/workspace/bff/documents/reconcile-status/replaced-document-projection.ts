@@ -35,7 +35,7 @@ export async function projectReplacedDocuments(
     await projectReadings(
       organizationId,
       refs.flatMap((entry) => {
-        const reading = readings.get(entry.ref.filename)
+        const reading = readings.get(entry.ref)
         return reading ? [{ documentId: entry.id, ...reading }] : []
       })
     )

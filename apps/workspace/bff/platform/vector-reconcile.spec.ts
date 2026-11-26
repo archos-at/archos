@@ -56,6 +56,7 @@ describe('reconcileOrphanedVectors: the project facts half', () => {
 const fetchMock = vi.fn()
 
 type Row = {
+  id?: string
   collectionName: string
   filename: string
   authoredBy: string
@@ -207,6 +208,68 @@ describe('reconcileOrphanedVectors', () => {
     const deleteCall = fetchMock.mock.calls[1]
     expect(deleteCall[1].method).toBe('DELETE')
     expect(JSON.parse(deleteCall[1].body)).toEqual({ file_ids: ['ghost.pdf'] })
+  })
+
+  describe('by document id', () => {
+    const listedWithIds = (files: Array<{ file_name: string; document_id?: string }>) => ({ ok: true, json: () => Promise.resolve(files) })
+
+    it('purges the chunks of a deleted document by its id, though a live document in another folder has its name', async () => {
+      stubRows([{ id: 'doc-einreichung', collectionName: 'proj_a', filename: 'Plan.pdf', authoredBy: 'user' }])
+      fetchMock.mockResolvedValueOnce(
+        listedWithIds([
+          { file_name: 'Plan.pdf', document_id: 'doc-einreichung' },
+          { file_name: 'Plan.pdf', document_id: 'doc-entwurf-geloescht' },
+        ])
+      )
+      fetchMock.mockResolvedValueOnce(deleteResponse(6))
+
+      const result = await reconcileOrphanedVectors()
+
+      expect(result.orphansFound).toBe(1)
+      expect(result.orphansDeleted).toBe(6)
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+        file_ids: ['Plan.pdf'],
+        documents: [{ id: 'doc-entwurf-geloescht', file_name: 'Plan.pdf' }],
+      })
+    })
+
+    it('keeps every live document’s chunks when two of them share a name', async () => {
+      stubRows([
+        { id: 'doc-entwurf', collectionName: 'proj_a', filename: 'Plan.pdf', authoredBy: 'user' },
+        { id: 'doc-einreichung', collectionName: 'proj_a', filename: 'Plan.pdf', authoredBy: 'user' },
+      ])
+      fetchMock.mockResolvedValueOnce(
+        listedWithIds([
+          { file_name: 'Plan.pdf', document_id: 'doc-entwurf' },
+          { file_name: 'Plan.pdf', document_id: 'doc-einreichung' },
+        ])
+      )
+
+      const result = await reconcileOrphanedVectors()
+
+      expect(result.orphansFound).toBe(0)
+      expect(callsBeforeDocumentFacts().some((call) => call[1]?.method === 'DELETE')).toBe(false)
+    })
+
+    it('purges chunks without a document id by name and chunks with one by id, in one sweep', async () => {
+      stubRows([{ id: 'doc-live', collectionName: 'proj_a', filename: 'live.pdf', authoredBy: 'user' }])
+      fetchMock.mockResolvedValueOnce(
+        listedWithIds([
+          { file_name: 'live.pdf', document_id: 'doc-live' },
+          { file_name: 'alt.pdf', document_id: 'doc-gone' },
+          { file_name: 'ghost.pdf' },
+        ])
+      )
+      fetchMock.mockResolvedValueOnce(deleteResponse(2))
+      fetchMock.mockResolvedValueOnce(deleteResponse(1))
+
+      const result = await reconcileOrphanedVectors()
+
+      expect(result.orphansFound).toBe(2)
+      expect(result.orphansDeleted).toBe(3)
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['alt.pdf'], documents: [{ id: 'doc-gone', file_name: 'alt.pdf' }] })
+      expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ file_ids: ['ghost.pdf'] })
+    })
   })
 
   it('does not delete the chunks of a document filed after the snapshot was taken', async () => {

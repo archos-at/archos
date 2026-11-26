@@ -7,7 +7,9 @@ from agent.common import seaweed_s3
 
 DOCUMENT_FILE_PATH = "/api/internal/document-file"
 
-Reason = Literal["refused", "unreachable", "missing", "no_store", "too_large", "read_failed"]
+AMBIGUOUS_NAME = "ambiguous_name"
+
+Reason = Literal["refused", "unreachable", "missing", "no_store", "too_large", "read_failed", "ambiguous"]
 
 
 class StoredFileUnavailable(Exception):
@@ -17,13 +19,45 @@ class StoredFileUnavailable(Exception):
         self.size = size
 
 
-def locate_stored_file(collection: str, file_name: str, headers: dict[str, str]) -> tuple[str, str]:
+class AmbiguousDocumentName(Exception):
+    def __init__(self, file_name: str) -> None:
+        super().__init__(file_name)
+        self.file_name = file_name
+
+
+def ambiguous_name_message(file_name: str) -> str:
+    return (
+        f"Ambiguous: more than one document here is called '{file_name}'; they lie in different folders. Ask the "
+        "person which one is meant, then name it by its document id or its folder path (Ordner/Name, /Name at "
+        "the top level); never pick one."
+    )
+
+
+def document_file_query(collection: str, file_name: str, document_id: str | None = None) -> dict[str, str]:
+    query = {"collection": collection, "filename": file_name}
+    if document_id:
+        query["documentId"] = document_id
+    return query
+
+
+def names_several_documents(refusal: bff_http.BffRefusedError) -> bool:
+    details = refusal.body.get("details")
+    reason = details.get("reason") if isinstance(details, dict) else refusal.body.get("reason")
+    return refusal.status == 409 and reason == AMBIGUOUS_NAME
+
+
+def locate_stored_file(
+    collection: str, file_name: str, headers: dict[str, str], *, document_id: str | None = None
+) -> tuple[str, str]:
     try:
         body = bff_http.get_json(
-            DOCUMENT_FILE_PATH, timeout=10.0, query={"collection": collection, "filename": file_name}, headers=headers
+            DOCUMENT_FILE_PATH,
+            timeout=10.0,
+            query=document_file_query(collection, file_name, document_id),
+            headers=headers,
         )
     except bff_http.BffRefusedError as exc:
-        raise StoredFileUnavailable("refused") from exc
+        raise StoredFileUnavailable("ambiguous" if names_several_documents(exc) else "refused") from exc
     except bff_http.BffError as exc:
         raise StoredFileUnavailable("unreachable") from exc
     key = body.get("storageKey") if isinstance(body, dict) else None

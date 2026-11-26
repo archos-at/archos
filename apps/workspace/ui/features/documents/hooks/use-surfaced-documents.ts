@@ -9,9 +9,13 @@ import {
   resetDocumentsByNameCache,
   resolveDocumentsByName,
 } from '../lib/documents-by-name'
+import { resetDocumentsByIdCache, resolveDocumentsById } from '../documents-by-id'
+import { isDocumentId } from '../document-id'
+import { toFileItem } from '../lib/file-item'
 
 export interface SurfacedDocument {
   file_name: string
+  document_id?: string | null
   summary?: string | null
   snippet?: string | null
   page?: number | null
@@ -28,10 +32,18 @@ export interface ResolvedSurfacedDocument {
   docSource: 'project' | 'office' | null
 }
 
+type NameIndex = Map<string, FileItem | null>
+
 interface SurfacedIndex {
+  project: NameIndex
+  officeShelf: NameIndex
+  session: NameIndex
+  error: boolean
+}
+
+interface IdentifiedIndex {
   project: Map<string, FileItem>
   officeShelf: Map<string, FileItem>
-  session: Map<string, FileItem>
   error: boolean
 }
 
@@ -43,6 +55,7 @@ const cacheKey = (projectId: string | null, conversationId: string | null): stri
 export const resetSurfacedDocumentsCache = (): void => {
   indexCache.clear()
   resetDocumentsByNameCache()
+  resetDocumentsByIdCache()
 }
 
 onDocumentsChanged(resetSurfacedDocumentsCache)
@@ -60,32 +73,32 @@ async function fetchCorpus(
   }
 }
 
-function indexByFilename(rows: unknown): Map<string, FileItem> {
-  const map = new Map<string, FileItem>()
+function indexByFilename(rows: unknown): NameIndex {
+  const map: NameIndex = new Map()
   if (!Array.isArray(rows)) return map
   for (const row of rows) {
     if (!row || typeof row !== 'object') continue
     const file = row as FileItem
     if (typeof file.id !== 'string' || typeof file.filename !== 'string') continue
-    const key = file.filename.toLowerCase()
+    const key = documentNameLookupKey(file.filename)
     const existing = map.get(key)
-    if (!existing || new Date(file.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
-      map.set(key, file)
-    }
+    map.set(key, existing === undefined || existing?.id === file.id ? file : null)
   }
   return map
 }
 
-const corpusLookup = (corpus: Map<string, FileItem>, fileName: string): FileItem | undefined =>
-  corpus.get(fileName.trim().toLowerCase())
+const corpusLookup = (corpus: NameIndex, fileName: string): FileItem | undefined =>
+  corpus.get(documentNameLookupKey(fileName)) ?? undefined
 
-export async function resolveStoredDocument(
-  projectId: string | null,
-  fileName: string,
-  source: 'project' | 'office',
-): Promise<FileItem | null> {
-  const index = await loadNamedIndex(projectId, [fileName])
-  return corpusLookup(source === 'office' ? index.officeShelf : index.project, fileName) ?? null
+async function loadIdentified(projectId: string | null, ids: readonly string[]): Promise<IdentifiedIndex> {
+  const found = await resolveDocumentsById(projectId, ids)
+  const pick = (side: 'project' | 'officeShelf') =>
+    new Map([...found].flatMap(([id, answer]) => (answer[side] ? [[id, toFileItem(answer[side])] as const] : [])))
+  return {
+    project: pick('project'),
+    officeShelf: pick('officeShelf'),
+    error: [...found.values()].some((answer) => answer.error),
+  }
 }
 
 async function loadNamedIndex(projectId: string | null, names: readonly string[]): Promise<SurfacedIndex> {
@@ -110,13 +123,16 @@ export async function storedFileIndex(
 ): Promise<Map<string, StoredFile>> {
   const index = await loadSurfacedIndex(projectId, conversationId)
   const byName = new Map<string, StoredFile>()
-  const corpora: ReadonlyArray<readonly [DocumentCorpus, Map<string, FileItem>]> = [
+  const corpora: ReadonlyArray<readonly [DocumentCorpus, NameIndex]> = [
     ['session', index.session],
     ['office', index.officeShelf],
     ['project', index.project],
   ]
   for (const [corpus, rows] of corpora) {
-    for (const [key, file] of rows) byName.set(key, { file, corpus })
+    for (const [key, file] of rows) {
+      if (file) byName.set(key, { file, corpus })
+      else byName.delete(key)
+    }
   }
   return byName
 }
@@ -163,31 +179,44 @@ export function useSurfacedDocuments(
   documents: SurfacedDocument[],
   projectId: string | null
 ): { resolved: ResolvedSurfacedDocument[]; isLoading: boolean; error: boolean; retry: () => void } {
-  const [index, setIndex] = useState<SurfacedIndex | null>(null)
+  const [index, setIndex] = useState<{ named: SurfacedIndex; identified: IdentifiedIndex } | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const generation = useDocumentsGeneration()
 
   const namesKey = useMemo(
-    () => JSON.stringify([...new Set(documents.map((doc) => documentNameLookupKey(doc.file_name)))].sort()),
+    () =>
+      JSON.stringify(
+        [...new Set(documents.filter((doc) => !isDocumentId(doc.document_id)).map((doc) => documentNameLookupKey(doc.file_name)))].sort()
+      ),
+    [documents]
+  )
+  const idsKey = useMemo(
+    () => JSON.stringify([...new Set(documents.flatMap((doc) => (isDocumentId(doc.document_id) ? [doc.document_id] : [])))].sort()),
     [documents]
   )
 
   useEffect(() => {
     let cancelled = false
     setIndex(null)
-    loadNamedIndex(projectId, JSON.parse(namesKey) as string[])
-      .then((loaded) => {
-        if (!cancelled) setIndex(loaded)
+    Promise.all([
+      loadNamedIndex(projectId, JSON.parse(namesKey) as string[]),
+      loadIdentified(projectId, JSON.parse(idsKey) as string[]),
+    ])
+      .then(([named, identified]) => {
+        if (!cancelled) setIndex({ named, identified })
       })
       .catch(() => {
         if (!cancelled) {
-          setIndex({ project: new Map(), officeShelf: new Map(), session: new Map(), error: true })
+          setIndex({
+            named: { project: new Map(), officeShelf: new Map(), session: new Map(), error: true },
+            identified: { project: new Map(), officeShelf: new Map(), error: true },
+          })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [projectId, namesKey, reloadTick, generation])
+  }, [projectId, namesKey, idsKey, reloadTick, generation])
 
   const retry = useCallback(() => {
     setReloadTick((t) => t + 1)
@@ -199,22 +228,38 @@ export function useSurfacedDocuments(
         const key = `${surfaced.file_name}-${i}`
         if (!index) return { key, surfaced, file: null, docSource: null }
 
+        if (isDocumentId(surfaced.document_id)) {
+          const { project, officeShelf } = index.identified
+          const inProject = surfaced.source === 'office' ? undefined : project.get(surfaced.document_id)
+          const inOffice = surfaced.source === 'project' ? undefined : officeShelf.get(surfaced.document_id)
+          if (inProject) return { key, surfaced, file: inProject, docSource: 'project' }
+          if (inOffice) return { key, surfaced, file: inOffice, docSource: 'office' }
+          return { key, surfaced, file: null, docSource: null }
+        }
+
+        const named = index.named
         if (surfaced.source === 'project' || surfaced.source === 'office') {
-          const map = surfaced.source === 'office' ? index.officeShelf : index.project
+          const map = surfaced.source === 'office' ? named.officeShelf : named.project
           const hit = corpusLookup(map, surfaced.file_name)
           return hit
             ? { key, surfaced, file: hit, docSource: surfaced.source }
             : { key, surfaced, file: null, docSource: null }
         }
 
-        const inProject = corpusLookup(index.project, surfaced.file_name)
+        const inProject = named.project.get(documentNameLookupKey(surfaced.file_name))
         if (inProject) return { key, surfaced, file: inProject, docSource: 'project' }
-        const inOfficeShelf = corpusLookup(index.officeShelf, surfaced.file_name)
+        if (inProject === null) return { key, surfaced, file: null, docSource: null }
+        const inOfficeShelf = corpusLookup(named.officeShelf, surfaced.file_name)
         if (inOfficeShelf) return { key, surfaced, file: inOfficeShelf, docSource: 'office' }
         return { key, surfaced, file: null, docSource: null }
       }),
     [documents, index]
   )
 
-  return { resolved, isLoading: index === null, error: index?.error ?? false, retry }
+  return {
+    resolved,
+    isLoading: index === null,
+    error: (index?.named.error ?? false) || (index?.identified.error ?? false),
+    retry,
+  }
 }

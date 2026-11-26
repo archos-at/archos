@@ -28,10 +28,10 @@ _NO_CLAUSES_LINE = (
 _EXCERPT_CHARS = 120
 
 
-def _outline_filters(file_name: str) -> dict[str, Any]:
+def _outline_filters(target: PassageTarget) -> dict[str, Any]:
     return {
         "$and": [
-            {"file_name": {"$eq": file_name}},
+            target.selector,
             {
                 "$or": [
                     {"clause_id": {"$eq": "0"}},
@@ -43,8 +43,8 @@ def _outline_filters(file_name: str) -> dict[str, Any]:
     }
 
 
-def _whole_document_filters(file_name: str) -> dict[str, Any]:
-    return {"file_name": {"$eq": file_name}}
+def _whole_document_filters(target: PassageTarget) -> dict[str, Any]:
+    return target.selector
 
 
 def _covers_page(chunk: Any, page: int) -> bool:

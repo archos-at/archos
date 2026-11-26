@@ -33,6 +33,8 @@ def resolve_in(files: Sequence[EstateFile], parsed: EstatePath) -> Resolution:
     folder = fold(parsed.folder)
     same_folder = [file for file in matches if parsed.mount == "law" or fold(file.row.folder) == folder]
     listable = [file for file in matches if not file.restricted]
+    if not same_folder and len(listable) > 1:
+        return Resolution(file=None, question=_which_of(parsed, listable))
     chosen = (same_folder or listable or [None])[0]
     if chosen is None:
         return Resolution(file=None, suggestions=_suggestions(in_mount, parsed))
@@ -40,6 +42,15 @@ def resolve_in(files: Sequence[EstateFile], parsed: EstatePath) -> Resolution:
     if parsed.mount != "law" and fold(chosen.row.folder) != folder and folder:
         note = f"Moved: {parsed.path} is now {chosen.path}."
     return Resolution(file=chosen, note=note)
+
+
+def _which_of(parsed: EstatePath, candidates: Sequence[EstateFile]) -> str:
+    shown = sorted(file.path for file in candidates)[:MAX_SUGGESTIONS]
+    paths = "\n".join(f"- {path}" for path in shown)
+    return (
+        f'No file "{parsed.path}", and {len(candidates)} files in other folders carry its name:\n{paths}\n'
+        "Read the one you mean by its full path."
+    )
 
 
 def _suggestions(files: Sequence[EstateFile], parsed: EstatePath) -> list[str]:

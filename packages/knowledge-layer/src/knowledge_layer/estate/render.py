@@ -146,9 +146,10 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
-def document_licence(collection: str, file_name: str, *, unindexed: Any = None) -> Any:
+def document_licence(collection: str, file_name: str, *, unindexed: Any = None, document_id: str | None = None) -> Any:
     import os
 
+    from knowledge_layer.vector_store import document_chunks
     from knowledge_layer.vector_store import get_store
 
     if not (os.environ.get("QDRANT_URL") or "").strip():
@@ -164,7 +165,7 @@ def document_licence(collection: str, file_name: str, *, unindexed: Any = None) 
 
     fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
     try:
-        records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
+        records = list(get_store().scroll(collection, document_chunks(file_name, document_id), limit=1, fields=fields))
     except Exception:  # noqa: BLE001 - fails closed, see the docstring
         return LicenceTerms(licence_class=LICENSED)
     return licence_from_metadata(records[0].payload or {}) if records else unindexed
@@ -180,25 +181,29 @@ def file_licence(row: Any) -> Any:
             "ai_processing_attested": row.ai_processing_attested,
         }
     )
-    return stated or document_licence(row.collection, row.file_name)
+    return stated or document_licence(row.collection, row.file_name, document_id=row.document_id)
 
 
 _RECALL_POINTS = 4000
 
 
-def licensed_passage_sources(collection: str, file_name: str, page: int | None) -> tuple[Any, list[str]]:
+def licensed_passage_sources(
+    collection: str, file_name: str, page: int | None, *, document_id: str | None = None
+) -> tuple[Any, list[str]]:
     import asyncio
 
     from knowledge_layer.vector_store import TEXT_FIELD
+    from knowledge_layer.vector_store import document_chunks
     from knowledge_layer.vector_store import get_store
 
-    terms = document_licence(collection, file_name)
+    terms = document_licence(collection, file_name, document_id=document_id)
     if terms is None or not terms.licensed or not terms.ai_processing:
         return terms, []
-    filters = {"file_name": file_name} | ({"page_label": str(page)} if page is not None else {})
+    filters = document_chunks(file_name, document_id) | ({"page_label": str(page)} if page is not None else {})
     points = get_store().scroll(collection, filters, limit=_RECALL_POINTS, fields=[TEXT_FIELD])
     texts = [str((point.payload or {}).get(TEXT_FIELD) or "") for point in points]
-    pages = asyncio.run(stored_pages.read_pages(collection, file_name, wanted={page} if page else None))
+    wanted = {page} if page else None
+    pages = asyncio.run(stored_pages.read_pages(collection, file_name, wanted=wanted, document_id=document_id))
     texts += [found.text for found in (pages.pages if pages else []) if page is None or found.number == page]
     return terms, [text for text in texts if text]
 
@@ -215,6 +220,7 @@ def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: 
     return GroundingHit(
         citation_key=_citation_key_for(file.row.file_name, shelf, number, set()),
         file_name=file.row.file_name,
+        document_id=file.row.document_id,
         page=number,
         shelf=shelf,
         collection=file.row.collection or None,
@@ -250,6 +256,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
     return GroundingHit(
         citation_key=_citation_key_for(file.row.file_name, shelf, page, set()),
         file_name=file.row.file_name,
+        document_id=file.row.document_id,
         page=page,
         shelf=shelf,
         collection=file.row.collection or None,

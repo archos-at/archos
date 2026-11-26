@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -31,7 +32,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 @pytest.fixture
 def retriever(qdrant_store, monkeypatch) -> LlamaIndexRetriever:
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {})
+    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None, *, document_ids=None: {})
     monkeypatch.setattr(project_context, "get_organization_id_from_context", lambda: "org_test")
     instance = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     instance._initialized = True
@@ -43,6 +44,17 @@ def retriever(qdrant_store, monkeypatch) -> LlamaIndexRetriever:
 
 def _row(text: str, file_name: str, **metadata: Any) -> ChunkRecord:
     return _record(text, file_name, page_label="2", _node_content="{...}", **metadata)
+
+
+def _metadata_rows(monkeypatch, rows: dict[str, dict[str, Any]]) -> None:
+    def documents(scope, names=None, *, document_ids=None):
+        wanted = set(names or rows)
+        return [
+            SimpleNamespace(file_name=name, document_id=None, **row) for name, row in rows.items() if name in wanted
+        ]
+
+    monkeypatch.setattr("agent.knowledge.get_documents", documents)
+    monkeypatch.setattr("agent.knowledge.get_available_documents", documents)
 
 
 def _ingest(retriever: LlamaIndexRetriever, scope: str, rows: list[ChunkRecord], **config: Any) -> None:
@@ -230,8 +242,9 @@ def test_adapter_never_imports_qdrant_client():
 
 def test_refresh_facts_copies_a_persons_edit_onto_the_points(retriever, monkeypatch):
     _ingest(retriever, "proj_a", [_row("eins", "a.pdf"), _row("zwei", "b.pdf")])
-    facts = {"a.pdf": {"tags": ["bescheid"], "superseded": True, "doc_class": "Baubescheid"}}
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {n: facts[n] for n in (names or facts)})
+    _metadata_rows(
+        monkeypatch, {"a.pdf": {"tags": ["bescheid"], "superseded_by": "neu.pdf", "doc_class": "Baubescheid"}}
+    )
     writes.refresh_facts("proj_a", ["a.pdf"])
     store = store_module.get_store()
     assert store.count("proj_a", {"tags": "bescheid"}) == 1
@@ -241,19 +254,20 @@ def test_refresh_facts_copies_a_persons_edit_onto_the_points(retriever, monkeypa
 
 def test_copy_facts_repairs_a_copy_refresh_facts_swallowed_and_counts_the_files(retriever, monkeypatch):
     _ingest(retriever, "proj_a", [_row("eins", "a.pdf"), _row("zwei", "b.pdf")])
-    facts = {"a.pdf": {"tags": ["bescheid"], "superseded": True}, "b.pdf": {"tags": ["plan"]}}
 
-    def metadata_store_down(scope, names=None):
+    def metadata_store_down(scope, names=None, *, document_ids=None):
         raise RuntimeError("metadata store down")
 
-    monkeypatch.setattr(writes, "facts_by_file", metadata_store_down)
+    monkeypatch.setattr("agent.knowledge.get_available_documents", metadata_store_down)
     writes.refresh_facts("proj_a")  # the edit's copy: logged, never raised
     with pytest.raises(RuntimeError):
         writes.copy_facts("proj_a")
     store = store_module.get_store()
     assert store.count("proj_a", {"tags": "bescheid"}) == 0
 
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {n: facts[n] for n in (names or facts)})
+    _metadata_rows(
+        monkeypatch, {"a.pdf": {"tags": ["bescheid"], "superseded_by": "neu.pdf"}, "b.pdf": {"tags": ["plan"]}}
+    )
     assert writes.copy_facts("proj_a") == 2
     assert store.count("proj_a", {"tags": "bescheid"}) == 1
     assert store.count("proj_a", {"superseded": True}) == 1
@@ -656,7 +670,7 @@ def test_clearing_many_dokumentarten_restores_them_in_one_batch(retriever, metad
     _ingest(retriever, "proj_a", [_row(f"Plan {name}", name, doc_class="einreichplan") for name in names])
     store = store_module.get_store()
     store.set_file_payloads("proj_a", {name: {"doc_class": "bescheid"} for name in names})
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {name: {"tags": []} for name in names})
+    _metadata_rows(monkeypatch, {name: {} for name in names})
     calls = {"batch_update_points": 0}
     real = store.client.batch_update_points
 

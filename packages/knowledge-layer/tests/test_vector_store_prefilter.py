@@ -94,11 +94,6 @@ def test_payload_derives_ancestors_from_the_folder_that_won():
     assert schema.INDEXED_FIELDS >= {"folder_ancestors", "doc_class", "superseded"}
 
 
-def test_without_files_drops_only_the_named_files():
-    chunks = [SimpleNamespace(file_name=name) for name in ("a.pdf", "b.pdf", "a.pdf")]
-    assert [chunk.file_name for chunk in prefilter.without_files(chunks, ["a.pdf"])] == ["b.pdf"]
-
-
 @pytest.fixture
 def qdrant_env(qdrant_store):
     return qdrant_store
@@ -154,7 +149,9 @@ def _ingest(retriever: LlamaIndexRetriever, monkeypatch, docs=DOCS, skip_facts: 
 
     facts = {doc.file_name: document_facts(doc) for doc in docs if doc.file_name not in skip_facts}
     monkeypatch.setattr(
-        writes, "facts_by_file", lambda scope, names=None: {n: facts[n] for n in names or facts if n in facts}
+        writes,
+        "facts_by_file",
+        lambda scope, names=None, *, document_ids=None: {n: facts[n] for n in names or facts if n in facts},
     )
     for doc in docs:
         writes.write_chunks(PROJECT, doc.file_name, rows(doc), identity=retriever._identity())
@@ -191,13 +188,16 @@ async def test_superseded_is_hidden_on_user_shelves_unless_a_file_is_named(retri
 
 def test_ingest_keeps_the_jobs_folder_until_the_store_has_one(retriever, monkeypatch):
     doc = _doc("Neu.pdf", folder=None)
-    monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {"Neu.pdf": document_facts(doc)})
+    monkeypatch.setattr(
+        writes, "facts_by_file", lambda scope, names=None, *, document_ids=None: {"Neu.pdf": document_facts(doc)}
+    )
     row = ChunkRecord(str(uuid.uuid4()), "Text", _vector("neu"), {"file_name": "Neu.pdf"})
     config = {"folder_path": "Brandschutz/EG"}
     writes.write_chunks(PROJECT, "Neu.pdf", [row], identity=retriever._identity(), config=config)
     store = store_module.get_store()
     assert store.count(PROJECT, {"folder_ancestors": "brandschutz"}) == 1
 
+    monkeypatch.setattr("agent.knowledge.get_documents", lambda scope, names, *, document_ids=None: [doc])
     writes.refresh_facts(PROJECT, ["Neu.pdf"])  # the store now says: the root
     assert store.count(PROJECT, {"folder_ancestors": "brandschutz"}) == 0
 

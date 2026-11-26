@@ -29,9 +29,10 @@ BODY = {
 
 
 class _Store:
-    def __init__(self, chunks: int = 3, exists: bool = True) -> None:
-        self.chunks, self.present = chunks, exists
+    def __init__(self, chunks: int = 3, exists: bool = True, documents: tuple[str, ...] = ()) -> None:
+        self.chunks, self.present, self.documents = chunks, exists, documents
         self.written: list[tuple[str, dict]] = []
+        self.keys: list[str] = []
         self.counted: list[tuple[str, dict]] = []
 
     def exists(self, scope: str) -> bool:
@@ -41,8 +42,13 @@ class _Store:
         self.counted.append((scope, filters))
         return self.chunks
 
-    def set_file_payloads(self, scope: str, payloads: dict) -> None:
+    def facet_counts(self, scope: str, key: str, filters: dict) -> dict[str, int]:
+        assert key == "document_id"
+        return {document_id: self.chunks for document_id in self.documents}
+
+    def set_file_payloads(self, scope: str, payloads: dict, *, key: str = "file_name") -> None:
         self.written.append((scope, payloads))
+        self.keys.append(key)
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ def _row(name, facts=None, **kwargs) -> AvailableDocument:
 
 
 def _held(names=()):
-    return lambda: set(names)
+    return lambda: revisions.Held(names=frozenset(names), unidentified=frozenset(names))
 
 
 B, C = "Grundriss_EG_Index_B.pdf", "Grundriss_EG_Index_C.pdf"
@@ -123,6 +123,14 @@ class TestByTheTitleBlocks:
             == {}
         )
 
+    def test_a_namesake_in_another_folder_is_never_a_revision(self):
+        rows = [
+            _row("Plan.pdf", {"document_number": "A-101", "revision": "B"}, document_id="doc-eg"),
+            _row("Plan.pdf", {"document_number": "A-101", "revision": "C"}, document_id="doc-og"),
+        ]
+
+        assert revisions.derive_suggestions(rows, _held()) == {}
+
     def test_it_covers_the_file_so_the_name_reading_does_not_speak_twice(self):
         rows = [
             _row(B, {"document_number": "A-101", "revision": "B"}),
@@ -190,6 +198,32 @@ class TestInTheListing:
         from agent_host.routes.documents import _held_names_of
 
         seen = []
-        monkeypatch.setattr(revisions, "held_file_names", lambda collection: seen.append(collection) or {"x.pdf"})
-        assert _held_names_of("proj_a")() == {"x.pdf"}
+        held = revisions.Held(names=frozenset({"x.pdf"}))
+        monkeypatch.setattr(revisions, "held_documents", lambda collection: seen.append(collection) or held)
+        assert _held_names_of("proj_a")() is held
         assert seen == ["proj_a"]
+
+
+def test_a_suggestion_for_a_document_with_an_id_is_keyed_by_that_id():
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c")]
+
+    assert list(revisions.derive_suggestions(rows, _held())) == ["doc-c"]
+
+
+def test_a_derived_suggestion_names_the_older_document_by_id_beside_its_name():
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c")]
+
+    suggestion = revisions.derive_suggestions(rows, _held())["doc-c"]
+
+    assert (suggestion["of"], suggestion["of_id"]) == (B, "doc-b")
+
+
+def test_an_older_document_without_an_id_is_named_alone():
+    assert "of_id" not in revisions.derive_suggestions([_row(B), _row(C)], _held())[C]
+
+
+def test_a_refusal_by_id_keeps_the_older_namesake_out():
+    refused = {"of": B, "of_id": "doc-b", "dismissed": True, "confidence": 0.9, "reason": "", "basis": "name"}
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c", revision_suggestion=refused)]
+
+    assert revisions.derive_suggestions(rows, _held()) == {}

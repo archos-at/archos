@@ -9,6 +9,9 @@ from agent.common.grounding_block import SourceRegion
 from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import legacy_shelf_for_collection_name
+from agent.knowledge.inventory import names_shared_in_turn
+
+from ..canvas.target import row_with_id
 
 TOOL = "look"
 
@@ -20,6 +23,8 @@ class PlaceFacts:
     shelf: Shelf
     page: int
     box: tuple[float, float, float, float] | None = None
+    document_id: str | None = None
+    folder: str = ""
 
 
 def place_facts(resolved: Any, page: int, region: Any, image_index: int | None) -> PlaceFacts | None:
@@ -33,17 +38,22 @@ def place_facts(resolved: Any, page: int, region: Any, image_index: int | None) 
         return None
     box = clamp_region(region) if image_index is None else None
     corners = (box[0], box[1], round(box[0] + box[2], 4), round(box[1] + box[3], 4)) if box is not None else None
-    return PlaceFacts(resolved.file_name, collection, shelf, max(1, int(page or 1)), corners)
+    document_id = getattr(resolved, "document_id", None)
+    listed = row_with_id(document_id) if document_id else None
+    folder = listed.folder_path if listed is not None else ""
+    return PlaceFacts(resolved.file_name, collection, shelf, max(1, int(page or 1)), corners, document_id, folder)
 
 
 def citation_key(facts: PlaceFacts) -> str:
-    return f"{facts.file_name}, p.{facts.page}"
+    shared = (facts.collection, facts.file_name.casefold()) in names_shared_in_turn()
+    name = f"{facts.folder}/{facts.file_name}" if shared and facts.folder else facts.file_name
+    return f"{name}, p.{facts.page}"
 
 
-def document_licence(collection: str, file_name: str, unindexed: Any = None) -> Any:
+def document_licence(collection: str, file_name: str, unindexed: Any = None, *, document_id: str | None = None) -> Any:
     from agent.knowledge.licences import document_licence as read
 
-    return read(collection, file_name, unindexed=unindexed)
+    return read(collection, file_name, unindexed=unindexed, document_id=document_id)
 
 
 def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: Any = None) -> str:
@@ -65,6 +75,7 @@ def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: A
         body=reading_rows,
         regions=(SourceRegion(box=facts.box),) if facts.box is not None else (),
         licence=licence,
+        document_id=facts.document_id,
     )
     block = GroundingBlock(preamble=preamble, degraded_banner="", hits=(hit,), lanes=(), tool=TOOL)
     return render_grounding_block(block)

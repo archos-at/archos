@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, forProject } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
-import { BACKFILL_SESSION, QDRANT_SEQUENCE, loadBackfills } from "./src/app/backfills";
+import { BACKEND_BACKFILL_ENV, BACKFILL_SESSION, QDRANT_SEQUENCE, loadBackfills } from "./src/app/backfills";
 import { QDRANT_CALLERS } from "./src/platform/network-policies";
 import { BACKFILL_POD } from "./src/constants";
 
@@ -123,6 +123,24 @@ describe("the backfill Jobs around the rollout", () => {
       expect(container.env?.map((e) => e.name)).toEqual(expect.arrayContaining(["QDRANT_URL", "QDRANT_API_KEY"]));
     }
     expect(QDRANT_CALLERS).toContain(BACKFILL_POD);
+  });
+
+  it("runs a backend backfill in the backend image with the backend's own Qdrant, metadata database and BFF credentials", () => {
+    const backend = loadBackfills().filter((x) => x.kind === "backend");
+    expect(backend.map((b) => b.name)).toEqual(
+      expect.arrayContaining(["document-metadata-document-id", "qdrant-document-id-stamp"]),
+    );
+    const api = workloads().find((r) => r.type === DEPLOYMENT && r.name === "api")!;
+    const apiEnv = new Map(containersOf(api).flatMap((c) => c.env ?? []).map((e) => [e.name, e]));
+    for (const b of backend) {
+      const container = podOf(job(b.phase === "after-switch" ? AFTER : BEFORE)).initContainers!.find((c) => c.name === b.name)!;
+      expect(container.image).toMatch(/-backend:/);
+      expect(container.command).toEqual(["sh", "-c", QDRANT_SEQUENCE, b.name, ...b.command]);
+      const names = (container.env ?? []).map((e) => e.name);
+      expect(names).toEqual(expect.arrayContaining(["QDRANT_URL", "QDRANT_API_KEY", "SUMMARY_DB", "FRONTEND_INTERNAL_URL", "INTERNAL_API_TOKEN"]));
+      expect(names.every((name) => (BACKEND_BACKFILL_ENV as readonly string[]).includes(name))).toBe(true);
+      for (const e of container.env ?? []) expect(e, e.name).toEqual(apiEnv.get(e.name));
+    }
   });
 
   it("fails the deploy on a failed backfill and runs again on every image", () => {

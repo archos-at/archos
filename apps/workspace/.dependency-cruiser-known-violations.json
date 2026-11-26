@@ -1834,23 +1834,6 @@
   {
     "type": "dependency",
     "from": "ui/features/chat/hooks/use-open-current-revision.ts",
-    "to": "ui/features/documents/lib/documents-by-name.ts",
-    "unresolvedTo": "@/features/documents/lib/documents-by-name",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/chat/hooks/use-open-current-revision.ts",
     "to": "ui/features/documents/lib/file-item.ts",
     "unresolvedTo": "@/features/documents/lib/file-item",
     "dependencyTypes": [

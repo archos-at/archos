@@ -296,7 +296,7 @@ def cited_document_entries(text: str, registry: SourceRegistry) -> list[SourceEn
     if section_match is None:
         return []
     section = normalize_source_section_layout(normalized[section_match.start() :])
-    cited: dict[tuple[str | None, str], SourceEntry] = {}
+    cited: dict[tuple[str | None, ...], SourceEntry] = {}
     for line in CITATION_LINE_RE.finditer(section):
         ref_text = line.group(2).strip()
         token = ORIGIN_TOKEN_RE.match(ref_text)

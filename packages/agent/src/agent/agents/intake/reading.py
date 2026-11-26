@@ -84,6 +84,10 @@ class ProjectDocument:
     def file_name(self) -> str:
         return str(getattr(self.document, "file_name", "") or "")
 
+    @property
+    def document_id(self) -> str | None:
+        return str(getattr(self.document, "document_id", "") or "") or None
+
 
 def project_collections() -> list[str]:
     from agent.knowledge.scoping import get_scoped_collections_from_context
@@ -110,10 +114,12 @@ async def project_documents() -> list[ProjectDocument]:
     return found
 
 
-def fetch_document_pages(collection: str, file_name: str) -> list[tuple[Any, str]] | None:
+def fetch_document_pages(
+    collection: str, file_name: str, document_id: str | None = None
+) -> list[tuple[Any, str]] | None:
     from agent.knowledge.collection_pages import read_pages
 
-    return read_pages(collection, file_name)
+    return read_pages(collection, file_name, document_id=document_id)
 
 
 def _names_of(document: ProjectDocument) -> list[str]:
@@ -230,7 +236,9 @@ def make_read_document_tool() -> StructuredTool:
             document = resolve_document(file_name, documents)
             if document is None:
                 return _unknown_document(file_name, documents)
-            chunks = await asyncio.to_thread(fetch_document_pages, document.collection, document.file_name)
+            chunks = await asyncio.to_thread(
+                fetch_document_pages, document.collection, document.file_name, document.document_id
+            )
             wanted = sorted({page for page in (pages or []) if isinstance(page, int) and page >= 1})
             log = current_read_log()
             text = render_pages(document, group_pages(chunks or []), wanted[:MAX_PAGES_PER_CALL], log)

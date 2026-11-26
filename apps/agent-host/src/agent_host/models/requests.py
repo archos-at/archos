@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 from typing import Any
 from typing import Literal
+from uuid import UUID
 
 from pydantic import AliasChoices
 from pydantic import BaseModel
@@ -219,6 +220,13 @@ class IngestRequest(KnowledgeMarkFields):
             "with the change summary. The BFF checks that the person may change the older document; an "
             "older file the collection does not hold, or a link that would close a loop, falls back to "
             "the ordinary suggestion. Omit for every other upload."
+        ),
+    )
+    revision_of_id: UUID | None = Field(
+        None,
+        description=(
+            "The document id (documents.id) of the document this file replaces; wins over `revision_of`, whose "
+            "name another folder may share. Sent with `revision_of` for one deploy."
         ),
     )
     authored_by: str | None = Field(

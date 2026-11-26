@@ -268,6 +268,7 @@ Consequences, where a reader looks for them.
 | [0196](0196-one-chrome-stands-on-every-page-of-the-app.md) | One chrome stands on every page of the app | Accepted |
 | [0197](0197-the-answer-check-judges-citations-and-statements-of-law-only.md) | The answer check judges citations and statements of law only; amends 0139 | Accepted |
 | [0198](0198-a-person-may-release-a-draft-drawn-from-confidential-sources-after-checking-it.md) | A person may release a draft drawn from confidential sources after checking it | Accepted |
+| [0199](0199-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md) | A document is its id, and its name is unique within its folder | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

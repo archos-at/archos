@@ -20,7 +20,7 @@ def store(monkeypatch):
         "asked": [],
     }
 
-    async def locate(collection, file_name, organization_id=None, image_index=None):
+    async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
         state["asked"].append((collection, file_name, organization_id, image_index))
         return state["location"]
 

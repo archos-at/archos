@@ -1,5 +1,8 @@
 import asyncio
+from dataclasses import dataclass
+from functools import partial
 from typing import Any
+from uuid import UUID
 
 from fastapi import Depends
 from fastapi import HTTPException
@@ -8,6 +11,7 @@ from pydantic import Field
 
 from agent.knowledge import rewrite_document_folder_paths
 from agent.knowledge import set_document_display_title
+from agent.knowledge import set_document_file_name
 from agent.knowledge import set_document_folder_path
 from agent.knowledge import set_document_tags_by_person
 from agent.knowledge import set_document_topics_by_person
@@ -18,6 +22,7 @@ from agent.knowledge.document_classification import MAX_TOPICS
 from agent.knowledge.document_classification import normalize_topic
 
 from .collections import _require_ingestor
+from .document_ids import stored_file_name
 
 
 def _checked_tags(raw: list[str]) -> list[str]:
@@ -87,6 +92,28 @@ def _no_summary_404(collection_name: str, file_name: str) -> HTTPException:
     )
 
 
+@dataclass(frozen=True)
+class DocumentRef:
+    file_name: str
+    document_id: str | None = None
+
+    def addressed(self, collection_name: str) -> dict[str, Any]:
+        return {
+            "collection_name": collection_name,
+            "file_name": self.file_name or None,
+            **({"document_id": self.document_id} if self.document_id else {}),
+        }
+
+    def not_found(self, collection_name: str) -> HTTPException:
+        named = f"document {self.document_id}" if self.document_id else f"'{self.file_name}'"
+        return HTTPException(status_code=404, detail=f"No summary found for {named} in collection '{collection_name}'")
+
+
+async def document_by_id(collection_name: str, document_id: UUID) -> DocumentRef:
+    identity = str(document_id)
+    return DocumentRef(await asyncio.to_thread(stored_file_name, collection_name, identity), identity)
+
+
 class UpdateTagsRequest(BaseModel):
     tags: list[str] = Field(
         default_factory=list,
@@ -101,26 +128,41 @@ class UpdateTagsRequest(BaseModel):
     )
 
 
+async def _update_tags(collection_name: str, document: DocumentRef, request: UpdateTagsRequest) -> dict[str, Any]:
+    topics = _checked_topics(request.topics) if request.topics is not None else None
+    write_tags = "tags" in request.model_fields_set or request.topics is None
+    tags = _checked_tags(request.tags) if write_tags else None
+
+    response = document.addressed(collection_name)
+    for key, values, write in (
+        ("topics", topics, set_document_topics_by_person),
+        ("tags", tags, set_document_tags_by_person),
+    ):
+        if values is None:
+            continue
+        written = partial(write, document_id=document.document_id)
+        if not await asyncio.to_thread(written, collection_name, document.file_name, values):
+            raise document.not_found(collection_name)
+        response[key] = values
+    return response
+
+
 async def update_document_tags_route(
     collection_name: str,
     file_name: str,
     request: UpdateTagsRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict[str, Any]:
-    topics = _checked_topics(request.topics) if request.topics is not None else None
-    write_tags = "tags" in request.model_fields_set or request.topics is None
-    tags = _checked_tags(request.tags) if write_tags else None
+    return await _update_tags(collection_name, DocumentRef(file_name), request)
 
-    response: dict[str, Any] = {"collection_name": collection_name, "file_name": file_name}
-    if topics is not None:
-        if not await asyncio.to_thread(set_document_topics_by_person, collection_name, file_name, topics):
-            raise _no_summary_404(collection_name, file_name)
-        response["topics"] = topics
-    if tags is not None:
-        if not await asyncio.to_thread(set_document_tags_by_person, collection_name, file_name, tags):
-            raise _no_summary_404(collection_name, file_name)
-        response["tags"] = tags
-    return response
+
+async def update_document_tags_by_id_route(
+    collection_name: str,
+    document_id: UUID,
+    request: UpdateTagsRequest,
+    ingestor: BaseIngestor = Depends(_require_ingestor),
+) -> dict[str, Any]:
+    return await _update_tags(collection_name, await document_by_id(collection_name, document_id), request)
 
 
 class UpdateDisplayTitleRequest(BaseModel):
@@ -130,26 +172,32 @@ class UpdateDisplayTitleRequest(BaseModel):
     )
 
 
+async def _update_display_title(
+    collection_name: str, document: DocumentRef, request: UpdateDisplayTitleRequest
+) -> dict[str, Any]:
+    new_title = (request.display_title or "").strip() or None
+    written = partial(set_document_display_title, document_id=document.document_id)
+    if not await asyncio.to_thread(written, collection_name, document.file_name, new_title):
+        raise document.not_found(collection_name)
+    return {**document.addressed(collection_name), "display_title": new_title}
+
+
 async def update_document_display_title_route(
     collection_name: str,
     file_name: str,
     request: UpdateDisplayTitleRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
-) -> dict[str, str | None]:
-    new_title = (request.display_title or "").strip() or None
+) -> dict[str, Any]:
+    return await _update_display_title(collection_name, DocumentRef(file_name), request)
 
-    updated = await asyncio.to_thread(set_document_display_title, collection_name, file_name, new_title)
-    if not updated:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No summary found for '{file_name}' in collection '{collection_name}'",
-        )
 
-    return {
-        "collection_name": collection_name,
-        "file_name": file_name,
-        "display_title": new_title,
-    }
+async def update_document_display_title_by_id_route(
+    collection_name: str,
+    document_id: UUID,
+    request: UpdateDisplayTitleRequest,
+    ingestor: BaseIngestor = Depends(_require_ingestor),
+) -> dict[str, Any]:
+    return await _update_display_title(collection_name, await document_by_id(collection_name, document_id), request)
 
 
 class UpdateFolderPathRequest(BaseModel):
@@ -161,26 +209,58 @@ class UpdateFolderPathRequest(BaseModel):
     )
 
 
+async def _update_folder_path(
+    collection_name: str, document: DocumentRef, request: UpdateFolderPathRequest
+) -> dict[str, Any]:
+    new_path = (request.folder_path or "").strip() or None
+    written = partial(set_document_folder_path, document_id=document.document_id)
+    if not await asyncio.to_thread(written, collection_name, document.file_name, new_path):
+        raise document.not_found(collection_name)
+    return {**document.addressed(collection_name), "folder_path": new_path}
+
+
 async def update_document_folder_path_route(
     collection_name: str,
     file_name: str,
     request: UpdateFolderPathRequest,
     ingestor: BaseIngestor = Depends(_require_ingestor),
-) -> dict[str, str | None]:
-    new_path = (request.folder_path or "").strip() or None
+) -> dict[str, Any]:
+    return await _update_folder_path(collection_name, DocumentRef(file_name), request)
 
-    updated = await asyncio.to_thread(set_document_folder_path, collection_name, file_name, new_path)
-    if not updated:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No summary found for '{file_name}' in collection '{collection_name}'",
-        )
 
-    return {
-        "collection_name": collection_name,
-        "file_name": file_name,
-        "folder_path": new_path,
-    }
+async def update_document_folder_path_by_id_route(
+    collection_name: str,
+    document_id: UUID,
+    request: UpdateFolderPathRequest,
+    ingestor: BaseIngestor = Depends(_require_ingestor),
+) -> dict[str, Any]:
+    return await _update_folder_path(collection_name, await document_by_id(collection_name, document_id), request)
+
+
+class UpdateFileNameRequest(BaseModel):
+    file_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=1024,
+        description="The document's new stored file name, e.g. 'Plan 2.pdf' when both documents are kept.",
+    )
+
+
+async def update_document_file_name_by_id_route(
+    collection_name: str,
+    document_id: UUID,
+    request: UpdateFileNameRequest,
+    ingestor: BaseIngestor = Depends(_require_ingestor),
+) -> dict[str, Any]:
+    new_name = request.file_name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="A file name cannot be blank")
+    identity = str(document_id)
+    previous = await asyncio.to_thread(stored_file_name, collection_name, identity)
+    rename = partial(set_document_file_name, previous_file_name=previous or None)
+    if not await asyncio.to_thread(rename, collection_name, identity, new_name) and not previous:
+        raise DocumentRef("", identity).not_found(collection_name)
+    return {"collection_name": collection_name, "document_id": identity, "file_name": new_name}
 
 
 class RewriteFolderPathRequest(BaseModel):

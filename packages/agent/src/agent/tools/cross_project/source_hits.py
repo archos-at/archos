@@ -52,9 +52,11 @@ def _hit(raw: dict[str, Any]) -> GroundingHit | None:
     snippet = str(raw.get("snippet") or "").strip()
     truncated = snippet.endswith(_SNIPPET_ELLIPSIS)
     key = f"{filename} ({name})"
+    document_id = raw.get("documentId")
     return GroundingHit(
         citation_key=f"{key}, p.{page}" if page is not None else key,
         file_name=filename,
+        document_id=document_id if isinstance(document_id, str) and document_id else None,
         page=page,
         shelf=Shelf.PROJECT,
         collection=collection,

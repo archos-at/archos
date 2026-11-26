@@ -3,103 +3,83 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
+def _hit_keys(chunk) -> list[tuple[str, str]]:
+    from knowledge_layer import vector_store
+
+    metadata = chunk.metadata or {}
+    collection = metadata.get("collection")
+    if not collection:
+        return []
+    document_id = metadata.get("document_id")
+    keys = [(collection, f"id:{document_id}")] if document_id else []
+    if chunk.file_name and not (document_id and vector_store.NAMES_SKIP_IDENTIFIED_POINTS):
+        keys.append((collection, chunk.file_name))
+    return keys
+
+
+def _stored(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
+    return next((resolved[key] for key in _hit_keys(chunk) if key in resolved), None)
+
+
+def _asked(chunks) -> dict[str, tuple[list[str], list[str]]]:
+    asked: dict[str, tuple[list[str], list[str]]] = {}
+    for chunk in chunks:
+        keys = _hit_keys(chunk)
+        if not keys:
+            continue
+        collection = keys[0][0]
+        names, ids = asked.setdefault(collection, ([], []))
+        document_id = str((chunk.metadata or {}).get("document_id") or "")
+        if document_id and document_id not in ids:
+            ids.append(document_id)
+        if (collection, chunk.file_name) in keys and chunk.file_name not in names:
+            names.append(chunk.file_name)
+    return asked
+
+
+def _resolve(chunks, getter_name: str, what: str) -> dict[tuple[str, str], str]:
     resolved: dict[tuple[str, str], str] = {}
     try:
-        from agent.knowledge.factory import get_document_doc_classes
+        from agent.knowledge import factory
+
+        getter = getattr(factory, getter_name)
     except Exception:
-        logger.warning(
-            "document metadata store unavailable; %s falls back to chunk metadata", "doc_class", exc_info=True
-        )
+        logger.warning("document metadata store unavailable; %s falls back to chunk metadata", what, exc_info=True)
         return resolved
 
-    by_collection: dict[str, list[str]] = {}
-    seen: set[tuple[str, str]] = set()
-    for chunk in chunks:
-        collection = (chunk.metadata or {}).get("collection")
-        file_name = chunk.file_name
-        if not collection or not file_name:
-            continue
-        key = (collection, file_name)
-        if key in seen:
-            continue
-        seen.add(key)
-        by_collection.setdefault(collection, []).append(file_name)
-
-    for collection, file_names in by_collection.items():
+    for collection, (names, ids) in _asked(chunks).items():
         try:
-            stored_map = get_document_doc_classes(collection, file_names)
+            stored_map = getter(collection, names, document_ids=ids) if ids else getter(collection, names)
         except Exception:
             logger.warning(
                 "document metadata store read failed for collection %s; %s falls back to chunk metadata",
                 collection,
-                "doc_class",
+                what,
                 exc_info=True,
             )
             stored_map = {}
-        for file_name, stored in stored_map.items():
+        for key, stored in stored_map.items():
             if stored:
-                resolved[(collection, file_name)] = stored
+                resolved[(collection, f"id:{key}" if key in ids else key)] = stored
     return resolved
+
+
+def resolve_doc_classes(chunks) -> dict[tuple[str, str], str]:
+    return _resolve(chunks, "get_document_doc_classes", "doc_class")
 
 
 def hit_doc_class(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    metadata = chunk.metadata or {}
-    collection = metadata.get("collection")
-    if collection and chunk.file_name:
-        stored = resolved.get((collection, chunk.file_name))
-        if stored:
-            return stored
-    return metadata.get("doc_class")
+    return _stored(chunk, resolved) or (chunk.metadata or {}).get("doc_class")
 
 
 def resolve_display_titles(chunks) -> dict[tuple[str, str], str]:
-    resolved: dict[tuple[str, str], str] = {}
-    try:
-        from agent.knowledge.factory import get_document_display_titles
-    except Exception:
-        logger.warning(
-            "document metadata store unavailable; %s falls back to chunk metadata", "display_title", exc_info=True
-        )
-        return resolved
-
-    by_collection: dict[str, list[str]] = {}
-    seen: set[tuple[str, str]] = set()
-    for chunk in chunks:
-        collection = (chunk.metadata or {}).get("collection")
-        file_name = chunk.file_name
-        if not collection or not file_name:
-            continue
-        key = (collection, file_name)
-        if key in seen:
-            continue
-        seen.add(key)
-        by_collection.setdefault(collection, []).append(file_name)
-
-    for collection, file_names in by_collection.items():
-        try:
-            stored_map = get_document_display_titles(collection, file_names)
-        except Exception:
-            logger.warning(
-                "document metadata store read failed for collection %s; %s falls back to chunk metadata",
-                collection,
-                "display_title",
-                exc_info=True,
-            )
-            stored_map = {}
-        for file_name, stored in stored_map.items():
-            if stored:
-                resolved[(collection, file_name)] = stored
-    return resolved
+    return _resolve(chunks, "get_document_display_titles", "display_title")
 
 
 def hit_display_title(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    metadata = chunk.metadata or {}
-    collection = metadata.get("collection")
-    if collection and chunk.file_name:
-        stored = resolved.get((collection, chunk.file_name))
-        if stored:
-            return stored
+    stored = _stored(chunk, resolved)
+    if stored:
+        return stored
     if chunk.file_name:
         try:
             from agent.common.norm_registry import guess_display_title
@@ -111,50 +91,11 @@ def hit_display_title(chunk, resolved: dict[tuple[str, str], str]) -> str | None
 
 
 def resolve_folder_paths(chunks) -> dict[tuple[str, str], str]:
-    resolved: dict[tuple[str, str], str] = {}
-    try:
-        from agent.knowledge.factory import get_document_folder_paths
-    except Exception:
-        logger.warning(
-            "document metadata store unavailable; %s falls back to chunk metadata", "folder_path", exc_info=True
-        )
-        return resolved
-
-    by_collection: dict[str, list[str]] = {}
-    seen: set[tuple[str, str]] = set()
-    for chunk in chunks:
-        collection = (chunk.metadata or {}).get("collection")
-        file_name = chunk.file_name
-        if not collection or not file_name:
-            continue
-        key = (collection, file_name)
-        if key in seen:
-            continue
-        seen.add(key)
-        by_collection.setdefault(collection, []).append(file_name)
-
-    for collection, file_names in by_collection.items():
-        try:
-            stored_map = get_document_folder_paths(collection, file_names)
-        except Exception:
-            logger.warning(
-                "document metadata store read failed for collection %s; %s falls back to chunk metadata",
-                collection,
-                "folder_path",
-                exc_info=True,
-            )
-            stored_map = {}
-        for file_name, stored in stored_map.items():
-            if stored:
-                resolved[(collection, file_name)] = stored
-    return resolved
+    return _resolve(chunks, "get_document_folder_paths", "folder_path")
 
 
 def hit_folder_path(chunk, resolved: dict[tuple[str, str], str]) -> str | None:
-    collection = (chunk.metadata or {}).get("collection")
-    if collection and chunk.file_name:
-        return resolved.get((collection, chunk.file_name))
-    return None
+    return _stored(chunk, resolved)
 
 
 def _folder_matches(stored: str | None, requested: str) -> bool:
