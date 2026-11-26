@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   ingestAllowancePutSchema,
   withIngestAllowance,
+  withMonthlyLimit,
 } from '@/lib/budgets/ingest-allowance-contract'
 import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
 import { PlatformOrgBudgetDialog } from '../../app/(shell)/platform/platform-org-budget-dialog'
@@ -48,8 +49,15 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         return Response.json(BUDGET.ingest)
       }
       if (url.includes('/api/platform/organizations/')) {
-        if (write)
-          BUDGET = { ...BUDGET, ...platformOrgBudgetPutSchema.parse(write), explicit: true }
+        if (write) {
+          const limits = platformOrgBudgetPutSchema.parse(write)
+          BUDGET = {
+            ...BUDGET,
+            ...limits,
+            explicit: true,
+            ingest: withMonthlyLimit(BUDGET.ingest, limits.monthlyLimit),
+          }
+        }
         return Response.json(BUDGET)
       }
       return real(input, init)

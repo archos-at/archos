@@ -24,6 +24,18 @@ export function withIngestAllowance(
     : { ...current, monthlyAllowance, explicit: true }
 }
 
+export function withMonthlyLimit(
+  current: PlatformIngestAllowance,
+  monthlyLimit: number | null,
+): PlatformIngestAllowance {
+  const defaultMonthlyAllowance = monthlyLimit === null ? null : monthlyLimit * current.defaultFactor
+  return {
+    ...current,
+    defaultMonthlyAllowance,
+    monthlyAllowance: current.explicit ? current.monthlyAllowance : defaultMonthlyAllowance,
+  }
+}
+
 export interface PlatformIngestAllowance {
   unit: IngestAllowancePut['unit']
   monthlyAllowance: number | null,

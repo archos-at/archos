@@ -6,6 +6,7 @@ import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budget
 import {
   ingestAllowancePutSchema,
   withIngestAllowance,
+  withMonthlyLimit,
 } from '@/lib/budgets/ingest-allowance-contract'
 
 const NAMES = [
@@ -219,7 +220,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const request = new Request(new URL(url, window.location.origin), init)
         if (request.method === 'PUT') {
           const input = platformOrgBudgetPutSchema.parse(await request.json())
-          ORG_BUDGETS.set(id, { ...budget, ...input, explicit: true })
+          ORG_BUDGETS.set(id, {
+            ...budget,
+            ...input,
+            explicit: true,
+            ingest: withMonthlyLimit(budget.ingest, input.monthlyLimit),
+          })
         }
         return Response.json(ORG_BUDGETS.get(id))
       }
