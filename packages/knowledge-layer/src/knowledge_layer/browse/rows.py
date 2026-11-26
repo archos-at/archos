@@ -54,6 +54,8 @@ class FileRow:
     file_name: str
     shelf: str | None
     collection: str
+    document_id: str | None = None
+    superseded_by_id: str | None = None
     folder: str = ""
     display_title: str | None = None
     doc_class: str | None = None
@@ -90,6 +92,31 @@ class FileRow:
     def searchable(self) -> str:
         return " ".join(_words(f"{self.file_name} {self.display_title or ''}"))
 
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.collection, f"id:{self.document_id}") if self.document_id else (self.collection, self.file_name)
+
+
+class RowIndex:
+    def __init__(self, rows: Iterable[FileRow]):
+        self._by_key: dict[tuple[str, str], FileRow] = {}
+        self._named: dict[tuple[str, str], list[FileRow]] = {}
+        for row in rows:
+            self._by_key[row.key] = row
+            self._named.setdefault((row.collection, row.file_name), []).append(row)
+
+    def __contains__(self, row: FileRow) -> bool:
+        return self._by_key.get(row.key) is row
+
+    def named(self, collection: str, file_name: str) -> FileRow | None:
+        rows = self._named.get((collection, file_name)) or []
+        return rows[0] if len(rows) == 1 else None
+
+    def newer(self, row: FileRow) -> FileRow | None:
+        if row.superseded_by_id:
+            return self._by_key.get((row.collection, f"id:{row.superseded_by_id}"))
+        return self.named(row.collection, row.superseded_by) if row.superseded_by else None
+
 
 def _attr(row: Any, name: str) -> Any:
     return row.get(name) if isinstance(row, dict) else getattr(row, name, None)
@@ -108,6 +135,8 @@ def file_row(row: Any) -> FileRow | None:
         file_name=file_name,
         shelf=canonical_shelf_value(str(shelf)) if shelf else None,
         collection=str(_attr(row, "collection") or ""),
+        document_id=(str(_attr(row, "document_id") or "").strip() or None),
+        superseded_by_id=(str(_attr(row, "superseded_by_id") or "").strip() or None),
         folder=str(_attr(row, "folder_path") or "").strip().strip("/"),
         display_title=(str(_attr(row, "display_title") or "").strip() or None),
         doc_class=(str(_attr(row, "doc_class") or "").strip() or None),
@@ -166,9 +195,9 @@ def file_rows(rows: Iterable[Any]) -> list[FileRow]:
     out: list[FileRow] = []
     for raw in rows:
         row = file_row(raw)
-        if row is None or (row.collection, row.file_name) in seen:
+        if row is None or row.key in seen:
             continue
-        seen.add((row.collection, row.file_name))
+        seen.add(row.key)
         out.append(row)
     return out
 
@@ -271,15 +300,13 @@ def revision_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict[_R
         ):
             head = series.current.item
             label = revision_label(series.current.revision)
-            head_key = (head.collection, head.file_name)
+            head_key = head.key
             series_of[head_key] = head_key
-            marks[(head.collection, head.file_name)] = (
-                f"current Fassung ({label}; {len(series.older)} older, by file name)"
-            )
+            marks[head_key] = f"current Fassung ({label}; {len(series.older)} older, by file name)"
             for member in series.older:
                 older = member.item
-                series_of[(older.collection, older.file_name)] = head_key
-                marks[(older.collection, older.file_name)] = (
+                series_of[older.key] = head_key
+                marks[older.key] = (
                     f"older Fassung ({revision_label(member.revision)}), current by file name: {head.file_name}"
                 )
     return marks, series_of
@@ -309,27 +336,33 @@ def title_block_marks(rows: Sequence[FileRow]) -> tuple[dict[_RowKey, str], dict
             continue
         ordered = newest_first(members, lambda row: row.revision_facts, lambda row: row.added_at or "")
         head, older = ordered[0], ordered[1:]
-        head_key = (head.collection, head.file_name)
+        head_key = head.key
         series_of[head_key] = head_key
         marks[head_key] = f"current Fassung by Plankopf ({_state_label(head.revision_facts)}; {len(older)} older)"
         for row in older:
-            series_of[(row.collection, row.file_name)] = head_key
-            marks[(row.collection, row.file_name)] = (
+            series_of[row.key] = head_key
+            marks[row.key] = (
                 f"older Fassung by Plankopf ({_state_label(row.revision_facts)}), current by Plankopf: {head.file_name}"
             )
     return marks, series_of
 
 
 def confirmed_revision_marks(rows: Sequence[FileRow]) -> dict[_RowKey, str]:
-    present = {(row.collection, row.file_name) for row in rows}
+    index = RowIndex(rows)
+    replaced_by: dict[_RowKey, list[str]] = {}
+    for row in rows:
+        newer = index.newer(row)
+        if newer is not None and newer is not row:
+            replaced_by.setdefault(newer.key, []).append(row.file_name)
     marks: dict[_RowKey, list[str]] = {}
     for row in rows:
-        key = (row.collection, row.file_name)
-        if row.superseded_by and (row.collection, row.superseded_by) in present:
-            marks.setdefault(key, []).append(f"replaced by {row.superseded_by} (confirmed)")
-        replaced = [name for name in row.supersedes if (row.collection, name) in present]
+        newer = index.newer(row)
+        if newer is not None and newer is not row:
+            marks.setdefault(row.key, []).append(f"replaced by {newer.file_name} (confirmed)")
+        named = [name for name in row.supersedes if index.named(row.collection, name) is not None]
+        replaced = list(dict.fromkeys([*named, *replaced_by.get(row.key, [])]))
         if replaced:
-            marks.setdefault(key, []).append(f"replaces {', '.join(replaced)} (confirmed)")
+            marks.setdefault(row.key, []).append(f"replaces {', '.join(replaced)} (confirmed)")
     return {key: "; ".join(parts) for key, parts in marks.items()}
 
 
@@ -410,7 +443,7 @@ def select_files(
     total = len(selected)
     page = selected[offset : offset + limit]
     types, untyped = _type_profile(selected)
-    keys = {(row.collection, row.file_name) for row in selected}
+    keys = {row.key for row in selected}
     return Listing(
         page,
         total,
@@ -432,7 +465,7 @@ def select_files(
             {block_series_of[key] for key in keys if key in block_series_of and key not in confirmed}
         ),
         confirmed_replacements=sum(
-            1 for row in selected if row.superseded_by and (row.collection, row.file_name) in confirmed
+            1 for row in selected if (row.superseded_by or row.superseded_by_id) and row.key in confirmed
         ),
     )
 

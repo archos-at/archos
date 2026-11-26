@@ -18,6 +18,7 @@ from .render import _compared_with_own_upload
 from .rows import _SHELF_LABELS
 from .rows import USER_SHELVES
 from .rows import FileRow
+from .rows import RowIndex
 from .rows import confirmed_revision_marks
 from .text import _words
 from .text import fold
@@ -36,34 +37,37 @@ def _series_ident(file_name: str) -> tuple[str, str]:
 
 def _chain_members(rows: Sequence[FileRow], start: FileRow) -> list[FileRow]:
     same = [row for row in rows if row.collection == start.collection]
-    by_name = {row.file_name: row for row in same}
-    neighbours: dict[str, set[str]] = {name: set() for name in by_name}
+    index = RowIndex(same)
+    by_key = {row.key: row for row in same}
+    neighbours: dict[tuple[str, str], set[tuple[str, str]]] = {key: set() for key in by_key}
     for row in same:
-        if row.superseded_by and row.superseded_by in by_name and row.superseded_by != row.file_name:
-            neighbours[row.file_name].add(row.superseded_by)
-            neighbours[row.superseded_by].add(row.file_name)
-    groups: dict[tuple[str, ...], list[str]] = {}
+        newer = index.newer(row)
+        if newer is not None and newer is not row:
+            neighbours[row.key].add(newer.key)
+            neighbours[newer.key].add(row.key)
+    groups: dict[tuple[str, ...], list[FileRow]] = {}
     for row in same:
-        groups.setdefault(("name", *_series_ident(row.file_name)), []).append(row.file_name)
+        groups.setdefault(("name", *_series_ident(row.file_name)), []).append(row)
         number = document_key((row.revision_facts or {}).get("document_number"))
         if number is not None:
-            groups.setdefault(("plankopf", number), []).append(row.file_name)
-    for names in groups.values():
-        for name in names:
-            neighbours[name].update(other for other in names if other != name)
-    seen = {start.file_name}
-    queue = [start.file_name]
+            groups.setdefault(("plankopf", number), []).append(row)
+    for members in groups.values():
+        for row in members:
+            neighbours[row.key].update(other.key for other in members if other.file_name != row.file_name)
+    seen = {start.key}
+    queue = [start.key]
     while queue:
         for other in neighbours[queue.pop()]:
             if other not in seen:
                 seen.add(other)
                 queue.append(other)
-    return [by_name[name] for name in sorted(seen, key=fold)]
+    return sorted((by_key[key] for key in seen), key=lambda row: (fold(row.file_name), row.key))
 
 
 def _with_supersedes(members: Sequence[FileRow]) -> list[FileRow]:
+    index = RowIndex(members)
     return [
-        replace(row, supersedes=tuple(sorted(old.file_name for old in members if old.superseded_by == row.file_name)))
+        replace(row, supersedes=tuple(sorted(old.file_name for old in members if index.newer(old) is row)))
         for row in members
     ]
 
@@ -74,33 +78,33 @@ def _by_title_block(members: Sequence[FileRow]) -> bool:
     )
 
 
-def _sheet_order(members: Sequence[FileRow]) -> list[str]:
-    ordered = newest_first(members, lambda row: row.revision_facts, lambda row: row.added_at or "")
-    return [row.file_name for row in ordered]
+def _sheet_order(members: Sequence[FileRow]) -> list[FileRow]:
+    return list(newest_first(members, lambda row: row.revision_facts, lambda row: row.added_at or ""))
 
 
-def _name_order(members: Sequence[FileRow]) -> list[str]:
-    names: list[str] = []
+def _name_order(members: Sequence[FileRow]) -> list[FileRow]:
+    ordered: list[FileRow] = []
     for series in find_revision_series(
         [row for row in members if parse_revision_name(row.file_name)],
         filename=lambda row: row.file_name,
         created_at=lambda row: row.added_at,
     ):
-        names += [series.current.item.file_name, *(entry.item.file_name for entry in series.older)]
-    return names
+        ordered += [series.current.item, *(entry.item for entry in series.older)]
+    return ordered
 
 
 def _chain_order(members: Sequence[FileRow]) -> list[FileRow]:
-    names_order = _sheet_order(members) if _by_title_block(members) else _name_order(members)
-    rest = sorted((row for row in members if row.file_name not in names_order), key=lambda row: fold(row.file_name))
+    index = RowIndex(members)
+    ranked = _sheet_order(members) if _by_title_block(members) else _name_order(members)
+    ranked_keys = {row.key for row in ranked}
+    rest = sorted((row for row in members if row.key not in ranked_keys), key=lambda row: fold(row.file_name))
     rest.sort(key=lambda row: row.added_at or "", reverse=True)
-    position = {name: index for index, name in enumerate([*names_order, *(row.file_name for row in rest)])}
+    position = {row.key: number for number, row in enumerate([*ranked, *rest])}
 
-    pending = sorted(members, key=lambda row: position[row.file_name])
+    pending = sorted(members, key=lambda row: position[row.key])
     ordered: list[FileRow] = []
     while pending:
-        waiting = {row.file_name for row in pending}
-        ready = [row for row in pending if row.superseded_by not in waiting]
+        ready = [row for row in pending if index.newer(row) not in pending]
         row = (ready or pending)[0]
         pending.remove(row)
         ordered.append(row)
@@ -162,7 +166,7 @@ def _resolve_chain(
     chains: dict[frozenset[tuple[str, str]], list[FileRow]] = {}
     for row in matches:
         members = _chain_members(scoped, row)
-        chains.setdefault(frozenset((member.collection, member.file_name) for member in members), members)
+        chains.setdefault(frozenset(member.key for member in members), members)
     if len(chains) > 1:
         names = [row.file_name for row in matches[:MAX_CHAIN_CANDIDATES]]
         rest = len(matches) - len(names)
@@ -196,7 +200,7 @@ def render_revisions(
     for number, row in enumerate(members[:MAX_CHAIN_LINES], start=1):
         lines.append(
             _chain_line(
-                number, row, current=number == 1, mark=confirmed.get((row.collection, row.file_name)), basis=basis
+                number, row, current=number == 1, mark=confirmed.get(row.key), basis=basis
             )
         )
     if len(members) > MAX_CHAIN_LINES:

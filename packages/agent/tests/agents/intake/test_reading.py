@@ -42,7 +42,7 @@ class TestReadDocument:
 
     async def test_it_is_bounded_and_says_where_to_go_on(self, project, read_log, monkeypatch):
         pages = [(str(n), f"Seite {n}: " + "Text " * 700) for n in range(1, 8)]
-        monkeypatch.setattr(reading, "fetch_document_pages", lambda collection, name: pages)
+        monkeypatch.setattr(reading, "fetch_document_pages", lambda collection, name, document_id=None: pages)
 
         text = await _read(file_name="Baubeschreibung.pdf")
 
@@ -71,7 +71,7 @@ class TestReadDocument:
         assert "Ältere Fassung" in text and "Baubeschreibung_v2.pdf" in text
 
     async def test_a_failing_store_is_text_not_an_exception(self, project, read_log, monkeypatch):
-        def broken(collection, name):
+        def broken(collection, name, document_id=None):
             raise RuntimeError("vector store down")
 
         monkeypatch.setattr(reading, "fetch_document_pages", broken)

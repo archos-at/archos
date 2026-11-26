@@ -36,12 +36,8 @@ def _other_document(
 ) -> tuple[FileRow | None, str]:
     shelves = (shelf,) if shelf else tuple(default_shelves)
     where = " and ".join(_SHELF_LABELS.get(name, name) for name in shelves)
-    chain = {(row.collection, row.file_name) for row in members}
-    scoped = [
-        row
-        for row in rows
-        if (row.shelf in shelves or (not shelf and row.shelf is None)) and (row.collection, row.file_name) not in chain
-    ]
+    chain = {row.key for row in members}
+    scoped = [row for row in rows if (row.shelf in shelves or (not shelf and row.shelf is None)) and row.key not in chain]
     candidates = _chain_candidates(scoped, target)
     chain_names = ", ".join(row.file_name for row in members[:MAX_CHAIN_CANDIDATES])
     if not candidates:
@@ -104,12 +100,14 @@ def _change_line_between(older: FileRow, newer: FileRow) -> str | None:
     return None
 
 
-def _stored_chunks(collection: str, file_name: str) -> tuple[list[Any], list[Any]] | None:
+def _stored_chunks(
+    collection: str, file_name: str, document_id: str | None = None
+) -> tuple[list[Any], list[Any]] | None:
     from agent.knowledge.collection_pages import read_chunks
     from agent.knowledge.revision_diff import chunk_from_store
     from agent.knowledge.table_diff import table_chunk_from_store
 
-    stored = read_chunks(collection, file_name)
+    stored = read_chunks(collection, file_name, document_id=document_id)
     if stored is None:
         return None
     return (
@@ -128,7 +126,7 @@ def _licensed(row: FileRow) -> bool:
             "quote_max_chars": row.quote_max_chars,
             "ai_processing_attested": row.ai_processing_attested,
         }
-    ) or document_licence(row.collection, row.file_name)
+    ) or document_licence(row.collection, row.file_name, document_id=row.document_id)
     return terms is not None and terms.licensed
 
 
@@ -143,8 +141,8 @@ async def compare_files(pair: ComparePair) -> str:
     try:
         licensed = await asyncio.gather(*(asyncio.to_thread(_licensed, row) for row in (first, second)))
         first_stored, second_stored = await asyncio.gather(
-            asyncio.to_thread(_stored_chunks, first.collection, first.file_name),
-            asyncio.to_thread(_stored_chunks, second.collection, second.file_name),
+            asyncio.to_thread(_stored_chunks, first.collection, first.file_name, first.document_id),
+            asyncio.to_thread(_stored_chunks, second.collection, second.file_name, second.document_id),
         )
     except Exception:  # noqa: BLE001 - an outage is said as one, never as "not in the index"
         logger.warning("compare_files: the index did not answer", exc_info=True)

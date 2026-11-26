@@ -53,7 +53,7 @@ export function NameConflictDialog({ prompt }: { prompt: Pick<NameConflictPrompt
           </DialogTitle>
           <DialogDescription>{t('nameConflicts.dialog.description')}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3 sm:px-6">
           <NameConflictList
             rows={rows}
             operation={operation}
