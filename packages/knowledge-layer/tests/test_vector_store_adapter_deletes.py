@@ -55,19 +55,26 @@ def _seed(
     stored_as: str | None = None,
     scope: str = SCOPE,
     document_id: str | None = None,
+    keyed: bool = False,
 ) -> list[str]:
     from agent.knowledge import register_summary
 
     stored = stored_as or file_name
     records = [record(f"{file_name} Abschnitt {index}", stored, page_label=str(index + 1)) for index in range(count)]
     write(scope, records, {"document_id": document_id} if document_id else None)
-    register_summary(scope, stored, f"Zusammenfassung {file_name}")
+    register_summary(scope, stored, f"Zusammenfassung {file_name}", document_id=document_id if keyed else None)
     return [chunk.chunk_id for chunk in records]
 
 
 def _ids(file_name: str | None = None, scope: str = SCOPE) -> set[str]:
     filters = {"file_name": file_name} if file_name else None
     return {str(point.payload["chunk_id"]) for point in store_module.get_store().scroll(scope, filters)}
+
+
+def _keyed_summary_rows(scope: str = SCOPE) -> set[tuple[str, str | None]]:
+    from agent.knowledge import get_available_documents
+
+    return {(document.file_name, document.document_id) for document in get_available_documents(scope)}
 
 
 def _summary_rows(scope: str = SCOPE) -> set[str]:
@@ -216,6 +223,16 @@ def test_delete_document_takes_its_chunks_by_id_under_any_name(env):
     assert not _ids() & (set(renamed) | set(stale))
     assert {"generated/doc_1/bericht.md", "alt/doc_1/bericht.md"}.isdisjoint(_summary_rows())
     assert env["bumped"] == [SCOPE]
+
+
+def test_delete_document_keeps_the_summary_row_of_a_namesake_in_another_folder(env):
+    _seed("plan.pdf", document_id="doc_1", keyed=True)
+    namesake = _seed("plan.pdf", 2, document_id="doc_2", keyed=True)
+
+    assert env["ingestor"].delete_document("doc_1", "plan.pdf", SCOPE) is True
+
+    assert _ids() == set(namesake)
+    assert _keyed_summary_rows() == {("plan.pdf", "doc_2")}
 
 
 def test_delete_document_takes_the_name_only_on_chunks_that_carry_no_id(env):
