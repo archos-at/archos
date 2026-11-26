@@ -198,16 +198,26 @@ def read_rows(collection: str) -> list[Any]:
         return []
 
 
-def previous_summary(rows: Sequence[Any], stored_names: Sequence[str]) -> str | None:
-    wanted = set(stored_names)
+def previous_summary(rows: Sequence[Any], previous: Any) -> str | None:
+    if previous is None:
+        return None
     for row in rows:
-        if row.file_name in wanted and (row.summary or "").strip():
+        if previous.holds(row) and (row.summary or "").strip():
             return row.summary
     return None
 
 
-def candidate_documents(file_name: str, rows: Sequence[Any], held: set[str]) -> list[RevisionDocument]:
-    own = next((row for row in rows if row.file_name == file_name), None)
+def _is_own_row(row: Any, file_name: str, document_id: str | None) -> bool:
+    row_id = getattr(row, "document_id", None)
+    if document_id and row_id:
+        return row_id == document_id
+    return row.file_name == file_name
+
+
+def candidate_documents(
+    file_name: str, rows: Sequence[Any], held: set[str], *, document_id: str | None = None
+) -> list[RevisionDocument]:
+    own = next((row for row in rows if _is_own_row(row, file_name, document_id)), None)
     refused = set(dismissed_revisions(own.revision_suggestion)) if own is not None else set()
     return [
         revision_document(
@@ -236,11 +246,12 @@ def suggest_revision(
     tags: Sequence[str] | None,
     llm: Any,
     revision_facts: dict[str, Any] | None = None,
+    document_id: str | None = None,
 ) -> dict[str, Any] | None:
     held = held_file_names(collection)
     if held is None:
         return None
-    candidates = candidate_documents(file_name, rows, held)
+    candidates = candidate_documents(file_name, rows, held, document_id=document_id)
     if not candidates:
         return None
     verdict = judge_revision(
@@ -253,7 +264,7 @@ def suggest_revision(
     from agent.knowledge import set_document_revision_suggestion
 
     suggestion = verdict.as_suggestion()
-    set_document_revision_suggestion(collection, file_name, suggestion)
+    set_document_revision_suggestion(collection, file_name, suggestion, document_id=document_id)
     return suggestion
 
 
@@ -264,6 +275,7 @@ def record_change(
     previous: str | None,
     summary: str,
     llm: Any,
+    document_id: str | None = None,
 ) -> str | None:
     from agent.knowledge import set_document_change_summary
 
@@ -274,7 +286,7 @@ def record_change(
             RevisionDocument(file_name=file_name, summary=summary),
             llm,
         )
-    set_document_change_summary(collection, file_name, change, file_name if change else None)
+    set_document_change_summary(collection, file_name, change, file_name if change else None, document_id=document_id)
     return change
 
 
@@ -297,6 +309,7 @@ def confirm_revision(
     doc_class: str | None,
     tags: Sequence[str] | None,
     llm: Any,
+    document_id: str | None = None,
 ) -> bool:
     if older == file_name:
         return False
@@ -304,7 +317,7 @@ def confirm_revision(
     from agent.knowledge import set_document_change_summary
     from agent.knowledge.document_metadata_store import LinkOutcome
 
-    outcome = link_document_revision(collection, older, file_name)
+    outcome = link_document_revision(collection, older, file_name, newer_id=document_id)
     if outcome is not LinkOutcome.LINKED:
         logger.warning("Fassung chosen at upload: %s over %s in %s refused (%s)", file_name, older, collection, outcome)
         return False
@@ -324,7 +337,7 @@ def confirm_revision(
         llm,
     )
     if change:
-        set_document_change_summary(collection, file_name, change, older)
+        set_document_change_summary(collection, file_name, change, older, document_id=document_id)
     return True
 
 
@@ -341,13 +354,21 @@ def record_revisions(
     llm: Any,
     confirmed_older: str | None = None,
     revision_facts: dict[str, Any] | None = None,
+    document_id: str | None = None,
 ) -> None:
     if confirmed_older and confirm_revision(
-        collection, file_name, confirmed_older, summary=summary, doc_class=doc_class, tags=tags, llm=llm
+        collection,
+        file_name,
+        confirmed_older,
+        summary=summary,
+        doc_class=doc_class,
+        tags=tags,
+        llm=llm,
+        document_id=document_id,
     ):
         return
     if replaced:
-        record_change(collection, file_name, previous=previous, summary=summary, llm=llm)
+        record_change(collection, file_name, previous=previous, summary=summary, llm=llm, document_id=document_id)
         return
     suggest_revision(
         collection,
@@ -358,4 +379,5 @@ def record_revisions(
         tags=tags,
         llm=llm,
         revision_facts=revision_facts,
+        document_id=document_id,
     )

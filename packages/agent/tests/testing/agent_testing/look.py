@@ -21,7 +21,7 @@ def _pdf() -> bytes:
 def stored(monkeypatch):
     asked: list[tuple[str, str]] = []
 
-    async def locate(collection, file_name, organization_id=None, image_index=None):
+    async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
         asked.append((collection, file_name))
         return ("key", None) if collection == "proj_1" else None
 

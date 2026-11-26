@@ -83,6 +83,7 @@ class GroundingHit(BaseModel):
     edition_id: str | None = None
     public_url: str | None = None
     revision: SourceRevision | None = None
+    document_id: str | None = None
 
     @property
     def authored_by(self) -> str | None:

@@ -316,6 +316,52 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     expect(result.chunkCount).toBeUndefined()
   })
 
+  it('settles two same-named documents in different folders each from the listing entry of its own id', async () => {
+    makeDbMock()
+    mockFetch.mockResolvedValue(
+      collectionResponse([
+        { file_id: 'f-1', file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success', summary: 'Entwurf.', chunk_count: 3 },
+        { file_id: 'f-2', file_name: 'Plan.pdf', document_id: 'doc-einreichung', status: 'success', summary: 'Einreichung.', chunk_count: 9 },
+      ])
+    )
+
+    const [entwurf, einreichung] = await reconcileDocumentStatuses(
+      [
+        makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf', status: 'pending', metadata: {} }),
+        makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'pending', metadata: {} }),
+      ],
+      'org-1',
+      'read'
+    )
+
+    expect([entwurf.status, entwurf.summary, entwurf.chunkCount]).toEqual(['completed', 'Entwurf.', 3])
+    expect([einreichung.status, einreichung.summary, einreichung.chunkCount]).toEqual(['completed', 'Einreichung.', 9])
+  })
+
+  it('never lends one document the reading of a same-named document whose id the listing names', async () => {
+    makeDbMock()
+    mockFetch.mockResolvedValue(
+      collectionResponse([{ file_id: 'f-1', file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success', summary: 'Entwurf.' }])
+    )
+
+    const [einreichung] = await reconcileDocumentStatuses(
+      [makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'completed' })],
+      'org-1',
+      'read'
+    )
+
+    expect(einreichung.summary).toBeUndefined()
+  })
+
+  it('still reads a listing entry written before chunks carried a document id, by its name', async () => {
+    makeDbMock()
+    mockFetch.mockResolvedValue(collectionResponse([{ file_id: 'f-1', file_name: 'plan.pdf', status: 'success', summary: 'Legacy.' }]))
+
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
+
+    expect(result.summary).toBe('Legacy.')
+  })
+
   it('adds no metadata when the backend file list is unreachable (fail-open)', async () => {
     makeDbMock()
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'))
@@ -410,7 +456,24 @@ describe('readCollectionReadings', () => {
   it('reads each named file\'s reading and whether a newer Fassung replaces it', async () => {
     mockFetch.mockResolvedValue(collectionResponse([file]))
     const readings = await readCollectionReadings('proj_abc', ref ? [ref] : [])
-    expect(readings?.get('plan.pdf')).toEqual({ metadata: { summary: 'A plan.' }, superseded: true })
+    expect(ref && readings?.get(ref)).toEqual({ metadata: { summary: 'A plan.' }, superseded: true })
+  })
+
+  it('reads two same-named documents of one collection each from its own listing entry', async () => {
+    const entwurf = collectionFileRef(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf' }))
+    const einreichung = collectionFileRef(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf' }))
+    if (!entwurf || !einreichung) throw new Error('unreachable: the rows are human-authored')
+    mockFetch.mockResolvedValue(
+      collectionResponse([
+        { file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success', summary: 'Entwurf.', superseded_by_id: 'doc-einreichung' },
+        { file_name: 'Plan.pdf', document_id: 'doc-einreichung', status: 'success', summary: 'Einreichung.' },
+      ])
+    )
+
+    const readings = await readCollectionReadings('proj_abc', [entwurf, einreichung])
+
+    expect(readings?.get(entwurf)).toEqual({ metadata: { summary: 'Entwurf.' }, superseded: true })
+    expect(readings?.get(einreichung)).toEqual({ metadata: { summary: 'Einreichung.' }, superseded: false })
   })
 
   it('says nothing when the backend listed the files without their reading, so nothing is blanked', async () => {

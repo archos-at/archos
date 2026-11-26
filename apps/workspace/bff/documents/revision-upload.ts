@@ -7,7 +7,7 @@ import { getAccessibleDocument } from './access'
 import { collectionFileRef } from './collection-file-ref'
 import { hasPassedScreening, SCREENED_ONLY } from './document-reader'
 import { findDocumentInOrg } from './repository'
-import { documentNameKey } from './name-match'
+import { holdsDocumentName } from './name-match'
 import { documentShelf, shelfKey, type DocumentShelf } from './shelf'
 
 const olderIdSchema = z.guid()
@@ -22,6 +22,7 @@ export function readRevisionOf(value: FormDataEntryValue | null): string | null 
 export interface RevisionUploadTarget {
   shelf: DocumentShelf
   collectionName: string
+  folderId: string | null
   filename: string
 }
 
@@ -64,7 +65,7 @@ export async function resolveRevisionOf(
 export async function resolveReleasedRevisionOf(
   organizationId: string,
   olderId: string,
-  released: Pick<Document, 'scope' | 'projectId' | 'ownerUserId' | 'collectionName' | 'filename'>,
+  released: Pick<Document, 'scope' | 'projectId' | 'ownerUserId' | 'collectionName' | 'folderId' | 'filename'>,
 ): Promise<string | null> {
   const older = await findDocumentInOrg(olderId, organizationId, SCREENED_ONLY)
   const shelf = documentShelf(released)
@@ -72,6 +73,7 @@ export async function resolveReleasedRevisionOf(
   return linkableRevisionOf(older, {
     shelf,
     collectionName: released.collectionName,
+    folderId: released.folderId,
     filename: released.filename,
   }).revisionOf
 }
@@ -82,6 +84,6 @@ function linkableRevisionOf(older: Document, target: RevisionUploadTarget): Reso
   if (older.lifecycle !== 'active') return ignoredFor('archived')
   if (older.collectionName !== target.collectionName) return ignoredFor('different_collection')
   if (!collectionFileRef(older)) return ignoredFor('unavailable')
-  if (documentNameKey(older.filename) === documentNameKey(target.filename)) return NOTHING
+  if ((older.folderId ?? null) === target.folderId && holdsDocumentName(older, target.filename)) return NOTHING
   return { revisionOf: older.filename, ignored: null }
 }

@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
+from agent.knowledge.document_metadata_helpers import DocumentRef
 from agent.knowledge.document_metadata_helpers import _escape_like
 
 
@@ -44,7 +45,9 @@ def _rename_descendants(conn, collection: str, prefix: str, target: str) -> int:
     return descendants.rowcount or 0
 
 
-def rewrite_folder_paths_moved(store, collection: str, from_path: str, to_path: str | None) -> tuple[int, list[str]]:
+def rewrite_folder_paths_moved(
+    store, collection: str, from_path: str, to_path: str | None
+) -> tuple[int, list[DocumentRef]]:
     from sqlalchemy import text
 
     prefix = (from_path or "").strip().strip("/")
@@ -56,11 +59,11 @@ def rewrite_folder_paths_moved(store, collection: str, from_path: str, to_path: 
     try:
         with store._sync_engine.connect() as conn:
             moved = [
-                row[0]
+                DocumentRef(row[0], row[1] or None)
                 for row in conn.execute(
                     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(
-                        f"SELECT filename FROM {TABLE_NAME} WHERE collection = :collection "
+                        f"SELECT filename, document_id FROM {TABLE_NAME} WHERE collection = :collection "
                         "AND (folder_path = :prefix OR folder_path LIKE :pattern ESCAPE '\\')"
                     ),
                     {"collection": collection, "prefix": prefix, "pattern": f"{_escape_like(prefix)}/%"},

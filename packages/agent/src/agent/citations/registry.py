@@ -46,6 +46,23 @@ def _merge_passage(existing: SourceEntry, entry: SourceEntry) -> None:
     _merge_regions(existing, entry.regions)
     if entry.read and entry.read not in (existing.read or ""):
         existing.read = f"{existing.read}\n{entry.read}" if existing.read else entry.read
+    existing.document_id = existing.document_id or entry.document_id
+    existing.folder_path = existing.folder_path or entry.folder_path
+
+
+NameIdentity = tuple[str | None, str, int | None]
+
+
+def _folder_key(entry: SourceEntry) -> str:
+    return (entry.folder_path or "").strip("/").casefold()
+
+
+def bare_file_name(entry: SourceEntry) -> str:
+    filename, _page = parse_citation_key(entry.citation_key or "")
+    folder = (entry.folder_path or "").strip("/")
+    if folder and filename.casefold().startswith(f"{folder.casefold()}/"):
+        return filename[len(folder) + 1 :]
+    return filename
 
 
 class SourceRegistry:
@@ -53,7 +70,8 @@ class SourceRegistry:
         self._urls: dict[str, SourceEntry] = {}
         self._parsed_urls: dict[str, ParsedURL] = {}
         self._citation_keys: list[SourceEntry] = []
-        self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
+        self._by_name: dict[NameIdentity, list[SourceEntry]] = {}
+        self._by_document: dict[tuple[str, int | None], SourceEntry] = {}
         self._all: list[SourceEntry] = []
         self.licensed_text: dict[str, str] = {}
 
@@ -66,10 +84,32 @@ class SourceRegistry:
         return self
 
     @staticmethod
-    def _identity(entry: SourceEntry) -> tuple[str | None, str, int | None]:
-        filename, page = parse_citation_key(entry.citation_key or "")
+    def _identity(entry: SourceEntry) -> NameIdentity:
+        _filename, page = parse_citation_key(entry.citation_key or "")
         collection = (entry.collection or "").strip().lower() or None
-        return (collection, filename.lower(), page)
+        return (collection, bare_file_name(entry).lower(), page)
+
+    def _held(self, entry: SourceEntry) -> SourceEntry | None:
+        identity = self._identity(entry)
+        named = self._by_name.get(identity, [])
+        folder = _folder_key(entry)
+        if entry.document_id:
+            held = self._by_document.get((entry.document_id, identity[2]))
+            unclaimed = (
+                existing
+                for existing in named
+                if not existing.document_id and (not folder or _folder_key(existing) in ("", folder))
+            )
+            return held or next(unclaimed, None)
+        return next((existing for existing in named if _folder_key(existing) == folder), named[0] if named else None)
+
+    def _index(self, entry: SourceEntry) -> None:
+        identity = self._identity(entry)
+        named = self._by_name.setdefault(identity, [])
+        if not any(existing is entry for existing in named):
+            named.append(entry)
+        if entry.document_id:
+            self._by_document.setdefault((entry.document_id, identity[2]), entry)
 
     def add(self, entry: SourceEntry) -> None:
         added = False
@@ -92,17 +132,14 @@ class SourceRegistry:
             if raw != normalized:
                 self._urls[raw] = self._urls[normalized]
         if entry.citation_key:
-            dedup_key = self._identity(entry)
-            if dedup_key not in self._citation_key_files:
-                self._citation_key_files.add(dedup_key)
+            held = self._held(entry)
+            if held is None:
                 self._citation_keys.append(entry)
-                if not added:
-                    added = True
+                self._index(entry)
+                added = True
             else:
-                for existing in self._citation_keys:
-                    if self._identity(existing) == dedup_key:
-                        _merge_passage(existing, entry)
-                        break
+                _merge_passage(held, entry)
+                self._index(held)
         if added:
             self._all.append(entry)
 
@@ -184,11 +221,22 @@ class SourceRegistry:
             matches = [entry for entry_name, entry in named if entry_name == name.lower()]
             if matches:
                 break
+        if not matches:
+            matches = self._entries_named(target_file)
         if target_shelf:
             scoped = [entry for entry in matches if entry_shelf(entry) == target_shelf]
             if scoped:
                 return scoped, target_page
         return matches, target_page
+
+    def _entries_named(self, target_file: str) -> list[SourceEntry]:
+        folder, _slash, leaf = target_file.strip().rpartition("/")
+        wanted_folder, wanted = folder.strip("/").casefold(), leaf.casefold()
+        return [
+            entry
+            for entry in self._citation_keys
+            if bare_file_name(entry).casefold() == wanted and (not folder or _folder_key(entry) == wanted_folder)
+        ]
 
     def has_citation_key(self, key: str) -> bool:
         return bool(self._entries_for_key(key)[0])
@@ -214,5 +262,6 @@ class SourceRegistry:
         self._urls.clear()
         self._parsed_urls.clear()
         self._citation_keys.clear()
-        self._citation_key_files.clear()
+        self._by_name.clear()
+        self._by_document.clear()
         self._all.clear()

@@ -41,7 +41,6 @@ _LAZY: dict[str, str] = {
     "folder_ancestors": ".prefilter",
     "folder_key": ".prefilter",
     "post_filtered": ".prefilter",
-    "without_files": ".prefilter",
     "DEFAULT_PAGE_SIZE": ".rebuild",
     "LENGTH_SAMPLE": ".rebuild",
     "copy_collection": ".rebuild",
@@ -130,6 +129,7 @@ _LAZY: dict[str, str] = {
     "write_chunks": ".writes",
     "FOLDER_FACTS": ".writes",
     "refresh_facts": ".writes",
+    "rewrite_file_name": ".writes",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
@@ -242,6 +242,7 @@ __all__ = [
     "reading_for_maintenance",
     "reference_value",
     "refresh_facts",
+    "rewrite_file_name",
     "rename_collection",
     "render_folder_hits",
     "reset_store",
@@ -260,6 +261,5 @@ __all__ = [
     "upsert_folder_card",
     "user_literal_tokens",
     "with_retry",
-    "without_files",
     "write_chunks",
 ]

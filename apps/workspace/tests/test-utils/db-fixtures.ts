@@ -68,7 +68,9 @@ type LiveDocumentMatch = NonNullable<Awaited<ReturnType<typeof findLiveDocumentB
 
 export const makeLiveDocumentMatch = (overrides: Partial<LiveDocumentMatch> = {}): LiveDocumentMatch => ({
   id: 'doc-1',
-  storageKey: 'org/org-1/project/proj-1/doc/doc-1/plan.pdf',
+  filename: 'plan.pdf',
+  displayName: null,
+  storageKey:'org/org-1/project/proj-1/doc/doc-1/plan.pdf',
   storageBucket: null,
   fileSize: 1024,
   contentHash: null,

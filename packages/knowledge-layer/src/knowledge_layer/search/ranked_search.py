@@ -179,8 +179,6 @@ class RankedSearch:
             return results, []
 
     async def _retrieve_collection(self, entry, search_query: str | None = None):
-        from knowledge_layer.vector_store import without_files as qdrant_without_files
-
         coll = entry.collection
         retriever = self.engine.retriever
         coll_filters = (
@@ -197,7 +195,7 @@ class RankedSearch:
         )
         if self.hidden_revisions.get(coll) and getattr(result, "chunks", None):
             result = result.model_copy(
-                update={"chunks": qdrant_without_files(result.chunks, self.hidden_revisions[coll])}
+                update={"chunks": revisions.without_replaced(result.chunks, self.hidden_revisions[coll])}
             )
         _tag_with_collection(result, entry)
         if coll != self.base_collection:

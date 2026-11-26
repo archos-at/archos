@@ -76,14 +76,12 @@ def _reading_of(
     return reading, references
 
 
-def _predecessor_dossier(
-    rows: Sequence[Any], stored_names: Sequence[str], confirmed_older: str | None
-) -> tuple[str, Any] | None:
-    wanted = [*stored_names, *([confirmed_older] if confirmed_older else [])]
-    for name in wanted:
-        row = next((row for row in rows if getattr(row, "file_name", None) == name), None)
-        if row is not None and getattr(row, "dossier", None):
-            return name, row.dossier
+def _predecessor_dossier(rows: Sequence[Any], previous: Any, confirmed_older: str | None) -> tuple[str, Any] | None:
+    own = [row for row in rows if previous is not None and previous.holds(row)]
+    named = [row for row in rows if confirmed_older and getattr(row, "file_name", None) == confirmed_older]
+    for row in [*own, *named]:
+        if getattr(row, "dossier", None):
+            return row.file_name, row.dossier
     return None
 
 

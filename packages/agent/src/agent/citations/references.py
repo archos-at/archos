@@ -126,9 +126,11 @@ def _filename_occurs_as_token(haystack_lower: str, needle_lower: str) -> int | N
     return next(_filename_token_ends(haystack_lower, needle_lower), None)
 
 
-def document_identity(entry: SourceEntry) -> tuple[str | None, str]:
+def document_identity(entry: SourceEntry) -> tuple[str | None, ...]:
+    if entry.document_id:
+        return ("id", entry.document_id)
     collection, filename, _page = SourceRegistry._identity(entry)
-    return collection, filename
+    return ("name", collection, filename)
 
 
 def _match_registry_filename(ref_text: str, registry: SourceRegistry) -> str | None:

@@ -83,6 +83,7 @@ def record_facts(
             doc_class=file.doc_class,
             tags=facts.tags,
             llm=None,
+            document_id=file.document_id,
         )
 
 
@@ -118,11 +119,13 @@ def _record_summary(
     from agent.knowledge import set_document_reading
 
     collection_name, file_name, previous = run.collection_name, file.file_name, file.previous
-    stored_names = previous.stored_names if previous else ()
+    document_id = file.document_id
     revision_rows = revisions.read_rows(collection_name) if facts.revision_model else []
-    summary_before = revisions.previous_summary(revision_rows, stored_names)
+    summary_before = revisions.previous_summary(revision_rows, previous)
 
-    register_summary(collection_name, file_name, facts.summary, tags=facts.tags, topics=facts.topics)
+    register_summary(
+        collection_name, file_name, facts.summary, tags=facts.tags, topics=facts.topics, document_id=document_id
+    )
     revision_facts = row_facts.store_read_facts(
         collection_name,
         file_name,
@@ -130,14 +133,22 @@ def _record_summary(
         photo=file.photo,
         config=run.config,
         replaced=previous is not None,
+        document_id=document_id,
     )
 
     reading, references = _reading_of(
         all_documents,
         facts.dossier,
-        _predecessor_dossier(revision_rows, stored_names, facts.confirmed_older),
+        _predecessor_dossier(revision_rows, previous, facts.confirmed_older),
     )
-    set_document_reading(collection_name, file_name, dossier=reading, references=references, coverage=file.coverage)
+    set_document_reading(
+        collection_name,
+        file_name,
+        dossier=reading,
+        references=references,
+        coverage=file.coverage,
+        document_id=document_id,
+    )
 
     _record_doc_class(run, file, enrichment)
     _carry_person_facts(run, file, facts)
@@ -160,6 +171,7 @@ def _record_summary(
             llm=ingestor.summary_llm,
             confirmed_older=facts.confirmed_older,
             revision_facts=revision_facts,
+            document_id=document_id,
         )
 
     logger.info(f"  Summary generated ({len(facts.summary)} chars)")
@@ -169,12 +181,12 @@ def _record_doc_class(run: JobRun, file: FileRun, enrichment: Any) -> None:
     from agent.knowledge import set_document_doc_class
 
     if file.row_doc_class is None or file.explicit_doc_class is not None:
-        set_document_doc_class(run.collection_name, file.file_name, file.doc_class)
+        set_document_doc_class(run.collection_name, file.file_name, file.doc_class, document_id=file.document_id)
     suggestion = _future_result(enrichment.doc_class, "Dokumentart suggestion", file.file_name)
     if suggestion or file.previous is not None:
         from agent.knowledge import set_document_doc_class_suggestion
 
-        set_document_doc_class_suggestion(run.collection_name, file.file_name, suggestion)
+        set_document_doc_class_suggestion(run.collection_name, file.file_name, suggestion, document_id=file.document_id)
 
 
 def _carry_person_facts(run: JobRun, file: FileRun, facts: _Facts) -> None:
@@ -184,12 +196,16 @@ def _carry_person_facts(run: JobRun, file: FileRun, facts: _Facts) -> None:
     folder_path = (run.config.get("folder_path") or "").strip() or None
     folder_path = folder_path or preserved.get("folder_path")
     if folder_path:
-        set_document_folder_path(collection_name, file_name, folder_path)
-    chosen_document_type.carry_person_tags(collection_name, file_name, preserved, facts.chosen_type, facts.tags)
+        set_document_folder_path(collection_name, file_name, folder_path, document_id=file.document_id)
+    chosen_document_type.carry_person_tags(
+        collection_name, file_name, preserved, facts.chosen_type, facts.tags, document_id=file.document_id
+    )
     if "topics" in preserved:
         from agent.knowledge import set_document_topics_by_person
 
-        set_document_topics_by_person(collection_name, file_name, json.loads(preserved["topics"]))
+        set_document_topics_by_person(
+            collection_name, file_name, json.loads(preserved["topics"]), document_id=file.document_id
+        )
     _carry_display_title(run, file)
 
 
@@ -197,7 +213,9 @@ def _carry_display_title(run: JobRun, file: FileRun) -> None:
     from agent.knowledge import set_document_display_title
 
     if file.preserved.get("display_title"):
-        set_document_display_title(run.collection_name, file.file_name, file.preserved["display_title"])
+        set_document_display_title(
+            run.collection_name, file.file_name, file.preserved["display_title"], document_id=file.document_id
+        )
         return
     if not file.base_corpus:
         return
@@ -205,22 +223,22 @@ def _carry_display_title(run: JobRun, file: FileRun) -> None:
 
     default_title = guess_display_title(file.file_name)
     if default_title:
-        set_document_display_title(run.collection_name, file.file_name, default_title)
+        set_document_display_title(run.collection_name, file.file_name, default_title, document_id=file.document_id)
 
 
 def _carry_provenance_and_links(run: JobRun, file: FileRun, provenance: dict[str, Any]) -> None:
-    collection_name, file_name = run.collection_name, file.file_name
+    collection_name, file_name, document_id = run.collection_name, file.file_name, file.document_id
     if provenance or file.previous is not None:
         from agent.knowledge import set_document_provenance
 
-        set_document_provenance(collection_name, file_name, provenance)
+        set_document_provenance(collection_name, file_name, provenance, document_id=document_id)
 
     carried_link, carried_suggestion = revisions.carried_links(file.preserved)
     if carried_link:
         from agent.knowledge import set_document_superseded_by
 
-        set_document_superseded_by(collection_name, file_name, carried_link)
+        set_document_superseded_by(collection_name, file_name, carried_link, document_id=document_id)
     if carried_suggestion:
         from agent.knowledge import set_document_revision_suggestion
 
-        set_document_revision_suggestion(collection_name, file_name, carried_suggestion)
+        set_document_revision_suggestion(collection_name, file_name, carried_suggestion, document_id=document_id)

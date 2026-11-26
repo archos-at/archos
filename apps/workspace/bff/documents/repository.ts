@@ -4,13 +4,20 @@ export { DOCUMENT_LIST_LIMIT, outsideHiddenFolders, documentListColumns, listPro
 export type { DocumentListRow, ListProjectDocumentsOptions, DocumentListPage } from './repository/list'
 export { afterDocumentLevelCursor, nameContains, readFamilyWhere, readDocumentLevelPage, listDocumentLevelPage } from './repository/levels'
 export type { ShelfReadFilters, DocumentLevelPage } from './repository/levels'
-export { findShelfDocumentListRow, summarizeShelfFolders, listShelfFailedDocuments, filenameLookupWhere, findDocumentsByFilenames, findProjectDocumentsByFilenames } from './repository/shelf-reads'
-export { findRevisionCounterparts, documentNameMatchColumns, probeDocumentNames, findDocumentsByNames, findProjectDocumentsByNames } from './repository/name-lookup'
+export { findShelfDocumentListRow, summarizeShelfFolders, listShelfFailedDocuments, filenameLookupWhere, findDocumentsByFilenames, findProjectDocumentsByFilenames, findDocumentsByIds, findProjectDocumentsByIds } from './repository/shelf-reads'
+export { findRevisionCounterparts, revisionCounterpartOf, documentNameMatchColumns, probeDocumentNames, findDocumentsByNames, findProjectDocumentsByNames } from './repository/name-lookup'
 export type { RevisionCounterpartRow, DocumentNameMatchRow } from './repository/name-lookup'
 export { findDocumentTenancy, updateDocumentVisibilityInOrg, listDocumentIdsForProject, listUnreadableProjectDocuments, documentIdsExisting, findDocumentInOrg } from './repository/lookup'
-export { findDocumentAuthoredByRef, findLiveDocumentByFilename, findProjectCollectionsHoldingFilename } from './repository/lookup-by-ref'
-export { findStorageKeyByCollectionAndFilename, findPageTextTarget, findStorageKeyByIdAndCollection, documentExistsInCollection } from './repository/storage'
-export type { StoredDocumentFile } from './repository/storage'
+export {
+  findDocumentAuthoredByRef,
+  findFreeDocumentName,
+  findLiveDocumentByFilename,
+  findTakenDocumentNameKeys,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './repository/lookup-by-ref'
+export { findStorageKeysByCollectionAndFilename, findReadableStorageKeyById, findPageTextTarget, findStorageKeyByIdAndCollection, documentExistsInCollection, listDocumentIdsInCollection } from './repository/storage'
+export type { StoredDocumentFile, CollectionDocumentId } from './repository/storage'
 export type { DispatchStart } from './repository/mutations'
 export { deleteProjectDocument, deleteShelfDocumentRow, setDocumentDisplayName, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
 export { findIngestAnnouncementFacts, listSettleableDocumentsForIngestJobs, listStalePendingDocuments, listStuckProcessingDocuments, markDocumentIngestFailed } from './repository/ingest-state'

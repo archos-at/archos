@@ -31,6 +31,18 @@ _INDEX_NAME = "idx_document_metadata_collection"
 _LEGACY_INDEX_NAME = "idx_summaries_collection"
 
 
+IDENTITY_COLUMNS: tuple[str, ...] = ("document_id", "superseded_by_id")
+
+
+DOCUMENT_ID_INDEXES = {
+    "document_metadata": ("uniq_document_metadata_document_id", "uniq_document_metadata_unkeyed_filename"),
+    "document_revision_retained": (
+        "uniq_document_revision_retained_document_id",
+        "uniq_document_revision_retained_unkeyed_filename",
+    ),
+}
+
+
 _OPTIONAL_COLUMNS: tuple[str, ...] = (
     "tags",
     "doc_class",
@@ -67,7 +79,7 @@ SUGGESTION_BASES = ("title_block", "name", "content")
 _DOCUMENT_COLUMNS = (
     "filename, summary, tags, doc_class, display_title, folder_path, created_at, "
     "topics, capture, superseded_by, revision_suggestion, change_summary, change_basis, revision_facts, "
-    "page_count, dossier, doc_references, coverage, mail_thread, mail_origin"
+    "page_count, dossier, doc_references, coverage, mail_thread, mail_origin, document_id, superseded_by_id"
 )
 
 
@@ -77,7 +89,10 @@ RETAINED_TABLE_NAME = "document_revision_retained"
 LEGACY_RETAINED_TABLE_NAME = "document_fassung_retained"
 
 
-_RETAINED_COLUMNS = ("superseded_by", "revision_suggestion", "change_summary", "change_basis")
+_LEGACY_RETAINED_COLUMNS = ("superseded_by", "revision_suggestion", "change_summary", "change_basis")
+
+
+_RETAINED_COLUMNS = (*_LEGACY_RETAINED_COLUMNS, "superseded_by_id")
 
 
 REFUSAL_REASON = "Von einer Person abgelehnt."

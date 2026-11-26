@@ -74,15 +74,36 @@ describe('the URL builders', () => {
     )
   })
 
-  it('builds a per-file endpoint from the same ref', () => {
+  it('builds a per-file endpoint that names the document by its id', () => {
     expect(collectionFileUrl('http://backend:8000', ref, '/visual-details')).toBe(
+      'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc_7/visual-details',
+    )
+  })
+
+  it('tells two documents of one name in different folders apart, on every per-file endpoint', () => {
+    const inEntwurf = collectionFileRef({ ...row, id: 'doc_entwurf', filename: 'Plan.pdf', authoredBy: 'user' })
+    const inEinreichung = collectionFileRef({ ...row, id: 'doc_einreichung', filename: 'Plan.pdf', authoredBy: 'user' })
+    if (!inEntwurf || !inEinreichung) throw new Error('unreachable: the fixture rows are human-authored')
+
+    for (const suffix of ['/tags', '/display-title', '/folder-path', '/visual-details', '/file-name']) {
+      expect(collectionFileUrl('http://backend:8000', inEntwurf, suffix)).toBe(
+        `http://backend:8000/v1/collections/proj_abc/documents/by-id/doc_entwurf${suffix}`,
+      )
+      expect(collectionFileUrl('http://backend:8000', inEinreichung, suffix)).toBe(
+        `http://backend:8000/v1/collections/proj_abc/documents/by-id/doc_einreichung${suffix}`,
+      )
+    }
+  })
+
+  it('falls back to the name only for a ref that carries no document id', () => {
+    expect(collectionFileUrl('http://backend:8000', { ...ref, documentId: null }, '/visual-details')).toBe(
       'http://backend:8000/v1/collections/proj_abc/documents/brandschutz-gutachten-2026-08-20.pdf/visual-details',
     )
   })
 
-  it('percent-encodes both segments, so a name with a slash cannot leave its collection', () => {
+  it('percent-encodes every segment, so neither a name nor an id can leave its collection', () => {
     const awkward = collectionFileRef({
-      id: 'doc_2',
+      id: 'doc/2',
       collectionName: 'proj_a b',
       filename: 'Schnitt A-A/EG.pdf',
       authoredBy: 'user',
@@ -92,6 +113,9 @@ describe('the URL builders', () => {
     if (!awkward) throw new Error('unreachable: the fixture row is human-authored')
 
     expect(collectionFileUrl('http://backend:8000', awkward, '/tags')).toBe(
+      'http://backend:8000/v1/collections/proj_a%20b/documents/by-id/doc%2F2/tags',
+    )
+    expect(collectionFileUrl('http://backend:8000', { ...awkward, documentId: null }, '/tags')).toBe(
       'http://backend:8000/v1/collections/proj_a%20b/documents/Schnitt%20A-A%2FEG.pdf/tags',
     )
   })

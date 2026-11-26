@@ -23,5 +23,7 @@ def _stored_spellings(name: str) -> set[str]:
     return {name, plain, quote(plain), quote(plain, safe="!'()*~")}
 
 
-def _replacement_lock_key(collection_name: str, file_name: str) -> str:
+def _replacement_lock_key(collection_name: str, file_name: str, document_id: str | None = None) -> str:
+    if document_id:
+        return f"reingest:{collection_name}:id:{document_id}"
     return f"reingest:{collection_name}:{_normalized_file_name(file_name)}"

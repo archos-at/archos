@@ -228,7 +228,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         _note_target(outcome, targets)
         query = _fetch_query(document, clause, page)
         top_k = _MAX_PASSAGE_CHUNKS if page is None else _MAX_OUTLINE_CHUNKS
-        fetched = await _fetch_all(targets, lambda file_name: _passage_filters(file_name, clause, page), query, top_k)
+        fetched = await _fetch_all(targets, lambda target: _passage_filters(target, clause, page), query, top_k)
         chunks = [chunk for chunk in fetched.chunks if _addresses(chunk, clause, page)]
         if fetched.failures and not chunks:
             logger.warning("read_passage: every fetch failed for %r", query, exc_info=fetched.failures[0])
@@ -264,13 +264,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         _note_target(outcome, targets)
         cursor = decode_cursor(cursor_token) if (cursor_token or "").strip() else None
         if (cursor_token or "").strip():
-            targets = [
-                target
-                for target in targets
-                if cursor is not None
-                and target.file_name == cursor.file_name
-                and (not cursor.collection or target.collection == cursor.collection)
-            ]
+            targets = [target for target in targets if cursor is not None and cursor.continues(target)]
             if not targets:
                 return _cursor_refusal(document, span)
         first = cursor.page if cursor is not None else span[0]

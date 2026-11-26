@@ -1,9 +1,10 @@
 import 'server-only'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withOptionalTenant } from '@/lib/db/tenant-context'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
+import { NAMESPACED_AGENT_PRODUCERS } from '../agent-namespace'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '../visibility'
 
 export interface StoredDocumentFile {
@@ -14,36 +15,63 @@ export interface StoredDocumentFile {
   versionId: string | null
 }
 
-export async function findStorageKeyByCollectionAndFilename(
+const storedFileColumns = {
+  id: documents.id,
+  storageKey: documents.storageKey,
+  storageBucket: documents.storageBucket,
+  contentType: documents.contentType,
+  versionId: documents.publishedVersionId,
+}
+
+function readableUserFileIn(collectionName: string, organizationId: string | undefined): SQL[] {
+  return [
+    eq(documents.collectionName, collectionName),
+    eq(documents.authoredBy, 'user'),
+    ...(organizationId ? [eq(documents.organizationId, organizationId)] : []),
+  ]
+}
+
+export const NAME_AMBIGUITY_PROBE = 2
+
+export async function findStorageKeysByCollectionAndFilename(
   collectionName: string,
   filename: string,
+  organizationId?: string,
+): Promise<StoredDocumentFile[]> {
+  const db = getDb()
+  return withOptionalTenant(
+    organizationId,
+    'internal document-file lookup: the service-token caller identifies the row by its ' +
+      'unguessable collection name and carries no organization',
+    () =>
+      db
+        .select(storedFileColumns)
+        .from(documents)
+        .where(
+          and(eq(documents.filename, filename), ...readableUserFileIn(collectionName, organizationId), documentVisibleTo(SCREENED_ONLY)),
+        )
+        .orderBy(desc(documents.createdAt))
+        .limit(NAME_AMBIGUITY_PROBE),
+  )
+}
+
+export async function findReadableStorageKeyById(
+  documentId: string,
+  collectionName: string,
   organizationId?: string,
 ): Promise<StoredDocumentFile | null> {
   const db = getDb()
   const [row] = await withOptionalTenant(
     organizationId,
     'internal document-file lookup: the service-token caller identifies the row by its ' +
-      'unguessable collection name and carries no organization',
+      'unguessable document id and collection name and carries no organization',
     () =>
       db
-        .select({
-          id: documents.id,
-          storageKey: documents.storageKey,
-          storageBucket: documents.storageBucket,
-          contentType: documents.contentType,
-          versionId: documents.publishedVersionId,
-        })
+        .select(storedFileColumns)
         .from(documents)
         .where(
-          and(
-            eq(documents.collectionName, collectionName),
-            eq(documents.filename, filename),
-            eq(documents.authoredBy, 'user'),
-            documentVisibleTo(SCREENED_ONLY),
-            ...(organizationId ? [eq(documents.organizationId, organizationId)] : []),
-          ),
+          and(eq(documents.id, documentId), ...readableUserFileIn(collectionName, organizationId), documentVisibleTo(SCREENED_ONLY)),
         )
-        .orderBy(desc(documents.createdAt))
         .limit(1),
   )
   return row ?? null
@@ -147,4 +175,35 @@ export async function documentExistsInCollection(
         .limit(1),
   )
   return row !== undefined
+}
+
+export interface CollectionDocumentId {
+  id: string
+  filename: string
+  folderId: string | null
+}
+
+export async function listDocumentIdsInCollection(
+  collectionName: string,
+  organizationId?: string,
+): Promise<CollectionDocumentId[]> {
+  const db = getDb()
+  return withOptionalTenant(
+    organizationId,
+    'internal document-ids: the backend maps the names its index stored to document ids, per ' +
+      'unguessable collection name, and carries no organization for a project collection',
+    () =>
+      db
+        .select({ id: documents.id, filename: documents.filename, folderId: documents.folderId })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.collectionName, collectionName),
+            ...(organizationId ? [eq(documents.organizationId, organizationId)] : []),
+            or(eq(documents.authoredBy, 'user'), inArray(documents.authoredByProducer, [...NAMESPACED_AGENT_PRODUCERS])),
+            documentVisibleTo(internalRead('identity')),
+          ),
+        )
+        .orderBy(asc(documents.id)),
+  )
 }

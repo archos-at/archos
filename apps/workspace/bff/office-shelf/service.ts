@@ -105,18 +105,18 @@ async function nameBesideStandards(
   folderId: string | null,
   hidden: readonly string[],
 ): Promise<File> {
-  const collection = officeShelfCollectionName(session.organizationId)
+  if (!folderId || !inTree(hidden, folderId)) return file
+  const place = { folderId, collectionName: officeShelfCollectionName(session.organizationId) }
   const filename = documentNameKey(file.name)
-  const holder = await findLiveDocumentByFilename(session.organizationId, collection, filename)
-  if (!holder || (!inTree(hidden, holder.folderId) && !inTree(hidden, folderId))) return file
+  if (!(await findLiveDocumentByFilename(session.organizationId, place, filename))) return file
   for (let n = 2; n <= NUMBERED_NAMES; n += 1) {
     const name = numberedFilename(filename, n)
-    if (!(await findLiveDocumentByFilename(session.organizationId, collection, name))) {
+    if (!(await findLiveDocumentByFilename(session.organizationId, place, name))) {
       return new File([file], name, { type: file.type, lastModified: file.lastModified })
     }
   }
   throw new ConflictError(
-    `"${filename}" and its numbered names are all taken in the Bürobibliothek. Rename the file to upload it.`,
+    `"${filename}" and its numbered names are all taken in this folder of the Bürobibliothek. Rename the file to upload it.`,
     NAME_TAKEN_DETAILS,
   )
 }
@@ -165,13 +165,23 @@ export async function uploadOfficeShelfDocument(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, originConversationId }: OfficeShelfUploadInput = {},
+  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, originConversationId, onConflict }: OfficeShelfUploadInput = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
   const named = await standardsAwareFile(session, file, { folderId, revisionOf })
   return uploadToShelf(
     session,
     OFFICE_SHELF,
-    { file: named, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, ...(originConversationId ? { originConversationId } : {}) },
+    {
+      file: named,
+      folderId,
+      originPath,
+      screeningRelease,
+      uploadBatchId,
+      revisionOf,
+      beforeDispatch,
+      onConflict,
+      ...(originConversationId ? { originConversationId } : {}),
+    },
     request,
   )
 }

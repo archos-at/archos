@@ -1,4 +1,4 @@
-import { documentNameKey } from './name-match'
+import { holdsDocumentName } from './name-match'
 
 export interface RevisionIndex {
   kind: 'letter' | 'number'
@@ -166,17 +166,20 @@ export interface RevisionCandidate<T> {
 
 export const REVISION_MAX_CANDIDATES = 5
 
-export function findRevisionCandidate<T extends { filename: string; createdAt?: string | null }>(
+export function findRevisionCandidate<T extends { filename: string; createdAt?: string | null; folderId?: string | null }>(
   droppedName: string,
-  current: readonly T[]
+  current: readonly T[],
+  droppedFolderId?: string | null
 ): RevisionCandidate<T> | null {
   const dropped = parseRevisionName(droppedName)
   const key = revisionSeriesKeyOf(droppedName)
   if (!dropped || !key) return null
-  const droppedKey = documentNameKey(droppedName)
   const members: RevisionSeriesMember<T>[] = []
   for (const item of current) {
-    if (documentNameKey(item.filename) === droppedKey) return null
+    if (holdsDocumentName(item, droppedName)) {
+      if (droppedFolderId === undefined || (item.folderId ?? null) === droppedFolderId) return null
+      continue
+    }
     const revision = parseRevisionName(item.filename)
     if (revision && revisionSeriesKeyOf(item.filename) === key) members.push({ item, revision })
   }

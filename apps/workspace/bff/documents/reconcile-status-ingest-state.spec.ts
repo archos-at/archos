@@ -71,6 +71,21 @@ describe('describeBackendIngestState', () => {
     })
   })
 
+  it('reads the entry of its own id, not the in-flight entry of a same-named document in another folder', async () => {
+    routeBackend({}, [
+      { file_name: 'Plan.pdf', document_id: 'doc-entwurf', status: 'success' },
+      { file_name: 'Plan.pdf', document_id: 'doc-einreichung', status: 'pending' },
+    ])
+
+    const entwurf = await describeBackendIngestState(makeRow({ id: 'doc-entwurf', filename: 'Plan.pdf', status: 'processing' }))
+    const einreichung = await describeBackendIngestState(makeRow({ id: 'doc-einreichung', filename: 'Plan.pdf', status: 'processing' }))
+    const neither = await describeBackendIngestState(makeRow({ id: 'doc-bestand', filename: 'Plan.pdf', status: 'processing' }))
+
+    expect(entwurf).toMatchObject({ state: 'terminal', resolution: { status: 'completed' } })
+    expect(einreichung).toEqual({ state: 'in-progress' })
+    expect(neither).toEqual({ state: 'absent' })
+  })
+
   it('reports in-progress when a file under this name is mid-flight', async () => {
     routeBackend({}, [{ file_name: 'plan.pdf', status: 'pending' }])
 

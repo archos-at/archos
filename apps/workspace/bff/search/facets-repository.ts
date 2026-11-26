@@ -1,6 +1,7 @@
 import 'server-only'
 import { and, asc, count, eq, getTableColumns, gt, inArray, isNull, lt, max, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
+import { isUuid } from '@/lib/ids'
 import { documentSearchFacets, documentSearchShelves, type DocumentSearchShelfRow, type NewDocumentSearchFacetsRow } from '@/lib/db/schema/document-search'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -202,9 +203,10 @@ export async function markShelvesStale(organizationId: string, shelves: readonly
 export async function listCollectionDocumentsForProjection(
   organizationId: string,
   collectionName: string,
-  filenames: readonly string[]
+  references: readonly string[]
 ): Promise<ProjectionDocument[]> {
-  if (filenames.length === 0) return []
+  if (references.length === 0) return []
+  const ids = references.filter(isUuid)
   return withTenant({ organizationId }, () =>
     getDb()
       .select({
@@ -220,7 +222,7 @@ export async function listCollectionDocumentsForProjection(
         and(
           eq(documents.organizationId, organizationId),
           eq(documents.collectionName, collectionName),
-          inArray(documents.filename, [...filenames])
+          or(inArray(documents.filename, [...references]), ids.length > 0 ? inArray(documents.id, ids) : undefined)
         )
       )
       .limit(PROJECTION_PAGE_SIZE)

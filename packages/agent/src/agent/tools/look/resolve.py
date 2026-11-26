@@ -8,6 +8,8 @@ from agent import project_context
 from agent.common.bff_http import SignedEnvelope
 from agent.common.focus_file import get_focused_document_id
 from agent.common.focus_file import get_focused_file_name
+from agent.common.stored_file import AmbiguousDocumentName
+from agent.common.stored_file import ambiguous_name_message
 
 from ..canvas import target as canvas_target
 from ..canvas.calls import call
@@ -35,6 +37,10 @@ class Resolved:
     signed: SignedEnvelope | None = None
     read_by_bff: bool = False
 
+    @property
+    def document_id(self) -> str | None:
+        return self.target.document_id if self.target is not None else None
+
 
 def _key(value: str | None) -> str:
     return unicodedata.normalize("NFC", value or "").strip().casefold()
@@ -51,21 +57,21 @@ async def _is_base_corpus(name: str) -> bool:
     return await asyncio.to_thread(_find_pdf, name) is not None
 
 
-async def _probe(file_name: str) -> str:
+async def _probe(file_name: str, document_id: str | None = None) -> str:
     from knowledge_layer.view_image import _resolve_storage_location
 
     for collection in probe_collections():
-        if await _resolve_storage_location(collection, file_name) is not None:
+        if await _resolve_storage_location(collection, file_name, document_id=document_id) is not None:
             return collection
     return ""
 
 
-async def _collection(file_name: str, known: str | None) -> str:
+async def _collection(file_name: str, known: str | None, document_id: str | None) -> str:
     if known:
         return known
-    if (listed := collection_of(file_name)) is not None:
+    if (listed := collection_of(file_name, document_id)) is not None:
         return listed
-    return await _probe(file_name)
+    return await _probe(file_name, document_id)
 
 
 async def _file_name(target: Target, signed: SignedEnvelope) -> str | None:
@@ -81,14 +87,13 @@ async def _named(name: str, signed: SignedEnvelope | None) -> Resolved | str:
     if isinstance(row, Unresolved):
         if row.ambiguous:
             return row.message
-        file_name, collection = name, await _probe(name)
+        file_name, collection, document_id = name, await _probe(name), None
         if not collection:
             return NOT_FOUND.format(name=name)
     else:
-        file_name, collection = row.file_name, row.collection
-    if signed is None:
-        return Resolved(file_name, collection)
-    document_id = await asyncio.to_thread(canvas_target.lookup_document_id, collection, file_name, signed)
+        file_name, collection, document_id = row.file_name, row.collection, row.document_id
+    if document_id is None and signed is not None:
+        document_id = await asyncio.to_thread(canvas_target.lookup_document_id, collection, file_name, signed)
     target = Target(document_id, file_name, collection) if document_id else None
     return Resolved(file_name, collection, target, signed if target else None)
 
@@ -102,10 +107,18 @@ async def _open(document: str) -> Resolved | str:
     file_name = await _file_name(target, signed)
     if not file_name:
         return NO_FILE
-    return Resolved(file_name, await _collection(file_name, target.collection), target, signed, read_by_bff)
+    collection = await _collection(file_name, target.collection, target.document_id)
+    return Resolved(file_name, collection, target, signed, read_by_bff)
 
 
 async def resolve_document(document: str) -> Resolved | str:
+    try:
+        return await _resolved(document)
+    except AmbiguousDocumentName as ambiguous:
+        return ambiguous_name_message(ambiguous.file_name)
+
+
+async def _resolved(document: str) -> Resolved | str:
     named = (document or "").strip()
     focus_id = get_focused_document_id()
     if named and focus_id and _key(named) == _key(get_focused_file_name()):

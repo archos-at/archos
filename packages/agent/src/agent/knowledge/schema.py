@@ -118,7 +118,9 @@ class FileStatus(StrEnum):
 _FILE_ID_NAMESPACE = uuid.UUID("6f1c0a52-3b7e-4d8a-9c41-5e2d7a90b3f6")
 
 
-def stable_file_id(collection_name: str, file_name: str) -> str:
+def stable_file_id(collection_name: str, file_name: str, document_id: str | None = None) -> str:
+    if document_id:
+        return str(uuid.uuid5(_FILE_ID_NAMESPACE, f"{collection_name}\x00id\x00{document_id}"))
     return str(uuid.uuid5(_FILE_ID_NAMESPACE, f"{collection_name}\x00{file_name}"))
 
 
@@ -183,6 +185,13 @@ class FileInfo(BaseModel):
     file_id: str = Field(..., description="Unique file identifier.")
     file_name: str = Field(..., description="Original filename.")
     collection_name: str = Field(..., description="Collection this file belongs to.")
+    document_id: str | None = Field(
+        None,
+        description=(
+            "The workspace document (documents.id) these chunks belong to: a user document's identity, which "
+            "its file name is not. None for the base corpus and for chunks written before documents carried it."
+        ),
+    )
     status: FileStatus = Field(default=FileStatus.UPLOADING, description="Current processing status.")
     file_size: int | None = Field(None, ge=0, description="File size in bytes.")
     chunk_count: int = Field(0, ge=0, description="Number of chunks created from this file.")
@@ -403,6 +412,8 @@ class IngestionJobStatus(BaseModel):
 
 class AvailableDocument(BaseModel):
     file_name: str
+    document_id: str | None = None
+    superseded_by_id: str | None = None
     summary: str | None = None
     tags: list[str] | None = None
     doc_class: str | None = None

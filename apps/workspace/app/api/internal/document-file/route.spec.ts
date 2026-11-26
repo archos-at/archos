@@ -9,7 +9,9 @@ vi.mock('@/lib/auth/require-auth', () => ({
 
 vi.mock('@/lib/documents/document-storage-keys', () => ({
   findDocumentStorageKey: vi.fn(),
+  findDocumentStorageKeyById: vi.fn(),
   findDocumentImageStorageKey: vi.fn(),
+  findDocumentImageStorageKeyById: vi.fn(),
 }))
 
 vi.mock('@/lib/drawing-calibrations/page-read', () => ({ activeCalibrationsOfPage: vi.fn() }))
@@ -29,7 +31,13 @@ import { drawableRestrictedCollections } from '@/lib/conversations/restricted-us
 import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 import { withTenant } from '@/lib/db/tenant-context'
 import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
-import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
+import { ConflictError } from '@/lib/api/errors'
+import {
+  findDocumentImageStorageKey,
+  findDocumentImageStorageKeyById,
+  findDocumentStorageKey,
+  findDocumentStorageKeyById,
+} from '@/lib/documents/document-storage-keys'
 import { REQUEST_CONTEXT_HEADER_NAMES, buildRequestContextEnvelope } from '@/lib/request-context'
 import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, decisionOf, signDecision } from '@/lib/conversation-context/wire'
@@ -101,11 +109,72 @@ describe('GET /api/internal/document-file', () => {
     expect((await GET(request())).status).toBe(503)
   })
 
-  it('400s when collection or filename is missing/empty', async () => {
+  it('400s when the collection is missing/empty, or neither a document id nor a filename names the document', async () => {
     expect((await GET(request('?filename=plan.png'))).status).toBe(400)
     expect((await GET(request('?collection=proj_1'))).status).toBe(400)
     expect((await GET(request('?collection=&filename=plan.png'))).status).toBe(400)
+    expect((await GET(request(`?documentId=${STORED.id}`))).status).toBe(400)
     expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    expect(findDocumentStorageKeyById).not.toHaveBeenCalled()
+  })
+
+  describe('by document id', () => {
+    const ENTWURF = { ...STORED, id: '33333333-3333-4333-8333-333333333333', storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' }
+    const EINREICHUNG = { ...STORED, id: '44444444-4444-4444-8444-444444444444', storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' }
+
+    it('answers the key of the document the id names, of two same-named ones in different folders', async () => {
+      vi.mocked(findDocumentStorageKeyById).mockImplementation(async (_collection, id) =>
+        [ENTWURF, EINREICHUNG].find((row) => row.id === id) ?? null
+      )
+
+      const entwurf = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}`))
+      const einreichung = await GET(request(`?collection=proj_1&documentId=${EINREICHUNG.id}`))
+
+      expect(await entwurf.json()).toMatchObject({ documentId: ENTWURF.id, storageKey: 'org/o1/project/p1/doc/entwurf/Plan.pdf' })
+      expect(await einreichung.json()).toMatchObject({ documentId: EINREICHUNG.id, storageKey: 'org/o1/project/p1/doc/einreichung/Plan.pdf' })
+      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, undefined])
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('prefers the id when the caller also sends the name', async () => {
+      vi.mocked(findDocumentStorageKeyById).mockResolvedValue(ENTWURF)
+      const res = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}&filename=Plan.pdf&organizationId=org_1`))
+      expect(res.status).toBe(200)
+      expect(vi.mocked(findDocumentStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, 'org_1'])
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('400s an id that is not one, rather than falling back to the name', async () => {
+      expect((await GET(request('?collection=proj_1&documentId=Plan.pdf&filename=Plan.pdf'))).status).toBe(400)
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+      expect(findDocumentStorageKeyById).not.toHaveBeenCalled()
+    })
+
+    it('404s an id with no readable row in that collection', async () => {
+      vi.mocked(findDocumentStorageKeyById).mockResolvedValue(null)
+      expect((await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}`))).status).toBe(404)
+    })
+
+    it('resolves a stored raster by the id', async () => {
+      vi.mocked(findDocumentImageStorageKeyById).mockResolvedValue({
+        storageKey: 'org/o1/project/p1/doc/entwurf/_img/1.jpg',
+        storageBucket: null,
+        contentType: 'image/jpeg',
+      })
+      const res = await GET(request(`?collection=proj_1&documentId=${ENTWURF.id}&imageIndex=1`))
+      expect(await res.json()).toMatchObject({ storageKey: 'org/o1/project/p1/doc/entwurf/_img/1.jpg' })
+      expect(vi.mocked(findDocumentImageStorageKeyById).mock.calls[0]).toEqual(['proj_1', ENTWURF.id, 1, undefined])
+      expect(findDocumentImageStorageKey).not.toHaveBeenCalled()
+    })
+  })
+
+  it('answers 409 ambiguous_name when the name alone names more than one document, instead of the newest', async () => {
+    vi.mocked(findDocumentStorageKey).mockRejectedValue(
+      new ConflictError('More than one document in this collection has this name', { reason: 'ambiguous_name' })
+    )
+    const res = await GET(request('?collection=proj_1&filename=Plan.pdf'))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'CONFLICT', details: { reason: 'ambiguous_name' } })
   })
 
   it('404s when the document index has no row for the pair', async () => {

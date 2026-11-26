@@ -2,7 +2,7 @@
 
 
 import type { JSX } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,11 +18,12 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import { countNewRevisions, soleProposal, type RevisionChange } from '../lib/revision-proposals'
-import { countPlan, type FolderUploadPlan } from '../lib/folder-upload-plan'
-import type { UploadDecisionKind } from '../hooks/use-upload-decision'
+import type { FolderUploadPlan } from '../lib/folder-upload-plan'
+import type { ConflictChange, UploadDecisionKind } from '../hooks/use-upload-decision'
+import type { SentConflictChoice } from '../lib/name-conflict'
 import { confirmLabel, describeHeader } from '../lib/folder-upload-labels'
 import { BatchPlan } from './folder-upload-dialog/batch-plan'
-import { SingleNotes } from './folder-upload-dialog/single-notes'
+import { SingleFooter, SingleNotes } from './folder-upload-dialog/single-notes'
 import { SoleCandidatePick, SoleFooter } from './folder-upload-dialog/sole-revision'
 
 export interface FolderUploadDialogProps {
@@ -30,11 +31,12 @@ export interface FolderUploadDialogProps {
   onOpenChange: (open: boolean) => void
   plan: FolderUploadPlan | null
   currentFolderName: string | null
-  onConfirm: (includeUpdates: boolean) => void | Promise<void>
+  onConfirm: () => void | Promise<void>
   pending?: boolean
   kind?: UploadDecisionKind
   onReleaseChange?: (file: File, released: boolean) => void
   onRevisionChange?: (change: RevisionChange) => void
+  onConflictChange?: (change: ConflictChange) => void
 }
 
 export function FolderUploadDialog({
@@ -47,22 +49,20 @@ export function FolderUploadDialog({
   kind = 'folder',
   onReleaseChange,
   onRevisionChange,
+  onConflictChange,
 }: FolderUploadDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const contentRef = useRef<HTMLDivElement>(null)
-  const [includeUpdates, setIncludeUpdates] = useState(true)
   const [soleAnswer, setSoleAnswer] = useState<boolean | null>(null)
+  const [singleAnswer, setSingleAnswer] = useState<SentConflictChoice | null>(null)
 
   useEffect(() => {
     if (plan) return
-    setIncludeUpdates(true)
     setSoleAnswer(null)
+    setSingleAnswer(null)
   }, [plan])
 
-  const counts = useMemo(
-    () => (plan ? countPlan(plan.files, plan.folders, includeUpdates) : null),
-    [plan, includeUpdates],
-  )
+  const counts = plan?.counts ?? null
 
   const destination = currentFolderName ?? t('folders.allFiles')
   const isFolder = kind === 'folder'
@@ -75,8 +75,20 @@ export function FolderUploadDialog({
   useEffect(() => {
     if (soleAnswer === null || !sole || sole.revisionOf.chosen !== soleAnswer) return
     setSoleAnswer(null)
-    void onConfirm(true)
+    void onConfirm()
   }, [soleAnswer, sole, onConfirm])
+
+  useEffect(() => {
+    if (singleAnswer === null || single?.conflict?.choice !== singleAnswer) return
+    setSingleAnswer(null)
+    void onConfirm()
+  }, [singleAnswer, single, onConfirm])
+
+  const answerSingle = (choice: SentConflictChoice) => {
+    if (!single?.conflict) return
+    if (single.conflict.choice !== choice) onConflictChange?.({ files: [single.file], choice })
+    setSingleAnswer(choice)
+  }
 
   const answerSole = (asRevision: boolean) => {
     if (!sole) return
@@ -85,9 +97,9 @@ export function FolderUploadDialog({
   }
 
   const { title, description, HeaderIcon } = describeHeader({ t, plan, single, sole, isFolder, destination })
-  const nothingToDo = !counts || counts.uploading + counts.moving === 0
+  const nothingToDo = !counts || counts.uploading === 0
   const batch = Boolean(plan && counts && !single && !sole)
-  const revisions = plan ? countNewRevisions(plan.files, includeUpdates) : 0
+  const revisions = plan ? countNewRevisions(plan.files) : 0
 
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
@@ -126,18 +138,17 @@ export function FolderUploadDialog({
           ) : sole ? (
             <SoleCandidatePick file={sole} disabled={pending || soleAnswer !== null} onRevisionChange={onRevisionChange} />
           ) : single ? (
-            <SingleNotes single={single} destination={destination} />
+            <SingleNotes single={single} />
           ) : (
             <BatchPlan
               plan={plan}
               counts={counts}
               isFolder={isFolder}
-              includeUpdates={includeUpdates}
-              onIncludeUpdatesChange={setIncludeUpdates}
               pending={pending}
               destination={destination}
               onReleaseChange={onReleaseChange}
               onRevisionChange={onRevisionChange}
+              onConflictChange={onConflictChange}
             />
           )}
         </DialogBody>
@@ -154,13 +165,21 @@ export function FolderUploadDialog({
             <Button onClick={() => onOpenChange(false)} data-testid="folder-upload-close">
               {t('folderUpload.close')}
             </Button>
+          ) : single?.conflict ? (
+            <SingleFooter
+              file={single}
+              busy={pending || singleAnswer !== null}
+              canChange={Boolean(onConflictChange)}
+              onCancel={() => onOpenChange(false)}
+              onAnswer={answerSingle}
+            />
           ) : (
             <>
               <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
                 {t('folderUpload.cancel')}
               </Button>
               <Button
-                onClick={() => void onConfirm(single ? true : includeUpdates)}
+                onClick={() => void onConfirm()}
                 disabled={pending || nothingToDo}
                 data-testid="folder-upload-confirm"
               >

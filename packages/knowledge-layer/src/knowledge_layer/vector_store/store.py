@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Any
+from typing import Literal
 
 import httpx
 from qdrant_client import QdrantClient
@@ -29,6 +30,7 @@ from .schema import BM25_MODEL
 from .schema import BM25_OPTIONS
 from .schema import CHUNK_ID_FIELD
 from .schema import DENSE
+from .schema import DOCUMENT_ID_FIELD
 from .schema import LEXICAL
 from .schema import SCOPE_FIELD
 from .schema import TEXT_FIELD
@@ -53,6 +55,8 @@ DELETE_BATCH = 1024
 BM25_LENGTH_TTL_SECONDS = 300.0
 
 RETRY_BACKOFF_SECONDS = (0.2, 0.8, 2.0)
+
+PayloadKey = Literal["file_name", "document_id"]
 
 
 def _transient(error: BaseException) -> bool:
@@ -222,33 +226,58 @@ class QdrantStore:
         self._delete(scope)
 
     @staticmethod
-    def _file_filter(scope: str, file_name: str) -> models.Filter:
+    def _document_filter(scope: str, value: str, key: PayloadKey = "file_name") -> models.Filter:
+        if key == "document_id":
+            return scope_filter(
+                [scope], None, models.FieldCondition(key=DOCUMENT_ID_FIELD, match=models.MatchValue(value=value))
+            )
+        if key != "file_name":
+            raise ValueError(f"A document is addressed by file_name or document_id, not {key!r}")
         return scope_filter(
-            [scope], None, models.FieldCondition(key="file_name", match=models.MatchValue(value=file_name))
+            [scope],
+            None,
+            models.FieldCondition(key="file_name", match=models.MatchValue(value=value)),
+            models.IsEmptyCondition(is_empty=models.PayloadField(key=DOCUMENT_ID_FIELD)),
         )
 
-    def set_file_payloads(self, scope: str, payloads: Mapping[str, Mapping[str, Any]]) -> None:
-        payloads = {name: dict(values) for name, values in payloads.items() if values}
+    def set_file_payloads(
+        self, scope: str, payloads: Mapping[str, Mapping[str, Any]], *, key: PayloadKey = "file_name"
+    ) -> None:
+        payloads = {value: dict(values) for value, values in payloads.items() if value and values}
         if not payloads or not self.exists(scope):
             return
         operations = [
             models.SetPayloadOperation(
-                set_payload=models.SetPayload(payload=values, filter=self._file_filter(scope, name))
+                set_payload=models.SetPayload(payload=values, filter=self._document_filter(scope, value, key))
             )
-            for name, values in payloads.items()
+            for value, values in payloads.items()
         ]
         self._batch(self.alias(scope), f"set payloads in {scope}", operations)
 
-    def restore_chunk_doc_classes(self, scope: str, file_names: Iterable[str]) -> None:
-        names = sorted(set(file_names))
-        if not names or not self.exists(scope):
+    def rewrite_file_name(self, scope: str, document_id: str, file_name: str) -> int:
+        if not document_id or not file_name.strip() or not self.exists(scope):
+            return 0
+        selector = self._document_filter(scope, document_id, "document_id")
+        alias = self.alias(scope)
+        found = self.client.count(alias, count_filter=selector, exact=True).count
+        if found:
+            with_retry(
+                f"rename a document in {scope}",
+                lambda: self.client.set_payload(alias, payload={"file_name": file_name}, points=selector, wait=True),
+            )
+        return found
+
+    def restore_chunk_doc_classes(self, scope: str, documents: Iterable[str], *, key: PayloadKey = "file_name") -> None:
+        values = sorted({value for value in documents if value})
+        if not values or not self.exists(scope):
             return
         alias = self.alias(scope)
         operations: list[Any] = []
-        for file_name in names:
+        for value in values:
+            selector = self._document_filter(scope, value, key)
             page, _next = self.client.scroll(
                 alias,
-                scroll_filter=self._file_filter(scope, file_name),
+                scroll_filter=selector,
                 limit=1,
                 with_payload=[CHUNK_DOC_CLASS_FIELD, "doc_class"],
                 with_vectors=False,
@@ -259,7 +288,6 @@ class QdrantStore:
             own = payload[CHUNK_DOC_CLASS_FIELD] or None
             if own == payload.get("doc_class"):
                 continue
-            selector = self._file_filter(scope, file_name)
             if own:
                 operations.append(
                     models.SetPayloadOperation(

@@ -32,7 +32,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/search/facets-repository.ts#listShelfDocumentsForProjection':
     "Sweep: the search projection's backstop walks a shelf's ids to rewrite their derived rows (ADR-0136). Ids to a job; every search joins the rows under the reader's predicate.",
   'lib/search/facets-repository.ts#listCollectionDocumentsForProjection':
-    "The search projection: the ids of the documents a settled Fassung replaces, by file name, so their derived rows say so (ADR-0136). Ids to the projector; every search joins the rows under the reader's predicate.",
+    "The search projection: the ids of the documents a settled Fassung replaces, by id or file name, so their derived rows say so (ADR-0136). Ids to the projector; every search joins the rows under the reader's predicate.",
   'lib/search/facets-repository.ts#shelfSourceFingerprints':
     "Staleness probe: a count and newest change per shelf, compared with the projection's last sync. Numbers to a job, nothing to a person.",
 
@@ -210,11 +210,11 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/repository/lookup-by-ref.ts#findLiveDocumentByFilename': {
     makes: ['internal:identity'],
-    why: 'The name probe of an upload; a held row of another person answers as taken (`assertMayReplaceHeld`).',
+    why: 'The name probe of an upload, a move and a rename into one folder; a held row of another person answers as taken (`assertMayReplaceHeld`).',
   },
-  'lib/documents/repository/lookup-by-ref.ts#findProjectCollectionsHoldingFilename': {
+  'lib/documents/repository/lookup-by-ref.ts#findTakenDocumentNameKeys': {
     makes: ['internal:identity'],
-    why: 'Which collections already hold a filename: identity, over every row.',
+    why: 'Which numbered names a folder already holds, so „Beide behalten“ picks a free one: the unique index answers over every row, held ones included. Names only, into a suggestion.',
   },
   'lib/documents/repository/storage.ts#findStorageKeyByIdAndCollection': {
     makes: ['internal:ingest'],
@@ -227,6 +227,10 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   'lib/documents/repository/storage.ts#documentExistsInCollection': {
     makes: ['internal:ingest'],
     why: 'The pipeline asks whether the file it just indexed still exists (service token, no person).',
+  },
+  'lib/documents/repository/storage.ts#listDocumentIdsInCollection': {
+    makes: ['internal:identity'],
+    why: 'The backend maps the names its index and metadata stored to document ids, over every row that can own chunks, held ones included (service token, no person). Ids, names and folders into a re-key, nothing to a person.',
   },
   'lib/permits/repository.ts#findPermitDocument': {
     makes: ['internal:ingest'],

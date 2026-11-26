@@ -127,6 +127,7 @@ function file(name = 'brandschutz.pdf'): File {
 
 const existing = makeLiveDocumentMatch({
   id: 'doc-existing',
+  filename: 'brandschutz.pdf',
   storageKey: `org/${ORG_ID}/session/${CONVERSATION_ID}/doc/doc-existing/brandschutz.pdf`,
   storageBucket: 'grid-org-org1-abc',
   fileSize: 900,
@@ -153,10 +154,23 @@ describe('uploadSessionDocument, a file already attached under that name', () =>
     expect(createConversation).toHaveBeenCalledWith(session, { id: CONVERSATION_ID, projectId: null, personal: true })
   })
 
-  it('probes the conversation\'s own collection, not the project\'s', async () => {
+  it('probes the conversation\'s own collection, not the project\'s, which has no folders', async () => {
     await uploadSessionDocument(session, { conversationId: CONVERSATION_ID, file: file() }, new Request('http://x'))
 
-    expect(findLiveDocumentByFilename).toHaveBeenCalledWith(ORG_ID, CONVERSATION_ID, 'brandschutz.pdf')
+    expect(findLiveDocumentByFilename).toHaveBeenCalledWith(
+      ORG_ID,
+      { folderId: null, collectionName: CONVERSATION_ID },
+      'brandschutz.pdf',
+    )
+  })
+
+  it('takes a name that differs only in case as the same attachment, and keeps the name it was stored under', async () => {
+    await uploadSessionDocument(session, { conversationId: CONVERSATION_ID, file: file('BRANDSCHUTZ.pdf') }, new Request('http://x'))
+
+    expect(vi.mocked(admitReplacementOrDiscard).mock.calls.at(-1)?.[3]).toBe('doc-existing')
+    expect(dispatchDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: 'doc-existing', filename: 'brandschutz.pdf' }),
+    )
   })
 
   it('keeps the document id and replaces the row instead of inserting a second one', async () => {

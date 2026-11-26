@@ -226,7 +226,14 @@ async def _run_look(
             result: list[dict] | str = resolved
         else:
             render = render_view(
-                resolved.file_name, page, resolved.collection, image_index, region, limits=limits, tool=TOOL
+                resolved.file_name,
+                page,
+                resolved.collection,
+                image_index,
+                region,
+                limits=limits,
+                tool=TOOL,
+                document_id=resolved.document_id,
             )
             if _may_glow(resolved):
                 _, rendered = await asyncio.gather(

@@ -20,6 +20,7 @@ class PlaceFacts:
     shelf: Shelf
     page: int
     box: tuple[float, float, float, float] | None = None
+    document_id: str | None = None
 
 
 def place_facts(resolved: Any, page: int, region: Any, image_index: int | None) -> PlaceFacts | None:
@@ -33,7 +34,8 @@ def place_facts(resolved: Any, page: int, region: Any, image_index: int | None) 
         return None
     box = clamp_region(region) if image_index is None else None
     corners = (box[0], box[1], round(box[0] + box[2], 4), round(box[1] + box[3], 4)) if box is not None else None
-    return PlaceFacts(resolved.file_name, collection, shelf, max(1, int(page or 1)), corners)
+    document_id = getattr(resolved, "document_id", None)
+    return PlaceFacts(resolved.file_name, collection, shelf, max(1, int(page or 1)), corners, document_id)
 
 
 def citation_key(facts: PlaceFacts) -> str:
@@ -65,6 +67,7 @@ def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: A
         body=reading_rows,
         regions=(SourceRegion(box=facts.box),) if facts.box is not None else (),
         licence=licence,
+        document_id=facts.document_id,
     )
     block = GroundingBlock(preamble=preamble, degraded_banner="", hits=(hit,), lanes=(), tool=TOOL)
     return render_grounding_block(block)

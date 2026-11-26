@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   documentAliasKey,
   documentNameKey,
+  documentNameMatchKey,
   documentNameVariants,
+  heldDocumentName,
+  holdsDocumentName,
   originBaseName,
 } from './name-match'
 
@@ -23,8 +26,45 @@ describe('documentNameKey', () => {
     expect(documentNameKey('  Plan.pdf ')).toBe('Plan.pdf')
   })
 
-  it('does not fold case, because the identity it stands for does not', () => {
-    expect(documentNameKey('Plan.pdf')).not.toBe(documentNameKey('plan.pdf'))
+  it('keeps the case a person typed, because it is the spelling a document is stored under', () => {
+    expect(documentNameKey('Plan.pdf')).toBe('Plan.pdf')
+    expect(documentNameKey('plan.pdf')).toBe('plan.pdf')
+  })
+})
+
+describe('documentNameMatchKey', () => {
+  it('compares as the Finder does: one key for every case, Unicode form and stray whitespace of a name', () => {
+    expect(documentNameMatchKey('Plan.pdf')).toBe(documentNameMatchKey('plan.PDF'))
+    expect(documentNameMatchKey(` ${DECOMPOSED.toUpperCase()}`)).toBe(documentNameMatchKey(COMPOSED))
+  })
+
+  it('folds the case of letters beyond ASCII, which a database under the C locale does not', () => {
+    expect(documentNameMatchKey('Übersicht.pdf')).toBe(documentNameMatchKey('übersicht.pdf'))
+  })
+
+  it('keeps different names apart', () => {
+    expect(documentNameMatchKey('Plan 2.pdf')).not.toBe(documentNameMatchKey('Plan.pdf'))
+  })
+})
+
+describe('holdsDocumentName', () => {
+  it('is held under the name it was stored as and under the name it was renamed to', () => {
+    const renamed = { filename: 'scan_0001.pdf', displayName: 'Lageplan.pdf' }
+    expect(holdsDocumentName(renamed, 'SCAN_0001.pdf')).toBe(true)
+    expect(holdsDocumentName(renamed, 'lageplan.pdf')).toBe(true)
+    expect(holdsDocumentName(renamed, 'Plan.pdf')).toBe(false)
+  })
+
+  it('answers the spelling the document holds the name in', () => {
+    const renamed = { filename: 'scan_0001.pdf', displayName: 'Lageplan.pdf' }
+    expect(heldDocumentName(renamed, 'LAGEPLAN.pdf')).toBe('Lageplan.pdf')
+    expect(heldDocumentName(renamed, 'Scan_0001.PDF')).toBe('scan_0001.pdf')
+    expect(heldDocumentName(renamed, 'Plan.pdf')).toBeNull()
+  })
+
+  it('holds only its filename when nobody renamed it', () => {
+    expect(holdsDocumentName({ filename: 'Plan.pdf', displayName: null }, 'plan.pdf')).toBe(true)
+    expect(holdsDocumentName({ filename: 'Plan.pdf' }, '')).toBe(false)
   })
 })
 

@@ -52,6 +52,8 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
                             tool_name=item.get("tool_name", ""),
                             collection=item.get("collection"),
                             shelf=item.get("shelf"),
+                            document_id=item.get("document_id"),
+                            folder_path=item.get("folder_path"),
                             doc_class=item.get("doc_class"),
                             authored_by=item.get("authored_by"),
                             source_format=item.get("source_format"),

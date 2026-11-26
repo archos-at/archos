@@ -3,12 +3,14 @@ import logging
 import math
 
 from agent.common.estate_paths import estate_path
+from knowledge_layer.search.document_groups import document_key
 from knowledge_layer.search.hit_metadata import hit_display_title
 from knowledge_layer.search.hit_metadata import hit_doc_class
 from knowledge_layer.search.hit_metadata import hit_folder_path
 from knowledge_layer.search.hit_metadata import resolve_display_titles
 from knowledge_layer.search.hit_metadata import resolve_doc_classes
 from knowledge_layer.search.hit_metadata import resolve_folder_paths
+from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +40,24 @@ def _ambiguous_file_names(chunks) -> set[str]:
     return {name for name, shelves in shelves_by_name.items() if len(shelves) > 1}
 
 
-def _citation_key_for(file_name: str, shelf, page: int | None, ambiguous: set[str]) -> str:
+def _names_shared_in_a_shelf(chunks) -> frozenset[tuple[str, object]]:
+    documents_by_name: dict[tuple[str, object], set] = {}
+    for chunk in chunks:
+        name = (chunk.file_name or "").strip()
+        if name:
+            documents_by_name.setdefault((name.lower(), _chunk_shelf(chunk)), set()).add(document_key(chunk))
+    return frozenset(name for name, documents in documents_by_name.items() if len(documents) > 1)
+
+
+def _citation_key_for(file_name: str, shelf, page: int | None, ambiguous: set[str], folder: str | None = None) -> str:
     from agent.common.source_kinds import shelf_qualifier
 
     name = file_name
     qualifier = shelf_qualifier(shelf) if name and name.lower() in ambiguous else None
     if qualifier:
         name = f"{name} ({qualifier})"
+    if folder and folder.strip("/"):
+        name = f"{folder.strip('/')}/{name}"
     return f"{name}, p.{page}" if page is not None else name
 
 
@@ -93,7 +106,15 @@ def _metadata_text(value: object) -> str | None:
     return str(value) if value else None
 
 
-def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguous: set[str]):
+def grounding_hit(
+    chunk,
+    *,
+    resolved,
+    resolved_titles,
+    resolved_folders,
+    ambiguous: set[str],
+    shared_names: frozenset[tuple[str, object]] = frozenset(),
+):
     from agent.common.grounding_block import GroundingHit
     from agent.common.licensed_text import EDITION_KEY
     from agent.common.licensed_text import licence_from_metadata
@@ -104,8 +125,9 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
     content = chunk.content
     truncated = len(content) > _CHUNK_TRUNCATE_CHARS
     folder_path = hit_folder_path(chunk, resolved_folders)
+    shared = ((chunk.file_name or "").strip().lower(), shelf) in shared_names
     return GroundingHit(
-        citation_key=_citation_key_for(chunk.file_name, shelf, page, ambiguous),
+        citation_key=_citation_key_for(chunk.file_name, shelf, page, ambiguous, folder_path if shared else None),
         file_name=chunk.file_name,
         page=page,
         shelf=shelf,
@@ -128,6 +150,7 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
         licence=licence_from_metadata(metadata),
         revision=_hit_revision(chunk.file_name, shelf),
         edition_id=_metadata_text(metadata.get(EDITION_KEY)),
+        document_id=_metadata_text(metadata.get(DOCUMENT_ID_FIELD)),
     )
 
 
@@ -154,6 +177,7 @@ def grounding_hits(chunks) -> tuple:
     resolved_titles = resolve_display_titles(chunks)
     resolved_folders = resolve_folder_paths(chunks)
     ambiguous = _ambiguous_file_names(chunks)
+    shared_names = _names_shared_in_a_shelf(chunks)
     return tuple(
         grounding_hit(
             chunk,
@@ -161,6 +185,7 @@ def grounding_hits(chunks) -> tuple:
             resolved_titles=resolved_titles,
             resolved_folders=resolved_folders,
             ambiguous=ambiguous,
+            shared_names=shared_names,
         )
         for chunk in chunks
     )

@@ -380,34 +380,27 @@ describe('uploadOfficeShelfDocument', () => {
       expect(s3Client.send).not.toHaveBeenCalled()
     })
 
-    it('re-files the one document when the same name is uploaded into a different folder', async () => {
+    it('files the same name in a different folder as a document of its own, and leaves the other where it is', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
-      vi.mocked(findLiveDocumentByFilename).mockResolvedValue(makeLiveDocumentMatch({
-        id: 'archiv-doc-1',
-        storageKey: 'org/org-1/archiv/doc/archiv-doc-1/plan.pdf',
-        storageBucket: 'test-bucket',
-        fileSize: 8,
-        contentHash: null,
-        folderId: null,
-        status: 'ready',
-      }))
+      const atRoot = makeLiveDocumentMatch({ id: 'archiv-doc-1', folderId: null, status: 'ready' })
+      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place) => (place.folderId === null ? atRoot : null))
 
       const result = await uploadOfficeShelfDocument(session, makeFile(), request, { folderId: 'folder-2' })
 
-      expect(result.documentId).toBe('archiv-doc-1')
-      expect(admitReplacementOrDiscard).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        'org-1',
-        'archiv-doc-1',
-        expect.objectContaining({ folderId: 'folder-2' }),
-      )
+      expect(vi.mocked(findLiveDocumentByFilename).mock.calls.at(-1)?.[1]).toEqual({
+        folderId: 'folder-2',
+        collectionName: 'archiv_org-1',
+      })
+      expect(result.documentId).not.toBe('archiv-doc-1')
+      expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+      expect(admitOrDiscard).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.objectContaining({ folderId: 'folder-2' }))
     })
 
     it('does nothing when the same bytes are already filed where this upload would file them', async () => {
       const { contentDigest } = await import('@/lib/documents/content-digest')
       const digest = contentDigest(Buffer.from(new ArrayBuffer(8)))
       vi.mocked(findLiveDocumentByFilename).mockResolvedValue(makeLiveDocumentMatch({
+        filename: 'plan.pdf',
         id: 'archiv-doc-1',
         storageKey: 'org/org-1/archiv/doc/archiv-doc-1/plan.pdf',
         storageBucket: 'test-bucket',
@@ -589,6 +582,7 @@ describe('deleteOfficeShelfDocument', () => {
 
   it('replaces an Archiv document of the same name instead of ghosting it', async () => {
     vi.mocked(findLiveDocumentByFilename).mockResolvedValue(makeLiveDocumentMatch({
+      filename: 'norm.pdf',
       id: 'archiv-doc-1',
       storageKey: 'org/org-1/archiv/archiv-doc-1/norm.pdf',
       storageBucket: 'test-bucket',
@@ -610,6 +604,7 @@ describe('deleteOfficeShelfDocument', () => {
   it('files a re-upload whose document was just deleted as a first upload', async () => {
     vi.mocked(findLiveDocumentByFilename)
       .mockResolvedValueOnce(makeLiveDocumentMatch({
+        filename: 'norm.pdf',
         id: 'archiv-deleted',
         storageKey: 'org/org-1/archiv/doc/archiv-deleted/norm.pdf',
         storageBucket: 'test-bucket',
@@ -646,6 +641,7 @@ describe('deleteOfficeShelfDocument', () => {
 
   it('makes the loser of two concurrent first uploads a new version of the winner', async () => {
     const winner = makeLiveDocumentMatch({
+      filename: 'norm.pdf',
       id: 'archiv-winner',
       storageKey: 'org/org-1/archiv/doc/archiv-winner/norm.pdf',
       storageBucket: 'test-bucket',
@@ -764,6 +760,7 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
 
   describe('an upload named like a document under the standards tree', () => {
     const norm = makeLiveDocumentMatch({
+      filename: 'Brandschutz-Richtlinie.pdf',
       id: 'norm-1',
       storageKey: 'org/org-1/office_shelf/doc/norm-1/Brandschutz-Richtlinie.pdf',
       storageBucket: 'test-bucket',
@@ -778,59 +775,50 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
     })
 
     const holding = (...names: string[]) =>
-      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, _collection, filename) =>
-        names.includes(filename) ? { ...norm, filename } : null,
+      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, filename) =>
+        place.folderId === norm.folderId && names.includes(filename) ? { ...norm, filename } : null,
       )
     const storedName = () => vi.mocked(admitOrDiscard).mock.calls[0]?.[2].filename
 
-    it('is stored in the Ordner under the next free numbered name, replacing nothing', async () => {
+    it('is stored in an Ordner under its own name: the norm of that name lives in another folder', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
-      holding('Brandschutz-Richtlinie.pdf', 'Brandschutz-Richtlinie (2).pdf')
+      holding('Brandschutz-Richtlinie.pdf')
 
       const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-plans' })
 
-      expect(result.filename).toBe('Brandschutz-Richtlinie (3).pdf')
-      expect(storedName()).toBe('Brandschutz-Richtlinie (3).pdf')
+      expect(result.filename).toBe('Brandschutz-Richtlinie.pdf')
+      expect(storedName()).toBe('Brandschutz-Richtlinie.pdf')
       expect(admitOrDiscard).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.objectContaining({ folderId: 'folder-plans' }))
       expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
     })
 
-    it('is stored at the Ordner’s root under a numbered name too', async () => {
-      holding('Brandschutz-Richtlinie.pdf')
-
-      await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request)
-
-      expect(storedName()).toBe('Brandschutz-Richtlinie (2).pdf')
-      expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
-    })
-
-    it('never replaces a norm by its name, even filed into the standards tree: a new edition is told by its designation and edition', async () => {
+    it('never replaces a norm by its name, even filed into its own folder: it takes the next free numbered name', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
-      holding('Brandschutz-Richtlinie.pdf')
+      holding('Brandschutz-Richtlinie.pdf', 'Brandschutz-Richtlinie (2).pdf')
 
       const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire' })
 
       expect(result.documentId).not.toBe('norm-1')
-      expect(storedName()).toBe('Brandschutz-Richtlinie (2).pdf')
+      expect(storedName()).toBe('Brandschutz-Richtlinie (3).pdf')
       expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
     })
 
-    it('never sweeps an Ordner file into the standards tree by its name', async () => {
+    it('files a standards-tree upload under its own name when an Ordner file elsewhere has it', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros')
-      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, _collection, filename) =>
-        filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
+      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, filename) =>
+        place.folderId === 'folder-plans' && filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
       )
 
       await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { folderId: 'folder-standards' })
 
-      expect(storedName()).toBe('Plan (2).pdf')
+      expect(storedName()).toBe('Plan.pdf')
       expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
     })
 
     it('still replaces an Ordner file of the same name in the Ordner', async () => {
       vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
-      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, _collection, filename) =>
-        filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
+      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, filename) =>
+        place.folderId === 'folder-plans' && filename === 'Plan.pdf' ? { ...norm, id: 'plan-1', filename, folderId: 'folder-plans' } : null,
       )
 
       const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Plan.pdf'), request, { folderId: 'folder-plans' })
@@ -839,11 +827,11 @@ describe('the Ordner, once the office keeps its own standards (office-standards 
       expect(admitReplacementOrDiscard).toHaveBeenCalled()
     })
 
-    it('still replaces it while the office has no standards of its own', async () => {
-      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
+    it('still replaces it in its own folder while the office has no standards of its own', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
       holding('Brandschutz-Richtlinie.pdf')
 
-      const result = await uploadOfficeShelfDocument(session, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-plans' })
+      const result = await uploadOfficeShelfDocument(session, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire' })
 
       expect(result.documentId).toBe('norm-1')
       expect(admitReplacementOrDiscard).toHaveBeenCalled()

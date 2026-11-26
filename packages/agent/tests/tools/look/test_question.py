@@ -82,7 +82,7 @@ def stored(monkeypatch, calls):
     monkeypatch.setenv("VLM_API_KEY", "sk-test")
     monkeypatch.setattr(view, "_find_pdf", lambda _name: None)
 
-    async def locate(collection, file_name, organization_id=None, image_index=None):
+    async def locate(collection, file_name, organization_id=None, image_index=None, document_id=None):
         return ("key", None) if collection == "proj_1" else None
 
     monkeypatch.setattr(view, "_resolve_storage_location", locate)

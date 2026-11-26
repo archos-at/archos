@@ -2,7 +2,7 @@ import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
 import { projectShelf } from './shelf'
-import { uploadToShelf, type UploadDocumentResult } from './shelf-upload'
+import { uploadToShelf, type UploadConflictPolicy, type UploadDocumentResult } from './shelf-upload'
 import { findDocumentInOrg, markDocumentNotIndexed, markDocumentIngestFailed, markDocumentProcessing, setDocumentBackgroundJob } from './repository'
 import { withTenant } from '@/lib/db/tenant-context'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
@@ -30,6 +30,7 @@ export interface UploadDocumentInput {
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
   originConversationId?: string | null
+  onConflict?: UploadConflictPolicy
 }
 
 export type { UploadDocumentResult }

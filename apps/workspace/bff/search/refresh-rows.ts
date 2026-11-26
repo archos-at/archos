@@ -28,7 +28,7 @@ export async function projectDocuments(organizationId: string, docs: readonly Pr
     )
     if (!listed) throw new Error(`search projection: listing of ${collectionName} unreadable`)
     for (const entry of entries) {
-      const reading = listed.get(entry.ref.filename)
+      const reading = listed.get(entry.ref)
       if (reading) readings.push({ documentId: entry.id, ...reading })
     }
   }

@@ -119,6 +119,8 @@ async function comparePair(
   const response = await postToBackend(session, compareUrl(getBackendUrl(), newer.collectionName), {
     older: older.filename,
     newer: newer.filename,
+    older_id: older.id,
+    newer_id: newer.id,
     page,
     purpose,
   })
@@ -158,6 +160,8 @@ export async function changedRevisionPages(
   const response = await postToBackend(session, pagesUrl(getBackendUrl(), newer.collectionName), {
     older: older.filename,
     newer: newer.filename,
+    older_id: older.id,
+    newer_id: newer.id,
   })
   if (!response.ok) {
     console.warn('[Fassung compare] backend refused the changed pages:', response.status)

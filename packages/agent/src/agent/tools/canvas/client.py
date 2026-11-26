@@ -5,6 +5,10 @@ from typing import Any
 
 from agent.common import bff_http
 from agent.common.bff_http import SignedEnvelope
+from agent.common.stored_file import DOCUMENT_FILE_PATH
+from agent.common.stored_file import AmbiguousDocumentName
+from agent.common.stored_file import document_file_query
+from agent.common.stored_file import names_several_documents
 
 logger = logging.getLogger(__name__)
 
@@ -50,18 +54,20 @@ def post_canvas(
     return body
 
 
-DOCUMENT_FILE_PATH = "/api/internal/document-file"
-
-
 def lookup_document_id(collection: str, file_name: str, envelope: SignedEnvelope) -> str | None:
     try:
         body = bff_http.get_json(
             DOCUMENT_FILE_PATH,
             timeout=REQUEST_TIMEOUT_SECONDS,
-            query={"collection": collection, "filename": file_name},
+            query=document_file_query(collection, file_name),
             headers=envelope.headers(),
         )
     except bff_http.BffNotConfiguredError:
+        return None
+    except bff_http.BffRefusedError as refusal:
+        if names_several_documents(refusal):
+            raise AmbiguousDocumentName(file_name) from None
+        logger.info("No document id for %s in %s", file_name, collection, exc_info=True)
         return None
     except bff_http.BffError:
         logger.info("No document id for %s in %s", file_name, collection, exc_info=True)

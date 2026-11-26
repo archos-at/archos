@@ -94,11 +94,6 @@ def test_payload_derives_ancestors_from_the_folder_that_won():
     assert schema.INDEXED_FIELDS >= {"folder_ancestors", "doc_class", "superseded"}
 
 
-def test_without_files_drops_only_the_named_files():
-    chunks = [SimpleNamespace(file_name=name) for name in ("a.pdf", "b.pdf", "a.pdf")]
-    assert [chunk.file_name for chunk in prefilter.without_files(chunks, ["a.pdf"])] == ["b.pdf"]
-
-
 @pytest.fixture
 def qdrant_env(qdrant_store):
     return qdrant_store

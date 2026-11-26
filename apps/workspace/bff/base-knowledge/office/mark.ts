@@ -7,7 +7,7 @@ import type { EntryDocument } from './repository'
 const MARK_TIMEOUT_MS = 5_000
 
 export async function markCopyPoints(document: EntryDocument, editionId: string, mark: LicenceMark): Promise<boolean> {
-  const row = { collectionName: document.collectionName, filename: document.storedName }
+  const row = { collectionName: document.collectionName, filename: document.storedName, documentId: document.id }
   try {
     const backendUrl = getBackendUrl()
     const response = await fetch(
@@ -15,7 +15,7 @@ export async function markCopyPoints(document: EntryDocument, editionId: string,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-        body: JSON.stringify({ file_name: row.filename, ...licenceMarkFields(mark), edition_id: editionId }),
+        body: JSON.stringify({ file_name: row.filename, document_id: row.documentId, ...licenceMarkFields(mark), edition_id: editionId }),
         signal: AbortSignal.timeout(MARK_TIMEOUT_MS),
       }
     )

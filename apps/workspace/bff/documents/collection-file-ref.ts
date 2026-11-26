@@ -31,8 +31,9 @@ export const collectionDocumentsUrl = (backendUrl: string, ref: CollectionFileRe
   `${backendUrl}/v1/collections/${encodeURIComponent(ref.collectionName)}/documents`
 
 export const collectionFileUrl = (backendUrl: string, ref: CollectionFileRef, suffix: string): string =>
-  `${collectionDocumentsUrl(backendUrl, ref)}/${encodeURIComponent(ref.filename)}${suffix}`
-
+  ref.documentId
+    ? `${collectionDocumentsUrl(backendUrl, ref)}/by-id/${encodeURIComponent(ref.documentId)}${suffix}`
+    : `${collectionDocumentsUrl(backendUrl, ref)}/${encodeURIComponent(ref.filename)}${suffix}`
 
 export function chunkPurgeBody(refs: readonly CollectionFileRef[], permanent = false): string {
   const byId = refs.every((ref) => ref.documentId)

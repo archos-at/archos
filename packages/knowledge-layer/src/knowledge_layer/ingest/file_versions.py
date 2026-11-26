@@ -18,6 +18,18 @@ class _PreviousVersion:
     chunk_ids: list[str] = field(default_factory=list)
     stored_names: list[str] = field(default_factory=list)
     preserved: dict[str, str] = field(default_factory=dict)
+    document_id: str | None = None
+    unclaimed_names: list[str] = field(default_factory=list)
+
+    @property
+    def legacy_names(self) -> list[str]:
+        return self.unclaimed_names if self.document_id else self.stored_names
+
+    def holds(self, row: Any) -> bool:
+        row_id = getattr(row, "document_id", None)
+        if self.document_id and row_id:
+            return row_id == self.document_id
+        return getattr(row, "file_name", None) in self.legacy_names
 
 
 def _tmp_upload_names(collection_name: str, spellings: list[str]) -> list[str]:
@@ -34,7 +46,9 @@ def _tmp_upload_names(collection_name: str, spellings: list[str]) -> list[str]:
         return []
 
 
-def _human_set_fields(collection_name: str, stored_names: list[str]) -> tuple[tuple[str, dict[str, Any]], ...]:
+def _human_set_fields(
+    collection_name: str, stored_names: list[str], document_ids: list[str] | None = None
+) -> tuple[tuple[str, dict[str, Any]], ...]:
     from agent.knowledge import get_document_display_titles
     from agent.knowledge import get_document_doc_classes
     from agent.knowledge import get_document_folder_paths
@@ -43,21 +57,22 @@ def _human_set_fields(collection_name: str, stored_names: list[str]) -> tuple[tu
     from agent.knowledge import get_document_revision_suggestions
     from agent.knowledge import get_document_superseded_by
 
+    asked = {"document_ids": document_ids} if document_ids else {}
     person_tags = {
-        stored: json.dumps(tags) for stored, tags in get_document_person_tags(collection_name, stored_names).items()
+        key: json.dumps(tags) for key, tags in get_document_person_tags(collection_name, stored_names, **asked).items()
     }
     person_topics = {
-        stored: json.dumps(topics)
-        for stored, topics in get_document_person_topics(collection_name, stored_names).items()
+        key: json.dumps(topics)
+        for key, topics in get_document_person_topics(collection_name, stored_names, **asked).items()
     }
     return (
-        ("doc_class", get_document_doc_classes(collection_name, stored_names)),
-        ("display_title", get_document_display_titles(collection_name, stored_names)),
-        ("folder_path", get_document_folder_paths(collection_name, stored_names)),
+        ("doc_class", get_document_doc_classes(collection_name, stored_names, **asked)),
+        ("display_title", get_document_display_titles(collection_name, stored_names, **asked)),
+        ("folder_path", get_document_folder_paths(collection_name, stored_names, **asked)),
         ("tags", person_tags),
         ("topics", person_topics),
-        ("superseded_by", get_document_superseded_by(collection_name, stored_names)),
-        ("revision_suggestion", get_document_revision_suggestions(collection_name, stored_names)),
+        ("superseded_by", get_document_superseded_by(collection_name, stored_names, **asked)),
+        ("revision_suggestion", get_document_revision_suggestions(collection_name, stored_names, **asked)),
     )
 
 
@@ -75,6 +90,32 @@ def _read_human_set_fields(collection_name: str, found: dict[str, _PreviousVersi
             _preserve(found, name, values)
     except Exception:  # noqa: BLE001 — losing them must not keep the old chunks
         logger.warning("Could not read the previous versions' metadata; re-deriving it", exc_info=True)
+
+
+_KEPT_ON_THE_DOCUMENTS_OWN_ROW = frozenset({"superseded_by", "revision_suggestion"})
+
+
+def _read_document_human_set_fields(collection_name: str, version: _PreviousVersion) -> None:
+    document_id = str(version.document_id)
+    try:
+        for name, values in _human_set_fields(collection_name, [], [document_id]):
+            if document_id in values and name not in _KEPT_ON_THE_DOCUMENTS_OWN_ROW:
+                version.preserved.setdefault(name, values[document_id])
+    except Exception:  # noqa: BLE001 — losing them must not keep the old chunks
+        logger.warning("Could not read the previous version's metadata; re-deriving it", exc_info=True)
+
+
+def _version_of_document(document_id: str, chunks: list[tuple[str, str, bool]]) -> _PreviousVersion | None:
+    if not chunks:
+        return None
+    version = _PreviousVersion(document_id=document_id)
+    for chunk_id, stored, claimed in chunks:
+        version.chunk_ids.append(chunk_id)
+        if stored not in version.stored_names:
+            version.stored_names.append(stored)
+        if not claimed and stored not in version.unclaimed_names:
+            version.unclaimed_names.append(stored)
+    return version
 
 
 def _versions_by_name(chunks: list[tuple[str, str]], targets: set[str]) -> dict[str, _PreviousVersion]:
@@ -108,6 +149,22 @@ class VersionReplacement:
             _read_human_set_fields(collection_name, found)
         return found
 
+    def _find_previous_version_of_document(
+        self, collection_name: str, file_name: str, document_id: str
+    ) -> _PreviousVersion | None:
+        from knowledge_layer.vector_store import with_retry
+
+        spellings = _stored_spellings(file_name) if _normalized_file_name(file_name) else set()
+        spellings.update(_tmp_upload_names(collection_name, sorted(spellings)) if spellings else ())
+        chunks = with_retry(
+            f"read the previous version of a document in {collection_name}",
+            lambda: self._chunks_of_document(collection_name, document_id, sorted(spellings)),
+        )
+        version = _version_of_document(document_id, chunks)
+        if version is not None:
+            _read_document_human_set_fields(collection_name, version)
+        return version
+
     def _retire_previous_version(
         self, collection_name: str, file_name: str, previous: _PreviousVersion | None, written: list[str] | None = None
     ) -> None:
@@ -131,7 +188,7 @@ class VersionReplacement:
 
         self._store().delete_chunks(collection_name, ids_only_in(previous.chunk_ids, written))
         collection_catalog.bump_collection_version(collection_name)
-        for stored in previous.stored_names:
+        for stored in previous.legacy_names:
             if stored != file_name:
                 unregister_summary(collection_name, stored, permanent=True)
         logger.info(

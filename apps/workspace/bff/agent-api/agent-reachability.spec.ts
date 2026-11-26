@@ -101,6 +101,10 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
     category: 'ui-state',
     reason: 'the linework a browser snaps a pointer to while placing a measurement; an agent measures through document-measure',
   },
+  'POST /api/documents/by-id': {
+    category: 'ui-state',
+    reason: 'the citation peek resolves the document ids the sources on screen carry into listing rows in one batch; an agent reads a document by its id through document-get',
+  },
   'POST /api/notifications/push/devices': {
     category: 'ui-state',
     reason: 'registers this browser’s Web Push subscription; an agent has no browser to notify',

@@ -46,7 +46,7 @@ async function putLink(session: AuthorizedSession, newer: Document, older: Docum
         'x-organization-id': session.organizationId,
         'x-user-id': session.userId,
       },
-      body: JSON.stringify({ newer: newer.filename, older: older.filename, linked }),
+      body: JSON.stringify({ newer: newer.filename, older: older.filename, newer_id: newer.id, older_id: older.id, linked }),
       signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
     })
   } catch {

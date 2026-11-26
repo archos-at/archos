@@ -29,6 +29,13 @@ class PassageTarget:
     shelf: str | None
     current: str | None = None
     mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
+    document_id: str | None = None
+
+    @property
+    def selector(self) -> dict[str, Any]:
+        if self.document_id:
+            return {"document_id": {"$eq": self.document_id}}
+        return {"file_name": {"$eq": self.file_name}}
 
 
 @dataclass(frozen=True)

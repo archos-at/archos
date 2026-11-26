@@ -13,6 +13,7 @@ from agent.knowledge.schema import stable_file_id
 
 LISTING_FIELDS = (
     "file_name",
+    "document_id",
     "file_size",
     "file_type",
     "creation_date",
@@ -37,13 +38,27 @@ def from_iso(value: Any) -> datetime | None:
         return None
 
 
+def listing_key(file_name: str, document_id: str | None) -> str:
+    return f"id:{document_id}" if document_id else file_name
+
+
 def files_from_payloads(collection_name: str, payloads: Iterable[Mapping[str, Any] | None]) -> dict[str, FileInfo]:
     stats: dict[str, dict[str, Any]] = {}
     for payload in payloads:
         m = payload or {}
         if "file_name" not in m:
             continue
-        seen = stats.setdefault(m["file_name"], {"chunk_count": 0, "content_types": set(), "pages": set()})
+        document_id = str(m.get("document_id") or "") or None
+        seen = stats.setdefault(
+            listing_key(m["file_name"], document_id),
+            {
+                "file_name": m["file_name"],
+                "document_id": document_id,
+                "chunk_count": 0,
+                "content_types": set(),
+                "pages": set(),
+            },
+        )
         seen["chunk_count"] += 1
         for key in _FIRST_SEEN:
             if key in m and seen.get(key) is None:
@@ -54,14 +69,16 @@ def files_from_payloads(collection_name: str, payloads: Iterable[Mapping[str, An
             seen["content_types"].add(m["content_type"])
         if "page_label" in m:
             seen["pages"].add(m["page_label"])
-    return {file_name: _file_info(collection_name, file_name, seen) for file_name, seen in stats.items()}
+    return {key: _file_info(collection_name, seen) for key, seen in stats.items()}
 
 
-def _file_info(collection_name: str, file_name: str, seen: dict[str, Any]) -> FileInfo:
+def _file_info(collection_name: str, seen: dict[str, Any]) -> FileInfo:
+    file_name, document_id = seen["file_name"], seen["document_id"]
     return FileInfo(
-        file_id=stable_file_id(collection_name, file_name),
+        file_id=stable_file_id(collection_name, file_name, document_id),
         file_name=file_name,
         collection_name=collection_name,
+        document_id=document_id,
         status=FileStatus.SUCCESS,
         chunk_count=seen["chunk_count"],
         file_size=seen.get("file_size"),

@@ -43,6 +43,7 @@ class FileRun:
     scope: contextlib.ExitStack = field(default_factory=contextlib.ExitStack)
     stages: dict[str, float] = field(default_factory=dict)
     file_size: int = 0
+    document_id: str | None = None
     previous: Any = None
     retired: bool = False
     deleted: bool = False
@@ -106,7 +107,14 @@ class FileIngest:
             return
         original_filenames = run.config.get("original_filenames", [])
         file_name = original_filenames[i] if i < len(original_filenames) else Path(file_path).name
-        file = FileRun(index=i, file_path=file_path, file_name=file_name, rendition=None, started=time.monotonic())
+        file = FileRun(
+            index=i,
+            file_path=file_path,
+            file_name=file_name,
+            rendition=None,
+            started=time.monotonic(),
+            document_id=str(run.config.get("document_id") or "").strip() or None,
+        )
         memory_use._log_memory(f"file:start {file_name}")
         file.rendition = resolve_rendition(run.config, i, run.downloaded)
         trace = _file_trace(file_name, run.config, run.job_id)
@@ -149,12 +157,17 @@ class FileIngest:
         from agent.knowledge.document_classification import canonical_doc_class
         from agent.knowledge.leader_lock import keyed_lock
 
-        collection_name, file_name = run.collection_name, file.file_name
-        file.scope.enter_context(keyed_lock(_replacement_lock_key(collection_name, file_name)))
-        file.previous = self._find_previous_versions(collection_name, [file_name]).get(_normalized_file_name(file_name))
+        collection_name, file_name, document_id = run.collection_name, file.file_name, file.document_id
+        file.scope.enter_context(keyed_lock(_replacement_lock_key(collection_name, file_name, document_id)))
+        if document_id:
+            file.previous = self._find_previous_version_of_document(collection_name, file_name, document_id)
+            file.row_doc_class = get_document_doc_class(collection_name, file_name, document_id=document_id)
+        else:
+            found = self._find_previous_versions(collection_name, [file_name])
+            file.previous = found.get(_normalized_file_name(file_name))
+            file.row_doc_class = get_document_doc_class(collection_name, file_name)
 
         file.preserved = file.previous.preserved if file.previous else {}
-        file.row_doc_class = get_document_doc_class(collection_name, file_name)
         file.stored_doc_class = file.row_doc_class or file.preserved.get("doc_class")
         file.base_corpus = legacy_shelf_for_collection_name(collection_name) is None
         file.explicit_doc_class = canonical_doc_class(run.config.get("doc_class"))

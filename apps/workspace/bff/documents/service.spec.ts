@@ -1718,7 +1718,7 @@ describe('renameDocument', () => {
 
     const [url, init] = mockFetch.mock.calls.at(-1) ?? []
     expect(String(url)).toBe(
-      'http://backend:8000/v1/collections/proj_abc/documents/plan.pdf/display-title'
+      'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/display-title'
     )
     expect((init as RequestInit)?.method).toBe('PATCH')
     expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({
@@ -2061,7 +2061,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
         },
       ])
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/visual-details`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/visual-details'
       )
     })
   })
@@ -2089,7 +2089,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
         tags: ['Gutachten'],
       })
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/tags`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/tags'
       )
     })
 
@@ -2178,7 +2178,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
       await renameDocument(session, 'doc-1', 'Einreichplan.pdf', new Request('http://x'))
 
       expect(String(documentCalls()[0]?.[0])).toBe(
-        `http://backend:8000/v1/collections/proj_abc/documents/${collidingName}/display-title`
+        'http://backend:8000/v1/collections/proj_abc/documents/by-id/doc-1/display-title'
       )
     })
   })

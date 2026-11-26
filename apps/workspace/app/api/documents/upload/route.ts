@@ -2,6 +2,7 @@ import { apiRoute, parseFormData } from '@/lib/api/handler'
 import { DOCUMENT_UPLOAD_LIMIT } from '@/lib/limits'
 import { BadRequestError } from '@/lib/api/errors'
 import { readRevisionOf } from '@/lib/documents/revision-upload'
+import { readNameConflictResolution } from '@/lib/documents/name-conflict'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { SHELF_SCOPES, shelfOf } from '@/lib/documents/shelf-scope'
 import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
@@ -35,6 +36,7 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
       originConversationId: text(formData.get('originConversationId')) ?? null,
+      onConflict: readNameConflictResolution(formData.get('onConflict')) ?? ('refuse' as const),
     }
     const { originConversationId } = input
     if (originConversationId) {

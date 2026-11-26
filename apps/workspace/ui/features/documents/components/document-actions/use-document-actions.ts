@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useContext, useState } from 'react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -14,6 +14,8 @@ import { documentBinResultSchema } from '@/lib/projects/document-bin-wire'
 import { INGEST_RUNNING } from '@/lib/documents/reingest-codes'
 import { requestReingest } from '../../lib/reingest-request'
 import { requestCancelIngest } from '../../lib/cancel-request'
+import { moveConflictRow, movePatchBody, nameConflictOfResponse, type SentConflictChoice } from '../../lib/name-conflict'
+import { NameConflictAskContext } from '../../hooks/use-name-conflict-prompt'
 
 
 export interface ActionableDocument extends NamedDocument {
@@ -34,6 +36,8 @@ export interface UseDocumentActionsOptions {
   onMoved?: (documentId: string, folderId: string | null) => void
 }
 
+export type RenameOutcome = 'renamed' | 'failed' | 'nameTaken'
+
 export interface DocumentActions {
   name: string
   isRenamed: boolean
@@ -44,7 +48,7 @@ export interface DocumentActions {
   isReingesting: boolean
   isCancelling: boolean
   downloadFailed: boolean
-  rename: (displayName: string | null) => Promise<boolean>
+  rename: (displayName: string | null) => Promise<RenameOutcome>
   remove: () => Promise<boolean>
   download: () => Promise<void>
   downloadPdf: () => Promise<void>
@@ -89,6 +93,7 @@ export function useDocumentActions({
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
   const tFiles = useTranslations(filesCopy)
   const { locale } = useLocale()
+  const askConflicts = useContext(NameConflictAskContext)
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -102,7 +107,7 @@ export function useDocumentActions({
   const erases = document.status === HELD_STATUS || !scopeHasBin(scope)
 
   const rename = useCallback(
-    async (displayName: string | null): Promise<boolean> => {
+    async (displayName: string | null): Promise<RenameOutcome> => {
       setIsRenaming(true)
       try {
         const res = await fetch(`/api/documents/${document.id}`, {
@@ -110,6 +115,7 @@ export function useDocumentActions({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ displayName }),
         })
+        if (await nameConflictOfResponse(res)) return 'nameTaken'
         if (!res.ok) throw new Error(`Rename failed (${res.status})`)
         const body: unknown = await res.json().catch(() => null)
         const stored =
@@ -123,10 +129,10 @@ export function useDocumentActions({
             ? t('rename.restored', { name: document.filename })
             : t('rename.success', { name: stored })
         )
-        return true
+        return 'renamed'
       } catch {
         toast.error(t('rename.error'))
-        return false
+        return 'failed'
       } finally {
         setIsRenaming(false)
       }
@@ -231,19 +237,43 @@ export function useDocumentActions({
   const move = useCallback(
     async (folderId: string | null, folderName: string): Promise<boolean> => {
       setIsMoving(true)
-      try {
-        const res = await fetch(`/api/documents/${document.id}/folder`, {
+      const send = (onConflict?: SentConflictChoice) =>
+        fetch(`/api/documents/${document.id}/folder`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folderId }),
+          body: movePatchBody(folderId, onConflict),
         })
+      try {
+        let res = await send()
+        const conflict = await nameConflictOfResponse(res)
+        let movedAs = name
+        if (conflict) {
+          const choice = askConflicts
+            ? (await askConflicts({ operation: 'move', folderName, rows: [moveConflictRow({ id: document.id, name }, conflict)] }))?.get(
+                document.id
+              )
+            : undefined
+          if (!choice || choice === 'skip') {
+            if (!askConflicts) toast.error(tFiles('errors.nameConflict', { name }))
+            return false
+          }
+          res = await send(choice)
+          if (res.ok && choice === 'replace') {
+            notifyDocumentsChanged()
+            onDeleted?.(document.id)
+            toast.success(tFiles('nameConflicts.movedAsRevision', { name, existing: conflict.existingName }))
+            return true
+          }
+          movedAs = conflict.suggestedName
+        }
         if (res.status === 409) {
           toast.error(tFiles('folders.access.ifcRefused'))
           return false
         }
         if (!res.ok) throw new Error(`Move failed (${res.status})`)
         onMoved?.(document.id, folderId)
-        toast.success(t('actions.moved', { name, folder: folderName }))
+        if (movedAs !== name) notifyDocumentsChanged()
+        toast.success(t('actions.moved', { name: movedAs, folder: folderName }))
         return true
       } catch {
         toast.error(t('actions.moveError'))
@@ -252,7 +282,7 @@ export function useDocumentActions({
         setIsMoving(false)
       }
     },
-    [document.id, name, onMoved, t, tFiles]
+    [document.id, name, onMoved, onDeleted, askConflicts, t, tFiles]
   )
 
   return {

@@ -20,7 +20,20 @@ export function useFileWorkspaceChanges({ shelf, state }: { shelf: FileShelf; st
   })
   const { isUploading, error } = upload
 
-  const moves = useDocumentMoves(files, setFiles, folders)
+  const shelfUpload = useShelfUpload({
+    shelf,
+    upload,
+    folders,
+    foldersReady: !tree.isFirstLoad && !tree.error,
+    foldersSettled: !tree.isFirstLoad,
+    selectedFolderId,
+    loadFolders: tree.load,
+    loadFiles: reloadFiles,
+    uploading: isUploading,
+  })
+  const { handleUpload, conflictPrompt } = shelfUpload
+
+  const moves = useDocumentMoves(files, setFiles, folders, conflictPrompt.ask)
   const { moved: moveRow, dropInFolder: dropRowInFolder, moveMany, isMoving } = moves
 
   const liveShelf = useMemo<LiveShelf>(
@@ -56,18 +69,6 @@ export function useFileWorkspaceChanges({ shelf, state }: { shelf: FileShelf; st
     },
     [dropRowInFolder, reloadSummary]
   )
-  const shelfUpload = useShelfUpload({
-    shelf,
-    upload,
-    folders,
-    foldersReady: !tree.isFirstLoad && !tree.error,
-    foldersSettled: !tree.isFirstLoad,
-    selectedFolderId,
-    loadFolders: tree.load,
-    loadFiles: reloadFiles,
-    uploading: isUploading,
-  })
-  const { handleUpload } = shelfUpload
   const access = useFolderAccess(shelf, folders, tree.rootAccess)
   const writableHere = access.mayWriteAt(selectedFolderId)
   return {
@@ -79,6 +80,7 @@ export function useFileWorkspaceChanges({ shelf, state }: { shelf: FileShelf; st
     dropInFolder,
     shelfUpload,
     handleUpload,
+    conflictPrompt,
     access,
     writableHere,
     fileDraggingRef,
