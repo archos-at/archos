@@ -212,9 +212,8 @@ def _rebuild_without_primary_key(conn, table: str) -> None:
         f"DROP TABLE {table}",
         f"ALTER TABLE {rebuilt} RENAME TO {table}",
     ):
-        conn.execute(
-            text(statement)
-        )  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(text(statement))
     logger.info("Re-keyed '%s' by document id: the (collection, filename) primary key is gone", table)
 
 
