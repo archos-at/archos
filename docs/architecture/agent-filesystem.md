@@ -207,11 +207,12 @@ the turn's one.
 
 **Path rules.**
 
-- **The leaf is `documents.filename`**, the immutable identity, NFC-normalised,
-  with umlauts, spaces and case as the office wrote them
-  (`/project/Einreichung/Pläne/EP-01_Grundrisse_Index-B.pdf.md`). The same name is
-  the citation key's stem and the Qdrant `file_name`, so a path, a hit and a
-  citation name one thing.
+- **The leaf is `documents.filename`**, NFC-normalised, with umlauts, spaces and
+  case as the office wrote them
+  (`/project/Einreichung/Pläne/EP-01_Grundrisse_Index-B.pdf.md`). It is a label:
+  the document is its id (`documents.id`, ADR-0199), which every row, hit and
+  citation carries beside the name (`document_id`), so a path, a hit and a
+  citation of one document agree even when another folder holds its name.
 - **Extracted text gets `.md` appended** (`Brandschutzkonzept_Hubergasse14.pdf.md`).
   The stock `read_file` decides by extension, and a `.pdf` path that returns text is
   sent as a base64 file block (ADR-0133). Appending, rather than replacing the
@@ -222,13 +223,15 @@ the turn's one.
   keep their own name.
 - **A rename** (`display_name`) shows on the `ls` row and resolves in `read_file`;
   the path keeps the file name and does not move.
-- **Duplicates.** A file name is unique per collection
-  (`uniq_documents_live_name_per_collection`), so inside one collection the leaf
-  identifies a document and the folder part is a hint: a stale folder still
-  resolves, with "moved to …". A restricted folder is its own collection, so the
-  same leaf can exist there and beside it; the folder part decides, and without it
-  the listable one wins. The same name on two shelves is two paths, which is what
-  the qualified citation key already says (`x.pdf (Bürobibliothek), p.9`).
+- **Duplicates.** A file name is unique within its folder, compared NFC,
+  trimmed and case-insensitively (ADR-0199), so two folders of one collection may
+  each hold `Plan.pdf`, and the folder part of the path decides between them.
+  A path whose folder holds no such leaf still resolves to a listable document of
+  that name elsewhere, with "Moved: … is now …" (`estate/glob.resolve_in`); when
+  several folders hold the name, that is the first of them, which is why a path
+  carries its folder. A restricted folder is its own collection, and without a folder
+  part the listable one wins. The same name on two shelves is two paths, which
+  is what the qualified citation key already says (`x.pdf (Bürobibliothek), p.9`).
 - **Agent-filed documents** (`filename = 'piloti/<name>'`) appear as `<name>` in
   their folder; the prefix is never shown as a directory.
 - **Matching** for `glob` and resolution is case-insensitive, NFC, and folds ä→ae,

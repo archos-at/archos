@@ -838,21 +838,22 @@ export const files = {
     applyToAll: 'Apply to all',
     copy: 'Copy',
     copied: 'Copied',
+    copyFailed: 'Not copied',
     copyAria: '{count, plural, one {Copy the path} other {Copy all # paths, one per line}}',
     choiceFor: 'What happens to “{name}”',
     keepBothAs: 'Keep both, this one as “{name}”',
     outcome: {
       uploadReplace: 'Becomes a new revision of “{name}”; the previous one stays readable.',
-      moveReplace: 'Becomes a new revision of “{name}” there; this document is merged into it.',
+      moveReplace: 'Is merged into “{name}” there, as its new revision.',
       keepBoth: 'Comes in as “{name}”.',
       uploadSkip: 'Is not uploaded.',
       moveSkip: 'Stays where it is.',
     },
     dialog: {
       uploadTitle:
-        '{count, plural, one {A document in the target folder already has this name} other {Documents in the target folders already have # of these names}}',
+        '{count, plural, one {A document in the target folder already has this name} other {# documents in the target folders already have these names}}',
       moveTitle:
-        '{count, plural, one {“{folder}” already holds a document of this name} other {“{folder}” already holds documents of # of these names}}',
+        '{count, plural, one {“{folder}” already holds a document of this name} other {“{folder}” already holds # documents with these names}}',
       description:
         'A folder holds each name once, whatever the case of its letters. Choose for each one what happens; nothing is replaced without your say.',
       uploadConfirm: '{count, plural, one {Upload # file} other {Upload # files}}',

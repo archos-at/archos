@@ -71,8 +71,49 @@ describe('DocumentRoleField upload', () => {
     const body = (uploads[0] as unknown as [string, { body: FormData }])[1].body
     const sent = body.get('file') as File
     expect(sent.name).toBe('Lageplan.pdf')
-    expect(body.get('onConflict')).toBe('replace')
+    expect(body.get('onConflict')).toBeNull()
     expect(String(vi.mocked(toast.error).mock.calls[0][0])).toContain('Honorarnote.pdf')
+  })
+
+  it('asks before it touches a document of the same name, and files the answer, keeping both by default', async () => {
+    const sent: Array<string | null> = []
+    const fetchSpy = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url !== '/api/documents/upload') return new Response(JSON.stringify({ replaced: [] }), { status: 200 })
+      const onConflict = (init?.body as FormData).get('onConflict') as string | null
+      sent.push(onConflict)
+      if (!onConflict) {
+        return new Response(
+          JSON.stringify({
+            error: 'taken',
+            code: 'CONFLICT',
+            details: {
+              reason: 'name_conflict',
+              name: 'Lageplan.pdf',
+              folderId: null,
+              existingDocumentId: 'doc-held',
+              existingName: 'Lageplan.pdf',
+              suggestedName: 'Lageplan 2.pdf',
+            },
+          }),
+          { status: 409 }
+        )
+      }
+      return new Response(JSON.stringify({ documentId: 'doc-2' }), { status: 201 })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const { container } = render(<DocumentRoleField projectId="proj-1" role="site_plan" />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['plan'], 'Lageplan.pdf', { type: 'application/pdf' })] } })
+
+    const dialog = await screen.findByTestId('name-conflict-dialog')
+    expect(dialog).toHaveTextContent('Comes in as “Lageplan 2.pdf”.')
+    fireEvent.click(screen.getByTestId('name-conflict-confirm'))
+
+    await waitFor(() => expect(sent).toEqual([null, 'keep_both']))
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/document-roles'))).toBe(true)
+    )
   })
 
   it('sends nothing while the office policy cannot be read, and says so', async () => {

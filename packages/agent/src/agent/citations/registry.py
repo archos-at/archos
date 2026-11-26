@@ -239,7 +239,7 @@ class SourceRegistry:
         ]
 
     def has_citation_key(self, key: str) -> bool:
-        return bool(self._entries_for_key(key)[0])
+        return self.entry_for_citation_key(key) is not None
 
     def entry_for_url(self, url: str) -> SourceEntry | None:
         entry = self._urls.get(url)
@@ -249,11 +249,10 @@ class SourceRegistry:
 
     def entry_for_citation_key(self, key: str) -> SourceEntry | None:
         matches, target_page = self._entries_for_key(key)
-        if target_page is not None:
-            for entry in matches:
-                if parse_citation_key(entry.citation_key)[1] == target_page:
-                    return entry
-        return matches[0] if matches else None
+        on_page = [entry for entry in matches if parse_citation_key(entry.citation_key)[1] == target_page]
+        candidates = on_page if target_page is not None and on_page else matches
+        documents = {entry.document_id for entry in candidates if entry.document_id}
+        return candidates[0] if candidates and len(documents) <= 1 else None
 
     def all_sources(self) -> list[SourceEntry]:
         return list(self._all)

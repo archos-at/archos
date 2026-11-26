@@ -8,13 +8,14 @@ import type { FolderItem } from '../file-types'
 import { takeDroppedFiles } from '../lib/dropped-file-handover'
 import { droppedPath, filesToUpload, samePlanOutcome, type FolderUploadPlan } from '../lib/folder-upload-plan'
 import type { NameConflict } from '@/lib/documents/name-conflict'
-import type { SentConflictChoice } from '../lib/name-conflict'
+import { uploadConflictRow, type SentConflictChoice } from '../lib/name-conflict'
 import { isZipArchive } from '../lib/zip-types'
 import { splitMailArchives } from '../lib/mail-archive'
 import type { FileShelf, ShelfEndpoints, ShelfUploadApi } from '../lib/file-shelf'
 import { useUploadDecision, type SettledPlan } from './use-upload-decision'
 import { useNameConflictPrompt } from './use-name-conflict-prompt'
 import type { UploadFilesOptions } from './file-upload-types'
+import { sealHeldUploadBatch, type HeldUploadBatch } from '../lib/upload-batch'
 import { UploadScreeningPolicyUnavailableError } from '@/adapters/api/upload-screening-policy'
 
 export interface ShelfUploadOptions {
@@ -72,28 +73,35 @@ export function useShelfUpload({
   const send = useCallback(
     (files: File[], options: UploadFilesOptions): Promise<number> => {
       const go = (batch: File[], sent: UploadFilesOptions): Promise<number> =>
-        uploadFiles(batch, { ...sent, onNameConflicts: (conflicts) => void answer(conflicts, sent) })
-      async function answer(conflicts: ReadonlyArray<{ file: File; conflict: NameConflict }>, sent: UploadFilesOptions) {
+        uploadFiles(batch, { ...sent, onNameConflicts: (conflicts, held, asked) => void answer(conflicts, asked, held) })
+      async function answer(
+        conflicts: ReadonlyArray<{ file: File; conflict: NameConflict }>,
+        sent: UploadFilesOptions,
+        held: HeldUploadBatch | null
+      ) {
         const choices = await ask({
           operation: 'upload',
           folderName: '',
-          rows: conflicts.map(({ file, conflict }, index) => ({
-            key: String(index),
-            path: droppedPath(file),
-            name: file.name,
-            existingName: conflict.existingName,
-            within: 'folder',
-            choice: 'replace',
-            keepBothAs: conflict.suggestedName,
-          })),
+          rows: conflicts.map(({ file, conflict }, index) =>
+            uploadConflictRow({ key: String(index), path: droppedPath(file), name: file.name }, conflict)
+          ),
         })
         const chosen = new Map<File, SentConflictChoice>()
         conflicts.forEach(({ file }, index) => {
           const choice = choices?.get(String(index))
           if (choice && choice !== 'skip') chosen.set(file, choice)
         })
-        if (chosen.size === 0) return
-        await go([...chosen.keys()], { ...sent, onConflict: (file) => chosen.get(file) ?? null })
+        const skipped = conflicts.length - chosen.size
+        if (chosen.size === 0) {
+          if (held) await sealHeldUploadBatch(held, skipped)
+          return
+        }
+        await go([...chosen.keys()], {
+          ...sent,
+          excludedByScreening: [],
+          onConflict: (file) => chosen.get(file) ?? null,
+          ...(held ? { continueBatch: { ...held, unchanged: held.unchanged + skipped } } : {}),
+        })
         await loadFiles(true)
       }
       return go(files, options)

@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { NameConflictDialog } from '@/features/documents/components/name-conflict/name-conflict-dialog'
-import type { ConflictAnswer, ConflictQuestion } from '@/features/documents/hooks/use-name-conflict-prompt'
+import type { AskedQuestion, ConflictAnswer } from '@/features/documents/hooks/use-name-conflict-prompt'
 import type { ConflictRow } from '@/features/documents/lib/name-conflict'
 
 const LONG_PATH =
@@ -24,9 +24,10 @@ function row(path: string, existingName = path.split('/').pop()!): ConflictRow {
   }
 }
 
-function question(variant: string): ConflictQuestion {
+function question(variant: string): AskedQuestion {
   if (variant === 'move') {
     return {
+      id: 1,
       operation: 'move',
       folderName: 'Statik',
       rows: [{ ...row('Statischer_Nachweis_Decke_über_EG.pdf'), choice: 'keep_both' }],
@@ -34,6 +35,7 @@ function question(variant: string): ConflictQuestion {
   }
   if (variant === 'move-many') {
     return {
+      id: 1,
       operation: 'move',
       folderName: 'Pläne',
       rows: ['EG.pdf', 'OG.pdf', 'Schnitt_A-A.pdf', 'Ansicht_Nord.pdf'].map((name) => ({ ...row(name), choice: 'keep_both' })),
@@ -41,6 +43,7 @@ function question(variant: string): ConflictQuestion {
   }
   if (variant === 'long') {
     return {
+      id: 1,
       operation: 'upload',
       folderName: '',
       rows: Array.from({ length: 120 }, (_, i) =>
@@ -52,6 +55,7 @@ function question(variant: string): ConflictQuestion {
     }
   }
   return {
+    id: 1,
     operation: 'upload',
     folderName: '',
     rows: [
@@ -64,7 +68,7 @@ function question(variant: string): ConflictQuestion {
 
 function Preview(): JSX.Element {
   const variant = useSearchParams()?.get('variant') ?? 'upload'
-  const [asked, setAsked] = useState<ConflictQuestion | null>(() => question(variant))
+  const [asked, setAsked] = useState<AskedQuestion | null>(() => question(variant))
   const [answer, setAnswer] = useState<string | null>(null)
   const resolve = (choices: ConflictAnswer | null) => {
     setAsked(null)

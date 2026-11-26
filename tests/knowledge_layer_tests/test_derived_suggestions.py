@@ -14,7 +14,7 @@ def _row(name, facts=None, **kwargs) -> AvailableDocument:
 
 
 def _held(names=()):
-    return lambda: set(names)
+    return lambda: revisions.Held(names=frozenset(names), unidentified=frozenset(names))
 
 
 B, C = "Grundriss_EG_Index_B.pdf", "Grundriss_EG_Index_C.pdf"

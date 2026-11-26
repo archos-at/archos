@@ -853,21 +853,22 @@ export const files: typeof en.files = {
     applyToAll: 'Für alle anwenden',
     copy: 'Kopieren',
     copied: 'Kopiert',
+    copyFailed: 'Nicht kopiert',
     copyAria: '{count, plural, one {Den Pfad kopieren} other {Alle # Pfade kopieren, einen je Zeile}}',
     choiceFor: 'Was mit „{name}“ geschieht',
     keepBothAs: 'Beide behalten, diese als „{name}“',
     outcome: {
       uploadReplace: 'Wird neue Fassung von „{name}“; die bisherige bleibt lesbar.',
-      moveReplace: 'Wird dort neue Fassung von „{name}“; dieses Dokument geht darin auf.',
+      moveReplace: 'Wird dort mit „{name}“ zusammengeführt, als dessen neue Fassung.',
       keepBoth: 'Kommt als „{name}“ hinein.',
       uploadSkip: 'Wird nicht hochgeladen.',
       moveSkip: 'Bleibt, wo es ist.',
     },
     dialog: {
       uploadTitle:
-        '{count, plural, one {Ein Dokument im Zielordner trägt diesen Namen schon} other {Dokumente in den Zielordnern tragen # dieser Namen schon}}',
+        '{count, plural, one {Ein Dokument im Zielordner trägt diesen Namen schon} other {# Dokumente in den Zielordnern tragen diese Namen schon}}',
       moveTitle:
-        '{count, plural, one {In „{folder}“ liegt schon ein Dokument dieses Namens} other {In „{folder}“ liegen schon Dokumente mit # dieser Namen}}',
+        '{count, plural, one {In „{folder}“ liegt schon ein Dokument dieses Namens} other {In „{folder}“ liegen schon # Dokumente mit diesen Namen}}',
       description:
         'Ein Ordner hält jeden Namen einmal, gleich in welcher Groß- und Kleinschreibung. Wählen Sie für jedes, was geschieht; ersetzt wird nichts ohne Sie.',
       uploadConfirm: '{count, plural, one {# Datei hochladen} other {# Dateien hochladen}}',

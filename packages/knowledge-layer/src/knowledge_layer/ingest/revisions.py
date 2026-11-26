@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Callable
 from collections.abc import Sequence
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
@@ -131,13 +132,26 @@ def _name_pairs(rows: Sequence[Any]) -> list[tuple[Any, Any, dict[str, Any]]]:
     return pairs
 
 
-def derive_suggestions(rows: Sequence[Any], held_names: Callable[[], set[str] | None]) -> dict[str, dict[str, Any]]:
+@dataclass(frozen=True)
+class Held:
+    ids: frozenset[str] = frozenset()
+    names: frozenset[str] = frozenset()
+    unidentified: frozenset[str] = frozenset()
+
+    def holds(self, row: Any) -> bool:
+        document_id = getattr(row, "document_id", None)
+        if document_id:
+            return document_id in self.ids or row.file_name in self.unidentified
+        return row.file_name in self.names
+
+
+def derive_suggestions(rows: Sequence[Any], held_documents: Callable[[], Held | None]) -> dict[str, dict[str, Any]]:
     if not _pairs(rows):
         return {}
-    held = held_names()
+    held = held_documents()
     if held is None:
         return {}
-    visible = [row for row in rows if row.file_name not in held]
+    visible = [row for row in rows if not held.holds(row)]
     return {
         getattr(newer, "document_id", None) or newer.file_name: suggestion for newer, _, suggestion in _pairs(visible)
     }
@@ -175,20 +189,26 @@ def revision_document(
     )
 
 
-def held_file_names(collection: str) -> set[str] | None:
+def held_documents(collection: str) -> Held | None:
     try:
         from agent.knowledge import ingest_status_store
 
-        in_flight = ingest_status_store.in_flight_files([collection]).get(collection, [])
+        in_flight = ingest_status_store.in_flight_documents([collection]).get(collection, [])
         jobs = ingest_status_store.collection_jobs(collection, HELD_LOOKBACK_SECONDS)
     except Exception:  # noqa: BLE001 — unknown holds nothing back, so nothing is sent
         logger.warning("Could not read the held files of %s; no Fassung suggestion", collection, exc_info=True)
         return None
-    quarantined: dict[str, bool] = {}
+    quarantined: dict[tuple[str, str | None], bool] = {}
     for job in jobs:
+        document_id = ingest_status_store.job_document_id(job)
         for detail in job.file_details:
-            quarantined[detail.file_name] = detail.screening == "quarantined"
-    return set(in_flight) | {name for name, held in quarantined.items() if held}
+            quarantined[(detail.file_name, document_id)] = detail.screening == "quarantined"
+    held = [*in_flight, *(key for key, is_held in quarantined.items() if is_held)]
+    return Held(
+        ids=frozenset(document_id for _name, document_id in held if document_id),
+        names=frozenset(name for name, _document_id in held),
+        unidentified=frozenset(name for name, document_id in held if not document_id),
+    )
 
 
 def read_rows(collection: str) -> list[Any]:
@@ -218,7 +238,7 @@ def _is_own_row(row: Any, file_name: str, document_id: str | None) -> bool:
 
 
 def candidate_documents(
-    file_name: str, rows: Sequence[Any], held: set[str], *, document_id: str | None = None
+    file_name: str, rows: Sequence[Any], held: Held, *, document_id: str | None = None
 ) -> list[RevisionDocument]:
     own = next((row for row in rows if _is_own_row(row, file_name, document_id)), None)
     refused = set(dismissed_revisions(own.revision_suggestion)) if own is not None else set()
@@ -234,7 +254,7 @@ def candidate_documents(
         if row.file_name != file_name
         and not row.superseded_by
         and (row.summary or "").strip()
-        and row.file_name not in held
+        and not held.holds(row)
         and row.file_name not in refused
     ]
 
@@ -251,7 +271,7 @@ def suggest_revision(
     revision_facts: dict[str, Any] | None = None,
     document_id: str | None = None,
 ) -> dict[str, Any] | None:
-    held = held_file_names(collection)
+    held = held_documents(collection)
     if held is None:
         return None
     candidates = candidate_documents(file_name, rows, held, document_id=document_id)

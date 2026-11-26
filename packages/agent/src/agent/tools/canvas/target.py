@@ -70,7 +70,7 @@ class _Row:
     def paths(self) -> frozenset[str]:
         relative = f"{self.folder_path}/{self.file_name}" if self.folder_path else self.file_name
         estate = estate_path(self.shelf, self.folder_path, self.file_name)
-        return frozenset(_key(path) for path in (relative, estate) if path)
+        return frozenset(_key(path) for path in (relative, f"/{relative}", estate) if path)
 
     def shown(self) -> str:
         where = f" in „{self.folder_path}“" if self.folder_path else " at the top level"
@@ -118,8 +118,8 @@ def match_document(name: str) -> _Row | Unresolved:
         if len(candidates) > 1:
             return Unresolved(
                 f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask which document is meant, and call "
-                "the tool again with its exact file name, or with its folder path (Ordner/Name) or document id "
-                "when two share a name, in `document`.",
+                "the tool again with its exact file name, or with its folder path (Ordner/Name, /Name at the top "
+                "level) or document id when two share a name, in `document`.",
                 ambiguous=True,
             )
     return Unresolved(

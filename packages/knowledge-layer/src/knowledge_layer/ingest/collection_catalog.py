@@ -32,16 +32,11 @@ def bump_collection_version(collection_name: str) -> None:
     _collection_version.bump(collection_name)
 
 
-def _job_document_id(job: IngestionJobStatus) -> str | None:
-    document_id = job.metadata.get("document_id")
-    return document_id if isinstance(document_id, str) and document_id and len(job.file_details) == 1 else None
-
-
 def _file_info_from_job(job: IngestionJobStatus, detail: FileProgress) -> FileInfo:
     status, error = detail.status, detail.error_message
     if status not in (FileStatus.SUCCESS, FileStatus.FAILED) and job.status == JobState.FAILED:
         status, error = FileStatus.FAILED, error or job.error_message
-    document_id = _job_document_id(job)
+    document_id = ingest_status_store.job_document_id(job)
     return FileInfo(
         file_id=stable_file_id(job.collection_name, detail.file_name, document_id),
         file_name=detail.file_name,

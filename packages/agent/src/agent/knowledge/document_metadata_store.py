@@ -338,8 +338,12 @@ class DocumentMetadataStore:
     def get_page_count(self, collection: str, filename: str, *, document_id: str | None = None) -> int | None:
         return fields_impl.get_page_count(self, collection, filename, document_id=document_id)
 
-    def set_file_name(self, collection: str, document_id: str, file_name: str) -> bool:
-        return records_impl.set_file_name(self, collection, document_id, file_name)
+    def set_file_name(
+        self, collection: str, document_id: str, file_name: str, *, previous_file_name: str | None = None
+    ) -> bool:
+        return records_impl.set_file_name(
+            self, collection, document_id, file_name, previous_file_name=previous_file_name
+        )
 
     def set_superseded_by(
         self,

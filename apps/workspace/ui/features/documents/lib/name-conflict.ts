@@ -32,6 +32,16 @@ export function movePatchBody(folderId: string | null, onConflict?: SentConflict
   return JSON.stringify(onConflict ? { folderId, onConflict } : { folderId })
 }
 
+export function uploadConflictRow(file: { key: string; path: string; name: string }, conflict: NameConflict): ConflictRow {
+  return {
+    ...file,
+    existingName: conflict.existingName,
+    within: 'folder',
+    choice: 'keep_both',
+    keepBothAs: conflict.suggestedName,
+  }
+}
+
 export function moveConflictRow(
   document: { id: string; name: string; path: string },
   conflict: NameConflict,

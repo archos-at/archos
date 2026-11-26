@@ -102,6 +102,9 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
                   <ToggleGroupItem
                     key={choice}
                     value={choice}
+                    onFocus={() => {
+                      if (choice !== row.choice) choose(row, choice)
+                    }}
                     className="text-xs"
                     title={choice === 'keep_both' ? t('nameConflicts.keepBothAs', { name: row.keepBothAs }) : undefined}
                     data-testid={`name-conflict-${choice}`}

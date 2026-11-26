@@ -52,6 +52,9 @@ class LiveDocuments:
             frozenset(name for name, held in ids.items() if len(held) > 1),
         )
 
+    def holds_exactly(self, stored: str) -> bool:
+        return _name_key(stored) in self.ids_by_name
+
     def id_for(self, stored: str | None) -> str | None:
         for spelling in _spellings(stored or ""):
             if spelling in self.ids_by_name:
@@ -122,14 +125,17 @@ def _plan(conn, table: str, live: LiveDocuments) -> _Plan:
             "WHERE collection = :collection"
         ),
         {"collection": live.collection},
-    )
+    ).fetchall()
+    held = {row[1] for row in rows if row[1]}
+    unkeyed = sorted((row[0] for row in rows if not row[1]), key=lambda name: (not live.holds_exactly(name), name))
+    for filename in unkeyed:
+        own_id = live.id_for(filename)
+        if own_id and own_id not in held:
+            held.add(own_id)
+            plan.keys.append((filename, own_id))
+        else:
+            plan.unmatched["document_id"] += 1
     for filename, document_id, superseded_by, superseded_by_id, suggestion in rows:
-        own_id = document_id or live.id_for(filename)
-        if not document_id:
-            if own_id:
-                plan.keys.append((filename, own_id))
-            else:
-                plan.unmatched["document_id"] += 1
         if superseded_by and not superseded_by_id:
             newer_id = live.id_for(superseded_by)
             if newer_id:
@@ -242,7 +248,12 @@ def collections_to_rekey(store) -> list[str]:
 def rekey_document_ids(
     store, collections: Iterable[str], fetch: Callable[[str], LiveDocuments], *, apply: bool
 ) -> list[StoreCount]:
-    totals: dict[str, StoreCount] = {}
+    with store._sync_engine.begin() as conn:
+        keys = len(name_primary_keys(conn))
+        dropped = drop_name_primary_keys(conn) if apply else 0
+    with store._sync_engine.connect() as conn:
+        left = len(name_primary_keys(conn))
+    totals = {PRIMARY_KEY_STORE: StoreCount(PRIMARY_KEY_STORE, before=keys, written=dropped, after=left)}
     for collection in collections:
         for count in rekey_collection(store, fetch(collection), apply=apply):
             total = totals.setdefault(count.store, StoreCount(count.store))
@@ -250,9 +261,4 @@ def rekey_document_ids(
             total.written += count.written
             total.after += count.after
             total.unmatched += count.unmatched
-    with store._sync_engine.begin() as conn:
-        keys = len(name_primary_keys(conn))
-        dropped = drop_name_primary_keys(conn) if apply else 0
-        left = len(name_primary_keys(conn))
-    totals[PRIMARY_KEY_STORE] = StoreCount(PRIMARY_KEY_STORE, before=keys, written=dropped, after=left)
     return list(totals.values())

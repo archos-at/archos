@@ -4,6 +4,7 @@ import os
 import tempfile
 from collections.abc import Callable
 from functools import partial
+from typing import TYPE_CHECKING
 from typing import Any
 from uuid import UUID
 
@@ -35,6 +36,9 @@ from .document_edits import update_document_tags_route
 from .document_revisions import put_revision_route
 from .documents_jobs import _add_document_job_routes
 
+if TYPE_CHECKING:
+    from knowledge_layer.ingest import Held
+
 logger = logging.getLogger(__name__)
 
 READING_UNAVAILABLE_HEADER = "X-Reading-Unavailable"
@@ -43,7 +47,7 @@ READING_UNAVAILABLE_HEADER = "X-Reading-Unavailable"
 def _merge_summaries(
     files: list[FileInfo],
     summaries: list[AvailableDocument],
-    held_names: Callable[[], set[str] | None] | None = None,
+    held_names: Callable[[], Held | None] | None = None,
 ) -> list[FileInfo]:
     if not summaries:
         return files
@@ -97,14 +101,15 @@ def _summary_index(summaries: list[AvailableDocument]) -> Callable[[FileInfo], A
         if file.document_id and file.document_id in by_id:
             return by_id[file.document_id]
         named = by_name.get(file.file_name, [])
-        candidates = [doc for doc in named if not doc.document_id] or named
+        unkeyed = [doc for doc in named if not doc.document_id]
+        candidates = unkeyed if file.document_id else unkeyed or named
         return candidates[0] if len(candidates) == 1 else None
 
     return summary_of
 
 
 def _attach_derived_suggestions(
-    files: list[FileInfo], summaries: list[AvailableDocument], held_names: Callable[[], set[str] | None]
+    files: list[FileInfo], summaries: list[AvailableDocument], held_names: Callable[[], Held | None]
 ) -> None:
     from knowledge_layer.ingest import derive_suggestions
 
@@ -115,12 +120,12 @@ def _attach_derived_suggestions(
             file.revision_suggestion = suggestion
 
 
-def _held_names_of(collection_name: str) -> Callable[[], set[str] | None]:
+def _held_names_of(collection_name: str) -> Callable[[], Held | None]:
 
-    def held() -> set[str] | None:
-        from knowledge_layer.ingest import held_file_names
+    def held() -> Held | None:
+        from knowledge_layer.ingest import held_documents
 
-        return held_file_names(collection_name)
+        return held_documents(collection_name)
 
     return held
 

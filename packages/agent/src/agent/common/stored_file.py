@@ -28,7 +28,8 @@ class AmbiguousDocumentName(Exception):
 def ambiguous_name_message(file_name: str) -> str:
     return (
         f"Ambiguous: more than one document here is called '{file_name}'; they lie in different folders. Ask the "
-        "person which one is meant, then name it by its document id or its folder path (Ordner/Name); never pick one."
+        "person which one is meant, then name it by its document id or its folder path (Ordner/Name, /Name at "
+        "the top level); never pick one."
     )
 
 

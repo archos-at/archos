@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass
 from dataclasses import replace
 from typing import Any
-from typing import Literal
 
 from fastapi import APIRouter
 from fastapi import HTTPException
@@ -35,7 +34,7 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     remembered = _remember_corpus_country(collection, update)
     store = _store()
     marked = _marked_document(store, collection, update)
-    chunks = store.count(collection, {marked.key: marked.value}) if store.exists(collection) else 0
+    chunks = store.count(collection, marked.counted()) if store.exists(collection) else 0
     if not chunks:
         return 0 if remembered else None
     licence = {
@@ -52,7 +51,10 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
         payload[COUNTRY_FIELD] = update.country_id
     if "released" in named:
         payload[RELEASED_FIELD] = update.released
-    store.set_file_payloads(collection, {marked.value: payload}, key=marked.key)
+    if marked.document_id:
+        store.set_file_payloads(collection, {marked.document_id: payload}, key="document_id")
+    if marked.file_name:
+        store.set_file_payloads(collection, {marked.file_name: payload}, key="file_name")
     return chunks
 
 
@@ -61,21 +63,30 @@ class AmbiguousMark(Exception): ...
 
 @dataclass(frozen=True)
 class _Marked:
-    key: Literal["file_name", "document_id"]
-    value: str
+    document_id: str | None
+    file_name: str | None
+
+    def counted(self) -> dict[str, Any]:
+        by_id, by_name = {"document_id": self.document_id}, {"file_name": self.file_name}
+        if self.document_id and self.file_name:
+            return {"$or": [by_id, by_name]}
+        return by_id if self.document_id else by_name
 
 
 def _marked_document(store: Any, collection: str, update: KnowledgeMarkUpdate) -> _Marked:
     from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
+    holders = (
+        set(store.facet_counts(collection, DOCUMENT_ID_FIELD, {"file_name": update.file_name}))
+        if store.exists(collection)
+        else set()
+    )
     if update.document_id is not None:
-        return _Marked("document_id", str(update.document_id))
-    if not store.exists(collection):
-        return _Marked("file_name", update.file_name)
-    named = sorted(store.facet_counts(collection, DOCUMENT_ID_FIELD, {"file_name": update.file_name}))
-    if len(named) > 1:
+        document_id = str(update.document_id)
+        return _Marked(document_id, update.file_name if holders <= {document_id} else None)
+    if len(holders) > 1:
         raise AmbiguousMark(update.file_name)
-    return _Marked("document_id", named[0]) if named else _Marked("file_name", update.file_name)
+    return _Marked(next(iter(holders), None), update.file_name)
 
 
 def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:

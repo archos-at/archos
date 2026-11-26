@@ -110,8 +110,8 @@ def resolve_document(name: str) -> ResolvedDocument | Refusal:
         if len(candidates) > 1:
             return Refusal(
                 f"Ambiguous: „{_nfc(name)}“ matches {_named(candidates)}. Ask the user which file is meant, and "
-                "call the tool again with the exact file name, or with its folder path (Ordner/Name) or document "
-                "id when two share a name."
+                "call the tool again with the exact file name, or with its folder path (Ordner/Name, /Name at the "
+                "top level) or document id when two share a name."
             )
 
     return Refusal(

@@ -374,8 +374,12 @@ def set_document_page_count(
     return _get_document_metadata_store().set_page_count(collection, filename, page_count, document_id=document_id)
 
 
-def set_document_file_name(collection: str, document_id: str, file_name: str) -> bool:
-    changed = _get_document_metadata_store().set_file_name(collection, document_id, file_name)
+def set_document_file_name(
+    collection: str, document_id: str, file_name: str, *, previous_file_name: str | None = None
+) -> bool:
+    changed = _get_document_metadata_store().set_file_name(
+        collection, document_id, file_name, previous_file_name=previous_file_name
+    )
     _rename_points(collection, document_id, file_name)
     if changed:
         _mirror_facts(collection, document_ids=[document_id])

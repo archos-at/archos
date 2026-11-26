@@ -23,7 +23,7 @@ import { loadUploadScreeningPolicy } from '@/adapters/api/upload-screening-polic
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { screenFileNames, uploadAnywayOffer } from '../lib/name-screened-files'
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
-import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
+import { exclusionsByTerm, openUploadBatch, sealHeldUploadBatch } from '../lib/upload-batch'
 import { captureUploadBatch } from './upload-batch-event'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
@@ -37,7 +37,12 @@ import {
   type UploadOutcome,
   type UploadTrackedFileContext,
 } from '../lib/upload-tracked-file'
-import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } from './file-upload-types'
+import type {
+  NameConflictHandler,
+  UploadFilesOptions,
+  UseFileUploadOptions,
+  UseFileUploadReturn,
+} from './file-upload-types'
 import type { UploadShelf } from '../lib/upload-tracked-file'
 
 export type { UploadFilesOptions } from './file-upload-types'
@@ -74,6 +79,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   )
   const { fileUpload: fileUploadConfig } = useAppConfig()
   const clientRef = useRef(createDocumentsClient({ authToken: idToken }))
+  const lastConflictHandler = useRef<NameConflictHandler | null>(null)
   const abortControllersRef = useRef(new Map<string, AbortController>())
 
   const trackedFiles = useDocumentsStore((s) => s.trackedFiles)
@@ -241,7 +247,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       try {
         await ensureCollectionExists(targetCollection)
 
-        const batchId = await openUploadBatch({
+        const carried = options?.continueBatch
+        const batchId = carried ? carried.id : await openUploadBatch({
           id: uuidv4(),
           scope: shelf,
           projectId: shelf === 'project' ? (projectId ?? null) : null,
@@ -285,7 +292,17 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           uploadTrackedFile(entry, uploadContext)
         )
         const { unchangedCount, uploadedTypes, serverStopped, heldReplaced, nameConflicts } = outcome
-        if (nameConflicts.length > 0) options?.onNameConflicts?.(nameConflicts)
+        const failedHere = results.filter((result) => result.status === 'rejected').length
+        const held = batchId
+          ? {
+              id: batchId,
+              unchanged: unchangedCount + (carried?.unchanged ?? 0),
+              failed: failedHere + (carried?.failed ?? 0),
+              excluded: [...(carried?.excluded ?? []), ...serverStopped.map(({ matches }) => matches)],
+            }
+          : null
+        const handOver = nameConflicts.length > 0 ? options?.onNameConflicts : undefined
+        if (handOver) lastConflictHandler.current = handOver
 
         notifyDocumentsChanged()
 
@@ -293,14 +310,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           captureUploadBatch(uploadedTypes, shelf)
         }
 
-        if (batchId) {
-          const excluded = exclusionsByTerm(serverStopped.map(({ matches }) => matches))
-          await sealUploadBatch(batchId, {
-            unchanged: unchangedCount,
-            failed: results.filter((result) => result.status === 'rejected').length,
-            ...(excluded.length > 0 ? { excluded } : {}),
-          })
-        }
+        if (held && !handOver) await sealHeldUploadBatch(held, 0)
+        handOver?.(nameConflicts, held, options ?? {})
 
         taken = results.filter((result) => result.status === 'fulfilled').length - nameConflicts.length
         const firstFailure = results.find((result) => result.status === 'rejected')
@@ -517,6 +528,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           screeningReleased: (each) => intentOf(each)?.screeningReleased === true,
           revisionOf: (each) => intentOf(each)?.revisionOf,
           onConflict: (each) => intentOf(each)?.onConflict,
+          onNameConflicts: lastConflictHandler.current ?? undefined,
         }
         try {
           if (shelf !== 'session') {

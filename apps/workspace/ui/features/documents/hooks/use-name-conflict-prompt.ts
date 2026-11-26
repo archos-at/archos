@@ -11,7 +11,11 @@ export interface ConflictQuestion {
 
 export type ConflictAnswer = ReadonlyMap<string, ConflictChoice>
 
-interface Asked extends ConflictQuestion {
+export interface AskedQuestion extends ConflictQuestion {
+  id: number
+}
+
+interface Asked extends AskedQuestion {
   answer: (choices: ConflictAnswer | null) => void
 }
 
@@ -21,7 +25,7 @@ export const NameConflictAskContext = createContext<AskNameConflicts | null>(nul
 
 export interface NameConflictPrompt {
   ask: AskNameConflicts
-  question: ConflictQuestion | null
+  question: AskedQuestion | null
   resolve: (choices: ConflictAnswer | null) => void
 }
 
@@ -29,6 +33,7 @@ export function useNameConflictPrompt(): NameConflictPrompt {
   const [question, setQuestion] = useState<Asked | null>(null)
   const waiting = useRef<Asked[]>([])
   const showing = useRef<Asked | null>(null)
+  const asked = useRef(0)
 
   const show = useCallback((next: Asked | null) => {
     showing.current = next
@@ -36,13 +41,13 @@ export function useNameConflictPrompt(): NameConflictPrompt {
   }, [])
 
   const ask = useCallback(
-    (asked: ConflictQuestion) =>
+    (question: ConflictQuestion) =>
       new Promise<ConflictAnswer | null>((answer) => {
-        if (asked.rows.length === 0) {
+        if (question.rows.length === 0) {
           answer(new Map())
           return
         }
-        const entry = { ...asked, answer }
+        const entry = { ...question, id: (asked.current += 1), answer }
         if (showing.current) waiting.current.push(entry)
         else show(entry)
       }),

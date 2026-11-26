@@ -24,6 +24,12 @@ import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '@/features/documents/lib/upload-batch'
 import { useFileDragDrop } from '@/features/documents/hooks/use-file-drag-drop'
 import {
+  NameConflictDialog,
+  nameConflictOfResponse,
+  uploadConflictRow,
+  useNameConflictPrompt,
+} from '@/features/documents'
+import {
   bindDocumentRole,
   DocumentRoleRequestError,
   unbindDocumentRole,
@@ -66,6 +72,8 @@ export function DocumentRoleField({
   const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
+  const conflictPrompt = useNameConflictPrompt()
+  const { ask } = conflictPrompt
 
   const mine = useMemo(
     () =>
@@ -171,12 +179,30 @@ export function DocumentRoleField({
         let answered = 0
         try {
           for (const file of allowed) {
-            const form = new FormData()
-            form.append('file', file)
-            form.append('projectId', projectId)
-            form.append('onConflict', 'replace')
-            if (batchId) form.append('uploadBatchId', batchId)
-            const response = await fetch('/api/documents/upload', { method: 'POST', body: form })
+            const send = (onConflict?: 'replace' | 'keep_both') => {
+              const form = new FormData()
+              form.append('file', file)
+              form.append('projectId', projectId)
+              if (onConflict) form.append('onConflict', onConflict)
+              if (batchId) form.append('uploadBatchId', batchId)
+              return fetch('/api/documents/upload', { method: 'POST', body: form })
+            }
+            let response = await send()
+            const conflict = await nameConflictOfResponse(response)
+            if (conflict) {
+              const choice = (
+                await ask({
+                  operation: 'upload',
+                  folderName: '',
+                  rows: [uploadConflictRow({ key: file.name, path: file.name, name: file.name }, conflict)],
+                })
+              )?.get(file.name)
+              if (!choice || choice === 'skip') {
+                answered += 1
+                continue
+              }
+              response = await send(choice)
+            }
             answered += 1
             if (!response.ok) {
               const matches = nameStopMatchesOf(await response.json().catch(() => null))
@@ -213,7 +239,7 @@ export function DocumentRoleField({
         setBusy(false)
       }
     },
-    [bind, projectId, tFiles, tRole]
+    [ask, bind, projectId, tFiles, tRole]
   )
 
   const upload = useCallback(
@@ -254,6 +280,7 @@ export function DocumentRoleField({
 
   return (
     <div className="flex flex-col gap-2">
+      <NameConflictDialog prompt={conflictPrompt} />
       {label && <span className="text-sm font-medium">{label}</span>}
       {definition.why && <p className="text-muted-foreground text-xs">{definition.why}</p>}
 

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
+from agent.common.bff_http import BffUnreachableError
 from agent.knowledge import factory
 from agent.knowledge.document_metadata_rekey import LiveDocuments
 from agent.knowledge.document_metadata_rekey import collections_to_rekey
@@ -236,6 +237,18 @@ class TestRowsWithoutAnId:
         [document] = store.get_all(COLLECTION)
         assert (document.document_id, document.summary, document.tags) == (EG, "A, neu gelesen.", ["Person"])
 
+    def test_a_rename_by_id_reaches_a_row_not_yet_keyed_through_its_previous_name(self, store):
+        store.register(COLLECTION, "Plan.pdf", "EG.")
+        store.register(COLLECTION, "alt.pdf", "Alt.")
+        store.set_superseded_by(COLLECTION, "alt.pdf", "Plan.pdf")
+
+        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf") is False
+        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf", previous_file_name="Plan.pdf")
+
+        documents = {doc.file_name: doc for doc in store.get_all(COLLECTION)}
+        assert (documents["Plan 2.pdf"].document_id, sorted(documents)) == (EG, ["Plan 2.pdf", "alt.pdf"])
+        assert (documents["alt.pdf"].superseded_by, documents["alt.pdf"].superseded_by_id) == ("Plan 2.pdf", EG)
+
     def test_a_link_written_by_name_still_reads(self, store):
         store.register(COLLECTION, "alt.pdf", "Alt.")
         store.register(COLLECTION, "neu.pdf", "Neu.", document_id=NEU)
@@ -281,11 +294,19 @@ class TestTheSchemaMigration:
             conn.execute(text(OLD_WRITER_UPSERT), {"collection": COLLECTION, "filename": "a.pdf", "summary": "Alt."})
             assert set(name_primary_keys(conn)) == {"document_metadata", "document_revision_retained"}
 
-        counts = rekey_document_ids(store, [], _live({}), apply=True)
+        checked = rekey_document_ids(store, [], _live({}), apply=False)
+        assert [(c.store, c.before, c.written, c.after) for c in checked] == [
+            ("primary key (collection, filename)", 2, 0, 2)
+        ], "the check fails while the key is there"
 
-        assert [(c.store, c.before, c.written, c.after) for c in counts] == [
-            ("primary key (collection, filename)", 2, 2, 0)
-        ]
+        def unreachable(collection: str) -> LiveDocuments:
+            raise BffUnreachableError("/api/internal/document-ids could not be reached")
+
+        with pytest.raises(BffUnreachableError):
+            rekey_document_ids(store, [COLLECTION], unreachable, apply=True)
+
+        with engine.connect() as conn:
+            assert name_primary_keys(conn) == {}, "the key goes before any document is asked about"
         _two_plans(store)
         assert sorted(_by_id(store, EG, OG)) == [EG, OG]
 
@@ -352,6 +373,21 @@ class TestTheRekey:
         assert documents["a.pdf"].tags == ["Statik"]
         assert self._counts(second) == {"document_metadata.document_id": (0, 0, 0, 1)}
         assert collections_to_rekey(store) == [COLLECTION], "the row no live document holds stays name-keyed"
+
+    def test_two_rows_of_one_document_key_the_exact_name_and_report_the_other(self, store):
+        for name in ("tmpAbCdEfGh_Plan.pdf", "Plan.pdf"):
+            store.register(COLLECTION, name, f"Zusammenfassung {name}.")
+        live = _live({COLLECTION: {"Plan.pdf": EG}})
+
+        first = self._counts(rekey_document_ids(store, collections_to_rekey(store), live, apply=True))
+        second = self._counts(rekey_document_ids(store, collections_to_rekey(store), live, apply=True))
+
+        assert first["document_metadata.document_id"] == (1, 1, 0, 1)
+        assert second == {"document_metadata.document_id": (0, 0, 0, 1)}
+        assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)} == {
+            "Plan.pdf": EG,
+            "tmpAbCdEfGh_Plan.pdf": None,
+        }
 
     def test_a_name_two_live_documents_hold_is_left_alone(self, database_url):
         store = self._legacy_rows(database_url)

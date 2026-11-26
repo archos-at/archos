@@ -77,7 +77,7 @@ export function useDocumentMoves(
       setFiles((prev) =>
         choice === 'replace'
           ? prev.filter((f) => f.id !== file.id)
-          : prev.map((f) => (f.id === file.id ? { ...f, folderId, filename } : f))
+          : prev.map((f) => (f.id === file.id ? { ...f, folderId, filename, displayName: null } : f))
       )
     },
     [setFiles]

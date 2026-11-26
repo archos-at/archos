@@ -17,6 +17,7 @@ from agent.common.source_kinds import BASE_CORPUS_COLLECTION
 from agent.common.source_kinds import LEGACY_BASE_CORPUS_COLLECTION
 
 from . import ingest_settle_push
+from .document_metadata_constants import DocumentRef
 from .document_metadata_store import DocumentMetadataStore
 from .ingest_failures import classify_failure
 from .schema import FileProgress
@@ -376,7 +377,7 @@ def fail_interrupted() -> int:
 _IN_FLIGHT_SCAN_LIMIT = 200
 
 
-def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
+def in_flight_documents(collections: Iterable[str]) -> dict[str, list[DocumentRef]]:
     wanted = {c for c in collections if c}
     if not wanted:
         return {}
@@ -404,7 +405,7 @@ def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
         logger.warning("Could not read in-flight ingest jobs (continuing)", exc_info=True)
         return {}
 
-    pending: dict[str, list[str]] = {}
+    pending: dict[str, list[DocumentRef]] = {}
     for row in rows:
         try:
             status = IngestionJobStatus.model_validate_json(row)
@@ -414,16 +415,31 @@ def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
             continue
         if status.status not in (JobState.PENDING, JobState.PROCESSING):
             continue
-        names = [
-            detail.file_name
+        document_id = job_document_id(status)
+        refs = [
+            DocumentRef(detail.file_name, document_id)
             for detail in status.file_details
             if detail.status not in (FileStatus.SUCCESS, FileStatus.FAILED) and detail.file_name
         ]
         bucket = pending.setdefault(status.collection_name, [])
-        for name in names:
-            if name not in bucket:
-                bucket.append(name)
+        for ref in refs:
+            if ref not in bucket:
+                bucket.append(ref)
     return pending
+
+
+def in_flight_files(collections: Iterable[str]) -> dict[str, list[str]]:
+    return {
+        collection: list(dict.fromkeys(ref.file_name for ref in refs))
+        for collection, refs in in_flight_documents(collections).items()
+    }
+
+
+def job_document_id(status: IngestionJobStatus) -> str | None:
+    document_id = status.metadata.get("document_id")
+    return document_id if isinstance(document_id, str) and document_id and len(status.file_details) == 1 else None
+
+
 
 
 def _submitted(status: IngestionJobStatus) -> datetime:
@@ -450,8 +466,8 @@ def collection_jobs(collection_name: str, within_seconds: int) -> list[Ingestion
 
 
 def _details_kept(status: IngestionJobStatus, file_name: str, document_id: str | None) -> list[FileProgress]:
-    owner = status.metadata.get("document_id")
-    if document_id and isinstance(owner, str) and owner:
+    owner = job_document_id(status)
+    if document_id and owner:
         return [] if owner == document_id else status.file_details
     return [detail for detail in status.file_details if detail.file_name != file_name]
 

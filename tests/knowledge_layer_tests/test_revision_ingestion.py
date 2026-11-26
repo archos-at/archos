@@ -13,6 +13,7 @@ from knowledge_layer_testing.revision_ingestion import _ingest
 from knowledge_layer_testing.revision_ingestion import _seed_previous_version
 from langchain_core.messages import AIMessage
 
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.schema import AvailableDocument
 
 live_ingestor = harness.live_ingestor
@@ -31,7 +32,7 @@ class TestCandidates:
     def test_a_row_is_a_candidate_with_its_name_class_tags_and_what_its_name_says(self):
         rows = [_row("Grundriss_EG_Index_B.pdf", doc_class="grundriss", tags=["Grundriss"])]
 
-        (candidate,) = revisions.candidate_documents("Grundriss_EG_Index_C.pdf", rows, held=set())
+        (candidate,) = revisions.candidate_documents("Grundriss_EG_Index_C.pdf", rows, held=revisions.Held())
 
         assert candidate.file_name == "Grundriss_EG_Index_B.pdf"
         assert candidate.doc_class == "grundriss"
@@ -41,30 +42,30 @@ class TestCandidates:
 
     def test_the_file_itself_is_never_a_candidate(self):
         assert (
-            revisions.candidate_documents("C.pdf", [_row("C.pdf"), _row("B.pdf")], held=set())[0].file_name == "B.pdf"
+            revisions.candidate_documents("C.pdf", [_row("C.pdf"), _row("B.pdf")], held=revisions.Held())[0].file_name == "B.pdf"
         )
 
     def test_a_row_a_person_already_replaced_is_not_a_candidate(self):
         rows = [_row("A.pdf", superseded_by="B.pdf"), _row("B.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=set())] == ["B.pdf"]
+        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held())] == ["B.pdf"]
 
     def test_a_row_with_nothing_to_say_is_not_a_candidate(self):
         rows = [_row("leer.pdf", summary=""), _row("blank.pdf", summary="   "), _row("B.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=set())] == ["B.pdf"]
+        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held())] == ["B.pdf"]
 
     def test_a_held_name_is_not_a_candidate(self):
         rows = [_row("gehalten.pdf"), _row("B.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held={"gehalten.pdf"})] == ["B.pdf"]
+        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held(names=frozenset({"gehalten.pdf"}), unidentified=frozenset({"gehalten.pdf"})))] == ["B.pdf"]
 
     def test_the_file_a_person_already_refused_for_this_one_is_not_offered_again(self):
         own = _row("C.pdf", revision_suggestion={**SUGGESTION, "dismissed": True})
         rows = [own, _row("B.pdf"), _row("A.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=set())] == ["A.pdf"]
+        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held())] == ["A.pdf"]
 
     def test_an_open_suggestion_refuses_nobody(self):
         own = _row("C.pdf", revision_suggestion=SUGGESTION)
         rows = [own, _row("B.pdf")]
-        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=set())] == ["B.pdf"]
+        assert [c.file_name for c in revisions.candidate_documents("C.pdf", rows, held=revisions.Held())] == ["B.pdf"]
 
     @pytest.mark.parametrize(
         "name",
@@ -88,8 +89,11 @@ class TestCandidates:
         assert first.revision is None and later.revision == "Index B"
 
 
-def _job(*files):
-    return SimpleNamespace(file_details=[SimpleNamespace(file_name=n, screening=s) for n, s in files])
+def _job(*files, document_id=None):
+    metadata = {"document_id": document_id} if document_id else {}
+    return SimpleNamespace(
+        metadata=metadata, file_details=[SimpleNamespace(file_name=n, screening=s) for n, s in files]
+    )
 
 
 @pytest.fixture
@@ -108,30 +112,45 @@ def job_store(monkeypatch):
             raise state.error
         return state.jobs
 
-    monkeypatch.setattr(ingest_status_store, "in_flight_files", in_flight)
+    monkeypatch.setattr(ingest_status_store, "in_flight_documents", in_flight)
     monkeypatch.setattr(ingest_status_store, "collection_jobs", collection_jobs)
     return state
 
 
 class TestHeldNames:
     def test_a_quarantined_file_and_a_file_still_being_read_are_held(self, job_store):
-        job_store.in_flight = {"coll": ["lese.pdf"]}
+        job_store.in_flight = {"coll": [DocumentRef("lese.pdf", None)]}
         job_store.jobs = [_job(("lohn.pdf", "quarantined"), ("ok.pdf", "clean"))]
-        assert revisions.held_file_names("coll") == {"lese.pdf", "lohn.pdf"}
+        assert revisions.held_documents("coll").names == {"lese.pdf", "lohn.pdf"}
 
     def test_the_newest_job_that_names_a_file_decides(self, job_store):
         job_store.jobs = [
             _job(("frei.pdf", "quarantined"), ("neu.pdf", "clean")),
             _job(("frei.pdf", "clean"), ("neu.pdf", "quarantined")),
         ]
-        assert revisions.held_file_names("coll") == {"neu.pdf"}
+        assert revisions.held_documents("coll").names == {"neu.pdf"}
 
     def test_nothing_held_is_an_empty_set_not_unknown(self, job_store):
-        assert revisions.held_file_names("coll") == set()
+        assert revisions.held_documents("coll") == revisions.Held()
 
     def test_a_store_that_cannot_be_read_is_unknown(self, job_store):
         job_store.error = RuntimeError("db down")
-        assert revisions.held_file_names("coll") is None
+        assert revisions.held_documents("coll") is None
+
+    def test_a_held_document_never_holds_back_its_namesake(self, job_store):
+        job_store.in_flight = {"coll": [DocumentRef("Plan.pdf", "doc-eg")]}
+        job_store.jobs = [_job(("Plan.pdf", "quarantined"), document_id="doc-og-alt")]
+        held = revisions.held_documents("coll")
+
+        assert held.holds(SimpleNamespace(file_name="Plan.pdf", document_id="doc-eg"))
+        assert held.holds(SimpleNamespace(file_name="Plan.pdf", document_id="doc-og-alt"))
+        assert not held.holds(SimpleNamespace(file_name="Plan.pdf", document_id="doc-og"))
+        assert held.holds(SimpleNamespace(file_name="Plan.pdf", document_id=None))
+
+    def test_a_hold_without_an_id_holds_every_row_of_that_name(self, job_store):
+        job_store.in_flight = {"coll": [DocumentRef("Plan.pdf", None)]}
+
+        assert revisions.held_documents("coll").holds(SimpleNamespace(file_name="Plan.pdf", document_id="doc-og"))
 
 
 class TestSuggestRevision:

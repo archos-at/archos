@@ -41,12 +41,20 @@ def _ambiguous_file_names(chunks) -> set[str]:
 
 
 def _names_shared_in_a_shelf(chunks) -> frozenset[tuple[str, object]]:
+    from agent.knowledge.inventory import names_shared_in_turn
+
+    in_turn = names_shared_in_turn()
     documents_by_name: dict[tuple[str, object], set] = {}
+    shared: set[tuple[str, object]] = set()
     for chunk in chunks:
         name = (chunk.file_name or "").strip()
-        if name:
-            documents_by_name.setdefault((name.lower(), _chunk_shelf(chunk)), set()).add(document_key(chunk))
-    return frozenset(name for name, documents in documents_by_name.items() if len(documents) > 1)
+        if not name:
+            continue
+        key = (name.lower(), _chunk_shelf(chunk))
+        documents_by_name.setdefault(key, set()).add(document_key(chunk))
+        if (str((chunk.metadata or {}).get("collection") or ""), name.casefold()) in in_turn:
+            shared.add(key)
+    return frozenset(shared | {name for name, documents in documents_by_name.items() if len(documents) > 1})
 
 
 def _citation_key_for(file_name: str, shelf, page: int | None, ambiguous: set[str], folder: str | None = None) -> str:

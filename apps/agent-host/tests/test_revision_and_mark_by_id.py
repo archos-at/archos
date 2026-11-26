@@ -161,13 +161,30 @@ class TestAKnowledgeMark:
         assert store.counted == [{"document_id": ENTWURF}]
         assert [(list(payloads), key) for payloads, key in store.written] == [([ENTWURF], "document_id")]
 
-    async def test_a_name_held_by_one_document_is_marked_by_that_documents_id(self, monkeypatch):
+    async def test_a_name_held_by_one_document_is_marked_by_that_id_and_on_its_unstamped_points(self, monkeypatch):
         store = _Store((ENTWURF,))
 
         response = await self._put(store, {"file_name": "Norm.pdf", "licence_class": "licensed"}, monkeypatch)
 
         assert response.status_code == 200
-        assert [(list(payloads), key) for payloads, key in store.written] == [([ENTWURF], "document_id")]
+        assert store.counted == [{"$or": [{"document_id": ENTWURF}, {"file_name": "Norm.pdf"}]}]
+        assert [(list(payloads), key) for payloads, key in store.written] == [
+            ([ENTWURF], "document_id"),
+            (["Norm.pdf"], "file_name"),
+        ]
+
+    async def test_by_id_also_marks_the_unstamped_points_of_a_name_no_other_document_holds(self, monkeypatch):
+        store = _Store((ENTWURF,))
+
+        response = await self._put(
+            store, {"file_name": "Norm.pdf", "document_id": ENTWURF, "licence_class": "licensed"}, monkeypatch
+        )
+
+        assert response.status_code == 200
+        assert [(list(payloads), key) for payloads, key in store.written] == [
+            ([ENTWURF], "document_id"),
+            (["Norm.pdf"], "file_name"),
+        ]
 
     async def test_a_name_two_documents_hold_is_a_conflict_and_marks_nothing(self, monkeypatch):
         store = _Store((BESTAND, ENTWURF))

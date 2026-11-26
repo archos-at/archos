@@ -21,6 +21,7 @@ from knowledge_layer.ingest import visual_rendering
 from knowledge_layer.ingest import visual_schema
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
+from agent.knowledge.document_metadata_constants import DocumentRef
 from agent.knowledge.schema import AvailableDocument
 
 
@@ -352,7 +353,7 @@ class TestStorage:
 def job_store(monkeypatch):
     from agent.knowledge import ingest_status_store
 
-    monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {})
+    monkeypatch.setattr(ingest_status_store, "in_flight_documents", lambda collections: {})
     monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
 
 
@@ -435,7 +436,9 @@ class TestSuggestionByNumber:
     def test_a_held_file_with_the_same_number_is_not_a_candidate(self, monkeypatch, stored):
         from agent.knowledge import ingest_status_store
 
-        monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {"coll": ["gehalten.pdf"]})
+        monkeypatch.setattr(
+            ingest_status_store, "in_flight_documents", lambda collections: {"coll": [DocumentRef("gehalten.pdf", None)]}
+        )
         monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
         rows = [_row("gehalten.pdf", {"document_number": "A-101", "revision": "A"})]
 
@@ -472,7 +475,7 @@ class TestSuggestionByNumber:
 
     def test_candidates_carry_the_stored_facts_to_the_judge(self):
         (candidate,) = revisions.candidate_documents(
-            "neu.pdf", [_row("alt.pdf", {"document_number": "A-101"})], held=set()
+            "neu.pdf", [_row("alt.pdf", {"document_number": "A-101"})], held=revisions.Held()
         )
         assert candidate.revision_facts == {"document_number": "A-101"}
 
