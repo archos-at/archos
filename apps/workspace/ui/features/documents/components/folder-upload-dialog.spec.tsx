@@ -388,6 +388,27 @@ describe('FolderUploadDialog — upload screening', () => {
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('1')
   })
 
+  it('lists every excluded file whole, past twenty, and copies them all one per line', async () => {
+    const files = Array.from({ length: 30 }, (_, i) => pathed(`Akt/Rechnungen/Lieferant_${i}/Rechnung_${i}.pdf`))
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderDialog(
+      buildFolderUploadPlan({
+        files,
+        documents: [],
+        folders: [],
+        currentFolderId: null,
+        screening: { policy: SUGGESTED_SCREENING_POLICY, basePath: null },
+      }),
+    )
+
+    const excluded = screen.getByTestId('folder-upload-excluded')
+    expect(within(excluded).getAllByText(/^Akt\/Rechnungen\//)).toHaveLength(30)
+    expect(excluded).not.toHaveTextContent(/\+\d+$/)
+    await userEvent.click(within(excluded).getByTestId('folder-upload-excluded-copy'))
+    expect(writeText).toHaveBeenCalledWith(files.map((file) => file.webkitRelativePath).join('\n'))
+  })
+
   it('releases one file when the reader ticks it', async () => {
     const { plan, contract } = screened()
     const onReleaseChange = vi.fn()

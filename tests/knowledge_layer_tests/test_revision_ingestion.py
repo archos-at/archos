@@ -319,6 +319,44 @@ class TestConfirmRevision:
         assert _stored(real_store, "B.pdf").superseded_by == "C.pdf"
         assert _stored(real_store, "C.pdf").change_summary is None
 
+    def test_the_older_fassung_named_by_its_id_is_linked_and_never_its_namesake(self, real_store):
+        real_store.register("coll", "Plan.pdf", "EG alt.", document_id="doc-eg")
+        real_store.register("coll", "Plan.pdf", "OG.", document_id="doc-og")
+        real_store.register("coll", "Plan Index B.pdf", "EG neu.", document_id="doc-eg-b")
+
+        linked = revisions.confirm_revision(
+            "coll",
+            "Plan Index B.pdf",
+            "Plan.pdf",
+            summary="EG neu.",
+            doc_class=None,
+            tags=None,
+            llm=self._llm(),
+            document_id="doc-eg-b",
+            older_id="doc-eg",
+        )
+
+        assert linked is True
+        rows = {doc.document_id: doc for doc in real_store.get_all("coll")}
+        assert rows["doc-eg"].superseded_by_id == "doc-eg-b"
+        assert rows["doc-og"].superseded_by_id is None and rows["doc-og"].superseded_by is None
+        assert rows["doc-eg-b"].change_summary == "- Stiege nach Norden verschoben"
+
+    def test_a_document_named_as_its_own_older_fassung_links_nothing(self, real_store):
+        real_store.register("coll", "Plan.pdf", "EG.", document_id="doc-eg")
+
+        assert not revisions.confirm_revision(
+            "coll",
+            "Plan.pdf",
+            "",
+            summary="EG.",
+            doc_class=None,
+            tags=None,
+            llm=None,
+            document_id="doc-eg",
+            older_id="doc-eg",
+        )
+
     def test_the_new_file_needs_no_row_yet_and_the_link_waits_for_it(self, real_store):
         real_store.register("coll", "B.pdf", "Alt.")
 

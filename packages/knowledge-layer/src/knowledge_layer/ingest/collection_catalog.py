@@ -277,7 +277,9 @@ class CollectionCatalog:
         found = self._chunks_of_document(collection_name, document_id, self._spellings_in(collection_name, file_name))
         chunks = [(chunk_id, stored) for chunk_id, stored, _claimed in found]
         names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
-        return self._purge(collection_name, chunks, forgotten, names=names, document_id=document_id, permanent=permanent)
+        return self._purge(
+            collection_name, chunks, forgotten, names=names, document_id=document_id, permanent=permanent
+        )
 
     def _spellings_in(self, collection_name: str, file_name: str) -> list[str]:
         return sorted(

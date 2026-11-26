@@ -20,9 +20,9 @@ from knowledge_layer.search import superseded
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing.reingest import _wait_terminal
 from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import local_store
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write
-from knowledge_layer_testing.vector_store_fixtures import local_qdrant_store  # noqa: F401 - an in-process store
 
 from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType
@@ -34,13 +34,13 @@ PLAN = "Plan.txt"
 
 
 @pytest.fixture()
-def stores(tmp_path, local_qdrant_store):
+def stores(tmp_path, monkeypatch):
     from agent.knowledge import configure_summary_db
     from agent.knowledge import factory
 
     factory._document_metadata_store = None
     configure_summary_db(f"sqlite:///{tmp_path / 'summaries.db'}")
-    yield local_qdrant_store
+    yield from local_store(monkeypatch)
     factory._document_metadata_store = None
 
 

@@ -24,7 +24,7 @@ import { documentReadFamily } from './document-status'
 import { hasPassedScreening } from './document-reader'
 import { nextVersionNumber, recordUploadedVersionOrDiscard } from './lifecycle'
 import { resolveRevisionOf, type RevisionOfIgnoredReason } from './revision-upload'
-import { documentNameKey, heldDocumentName } from './name-match'
+import { documentNameKey } from './name-match'
 import { NAME_TAKEN_DETAILS, nameTakenMessage } from './name-taken'
 import { NameConflictError, nameConflictWith, type NameConflictResolution } from './name-conflict'
 import { normalizeOriginPath, sanitizeOriginPath } from './origin-path'
@@ -191,7 +191,7 @@ async function destinationFor(session: AuthorizedSession, input: PlaceUploadInpu
   const holder = await findLiveDocumentByFilename(session.organizationId, place, filename)
   if (!holder) return { kind: 'new', filename }
   const kept = { documentId: holder.id, filename: holder.filename }
-  const freeName = () => findFreeDocumentName(session.organizationId, place, heldDocumentName(holder, filename) ?? filename)
+  const freeName = () => findFreeDocumentName(session.organizationId, place, filename)
   switch (input.onConflict) {
     case 'keep_both':
       return { kind: 'new', filename: await freeName() }

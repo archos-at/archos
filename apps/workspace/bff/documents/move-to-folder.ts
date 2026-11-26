@@ -18,7 +18,6 @@ import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findDocumentForSession } from './access'
 import { documentDisplayName } from './display-name'
-import { heldDocumentName } from './name-match'
 import { nameConflictWith, type NameConflict, type NameConflictResolution } from './name-conflict'
 import { reingestDocument } from './reingest'
 import {
@@ -98,9 +97,6 @@ async function holderOfName(organizationId: string, place: DocumentNamePlace, do
   return null
 }
 
-async function freeNameFor(organizationId: string, place: DocumentNamePlace, holder: LiveDocumentNameHolder, name: string): Promise<string> {
-  return findFreeDocumentName(organizationId, place, heldDocumentName(holder, name) ?? name)
-}
 
 export async function moveDocumentToFolder(
   input: MoveDocumentInput,
@@ -154,7 +150,7 @@ export async function moveDocumentToFolder(
   const conflictWith = async (holder: LiveDocumentNameHolder): Promise<MoveDocumentOutcomeResult> => ({
     ok: false,
     error: NAME_CONFLICT_MESSAGE,
-    conflict: nameConflictWith(holder, name, input.folderId, await freeNameFor(session.organizationId, place, holder, name)),
+    conflict: nameConflictWith(holder, name, input.folderId, await findFreeDocumentName(session.organizationId, place, name)),
   })
   const holder = await holderOfName(session.organizationId, place, document)
   let renameTo: string | null = null
@@ -167,7 +163,7 @@ export async function moveDocumentToFolder(
       case 'replace':
         return replaceWithMoved(session, shelf, document, holder, request)
       case 'keep_both':
-        renameTo = await freeNameFor(session.organizationId, place, holder, name)
+        renameTo = await findFreeDocumentName(session.organizationId, place, name)
     }
   }
 

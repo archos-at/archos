@@ -23,6 +23,12 @@ const patchFolder = (documentId: string, folderId: string | null, onConflict?: S
     body: movePatchBody(folderId, onConflict),
   })
 
+const storedFilename = async (response: Response, conflict: NameConflict): Promise<string> => {
+  const body: unknown = await response.json().catch(() => null)
+  const filename = body && typeof body === 'object' ? (body as { filename?: unknown }).filename : undefined
+  return typeof filename === 'string' && filename ? filename : conflict.suggestedName
+}
+
 interface HeldName {
   file: FileItem
   conflict: NameConflict
@@ -70,12 +76,12 @@ export function useDocumentMoves(
   )
 
   const settleResolved = useCallback(
-    (file: FileItem, folderId: string | null, choice: SentConflictChoice, conflict: NameConflict) => {
+    (file: FileItem, folderId: string | null, choice: SentConflictChoice, filename: string) => {
       seen.current.delete(file.id)
       setFiles((prev) =>
         choice === 'replace'
           ? prev.filter((f) => f.id !== file.id)
-          : prev.map((f) => (f.id === file.id ? { ...f, folderId, filename: conflict.suggestedName } : f))
+          : prev.map((f) => (f.id === file.id ? { ...f, folderId, filename } : f))
       )
     },
     [setFiles]
@@ -119,12 +125,14 @@ export function useDocumentMoves(
           seen.current.set(documentId, file)
           const choice = (await askAbout([{ file, conflict }], folderId)).get(documentId)
           if (!choice) return
-          await throwUnlessOk(await patchFolder(documentId, folderId, choice))
-          settleResolved(file, folderId, choice, conflict)
+          const resolved = await patchFolder(documentId, folderId, choice)
+          await throwUnlessOk(resolved)
+          const filename = await storedFilename(resolved, conflict)
+          settleResolved(file, folderId, choice, filename)
           toast.success(
             choice === 'replace'
               ? t('nameConflicts.movedAsRevision', { name, existing: conflict.existingName })
-              : t('actions.moved', { name: conflict.suggestedName, folder: folderLabel(folderId) })
+              : t('actions.moved', { name: filename, folder: folderLabel(folderId) })
           )
           return
         }
@@ -171,7 +179,7 @@ export function useDocumentMoves(
               if (response.ok) {
                 outcome.moved += 1
                 const resolved = choice ? held.find((entry) => entry.file.id === file.id) : undefined
-                if (choice && resolved) settleResolved(file, folderId, choice, resolved.conflict)
+                if (choice && resolved) settleResolved(file, folderId, choice, await storedFilename(response, resolved.conflict))
                 continue
               }
               restore()

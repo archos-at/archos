@@ -238,12 +238,25 @@ describe('the ingest dispatch sends the document folder path', () => {
     expect(bodyOf(0).revision_of).toBe('Grundriss_EG_Index_B.pdf')
   })
 
+  it('names the older Fassung by its document id beside its name, so a same-named document in another folder is not taken for it', async () => {
+    await dispatchDocument({
+      ...input('Plan.pdf'),
+      revisionOf: 'Plan.pdf',
+      revisionOfId: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d',
+    })
+
+    expect(bodyOf(0)).toMatchObject({ revision_of: 'Plan.pdf', revision_of_id: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d' })
+  })
+
   it('sends no revision_of at all for an upload nobody filed as a Fassung', async () => {
     await dispatchDocument(input('plan.pdf'))
     await dispatchDocument({ ...input('plan.pdf'), revisionOf: null })
+    await dispatchDocument({ ...input('plan.pdf'), revisionOf: null, revisionOfId: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d' })
 
-    expect(bodyOf(0)).not.toHaveProperty('revision_of')
-    expect(bodyOf(1)).not.toHaveProperty('revision_of')
+    for (const call of [0, 1, 2]) {
+      expect(bodyOf(call)).not.toHaveProperty('revision_of')
+      expect(bodyOf(call)).not.toHaveProperty('revision_of_id')
+    }
   })
 
   it('sends the document type the filing chose, as document_type', async () => {
@@ -299,7 +312,8 @@ describe('the ingest dispatch sends the document folder path', () => {
       { documentType: DOCUMENT_TYPE_TAGS[2], revisionOfId: '0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d' },
       null,
     ])
-    expect(bodyOf(0)).not.toHaveProperty('revision_of_id')
+    expect(bodyOf(0).revision_of_id).toBe('0b6c8a52-3f1e-4c7a-9d2b-5e8f1a2b3c4d')
+    expect(bodyOf(1)).not.toHaveProperty('revision_of_id')
   })
 
   it('sends null for a document at the project root', async () => {

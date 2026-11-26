@@ -36,12 +36,12 @@ class TestTheFormatGoesOnEveryChunk:
 class TestTheRecordsGoOnTheRow:
     def _calls(self, monkeypatch, config: dict, *, replaced: bool) -> dict[str, list]:
         calls: dict[str, list] = {"thread": [], "origin": []}
-        monkeypatch.setattr(
-            "agent.knowledge.set_document_mail_thread", lambda c, f, v, document_id=None: calls["thread"].append((c, f, v))
-        )
-        monkeypatch.setattr(
-            "agent.knowledge.set_document_mail_origin", lambda c, f, v, document_id=None: calls["origin"].append((c, f, v))
-        )
+
+        def recorder(kind: str):
+            return lambda c, f, v, document_id=None: calls[kind].append((c, f, v))
+
+        monkeypatch.setattr("agent.knowledge.set_document_mail_thread", recorder("thread"))
+        monkeypatch.setattr("agent.knowledge.set_document_mail_origin", recorder("origin"))
         store_mail_facts("proj_1", "Datei", config, replaced=replaced)
         return calls
 

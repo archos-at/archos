@@ -2,14 +2,12 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { conflictListText, type ConflictChoice, type ConflictOperation, type ConflictRow } from '../../lib/name-conflict'
+import type { ConflictChoice, ConflictOperation, ConflictRow } from '../../lib/name-conflict'
+import { CopyPathsButton } from './copy-paths-button'
 
 export interface NameConflictListProps {
   rows: readonly ConflictRow[]
@@ -26,7 +24,6 @@ const CHOICE_LABEL = { replace: 'replace', keep_both: 'keepBoth', skip: 'skip' }
 export function NameConflictList({ rows, operation, onChoose, disabled = false }: NameConflictListProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const [forAll, setForAll] = useState(false)
-  const [copied, raiseCopied] = useTransientFlag()
   const locked = disabled || !onChoose
 
   const chooseForAll = (choice: ConflictChoice): void =>
@@ -43,10 +40,6 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
   const applyToAll = (checked: boolean): void => {
     setForAll(checked)
     if (checked && rows[0]) chooseForAll(rows[0].choice)
-  }
-
-  const copy = (): void => {
-    void navigator.clipboard?.writeText(conflictListText(rows.map((row) => row.path))).then(raiseCopied, () => {})
   }
 
   const outcome = (row: ConflictRow): string => {
@@ -71,17 +64,7 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
         ) : (
           <span />
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={copy}
-          aria-label={t('nameConflicts.copyAria', { count: rows.length })}
-          data-testid="name-conflict-copy"
-        >
-          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-          {copied ? t('nameConflicts.copied') : t('nameConflicts.copy')}
-        </Button>
+        <CopyPathsButton paths={rows.map((row) => row.path)} testId="name-conflict-copy" />
       </div>
       <ul className="divide-y">
         {rows.map((row) => (
@@ -102,7 +85,8 @@ export function NameConflictList({ rows, operation, onChoose, disabled = false }
               size="sm"
               value={row.choice}
               onValueChange={(value) => {
-                if (value) choose(row, value as ConflictChoice)
+                const picked = choicesOf(row).find((choice) => choice === value)
+                if (picked) choose(row, picked)
               }}
               disabled={locked}
               aria-label={t('nameConflicts.choiceFor', { name: row.path })}

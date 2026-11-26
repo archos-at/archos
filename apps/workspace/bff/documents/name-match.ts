@@ -11,15 +11,9 @@ interface NamedDocument {
   displayName?: string | null
 }
 
-export function heldDocumentName(document: NamedDocument, name: string): string | null {
-  const key = documentNameMatchKey(name)
-  if (documentNameMatchKey(document.filename) === key) return document.filename
-  if (document.displayName && documentNameMatchKey(document.displayName) === key) return document.displayName
-  return null
-}
-
 export function holdsDocumentName(document: NamedDocument, name: string): boolean {
-  return heldDocumentName(document, name) !== null
+  const key = documentNameMatchKey(name)
+  return documentNameMatchKey(document.filename) === key || (!!document.displayName && documentNameMatchKey(document.displayName) === key)
 }
 
 export function documentNameVariants(name: string): string[] {

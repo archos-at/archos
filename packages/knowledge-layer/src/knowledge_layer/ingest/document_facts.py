@@ -28,6 +28,7 @@ class _Facts:
     dossier: dict[str, Any] | None
     chosen_type: Any = None
     confirmed_older: str | None = None
+    confirmed_older_id: str | None = None
     revision_model: bool = False
 
 
@@ -62,15 +63,16 @@ def record_facts(
     facts.summary = _fallback_summary(facts.summary, file, extracted)
 
     confirmed_older = (run.config.get("revision_of") or run.config.get("fassung_of") or "").strip() or None
+    confirmed_older_id = str(run.config.get("revision_of_id") or "").strip() or None
     if file.base_corpus or len(run.file_paths) != 1:
-        confirmed_older = None
-    facts.confirmed_older = confirmed_older
+        confirmed_older = confirmed_older_id = None
+    facts.confirmed_older, facts.confirmed_older_id = confirmed_older, confirmed_older_id
     facts.revision_model = bool(not file.base_corpus and ingestor.generate_summary_enabled and ingestor.summary_llm)
 
     if facts.summary:
         _record_summary(ingestor, run, file, facts, enrichment, all_documents, provenance)
 
-    if facts.confirmed_older and not (facts.summary and facts.revision_model):
+    if (facts.confirmed_older or facts.confirmed_older_id) and not (facts.summary and facts.revision_model):
         ingestor._bounded(
             "Fassung",
             file.file_name,
@@ -78,12 +80,13 @@ def record_facts(
             revisions.confirm_revision,
             run.collection_name,
             file.file_name,
-            facts.confirmed_older,
+            facts.confirmed_older or "",
             summary=facts.summary or "",
             doc_class=file.doc_class,
             tags=facts.tags,
             llm=None,
             document_id=file.document_id,
+            older_id=facts.confirmed_older_id,
         )
 
 
@@ -139,7 +142,7 @@ def _record_summary(
     reading, references = _reading_of(
         all_documents,
         facts.dossier,
-        _predecessor_dossier(revision_rows, previous, facts.confirmed_older),
+        _predecessor_dossier(revision_rows, previous, facts.confirmed_older, facts.confirmed_older_id),
     )
     set_document_reading(
         collection_name,
@@ -172,6 +175,7 @@ def _record_summary(
             confirmed_older=facts.confirmed_older,
             revision_facts=revision_facts,
             document_id=document_id,
+            confirmed_older_id=facts.confirmed_older_id,
         )
 
     logger.info(f"  Summary generated ({len(facts.summary)} chars)")

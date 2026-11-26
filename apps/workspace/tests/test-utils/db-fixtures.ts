@@ -70,7 +70,7 @@ export const makeLiveDocumentMatch = (overrides: Partial<LiveDocumentMatch> = {}
   id: 'doc-1',
   filename: 'plan.pdf',
   displayName: null,
-  storageKey:'org/org-1/project/proj-1/doc/doc-1/plan.pdf',
+  storageKey: 'org/org-1/project/proj-1/doc/doc-1/plan.pdf',
   storageBucket: null,
   fileSize: 1024,
   contentHash: null,

@@ -4,7 +4,6 @@ import {
   documentNameKey,
   documentNameMatchKey,
   documentNameVariants,
-  heldDocumentName,
   holdsDocumentName,
   originBaseName,
 } from './name-match'
@@ -53,13 +52,6 @@ describe('holdsDocumentName', () => {
     expect(holdsDocumentName(renamed, 'SCAN_0001.pdf')).toBe(true)
     expect(holdsDocumentName(renamed, 'lageplan.pdf')).toBe(true)
     expect(holdsDocumentName(renamed, 'Plan.pdf')).toBe(false)
-  })
-
-  it('answers the spelling the document holds the name in', () => {
-    const renamed = { filename: 'scan_0001.pdf', displayName: 'Lageplan.pdf' }
-    expect(heldDocumentName(renamed, 'LAGEPLAN.pdf')).toBe('Lageplan.pdf')
-    expect(heldDocumentName(renamed, 'Scan_0001.PDF')).toBe('scan_0001.pdf')
-    expect(heldDocumentName(renamed, 'Plan.pdf')).toBeNull()
   })
 
   it('holds only its filename when nobody renamed it', () => {

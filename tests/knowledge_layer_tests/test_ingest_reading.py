@@ -109,8 +109,8 @@ def test_a_failed_dossier_keeps_the_old_summary_and_the_references(tmp_path, rea
 def test_the_predecessor_is_the_re_uploaded_name_else_the_linked_version():
     from types import SimpleNamespace
 
-    from knowledge_layer.ingest import _PreviousVersion
     from knowledge_layer.ingest import _predecessor_dossier
+    from knowledge_layer.ingest import _PreviousVersion
 
     rows = [
         SimpleNamespace(file_name="EP-05_Index-B.pdf", dossier={"facts": []}),
@@ -126,8 +126,8 @@ def test_the_predecessor_is_the_re_uploaded_name_else_the_linked_version():
 def test_the_predecessor_of_a_document_is_its_own_row_never_a_namesake():
     from types import SimpleNamespace
 
-    from knowledge_layer.ingest import _PreviousVersion
     from knowledge_layer.ingest import _predecessor_dossier
+    from knowledge_layer.ingest import _PreviousVersion
 
     rows = [
         SimpleNamespace(file_name="Plan.pdf", document_id="doc-other", dossier={"facts": [{"key": "other"}]}),

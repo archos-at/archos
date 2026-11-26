@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Callable
 from collections.abc import Sequence
+from types import SimpleNamespace
 from typing import Any
 
 from agent.knowledge.document_metadata_store import dismissed_revisions
@@ -310,25 +311,26 @@ def confirm_revision(
     tags: Sequence[str] | None,
     llm: Any,
     document_id: str | None = None,
+    older_id: str | None = None,
 ) -> bool:
-    if older == file_name:
+    if _is_own_row(SimpleNamespace(file_name=older, document_id=older_id), file_name, document_id):
         return False
     from agent.knowledge import link_document_revision
     from agent.knowledge import set_document_change_summary
     from agent.knowledge.document_metadata_store import LinkOutcome
 
-    outcome = link_document_revision(collection, older, file_name, newer_id=document_id)
+    outcome = link_document_revision(collection, older, file_name, older_id=older_id, newer_id=document_id)
     if outcome is not LinkOutcome.LINKED:
         logger.warning("Fassung chosen at upload: %s over %s in %s refused (%s)", file_name, older, collection, outcome)
         return False
     if llm is None:
         return True
-    older_row = next((row for row in read_rows(collection) if row.file_name == older), None)
+    older_row = next((row for row in read_rows(collection) if _is_own_row(row, older, older_id)), None)
     if older_row is None:
         return True
     change = summarize_change(
         RevisionDocument(
-            file_name=older,
+            file_name=older_row.file_name,
             summary=older_row.summary or "",
             doc_class=older_row.doc_class,
             tags=tuple(older_row.tags or ()),
@@ -337,7 +339,7 @@ def confirm_revision(
         llm,
     )
     if change:
-        set_document_change_summary(collection, file_name, change, older, document_id=document_id)
+        set_document_change_summary(collection, file_name, change, older_row.file_name, document_id=document_id)
     return True
 
 
@@ -355,16 +357,18 @@ def record_revisions(
     confirmed_older: str | None = None,
     revision_facts: dict[str, Any] | None = None,
     document_id: str | None = None,
+    confirmed_older_id: str | None = None,
 ) -> None:
-    if confirmed_older and confirm_revision(
+    if (confirmed_older or confirmed_older_id) and confirm_revision(
         collection,
         file_name,
-        confirmed_older,
+        confirmed_older or "",
         summary=summary,
         doc_class=doc_class,
         tags=tags,
         llm=llm,
         document_id=document_id,
+        older_id=confirmed_older_id,
     ):
         return
     if replaced:
