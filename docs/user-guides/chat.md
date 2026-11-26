@@ -14,7 +14,8 @@ Every chat you had in a project is kept, and there are two ways back to one:
 ## Persönlich and Projekt: chats without a project
 
 The switch at the top of the rail, **„Persönlich | Projekt“**, chooses which side
-it shows. Under **Projekt** the project picker sits below it, then **„Neuer
+it shows. **Projekt** opens the chat of the project of this office you opened
+last, or the project overview when there is none. Under **Projekt** the project picker sits below it, then **„Neuer
 Chat“**, **„Ablage“** and the project's other sections. Under **Persönlich** it
 lists **„Neuer Chat“** and **„Meine Ablage“**; a new chat started there has no
 project, and it does not read any project's files (ADR-0193).

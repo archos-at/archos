@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    On an iPhone, tapping into a chat's input now leaves it right above the
+    keyboard at once, instead of jumping to the top of the screen and sliding
+    slowly back down.

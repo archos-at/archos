@@ -141,10 +141,10 @@ describe('AppShellChrome — one chrome on every page', () => {
 })
 
 describe('AppShellChrome — height', () => {
-  test('the frame follows the visual viewport while the iOS keyboard is up, 100dvh otherwise', () => {
+  test("the frame's bottom stands on the iOS keyboard while it is up, 100dvh otherwise", () => {
     const { container } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     const frame = container.querySelector('.overflow-hidden')
-    expect(frame?.className).toContain('h-[var(--visual-viewport-height,100dvh)]')
+    expect(frame?.className).toContain('h-[var(--visual-viewport-bottom,100dvh)]')
   })
 })
 

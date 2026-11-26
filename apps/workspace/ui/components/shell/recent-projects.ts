@@ -18,6 +18,14 @@ export function readRecentProjectIds(): string[] {
   }
 }
 
+export function lastProjectAmong(recentProjectIds: readonly string[], projectIds: readonly string[]): string | null {
+  return recentProjectIds.find((id) => projectIds.includes(id)) ?? null
+}
+
+export function readLastProjectId(projectIds: readonly string[]): string | null {
+  return lastProjectAmong(readRecentProjectIds(), projectIds)
+}
+
 export function withRecentProject(ids: readonly string[], projectId: string): string[] {
   return [projectId, ...ids.filter((id) => id !== projectId)].slice(0, KEEP)
 }

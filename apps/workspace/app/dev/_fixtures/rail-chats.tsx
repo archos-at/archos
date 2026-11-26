@@ -33,6 +33,7 @@ const TITLES = [
 ]
 
 const PROJECT_OF_CHAT = [null, 'p-1', 'p-1', null, 'p-2'] as const
+const DEV_PROJECT_IDS = ['p-1', 'p-2']
 
 const conversation = (title: string, index: number): Conversation => ({
   id: `chat-${index + 1}`,
@@ -64,5 +65,5 @@ export function DevRailChats({ pathname, empty = false, children }: { pathname: 
     const serverSides = Object.fromEntries(['personal:', 'project:p-1', 'project:p-2'].map((key) => [key, listing]))
     useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null, serverSides })
   }, [empty, projectId])
-  return <RailChatsProvider pathname={pathname}>{children}</RailChatsProvider>
+  return <RailChatsProvider projectIds={DEV_PROJECT_IDS} pathname={pathname}>{children}</RailChatsProvider>
 }

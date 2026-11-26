@@ -96,7 +96,7 @@ export function AppShellChrome({
       data-phone-page={phonePage}
       data-keyboard={keyboardUp ? 'up' : undefined}
       className={cn(
-        'bg-background text-foreground flex h-[var(--visual-viewport-height,100dvh)] overflow-hidden',
+        'bg-background text-foreground flex h-[var(--visual-viewport-bottom,100dvh)] overflow-hidden',
         'flex-col md:flex-row',
         '[--shell-inset-bottom:env(safe-area-inset-bottom)] data-[keyboard=up]:[--shell-inset-bottom:0px]',
         '[--phone-top-room:calc(max(0.5rem,env(safe-area-inset-top))+3.5rem)] max-md:data-[phone-page=page]:[--phone-main-top:var(--phone-top-room)]',

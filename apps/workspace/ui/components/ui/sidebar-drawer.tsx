@@ -35,7 +35,7 @@ export function SidebarDrawerPanel({
           data-slot="sidebar-drawer"
           data-side={side}
           className={cn(
-            'text-sidebar-foreground bg-sidebar fixed inset-y-0 z-50 flex h-[var(--visual-viewport-height,100dvh)] w-[min(85vw,20rem)] flex-col outline-none',
+            'text-sidebar-foreground bg-sidebar fixed inset-y-0 z-50 flex h-[var(--visual-viewport-bottom,100dvh)] w-[min(85vw,20rem)] flex-col outline-none',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-deliberate data-[state=open]:ease-entrance',
             side === 'left'
               ? 'left-0 pl-[env(safe-area-inset-left)] data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left'
