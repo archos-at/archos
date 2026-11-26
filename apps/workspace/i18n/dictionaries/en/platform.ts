@@ -465,7 +465,7 @@ export const platform = {
     ingestExplicitBadge: 'Custom',
     ingestDefaultPlaceholder: 'Default: {amount}',
     ingestDefaultUnlimited: 'Default: unlimited',
-    ingestHint: 'Reading uploaded documents in is paid from this allowance, not from the limits above. Leave blank for the default of {factor} times the monthly allowance; 0 stops reading new documents in. Set for this budget unit only.',
+    ingestHint: 'Reading uploaded documents in is paid from this allowance, not from the limits above. Leave blank for the default; 0 stops reading new documents in. Set for this budget unit only.',
     ingestUseDefault: 'Use default',
     ingestInvalid: 'Enter a number of 0 or more, or leave blank for the default.',
     ingestSaveError: 'Could not save the ingest allowance.',

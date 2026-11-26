@@ -1,11 +1,10 @@
 import 'server-only'
 import type { BudgetUnit } from '@/lib/db/schema/budgets'
-import { INGEST_ALLOWANCE_SETTING, type IngestAllowanceSetting } from './ingest-allowance-contract'
-
-export const INGEST_ALLOWANCE_FACTOR = 3
-
-export const ingestLimitOf = (limits: { monthlyLimit: number | null }): number | null =>
-  limits.monthlyLimit === null ? null : limits.monthlyLimit * INGEST_ALLOWANCE_FACTOR
+import {
+  INGEST_ALLOWANCE_SETTING,
+  defaultIngestAllowance,
+  type IngestAllowanceSetting,
+} from './ingest-allowance-contract'
 
 const isAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -31,7 +30,7 @@ export function effectiveIngestLimit(
   unit: BudgetUnit,
   limits: { monthlyLimit: number | null },
 ): IngestLimit {
-  const defaultLimit = ingestLimitOf(limits)
+  const defaultLimit = defaultIngestAllowance(unit, limits.monthlyLimit)
   const own = configured[unit]
   return own === undefined
     ? { limit: defaultLimit, defaultLimit, explicit: false }

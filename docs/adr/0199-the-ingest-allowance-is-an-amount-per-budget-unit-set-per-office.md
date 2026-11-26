@@ -11,7 +11,7 @@ informed: everyone who changes budgets, ingestion or the platform console
 ## Context and Problem Statement
 
 Reading documents in is paid from an allowance of its own: per office and UTC
-month, `INGEST_ALLOWANCE_FACTOR` (3) times its monthly limit
+month, three times its monthly limit
 (`bff/budgets/ingest-limit.ts`, [usage-budgets.md](../architecture/usage-budgets.md#the-ingest-allowance)).
 Once it is spent, a new upload is still stored but no longer read. Nobody could
 change it except by raising the monthly limit, which also raises what the office
@@ -40,8 +40,12 @@ budgeted in credits. An office on its own provider key is budgeted in tokens
 - A credit amount must never be read as tokens. A token is about a
   thousandth of a credit's worth, so 50,000 read as tokens would stop the
   office's reading on its first page.
-- An office without a setting keeps today's behaviour, and the operator has one
-  clear way back to it.
+- An office without a setting gets one default, and the operator has one clear
+  way back to it. For credits that default is a flat 10,000 a month (product
+  decision, 2026-11-26), so the reading budget no longer moves when the work
+  budget does. For tokens it stays three times the monthly limit: an own-key
+  office pays its provider, and a flat token amount small enough to be a
+  sensible ceiling would stop a large office after a few documents.
 
 ## Considered Options
 
@@ -49,8 +53,8 @@ budgeted in credits. An office on its own provider key is budgeted in tokens
 2. A factor per office, multiplied with the monthly limit.
 3. An absolute amount per office, one value regardless of unit, cleared when
    the unit changes.
-4. An absolute amount per office and per budget unit, the factor of three as the
-   default where none is set for the current unit.
+4. An absolute amount per office and per budget unit, with a default where none
+   is set for the current unit.
 
 ## Decision Outcome
 
@@ -61,9 +65,10 @@ without reinterpreting anything.
 - Stored as the platform-owned organization setting `ingestMonthlyAllowance`,
   `{ credit?: number, token?: number }`. It is in `PLATFORM_OWNED_SETTINGS`, so
   the office's own settings save refuses it.
-- The effective allowance is the entry for the office's current unit, or
-  `INGEST_ALLOWANCE_FACTOR` times the monthly limit when there is none
-  (`effectiveIngestLimit`).
+- The effective allowance is the entry for the office's current unit, or the
+  default when there is none (`defaultIngestAllowance`): 10,000 credits
+  (`DEFAULT_CREDIT_INGEST_ALLOWANCE`), or three times the monthly limit in
+  tokens (`TOKEN_INGEST_ALLOWANCE_FACTOR`).
 - Written only through `PUT /api/platform/organizations/:id/ingest-allowance`
   (`platform:organizations:manage`). The body is `{ unit, monthlyAllowance }`,
   and `null` removes that unit's entry, which brings back the default. A `unit`

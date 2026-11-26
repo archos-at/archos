@@ -75,7 +75,7 @@ describe('the ingest meter of the usage overview', () => {
   it('shows a member the office-wide ingestion against the office-wide ceiling, beside their own work', async () => {
     const overview = await getUsageOverview(anna)
     expect(overview.summary.month).toEqual({ amount: 100, events: 5 })
-    expect(overview.ingest).toEqual({ month: { amount: 3000, events: 40 }, monthlyLimit: 3000, explicit: false })
+    expect(overview.ingest).toEqual({ month: { amount: 3000, events: 40 }, monthlyLimit: 10000, explicit: false })
   })
 
   it('stays office-wide when an admin filters by member', async () => {

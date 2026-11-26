@@ -469,7 +469,7 @@ export const platform: typeof en.platform = {
     ingestExplicitBadge: 'Individuell',
     ingestDefaultPlaceholder: 'Standard: {amount}',
     ingestDefaultUnlimited: 'Standard: unbegrenzt',
-    ingestHint: 'Das Einlesen hochgeladener Unterlagen wird aus diesem Kontingent bezahlt, nicht aus den Limits oben. Leer lassen für den Standard, das {factor}-Fache des Monatskontingents; 0 liest keine neuen Unterlagen mehr ein. Gilt nur für diese Budgeteinheit.',
+    ingestHint: 'Das Einlesen hochgeladener Unterlagen wird aus diesem Kontingent bezahlt, nicht aus den Limits oben. Leer lassen für den Standard; 0 liest keine neuen Unterlagen mehr ein. Gilt nur für diese Budgeteinheit.',
     ingestUseDefault: 'Standard verwenden',
     ingestInvalid: 'Eine Zahl ab 0 eingeben oder für den Standard leer lassen.',
     ingestSaveError: 'Das Einlesekontingent konnte nicht gespeichert werden.',

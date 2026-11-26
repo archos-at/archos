@@ -194,7 +194,7 @@ describe('BudgetUsageCard — spend visualization', () => {
   })
 
   test.each([
-    [false, 'three times the monthly limit'],
+    [false, 'shared by the whole office.'],
     [true, 'set specifically for your office'],
   ])('explains the ingest allowance by where it came from (set by an operator: %s)', async (explicit, copy) => {
     stubFetch({
@@ -205,6 +205,6 @@ describe('BudgetUsageCard — spend visualization', () => {
 
     const ingest = await screen.findByTestId('ingest-usage')
     expect(ingest).toHaveTextContent(copy)
-    expect(ingest).not.toHaveTextContent(explicit ? 'three times' : 'set specifically')
+    expect(ingest).not.toHaveTextContent(explicit ? 'shared by the whole office.' : 'set specifically')
   })
 })

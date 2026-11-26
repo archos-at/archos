@@ -23,8 +23,7 @@ let BUDGET: PlatformOrgBudget = {
   ingest: {
     unit: 'credit',
     monthlyAllowance: 50000,
-    defaultMonthlyAllowance: 30000,
-    defaultFactor: 3,
+    defaultMonthlyAllowance: 10000,
     explicit: true,
     monthUsed: 28740,
   },

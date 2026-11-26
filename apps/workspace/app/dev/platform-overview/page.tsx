@@ -110,9 +110,8 @@ const ORG_BUDGETS = new Map<string, PlatformOrgBudget>(
         monthUsed: unit === 'credit' ? org.month.credits : org.month.tokens,
         ingest: {
           unit,
-          monthlyAllowance: unit === 'credit' ? (index === 1 ? 100_000 : 15_000) : null,
-          defaultMonthlyAllowance: unit === 'credit' ? (index === 1 ? 60_000 : 15_000) : null,
-          defaultFactor: 3,
+          monthlyAllowance: unit === 'credit' ? (index === 1 ? 100_000 : 10_000) : null,
+          defaultMonthlyAllowance: unit === 'credit' ? 10_000 : null,
           explicit: index === 1,
           monthUsed: 0,
         },

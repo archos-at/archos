@@ -28,7 +28,7 @@ import {
   type PlatformIngestAllowance,
 } from './ingest-allowance-contract'
 import { resolveIngestLimit, invalidateIngestAllowanceCache } from './ingest-allowance'
-import { configuredIngestAllowances, INGEST_ALLOWANCE_FACTOR } from './ingest-limit'
+import { configuredIngestAllowances } from './ingest-limit'
 import type { SpendWindow } from './repository'
 import type { EffectiveBudgetPolicy } from './policy-lookup'
 import {
@@ -80,7 +80,6 @@ async function readIngestAllowance(
     unit: budget.unit,
     monthlyAllowance: ingest.limit,
     defaultMonthlyAllowance: ingest.defaultLimit,
-    defaultFactor: INGEST_ALLOWANCE_FACTOR,
     explicit: ingest.explicit,
     monthUsed: ingested(month, budget.unit),
   }

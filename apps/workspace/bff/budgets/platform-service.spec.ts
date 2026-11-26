@@ -103,9 +103,8 @@ describe('platform organization allowances', () => {
         monthUsed: 300,
         ingest: {
           unit: 'credit',
-          monthlyAllowance: 30000,
-          defaultMonthlyAllowance: 30000,
-          defaultFactor: 3,
+          monthlyAllowance: 10000,
+          defaultMonthlyAllowance: 10000,
           explicit: false,
           monthUsed: 0,
         },
@@ -213,8 +212,7 @@ describe('the ingest allowance an operator sets per office', () => {
     expect((await getPlatformOrgBudget(session, 'org_tenant')).ingest).toEqual({
       unit: 'credit',
       monthlyAllowance: 50000,
-      defaultMonthlyAllowance: 30000,
-      defaultFactor: 3,
+      defaultMonthlyAllowance: 10000,
       explicit: true,
       monthUsed: 3000,
     })
@@ -247,7 +245,7 @@ describe('the ingest allowance an operator sets per office', () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
       metadata: { unit: 'credit', monthlyAllowance: 0, explicit: false },
     }))
-    expect(result).toMatchObject({ monthlyAllowance: 30000, explicit: false })
+    expect(result).toMatchObject({ monthlyAllowance: 10000, explicit: false })
   })
 
   it('refuses an amount meant for another unit than the office’s, and writes nothing', async () => {

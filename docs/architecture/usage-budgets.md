@@ -261,17 +261,19 @@ reading documents in is paid from an allowance of its own:
   member and project limits all go through it.
 - **Its ceiling**: per organization and UTC month, the amount a platform
   operator set for the organization's current budget unit, or by default
-  `INGEST_ALLOWANCE_FACTOR` (3) times its monthly limit
-  (`effectiveIngestLimit` in `budgets/ingest-limit.ts`, ADR-0199). The amount
+  10,000 credits a month (`DEFAULT_CREDIT_INGEST_ALLOWANCE`), or three times
+  the monthly limit in tokens for an own-key office
+  (`defaultIngestAllowance` in `budgets/ingest-allowance-contract.ts`,
+  ADR-0199). The amount
   lives in the platform-owned setting `ingestMonthlyAllowance`
   (`{ credit?, token? }`). It is written only through
   `PUT /api/platform/organizations/:id/ingest-allowance`, and the office cannot
-  write it. Without an amount, raising the monthly limit raises the ceiling. A
-  set amount stays put when the monthly limit changes, and an amount for one
+  write it. The credit default does not follow the monthly limit; the token
+  default does. A set amount stays put when the monthly limit changes, and an amount for one
   unit never applies to the other: an office that moves to its own key falls
   back to its token amount, or the default. 0 stops new readings. Every office
   is run with a monthly limit (product decision, KAN-53, 2026-11-18); the code
-  still reads a missing one, with no amount set, as "no ceiling".
+  still reads a missing token limit, with no amount set, as "no ceiling".
 - **Enforced at the start of a job, never inside one**: `dispatchIngest`
   refuses to start a new ingestion once the allowance is spent and fails the
   row with `INGEST_ALLOWANCE_SPENT_MESSAGE` (the file stays stored; "read
@@ -288,8 +290,8 @@ reading documents in is paid from an allowance of its own:
   the whole office against the office's ceiling (`getIngestAllowance`), also
   for a member and under an admin's member or project filter, because the
   refusal is office-wide.
-  The sentence under it names the factor of three only for the default. When
-  an operator set the amount (`ingest.explicit`), it says so instead.
+  The sentence under it says the allowance is the office's own; when an
+  operator set the amount (`ingest.explicit`), it says that too.
 - **What the operator sees**: the platform console's "Kontingent" dialog
   (`platform-org-budget-dialog.tsx`) shows this month's ingestion and the
   amount, with the default it replaces as the placeholder. "Standard

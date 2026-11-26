@@ -29,7 +29,10 @@ import {
   PlatformBudgetRequestError,
   putPlatformIngestAllowance,
 } from '@/lib/budgets/platform-client'
-import { ingestAllowancePutSchema } from '@/lib/budgets/ingest-allowance-contract'
+import {
+  defaultIngestAllowance,
+  ingestAllowancePutSchema,
+} from '@/lib/budgets/ingest-allowance-contract'
 import { platformOrgBudgetPutSchema, type PlatformOrgBudget } from '@/lib/budgets/platform-contract'
 import { formatDecimalInput, parseDecimalInput } from '@/lib/text/parse-decimal'
 
@@ -129,11 +132,10 @@ export function PlatformOrgBudgetDialog({
   const ingestDefault =
     budget === null
       ? null
-      : monthlyDraft.ok
-        ? monthlyDraft.value === null
-          ? null
-          : monthlyDraft.value * budget.ingest.defaultFactor
-        : budget.ingest.defaultMonthlyAllowance
+      : defaultIngestAllowance(
+          budget.unit,
+          monthlyDraft.ok ? monthlyDraft.value : budget.monthlyLimit
+        )
 
   const save = async (): Promise<void> => {
     if (!budget || !draft?.success || !ingestDraft.ok || !canManage) return
@@ -262,9 +264,7 @@ export function PlatformOrgBudgetDialog({
             ) : null}
           </div>
           {message ? <FieldError id={`${id}-error`}>{message}</FieldError> : null}
-          <FieldDescription id={`${id}-hint`}>
-            {t('orgBudgets.ingestHint', { factor: budget.ingest.defaultFactor })}
-          </FieldDescription>
+          <FieldDescription id={`${id}-hint`}>{t('orgBudgets.ingestHint')}</FieldDescription>
         </Field>
       </section>
     )

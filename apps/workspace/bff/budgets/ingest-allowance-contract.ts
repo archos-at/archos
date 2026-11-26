@@ -6,6 +6,18 @@ export const MAX_INGEST_ALLOWANCE = 999_999_999_999
 
 export type IngestAllowanceSetting = Partial<Record<'credit' | 'token', number>>
 
+export const DEFAULT_CREDIT_INGEST_ALLOWANCE = 10_000
+
+export const TOKEN_INGEST_ALLOWANCE_FACTOR = 3
+
+export function defaultIngestAllowance(
+  unit: 'credit' | 'token',
+  monthlyLimit: number | null,
+): number | null {
+  if (unit === 'credit') return DEFAULT_CREDIT_INGEST_ALLOWANCE
+  return monthlyLimit === null ? null : monthlyLimit * TOKEN_INGEST_ALLOWANCE_FACTOR
+}
+
 export const ingestAllowancePutSchema = z
   .object({
     unit: z.enum(['credit', 'token']),
@@ -28,7 +40,7 @@ export function withMonthlyLimit(
   current: PlatformIngestAllowance,
   monthlyLimit: number | null,
 ): PlatformIngestAllowance {
-  const defaultMonthlyAllowance = monthlyLimit === null ? null : monthlyLimit * current.defaultFactor
+  const defaultMonthlyAllowance = defaultIngestAllowance(current.unit, monthlyLimit)
   return {
     ...current,
     defaultMonthlyAllowance,
@@ -38,9 +50,8 @@ export function withMonthlyLimit(
 
 export interface PlatformIngestAllowance {
   unit: IngestAllowancePut['unit']
-  monthlyAllowance: number | null,
+  monthlyAllowance: number | null
   defaultMonthlyAllowance: number | null
-  defaultFactor: number
   explicit: boolean
   monthUsed: number
 }

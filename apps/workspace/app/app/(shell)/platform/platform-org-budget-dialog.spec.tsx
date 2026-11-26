@@ -18,9 +18,8 @@ const budget = {
   monthUsed: 300,
   ingest: {
     unit: 'credit',
-    monthlyAllowance: 30000,
-    defaultMonthlyAllowance: 30000,
-    defaultFactor: 3,
+    monthlyAllowance: 10000,
+    defaultMonthlyAllowance: 10000,
     explicit: false,
     monthUsed: 4200,
   },
@@ -214,24 +213,39 @@ describe('platform organization allowance editor', () => {
       render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
       const field = await screen.findByLabelText(INGEST_LABEL)
       expect(field).toHaveValue('')
-      expect(field).toHaveAttribute('placeholder', 'Default: 30,000')
+      expect(field).toHaveAttribute('placeholder', 'Default: 10,000')
       expect(screen.getByText('Read in this month').nextElementSibling).toHaveTextContent(
         '4,200 credits'
       )
       expect(screen.getByText('Default')).toBeDefined()
     })
 
-    it('follows the monthly allowance being typed in the placeholder', async () => {
+    it('keeps the credit default at 10,000 whatever the monthly allowance', async () => {
       render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
       const monthly = await screen.findByLabelText('Monthly allowance (credits)')
       await userEvent.clear(monthly)
       await userEvent.type(monthly, '20000')
-      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: 60,000')
-      await userEvent.clear(monthly)
-      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute(
-        'placeholder',
-        'Default: unlimited'
+      expect(screen.getByLabelText(INGEST_LABEL)).toHaveAttribute('placeholder', 'Default: 10,000')
+    })
+
+    it('follows the monthly limit being typed for an office on its own key', async () => {
+      fetchMock.mockResolvedValueOnce(
+        response({
+          ...budget,
+          unit: 'token',
+          monthlyLimit: 200000,
+          ingest: { ...budget.ingest, unit: 'token', monthlyAllowance: 600000, defaultMonthlyAllowance: 600000 },
+        })
       )
+      render(<PlatformOrgBudgetDialog organization={organization} onClose={onClose} />)
+      const monthly = await screen.findByLabelText('Monthly allowance (tokens)')
+      const ingest = screen.getByLabelText('Ingest allowance per month (tokens)')
+      expect(ingest).toHaveAttribute('placeholder', 'Default: 600K')
+      await userEvent.clear(monthly)
+      await userEvent.type(monthly, '100000')
+      expect(ingest).toHaveAttribute('placeholder', 'Default: 300K')
+      await userEvent.clear(monthly)
+      expect(ingest).toHaveAttribute('placeholder', 'Default: unlimited')
     })
 
     it('saves only the ingest allowance, without pinning the default limits as a policy', async () => {
