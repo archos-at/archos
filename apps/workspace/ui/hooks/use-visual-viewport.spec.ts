@@ -4,7 +4,7 @@ import {
   OVERLAY_INSET_BOTTOM_VAR,
   useFitToVisualViewport,
   useVisualViewport,
-  VISUAL_VIEWPORT_HEIGHT_VAR,
+  VISUAL_VIEWPORT_BOTTOM_VAR,
 } from './use-visual-viewport'
 
 class FakeVisualViewport extends EventTarget {
@@ -15,8 +15,10 @@ class FakeVisualViewport extends EventTarget {
 
 const LAYOUT_HEIGHT = 800
 
+const CANCEL_PAN = { top: 0, left: 0, behavior: 'instant' }
+
 const published = (): string =>
-  document.documentElement.style.getPropertyValue(VISUAL_VIEWPORT_HEIGHT_VAR)
+  document.documentElement.style.getPropertyValue(VISUAL_VIEWPORT_BOTTOM_VAR)
 
 describe('useVisualViewport', () => {
   let viewport: FakeVisualViewport
@@ -45,7 +47,7 @@ describe('useVisualViewport', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    document.documentElement.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_VAR)
+    document.documentElement.style.removeProperty(VISUAL_VIEWPORT_BOTTOM_VAR)
   })
 
   const openKeyboard = (visibleHeight: number, offsetTop = 0): void => {
@@ -61,11 +63,28 @@ describe('useVisualViewport', () => {
     expect(scrollTo).not.toHaveBeenCalled()
   })
 
-  test('the iOS keyboard: publishes the visible height and cancels the document pan', () => {
+  test("the iOS keyboard: publishes the line the keyboard stands on and cancels the pan at once, never by the document's smooth scroll, which ran out over seconds", () => {
+    renderHook(() => useVisualViewport())
+    openKeyboard(460)
+    expect(published()).toBe('460px')
+    openKeyboard(460, 300)
+    expect(scrollTo).toHaveBeenCalledWith(CANCEL_PAN)
+  })
+
+  test("while Safari's pan still holds, the frame's bottom stands on the keyboard, not a pan's height above it", () => {
     renderHook(() => useVisualViewport())
     openKeyboard(460, 300)
+    expect(published()).toBe('760px')
+
+    viewport.offsetTop = 120
+    viewport.dispatchEvent(new Event('scroll'))
+    flushFrame()
+    expect(published()).toBe('580px')
+
+    viewport.offsetTop = 0
+    viewport.dispatchEvent(new Event('scroll'))
+    flushFrame()
     expect(published()).toBe('460px')
-    expect(scrollTo).toHaveBeenCalledWith(0, 0)
   })
 
   test.each([
@@ -80,7 +99,7 @@ describe('useVisualViewport', () => {
     try {
       renderHook(() => useVisualViewport())
       openKeyboard(460, 300)
-      expect(published()).toBe('460px')
+      expect(published()).toBe('760px')
       expect(scrollTo).not.toHaveBeenCalled()
     } finally {
       host.remove()
@@ -94,7 +113,7 @@ describe('useVisualViewport', () => {
     try {
       renderHook(() => useVisualViewport())
       openKeyboard(460, 300)
-      expect(scrollTo).toHaveBeenCalledWith(0, 0)
+      expect(scrollTo).toHaveBeenCalledWith(CANCEL_PAN)
     } finally {
       input.remove()
     }

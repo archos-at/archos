@@ -54,7 +54,7 @@ const DESKTOP_PALETTE_CLASS = 'md:top-[15%] md:max-w-2xl!'
 
 const PHONE_PALETTE_CLASS = [
   'max-md:inset-x-0! max-md:top-0! max-md:bottom-auto! max-md:left-0! max-md:translate-x-0! max-md:translate-y-0!',
-  'max-md:h-[var(--visual-viewport-height,100dvh)]! max-md:max-h-none! max-md:w-full! max-md:max-w-none!',
+  'max-md:h-[var(--visual-viewport-bottom,100dvh)]! max-md:max-h-none! max-md:w-full! max-md:max-w-none!',
   'max-md:flex! max-md:flex-col max-md:rounded-none! max-md:border-0! max-md:pt-[env(safe-area-inset-top)]',
   'max-md:data-[state=open]:zoom-in-100 max-md:data-[state=closed]:zoom-out-100',
 ].join(' ')

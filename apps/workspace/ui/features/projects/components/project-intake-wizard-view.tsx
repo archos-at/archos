@@ -314,7 +314,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
 
             {/* Sticky to the bottom of the shell's scroll container, which the shell
                 already sizes to what the on-screen keyboard leaves
-                (`--visual-viewport-height`), so this bar rides above the
+                (`--visual-viewport-bottom`), so this bar rides above the
                 keyboard rather than behind it; the number keypad has no Return,
                 and Weiter is the way on. The phone's tab bar stands down on this
                 route, so the home indicator's inset is this bar's to clear. */}
