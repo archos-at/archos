@@ -42,8 +42,6 @@ export const nav = {
     baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Project settings',
-    settingsShort: 'Project',
-    filesShort: 'Files',
     intake: 'Setup',
     setup: 'Setup',
   },
@@ -104,16 +102,11 @@ export const nav = {
     showAll: 'Show all projects',
   },
   inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
-  tabBar: {
-    label: 'Main navigation',
-    more: 'More',
-    moreSheet: {
-      title: 'More',
-      description: 'More areas and your account.',
-      close: 'Close',
-      project: 'Project',
-      account: 'Account',
-    },
+  phoneMenu: {
+    open: 'Open menu',
+    title: 'Menu',
+    news: 'News in the menu',
+    place: '{place}, open menu',
   },
   search: {
     open: 'Search',

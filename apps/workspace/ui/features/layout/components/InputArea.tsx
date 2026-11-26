@@ -60,6 +60,8 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
             data-temporary={temporary || undefined}
             className={cn(
               '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 backdrop-blur-md sm:px-4',
+              // Solid on a phone: Safari's blur is not a cover the thread can be trusted under.
+              'max-md:bg-card max-md:supports-[backdrop-filter]:bg-card max-md:backdrop-blur-none',
               'outline-1 -outline-offset-1 outline-dashed transition-[outline-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
               temporary ? 'outline-foreground shadow-none' : 'outline-transparent shadow-md',
               FIELD_FOCUS_WITHIN_RING,

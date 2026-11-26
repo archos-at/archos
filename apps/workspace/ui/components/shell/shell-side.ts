@@ -1,5 +1,5 @@
 import { projectIdFromPathname } from './org-sections'
-import { railModeOf } from './rail-mode'
+import { PERSONAL_CHAT_PATH, railModeOf } from './rail-mode'
 import type { RailSide } from './rail-side'
 
 export const PERSONAL_SIDE: RailSide = { mode: 'personal', projectId: null }
@@ -33,4 +33,9 @@ function safeDecode(value: string): string {
   } catch {
     return ''
   }
+}
+
+export function onSideChat(pathname: string, projectId: string | null, onSide: boolean): boolean {
+  const chatPath = projectId === null ? PERSONAL_CHAT_PATH : `/app/projects/${projectId}/chat`
+  return onSide && (pathname === chatPath || pathname.startsWith(`${chatPath}/`))
 }

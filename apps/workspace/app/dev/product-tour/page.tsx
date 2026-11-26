@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductTour, useStartProductTour } from '@/features/onboarding/components/product-tour'
 import { NO_TOURS, TOUR_HOME, type TourId } from '@/lib/onboarding/product-tour'
@@ -60,7 +59,6 @@ function Preview(): JSX.Element {
               className="m-auto"
             />
           </main>
-          <PhoneTabBar projectId="p-1" pathname="/app/projects/p-1/chat" canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
         </div>
       ) : (
         <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row">
@@ -74,7 +72,6 @@ function Preview(): JSX.Element {
               className="m-auto"
             />
           </main>
-          <PhoneTabBar projectId={null} pathname={TOUR_HOME} canAccessOfficeShelf={flags.canAccessOfficeShelf} canAccessInbox={flags.canAccessInbox} />
         </div>
       )}
       {!joined && !handover && <Replay />}

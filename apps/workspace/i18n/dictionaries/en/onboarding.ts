@@ -73,9 +73,9 @@ export const onboarding = {
         title: 'Personal or project',
         body: 'One switch, two sides. Personal: your own chats and “Meine Ablage”, for you alone. Project: everything about one building, with everyone working on it.',
       },
-      sidesPhone: {
-        title: 'Personal or project',
-        body: 'One switch at the top of the chat, two sides. Personal: your own chats and “Meine Ablage”, for you alone. Project: everything about one building. There, the project name beside it opens your projects.',
+      menuPhone: {
+        title: 'Everything in the menu',
+        body: 'The menu at the top left opens everything: personal or project, your projects, the files, the office library, the inbox and your account.',
       },
       projects: {
         title: 'Your projects',
@@ -85,13 +85,9 @@ export const onboarding = {
         title: 'Your projects',
         body: 'Click {productName} to open the project overview. Projects appear there as colleagues add you; you can start your own there too.',
       },
-      morePhone: {
-        title: 'Everything else under “More”',
-        body: 'Your projects and “New project”, search, your office’s Office library, and your account, including switching to another office.',
-      },
-      morePhoneShelfless: {
-        title: 'Everything else under “More”',
-        body: 'Your projects and “New project”, search, and your account, including switching to another office.',
+      menuPhoneShelfless: {
+        title: 'Everything in the menu',
+        body: 'The menu at the top left opens everything: personal or project, your projects, the files, the inbox and your account.',
       },
       officeShelf: {
         title: 'Office library',
@@ -129,7 +125,7 @@ export const onboarding = {
       },
       projectChatPhone: {
         title: 'Work with {productName}',
-        body: 'Ask {productName} about this building, or hand it a task. “Chat” takes you back to your last chat.',
+        body: 'Ask {productName} about this building, or hand it a task. Your chats are in the menu at the top left.',
       },
       projectFiles: {
         title: 'Documents',
@@ -145,7 +141,7 @@ export const onboarding = {
       },
       filesOrOfficeShelfPhone: {
         title: 'Documents or Office library?',
-        body: 'Ask who the document belongs to. You find the Office library under “More”.',
+        body: 'Ask who the document belongs to. You find both in the menu at the top left.',
       },
       projectSources: {
         title: 'Every answer shows its sources',
@@ -157,7 +153,7 @@ export const onboarding = {
       },
       projectSettingsPhone: {
         title: 'People and key facts',
-        body: 'The “Project” tab shows where this project stands. Invite the people involved and adjust the key facts there.',
+        body: 'Under “Project settings” in the menu you see where this project stands. Invite the people involved and adjust the key facts there.',
       },
     },
   },

@@ -20,8 +20,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace, back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
 }))
 vi.mock('./app-sidebar', () => ({ AppSidebar: () => <div data-testid="rail" /> }))
-vi.mock('./phone-tab-bar', () => ({ PhoneTabBar: () => null }))
-vi.mock('./phone-more-sheet', () => ({ PhoneMoreSheet: () => null }))
 vi.mock('@/features/onboarding/components/product-tour', () => ({
   ProductTour: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))

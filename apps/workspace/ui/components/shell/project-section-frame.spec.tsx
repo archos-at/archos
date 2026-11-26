@@ -197,19 +197,12 @@ describe('ProjectSectionFrame', () => {
       expect(screen.getByTestId('page-header-crumb')).toHaveClass('max-md:hidden')
     })
 
-    test('ends the title’s line with the app’s search, below the rail’s width only', () => {
-      show('/app/projects/p1/automation')
-      expect(titleLine().querySelector('h1')).toHaveTextContent('Automation')
-      expect(titleLine().lastElementChild!.querySelector('[data-testid="shell-search"]')).toHaveClass('md:hidden')
-      expect(screen.getAllByTestId('shell-search')).toHaveLength(1)
-    })
-
-    test('Alle Dateien has its own search field, so its title’s line carries no second magnifier', () => {
-      show('/app/projects/p1/files')
-      expect(screen.queryByTestId('shell-search')).toBeNull()
-      cleanup()
-      show('/app/projects/p1/files/mail')
-      expect(screen.getByTestId('shell-search')).toBeInTheDocument()
+    test('leaves the search to the phone’s floating buttons: no title line carries a magnifier', () => {
+      for (const path of ['/app/projects/p1/automation', '/app/projects/p1/files', '/app/projects/p1/files/mail']) {
+        show(path)
+        expect(screen.queryByTestId('shell-search')).toBeNull()
+        cleanup()
+      }
     })
 
     test('a page under the Übersicht has its way back at the start of the title’s line', () => {

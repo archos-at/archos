@@ -16,7 +16,6 @@ export function projectTourUrl(projectId: string): string {
 
 export const TOUR_ANCHORS = {
   sides: 'side-switch',
-  sidesPhone: 'side-switch-phone',
   projects: 'projects',
   projectSwitcher: 'project-switcher',
   inbox: 'inbox',
@@ -25,7 +24,7 @@ export const TOUR_ANCHORS = {
   sectionFiles: 'section-files',
   sectionOfficeShelf: 'section-officeShelf',
   sectionSettings: 'section-settings',
-  more: 'tab-more',
+  menu: 'phone-menu',
   search: 'search',
 } as const
 
@@ -75,17 +74,17 @@ const WELCOME_STOPS: readonly TourStop[] = [
     id: 'sides',
     anchor: TOUR_ANCHORS.sides,
     placement: 'beside',
-    phone: { id: 'sidesPhone', anchor: TOUR_ANCHORS.sidesPhone, placement: 'below' },
+    phone: { id: 'menuPhone', anchor: TOUR_ANCHORS.menu, placement: 'below', shelflessId: 'menuPhoneShelfless' },
   },
   {
     id: 'projects',
     anchor: TOUR_ANCHORS.projects,
     placement: 'beside',
     arrivalId: 'projectsJoined',
-    phone: { id: 'morePhone', anchor: TOUR_ANCHORS.more, shelflessId: 'morePhoneShelfless' },
+    phone: null,
   },
   { id: 'officeShelf', anchor: TOUR_ANCHORS.sectionOfficeShelf, placement: 'beside', gate: 'canAccessOfficeShelf', phone: null },
-  { id: 'inbox', anchor: TOUR_ANCHORS.inbox, placement: 'beside', gate: 'canAccessInbox' },
+  { id: 'inbox', anchor: TOUR_ANCHORS.inbox, placement: 'beside', gate: 'canAccessInbox', phone: null },
   { id: 'search', anchor: TOUR_ANCHORS.search, placement: 'beside', phone: null },
   { id: 'account', anchor: TOUR_ANCHORS.account, placement: 'beside', memberId: 'accountMember', phone: null },
 ]
@@ -96,22 +95,22 @@ const PROJECT_STOPS: readonly TourStop[] = [
     id: 'projectChat',
     anchor: TOUR_ANCHORS.sectionChat,
     placement: 'beside',
-    phone: { id: 'projectChatPhone', anchor: TOUR_ANCHORS.sectionChat },
+    phone: { id: 'projectChatPhone', anchor: TOUR_ANCHORS.menu, placement: 'below' },
   },
-  { id: 'projectFiles', anchor: TOUR_ANCHORS.sectionFiles, placement: 'beside' },
+  { id: 'projectFiles', anchor: TOUR_ANCHORS.sectionFiles, placement: 'beside', phone: { id: 'projectFiles', anchor: undefined } },
   {
     id: 'filesOrOfficeShelf',
     anchor: TOUR_ANCHORS.sectionOfficeShelf,
     placement: 'beside',
     gate: 'canAccessOfficeShelf',
-    phone: { id: 'filesOrOfficeShelfPhone', anchor: TOUR_ANCHORS.more },
+    phone: { id: 'filesOrOfficeShelfPhone', anchor: undefined },
   },
   { id: 'projectSources' },
   {
     id: 'projectSettings',
     anchor: TOUR_ANCHORS.projectSwitcher,
     placement: 'beside',
-    phone: { id: 'projectSettingsPhone', anchor: TOUR_ANCHORS.sectionSettings },
+    phone: { id: 'projectSettingsPhone', anchor: TOUR_ANCHORS.menu, placement: 'below' },
   },
 ]
 
@@ -121,7 +120,7 @@ export const TOURS: Record<TourId, readonly TourStop[]> = {
 }
 
 export const ARRIVAL_ANCHOR: Record<TourId, readonly TourAnchor[]> = {
-  welcome: [TOUR_ANCHORS.sides, TOUR_ANCHORS.sidesPhone],
+  welcome: [TOUR_ANCHORS.sides, TOUR_ANCHORS.menu],
   project: [],
 }
 

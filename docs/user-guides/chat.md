@@ -2,7 +2,7 @@
 
 The chat talks to the agent over a WebSocket, for real-time interaction with full HITL (human-in-the-loop) support.
 
-On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and the thread header is the first thing on the screen. On a phone, **Chats** in the chat's toolbar opens with **Letzte Chats**: the last five chats of the side you are on (shared ones included, as in the rail), then the rest of your chats by day without them. At the top of the chat, the **Persönlich | Projekt** switch changes the side with one tap; inside a project the project's name stands beside it, and a tap on it opens the list of projects. **Mehr** in the tab bar also starts with the project, and **Projekt wechseln** opens the same list. On either side, **Chat** in the tab bar takes you back to the chat you left there; if you had none open, it opens your latest chat of the last twelve hours, otherwise an empty one. **Neuer Chat** is in the open chat's **…** menu and at the top of **Chats**. Under Persönlich the tab bar carries **Chat**, **Meine Ablage**, **Postfach** and **Mehr**, and **Mehr** lists the office's places and your account, no project. **Suche** is in **Mehr** on both sides.
+On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail opens as a drawer from the **menu** button at the top left, and the chat fills the rest of the screen. Round buttons float over the top of the chat: the menu at the left, **Neuer Chat** at the right, and between them the chat's title with its **…** menu (in an empty chat, the project's name, or **Persönlich**). The drawer is the same rail as on a desktop: the **Persönlich | Projekt** switch, the project selector, the project's places (Chat, Ablage, Projekteinstellungen), **Letzte Chats**, the Bürobibliothek, the search beside the wordmark, and your account with the Postfach bell. Tapping a place or a chat in it closes it. A dot on the menu button means something new waits in the Postfach or in your feedback. Off the chat, the place you are in floats beside the menu as a pill that opens the drawer too, and the search sits at the right.
 
 ## Finding past chats
 
@@ -51,7 +51,7 @@ While ARCHOS answers, the composer stays open, so you can write the next questio
 
 The header is two floating pills, split by what they are for.
 
-**Left — where you are.** **Chats** (the door to past chats, a button with its word), a hairline, then the session title. Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project is not repeated here, because the navigation rail already names it; on a phone, where there is no rail, **Mehr** in the tab bar names it, and the title may take two lines.
+**Left — where you are.** The session title (your past chats are in the rail, or on a phone in the drawer). Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project is not repeated here, because the navigation rail already names it; on a phone the title may take two lines, and the empty chat names the project in its place.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 

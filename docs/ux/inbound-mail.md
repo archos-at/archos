@@ -34,7 +34,7 @@ English copy calls the place „Project mail“.
   count · Offene Punkte · Papierkorb. The E-Mail-Eingang tab only for whoever
   may decide the project's mail (`requireMailReviewer`, asked once by the
   project layout); its count is the rail's own (`useInboundMailWaitingShown`).
-  Every count (the rail, the phone tab bar, the greeting's line, the shelf's
+  Every count (the rail, the greeting's line, the shelf's
   line, the list's own pill) is what the list shows as rows: waiting mail
   without the automatic group (`waitingShownCount`, `lib/list-sections.ts`).
   A read that stopped at its page says so on every one, the section tab
@@ -45,7 +45,7 @@ English copy calls the place „Project mail“.
   while something waits (the UI revision's „what happened since your last
   visit“, its first line).
 - A quiet line above the shelf root: „2 E-Mails warten auf Ablage · Ansehen“.
-- A muted count on Dateien in the rail and the phone tab bar, its words on
+- A muted count on Dateien in the rail (on a phone, in its drawer), its words on
   hover. The Postfach keeps the only ink pill.
 - `ProjectMailWaiting` on the project card (`waitingMailCounts`).
 - The project overview (Einstellungen › Übersicht): a full-width tile

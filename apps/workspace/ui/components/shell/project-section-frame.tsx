@@ -21,9 +21,8 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
 import { PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { phoneBackTarget } from './phone-tabs'
+import { phoneBackTarget } from './phone-back'
 import { SectionNav, type SectionNavItem } from './section-nav'
-import { ShellSearchButton } from './shell-search-button'
 import { SECTION_CONTENT_WIDTH, SECTION_HEADER_CLASS } from './section-layout'
 import { SectionToolRowScope } from './section-tool-row'
 import { PlaceContext, type SectionPlace } from './section-place'
@@ -237,7 +236,6 @@ export function ProjectSectionFrame({
   const shellBack = phoneBackTarget(pathname, projectId)
   const back = pageBack ?? (shellBack && { href: shellBack.href, to: t(`sections.${shellBack.sectionKey}`) })
   const allFiles = files && (subpage ?? 'files/all') === 'files/all'
-  const ownSearch = allFiles
   const opened = files && pathname.split('/').filter(Boolean).length > 5
   const projectStep = <span className="max-w-[16rem] shrink-0 truncate" title={projectName}>{projectName}</span>
   const backClassName = pageBack ? 'hidden phone:flex' : 'md:hidden'
@@ -276,7 +274,6 @@ export function ProjectSectionFrame({
             placesOnPhone={!opened}
             titleStart={backLink}
             titleStartClassName={backClassName}
-            titleEnd={!ownSearch && <ShellSearchButton className="-mr-2.5 md:hidden" />}
           />
         ) : (
         <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', SECTION_CONTENT_WIDTH)}>
@@ -287,7 +284,6 @@ export function ProjectSectionFrame({
             subtitle={sectionSubtitle}
             titleStartClassName={backClassName}
             titleStart={backLink}
-            titleEnd={<ShellSearchButton className="-mr-2.5 md:hidden" />}
             action={actions}
           />
           {/* Another section's own places (`ProjectSectionTabs`), where Dateien's stand; nothing where it has none. */}

@@ -6,7 +6,6 @@ import { AppConfigProvider, type AppConfig } from '@/shared/context'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 import { ChatArea, InputArea } from '@/features/layout/components'
 import { ChatToolbar } from '@/features/layout/components/ChatToolbar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { useComposerMetrics } from '@/features/layout/hooks/use-composer-metrics'
 import { ComposerScrim } from '@/features/layout/components/ComposerScrim'
 import { selectThreadPhase } from '@/features/layout/lib/thread-phase'
@@ -129,7 +128,6 @@ export default function ChatWelcomePreviewPage() {
             )}
           </motion.div>
         </div>
-        {chrome && <PhoneTabBar projectId="dev" canAccessOfficeShelf canAccessInbox pathname="/app/projects/dev/chat" />}
       </main>
     </AppConfigProvider>
   )

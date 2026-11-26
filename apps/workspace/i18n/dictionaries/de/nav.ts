@@ -44,8 +44,6 @@ export const nav: typeof en.nav = {
     baseKnowledge: 'Normen & Richtlinien',
     search: 'Suche',
     settings: 'Projekteinstellungen',
-    settingsShort: 'Projekt',
-    filesShort: 'Ablage',
     intake: 'Einrichtung',
     setup: 'Einrichtung',
   },
@@ -106,16 +104,11 @@ export const nav: typeof en.nav = {
     showAll: 'Alle Projekte anzeigen',
   },
   inboundMailWaiting: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
-  tabBar: {
-    label: 'Hauptnavigation',
-    more: 'Mehr',
-    moreSheet: {
-      title: 'Mehr',
-      description: 'Weitere Bereiche und das Konto.',
-      close: 'Schließen',
-      project: 'Projekt',
-      account: 'Konto',
-    },
+  phoneMenu: {
+    open: 'Menü öffnen',
+    title: 'Menü',
+    news: 'Neues im Menü',
+    place: '{place}, Menü öffnen',
   },
   search: {
     open: 'Suche',

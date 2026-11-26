@@ -69,7 +69,7 @@ describe('welcome tour', () => {
     expect(TOUR_HOME).toBe('/app/personal/chat')
     expect(new URL(TOUR_START_URL, 'http://x').pathname).toBe(TOUR_HOME)
     expect(tourForPath('/app/projects')).toBeNull()
-    expect(ARRIVAL_ANCHOR.welcome).toEqual([TOUR_ANCHORS.sides, TOUR_ANCHORS.sidesPhone])
+    expect(ARRIVAL_ANCHOR.welcome).toEqual([TOUR_ANCHORS.sides, TOUR_ANCHORS.menu])
   })
 })
 
@@ -95,14 +95,11 @@ describe('project tour', () => {
     expect(ids(placed)).not.toContain('filesOrOfficeShelf')
   })
 
-  it('on a phone, points at the tab bar: above each tab, and the Bürobibliothek at "Mehr"', () => {
-    const tabs: Record<string, AnchorBox> = {
-      [tourAnchorSelector(TOUR_ANCHORS.sectionChat)]: { left: 4, right: 81, top: 760, bottom: 812, placement: 'above' },
-      [tourAnchorSelector(TOUR_ANCHORS.sectionFiles)]: { left: 81, right: 158, top: 760, bottom: 812, placement: 'above' },
-      [tourAnchorSelector(TOUR_ANCHORS.sectionSettings)]: { left: 158, right: 235, top: 760, bottom: 812, placement: 'above' },
-      [tourAnchorSelector(TOUR_ANCHORS.more)]: { left: 312, right: 389, top: 760, bottom: 812, placement: 'above' },
+  it('on a phone, points at the menu at the top left: the chat and the settings live in it, the rest is told in the middle', () => {
+    const menu: Record<string, AnchorBox> = {
+      [tourAnchorSelector(TOUR_ANCHORS.menu)]: { left: 12, right: 56, top: 10, bottom: 54 },
     }
-    const placed = placeStops(TOURS.project, { ...ALL_ON, phone: true }, (selector) => tabs[selector] ?? null, PHONE)
+    const placed = placeStops(TOURS.project, { ...ALL_ON, phone: true }, (selector) => menu[selector] ?? null, PHONE)
     expect(ids(placed)).toEqual([
       'projectWelcome',
       'projectChatPhone',
@@ -111,14 +108,8 @@ describe('project tour', () => {
       'projectSources',
       'projectSettingsPhone',
     ])
-    expect(placed.find((stop) => stop.id === 'filesOrOfficeShelfPhone')).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
-    for (const stop of placed.filter((each) => each.side === 'top')) {
-      const box = tabs[tourAnchorSelector(stop.anchor!)]!
-      const width = Math.min(352, PHONE.width - 32)
-      const left = (box.left + box.right) / 2 - width / 2 + (stop.shiftX ?? 0)
-      expect(left).toBeGreaterThanOrEqual(16)
-      expect(left + width).toBeLessThanOrEqual(PHONE.width - 16)
-    }
+    expect(placed.find((stop) => stop.id === 'projectChatPhone')).toMatchObject({ anchor: TOUR_ANCHORS.menu, side: 'bottom-left' })
+    expect(placed.find((stop) => stop.id === 'filesOrOfficeShelfPhone')?.anchor).toBeUndefined()
   })
 
   it('waits for nothing on arrival — the rail is shell chrome, already standing', () => {
@@ -141,22 +132,19 @@ describe('a stop whose anchor is not on the screen', () => {
 
 describe('the welcome tour on a phone', () => {
   const anchors: Record<string, AnchorBox> = {
-    [tourAnchorSelector(TOUR_ANCHORS.sidesPhone)]: { left: 16, right: 224, top: 8, bottom: 52 },
-    [tourAnchorSelector(TOUR_ANCHORS.more)]: { left: 312, right: 389, top: 760, bottom: 812, placement: 'above' },
-    [tourAnchorSelector(TOUR_ANCHORS.inbox)]: { left: 234, right: 311, top: 760, bottom: 812, placement: 'above' },
+    [tourAnchorSelector(TOUR_ANCHORS.menu)]: { left: 12, right: 56, top: 10, bottom: 54 },
   }
   const locate = (selector: string): AnchorBox | null => anchors[selector] ?? null
 
-  it('is four stops: the switch at the top of the chat, „Mehr“ for the rest, and the Postfach tab (ADR-0196)', () => {
+  it('is two stops: the welcome, then the menu that holds everything else', () => {
     const placed = placeStops(TOURS.welcome, { ...ALL_ON, phone: true }, locate, PHONE)
-    expect(ids(placed)).toEqual(['welcome', 'sidesPhone', 'morePhone', 'inbox'])
-    expect(placed.find((stop) => stop.id === 'sidesPhone')).toMatchObject({ anchor: TOUR_ANCHORS.sidesPhone, side: 'bottom-left' })
-    expect(placed.find((stop) => stop.id === 'morePhone')).toMatchObject({ anchor: TOUR_ANCHORS.more, side: 'top' })
+    expect(ids(placed)).toEqual(['welcome', 'menuPhone'])
+    expect(placed.find((stop) => stop.id === 'menuPhone')).toMatchObject({ anchor: TOUR_ANCHORS.menu, side: 'bottom-left' })
   })
 
-  it('does not name a Bürobibliothek under „Mehr“ to a reader who has none', () => {
+  it('does not name a Bürobibliothek in the menu to a reader who has none', () => {
     const placed = placeStops(TOURS.welcome, { ...ALL_ON, canAccessOfficeShelf: false, phone: true }, locate, PHONE)
-    expect(ids(placed)).toContain('morePhoneShelfless')
+    expect(ids(placed)).toContain('menuPhoneShelfless')
   })
 })
 
@@ -200,7 +188,7 @@ describe('the copy', () => {
 
   it('names no place the shell no longer has', () => {
     const text = JSON.stringify(de.tour.stops)
-    for (const gone of ['Organisation erstellt', 'Seitenleiste', 'Menü oben', 'Dateien', 'Büroablage', 'Archiv']) {
+    for (const gone of ['Organisation erstellt', 'Seitenleiste', '„Mehr“', 'Tab „', 'Dateien', 'Büroablage', 'Archiv']) {
       expect(text).not.toContain(gone)
     }
   })
