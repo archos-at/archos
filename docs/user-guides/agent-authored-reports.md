@@ -173,7 +173,7 @@ older documents linked under other names (see
 who submitted, approved and published it and when, the reviewer's words, and
 **Öffnen** for that Fassung's own bytes — including the replaced ones. Download
 and the text comparison are behind each row's ⋯. Re-uploading a corrected
-file under the same name no longer throws the old file away; it becomes the next
+file under the same name into its folder („Ersetzen“) no longer throws the old file away; it becomes the next
 Fassung and the previous one stays readable. „Was stand im März drin“ is a question
 with an answer.
 

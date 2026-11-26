@@ -450,10 +450,13 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       const e = await screened('TW-7_E.pdf', '4 days', '4 days', 'd4')
       await screened('TW-7_D.dwg', '1 day', '1 day', 'd5')
       await screened('TW-70_C.pdf', '1 day', '1 day', 'd6')
+      const { id: heldFolderId } = await one<{ id: string }>(sql`
+        INSERT INTO project_folders (organization_id, project_id, name, path)
+        VALUES (${ORG}, ${projectId}::uuid, 'Eingang', 'Eingang') RETURNING id`)
       await one(sql`
-        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, content_hash)
+        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id, content_hash)
         VALUES (${ORG}, ${USER}, 'tw-7_c.pdf', ${`k/inbound/${STAMP}/plan-held`}, ${`coll_inbound_${STAMP}`}, 'quarantined', 'project',
-                ${projectId}::uuid, ${'d7'.padEnd(64, '0')}) RETURNING id`)
+                ${projectId}::uuid, ${heldFolderId}::uuid, ${'d7'.padEnd(64, '0')}) RETURNING id`)
 
       const found = await inTenant(() =>
         repo.findScreenedRevisionCandidates(projectId, ['TW-7_D.pdf', 'TW-7_B.pdf', 'TW-7_A.pdf', 'TW-7_F.pdf', 'Brief.pdf']),

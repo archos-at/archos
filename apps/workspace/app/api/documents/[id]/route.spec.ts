@@ -31,6 +31,8 @@ import { mailThreadsOfDocuments } from '@/lib/mail-thread/document-threads'
 import { toDocumentWireRow } from '@/lib/documents/list-projection'
 import type { ListedDocument } from '@/lib/documents/shelf-listing'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { NameConflictError } from '@/lib/documents/name-conflict'
+import { nameConflictOf } from '@/lib/documents/name-conflict-wire'
 import { DELETE, GET, PATCH } from './route'
 
 const LISTED: ListedDocument = {
@@ -224,6 +226,23 @@ describe('PATCH /api/documents/[id]', () => {
     const response = await rename('doc-1', { displayName: '   ' })
 
     expect(response.status).toBe(400)
+  })
+
+  it('answers a name the folder already holds with 409 name_conflict, for the dialog to show inline', async () => {
+    const conflict = {
+      reason: 'name_conflict' as const,
+      name: 'Einreichplan.pdf',
+      folderId: 'folder-plans',
+      existingDocumentId: 'doc-other',
+      existingName: 'einreichplan.pdf',
+      suggestedName: 'Einreichplan 2.pdf',
+    }
+    vi.mocked(renameDocument).mockRejectedValue(new NameConflictError(conflict))
+
+    const response = await rename('doc-1', { displayName: 'Einreichplan.pdf' })
+
+    expect(response.status).toBe(409)
+    expect(nameConflictOf(await response.json())).toEqual(conflict)
   })
 
   it('maps a NotFoundError to a 404', async () => {

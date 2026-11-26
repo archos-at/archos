@@ -7,6 +7,7 @@ import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { digestFiles } from '../lib/content-digest'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import type { RevisionChange } from '../lib/revision-proposals'
+import type { ConflictChoice } from '../lib/name-conflict'
 import {
   buildFolderUploadPlan,
   continuesASeries,
@@ -66,6 +67,11 @@ function withDocuments(input: FolderUploadPlanInput, found: readonly PlanDocumen
   return { ...input, documents: [...input.documents, ...found.filter((document) => !known.has(document.id))] }
 }
 
+export interface ConflictChange {
+  files: readonly File[]
+  choice: ConflictChoice
+}
+
 export interface SettledPlan {
   plan: FolderUploadPlan
   policy: UploadScreeningPolicy
@@ -75,7 +81,7 @@ export interface UploadDecision {
   propose: (
     input: Omit<
       FolderUploadPlanInput,
-      'documents' | 'digests' | 'screening' | 'revisionOffers' | 'revisionChoices'
+      'documents' | 'digests' | 'screening' | 'revisionOffers' | 'revisionChoices' | 'conflictChoices'
     > & {
       documents: PlanDocumentSource
       revisionOffers?: RevisionOfferSource
@@ -86,6 +92,7 @@ export interface UploadDecision {
   setReleased: (file: File, released: boolean) => Promise<void>
   settle: () => Promise<SettledPlan | null>
   changeRevision: (change: RevisionChange) => void
+  changeConflict: (change: ConflictChange) => void
   plan: FolderUploadPlan | null
   kind: UploadDecisionKind
   open: boolean
@@ -207,6 +214,15 @@ export function useUploadDecision(options: { projectId?: string | null } = {}): 
     setPlan(buildFolderUploadPlan(lastInput.current))
   }, [])
 
+  const changeConflict = useCallback<UploadDecision['changeConflict']>(({ files, choice }) => {
+    const input = lastInput.current
+    if (!input) return
+    const choices = new Map(input.conflictChoices ?? [])
+    for (const file of files) choices.set(file, choice)
+    lastInput.current = { ...input, conflictChoices: choices }
+    setPlan(buildFolderUploadPlan(lastInput.current))
+  }, [])
+
   const settle = useCallback<UploadDecision['settle']>(async () => {
     const current = generation.current
     while (asking.current.size > 0) await Promise.all([...asking.current])
@@ -224,5 +240,5 @@ export function useUploadDecision(options: { projectId?: string | null } = {}): 
     return { plan: settled, policy }
   }, [probe, screeningProjectId])
 
-  return { propose, setReleased, settle, changeRevision, plan, kind, open, setOpen, pending, setPending }
+  return { propose, setReleased, settle, changeRevision, changeConflict, plan, kind, open, setOpen, pending, setPending }
 }

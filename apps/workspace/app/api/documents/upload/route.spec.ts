@@ -66,3 +66,26 @@ describe('POST /api/documents/upload — revision link', () => {
     expect(uploadDocument).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/documents/upload — a folder that holds the name', () => {
+  it('asks the person when the upload says nothing: the service refuses with the conflict', async () => {
+    await post({})
+
+    expect(uploadDocument).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ onConflict: 'refuse' }), expect.any(Request))
+  })
+
+  it.each(['replace', 'keep_both', 'skip'])('passes the person’s choice „%s“ on', async (choice) => {
+    const response = await post({ onConflict: choice })
+
+    expect(response.status).toBe(200)
+    expect(uploadDocument).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ onConflict: choice }), expect.any(Request))
+  })
+
+  it('refuses a choice that is none of the three, before anything is stored', async () => {
+    const response = await post({ onConflict: 'overwrite' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ details: { reason: 'invalid_on_conflict' } })
+    expect(uploadDocument).not.toHaveBeenCalled()
+  })
+})

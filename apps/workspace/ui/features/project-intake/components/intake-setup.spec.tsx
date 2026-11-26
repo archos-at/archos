@@ -43,6 +43,8 @@ describe('IntakeSetup', () => {
         applyFolderPlan: vi.fn(),
         onReleaseChange: vi.fn(),
         onRevisionChange: vi.fn(),
+        onConflictChange: vi.fn(),
+        conflictPrompt: { ask: vi.fn(), question: null, resolve: vi.fn() },
       },
       upload: {
         trackedFiles: [],

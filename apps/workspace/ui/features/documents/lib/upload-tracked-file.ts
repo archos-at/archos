@@ -7,6 +7,8 @@ import { shouldEmitProgress } from './upload-progress'
 import { sendWaitingOutRateLimit } from './upload-queue'
 import { mayRetryRefusal, uploadRefusalOf } from './upload-refusal'
 import { UploadFailureSentence, uploadFailureSentence, type UploadFailureCopy } from './upload-failure'
+import type { NameConflict } from '@/lib/documents/name-conflict-wire'
+import type { SentConflictChoice } from './name-conflict'
 
 interface UploadDocumentResponse {
   documentId?: string
@@ -27,6 +29,7 @@ export interface UploadOutcome {
   uploadedTypes: string[]
   serverStopped: Array<{ file: File; matches: NameMatch[] }>
   heldReplaced: string[]
+  nameConflicts: Array<{ file: File; conflict: NameConflict }>
 }
 
 export interface UploadTrackedFileContext
@@ -42,6 +45,8 @@ export interface UploadTrackedFileContext
   batchId: string | null
   resolvedFolderId: (file: File) => string | null
   revisionOfFile: (file: File) => string | null
+  onConflictOf: (file: File) => SentConflictChoice | null
+  asksAboutConflicts: boolean
   asNorm?: boolean
   screeningReleased: (file: File) => boolean | undefined
   abortControllers: Map<string, AbortController>
@@ -62,6 +67,8 @@ export async function uploadTrackedFile(
     batchId,
     resolvedFolderId,
     revisionOfFile,
+    onConflictOf,
+    asksAboutConflicts,
     asNorm = false,
     screeningReleased,
     abortControllers,
@@ -93,6 +100,8 @@ export async function uploadTrackedFile(
   if (screeningReleased(file)) formData.append('screeningRelease', 'name')
   const revisionOf = shelf === 'session' ? null : revisionOfFile(file)
   if (revisionOf) formData.append('revisionOf', revisionOf)
+  const onConflict = shelf === 'session' ? null : onConflictOf(file)
+  if (onConflict) formData.append('onConflict', onConflict)
   if (batchId) formData.append('uploadBatchId', batchId)
   if (file.webkitRelativePath) {
     formData.append('originPath', file.webkitRelativePath)
@@ -143,6 +152,11 @@ export async function uploadTrackedFile(
         replacesHeld: { documentId: refusal.documentId, ownUpload: refusal.ownUpload },
       })
       outcome.heldReplaced.push(sentence)
+      return
+    }
+    if (refusal?.kind === 'name-conflict' && asksAboutConflicts) {
+      dismissTrackedFiles([tracked.id])
+      outcome.nameConflicts.push({ file, conflict: refusal.conflict })
       return
     }
     if (refusal?.kind === 'name-stop') {

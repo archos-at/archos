@@ -546,7 +546,7 @@ project's own history:
 `requireFolderWrite` on each target, the accepted type, a clean scan (of each
 attachment, and for the text of the whole raw message), the
 acknowledgements (only with one mail), the name check of a new Verlauf's name
-and folder path, the name free or `revisionOf`, `ifMatch`. A bulk decision is
+and folder path, the name free in the whole project (stricter than the per-folder rule of ADR-0200, which this check has not followed yet) or `revisionOf`, `ifMatch`. A bulk decision is
 judged whole: a thread's entries are counted across every mail that appends to
 it (`requireThreadsHoldBatch`, `thread_full`), and no two parts may be filed
 under one new name (`name_taken`), so the person is refused before anything is

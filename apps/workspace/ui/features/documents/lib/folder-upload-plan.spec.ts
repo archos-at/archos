@@ -128,46 +128,149 @@ describe('buildFolderUploadPlan — what happens to each file', () => {
     expect(result.counts.uploading).toBe(1)
   })
 
-  it('is an update when a document of that name exists', () => {
+  it('is an update when the folder it lands in holds a document of that name', () => {
     const result = plan({
       files: [pathed('Wohnbau/EG.pdf')],
-      documents: [doc({ id: 'd1', filename: 'EG.pdf' })],
+      documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: 'f1' })],
+      folders: [folder('f1', 'Wohnbau')],
     })
-    expect(result.files[0]).toMatchObject({ action: 'update', existingId: 'd1' })
+    expect(result.files[0]).toMatchObject({
+      action: 'update',
+      existingId: 'd1',
+      conflict: { within: 'folder', choice: 'replace', keepBothAs: 'EG 2.pdf' },
+      onConflict: 'replace',
+    })
   })
 
-  it('matches by filename across the WHOLE project, because the server does', () => {
+  it('matches by name only inside the target folder: the same name in another folder is another document', () => {
     const result = plan({
       files: [pathed('Wohnbau/Plaene/EG.pdf')],
       documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: 'elsewhere' })],
       folders: [folder('f1', 'Wohnbau'), folder('f2', 'Wohnbau/Plaene', 'f1')],
     })
-    expect(result.files[0]).toMatchObject({
-      action: 'update',
-      existingId: 'd1',
-      refiledFromFolderId: 'elsewhere',
+    expect(result.files[0].action).toBe('new')
+    expect(result.files[0].existingId).toBeUndefined()
+    expect(result.files[0].onConflict).toBeUndefined()
+    expect(filesToUpload(result).map((planned) => planned.file.name)).toEqual(['EG.pdf'])
+  })
+
+  it('counts the project root as a folder of its own', () => {
+    const atRoot = plan({ files: [new File(['x'], 'EG.pdf')], documents: [doc({ id: 'd1', filename: 'EG.pdf' })] })
+    const inFolder = plan({
+      files: [new File(['x'], 'EG.pdf')],
+      documents: [doc({ id: 'd1', filename: 'EG.pdf' })],
+      folders: [folder('f1', 'Plaene')],
+      currentFolderId: 'f1',
     })
-    expect(result.counts.refiled).toBe(1)
+    expect(atRoot.files[0].action).toBe('update')
+    expect(inFolder.files[0].action).toBe('new')
+  })
+
+  it('finds nothing in a folder the drop has still to create', () => {
+    const result = plan({
+      files: [pathed('Neu/EG.pdf')],
+      documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: null })],
+    })
+    expect(result.files[0].action).toBe('new')
   })
 
   it('leaves a machine-authored row alone — a person is not correcting the agent', () => {
     const result = plan({
-      files: [pathed('Wohnbau/Bericht.pdf')],
+      files: [new File(['x'], 'Bericht.pdf')],
       documents: [doc({ id: 'd1', filename: 'Bericht.pdf', authoredBy: 'agent' })],
     })
     expect(result.files[0].action).toBe('new')
   })
 
-  it('refuses to pick a winner when one drop carries a filename twice', () => {
+  it('plans two files of one name in different folders of one drop as two documents', () => {
     const result = plan({
       files: [pathed('Wohnbau/A/Deckblatt.pdf'), pathed('Wohnbau/B/Deckblatt.pdf')],
     })
-    expect(result.files.map((f) => f.action)).toEqual(['collision', 'collision'])
-    expect(result.counts.uploading).toBe(0)
+    expect(result.files.map((f) => f.action)).toEqual(['new', 'new'])
+    expect(result.files.every((f) => f.conflict === undefined && f.onConflict === undefined)).toBe(true)
+    expect(result.counts.uploading).toBe(2)
+  })
+
+  it('groups equal names in the SAME folder of one drop, and keeps both under the next free name', () => {
+    const first = pathed('Wohnbau/A/Deckblatt.pdf')
+    const second = pathed('Wohnbau/A/deckblatt.PDF')
+    const result = plan({ files: [first, second] })
+
+    expect(result.files[0]).toMatchObject({ action: 'new', onConflict: 'keep_both' })
+    expect(result.files[0].conflict).toBeUndefined()
+    expect(result.files[1]).toMatchObject({
+      action: 'collision',
+      conflict: { within: 'drop', choice: 'keep_both', keepBothAs: 'deckblatt 2.PDF' },
+      onConflict: 'keep_both',
+    })
+    expect(result.counts.uploading).toBe(2)
+    expect(filesToUpload(result).map((f) => f.file)).toEqual([first, second])
+  })
+
+  it('sends a drop duplicate the reader skips nowhere, and never as a replacement', () => {
+    const first = pathed('A/Plan.pdf')
+    const second = pathed('A/PLAN.pdf')
+    const skipped = plan({ files: [first, second], conflictChoices: new Map([[second, 'skip']]) })
+    const replaced = plan({ files: [first, second], conflictChoices: new Map([[second, 'replace']]) })
+
+    expect(skipped.files[1]).toMatchObject({ action: 'collision', conflict: { choice: 'skip' } })
+    expect(skipped.files[1].onConflict).toBeUndefined()
+    expect(filesToUpload(skipped).map((f) => f.file)).toEqual([first])
+    expect(skipped.counts).toMatchObject({ uploading: 1, skipped: 1 })
+    expect(replaced.files[1]).toMatchObject({ conflict: { choice: 'keep_both' }, onConflict: 'keep_both' })
+  })
+})
+
+describe('buildFolderUploadPlan — a drop of hundreds of repeated names (feld72, 1,881 files)', () => {
+  it('plans every one of 250 name pairs across two folders for upload', () => {
+    const files = Array.from({ length: 250 }, (_, i) => `Plan-${String(i + 1).padStart(3, '0')}.pdf`).flatMap((name) => [
+      pathed(`Projekt/A/${name}`),
+      pathed(`Projekt/B/${name}`),
+    ])
+    const result = plan({ files })
+
+    expect(result.counts.collision).toBe(0)
+    expect(result.counts.uploading).toBe(500)
+    expect(filesToUpload(result)).toHaveLength(500)
+    expect(needsUploadDecision(result)).toBe(false)
+  })
+
+  it('plans the whole 1,881-file tree, its 496 repeated names included, for upload', () => {
+    const repeated = Array.from({ length: 248 }, (_, i) => `Detail_${i + 1}.pdf`).flatMap((name, i) => [
+      pathed(`feld72/0${i % 7}_Planung/Bestand/${name}`),
+      pathed(`feld72/0${i % 7}_Planung/Entwurf/${name}`),
+    ])
+    const unique = Array.from({ length: 1_881 - repeated.length }, (_, i) =>
+      pathed(`feld72/${String(i % 23).padStart(2, '0')}_Ordner/Unterordner_${i % 5}/Datei_${i + 1}.pdf`),
+    )
+    const result = plan({ files: [...repeated, ...unique] })
+
+    expect(repeated).toHaveLength(496)
+    expect(result.files).toHaveLength(1_881)
+    expect(result.files.filter((f) => f.action !== 'new')).toEqual([])
+    expect(filesToUpload(result)).toHaveLength(1_881)
+  })
+
+  it('against a project that already holds the tree once, replaces each document in its own folder only', () => {
+    const names = Array.from({ length: 250 }, (_, i) => `Plan-${String(i + 1).padStart(3, '0')}.pdf`)
+    const files = names.flatMap((name) => [pathed(`A/${name}`), pathed(`B/${name}`)])
+    const result = plan({
+      files,
+      folders: [folder('fa', 'A'), folder('fb', 'B')],
+      documents: names.map((name, i) => doc({ id: `a-${i}`, filename: name, folderId: 'fa' })),
+    })
+
+    const inA = result.files.filter((f) => f.targetPath === 'A')
+    const inB = result.files.filter((f) => f.targetPath === 'B')
+    expect(inA.every((f) => f.action === 'update' && f.existingId === `a-${names.indexOf(f.file.name)}`)).toBe(true)
+    expect(inB.every((f) => f.action === 'new' && f.existingId === undefined)).toBe(true)
+    expect(filesToUpload(result)).toHaveLength(500)
   })
 })
 
 describe('buildFolderUploadPlan — the names a document answers to', () => {
+  const statik = [folder('f-statik', 'Statik')]
+
   it('matches a decomposed name against the composed one already stored', () => {
     const composed = 'Pr\u00fcfbericht.pdf'
     const decomposed = 'Pru\u0308fbericht.pdf'
@@ -175,7 +278,8 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
 
     const result = plan({
       files: [pathed(`Statik/${decomposed}`)],
-      documents: [doc({ id: 'd1', filename: composed })],
+      folders: statik,
+      documents: [doc({ id: 'd1', filename: composed, folderId: 'f-statik' })],
     })
 
     expect(result.files[0].action).toBe('update')
@@ -183,17 +287,18 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
     expect(result.counts.new).toBe(0)
   })
 
-  it('counts two Unicode spellings of one name inside a drop as one collision', () => {
+  it('counts two Unicode spellings of one name in one folder of a drop as one group', () => {
     const result = plan({
-      files: [pathed('A/Pr\u00fcfung.pdf'), pathed('B/Pru\u0308fung.pdf')],
+      files: [pathed('A/Pr\u00fcfung.pdf'), pathed('A/Pru\u0308fung.pdf')],
     })
-    expect(result.files.map((file) => file.action)).toEqual(['collision', 'collision'])
+    expect(result.files.map((file) => file.action)).toEqual(['new', 'collision'])
   })
 
   it('names the document a row will replace when the project calls it something else', () => {
     const result = plan({
       files: [pathed('Statik/Deckblatt.pdf')],
-      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf', displayName: 'Statik — Deckblatt' })],
+      folders: statik,
+      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf', displayName: 'Statik — Deckblatt', folderId: 'f-statik' })],
     })
     expect(result.files[0].action).toBe('update')
     expect(result.files[0].existingName).toBe('Statik — Deckblatt')
@@ -202,126 +307,98 @@ describe('buildFolderUploadPlan — the names a document answers to', () => {
   it('says nothing about the name when it is the one in the drop', () => {
     const result = plan({
       files: [pathed('Statik/Deckblatt.pdf')],
-      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf' })],
+      folders: statik,
+      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf', folderId: 'f-statik' })],
     })
     expect(result.files[0].existingName).toBeUndefined()
   })
 
-  it('reports a file that differs only in case as already here, and does not send it', () => {
+  it('holds a file that differs only in case as the same name, as APFS and NTFS do', () => {
     const result = plan({
       files: [pathed('Statik/DECKBLATT.pdf')],
-      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf' })],
+      folders: statik,
+      documents: [doc({ id: 'd1', filename: 'Deckblatt.pdf', folderId: 'f-statik' })],
     })
-    expect(result.files[0].action).toBe('duplicate')
-    expect(result.files[0].existingName).toBe('Deckblatt.pdf')
-    expect(result.counts.uploading).toBe(0)
-    expect(filesToUpload(result, true)).toEqual([])
+    expect(result.files[0]).toMatchObject({
+      action: 'update',
+      existingId: 'd1',
+      existingName: 'Deckblatt.pdf',
+      conflict: { within: 'folder', choice: 'replace', keepBothAs: 'DECKBLATT 2.pdf' },
+    })
   })
 
-  it('recognizes a file named after the rename somebody gave the document', () => {
+  it('holds a name the document was renamed to, as the server does', () => {
     const result = plan({
       files: [pathed('Statik/Statikbericht 2026.pdf')],
-      documents: [doc({ id: 'd1', filename: 'sb-final-v3.pdf', displayName: 'Statikbericht 2026.pdf' })],
+      folders: statik,
+      documents: [
+        doc({ id: 'd1', filename: 'sb-final-v3.pdf', displayName: 'Statikbericht 2026.pdf', folderId: 'f-statik' }),
+      ],
     })
-    expect(result.files[0].action).toBe('duplicate')
-    expect(result.files[0].existingId).toBe('d1')
+    expect(result.files[0]).toMatchObject({ action: 'update', existingId: 'd1' })
   })
 
   it('does not hold back a file that merely shares a name with somebody\'s origin path', () => {
     const result = plan({
       files: [pathed('Statik/EG.pdf')],
-      documents: [doc({ id: 'd1', filename: 'EG (1).pdf', originPath: 'Wohnbau/Statik/EG.pdf' })],
+      folders: statik,
+      documents: [doc({ id: 'd1', filename: 'EG (1).pdf', originPath: 'Wohnbau/Statik/EG.pdf', folderId: 'f-statik' })],
     })
     expect(result.files[0].action).toBe('new')
   })
 
-  it('prefers the real identity over a looser one', () => {
+  it('prefers the exact name over a looser one', () => {
     const result = plan({
       files: [pathed('Statik/Bericht.pdf')],
+      folders: statik,
       documents: [
-        doc({ id: 'alias', filename: 'BERICHT.pdf' }),
-        doc({ id: 'exact', filename: 'Bericht.pdf' }),
+        doc({ id: 'renamed', filename: 'x.pdf', displayName: 'Bericht.pdf', folderId: 'f-statik' }),
+        doc({ id: 'alias', filename: 'BERICHT.pdf', folderId: 'f-statik' }),
+        doc({ id: 'exact', filename: 'Bericht.pdf', folderId: 'f-statik' }),
       ],
     })
     expect(result.files[0].action).toBe('update')
     expect(result.files[0].existingId).toBe('exact')
   })
-})
 
-describe('buildFolderUploadPlan — the documents that only have to move', () => {
-  it('moves an unchanged document that is filed somewhere else', () => {
-    const files = [pathed('Statik/EG.pdf')]
+  it('suggests a name for keeping both that is free in that folder, past the names the drop brings along', () => {
     const result = plan({
-      files,
-      folders: [folder('f-statik', 'Statik')],
+      files: [pathed('Statik/Plan.pdf'), pathed('Statik/Plan 3.pdf')],
+      folders: statik,
       documents: [
-        doc({ id: 'd1', filename: 'EG.pdf', folderId: null, contentHash: 'sha256:aa' }),
+        doc({ id: 'd1', filename: 'Plan.pdf', folderId: 'f-statik' }),
+        doc({ id: 'd2', filename: 'Plan 2.pdf', folderId: 'f-statik' }),
+        doc({ id: 'other', filename: 'Plan 4.pdf', folderId: 'elsewhere' }),
       ],
-      digests: new Map([[files[0], 'sha256:aa']]),
     })
-    expect(result.files[0].action).toBe('unchanged')
-    expect(result.moves).toEqual([{ documentId: 'd1', targetPath: 'Statik' }])
-    expect(result.counts.moving).toBe(1)
-    expect(result.counts.uploading).toBe(0)
+    expect(result.files[0].conflict?.keepBothAs).toBe('Plan 4.pdf')
   })
 
-  it.each([
-    ['failed', 'update'],
-    ['error', 'update'],
-    ['uploaded', 'update'],
-    ['completed', 'unchanged'],
-    ['pending', 'unchanged'],
-    ['quarantined', 'unchanged'],
-  ])('plans identical bytes over a %s copy as %s', (status, action) => {
-    const files = [pathed('EG.pdf')]
+  it('takes the reader\'s answer for a held name, and sends it with the file', () => {
+    const files = [pathed('Statik/A.pdf'), pathed('Statik/B.pdf'), pathed('Statik/C.pdf')]
     const result = plan({
       files,
-      documents: [doc({ id: 'd1', filename: 'EG.pdf', status, contentHash: 'sha256:aa' })],
-      digests: new Map([[files[0], 'sha256:aa']]),
+      folders: statik,
+      documents: ['A.pdf', 'B.pdf', 'C.pdf'].map((name) => doc({ id: name, filename: name, folderId: 'f-statik' })),
+      conflictChoices: new Map([
+        [files[1], 'keep_both'],
+        [files[2], 'skip'],
+      ]),
     })
-    expect(result.files[0].action).toBe(action)
-  })
-
-  it('leaves an unchanged document that is already in the right folder alone', () => {
-    const files = [pathed('Statik/EG.pdf')]
-    const result = plan({
-      files,
-      folders: [folder('f-statik', 'Statik')],
-      documents: [
-        doc({ id: 'd1', filename: 'EG.pdf', folderId: 'f-statik', contentHash: 'sha256:aa' }),
-      ],
-      digests: new Map([[files[0], 'sha256:aa']]),
-    })
-    expect(result.moves).toEqual([])
-    expect(result.counts.moving).toBe(0)
-  })
-
-  it('moves an unchanged document into a folder the tree has still to create', () => {
-    const files = [pathed('Neu/EG.pdf')]
-    const result = plan({
-      files,
-      folders: [],
-      documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: null, contentHash: 'sha256:aa' })],
-      digests: new Map([[files[0], 'sha256:aa']]),
-    })
-    expect(result.moves).toEqual([{ documentId: 'd1', targetPath: 'Neu' }])
-  })
-
-  it('counts a re-filed update as a re-file and not as a move — the upload does it', () => {
-    const result = plan({
-      files: [pathed('Statik/EG.pdf')],
-      folders: [folder('f-statik', 'Statik')],
-      documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: null })],
-    })
-    expect(result.counts.refiled).toBe(1)
-    expect(result.counts.moving).toBe(0)
-    expect(result.moves).toEqual([])
+    expect(result.files.map((f) => [f.conflict?.choice, f.onConflict])).toEqual([
+      ['replace', 'replace'],
+      ['keep_both', 'keep_both'],
+      ['skip', undefined],
+    ])
+    expect(filesToUpload(result).map((f) => f.file)).toEqual(files.slice(0, 2))
+    expect(result.counts).toMatchObject({ update: 3, skipped: 1, uploading: 2 })
   })
 })
 
 describe('buildFolderUploadPlan — the delta', () => {
   const digestA = `sha256:${'a'.repeat(64)}`
   const digestB = `sha256:${'b'.repeat(64)}`
+  const w = [folder('f-w', 'W')]
 
   it('asks for a digest only where "unchanged" is possible at all', () => {
     const sameNameSameSize = pathed('W/EG.pdf', 100)
@@ -331,10 +408,11 @@ describe('buildFolderUploadPlan — the delta', () => {
 
     const result = plan({
       files: [sameNameSameSize, sameNameOtherSize, noStoredDigest, brandNew],
+      folders: w,
       documents: [
-        doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA }),
-        doc({ id: 'd2', filename: 'OG.pdf', fileSize: 999, contentHash: digestA }),
-        doc({ id: 'd3', filename: 'DG.pdf', fileSize: 100, contentHash: null }),
+        doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA, folderId: 'f-w' }),
+        doc({ id: 'd2', filename: 'OG.pdf', fileSize: 999, contentHash: digestA, folderId: 'f-w' }),
+        doc({ id: 'd3', filename: 'DG.pdf', fileSize: 100, contentHash: null, folderId: 'f-w' }),
       ],
     })
 
@@ -347,10 +425,10 @@ describe('buildFolderUploadPlan — the delta', () => {
     const input: FolderUploadPlanInput = {
       files: [unchanged, changed],
       documents: [
-        doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA }),
-        doc({ id: 'd2', filename: 'OG.pdf', fileSize: 100, contentHash: digestA }),
+        doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA, folderId: 'f-w' }),
+        doc({ id: 'd2', filename: 'OG.pdf', fileSize: 100, contentHash: digestA, folderId: 'f-w' }),
       ],
-      folders: [],
+      folders: w,
       currentFolderId: null,
       digests: new Map([
         [unchanged, digestA],
@@ -361,15 +439,15 @@ describe('buildFolderUploadPlan — the delta', () => {
     const result = buildFolderUploadPlan(input)
     expect(result.files.map((f) => f.action)).toEqual(['unchanged', 'update'])
     expect(result.counts.unchanged).toBe(1)
-    expect(filesToUpload(result, true).map((f) => f.file)).toEqual([changed])
+    expect(filesToUpload(result).map((f) => f.file)).toEqual([changed])
   })
 
   it('treats a digest it could not compute as changed, never as unchanged', () => {
     const unreadable = pathed('W/EG.pdf', 100)
     const result = buildFolderUploadPlan({
       files: [unreadable],
-      documents: [doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA })],
-      folders: [],
+      documents: [doc({ id: 'd1', filename: 'EG.pdf', fileSize: 100, contentHash: digestA, folderId: 'f-w' })],
+      folders: w,
       currentFolderId: null,
       digests: new Map(),
     })
@@ -378,15 +456,19 @@ describe('buildFolderUploadPlan — the delta', () => {
 })
 
 describe('countPlan / filesToUpload', () => {
-  it('drops the updates from both the count and the batch when the reader declines them', () => {
-    const result = plan({
-      files: [pathed('W/New.pdf'), pathed('W/EG.pdf')],
-      documents: [doc({ id: 'd1', filename: 'EG.pdf' })],
-    })
+  it('drops a skipped update from both the count and the batch', () => {
+    const files = [pathed('W/New.pdf'), pathed('W/EG.pdf')]
+    const input = {
+      files,
+      folders: [folder('f-w', 'W')],
+      documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: 'f-w' })],
+    }
+    const replaced = plan(input)
+    const skipped = plan({ ...input, conflictChoices: new Map([[files[1], 'skip']]) })
 
-    expect(countPlan(result.files, result.folders, true).uploading).toBe(2)
-    expect(countPlan(result.files, result.folders, false).uploading).toBe(1)
-    expect(filesToUpload(result, false).map((f) => f.file.name)).toEqual(['New.pdf'])
+    expect(countPlan(replaced.files, replaced.folders).uploading).toBe(2)
+    expect(countPlan(skipped.files, skipped.folders).uploading).toBe(1)
+    expect(filesToUpload(skipped).map((f) => f.file.name)).toEqual(['New.pdf'])
   })
 })
 
@@ -407,11 +489,10 @@ describe('a loose file against the listing', () => {
 
     expect(result.folders).toEqual([])
     expect(result.files[0]).toMatchObject({ action: 'update', existingId: 'd1', targetPath: '' })
-    expect(result.files[0].refiledFromFolderId).toBeUndefined()
     expect(needsUploadDecision(result)).toBe(true)
   })
 
-  it('says when the document lives in another folder than the one the reader drops into', () => {
+  it('is a document of its own when the name lives in another folder than the one the reader drops into', () => {
     const result = plan({
       files: [loose('EG.pdf')],
       documents: [doc({ id: 'd1', filename: 'EG.pdf', folderId: 'f1' })],
@@ -419,7 +500,8 @@ describe('a loose file against the listing', () => {
       currentFolderId: 'f2',
     })
 
-    expect(result.files[0]).toMatchObject({ action: 'update', refiledFromFolderId: 'f1' })
+    expect(result.files[0].action).toBe('new')
+    expect(needsUploadDecision(result)).toBe(false)
   })
 
   it('needs no decision when nothing on the shelf shares a name', () => {
@@ -460,12 +542,12 @@ describe('buildFolderUploadPlan — an archived match', () => {
     expect(result.files[0]).toMatchObject({ action: 'update', existingId: 'd1', existingArchived: true })
   })
 
-  it('marks a recognised-by-alias archived document', () => {
+  it('marks an archived document that holds the name in another case', () => {
     const result = plan({
       files: [new File(['x'], 'eg.pdf')],
       documents: [{ ...doc({ id: 'd1', filename: 'EG.pdf' }), lifecycle: 'archived' }],
     })
-    expect(result.files[0]).toMatchObject({ action: 'duplicate', existingArchived: true })
+    expect(result.files[0]).toMatchObject({ action: 'update', existingArchived: true })
   })
 
   it('leaves an active match unmarked', () => {
@@ -509,7 +591,7 @@ describe('buildFolderUploadPlan — upload screening', () => {
     expect(excluded?.screening).toEqual([{ term: 'Personal', segment: 'Personalakten', kind: 'folder' }])
     expect(result.folders.map((planned) => planned.path)).toEqual(['Büro', 'Büro/Pläne'])
     expect(result.counts.excluded).toBe(1)
-    expect(filesToUpload(result, true).map((planned) => planned.file)).not.toContain(payslip)
+    expect(filesToUpload(result).map((planned) => planned.file)).not.toContain(payslip)
     expect(needsUploadDecision(result)).toBe(true)
   })
 
@@ -547,7 +629,7 @@ describe('buildFolderUploadPlan — upload screening', () => {
     expect(result.files[0]).toMatchObject({ action: 'new', screeningReleased: true })
     expect(result.files[0]?.screening?.length).toBeGreaterThan(0)
     expect(result.folders.map((planned) => planned.path)).toEqual(['Projekt', 'Projekt/Verträge'])
-    expect(filesToUpload(result, true)).toHaveLength(1)
+    expect(filesToUpload(result)).toHaveLength(1)
   })
 
   it('does not let an excluded file collide with an admitted one of the same name', () => {
@@ -655,7 +737,8 @@ describe('buildFolderUploadPlan — Fassungen across names (ADR-0099)', () => {
     const file = pathed('Export/EG_Grundriss_Index_C.pdf', 100)
     const result = plan({
       files: [file],
-      documents: [doc({ id: 'c', filename: 'EG_Grundriss_Index_C.pdf', fileSize: 100, contentHash: 'sha-1' })],
+      folders: [folder('f-export', 'Export')],
+      documents: [doc({ id: 'c', filename: 'EG_Grundriss_Index_C.pdf', fileSize: 100, contentHash: 'sha-1', folderId: 'f-export' })],
       digests: new Map([[file, 'sha-1']]),
       revisionOffers: new Map([[file.name, offer(file.name, [B])]]),
     })
@@ -705,7 +788,7 @@ describe('buildFolderUploadPlan — Fassungen across names (ADR-0099)', () => {
     const file = new File(['x'], 'EG_Grundriss_Index_C.pdf')
     const result = plan({ files: [file], revisionOffers: new Map([[file.name, offer(file.name, [B])]]) })
 
-    expect(filesToUpload(result, true).map((planned) => planned.file)).toEqual([file])
+    expect(filesToUpload(result).map((planned) => planned.file)).toEqual([file])
     expect(result.counts.new).toBe(1)
   })
 

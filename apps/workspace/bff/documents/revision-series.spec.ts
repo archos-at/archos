@@ -102,6 +102,22 @@ describe('findRevisionCandidate', () => {
     ).toBeNull()
   })
 
+  it('has no candidate when the drop folder holds the name in another case: that is a new version too', () => {
+    const plans = { filename: 'kueche_index_c.PDF', createdAt: null, folderId: 'folder-plans' }
+
+    expect(findRevisionCandidate('Kueche_Index_C.pdf', [plans, doc('Kueche_Index_B.pdf')], 'folder-plans')).toBeNull()
+  })
+
+  it('reads the same name in ANOTHER folder as a different document, never as this one’s version', () => {
+    const elsewhere = { filename: 'Kueche_Index_C.pdf', createdAt: null, folderId: 'folder-archive' }
+    const older = { filename: 'Kueche_Index_B.pdf', createdAt: null, folderId: 'folder-plans' }
+
+    const found = findRevisionCandidate('Kueche_Index_C.pdf', [elsewhere, older], 'folder-plans')
+
+    expect(found?.candidates.map((candidate) => candidate.item)).toEqual([older])
+    expect(found).toMatchObject({ newer: true, unambiguous: true })
+  })
+
   it('has no candidate across formats, across series, or for a name without a series', () => {
     expect(findRevisionCandidate('EG_Grundriss_Index_C.dwg', [doc('EG_Grundriss_Index_B.pdf')])).toBeNull()
     expect(findRevisionCandidate('OG_Grundriss_Index_C.pdf', [doc('EG_Grundriss_Index_B.pdf')])).toBeNull()

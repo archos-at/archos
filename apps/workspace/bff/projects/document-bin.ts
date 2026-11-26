@@ -61,16 +61,24 @@ async function makeHolder(session: AuthorizedSession, shelf: SharedShelf, parent
   throw new ConflictError('Could not name the folder that takes the document to the bin.')
 }
 
-export async function moveDocumentToBin(
+export async function assertMayBinDocument(
   session: AuthorizedSession,
-  documentId: string,
-  request?: Request
-): Promise<DocumentBinResult> {
+  documentId: string
+): Promise<{ doc: Document; shelf: SharedShelf }> {
   const { doc, shelf } = await shelfDocumentFor(session, documentId)
   await binPolicyOf(shelf).assertMayBinDocument(session, doc)
   await assertNoActiveHold(session.organizationId, 'document', documentId)
   const current = await folderOf(session.organizationId, shelf, doc.folderId)
   if (current?.deletedAt) throw new ConflictError('This document is already in the bin.')
+  return { doc, shelf }
+}
+
+export async function moveDocumentToBin(
+  session: AuthorizedSession,
+  documentId: string,
+  request?: Request
+): Promise<DocumentBinResult> {
+  const { doc, shelf } = await assertMayBinDocument(session, documentId)
 
   const holder = await makeHolder(session, shelf, doc.folderId, documentDisplayName(doc))
   let moved = false
@@ -99,7 +107,7 @@ async function undoBin(
 ): Promise<void> {
   try {
     if (moved) {
-      const back = await moveDocumentToFolder({ documentId, folderId, expectedFolderId: holderId }, session)
+      const back = await moveDocumentToFolder({ documentId, folderId, expectedFolderId: holderId, onConflict: 'keep_both' }, session)
       if (!back.ok) throw new Error(back.error)
     }
     if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holderId)) {
@@ -134,7 +142,10 @@ export async function restoreDocumentFromBin(
 
   const { restoredTo } = await restoreFolderFromBin(session, { shelf, folderId: holder.id }, request)
   const target = restoredTo === 'root' ? null : holder.parentId
-  const back = await moveDocumentToFolder({ documentId, folderId: target, expectedFolderId: holder.id }, session)
+  const back = await moveDocumentToFolder(
+    { documentId, folderId: target, expectedFolderId: holder.id, onConflict: 'keep_both' },
+    session
+  )
   if (!back.ok) throw new BadRequestError(back.error)
   if (await deleteEmptyCreatedFolder(session.organizationId, shelf, holder.id)) {
     publishShelfChanged(session.organizationId, shelf, { folders: true })

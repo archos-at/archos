@@ -734,6 +734,7 @@ export const files: typeof en.files = {
       empty: 'Bitte einen Namen eingeben.',
       tooLong: 'Dieser Name ist zu lang.',
       invalidCharacters: 'Ein Name darf keine Schrägstriche oder Zeilenumbrüche enthalten.',
+      nameTaken: 'In diesem Ordner heißt schon ein Dokument „{name}“. Wählen Sie einen anderen Namen.',
     },
   },
   delete: {
@@ -774,7 +775,7 @@ export const files: typeof en.files = {
     single: {
       newRevisionTitle: 'Neue Fassung von „{name}“?',
       updateExplain:
-        '„{name}“ liegt hier bereits unter diesem Namen. Die neue Datei wird die aktuelle Fassung; die bisherige bleibt unter „Fassungen und Freigabe“ lesbar.',
+        '„{name}“ liegt in diesem Ordner bereits unter diesem Namen. Als neue Fassung abgelegt, wird die Datei die aktuelle; die bisherige bleibt unter „Fassungen und Freigabe“ lesbar. „Beide behalten“ legt sie als „{keepBothAs}“ daneben.',
       revisionExplain:
         '„{file}“ setzt „{name}“ fort: Index oder Datum im Namen sind neuer. Die ältere Fassung bleibt lesbar, {productName} antwortet aus der neuen und hält fest, was sich geändert hat; die Verknüpfung lässt sich später lösen.',
       unclearTitle: 'Ist „{file}“ eine neue Fassung?',
@@ -784,7 +785,6 @@ export const files: typeof en.files = {
         '„{file}“ ist nach seinem Namen nicht neuer als „{name}“. Als neue Fassung abgelegt, würde die Datei trotzdem zur aktuellen.',
       unchangedTitle: 'Unverändert – bereits vorhanden',
       unchangedExplain: '„{name}“ ist mit dieser Datei identisch. Es wird nichts hochgeladen.',
-      refiled: 'Das Dokument liegt derzeit in einem anderen Ordner und wird nach „{folder}“ verschoben.',
       archived: 'Das Dokument ist archiviert. Die neue Fassung wird ihm hinzugefügt und erscheint erst wieder in der Liste, wenn es wiederhergestellt wird.',
       confirmRevision: 'Als neue Fassung ablegen',
       confirmSeparate: 'Als eigenes Dokument hochladen',
@@ -801,17 +801,13 @@ export const files: typeof en.files = {
     },
     alreadyHereAs: 'hier als „{name}“',
     archivedMatch: 'archiviertes Dokument',
-    refiled:
-      '{count, plural, one {# davon liegt derzeit woanders und wandert dorthin, wo dieser Ordner es ablegt.} other {# davon liegen derzeit woanders und wandern dorthin, wo dieser Ordner sie ablegt.}}',
-    moving:
-      '{count, plural, one {# unverändertes Dokument liegt woanders und wird dorthin verschoben, wo dieser Ordner es ablegt.} other {# unveränderte Dokumente liegen woanders und werden dorthin verschoben, wo dieser Ordner sie ablegt.}}',
-    duplicates:
-      '{count, plural, one {# Datei liegt bereits unter einem anderen Namen im Projekt} other {# Dateien liegen bereits unter einem anderen Namen im Projekt}}',
-    duplicatesExplain:
-      'Ein Upload legte eine zweite Kopie an, statt etwas zu ersetzen — deshalb werden sie nicht gesendet. Benennen Sie das Dokument hier oder die Datei auf der Platte um, damit beide übereinstimmen.',
-    collisions: '{count} Dateien teilen sich einen Namen mit einer anderen Datei in diesem Upload',
-    collisionsExplain:
-      'Ein Projekt hält pro Dateiname ein Dokument, deshalb werden diese nicht hochgeladen. Benennen Sie sie um und legen Sie sie erneut ab.',
+    conflicts: {
+      title: '{count, plural, one {# Name ist in seinem Ordner schon vergeben} other {# Namen sind in ihren Ordnern schon vergeben}}',
+      heldNote:
+        '{count, plural, one {Ein Dokument im Zielordner trägt diesen Namen schon.} other {# Dokumente in den Zielordnern tragen diese Namen schon.}} Ein Ordner hält jeden Namen einmal, gleich in welcher Groß- und Kleinschreibung; derselbe Name in einem anderen Ordner ist ein anderes Dokument. „Ersetzen“ legt die Datei als neue Fassung ab, die bisherige bleibt lesbar; „Beide behalten“ legt sie unter dem nächsten freien Namen daneben.',
+      dropNote:
+        '{count, plural, one {# Datei heißt wie eine andere Datei dieses Uploads, die in denselben Ordner kommt} other {# Dateien heißen wie eine andere Datei dieses Uploads, die in denselben Ordner kommt}}: Wenn Sie sie nicht überspringen, kommen sie unter dem nächsten freien Namen hinein.',
+    },
     excluded: '{count, plural, one {# Datei nicht hochgeladen} other {# Dateien nicht hochgeladen}}',
     excludedExplain:
       'Ihr Büro hat diese Begriffe als sensibel eingestuft, deshalb werden die Dateien nicht hochgeladen: Sie verlassen Ihren Rechner nicht. Gehört eine davon doch nach {productName}, haken Sie sie an.',
@@ -820,10 +816,6 @@ export const files: typeof en.files = {
       title: '{count, plural, one {# neue Fassung} other {# neue Fassungen}}',
       consequence:
         'Die ältere Fassung bleibt lesbar, {productName} antwortet aus der neuen und hält fest, was sich geändert hat; abgewählte Dateien kommen als eigene Dokumente hinein, und jede Verknüpfung lässt sich später lösen.',
-      sameNameTitle:
-        '{count, plural, one {# Datei mit gleichem Namen als neue Fassung} other {# Dateien mit gleichem Namen als neue Fassung}}',
-      sameNameReason:
-        'Gleicher Name wie ein Dokument hier: Name, Zitate und Zuweisungen bleiben, die bisherige Fassung bleibt unter „Fassungen und Freigabe“ lesbar. Abgewählt werden diese nicht hochgeladen.',
       masterAll: '{count, plural, one {Als neue Fassung} other {Alle # als neue Fassung}}',
       masterSome: '{ticked} von {count} als neue Fassung',
       masterNone: '{count, plural, one {Nicht als neue Fassung} other {Keine der # als neue Fassung}}',
@@ -842,20 +834,49 @@ export const files: typeof en.files = {
       new: 'Neu',
       revision: 'Neue Fassung',
       unchanged: 'Unverändert',
-      collision: 'Konflikt',
-      duplicate: 'Schon vorhanden',
+      keepBoth: 'Beide behalten',
       skipped: 'Übersprungen',
       excluded: 'Nicht hochgeladen',
     },
     confirm: '{count, plural, one {# Datei hochladen} other {# Dateien hochladen}}',
     confirmWithRevisions: '{count, plural, one {# Datei hochladen} other {# Dateien hochladen}}, {revisions} davon als neue Fassung',
-    confirmMoveOnly: '{count, plural, one {# Dokument verschieben} other {# Dokumente verschieben}}',
     nothingToDo: 'Nichts hochzuladen',
     cancel: 'Abbrechen',
     done: '{uploaded, plural, one {# Datei hochgeladen} other {# Dateien hochgeladen}}, {skipped} unverändert.',
-    doneMoved: '{uploaded, plural, one {# Datei hochgeladen} other {# Dateien hochgeladen}}, {skipped} unverändert, {moved} verschoben.',
     foldersError: 'Die Ordner für diesen Upload konnten nicht angelegt werden. Es wurde nichts hochgeladen.',
     applyError: 'Dieser Ordner konnte nicht vollständig hochgeladen werden. Prüfen Sie die Liste und versuchen Sie es erneut.',
+  },
+  nameConflicts: {
+    replace: 'Ersetzen',
+    keepBoth: 'Beide behalten',
+    skip: 'Überspringen',
+    applyToAll: 'Für alle anwenden',
+    copy: 'Kopieren',
+    copied: 'Kopiert',
+    copyFailed: 'Nicht kopiert',
+    copyAria: '{count, plural, one {Den Pfad kopieren} other {Alle # Pfade kopieren, einen je Zeile}}',
+    choiceFor: 'Was mit „{name}“ geschieht',
+    keepBothAs: 'Beide behalten, diese als „{name}“',
+    outcome: {
+      uploadReplace: 'Wird neue Fassung von „{name}“; die bisherige bleibt lesbar.',
+      moveReplace: 'Wird dort mit „{name}“ zusammengeführt, als dessen neue Fassung.',
+      keepBoth: 'Kommt als „{name}“ hinein.',
+      uploadSkip: 'Wird nicht hochgeladen.',
+      moveSkip: 'Bleibt, wo es ist.',
+    },
+    dialog: {
+      uploadTitle:
+        '{count, plural, one {Ein Dokument im Zielordner trägt diesen Namen schon} other {# Dokumente in den Zielordnern tragen diese Namen schon}}',
+      moveTitle:
+        '{count, plural, one {In „{folder}“ liegt schon ein Dokument dieses Namens} other {In „{folder}“ liegen schon # Dokumente mit diesen Namen}}',
+      description:
+        'Ein Ordner hält jeden Namen einmal, gleich in welcher Groß- und Kleinschreibung. Wählen Sie für jedes, was geschieht; ersetzt wird nichts ohne Sie.',
+      uploadConfirm: '{count, plural, one {# Datei hochladen} other {# Dateien hochladen}}',
+      moveConfirm: '{count, plural, one {# Dokument verschieben} other {# Dokumente verschieben}}',
+      skipAll: 'Alle überspringen',
+      cancel: 'Abbrechen',
+    },
+    movedAsRevision: '„{name}“ ist jetzt eine neue Fassung von „{existing}“',
   },
   inboundMail: {
     open: 'E-Mail-Eingang',
@@ -1002,6 +1023,7 @@ export const files: typeof en.files = {
     quarantinedReplace:
       '„{name}“ würde eine Datei ersetzen, die zurückgehalten ist und in der Quarantäne auf ihre Prüfung wartet. Sobald jemand sie zulässt oder löscht, können Sie die neue hochladen.',
     nameTaken: 'Den Namen „{name}“ trägt schon ein anderes Dokument. Benennen Sie die Datei um und laden Sie sie erneut hoch.',
+    nameConflict: 'In diesem Ordner heißt schon ein Dokument „{name}“. Benennen Sie die Datei um oder laden Sie sie in einen anderen Ordner.',
     uploadChangedMeanwhile: 'Während des Hochladens hat sich hier etwas geändert. Versuchen Sie es erneut.',
     cannotRetryServerFile:
       'Vom Server geladene Dateien können nicht erneut versucht werden. Bitte laden Sie die Datei erneut hoch.',

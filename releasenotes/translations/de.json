@@ -552,6 +552,10 @@
     "de": "Ein Ordner-Upload in ein Projekt mit einem eingeschränkten Ordner lehnt die Unterordner eines gerade erst angelegten Ordners nicht mehr ab."
   },
   {
+    "en": "A folder upload no longer holds back files that share a name with a file in another subfolder of the upload; each one arrives in its own folder.",
+    "de": "Ein Ordner-Upload hält keine Dateien mehr zurück, die denselben Namen tragen wie eine Datei in einem anderen Unterordner des Uploads; jede kommt in ihrem eigenen Ordner an."
+  },
+  {
     "en": "A folder you may only read now says so when you drag files or documents over it, and its files can no longer be dragged out.",
     "de": "Ein Ordner, für den Sie jetzt nur Leserechte haben, zeigt dies an, wenn Sie Dateien oder Dokumente darüber ziehen; Dateien lassen sich nicht mehr aus ihm herausziehen."
   },
@@ -662,6 +666,10 @@
   {
     "en": "A missing chat permission now names Piloti, not an internal research step. The last step of the derivation (Herleitung) shows how far the reading got, not an assessment of the answer.",
     "de": "Eine fehlende Chat-Berechtigung nennt jetzt Piloti statt eines internen Rechercheschritts. Der letzte Schritt der Herleitung zeigt, wie weit das Lesen gekommen ist, nicht eine Bewertung der Antwort."
+  },
+  {
+    "en": "A name now has to be unique only within its folder: the same name in another folder is a document of its own, with its own Fassungen, so a project folder from your office server arrives whole even when hundreds of files share a name across subfolders.",
+    "de": "Ein Name muss jetzt nur noch in seinem Ordner eindeutig sein: Derselbe Name in einem anderen Ordner ist ein eigenes Dokument mit eigenen Fassungen, sodass ein Projektordner von Ihrem Büroserver vollständig ankommt, auch wenn sich Hunderte Dateien in verschiedenen Unterordnern einen Namen teilen."
   },
   {
     "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
@@ -4008,6 +4016,10 @@
     "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
   },
   {
+    "en": "Renaming a document to a name its folder already holds is refused right in the rename field, so two documents of one folder can no longer look alike.",
+    "de": "Ein Dokument auf einen Namen umzubenennen, den sein Ordner schon enthält, wird direkt im Feld abgelehnt, sodass zwei Dokumente eines Ordners nicht mehr gleich aussehen können."
+  },
+  {
     "en": "Renaming a folder in the Dateiablage grid view works again: clicking into the name field places the cursor there instead of opening the folder.",
     "de": "Das Umbenennen eines Ordners in der Rasteransicht der Dateiablage funktioniert wieder: Wenn Sie in das Namensfeld klicken, wird der Cursor dort platziert, statt den Ordner zu öffnen."
   },
@@ -4964,6 +4976,10 @@
     "de": "Die Liste der anwendbaren OIB-Richtlinien richtet sich jetzt nach dem im Projektsetup eingetragenen Fluchtniveau, der Gebäudeklasse, den Nutzungen und den unterirdischen Geschossen, statt pauschal alle sechs aufzulisten."
   },
   {
+    "en": "The list of names a folder upload asks about shows every file with its whole path, wraps long names instead of cutting them, and „Kopieren“ copies all the paths at once.",
+    "de": "Die Liste der Namen, nach denen ein Ordner-Upload fragt, zeigt jede Datei mit ihrem ganzen Pfad, bricht lange Namen um, statt sie abzuschneiden, und „Kopieren“ kopiert alle Pfade auf einmal."
+  },
+  {
     "en": "The list of references now always sits beside the document and shows which passage you are reading, and the toolbar shows the page you are on.",
     "de": "Die Fundstellenliste steht jetzt immer neben dem Dokument und zeigt, welche Stelle Sie gerade lesen, und die Werkzeugleiste zeigt die aktuelle Seite."
   },
@@ -5758,6 +5774,10 @@
   {
     "en": "When a draft is submitted for approval, you can now name who should look at it. Leave it as it is and everyone who may release files in the project is asked, so a draft nobody has taken on still reaches somebody.",
     "de": "Wenn Sie einen Entwurf zur Freigabe einreichen, können Sie jetzt festlegen, wer ihn prüfen soll. Wenn Sie nichts ändern, werden alle Personen angefragt, die im Projekt Dateien freigeben dürfen. So erreicht auch ein Entwurf, den niemand übernommen hat, jemanden."
+  },
+  {
+    "en": "When a file comes into a folder that already holds its name, by upload or by moving it, you choose „Ersetzen“, „Beide behalten“ (it comes in as „Plan 2.pdf“) or „Überspringen“, per file or with „Für alle anwenden“; {productName} asks the same before any move it proposes, and never replaces a document on its own.",
+    "de": "Kommt eine Datei in einen Ordner, der ihren Namen schon enthält, ob beim Hochladen oder beim Verschieben, wählen Sie „Ersetzen“, „Beide behalten“ (sie kommt als „Plan 2.pdf“ hinein) oder „Überspringen“, je Datei oder mit „Für alle anwenden“; {productName} fragt vor jeder vorgeschlagenen Verschiebung genauso und ersetzt nie von sich aus ein Dokument."
   },
   {
     "en": "When a file is not uploaded because its name contains a sensitive term, the message now offers to upload it anyway; its content is still checked.",

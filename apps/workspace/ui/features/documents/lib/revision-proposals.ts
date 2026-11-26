@@ -46,8 +46,8 @@ export function groupByFolder(files: readonly ProposedFile[]): FolderRun[] {
   return runs
 }
 
-export function countNewRevisions(files: readonly PlannedFile[], includeUpdates: boolean): number {
-  return files.filter((file) => (file.action === 'update' ? includeUpdates : file.revisionOf?.chosen === true)).length
+export function countNewRevisions(files: readonly PlannedFile[]): number {
+  return files.filter((file) => file.conflict?.choice === 'replace' || (file.action === 'new' && file.revisionOf?.chosen === true)).length
 }
 
 export function soleProposal(files: readonly PlannedFile[]): ProposedFile | null {

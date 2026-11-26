@@ -1,4 +1,6 @@
 import type { NameStopTally } from '@/lib/upload-screening/name-stop'
+import type { NameMatch } from '@/lib/upload-screening/name-screen'
+import { exclusionsByTerm } from '@/lib/upload-screening/name-stop'
 
 export type UploadBatchShelf = 'project' | 'office_shelf' | 'personal' | 'session'
 
@@ -26,6 +28,22 @@ export async function openUploadBatch(input: OpenBatchInput): Promise<string | n
   } catch {
     return null
   }
+}
+
+export interface HeldUploadBatch {
+  id: string
+  unchanged: number
+  failed: number
+  excluded: ReadonlyArray<readonly NameMatch[]>
+}
+
+export function sealHeldUploadBatch(held: HeldUploadBatch, skipped: number): Promise<void> {
+  const excluded = exclusionsByTerm(held.excluded)
+  return sealUploadBatch(held.id, {
+    unchanged: held.unchanged + skipped,
+    failed: held.failed,
+    ...(excluded.length > 0 ? { excluded } : {}),
+  })
 }
 
 export async function sealUploadBatch(

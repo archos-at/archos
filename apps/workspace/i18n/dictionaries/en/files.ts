@@ -720,6 +720,7 @@ export const files = {
       empty: 'Please enter a name.',
       tooLong: 'That name is too long.',
       invalidCharacters: 'A name cannot contain slashes or line breaks.',
+      nameTaken: 'A document in this folder is already called “{name}”. Choose another name.',
     },
   },
   delete: {
@@ -759,7 +760,7 @@ export const files = {
     single: {
       newRevisionTitle: 'New revision of “{name}”?',
       updateExplain:
-        '“{name}” is already here under this name. The new file becomes the current revision; the previous one stays readable under “Revisions and approval”.',
+        '“{name}” is already in this folder under this name. Filed as a new revision, the file becomes the current one and the previous revision stays readable under “Revisions and approval”; “Keep both” adds it beside it as “{keepBothAs}”.',
       revisionExplain:
         '“{file}” continues “{name}”: the index or date in its name is newer. The older revision stays readable, {productName} answers from the new one and notes what changed; the link can be undone later.',
       unclearTitle: 'Is “{file}” a new revision?',
@@ -769,7 +770,6 @@ export const files = {
         'By its name, “{file}” is not newer than “{name}”. Filed as a new revision, it would still become the current one.',
       unchangedTitle: 'Unchanged – already here',
       unchangedExplain: '“{name}” is identical to this file. Nothing is uploaded.',
-      refiled: 'The document is currently in another folder and moves to “{folder}”.',
       archived: 'The document is archived. The new revision is added to it and only shows in the list again once the document is restored.',
       confirmRevision: 'File as a new revision',
       confirmSeparate: 'Upload as a separate document',
@@ -786,17 +786,13 @@ export const files = {
     },
     alreadyHereAs: 'here as “{name}”',
     archivedMatch: 'archived document',
-    refiled:
-      '{count, plural, one {# of them is filed elsewhere at the moment and moves to where this folder puts it.} other {# of them are filed elsewhere at the moment and move to where this folder puts them.}}',
-    moving:
-      '{count, plural, one {# unchanged document is filed elsewhere and is moved to where this folder puts it.} other {# unchanged documents are filed elsewhere and are moved to where this folder puts them.}}',
-    duplicates:
-      '{count, plural, one {# file is already in the project under a different name} other {# files are already in the project under a different name}}',
-    duplicatesExplain:
-      'Uploading them would add a second copy rather than replace anything, so they are not sent. Rename the document here, or the file on disk, so the two agree.',
-    collisions: '{count} files share a name with another file in this upload',
-    collisionsExplain:
-      'A project holds one document per filename, so these are not uploaded. Rename them and drop them again.',
+    conflicts: {
+      title: '{count, plural, one {# name is already taken in its folder} other {# names are already taken in their folders}}',
+      heldNote:
+        '{count, plural, one {A document in the target folder already has this name.} other {# documents in the target folders already have these names.}} A folder holds each name once, whatever the case of its letters; the same name in another folder is another document. “Replace” files the file as a new revision, the previous one stays readable; “Keep both” adds it under the next free name.',
+      dropNote:
+        '{count, plural, one {# file has the name of another file in this upload that goes into the same folder} other {# files have the name of another file in this upload that goes into the same folder}}: unless you skip them, they come in under the next free name.',
+    },
     excluded: '{count, plural, one {# file not uploaded} other {# files not uploaded}}',
     excludedExplain:
       'Your office marks these terms as sensitive, so these files are not uploaded: they do not leave your computer. If one of them belongs in {productName} after all, tick it.',
@@ -805,10 +801,6 @@ export const files = {
       title: '{count, plural, one {# new revision} other {# new revisions}}',
       consequence:
         'The older revision stays readable, {productName} answers from the new one and notes what changed; unticked files come in as separate documents, and any link can be undone later.',
-      sameNameTitle:
-        '{count, plural, one {# file of the same name as a new revision} other {# files of the same name as new revisions}}',
-      sameNameReason:
-        'Same name as a document here: each keeps its name, citations and assignments, and its previous revision stays readable under “Revisions and approval”. Unticked, these are not uploaded.',
       masterAll: '{count, plural, one {As a new revision} other {All # as new revisions}}',
       masterSome: '{ticked} of {count} as new revisions',
       masterNone: '{count, plural, one {Not as a new revision} other {None of # as new revisions}}',
@@ -826,21 +818,50 @@ export const files = {
       new: 'New',
       revision: 'New revision',
       unchanged: 'Unchanged',
-      collision: 'Conflict',
-      duplicate: 'Already here',
+      keepBoth: 'Keep both',
       skipped: 'Skipped',
       excluded: 'Not uploaded',
     },
     confirm: '{count, plural, one {Upload # file} other {Upload # files}}',
     confirmWithRevisions:
       '{count, plural, one {Upload # file} other {Upload # files}}, {revisions, plural, one {# as a new revision} other {# as new revisions}}',
-    confirmMoveOnly: '{count, plural, one {Move # document} other {Move # documents}}',
     nothingToDo: 'Nothing to upload',
     cancel: 'Cancel',
     done: '{uploaded, plural, one {# file uploaded} other {# files uploaded}}, {skipped} unchanged.',
-    doneMoved: '{uploaded, plural, one {# file uploaded} other {# files uploaded}}, {skipped} unchanged, {moved} moved.',
     foldersError: 'The folders for this upload could not be created. Nothing was uploaded.',
     applyError: 'This folder could not be uploaded completely. Check the list and try again.',
+  },
+  nameConflicts: {
+    replace: 'Replace',
+    keepBoth: 'Keep both',
+    skip: 'Skip',
+    applyToAll: 'Apply to all',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'Not copied',
+    copyAria: '{count, plural, one {Copy the path} other {Copy all # paths, one per line}}',
+    choiceFor: 'What happens to “{name}”',
+    keepBothAs: 'Keep both, this one as “{name}”',
+    outcome: {
+      uploadReplace: 'Becomes a new revision of “{name}”; the previous one stays readable.',
+      moveReplace: 'Is merged into “{name}” there, as its new revision.',
+      keepBoth: 'Comes in as “{name}”.',
+      uploadSkip: 'Is not uploaded.',
+      moveSkip: 'Stays where it is.',
+    },
+    dialog: {
+      uploadTitle:
+        '{count, plural, one {A document in the target folder already has this name} other {# documents in the target folders already have these names}}',
+      moveTitle:
+        '{count, plural, one {“{folder}” already holds a document of this name} other {“{folder}” already holds # documents with these names}}',
+      description:
+        'A folder holds each name once, whatever the case of its letters. Choose for each one what happens; nothing is replaced without your say.',
+      uploadConfirm: '{count, plural, one {Upload # file} other {Upload # files}}',
+      moveConfirm: '{count, plural, one {Move # document} other {Move # documents}}',
+      skipAll: 'Skip all',
+      cancel: 'Cancel',
+    },
+    movedAsRevision: '“{name}” is now a new revision of “{existing}”',
   },
   inboundMail: {
     open: 'Project mail',
@@ -985,6 +1006,7 @@ export const files = {
     quarantinedReplace:
       '“{name}” would replace a file that is held back and waits in quarantine for review. Once someone allows it through or deletes it, you can upload the new one.',
     nameTaken: 'Another document already has the name “{name}”. Rename the file and upload it again.',
+    nameConflict: 'A document in this folder is already called “{name}”. Rename the file or upload it into another folder.',
     uploadChangedMeanwhile: 'Something changed here while the file was uploading. Please try again.',
     cannotRetryServerFile: 'Cannot retry server-loaded files. Please upload the file again.',
     imageVlmUnavailable:

@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { MissingTenantContextError, getTenantContext, withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { documents, DOCUMENT_SCOPES, type DocumentScope, type NewDocument } from '@/lib/db/schema/documents'
@@ -141,7 +141,6 @@ export async function replaceDocumentWithinQuota(
         fileSize: next.fileSize,
         contentType: next.contentType,
         contentHash: next.contentHash,
-        folderId: next.folderId,
         createdBy: next.createdBy,
         status: 'uploaded',
         errorMessage: null,
@@ -150,7 +149,13 @@ export async function replaceDocumentWithinQuota(
         uploadBatchId: next.uploadBatchId ?? null,
         updatedAt: new Date(),
       })
-      .where(and(eq(documents.organizationId, organizationId), eq(documents.id, documentId)))
+      .where(
+        and(
+          eq(documents.organizationId, organizationId),
+          eq(documents.id, documentId),
+          next.folderId === null ? isNull(documents.folderId) : eq(documents.folderId, next.folderId),
+        ),
+      )
       .returning({ id: documents.id })
     if (updated.length === 0) throw new ReplacedDocumentGoneError(documentId)
     return { ok: true as const }

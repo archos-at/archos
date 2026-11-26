@@ -23,7 +23,7 @@ import { loadUploadScreeningPolicy } from '@/adapters/api/upload-screening-polic
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { screenFileNames, uploadAnywayOffer } from '../lib/name-screened-files'
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
-import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
+import { exclusionsByTerm, openUploadBatch, sealHeldUploadBatch } from '../lib/upload-batch'
 import { captureUploadBatch } from './upload-batch-event'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
@@ -37,7 +37,12 @@ import {
   type UploadOutcome,
   type UploadTrackedFileContext,
 } from '../lib/upload-tracked-file'
-import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } from './file-upload-types'
+import type {
+  NameConflictHandler,
+  UploadFilesOptions,
+  UseFileUploadOptions,
+  UseFileUploadReturn,
+} from './file-upload-types'
 import type { UploadShelf } from '../lib/upload-tracked-file'
 
 export type { UploadFilesOptions } from './file-upload-types'
@@ -62,6 +67,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       screeningUnavailable: t('errors.screeningPolicyUnavailable'),
       storageFull: t('errors.uploadStorageFull'),
       nameTaken: (name) => t('errors.nameTaken', { name }),
+      nameConflict: (name) => t('errors.nameConflict', { name }),
       heldReplace: (name) => t('errors.quarantinedReplace', { name }),
       tooLarge: (name, limitBytes) =>
         limitBytes === null
@@ -73,6 +79,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   )
   const { fileUpload: fileUploadConfig } = useAppConfig()
   const clientRef = useRef(createDocumentsClient({ authToken: idToken }))
+  const lastConflictHandler = useRef<NameConflictHandler | null>(null)
   const abortControllersRef = useRef(new Map<string, AbortController>())
 
   const trackedFiles = useDocumentsStore((s) => s.trackedFiles)
@@ -210,6 +217,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       }
 
       const revisionOfFile = (file: File): string | null => options?.revisionOf?.(file) ?? null
+      const onConflictOf = (file: File) => options?.onConflict?.(file) ?? null
 
       const entries = validFiles.map((file) => ({
         file,
@@ -228,6 +236,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
             folderPath: options?.folderPathFor?.(file) ?? null,
             screeningReleased: options?.screeningReleased?.(file) === true,
             ...(revisionOfFile(file) ? { revisionOf: revisionOfFile(file) } : {}),
+            ...(onConflictOf(file) ? { onConflict: onConflictOf(file) } : {}),
           },
         } satisfies TrackedFile as TrackedFile,
       }))
@@ -238,7 +247,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       try {
         await ensureCollectionExists(targetCollection)
 
-        const batchId = await openUploadBatch({
+        const carried = options?.continueBatch
+        const batchId = carried ? carried.id : await openUploadBatch({
           id: uuidv4(),
           scope: shelf,
           projectId: shelf === 'project' ? (projectId ?? null) : null,
@@ -249,7 +259,13 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
             ...named.stopped.map(({ matches }) => matches),
           ]),
         })
-        const outcome: UploadOutcome = { unchangedCount: 0, uploadedTypes: [], serverStopped: [], heldReplaced: [] }
+        const outcome: UploadOutcome = {
+          unchangedCount: 0,
+          uploadedTypes: [],
+          serverStopped: [],
+          heldReplaced: [],
+          nameConflicts: [],
+        }
         const uploadUrl = shelf === 'session' ? '/api/session/documents/upload' : '/api/documents/upload'
         const uploadContext: UploadTrackedFileContext = {
           shelf,
@@ -260,6 +276,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           batchId,
           resolvedFolderId,
           revisionOfFile,
+          onConflictOf,
+          asksAboutConflicts: options?.onNameConflicts !== undefined,
           asNorm,
           screeningReleased: (file) => options?.screeningReleased?.(file),
           abortControllers: abortControllersRef.current,
@@ -273,7 +291,18 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         const results = await runWithConcurrency(entries, UPLOAD_CONCURRENCY, (entry) =>
           uploadTrackedFile(entry, uploadContext)
         )
-        const { unchangedCount, uploadedTypes, serverStopped, heldReplaced } = outcome
+        const { unchangedCount, uploadedTypes, serverStopped, heldReplaced, nameConflicts } = outcome
+        const failedHere = results.filter((result) => result.status === 'rejected').length
+        const held = batchId
+          ? {
+              id: batchId,
+              unchanged: unchangedCount + (carried?.unchanged ?? 0),
+              failed: failedHere + (carried?.failed ?? 0),
+              excluded: [...(carried?.excluded ?? []), ...serverStopped.map(({ matches }) => matches)],
+            }
+          : null
+        const handOver = nameConflicts.length > 0 ? options?.onNameConflicts : undefined
+        if (handOver) lastConflictHandler.current = handOver
 
         notifyDocumentsChanged()
 
@@ -281,16 +310,10 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           captureUploadBatch(uploadedTypes, shelf)
         }
 
-        if (batchId) {
-          const excluded = exclusionsByTerm(serverStopped.map(({ matches }) => matches))
-          await sealUploadBatch(batchId, {
-            unchanged: unchangedCount,
-            failed: results.filter((result) => result.status === 'rejected').length,
-            ...(excluded.length > 0 ? { excluded } : {}),
-          })
-        }
+        if (held && !handOver) await sealHeldUploadBatch(held, 0)
+        handOver?.(nameConflicts, held, options ?? {})
 
-        taken = results.filter((result) => result.status === 'fulfilled').length
+        taken = results.filter((result) => result.status === 'fulfilled').length - nameConflicts.length
         const firstFailure = results.find((result) => result.status === 'rejected')
         if (firstFailure && firstFailure.status === 'rejected') {
           const failedCount = results.filter((result) => result.status === 'rejected').length
@@ -504,6 +527,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           folderPathFor: (each) => intentOf(each)?.folderPath,
           screeningReleased: (each) => intentOf(each)?.screeningReleased === true,
           revisionOf: (each) => intentOf(each)?.revisionOf,
+          onConflict: (each) => intentOf(each)?.onConflict,
+          onNameConflicts: lastConflictHandler.current ?? undefined,
         }
         try {
           if (shelf !== 'session') {

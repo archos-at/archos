@@ -64,6 +64,7 @@ export interface RevisionCandidateOptions {
   hiddenFolderIds?: readonly string[]
   reader: DocumentReader
   collectionFor?: (name: string) => string
+  folderFor?: (name: string) => string | null | undefined
 }
 
 export async function revisionCandidatesOnShelf(
@@ -74,7 +75,7 @@ export async function revisionCandidatesOnShelf(
 ): Promise<RevisionCandidateMatch[]> {
   const series = seriesOf(names)
   if (series.size === 0) return []
-  const { collectionFor, ...query } = options
+  const { collectionFor, folderFor, ...query } = options
   const rows = await narrowedRows(shelf, organizationId, [...new Set([...series.values()].map((entry) => entry.word))], query)
 
   const bySeries = new Map<string, RevisionSeriesRow[]>()
@@ -90,13 +91,18 @@ export async function revisionCandidatesOnShelf(
     const replaced = await Promise.all(members.map(isReplaced))
     const current = members
       .filter((_, index) => !replaced[index])
-      .map((row) => ({ row, filename: row.filename, createdAt: row.createdAt ? row.createdAt.toISOString() : null }))
+      .map((row) => ({
+        row,
+        filename: row.filename,
+        folderId: row.folderId,
+        createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+      }))
     if (current.length === 0) continue
     for (const name of dropped.names) {
       const collection = collectionFor?.(name)
       const reachable = collection === undefined ? current : current.filter((item) => item.row.collectionName === collection)
       if (reachable.length === 0) continue
-      const candidate = findRevisionCandidate(name, reachable)
+      const candidate = findRevisionCandidate(name, reachable, folderFor?.(name))
       if (!candidate) continue
       matches.push({
         name,
@@ -125,9 +131,11 @@ export async function probeProjectRevisionCandidates(
   const projectCollection = await shelfCollectionName(shelf, session.organizationId)
   if (!projectCollection) return []
   const access = await getProjectFolderAccess(session, projectId, projectCollection)
+  const folderFor = (name: string) => (Object.hasOwn(folders, name) ? (folders[name] ?? null) : undefined)
   return revisionCandidatesOnShelf(shelf, session.organizationId, names, {
     hiddenFolderIds: [...access.hiddenFolderIds],
     reader: await shelfReaderFor(session, { scope: 'project', projectId }),
-    collectionFor: (name) => access.collectionFor(Object.hasOwn(folders, name) ? (folders[name] ?? null) : null),
+    collectionFor: (name) => access.collectionFor(folderFor(name) ?? null),
+    folderFor,
   })
 }

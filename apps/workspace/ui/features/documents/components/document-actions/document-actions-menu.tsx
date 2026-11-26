@@ -19,7 +19,7 @@ import {
 } from './action-entries'
 import { useDocumentActions, type ActionableDocument } from './use-document-actions'
 import { DOCUMENT_SCOPE_COPY, type DocumentScope } from './document-scope'
-import { sortedFolderDestinations, type FolderDestination, type PathFolder } from '../../lib/folder-path-label'
+import { documentPathIn, sortedFolderDestinations, type FolderDestination, type PathFolder } from '../../lib/folder-path-label'
 import { FolderPickerSheet } from '../folder-picker-sheet'
 
 export type { DocumentActionKind }
@@ -101,6 +101,7 @@ export function useDocumentActionMenu({
     onReingested,
     onCancelled,
     onMoved,
+    folderPath: (folderId, name) => documentPathIn(folders ?? [], folderId, name),
   })
 
   if (!live) return { entries: NO_ENTRIES, dialogs: null, name: documentActions.name }

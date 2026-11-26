@@ -7,7 +7,9 @@ and does: [`documents.md`](../user-guides/documents.md#fassungen-und-freigabe).
 Why the link is not a merge:
 [ADR-0099](../adr/0099-fassungen-across-file-names-are-a-confirmed-link-not-a-merge.md).
 Why a same-name re-upload is a version:
-[ADR-0054](../adr/0054-document-versions-and-the-publish-door.md).
+[ADR-0054](../adr/0054-document-versions-and-the-publish-door.md). Why only in
+the same folder:
+[ADR-0200](../adr/0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md).
 
 A file name with an index says a file has Fassungen. It does not say what kind of
 file it is; only the Dokumentart says that.
@@ -24,11 +26,11 @@ A Fassung is stored in one of two ways, and the reader sees one of them.
 
 | | Same name | Another name |
 |---|---|---|
-| Gesture | Drop `EG_Grundriss.pdf` on a collection that holds `EG_Grundriss.pdf` | Drop `EG_Grundriss_Index_C.pdf` where `EG_Grundriss_Index_B.pdf` lies |
+| Gesture | Drop `EG_Grundriss.pdf` into the folder that holds `EG_Grundriss.pdf` and keep „Ersetzen“ | Drop `EG_Grundriss_Index_C.pdf` where `EG_Grundriss_Index_B.pdf` lies |
 | Stored as | A new row in `document_versions` of the same `documents` row (ADR-0054) | Two `documents` rows, and a link on the knowledge layer's `document_metadata` row |
 | The link | None. The item keeps its id | `superseded_by` on the OLDER row, set only by a person |
 | What else is stored there | State per version, who approved, who published | `revision_suggestion`, `change_summary`, `change_basis`, `revision_facts` (the title block) |
-| Who decides it is one | The name, so nobody has to | A person, after a suggestion |
+| Who decides it is one | The name in its folder, and the person's „Ersetzen“ when the upload asks (the folder-upload dialog preselects it) | A person, after a suggestion |
 | Undo | Not needed, the old bytes stay | Unlink. No citation, share, assignment or folder placement moves |
 | Owner | `apps/workspace/bff/documents/lifecycle*.ts`, `version-repository.ts` | `packages/agent/src/agent/knowledge/document_metadata_store.py` |
 
@@ -161,7 +163,7 @@ A row of the timeline can also **unlink** an older Fassung.
 **At upload.** The form field `revisionOf` carries the older document's id.
 `resolveRevisionOf` checks it before a byte is stored: write access to the older
 document, same shelf and collection, active, past screening, a person's upload.
-Equal names return nothing, since that is a version and never a Fassung. A
+A name the older document holds in the same folder returns nothing, since that is a version and never a Fassung; the same name in another folder is another document, and can be linked like any other. A
 choice that fails a check (the older document moved into a restricted folder
 after the dialog asked, was archived, is not this person's to change) never
 refuses the upload: the file is stored as a document of its own, the answer

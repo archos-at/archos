@@ -101,3 +101,31 @@ class TestTwoDocumentsShareAName:
         (payload,) = turn
         assert payload["operations"][0]["document_id"] == DRAFT
         assert registry.snapshot()[0]["operations"][0]["document_id"] == DRAFT
+
+
+class TestAFolderHoldsANameOnce:
+    async def test_a_move_onto_a_name_the_folder_holds_is_a_conflict_and_no_proposal(self, registry, turn):
+        answer = await _propose("move", document="Entwurf/Plan.pdf", target_folder="Bestand")
+
+        assert answer.startswith("Conflict:") and BESTAND in answer
+        assert "replace" in answer and "keep both" in answer
+        assert turn == [] and registry.snapshot() == []
+
+    async def test_the_clash_ignores_case_like_the_finder(self, registry, turn, monkeypatch):
+        set_turn_documents([*INVENTORY, _row("plan.PDF", "Archiv", str(uuid.uuid4()))])
+
+        answer = await _propose("move", document="Entwurf/Plan.pdf", target_folder="Archiv")
+
+        assert answer.startswith("Conflict:") and turn == []
+
+    async def test_a_rename_onto_a_display_name_another_document_holds_is_refused(self, registry, turn):
+        set_turn_documents([*INVENTORY, _row("Ansicht.pdf", "Einreichung", str(uuid.uuid4()))])
+
+        answer = await _propose("rename", document="Ansicht.pdf", new_name="schnitt a-a")
+
+        assert answer.startswith("Conflict:") and SCHNITT in answer and turn == []
+
+    async def test_a_name_held_in_another_folder_is_no_conflict(self, registry, turn):
+        answer = await _propose("move", document="Schnitt.pdf", target_folder="Bestand")
+
+        assert answer.startswith("Proposed:") and turn[0]["operations"][0]["document_id"] == SCHNITT

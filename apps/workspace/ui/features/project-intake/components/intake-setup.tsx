@@ -7,6 +7,7 @@ import { ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FolderUploadDialog } from '@/features/documents/components/folder-upload-dialog'
+import { NameConflictDialog } from '@/features/documents'
 import { UploadTray } from '@/features/documents/components/upload-tray'
 import { useFilingSuggestions } from '@/features/documents/hooks/use-filing-suggestions'
 import { useTranslations } from '@/i18n'
@@ -117,7 +118,9 @@ function ConnectedSetup({
         kind={shelfUpload.decision.kind}
         onReleaseChange={shelfUpload.onReleaseChange}
         onRevisionChange={shelfUpload.onRevisionChange}
+        onConflictChange={shelfUpload.onConflictChange}
       />
+      <NameConflictDialog prompt={shelfUpload.conflictPrompt} />
     </IntakeSetupView>
   )
 }

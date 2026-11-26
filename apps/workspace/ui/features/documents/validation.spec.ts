@@ -168,7 +168,7 @@ describe('validation', () => {
         expect(result.validFiles.map((file) => file.name)).toEqual(['existing.pdf'])
       })
 
-      test('still refuses the same name twice in one batch on a durable shelf', () => {
+      test('lets the same name through twice in one batch on a durable shelf: the folder plan and the server decide', () => {
         const context: ValidationContext = {
           existingTotalSize: 0,
           existingFileCount: 0,
@@ -176,9 +176,16 @@ describe('validation', () => {
           durableCorpus: true,
         }
 
-        const result = validateFileUpload([createFile('a.pdf'), createFile('a.pdf')], context)
+        const result = validateFileUpload([createFile('a.pdf'), createFile('a.pdf'), createFile('a.pdf')], context)
 
-        expect(result.fileErrors[0].reason).toBe('duplicate-in-batch')
+        expect(result.fileErrors).toEqual([])
+        expect(result.validFiles).toHaveLength(3)
+      })
+
+      test('still refuses the same name twice in one batch for a conversation, which holds one file per name', () => {
+        const result = validateFileUpload([createFile('a.pdf'), createFile('a.pdf')], createEmptyValidationContext())
+
+        expect(result.fileErrors.map((error) => error.reason)).toEqual(['duplicate-in-batch'])
       })
     })
 

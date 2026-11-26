@@ -7,7 +7,7 @@ import { collectionFileRef, purgeIngestedChunks } from '@/lib/documents/collecti
 import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { toListedDocuments, toListedLevelPage, type ListedDocument } from '@/lib/documents/shelf-listing'
-import { uploadToShelf, type ShelfUploadInput, type UploadDocumentResult } from '@/lib/documents/shelf-upload'
+import { uploadToShelf, type ShelfUploadInput, type UploadConflictPolicy, type UploadDocumentResult } from '@/lib/documents/shelf-upload'
 import type { DocumentLevelQuery } from '@/lib/documents/list-query'
 import { findLiveDocumentByFilename, type DocumentNameMatchRow } from '@/lib/documents/repository'
 import { documentNameKey } from '@/lib/documents/name-match'
@@ -105,18 +105,18 @@ async function nameBesideStandards(
   folderId: string | null,
   hidden: readonly string[],
 ): Promise<File> {
-  const collection = officeShelfCollectionName(session.organizationId)
+  if (!folderId || !inTree(hidden, folderId)) return file
+  const place = { folderId, collectionName: officeShelfCollectionName(session.organizationId) }
   const filename = documentNameKey(file.name)
-  const holder = await findLiveDocumentByFilename(session.organizationId, collection, filename)
-  if (!holder || (!inTree(hidden, holder.folderId) && !inTree(hidden, folderId))) return file
+  if (!(await findLiveDocumentByFilename(session.organizationId, place, filename))) return file
   for (let n = 2; n <= NUMBERED_NAMES; n += 1) {
     const name = numberedFilename(filename, n)
-    if (!(await findLiveDocumentByFilename(session.organizationId, collection, name))) {
+    if (!(await findLiveDocumentByFilename(session.organizationId, place, name))) {
       return new File([file], name, { type: file.type, lastModified: file.lastModified })
     }
   }
   throw new ConflictError(
-    `"${filename}" and its numbered names are all taken in the Bürobibliothek. Rename the file to upload it.`,
+    `"${filename}" and its numbered names are all taken in this folder of the Bürobibliothek. Rename the file to upload it.`,
     NAME_TAKEN_DETAILS,
   )
 }
@@ -138,12 +138,12 @@ async function assertRevisionOfOnSameSide(
 async function standardsAwareFile(
   session: AuthorizedSession,
   file: File,
-  { folderId, revisionOf }: { folderId: string | null; revisionOf?: string | null },
+  { folderId, revisionOf, onConflict }: { folderId: string | null; revisionOf?: string | null; onConflict: UploadConflictPolicy },
 ): Promise<File> {
   const hidden = await officeShelfHiddenFolderIds(session)
   if (hidden.length === 0) return file
   await assertRevisionOfOnSameSide(session, revisionOf, folderId, hidden)
-  return nameBesideStandards(session, file, folderId, hidden)
+  return onConflict === 'skip' ? file : nameBesideStandards(session, file, folderId, hidden)
 }
 
 export async function assertMoveKeepsOutOfStandards(
@@ -165,13 +165,23 @@ export async function uploadOfficeShelfDocument(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, originConversationId }: OfficeShelfUploadInput = {},
+  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, originConversationId, onConflict }: OfficeShelfUploadInput,
 ): Promise<UploadOfficeShelfDocumentResult> {
-  const named = await standardsAwareFile(session, file, { folderId, revisionOf })
+  const named = await standardsAwareFile(session, file, { folderId, revisionOf, onConflict })
   return uploadToShelf(
     session,
     OFFICE_SHELF,
-    { file: named, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch, ...(originConversationId ? { originConversationId } : {}) },
+    {
+      file: named,
+      folderId,
+      originPath,
+      screeningRelease,
+      uploadBatchId,
+      revisionOf,
+      beforeDispatch,
+      onConflict,
+      ...(originConversationId ? { originConversationId } : {}),
+    },
     request,
   )
 }

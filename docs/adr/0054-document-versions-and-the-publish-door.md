@@ -166,6 +166,11 @@ key stays flat and unchanged; the row's name and the key's basename are allowed
 to differ because the ingest dispatch now STATES the name (`file_name` on
 `POST /v1/ingest`) instead of letting the backend read it off the presigned URL.
 
+**Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md) (2026-11-26):** a user document is addressed by `documents.id`
+everywhere, the index included, so `filename` is a label and no longer the join
+key; a name is unique within its folder, and a same-name upload is a new version
+only in the same folder. The namespace for the agent's documents stands.
+
 **Provenance is metadata, never a `doc_class`.** Four keys —
 `authored_by`, `approved_by` (the approver's display name), `approved_at`,
 `producer` — travel on the dispatch, onto every chunk and onto the backend's
@@ -343,6 +348,11 @@ itself teaches nobody what it cost to find them.
     (`retryRacedUpload`, named `retryLostFirstUpload` until correction 16), which finds the winner and takes the re-upload
     path, charged in full for the object it keeps. The session shelf does not
     retry; there the mapped error is a `409`, object discarded.
+
+    *Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md) (2026-11-26):* the index's key is the folder and the
+    name's match key, so two first uploads race only within one folder; the
+    loser of a race is retried as the person chose (`onConflict`), never
+    replaced without that choice.
 
     That retry exposed a second hole. A re-upload's key used the version-1
     shortcut whenever `nextVersionNumber` read 1, and it reads 1 for a row

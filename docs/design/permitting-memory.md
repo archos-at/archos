@@ -120,8 +120,10 @@ Request:
 - `authority` is null when the document does not name it; the record is still stored.
 - The BFF finds the document by `documentId` AND `collection` in that
   organization (as `document-exists`), or, without an id, by `collection` AND
-  `fileName` among live documents (a live name is unique per collection: the
-  backfill only knows the name); unknown, binned or project-less →
+  `fileName` among live documents (the backfill only knows the name). Since
+  ADR-0200 a name is unique only within its folder, so a name two folders of the
+  collection hold takes the first match; every ingest sends the id. Unknown,
+  binned or project-less →
   `{ stored: false }`, 200.
 - `record: null` deletes the document's record and answers `{ stored: false }`.
   The ingest hook sends it when the tag decision positively types the document

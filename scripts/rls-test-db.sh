@@ -4873,3 +4873,55 @@ apply_in pc_0269 0269_personal_chat_owner_only.sql   # up twice: idempotent
 check_in pc_0269 "$PC0269_POLICIES" "answer_contexts=true,conversations=true,messages=true,upload_batches=true" "0269 applies again after its down, twice"
 check_in pc_0269 "$PC0269_GUARDS" "false:false:1" "0269 applied twice keeps one grant guard and the append-only marks"
 echo "==> 0269 personal chat policies and their down migration verified"
+
+# Migration 0271: a document's name is unique within its folder (the root counts as one),
+# compared trimmed, NFC-normalized and case-insensitively; identity is documents.id.
+echo "==> verifying the 0271 per-folder name index, its guard and its down migration on nf_0271"
+migrate_before nf_0271 0271_documents_unique_name_per_folder
+P271="aaaaaaaa-0000-4000-8000-000000000271"
+FA271="f1f1f1f1-0000-4000-8000-000000000271"
+FB271="f2f2f2f2-0000-4000-8000-000000000271"
+DOC271="INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id, authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind) VALUES"
+UP271="$(<migrations/0271_documents_unique_name_per_folder.sql)"
+DOWN271="$(<migrations/0271_documents_unique_name_per_folder.down.sql)"
+OID271="SELECT 'uniq_documents_live_name_per_collection'::regclass::oid"
+sql_in nf_0271 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P271', 'org_0271', 'Ordner 0271', 'user_1', 'proj_0271');
+INSERT INTO project_folders (id, organization_id, project_id, name, path) VALUES
+  ('$FA271', 'org_0271', '$P271', 'Pläne', 'Pläne'),
+  ('$FB271', 'org_0271', '$P271', 'Archiv', 'Archiv');
+$DOC271 ('org_0271', 'user_1', 'Plan.pdf', 'k/0271/1', 'proj_0271', 'completed', 'project', '$P271', '$FA271', 'user', NULL, NULL, NULL),
+        ('org_0271', 'user_1', 'plan.pdf', 'k/0271/2', 'proj_0271', 'completed', 'project', '$P271', '$FA271', 'user', NULL, NULL, NULL),
+        ('org_0271', 'user_1', 'Bericht.pdf', 'k/0271/3', 'proj_0271', 'completed', 'project', '$P271', NULL, 'user', NULL, NULL, NULL);
+SQL
+refused_in nf_0271 "$UP271" "Cannot apply migration 0271" "0271: a folder holding Plan.pdf and plan.pdf stops the migration"
+refused_in nf_0271 "$UP271" "names 'Plan.pdf', 'plan.pdf' (2 documents)" "0271: the refusal names the folder's colliding documents"
+check_in nf_0271 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef ILIKE '%normalize(%'" "0" "0271: a refused migration leaves 0246's index"
+check_in nf_0271 "SELECT count(*) FROM documents WHERE project_id = '$P271'" "3" "0271: the guard deduplicates nothing"
+sql_in nf_0271 <<<"DELETE FROM documents WHERE filename = 'plan.pdf' AND project_id = '$P271';"
+apply_in nf_0271 0271_documents_unique_name_per_folder.sql
+BEFORE271="$($PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d nf_0271 -tAc "$OID271")"
+apply_in nf_0271 0271_documents_unique_name_per_folder.sql   # up twice: idempotent
+check_in nf_0271 "$OID271" "$BEFORE271" "0271 applied twice leaves the index it built"
+check_in nf_0271 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%COALESCE(folder_id%' AND indexdef LIKE '%lower(NORMALIZE(btrim(filename), NFC))%' AND indexdef LIKE '%authored_by_producer%'" "1" "0271: the index keys on the folder and the name's match key, over 0246's rows"
+check_in nf_0271 "SELECT (obj_description('uniq_documents_live_name_per_collection'::regclass, 'pg_class') LIKE '%identity is documents.id%unique within its folder%')::text" "true" "0271: the index says a document is its id and its name is unique per folder"
+sql_in nf_0271 <<<"$DOC271 ('org_0271', 'user_1', 'Plan.pdf', 'k/0271/4', 'proj_0271', 'completed', 'project', '$P271', '$FB271', 'user', NULL, NULL, NULL);"
+check_in nf_0271 "SELECT count(*) FROM documents WHERE filename = 'Plan.pdf' AND project_id = '$P271'" "2" "0271: one name in two folders of one collection is two documents"
+refused_in nf_0271 "$DOC271 ('org_0271', 'user_1', 'plan.pdf', 'k/0271/5', 'proj_0271', 'completed', 'project', '$P271', '$FA271', 'user', NULL, NULL, NULL)" "uniq_documents_live_name_per_collection" "0271: plan.pdf beside Plan.pdf in one folder"
+refused_in nf_0271 "$DOC271 ('org_0271', 'user_1', ' bericht.PDF ', 'k/0271/6', 'proj_0271', 'completed', 'project', '$P271', NULL, 'user', NULL, NULL, NULL)" "uniq_documents_live_name_per_collection" "0271: a case and whitespace variant at the root (no folder)"
+sql_in nf_0271 <<<"$DOC271 ('org_0271', 'user_1', 'Übersicht.pdf', 'k/0271/7', 'proj_0271', 'completed', 'project', '$P271', NULL, 'user', NULL, NULL, NULL);"
+refused_in nf_0271 "$DOC271 ('org_0271', 'user_1', U&'U\\0308bersicht.pdf', 'k/0271/8', 'proj_0271', 'completed', 'project', '$P271', NULL, 'user', NULL, NULL, NULL)" "uniq_documents_live_name_per_collection" "0271: the decomposed spelling of a name at the root"
+refused_in nf_0271 "$DOC271 ('org_0271', 'user_1', 'PLAN.pdf', 'k/0271/9', 'proj_0271', 'completed', 'project', '$P271', '$FB271', 'agent', 'agent_file', 'conv_0271', 'answer_artifact')" "uniq_documents_live_name_per_collection" "0271: an indexed agent file beside a person's document of that name"
+sql_in nf_0271 <<<"$DOC271 ('org_0271', 'user_1', 'plan.pdf', 'k/0271/10', 'proj_0271', 'completed', 'project', '$P271', '$FA271', 'agent', 'deep_research', 'run_0271', 'agent_run');"
+check_in nf_0271 "SELECT count(*) FROM documents WHERE lower(filename) = 'plan.pdf' AND folder_id = '$FA271'" "2" "0271: a producer that is never indexed stays outside the rule, as before"
+
+refused_in nf_0271 "$DOWN271" "Cannot reverse migration 0271" "0271 down: Plan.pdf in two folders stops the rollback"
+check_in nf_0271 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef ILIKE '%normalize(%'" "1" "0271 down: a refused rollback leaves 0271's index"
+sql_in nf_0271 <<<"DELETE FROM documents WHERE filename = 'Plan.pdf' AND folder_id = '$FB271';"
+apply_in nf_0271 0271_documents_unique_name_per_folder.down.sql
+apply_in nf_0271 0271_documents_unique_name_per_folder.down.sql   # down twice: idempotent
+check_in nf_0271 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%(organization_id, collection_name, filename)%' AND indexdef LIKE '%authored_by_producer%'" "1" "0271 down: 0246's index is back"
+refused_in nf_0271 "$DOC271 ('org_0271', 'user_1', 'Plan.pdf', 'k/0271/11', 'proj_0271', 'completed', 'project', '$P271', '$FB271', 'user', NULL, NULL, NULL)" "uniq_documents_live_name_per_collection" "0271 down: one name in two folders is refused again"
+apply_in nf_0271 0271_documents_unique_name_per_folder.sql
+check_in nf_0271 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef ILIKE '%normalize(%'" "1" "0271 applies again after its down"
+echo "==> 0271 per-folder name index, its guard and its down migration verified"

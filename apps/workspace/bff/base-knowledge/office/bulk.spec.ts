@@ -75,7 +75,7 @@ describe('bulk', () => {
     const outside = bulkBaseKnowledge(MANAGER, { entryIds: ['work_1'], action: { type: 'move', folderId: '00000000-0000-4000-8000-000000000001' } }, request)
     await expect(outside).rejects.toBeInstanceOf(UnprocessableError)
     await bulkBaseKnowledge(MANAGER, { entryIds: ['work_1'], action: { type: 'move', folderId: 'folder-brandschutz' } }, request)
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-brandschutz' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-brandschutz', onConflict: 'keep_both' }, MANAGER)
   })
 
   it('removes through the single-entry removal', async () => {

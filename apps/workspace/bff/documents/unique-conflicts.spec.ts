@@ -12,6 +12,7 @@ import {
   OPEN_VERSION_INDEX,
   OpenVersionExistsError,
   ReplacedDocumentGoneError,
+  RACED_UPLOAD_ATTEMPTS,
   retryRacedUpload,
 } from './unique-conflicts'
 
@@ -88,11 +89,11 @@ describe('retryRacedUpload', () => {
     expect(attempt).toHaveBeenCalledTimes(2)
   })
 
-  it('retries only once, and the second loss is a 409', async () => {
+  it('retries a few times, and the last loss is a 409', async () => {
     const attempt = vi.fn<() => Promise<string>>().mockRejectedValue(new LiveFilenameTakenError('plan.pdf'))
 
     await expect(retryRacedUpload(attempt)).rejects.toMatchObject({ status: 409 })
-    expect(attempt).toHaveBeenCalledTimes(2)
+    expect(attempt).toHaveBeenCalledTimes(RACED_UPLOAD_ATTEMPTS)
   })
 
   it('runs the attempt once more when the document a re-upload replaced was deleted', async () => {

@@ -66,8 +66,10 @@ vi.mock('@/lib/conversations/draft-file', () => ({
 
 vi.mock('@/lib/projects/folder-service', () => ({
   findProjectFolder: vi.fn(async (_projectId: string, folderId: string) => ({ id: folderId, name: 'Berichte' })),
+  findRootProjectFolderByName: vi.fn(async () => ({ id: 'folder-berichte', name: 'Berichte' })),
 }))
 
+import { findRootProjectFolderByName } from '@/lib/projects/folder-service'
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import { readConversationDraft, readDraftFacts, type DraftFacts } from '@/lib/conversations/draft-preview'
 import { recordDraftFilingInBackend } from '@/lib/conversations/draft-backend'
@@ -186,6 +188,7 @@ describe('fileConversationDraft — the same-name veto scans every page', () => 
       id: 'doc-9',
       filename: 'x.md',
       displayName: 'Der späte Zwilling',
+      folderId: 'folder-berichte',
     } as DocumentListRow
     vi.mocked(listProjectDocuments)
       .mockResolvedValueOnce(filler(DOCUMENT_LIST_LIMIT))
@@ -205,6 +208,25 @@ describe('fileConversationDraft — the same-name veto scans every page', () => 
       offset: DOCUMENT_LIST_LIMIT,
     })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+  })
+
+  it('lets a document of that title in another folder stand: it is another document', async () => {
+    vi.mocked(listProjectDocuments).mockResolvedValueOnce([
+      { id: 'doc-elsewhere', filename: 'x.md', displayName: 'der späte zwilling', folderId: 'folder-protokolle' } as DocumentListRow,
+    ])
+
+    await fileConversationDraft(session, 'conv-1', { path: '/entwuerfe/zwilling.md', title: 'Der späte Zwilling' })
+
+    expect(fileAgentDocumentDraft).toHaveBeenCalled()
+  })
+
+  it('vetoes nothing while the folder it files into does not exist yet', async () => {
+    vi.mocked(findRootProjectFolderByName).mockResolvedValueOnce(null)
+
+    await fileConversationDraft(session, 'conv-1', { path: '/entwuerfe/zwilling.md', title: 'Der späte Zwilling' })
+
+    expect(listProjectDocuments).not.toHaveBeenCalled()
+    expect(fileAgentDocumentDraft).toHaveBeenCalled()
   })
 
   it('files once the scan ends on a short page with no clash', async () => {

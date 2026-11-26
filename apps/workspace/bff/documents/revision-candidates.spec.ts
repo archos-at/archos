@@ -225,6 +225,28 @@ describe('probeProjectRevisionCandidates', () => {
     expect(offer.candidates.map((candidate) => candidate.id)).toEqual(['secret'])
   })
 
+  it('offers nothing for a name the folder it lands in already holds: that is the next version of that document', async () => {
+    vi.mocked(findRevisionSeriesRows).mockResolvedValue([row('there', 'eg_grundriss_index_c.PDF'), row('open', 'EG_Grundriss_Index_B.pdf')])
+
+    await expect(
+      probeProjectRevisionCandidates(session, 'p1', ['EG_Grundriss_Index_C.pdf'], { 'EG_Grundriss_Index_C.pdf': null }),
+    ).resolves.toEqual([])
+  })
+
+  it('reads the same name in another folder as another document, and offers the series it continues', async () => {
+    const PLANS = 'a1a1a1a1-0000-4000-8000-000000000003'
+    vi.mocked(findRevisionSeriesRows).mockResolvedValue([
+      { ...row('elsewhere', 'EG_Grundriss_Index_C.pdf'), folderId: PLANS },
+      row('open', 'EG_Grundriss_Index_B.pdf'),
+    ])
+
+    const [offer] = await probeProjectRevisionCandidates(session, 'p1', ['EG_Grundriss_Index_C.pdf'], {
+      'EG_Grundriss_Index_C.pdf': null,
+    })
+
+    expect(offer.candidates.map((candidate) => candidate.id)).toEqual(['open'])
+  })
+
   it('reads a name it is not told about as landing at the root', async () => {
     const [offer] = await probeProjectRevisionCandidates(session, 'p1', ['EG_Grundriss_Index_C.pdf'])
 

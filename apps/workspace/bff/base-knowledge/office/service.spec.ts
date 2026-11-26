@@ -664,7 +664,7 @@ describe('taking a document off the norms', () => {
       entryId: 'edition_1',
       formerFolderId: 'folder-brandschutz',
     })
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: null }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: null, onConflict: 'keep_both' }, MANAGER)
     expect(unlistDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
     expect(deleteDocumentEntry).not.toHaveBeenCalled()
     expect(deleteWorkIfUnused).not.toHaveBeenCalled()
@@ -703,7 +703,7 @@ describe('bringing it back (Rückgängig)', () => {
   it('moves the file back to its topic and moves the parked heads back, so it is confirmed with its values again', async () => {
     const entry = await relistBaseKnowledge(MANAGER, 'edition_1', { folderId: 'folder-brandschutz' })
     expect(readOfficeEntries).toHaveBeenCalledWith('org-1', undefined, { unlisted: true })
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-brandschutz' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-brandschutz', onConflict: 'keep_both' }, MANAGER)
     expect(relistDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
     expect(entry).toMatchObject({ status: 'confirmed', values: parked().values })
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
@@ -714,7 +714,7 @@ describe('bringing it back (Rückgängig)', () => {
 
   it('lands in the base-knowledge root when its topic is gone', async () => {
     await relistBaseKnowledge(MANAGER, 'edition_1', { folderId: '00000000-0000-4000-8000-000000000000' })
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', onConflict: 'keep_both' }, MANAGER)
   })
 
   it('withholds the text again of an entry that was a proposal', async () => {

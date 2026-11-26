@@ -1,10 +1,11 @@
-// @disk-inputs: migrations/0049_session_documents.sql, migrations/0063_agent_authored_documents.sql, migrations/0064_generated_document_idempotency.sql, migrations/0065_diagram_document_producer_idempotency.sql, migrations/0066_authored_ref_names_its_kind.sql, migrations/0102_archiv_folders.sql, bff/documents/repository.ts, bff/documents/repository/*.ts
+// @disk-inputs: migrations/*.sql, bff/documents/repository.ts, bff/documents/repository/*.ts
 /**
  * @vitest-environment node
  */
 
-import { PgDialect, getTableConfig } from 'drizzle-orm/pg-core'
-import { getTableColumns } from 'drizzle-orm'
+import { IndexedColumn, PgDialect, getTableConfig } from 'drizzle-orm/pg-core'
+import { SQL, getTableColumns, is } from 'drizzle-orm'
+import { readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AUTHORED_REF_KINDS, DOCUMENT_AUTHORS, documents } from './documents'
 import { GENERATED_DOCUMENT_PRODUCER_REF_KINDS } from '@/lib/documents/generated'
@@ -18,6 +19,7 @@ const AUTHORSHIP_CONSTRAINT = 'documents_authorship_requires_provenance'
 const AGENT_INDEX = 'documents_agent_authored_idx'
 const FOLDER_INDEX = 'uniq_project_folders_parent_name'
 const IDEMPOTENCY_INDEX = 'uniq_documents_authored_ref_producer_per_project'
+const LIVE_NAME_INDEX = 'uniq_documents_live_name_per_collection'
 const PROBE = 'findDocumentAuthoredByRef'
 const PROBE_FILE = 'bff/documents/repository/lookup-by-ref.ts'
 
@@ -284,6 +286,79 @@ describe('the idempotency index and the probe it belongs to', () => {
       ...getTableConfig(documents).uniqueConstraints.map((entry) => entry.name),
     ]
     expect(declared).not.toContain(IDEMPOTENCY_INDEX)
+  })
+})
+
+function nestedStatements(statements: SqlStatement[]): SqlStatement[] {
+  return statements.flatMap((statement) => [
+    statement,
+    ...nestedStatements(statement.tokens.flatMap((token) => (token.kind === 'string' ? parseSql(token.text) : []))),
+  ])
+}
+
+function liveNameIndexIn(file: string): SqlStatement | undefined {
+  return nestedStatements(readSql(file)).find(
+    (statement) =>
+      startsWith(statement, 'CREATE', 'UNIQUE', 'INDEX') &&
+      statement.tokens.some((token) => token.kind === 'quoted' && token.text === LIVE_NAME_INDEX),
+  )
+}
+
+const LATEST_LIVE_NAME_INDEX = readdirSync('migrations')
+  .filter((file) => file.endsWith('.sql') && !file.endsWith('.down.sql'))
+  .sort()
+  .map((file) => liveNameIndexIn(`migrations/${file}`))
+  .filter((statement): statement is SqlStatement => statement !== undefined)
+  .at(-1)!
+
+function unwrapped(part: SqlToken[]): SqlToken[] {
+  const whole = isSymbol(part[0], '(') && parenthesised(part, 0).length === part.length - 2
+  return whole ? part.slice(1, -1) : part
+}
+
+function migrationKeys(statement: SqlStatement): string[] {
+  const on = statement.tokens.findIndex((token) => token.kind === 'word' && token.text.toUpperCase() === 'ON')
+  const open = statement.tokens.findIndex((token, i) => i > on && isSymbol(token, '('))
+  return splitTopLevel(parenthesised(statement.tokens, open)).map((part) => shape(unwrapped(part)).join(''))
+}
+
+function drizzleLiveNameIndex() {
+  const index = getTableConfig(documents).indexes.find((entry) => entry.config.name === LIVE_NAME_INDEX)
+  if (!index) throw new Error(`the drizzle table declares no ${LIVE_NAME_INDEX}`)
+  return index.config
+}
+
+function drizzleKeys(): string[] {
+  const dialect = new PgDialect()
+  return drizzleLiveNameIndex().columns.map((column) => {
+    if (is(column, SQL)) return shape(parseSql(dialect.sqlToQuery(column).sql)[0]!.tokens).join('')
+    if (is(column, IndexedColumn) && column.name) return column.name
+    throw new Error(`the drizzle ${LIVE_NAME_INDEX} declares a key that is neither a column nor an expression`)
+  })
+}
+
+describe('the live-name index: a name is unique within its folder', () => {
+  const KEYS = [
+    'organization_id',
+    'collection_name',
+    "coalesce(folder_id,'00000000-0000-0000-0000-000000000000'::uuid)",
+    'lower(normalize(btrim(filename),nfc))',
+  ]
+
+  it('keys on the folder, the root as the nil folder, and the trimmed, NFC-normalized, case-folded name', () => {
+    expect(migrationKeys(LATEST_LIVE_NAME_INDEX)).toEqual(KEYS)
+  })
+
+  it('is declared in drizzle with the keys the migration builds', () => {
+    expect(drizzleKeys()).toEqual(KEYS)
+  })
+
+  it('is declared in drizzle with the predicate the migration builds', () => {
+    const where = drizzleLiveNameIndex().where
+    if (!where) throw new Error(`the drizzle ${LIVE_NAME_INDEX} declares no WHERE predicate`)
+    expect(shape(parseSql(new PgDialect().sqlToQuery(where).sql)[0]!.tokens).join(' ')).toBe(
+      whereText(LATEST_LIVE_NAME_INDEX.tokens),
+    )
   })
 })
 

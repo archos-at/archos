@@ -91,6 +91,8 @@ items, not a sequence of `.eml` files, so the inbox's parser does not apply.
    the one header that carries content. A filename is unique per project, not
    per folder, so every file of a mail is prefixed with its folder's name and
    numbered when it still collides.
+   (Amended by [ADR-0200](0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md), 2026-11-26: a filename is unique per folder, so the
+   import probes only the mail's own folder.)
 7. **The mail itself is filed, as a Markdown note** (replaced by the amendment of 2026-10-22 below: the text now becomes a section of an E-Mail-Verlauf). Its headers (subject,
    from, to, cc, dates, Outlook folder, the attachments filed) and its text, from
    the plain body, else the HTML, else the RTF (`striprtf`). `.md` is indexed
