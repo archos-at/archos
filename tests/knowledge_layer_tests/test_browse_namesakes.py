@@ -71,7 +71,7 @@ def test_the_listing_shows_both_namesakes_with_their_own_folder():
     assert text.count(f"- {PLAN}") == 2
 
 
-def test_the_fassungen_of_one_namesake_never_include_the_other():
+def test_the_revisions_of_one_namesake_never_include_the_other():
     rows = _namesakes(superseded_by="Plan Index B.pdf", superseded_by_id="doc-eg-b")
 
     text = render_revisions(rows, "Plan Index B.pdf")

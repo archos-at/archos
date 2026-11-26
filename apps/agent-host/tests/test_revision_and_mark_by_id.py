@@ -23,7 +23,7 @@ from agent_host.routes.revision_compare import add_revision_compare_routes
 
 COLLECTION = "proj_a"
 BESTAND = "aaaaaaaa-0000-4000-8000-00000000000a"
-ENTWURF = "bbbbbbbb-0000-4000-8000-00000000000b"
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
 TOKEN = "test-token"
 
 
@@ -44,7 +44,7 @@ class TestARevisionLinkBetweenTwoDocumentsOfOneName:
         configure_summary_db(db_url)
         store = DocumentMetadataStore(db_url)
         store.register(COLLECTION, "Plan.pdf", "Der Bestand.", document_id=BESTAND)
-        store.register(COLLECTION, "Plan.pdf", "Der Entwurf.", document_id=ENTWURF)
+        store.register(COLLECTION, "Plan.pdf", "Der Entwurf.", document_id=DRAFT)
 
         async def no_summary(older, newer, organization_id):
             return None
@@ -68,13 +68,13 @@ class TestARevisionLinkBetweenTwoDocumentsOfOneName:
             return await client.put(f"/v1/collections/{COLLECTION}/revision", json=body)
 
     async def test_the_ids_link_the_newer_document_to_the_older_one(self, store):
-        response = await self._put({"older_id": BESTAND, "newer_id": ENTWURF, "linked": True})
+        response = await self._put({"older_id": BESTAND, "newer_id": DRAFT, "linked": True})
 
         assert response.status_code == 200
-        assert (response.json()["superseded_by"], response.json()["superseded_by_id"]) == ("Plan.pdf", ENTWURF)
+        assert (response.json()["superseded_by"], response.json()["superseded_by_id"]) == ("Plan.pdf", DRAFT)
         documents = {doc.document_id: doc for doc in store.get_all(COLLECTION)}
-        assert documents[BESTAND].superseded_by_id == ENTWURF
-        assert documents[ENTWURF].superseded_by_id is None
+        assert documents[BESTAND].superseded_by_id == DRAFT
+        assert documents[DRAFT].superseded_by_id is None
 
     async def test_the_shared_name_alone_cannot_say_which_document_is_meant(self, store):
         response = await self._put({"older": "Plan.pdf", "newer": "Plan.pdf", "linked": True})
@@ -82,7 +82,7 @@ class TestARevisionLinkBetweenTwoDocumentsOfOneName:
         assert response.status_code == 409 and response.json()["detail"]["reason"] == "ambiguous_name"
 
     async def test_a_document_cannot_replace_itself_by_id(self, store):
-        response = await self._put({"older_id": ENTWURF, "newer_id": ENTWURF, "linked": True})
+        response = await self._put({"older_id": DRAFT, "newer_id": DRAFT, "linked": True})
 
         assert response.status_code == 400
 
@@ -97,12 +97,12 @@ class TestTheChangedPagesOfTwoDocumentsOfOneName:
         async def available(collection):
             return [
                 AvailableDocument(file_name="Plan.pdf", document_id=BESTAND),
-                AvailableDocument(file_name="Plan.pdf", document_id=ENTWURF),
+                AvailableDocument(file_name="Plan.pdf", document_id=DRAFT),
             ]
 
         chunks = {
             BESTAND: [("Schnitt\nREI 90", {"page_label": "1"})],
-            ENTWURF: [("Schnitt\nREI 60", {"page_label": "1"})],
+            DRAFT: [("Schnitt\nREI 60", {"page_label": "1"})],
         }
         read: list[str | None] = []
 
@@ -114,11 +114,11 @@ class TestTheChangedPagesOfTwoDocumentsOfOneName:
         monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", read_chunks)
         async with _client(add_revision_compare_routes) as client:
             response = await client.post(
-                f"/v1/collections/{COLLECTION}/revision-pages", json={"older_id": BESTAND, "newer_id": ENTWURF}
+                f"/v1/collections/{COLLECTION}/revision-pages", json={"older_id": BESTAND, "newer_id": DRAFT}
             )
 
         assert response.status_code == 200 and response.json()["pages"] == [1]
-        assert sorted(read) == [BESTAND, ENTWURF]
+        assert sorted(read) == [BESTAND, DRAFT]
 
 
 class _Store:
@@ -151,43 +151,43 @@ class TestAKnowledgeMark:
             )
 
     async def test_by_id_lands_on_that_documents_chunks_only(self, monkeypatch):
-        store = _Store((BESTAND, ENTWURF))
+        store = _Store((BESTAND, DRAFT))
 
         response = await self._put(
-            store, {"file_name": "Norm.pdf", "document_id": ENTWURF, "licence_class": "licensed"}, monkeypatch
+            store, {"file_name": "Norm.pdf", "document_id": DRAFT, "licence_class": "licensed"}, monkeypatch
         )
 
         assert response.status_code == 200
-        assert store.counted == [{"document_id": ENTWURF}]
-        assert [(list(payloads), key) for payloads, key in store.written] == [([ENTWURF], "document_id")]
+        assert store.counted == [{"document_id": DRAFT}]
+        assert [(list(payloads), key) for payloads, key in store.written] == [([DRAFT], "document_id")]
 
     async def test_a_name_held_by_one_document_is_marked_by_that_id_and_on_its_unstamped_points(self, monkeypatch):
-        store = _Store((ENTWURF,))
+        store = _Store((DRAFT,))
 
         response = await self._put(store, {"file_name": "Norm.pdf", "licence_class": "licensed"}, monkeypatch)
 
         assert response.status_code == 200
-        assert store.counted == [{"$or": [{"document_id": ENTWURF}, {"file_name": "Norm.pdf"}]}]
+        assert store.counted == [{"$or": [{"document_id": DRAFT}, {"file_name": "Norm.pdf"}]}]
         assert [(list(payloads), key) for payloads, key in store.written] == [
-            ([ENTWURF], "document_id"),
+            ([DRAFT], "document_id"),
             (["Norm.pdf"], "file_name"),
         ]
 
     async def test_by_id_also_marks_the_unstamped_points_of_a_name_no_other_document_holds(self, monkeypatch):
-        store = _Store((ENTWURF,))
+        store = _Store((DRAFT,))
 
         response = await self._put(
-            store, {"file_name": "Norm.pdf", "document_id": ENTWURF, "licence_class": "licensed"}, monkeypatch
+            store, {"file_name": "Norm.pdf", "document_id": DRAFT, "licence_class": "licensed"}, monkeypatch
         )
 
         assert response.status_code == 200
         assert [(list(payloads), key) for payloads, key in store.written] == [
-            ([ENTWURF], "document_id"),
+            ([DRAFT], "document_id"),
             (["Norm.pdf"], "file_name"),
         ]
 
     async def test_a_name_two_documents_hold_is_a_conflict_and_marks_nothing(self, monkeypatch):
-        store = _Store((BESTAND, ENTWURF))
+        store = _Store((BESTAND, DRAFT))
 
         response = await self._put(store, {"file_name": "Norm.pdf", "licence_class": "licensed"}, monkeypatch)
 

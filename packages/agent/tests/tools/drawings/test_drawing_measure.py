@@ -597,7 +597,7 @@ async def test_points_off_any_linework_are_refused_unless_the_agent_asks_for_non
     assert "distance: " in free and "No number" not in free
 
 
-ENTWURF = "bbbbbbbb-0000-4000-8000-00000000000b"
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
 
 
 async def test_a_resolved_document_is_read_by_its_id_not_by_a_name_another_folder_shares(
@@ -606,13 +606,13 @@ async def test_a_resolved_document_is_read_by_its_id_not_by_a_name_another_folde
     from agent.tools.canvas.target import Target
 
     async def resolve(document: str) -> Resolved:
-        return Resolved(FILE, COLLECTION, Target(ENTWURF, FILE, COLLECTION))
+        return Resolved(FILE, COLLECTION, Target(DRAFT, FILE, COLLECTION))
 
     monkeypatch.setattr(sheet_source, "resolve_document", resolve)
 
     await _run(operation="sheet")
 
-    assert store.looked_up[-1]["query"]["documentId"] == ENTWURF  # type: ignore[attr-defined]
+    assert store.looked_up[-1]["query"]["documentId"] == DRAFT  # type: ignore[attr-defined]
 
 
 async def test_a_name_the_bff_finds_twice_asks_which_one_and_reads_nothing(

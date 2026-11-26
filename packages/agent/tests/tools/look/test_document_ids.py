@@ -18,14 +18,14 @@ from agent.tools.look.register import run_look
 room = look.room
 
 BESTAND = "aaaaaaaa-0000-4000-8000-00000000000a"
-ENTWURF = "bbbbbbbb-0000-4000-8000-00000000000b"
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
 
 TWO_PLANS = [
     AvailableDocument(
         file_name="Plan.pdf", shelf="project", collection="proj_1", folder_path="Bestand", document_id=BESTAND
     ),
     AvailableDocument(
-        file_name="Plan.pdf", shelf="project", collection="proj_1", folder_path="Entwurf", document_id=ENTWURF
+        file_name="Plan.pdf", shelf="project", collection="proj_1", folder_path="Entwurf", document_id=DRAFT
     ),
 ]
 
@@ -70,7 +70,7 @@ class TestTwoDocumentsShareAName:
 
         assert isinstance(answer, str) and answer.startswith("Ambiguous:")
         assert "„Bestand“" in answer and "„Entwurf“" in answer
-        assert BESTAND in answer and ENTWURF in answer
+        assert BESTAND in answer and DRAFT in answer
         assert lookups == []
 
     async def test_a_bare_name_is_a_question_even_when_one_of_them_lies_at_the_top_level(self, lookups) -> None:
@@ -97,13 +97,13 @@ class TestTwoDocumentsShareAName:
         from agent.tools.look.place import PlaceFacts
         from agent.tools.look.place import citation_key
 
-        facts = PlaceFacts("Plan.pdf", "proj_1", Shelf.PROJECT, 2, document_id=ENTWURF, folder="Entwurf")
+        facts = PlaceFacts("Plan.pdf", "proj_1", Shelf.PROJECT, 2, document_id=DRAFT, folder="Entwurf")
 
         assert citation_key(facts) == "Entwurf/Plan.pdf, p.2"
 
     @pytest.mark.parametrize(
         ("named", "expected"),
-        [("Entwurf/Plan.pdf", ENTWURF), ("/project/Bestand/Plan.pdf.md", BESTAND), (ENTWURF, ENTWURF)],
+        [("Entwurf/Plan.pdf", DRAFT), ("/project/Bestand/Plan.pdf.md", BESTAND), (DRAFT, DRAFT)],
     )
     async def test_a_folder_path_or_the_id_resolves_one_without_asking_the_bff(
         self, two_plans, lookups, named, expected, calls
@@ -120,7 +120,7 @@ class TestTwoDocumentsShareAName:
         result = await run_look("Entwurf/Plan.pdf", page=1)
 
         assert isinstance(result, list)
-        assert located == [{"collection": "proj_1", "file_name": "Plan.pdf", "document_id": ENTWURF}]
+        assert located == [{"collection": "proj_1", "file_name": "Plan.pdf", "document_id": DRAFT}]
 
 
 class TestTheStoredFileIsAskedForById:
@@ -129,15 +129,15 @@ class TestTheStoredFileIsAskedForById:
 
         def get_json(path: str, **kwargs: Any) -> dict[str, Any]:
             asked.append(kwargs["query"])
-            return {"storageKey": "k", "documentId": ENTWURF}
+            return {"storageKey": "k", "documentId": DRAFT}
 
         monkeypatch.setenv("INTERNAL_API_TOKEN", "token")
         monkeypatch.setattr(view.bff_http, "get_json", get_json)
 
-        location = await view._resolve_storage_location("proj_1", "Plan.pdf", document_id=ENTWURF)
+        location = await view._resolve_storage_location("proj_1", "Plan.pdf", document_id=DRAFT)
 
-        assert location is not None and location.document_id == ENTWURF
-        assert asked == [{"collection": "proj_1", "filename": "Plan.pdf", "documentId": ENTWURF}]
+        assert location is not None and location.document_id == DRAFT
+        assert asked == [{"collection": "proj_1", "filename": "Plan.pdf", "documentId": DRAFT}]
 
     async def test_a_name_the_bff_finds_twice_is_raised_never_answered_with_the_newest(self, monkeypatch) -> None:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "token")
@@ -172,10 +172,10 @@ class TestTheStoredFileIsAskedForById:
         monkeypatch.setattr(view, "_resolve_storage_location", locate)
         monkeypatch.setattr(view, "_fetch_seaweed_bytes", lambda *_: _pdf())
 
-        result = await view.render_view("OIB-RL2.pdf", 1, "proj_1", document_id=ENTWURF)
+        result = await view.render_view("OIB-RL2.pdf", 1, "proj_1", document_id=DRAFT)
 
         assert isinstance(result, view.View) and "from collection 'proj_1'" in result.text
-        assert asked == [ENTWURF]
+        assert asked == [DRAFT]
 
 
 class TestALegacyRowWithoutAnId:

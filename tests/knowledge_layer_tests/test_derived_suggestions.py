@@ -123,7 +123,7 @@ class TestByTheTitleBlocks:
             == {}
         )
 
-    def test_a_namesake_in_another_folder_is_never_a_fassung(self):
+    def test_a_namesake_in_another_folder_is_never_a_revision(self):
         rows = [
             _row("Plan.pdf", {"document_number": "A-101", "revision": "B"}, document_id="doc-eg"),
             _row("Plan.pdf", {"document_number": "A-101", "revision": "C"}, document_id="doc-og"),

@@ -173,18 +173,18 @@ def test_existing_topics_and_capture_are_not_overwritten():
 
 
 def test_two_files_of_one_name_each_take_their_own_documents_summary():
-    bestand, entwurf = "aaaaaaaa-0000-4000-8000-00000000000a", "bbbbbbbb-0000-4000-8000-00000000000b"
+    bestand, draft = "aaaaaaaa-0000-4000-8000-00000000000a", "bbbbbbbb-0000-4000-8000-00000000000b"
     files = [_file("Plan.pdf"), _file("Plan.pdf")]
-    files[0].document_id, files[1].document_id = bestand, entwurf
+    files[0].document_id, files[1].document_id = bestand, draft
     summaries = [
-        AvailableDocument(file_name="Plan.pdf", document_id=entwurf, summary="Der Entwurf."),
-        AvailableDocument(file_name="Plan.pdf", document_id=bestand, summary="Der Bestand.", superseded_by_id=entwurf),
+        AvailableDocument(file_name="Plan.pdf", document_id=draft, summary="Der Entwurf."),
+        AvailableDocument(file_name="Plan.pdf", document_id=bestand, summary="Der Bestand.", superseded_by_id=draft),
     ]
 
     merged = _merge_summaries(files, summaries)
 
     assert [(file.summary, file.superseded_by_id) for file in merged] == [
-        ("Der Bestand.", entwurf),
+        ("Der Bestand.", draft),
         ("Der Entwurf.", None),
     ]
 
@@ -199,9 +199,9 @@ def test_a_summary_written_before_rows_carried_their_id_still_finds_its_file():
 
 
 def test_a_file_with_no_row_yet_never_takes_the_row_of_another_document_of_its_name():
-    bestand, entwurf = "aaaaaaaa-0000-4000-8000-00000000000a", "bbbbbbbb-0000-4000-8000-00000000000b"
+    bestand, draft = "aaaaaaaa-0000-4000-8000-00000000000a", "bbbbbbbb-0000-4000-8000-00000000000b"
     files = [_file("Plan.pdf"), _file("Plan.pdf")]
-    files[0].document_id, files[1].document_id = bestand, entwurf
+    files[0].document_id, files[1].document_id = bestand, draft
 
     merged = _merge_summaries(files, [AvailableDocument(file_name="Plan.pdf", document_id=bestand, summary="Nur A.")])
 

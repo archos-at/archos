@@ -94,7 +94,7 @@ class TestDocumentIdentity:
         assert document_identity(_doc("a.pdf", collection="proj_1")) == ("proj_1", "a.pdf")
 
     def test_two_documents_of_one_name_in_one_collection_are_two_documents(self):
-        bestand, entwurf = (
+        bestand, draft = (
             AvailableDocument(
                 file_name="Plan.pdf", collection="proj_1", shelf="project", folder_path=folder, document_id=i
             )
@@ -104,9 +104,9 @@ class TestDocumentIdentity:
             )
         )
 
-        kept = allocate_inventory([bestand, entwurf], None)
+        kept = allocate_inventory([bestand, draft], None)
 
-        assert kept == [bestand, entwurf]
+        assert kept == [bestand, draft]
         rendered = render_inventory_block(kept)
         assert "(Ordner: Bestand) (id aaaaaaaa-0000-4000-8000-00000000000a)" in rendered
         assert "(Ordner: Entwurf) (id bbbbbbbb-0000-4000-8000-00000000000b)" in rendered

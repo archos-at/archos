@@ -138,17 +138,22 @@ def _plan(conn, table: str, live: LiveDocuments) -> _Plan:
             plan.keys.append((filename, own_id))
         else:
             plan.unmatched["document_id"] += 1
-    for filename, document_id, superseded_by, superseded_by_id, suggestion in rows:
-        if superseded_by and not superseded_by_id:
-            newer_id = live.id_for(superseded_by)
-            if newer_id:
-                plan.links.append((filename, document_id, newer_id))
-            else:
-                plan.unmatched["superseded_by_id"] += 1
-        keyed = _with_ids(suggestion, live)
-        if keyed is not None:
-            plan.suggestions.append((filename, document_id, keyed))
+    for row in rows:
+        _plan_links(plan, row, live)
     return plan
+
+
+def _plan_links(plan: _Plan, row, live: LiveDocuments) -> None:
+    filename, document_id, superseded_by, superseded_by_id, suggestion = row
+    if superseded_by and not superseded_by_id:
+        newer_id = live.id_for(superseded_by)
+        if newer_id:
+            plan.links.append((filename, document_id, newer_id))
+        else:
+            plan.unmatched["superseded_by_id"] += 1
+    keyed = _with_ids(suggestion, live)
+    if keyed is not None:
+        plan.suggestions.append((filename, document_id, keyed))
 
 
 def _apply_keys(conn, table: str, plan: _Plan, collection: str) -> int:
@@ -201,31 +206,33 @@ def rekey_collection(store, live: LiveDocuments, *, apply: bool) -> list[StoreCo
     counts = []
     with store._sync_engine.begin() as conn:
         for table in _TABLES:
-            plan = _plan(conn, table, live)
-            before = _sizes(plan)
-            written = dict.fromkeys(before, 0)
-            if apply:
-                written["document_id"] = _apply_keys(conn, table, plan, live.collection)
-                keyed = _plan(conn, table, live)
-                written["superseded_by_id"] = _apply_values(
-                    conn, table, "superseded_by_id", keyed.links, live.collection
-                )
-                written["revision_suggestion"] = _apply_values(
-                    conn, table, "revision_suggestion", keyed.suggestions, live.collection
-                )
-                plan = _plan(conn, table, live)
-            after = _sizes(plan)
-            counts.extend(
-                StoreCount(
-                    f"{table}.{column}",
-                    before=before[column],
-                    written=written[column],
-                    after=after[column],
-                    unmatched=plan.unmatched.get(column, 0),
-                )
-                for column in before
-            )
+            counts.extend(_rekey_table(conn, table, live, apply=apply))
     return counts
+
+
+def _rekey_table(conn, table: str, live: LiveDocuments, *, apply: bool) -> list[StoreCount]:
+    plan = _plan(conn, table, live)
+    before = _sizes(plan)
+    written = dict.fromkeys(before, 0)
+    if apply:
+        written["document_id"] = _apply_keys(conn, table, plan, live.collection)
+        keyed = _plan(conn, table, live)
+        written["superseded_by_id"] = _apply_values(conn, table, "superseded_by_id", keyed.links, live.collection)
+        written["revision_suggestion"] = _apply_values(
+            conn, table, "revision_suggestion", keyed.suggestions, live.collection
+        )
+        plan = _plan(conn, table, live)
+    after = _sizes(plan)
+    return [
+        StoreCount(
+            f"{table}.{column}",
+            before=before[column],
+            written=written[column],
+            after=after[column],
+            unmatched=plan.unmatched.get(column, 0),
+        )
+        for column in before
+    ]
 
 
 def collections_to_rekey(store) -> list[str]:

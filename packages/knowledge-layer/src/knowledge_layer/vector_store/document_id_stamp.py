@@ -62,13 +62,18 @@ def _unstamped_files(client: QdrantClient, collection: str, *, page_size: int) -
             with_payload=[SCOPE_FIELD, "file_name"],
             with_vectors=False,
         )
-        for point in points:
-            payload = point.payload or {}
-            scope, file_name = payload.get(SCOPE_FIELD), payload.get("file_name")
-            if isinstance(scope, str) and isinstance(file_name, str) and file_name and is_tenant_scope(scope):
-                found[(scope, file_name)] = found.get((scope, file_name), 0) + 1
+        for key in filter(None, map(_tenant_file, points)):
+            found[key] = found.get(key, 0) + 1
         if offset is None:
             return found
+
+
+def _tenant_file(point: Any) -> tuple[str, str] | None:
+    payload = point.payload or {}
+    scope, file_name = payload.get(SCOPE_FIELD), payload.get("file_name")
+    if isinstance(scope, str) and isinstance(file_name, str) and file_name and is_tenant_scope(scope):
+        return (scope, file_name)
+    return None
 
 
 def _matched(files: dict[tuple[str, str], int], live: Callable[[str], LiveDocuments]) -> _Match:

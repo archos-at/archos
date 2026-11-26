@@ -20,7 +20,7 @@ const SUBMISSION = { id: '5a0d2e3f-4c5b-4d6e-9f70-8b9cad1e2f30', filename: 'Plan
 
 const request = (query = '?collection=proj_1', token: string | null = 'test-token'): Request =>
   new Request(`http://localhost/api/internal/document-ids${query}`, {
-    headers: token ? { 'x-grid-internal-token': token } : {},
+    headers: token ? { 'x-internal-token': token } : {},
   })
 
 describe('GET /api/internal/document-ids', () => {

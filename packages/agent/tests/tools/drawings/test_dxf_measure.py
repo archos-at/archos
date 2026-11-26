@@ -169,7 +169,7 @@ async def test_parallel_calls_on_one_file_parse_it_once(store: _Store, monkeypat
     assert store.reads == 1
 
 
-ENTWURF = "bbbbbbbb-0000-4000-8000-00000000000b"
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
 
 
 async def test_a_resolved_document_is_located_by_its_id_beside_its_name(
@@ -178,14 +178,14 @@ async def test_a_resolved_document_is_located_by_its_id_beside_its_name(
     from agent.tools.canvas.target import Target
 
     async def resolve(document: str) -> Resolved:
-        return Resolved(FILE, COLLECTION, Target(ENTWURF, FILE, COLLECTION))
+        return Resolved(FILE, COLLECTION, Target(DRAFT, FILE, COLLECTION))
 
     monkeypatch.setattr(source, "resolve_document", resolve)
 
     await _run(operation="overview")
 
     (call,) = store.looked_up  # type: ignore[attr-defined]
-    assert call["query"] == {"collection": COLLECTION, "filename": FILE, "documentId": ENTWURF}
+    assert call["query"] == {"collection": COLLECTION, "filename": FILE, "documentId": DRAFT}
 
 
 async def test_a_name_the_bff_finds_twice_is_a_question_not_the_newest_file(

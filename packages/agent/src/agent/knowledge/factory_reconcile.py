@@ -56,13 +56,7 @@ def reconcile_collection_summaries(
 
     backfilled = 0
     for file_name, document_id in sorted(missing, key=lambda ref: (ref.file_name, ref.document_id or "")):
-        text_sample = None
-        if callable(sample_fn):
-            try:
-                text_sample = sample_fn(collection, file_name, document_id=document_id)
-            except Exception as e:
-                logger.warning("Reconciliation: failed to sample text for %s in %s: %s", file_name, collection, e)
-
+        text_sample = _text_sample(sample_fn, collection, file_name, document_id)
         summary = fallback_summary_from_text(text_sample) if text_sample else None
         if not summary:
             summary = f"Indexed document: {file_name}"
@@ -83,3 +77,13 @@ def reconcile_collection_summaries(
         collection,
     )
     return backfilled
+
+
+def _text_sample(sample_fn, collection: str, file_name: str, document_id: str | None) -> str | None:
+    if not callable(sample_fn):
+        return None
+    try:
+        return sample_fn(collection, file_name, document_id=document_id)
+    except Exception as e:
+        logger.warning("Reconciliation: failed to sample text for %s in %s: %s", file_name, collection, e)
+        return None

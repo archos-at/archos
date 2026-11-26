@@ -447,7 +447,7 @@ class TestReadingOneOfTwoNamesakes:
         target = PassageTarget(collection="base_corpus", file_name="oib-rl_2.pdf", shelf=None)
         assert target.selector == {"file_name": {"$eq": "oib-rl_2.pdf"}}
 
-    async def test_the_older_namesake_points_at_its_own_newer_fassung(self, monkeypatch):
+    async def test_the_older_namesake_points_at_its_own_newer_revision(self, monkeypatch):
         documents = [
             _document("doc-eg", "Einreichung", superseded_by="Plan Index B.txt", superseded_by_id="doc-eg-b"),
             _document("doc-og", "Ausführung/OG", superseded_by=None, superseded_by_id=None),

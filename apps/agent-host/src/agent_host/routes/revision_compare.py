@@ -76,7 +76,7 @@ class RevisionPagesRequest(RevisionPair): ...
 
 
 @dataclass(frozen=True)
-class Fassungen:
+class IngestedRevisions:
     older: AvailableDocument
     newer: AvailableDocument
 
@@ -136,7 +136,7 @@ async def _load_page(
     return await load_page_jpeg(collection, file_name, page, organization_id=organization_id, document_id=document_id)
 
 
-async def _pages(collection: str, pair: Fassungen, page: int, organization_id: str | None) -> tuple[bytes, bytes]:
+async def _pages(collection: str, pair: IngestedRevisions, page: int, organization_id: str | None) -> tuple[bytes, bytes]:
     from knowledge_layer.page_image import PageImageUnavailable
 
     async def one(side: str, document: AvailableDocument) -> bytes:
@@ -250,7 +250,7 @@ def _stored_chunks(collection: str, document: AvailableDocument) -> list[revisio
     return [chunk for text, meta in stored if (chunk := revision_diff.chunk_from_store(text, meta)) is not None]
 
 
-async def _ingested_or_409(collection_name: str, request: RevisionPair) -> Fassungen:
+async def _ingested_or_409(collection_name: str, request: RevisionPair) -> IngestedRevisions:
     from .document_revisions import pick_document
 
     documents = await get_available_documents_async(collection_name)
@@ -268,10 +268,10 @@ async def _ingested_or_409(collection_name: str, request: RevisionPair) -> Fassu
     ]
     if missing or older is None or newer is None:
         raise HTTPException(status_code=409, detail=f"Not ingested in collection '{collection_name}': {missing!r}")
-    return Fassungen(older, newer)
+    return IngestedRevisions(older, newer)
 
 
-async def _changed_pages(collection: str, pair: Fassungen, office: str | None) -> RevisionPagesResponse:
+async def _changed_pages(collection: str, pair: IngestedRevisions, office: str | None) -> RevisionPagesResponse:
     from knowledge_layer.search import reading_as
 
     try:

@@ -17,7 +17,7 @@ from agent_host.routes.documents import add_document_routes
 
 COLLECTION = "proj_a"
 BESTAND = "aaaaaaaa-0000-4000-8000-00000000000a"
-ENTWURF = "bbbbbbbb-0000-4000-8000-00000000000b"
+DRAFT = "bbbbbbbb-0000-4000-8000-00000000000b"
 BY_ID = f"/v1/collections/{COLLECTION}/documents/by-id"
 
 
@@ -28,7 +28,7 @@ def store(tmp_path: Path, monkeypatch):
     configure_summary_db(db_url)
     store = DocumentMetadataStore(db_url)
     store.register(COLLECTION, "Plan.pdf", "Der Bestand.", ["Grundriss"], document_id=BESTAND)
-    store.register(COLLECTION, "Plan.pdf", "Der Entwurf.", ["Grundriss"], document_id=ENTWURF)
+    store.register(COLLECTION, "Plan.pdf", "Der Entwurf.", ["Grundriss"], document_id=DRAFT)
     monkeypatch.setattr(document_edits, "stored_file_name", lambda collection, document_id: "Plan.pdf")
     yield store
     with DocumentMetadataStore._cache_lock:
@@ -79,12 +79,12 @@ def _by_id(store: DocumentMetadataStore) -> dict[str, object]:
 async def test_an_edit_by_id_touches_only_that_document_of_a_shared_name(app, store, suffix, body, field, value):
     before = getattr(_by_id(store)[BESTAND], field)
 
-    response = await _patch(app, f"{BY_ID}/{ENTWURF}/{suffix}", body)
+    response = await _patch(app, f"{BY_ID}/{DRAFT}/{suffix}", body)
 
     assert response.status_code == 200
-    assert response.json()["document_id"] == ENTWURF and response.json()["file_name"] == "Plan.pdf"
+    assert response.json()["document_id"] == DRAFT and response.json()["file_name"] == "Plan.pdf"
     documents = _by_id(store)
-    assert getattr(documents[ENTWURF], field) == value
+    assert getattr(documents[DRAFT], field) == value
     assert getattr(documents[BESTAND], field) == before
 
 
@@ -107,21 +107,21 @@ async def test_the_file_name_of_one_document_is_rewritten_by_its_id(app, store, 
     renamed: list[tuple[str, str, str, str | None]] = []
     monkeypatch.setattr("agent.knowledge.factory._rename_points", lambda *arguments: renamed.append(arguments) or None)
 
-    response = await _patch(app, f"{BY_ID}/{ENTWURF}/file-name", {"file_name": "Plan 2.pdf"})
+    response = await _patch(app, f"{BY_ID}/{DRAFT}/file-name", {"file_name": "Plan 2.pdf"})
 
     assert response.status_code == 200
-    assert response.json() == {"collection_name": COLLECTION, "document_id": ENTWURF, "file_name": "Plan 2.pdf"}
+    assert response.json() == {"collection_name": COLLECTION, "document_id": DRAFT, "file_name": "Plan 2.pdf"}
     documents = _by_id(store)
-    assert (documents[ENTWURF].file_name, documents[BESTAND].file_name) == ("Plan 2.pdf", "Plan.pdf")
-    assert renamed == [(COLLECTION, ENTWURF, "Plan 2.pdf", "Plan.pdf")]
+    assert (documents[DRAFT].file_name, documents[BESTAND].file_name) == ("Plan 2.pdf", "Plan.pdf")
+    assert renamed == [(COLLECTION, DRAFT, "Plan 2.pdf", "Plan.pdf")]
 
 
 async def test_visual_details_by_id_ask_the_index_for_that_document(app, store, ingestor):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get(f"{BY_ID}/{ENTWURF}/visual-details")
+        response = await client.get(f"{BY_ID}/{DRAFT}/visual-details")
 
     assert response.json() == {"details": [{"page": 2}]}
-    ingestor.get_document_visual_details.assert_called_once_with(COLLECTION, "", document_id=ENTWURF)
+    ingestor.get_document_visual_details.assert_called_once_with(COLLECTION, "", document_id=DRAFT)
 
 
 async def test_the_name_route_still_edits_a_document_whose_name_is_its_own(app, tmp_path, monkeypatch):
