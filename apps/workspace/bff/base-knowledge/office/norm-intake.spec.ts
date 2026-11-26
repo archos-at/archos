@@ -206,7 +206,7 @@ describe('proposing an Ordner file as a norm (“Aus Ordnern übernehmen”, bas
       { filedFrom: { folderId: 'folder-plans' } },
     )
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-plans' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-plans', onConflict: 'keep_both' }, MANAGER)
   })
 
   it('links a held work as a new edition', async () => {
@@ -241,7 +241,7 @@ describe('taking an Ordner file as a norm', () => {
       { filedFrom: { folderId: 'folder-normen' } },
     )
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-normen' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-normen', onConflict: 'keep_both' }, MANAGER)
     expect(vi.mocked(recordProposal).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(moveDocumentToFolder).mock.invocationCallOrder[0])
   })
 

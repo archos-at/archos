@@ -11,9 +11,7 @@ export const renameDocumentSchema = z.object({
 
 export const moveDocumentSchema = z.object({
   folderId: z.guid().nullable(),
-  onConflict: nameConflictResolutionSchema
-    .optional()
-    .describe('After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.'),
+  onConflict: nameConflictResolutionSchema.optional(),
 })
 
 export const updateTagsSchema = z.object({

@@ -400,7 +400,7 @@ export async function dropBaseKnowledgeRecords(session: AuthorizedSession, store
 export async function unlistBaseKnowledge(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeUnlisting> {
   requireManage(session)
   const { stored, entry } = await findEntry(session, entryId)
-  const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: null }, session)
+  const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: null, onConflict: 'keep_both' }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
   await unlistDocumentEntry(session.organizationId, stored.documentId)
   await keepAsOrdinaryFiles(session.organizationId, [stored.documentId], session.userId)
@@ -414,7 +414,7 @@ export async function relistBaseKnowledge(session: AuthorizedSession, entryId: s
   const parked = (await readOfficeEntries(session.organizationId, undefined, { unlisted: true })).find((entry) => entry.editionId === entryId)
   if (!parked) throw new NotFoundError('No entry taken off the norms with this id: its file was proposed again or removed.')
   const target = folderId && (await isStandardsFolder(session, folderId)) ? folderId : (await standardsRoot(session.organizationId)).id
-  const moved = await moveDocumentToFolder({ documentId: parked.documentId, folderId: target }, session)
+  const moved = await moveDocumentToFolder({ documentId: parked.documentId, folderId: target, onConflict: 'keep_both' }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
   if (!(await relistDocumentEntry(session.organizationId, parked.documentId))) {
     throw new NotFoundError('No entry taken off the norms with this id: its file was proposed again or removed.')

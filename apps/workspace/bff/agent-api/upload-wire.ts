@@ -57,9 +57,7 @@ export const documentUploadFields = {
 } satisfies Record<string, z.ZodType>
 
 export const uploadConflictField = {
-  onConflict: nameConflictResolutionSchema
-    .optional()
-    .describe('After a 409 name_conflict, the person’s answer: replace, keep_both (as suggestedName) or skip.'),
+  onConflict: nameConflictResolutionSchema.optional(),
 } satisfies Record<string, z.ZodType>
 
 export const uploadBodySchema = z.object({

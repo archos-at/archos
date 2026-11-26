@@ -79,7 +79,7 @@ export const documentsOperations = [
     summary: 'Rename a document',
     description:
       'Set the name ' + PRODUCT_NAME + ' shows for a document (`displayName`); `null` clears it so the file name shows again. ' +
-      'The stored file name never changes; a name its folder holds answers 409. Needs write access to the document’s project or shelf.',
+      'The stored file name never changes. Needs write access to the document’s project or shelf.',
     method: 'PATCH',
     path: '/api/documents/[id]',
     params: documentParams,
@@ -247,8 +247,8 @@ export const documentsOperations = [
     summary: 'Cancel a document’s running ingestion',
     description:
       'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. ' +
-      '`result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` ' +
-      'is the status the document holds afterwards, which is not `cancelled` when the read ended first.',
+      '`result` says what the stop did (`cancelled`, `finished` if the read had ended, `unavailable`); `status` is the ' +
+      'document’s status afterwards.',
     method: 'POST',
     path: '/api/documents/[id]/cancel',
     params: documentParams,
@@ -351,7 +351,7 @@ export const documentsOperations = [
       'Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. ' +
       'With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), ' +
       'for a person who wants it printed or attached. ' +
-      'The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. ' +
+      'The link expires in minutes and is minted for this person: hand it on at once; call again for a fresh one. ' +
       'The bytes are not sent here; for a PDF use document-file-get. Records the access.',
     method: 'GET',
     path: '/api/documents/[id]/download',
@@ -418,9 +418,9 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Attach a file to a conversation',
     description:
-      `Stores one file privately on one conversation (not in any project shelf) and ingests it for that conversation. ${SIZE_NOTE} ` +
-      'Send `body.files[0]` as { name, mimeType, contentBase64 } and `body.fields.conversationId`; the conversation is created ' +
-      'when it does not exist yet. Returns `{ documentId, jobId, status, filename }`; follow ingestion with document-status.',
+      `Stores one file privately on one conversation, outside every project shelf, and ingests it there. ${SIZE_NOTE} ` +
+      'Send `body.files[0]` as { name, mimeType, contentBase64 } and `body.fields.conversationId` (created if missing). ' +
+      'Returns `{ documentId, jobId, status, filename }`; follow ingestion with document-status.',
     method: 'POST',
     path: '/api/session/documents/upload',
     body: sessionUploadBody,

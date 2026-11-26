@@ -164,7 +164,7 @@ describe('settling the norm dialog', () => {
     expect(results[0].outcome).toBe('duplicate_returned')
     expect(removeEntry).not.toHaveBeenCalled()
     expect(confirmBaseKnowledge).not.toHaveBeenCalled()
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'dupfolder', folderId: 'folder-plans' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'dupfolder', folderId: 'folder-plans', onConflict: 'keep_both' }, MANAGER)
     expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_dupfolder'))
     expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['dupfolder'], 'user-1')
   })
@@ -198,9 +198,9 @@ describe('settling the norm dialog', () => {
     )
 
     expect(vi.mocked(moveDocumentToFolder).mock.calls.map(([input]) => input)).toEqual([
-      { documentId: 'plan', folderId: 'folder-plans' },
-      { documentId: 'gonefolder', folderId: null },
-      { documentId: 'topfolder', folderId: null },
+      { documentId: 'plan', folderId: 'folder-plans', onConflict: 'keep_both' },
+      { documentId: 'gonefolder', folderId: null, onConflict: 'keep_both' },
+      { documentId: 'topfolder', folderId: null, onConflict: 'keep_both' },
     ])
     expect(vi.mocked(moveDocumentToFolder).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(dropBaseKnowledgeRecords).mock.invocationCallOrder[0])
   })

@@ -20,7 +20,10 @@ export interface NameConflict {
 
 export class NameConflictError extends ConflictError {
   constructor(readonly conflict: NameConflict) {
-    super(`A document named "${conflict.existingName}" is already in this folder.`, conflict)
+    super(
+      `A document named "${conflict.existingName}" is already in this folder. Ask the person, then send onConflict: replace, keep_both (stored as suggestedName) or skip.`,
+      conflict,
+    )
   }
 }
 
