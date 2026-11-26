@@ -7,6 +7,12 @@ import { FILING_CHOICE_METADATA_KEY } from '../filing-choice-key'
 import { statusesAccepting, type DocumentReadingEvent } from '../reading-lifecycle'
 import { sameDispatch } from './reconcile'
 import { shelfDocumentsOf, type SharedShelf } from '../shelf'
+import {
+  documentNamesLockKey,
+  findLiveDocumentByFilename,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './lookup-by-ref'
 
 export async function deleteProjectDocument(
   documentId: string,
@@ -38,17 +44,25 @@ export async function deleteShelfDocumentRow(
   )
 }
 
-export async function setDocumentDisplayName(
-  documentId: string,
+export async function setDocumentDisplayNameInFolder(
   organizationId: string,
+  place: DocumentNamePlace,
+  documentId: string,
   displayName: string | null,
-): Promise<void> {
+  shownName: string,
+): Promise<LiveDocumentNameHolder | null> {
   const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(documents)
-      .set({ displayName, updatedAt: new Date() })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId))),
+  return withTenant({ organizationId }, () =>
+    db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${documentNamesLockKey(organizationId, place)}, 0))`)
+      const holder = await findLiveDocumentByFilename(organizationId, place, shownName, { excluding: documentId, executor: tx })
+      if (holder) return holder
+      await tx
+        .update(documents)
+        .set({ displayName, updatedAt: new Date() })
+        .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId)))
+      return null
+    }),
   )
 }
 

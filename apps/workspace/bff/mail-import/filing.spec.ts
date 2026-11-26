@@ -7,7 +7,6 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/folder-path', () => ({ resolveShelfFolderPath: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({
   findLiveDocumentByFilename: vi.fn(async () => null),
-  findProjectCollectionsHoldingFilename: vi.fn(async () => []),
 }))
 vi.mock('@/lib/documents/upload-type', () => ({ assertUploadTypeAllowed: vi.fn() }))
 vi.mock('@/lib/storage/upload-limit', () => ({ assertFileSizeAllowed: vi.fn() }))
@@ -57,7 +56,7 @@ import { folderReadOnlyError } from '@/lib/authz/folder-access-rule'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { MailImport } from '@/lib/db/schema/mail-imports'
 import { resolveShelfFolderPath } from '@/lib/documents/folder-path'
-import { findLiveDocumentByFilename, findProjectCollectionsHoldingFilename } from '@/lib/documents/repository'
+import { findLiveDocumentByFilename } from '@/lib/documents/repository'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { assertUploadTypeAllowed } from '@/lib/documents/upload-type'
 import { assertFileSizeAllowed } from '@/lib/storage/upload-limit'
@@ -146,11 +145,8 @@ function uploadedNames(): string[] {
 }
 
 function projectHolds(byName: Record<string, { collection: string; folderId: string }[]>): void {
-  vi.mocked(findProjectCollectionsHoldingFilename).mockImplementation(async (_org, _project, name) =>
-    (byName[name] ?? []).map((held) => held.collection),
-  )
-  vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, collection, name) => {
-    const held = (byName[name] ?? []).find((entry) => entry.collection === collection)
+  vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place, name) => {
+    const held = (byName[name] ?? []).find((entry) => entry.folderId === place.folderId)
     return held ? ({ folderId: held.folderId } as never) : null
   })
 }
@@ -275,7 +271,7 @@ describe('fileMail', () => {
     expect(vi.mocked(uploadDocument).mock.calls[0][1].folderId).toBe('folder_earlier')
   })
 
-  it('numbers a file whose name another folder of the project already has, and reuses it in its own folder', async () => {
+  it('files a name another folder of the project has under that very name, and reuses it in its own folder', async () => {
     const two: ArchiveMail = {
       ...mail,
       attachments: [
@@ -289,10 +285,23 @@ describe('fileMail', () => {
     })
 
     await fileMail(await context(), two)
-    expect(uploadedNames()).toEqual([`${LEAF} – Plan (2).pdf`, `${LEAF} – Schnitt.pdf`])
+    expect(uploadedNames()).toEqual([`${LEAF} – Plan.pdf`, `${LEAF} – Schnitt.pdf`])
   })
 
-  it('probes a name across every collection of the project, so a restricted folder’s document is numbered past, not superseded', async () => {
+  it('numbers the second of two attachments whose names differ only in case, as the folder holds one of them', async () => {
+    const twins: ArchiveMail = {
+      ...mail,
+      attachments: [
+        { index: 0, filename: 'Plan.pdf', content_type: 'application/pdf', size: 3, inline: false, embedded_message: false },
+        { index: 1, filename: 'PLAN.pdf', content_type: 'application/pdf', size: 3, inline: false, embedded_message: false },
+      ],
+    }
+
+    await fileMail(await context(), twins)
+    expect(uploadedNames()).toEqual([`${LEAF} – Plan.pdf`, `${LEAF} – PLAN (2).pdf`])
+  })
+
+  it('probes the mail’s own folder only: a document of that name in a restricted folder elsewhere is another document', async () => {
     const two: ArchiveMail = {
       ...mail,
       attachments: [
@@ -309,8 +318,8 @@ describe('fileMail', () => {
     })
 
     await fileMail(await context(), two)
-    expect(uploadedNames()).toEqual([`${LEAF} – Plan (2).pdf`, `${LEAF} – Schnitt (2).pdf`])
-    expect(findProjectCollectionsHoldingFilename).toHaveBeenCalledWith('org_1', 'p1', `${LEAF} – Plan.pdf`)
+    expect(uploadedNames()).toEqual([`${LEAF} – Plan.pdf`, `${LEAF} – Schnitt.pdf`])
+    expect(findLiveDocumentByFilename).toHaveBeenCalledWith('org_1', { folderId: 'folder_mail' }, `${LEAF} – Plan.pdf`)
   })
 
   it('files a retry into a restricted mail folder under the same name, its own collection holding it', async () => {
@@ -454,10 +463,7 @@ describe('fileMail', () => {
     const held = { id: 'doc_held', folderId: 'folder_earlier', authoredBy: 'user', screeningOutcome: null, contentHash: 'h1', screenedHash: null }
 
     async function retry(existing: Record<string, unknown>) {
-      vi.mocked(findProjectCollectionsHoldingFilename).mockImplementation(async (_org, _project, name) =>
-        name === PLAN ? ['proj_p1'] : [],
-      )
-      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, _collection, name) =>
+      vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, _place, name) =>
         name === PLAN ? (existing as never) : null,
       )
       vi.mocked(uploadDocument).mockImplementation(async (_session, input) => {
@@ -471,7 +477,6 @@ describe('fileMail', () => {
     }
 
     afterEach(() => {
-      vi.mocked(findProjectCollectionsHoldingFilename).mockImplementation(async () => [])
       vi.mocked(findLiveDocumentByFilename).mockReset()
       vi.mocked(uploadDocument).mockReset()
       vi.mocked(resolveShelfFolderPath).mockReset()

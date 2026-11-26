@@ -39,14 +39,22 @@ class ResolvedDocument:
     source: DocumentSource
     folder_path: str
     document_id: str | None = None
+    display_title: str = ""
 
     @property
     def path(self) -> str:
         return f"{self.folder_path}/{self.file_name}" if self.folder_path else self.file_name
 
+    def holds(self, name: str) -> bool:
+        return _name_match_key(name) in {_name_match_key(self.file_name), _name_match_key(self.display_title)}
+
     def shown(self) -> str:
         where = f"in „{self.folder_path}“" if self.folder_path else "at the top level"
         return f"`{self.file_name}` {where}" + (f" (document id {self.document_id})" if self.document_id else "")
+
+
+def _name_match_key(name: str) -> str:
+    return unicodedata.normalize("NFC", name or "").strip().lower()
 
 
 def _rows() -> list[ResolvedDocument]:
@@ -62,6 +70,7 @@ def _rows() -> list[ResolvedDocument]:
                 source=source,
                 folder_path=_nfc(str(_attr(row, "folder_path") or "")).strip("/"),
                 document_id=str(_attr(row, "document_id") or "").strip() or None,
+                display_title=_nfc(str(_attr(row, "display_title") or "")),
             )
         )
     return out
@@ -109,6 +118,11 @@ def resolve_document(name: str) -> ResolvedDocument | Refusal:
         f"Not found: „{_nfc(name)}“ is not in this conversation's file overview. Give the "
         "exact file name from the overview or ask the user for it — do not guess."
     )
+
+
+def documents_in(folder_path: str, source: DocumentSource) -> list[ResolvedDocument]:
+    wanted = _key(folder_path).strip("/")
+    return [doc for doc in _rows() if doc.source == source and _key(doc.folder_path) == wanted]
 
 
 def known_folders() -> list[str]:

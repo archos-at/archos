@@ -212,11 +212,11 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   },
   'lib/documents/repository/lookup-by-ref.ts#findLiveDocumentByFilename': {
     makes: ['internal:identity'],
-    why: 'The name probe of an upload; a held row of another person answers as taken (`assertMayReplaceHeld`).',
+    why: 'The name probe of an upload, a move and a rename into one folder; a held row of another person answers as taken (`assertMayReplaceHeld`).',
   },
-  'lib/documents/repository/lookup-by-ref.ts#findProjectCollectionsHoldingFilename': {
+  'lib/documents/repository/lookup-by-ref.ts#findTakenDocumentNameKeys': {
     makes: ['internal:identity'],
-    why: 'Which collections already hold a filename: identity, over every row.',
+    why: 'Which numbered names a folder already holds, so „Beide behalten“ picks a free one: the unique index answers over every row, held ones included. Names only, into a suggestion.',
   },
   'lib/documents/repository/storage.ts#findStorageKeyByIdAndCollection': {
     makes: ['internal:ingest'],

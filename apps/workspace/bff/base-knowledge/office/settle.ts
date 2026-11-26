@@ -63,7 +63,10 @@ async function keepProposed(
 async function keepAsOrdinaryFile(session: AuthorizedSession, stored: StoredEntry, lies: string | null, { topics, ordner }: Place): Promise<void> {
   if (lies && topics.has(lies)) {
     const origin = stored.provenance.filedFrom?.folderId ?? null
-    const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: origin && ordner.has(origin) ? origin : null }, session)
+    const moved = await moveDocumentToFolder(
+      { documentId: stored.documentId, folderId: origin && ordner.has(origin) ? origin : null, onConflict: 'keep_both' },
+      session,
+    )
     if (!moved.ok) throw new UnprocessableError(moved.error)
   }
   await dropBaseKnowledgeRecords(session, stored)

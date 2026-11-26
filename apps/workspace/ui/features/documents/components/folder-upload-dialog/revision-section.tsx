@@ -28,17 +28,11 @@ import { CandidatePick, ProposalBox } from './revision-controls'
 
 export function RevisionSection({
   plan,
-  updates,
-  includeUpdates,
-  onIncludeUpdatesChange,
   pending,
   destination,
   onRevisionChange,
 }: {
   plan: FolderUploadPlan
-  updates: number
-  includeUpdates: boolean
-  onIncludeUpdatesChange: (include: boolean) => void
   pending: boolean
   destination: string
   onRevisionChange?: (change: RevisionChange) => void
@@ -46,32 +40,15 @@ export function RevisionSection({
   const t = useTranslations(filesCopy)
   const proposals = useMemo(() => groupRevisionProposals(plan.files), [plan.files])
   const { detected, unclear } = proposals
-  if (updates === 0 && detected.length === 0 && unclear.length === 0) return null
+  if (detected.length === 0 && unclear.length === 0) return null
   const disabled = pending || !onRevisionChange
   return (
     <DecisionSection
       icon={History}
-      title={t('folderUpload.revision.title', { count: updates + detected.length || unclear.length })}
+      title={t('folderUpload.revision.title', { count: detected.length || unclear.length })}
       data-testid="folder-upload-revisions"
     >
-      {(detected.length > 0 || unclear.length > 0) && <DecisionNote>{t('folderUpload.revision.consequence')}</DecisionNote>}
-
-      {updates > 0 && (
-        <DecisionRow
-          data-testid="folder-upload-include-updates"
-          muted={!includeUpdates}
-          control={
-            <Checkbox
-              checked={includeUpdates}
-              onCheckedChange={(checked) => onIncludeUpdatesChange(checked === true)}
-              disabled={pending}
-              aria-label={t('folderUpload.revision.sameNameTitle', { count: updates })}
-            />
-          }
-          title={<span className="font-medium">{t('folderUpload.revision.sameNameTitle', { count: updates })}</span>}
-          detail={t('folderUpload.revision.sameNameReason')}
-        />
-      )}
+      <DecisionNote>{t('folderUpload.revision.consequence')}</DecisionNote>
 
       {detected.length > 0 && (
         <DetectedProposals proposals={proposals} disabled={disabled} destination={destination} onRevisionChange={onRevisionChange} />

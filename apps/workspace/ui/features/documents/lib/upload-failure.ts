@@ -12,6 +12,7 @@ export interface UploadFailureCopy {
   screeningUnavailable: string
   storageFull: string
   nameTaken: (name: string) => string
+  nameConflict: (name: string) => string
   heldReplace: (name: string) => string
   tooLarge: (name: string, limitBytes: number | null) => string
   invalidType: (name: string, accepted: string[]) => string
@@ -30,6 +31,8 @@ export function refusalSentence(refusal: UploadRefusal, copy: UploadFailureCopy,
       return copy.heldReplace(fileName)
     case 'name-taken':
       return copy.nameTaken(fileName)
+    case 'name-conflict':
+      return copy.nameConflict(refusal.conflict.name)
     case 'project-closed':
       return copy.projectClosed
     case 'folder-read-only':

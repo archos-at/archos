@@ -118,14 +118,10 @@ def resolve_node(rows: Mapping[str, _LinkRow], file_name: str | None, document_i
     return holders[0] if holders else node_key(file_name, None)
 
 
-def _match(filename: str, document_id: str | None, *, table: str = TABLE_NAME) -> tuple[str, dict[str, Any]]:
+def _match(filename: str, document_id: str | None) -> tuple[str, dict[str, Any]]:
     if not document_id:
-        return "filename = :filename", {"filename": filename}
-    return (
-        "(document_id = :document_id OR (document_id IS NULL AND filename = :filename "
-        f"AND NOT EXISTS (SELECT 1 FROM {table} AS keyed "
-        "WHERE keyed.collection = :collection AND keyed.document_id = :document_id)))"
-    ), {"filename": filename, "document_id": document_id}
+        return "document_id IS NULL AND filename = :filename", {"filename": filename}
+    return "document_id = :document_id", {"document_id": document_id}
 
 
 def _stamp(document_id: str | None) -> str:
@@ -138,7 +134,7 @@ def _batch_match(filenames: Iterable[str], document_ids: Iterable[str] | None) -
     clauses = []
     params: dict[str, Any] = {}
     if names:
-        clauses.append("filename IN :filenames")
+        clauses.append("(document_id IS NULL AND filename IN :filenames)")
         params["filenames"] = names
     if ids:
         clauses.append("document_id IN :document_ids")
@@ -157,10 +153,9 @@ def _batch_bind(statement: Any, params: Mapping[str, Any]) -> Any:
 
 
 def _batch_keys(filename: str, document_id: str | None, names: set[str], ids: set[str]) -> list[str]:
-    keys = [document_id] if document_id and document_id in ids else []
-    if filename in names:
-        keys.append(filename)
-    return keys
+    if document_id:
+        return [document_id] if document_id in ids else []
+    return [filename] if filename in names else []
 
 
 def _exact_match(filename: str, document_id: str | None) -> tuple[str, dict[str, Any]]:

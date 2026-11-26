@@ -3,7 +3,7 @@ export const NAME_TAKEN_REASON = 'name_taken'
 export const NAME_TAKEN_DETAILS = { reason: NAME_TAKEN_REASON } as const
 
 export function nameTakenMessage(filename: string): string {
-  return `A document named "${filename}" already exists in this project. Rename the file to upload it.`
+  return `A document named "${filename}" is already in this folder. Choose another name.`
 }
 
 export function isNameTakenBody(body: unknown): boolean {

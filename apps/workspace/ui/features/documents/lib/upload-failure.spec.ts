@@ -20,6 +20,7 @@ const copy: UploadFailureCopy = {
   screeningUnavailable: t('errors.screeningPolicyUnavailable'),
   storageFull: t('errors.uploadStorageFull'),
   nameTaken: (name) => t('errors.nameTaken', { name }),
+  nameConflict: (name) => t('errors.nameConflict', { name }),
   heldReplace: (name) => t('errors.quarantinedReplace', { name }),
   tooLarge: (name, limit) =>
     limit === null ? t('errors.uploadTooLarge', { name }) : t('errors.uploadTooLargeLimit', { name, limit: '100 MB' }),

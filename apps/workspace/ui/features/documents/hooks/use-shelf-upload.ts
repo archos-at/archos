@@ -6,11 +6,16 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { FolderItem } from '../file-types'
 import { takeDroppedFiles } from '../lib/dropped-file-handover'
-import { filesToUpload, samePlanOutcome, type FolderUploadPlan, type PlannedMove } from '../lib/folder-upload-plan'
+import { droppedPath, filesToUpload, samePlanOutcome, type FolderUploadPlan } from '../lib/folder-upload-plan'
+import type { NameConflict } from '@/lib/documents/name-conflict'
+import { uploadConflictRow, type SentConflictChoice } from '../lib/name-conflict'
 import { isZipArchive } from '../lib/zip-types'
 import { splitMailArchives } from '../lib/mail-archive'
 import type { FileShelf, ShelfEndpoints, ShelfUploadApi } from '../lib/file-shelf'
 import { useUploadDecision, type SettledPlan } from './use-upload-decision'
+import { useNameConflictPrompt } from './use-name-conflict-prompt'
+import type { UploadFilesOptions } from './file-upload-types'
+import { sealHeldUploadBatch, type HeldUploadBatch } from '../lib/upload-batch'
 import { UploadScreeningPolicyUnavailableError } from '@/adapters/api/upload-screening-policy'
 
 export interface ShelfUploadOptions {
@@ -51,8 +56,10 @@ export function useShelfUpload({
 }: ShelfUploadOptions) {
   const t = useTranslations(filesCopy)
   const decision = useUploadDecision({ projectId: shelf.projectId ?? null })
-  const { propose, setReleased, settle, changeRevision, plan, setOpen, setPending } = decision
+  const { propose, setReleased, settle, changeRevision, changeConflict, plan, setOpen, setPending } = decision
   const { uploadFiles } = upload
+  const conflictPrompt = useNameConflictPrompt()
+  const { ask } = conflictPrompt
   const { probeNames, probeRevisions, handoverKey, takeMailArchives } = shelf
   const ensureUrl = `${shelf.endpoints.folders}/ensure`
 
@@ -62,6 +69,45 @@ export function useShelfUpload({
   )
 
   const base = useRef<{ folderId: string | null; path: string | null }>({ folderId: null, path: null })
+
+  const send = useCallback(
+    (files: File[], options: UploadFilesOptions): Promise<number> => {
+      const go = (batch: File[], sent: UploadFilesOptions): Promise<number> =>
+        uploadFiles(batch, { ...sent, onNameConflicts: (conflicts, held, asked) => void answer(conflicts, asked, held) })
+      async function answer(
+        conflicts: ReadonlyArray<{ file: File; conflict: NameConflict }>,
+        sent: UploadFilesOptions,
+        held: HeldUploadBatch | null
+      ) {
+        const choices = await ask({
+          operation: 'upload',
+          folderName: '',
+          rows: conflicts.map(({ file, conflict }, index) =>
+            uploadConflictRow({ key: String(index), path: droppedPath(file), name: file.name }, conflict)
+          ),
+        })
+        const chosen = new Map<File, SentConflictChoice>()
+        conflicts.forEach(({ file }, index) => {
+          const choice = choices?.get(String(index))
+          if (choice && choice !== 'skip') chosen.set(file, choice)
+        })
+        const skipped = conflicts.length - chosen.size
+        if (chosen.size === 0) {
+          if (held) await sealHeldUploadBatch(held, skipped)
+          return
+        }
+        await go([...chosen.keys()], {
+          ...sent,
+          excludedByScreening: [],
+          onConflict: (file) => chosen.get(file) ?? null,
+          ...(held ? { continueBatch: { ...held, unchanged: held.unchanged + skipped } } : {}),
+        })
+        await loadFiles(true)
+      }
+      return go(files, options)
+    },
+    [ask, uploadFiles, loadFiles]
+  )
 
   const unpackArchives = useCallback(
     async (incoming: File[]): Promise<File[]> => {
@@ -95,8 +141,7 @@ export function useShelfUpload({
               currentFolderId: target.folderId,
               screeningBasePath: target.path,
             },
-            (direct) =>
-              void uploadFiles(direct, { folderIdFor: () => target.folderId, folderPathFor: () => target.path })
+            (direct) => void send(direct, { folderIdFor: () => target.folderId, folderPathFor: () => target.path })
           )
         })
         .catch((error: unknown) => {
@@ -107,7 +152,7 @@ export function useShelfUpload({
           )
         })
     },
-    [unpackArchives, propose, probeNames, probeRevisions, uploadFiles, folders, pathOf, t]
+    [unpackArchives, propose, probeNames, probeRevisions, send, folders, pathOf, t]
   )
 
   const queue = useRef<QueuedDrop[]>([])
@@ -179,22 +224,6 @@ export function useShelfUpload({
     [ensureUrl, setPending, t]
   )
 
-  const applyMoves = useCallback(
-    (moves: readonly PlannedMove[], byPath: Record<string, string>) =>
-      Promise.allSettled(
-        moves.map((move) =>
-          fetch(`/api/documents/${move.documentId}/folder`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              folderId: move.targetPath ? (byPath[move.targetPath] ?? base.current.folderId) : base.current.folderId,
-            }),
-          })
-        )
-      ),
-    []
-  )
-
   const settlePlan = useCallback(
     async (shown: FolderUploadPlan): Promise<SettledPlan | null> => {
       try {
@@ -214,86 +243,70 @@ export function useShelfUpload({
     [settle, t]
   )
 
-  const applyFolderPlan = useCallback(
-    async (includeUpdates: boolean) => {
-      if (!plan) return
-      if (filesToUpload(plan, includeUpdates).length === 0 && plan.moves.length === 0) return
-      setPending(true)
+  const applyFolderPlan = useCallback(async () => {
+    if (!plan) return
+    if (filesToUpload(plan).length === 0) return
+    setPending(true)
 
-      const settled = await settlePlan(plan)
-      if (!settled) {
-        setPending(false)
-        return
+    const settled = await settlePlan(plan)
+    if (!settled) {
+      setPending(false)
+      return
+    }
+    const { policy } = settled
+    const selected = filesToUpload(settled.plan)
+
+    const byPath = await ensureFolders(settled.plan.folders.map((folder) => folder.path))
+    if (byPath === null) return
+
+    try {
+      const { folderId: baseFolderId, path: basePath } = base.current
+      const folderIdByFile = new Map<File, string | null>()
+      for (const planned of selected) {
+        folderIdByFile.set(planned.file, planned.targetPath ? (byPath[planned.targetPath] ?? baseFolderId) : baseFolderId)
       }
-      const { policy } = settled
-      const selected = filesToUpload(settled.plan, includeUpdates)
-      const moves = settled.plan.moves
-
-      const byPath = await ensureFolders(settled.plan.folders.map((folder) => folder.path))
-      if (byPath === null) return
-
-      try {
-        const { folderId: baseFolderId, path: basePath } = base.current
-        const folderIdByFile = new Map<File, string | null>()
-        for (const planned of selected) {
-          folderIdByFile.set(
-            planned.file,
-            planned.targetPath ? (byPath[planned.targetPath] ?? baseFolderId) : baseFolderId
-          )
+      const plannedByFile = new Map(selected.map((planned) => [planned.file, planned]))
+      setOpen(false)
+      const uploaded = await send(
+        selected.map((planned) => planned.file),
+        {
+          folderIdFor: (file) => folderIdByFile.get(file) ?? null,
+          folderPathFor: (file) => {
+            const target = plannedByFile.get(file)?.targetPath ?? ''
+            return [basePath, target].filter(Boolean).join('/') || null
+          },
+          screeningReleased: (file) => plannedByFile.get(file)?.screeningReleased === true,
+          revisionOf: (file) => {
+            const offer = plannedByFile.get(file)?.revisionOf
+            return offer?.chosen ? offer.of.id : null
+          },
+          onConflict: (file) => plannedByFile.get(file)?.onConflict ?? null,
+          screeningPolicy: policy,
+          excludedByScreening: settled.plan.files
+            .filter((planned) => planned.action === 'excluded')
+            .map((planned) => planned.screening ?? []),
         }
-        const plannedByFile = new Map(selected.map((planned) => [planned.file, planned]))
-        setOpen(false)
-        if (moves.length > 0) await applyMoves(moves, byPath)
-        let uploaded = 0
-        if (selected.length > 0) {
-          uploaded = await uploadFiles(
-            selected.map((planned) => planned.file),
-            {
-              folderIdFor: (file) => folderIdByFile.get(file) ?? null,
-              folderPathFor: (file) => {
-                const target = plannedByFile.get(file)?.targetPath ?? ''
-                return [basePath, target].filter(Boolean).join('/') || null
-              },
-              screeningReleased: (file) => plannedByFile.get(file)?.screeningReleased === true,
-              revisionOf: (file) => {
-                const offer = plannedByFile.get(file)?.revisionOf
-                return offer?.chosen ? offer.of.id : null
-              },
-              screeningPolicy: policy,
-              excludedByScreening: settled.plan.files
-                .filter((planned) => planned.action === 'excluded')
-                .map((planned) => planned.screening ?? []),
-            }
-          )
-        }
-        await loadFolders()
-        await loadFiles(true)
-        if (uploaded === 0 && moves.length === 0) return
-        const counts = { uploaded: String(uploaded), skipped: String(settled.plan.counts.unchanged) }
-        toast.success(
-          moves.length > 0
-            ? t('folderUpload.doneMoved', { ...counts, moved: String(moves.length) })
-            : t('folderUpload.done', counts)
-        )
-      } catch {
-        toast.error(t('folderUpload.applyError'))
-      } finally {
-        setPending(false)
-      }
-    },
-    [
-      plan,
-      uploadFiles,
-      loadFolders,
-      loadFiles,
-      ensureFolders,
-      applyMoves,
-      settlePlan,
-      t,
-      setOpen,
-      setPending,
-    ]
-  )
+      )
+      await loadFolders()
+      await loadFiles(true)
+      if (uploaded === 0) return
+      toast.success(
+        t('folderUpload.done', { uploaded: String(uploaded), skipped: String(settled.plan.counts.unchanged) })
+      )
+    } catch {
+      toast.error(t('folderUpload.applyError'))
+    } finally {
+      setPending(false)
+    }
+  }, [plan, send, loadFolders, loadFiles, ensureFolders, settlePlan, t, setOpen, setPending])
 
-  return { handleUpload, applyFolderPlan, onReleaseChange, onRevisionChange: changeRevision, decision }
+  return {
+    handleUpload,
+    applyFolderPlan,
+    onReleaseChange,
+    onRevisionChange: changeRevision,
+    onConflictChange: changeConflict,
+    conflictPrompt,
+    decision,
+  }
 }

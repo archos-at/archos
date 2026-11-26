@@ -54,7 +54,7 @@ describe('summarizeValidation', () => {
   it('tells the two duplicate cases apart', () => {
     const twice = validateFileUpload(
       [file('Plan.pdf', 10), file('Plan.pdf', 10)],
-      context(),
+      context({ durableCorpus: false }),
       config,
       'de'
     )

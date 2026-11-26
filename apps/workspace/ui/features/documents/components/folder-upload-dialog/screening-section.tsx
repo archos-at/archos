@@ -6,6 +6,7 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { describeNameMatch } from '@/lib/upload-screening/quarantine'
 import type { FolderUploadPlan } from '../../lib/folder-upload-plan'
+import { CopyPathsButton } from '../name-conflict/copy-paths-button'
 
 export function ScreeningSection({
   plan,
@@ -26,8 +27,9 @@ export function ScreeningSection({
       <AlertTitle>{t('folderUpload.excluded', { count: excludedCount })}</AlertTitle>
       <AlertDescription className="space-y-2">
         <span className="block">{t('folderUpload.excludedExplain')}</span>
+        <CopyPathsButton paths={screened.map((file) => file.originPath)} testId="folder-upload-excluded-copy" />
         <ul className="space-y-1.5 text-xs">
-          {screened.slice(0, 20).map((file, index) => (
+          {screened.map((file, index) => (
             <li key={`${index}:${file.originPath}`} className="flex items-start gap-2">
               {onReleaseChange && (
                 <Checkbox
@@ -39,14 +41,13 @@ export function ScreeningSection({
                 />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-mono">{file.originPath}</span>
+                <span className="block font-mono [overflow-wrap:anywhere]">{file.originPath}</span>
                 <span className="block opacity-80">
                   {(file.screening ?? []).map((match) => describeNameMatch(match, t)).join(' · ')}
                 </span>
               </span>
             </li>
           ))}
-          {screened.length > 20 && <li className="opacity-70">+{screened.length - 20}</li>}
         </ul>
       </AlertDescription>
     </Alert>

@@ -78,6 +78,7 @@ export const officeShelf = {
       empty: 'Please enter a name.',
       tooLong: 'That name is too long.',
       invalidCharacters: 'A name cannot contain slashes or line breaks.',
+      nameTaken: 'A document in this folder is already called “{name}”. Choose another name.',
     },
   },
   delete: {

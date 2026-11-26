@@ -48,7 +48,7 @@ export async function uploadToOfficeShelf(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { asNorm = false, ...input }: NormIntakeInput = {},
+  { asNorm = false, ...input }: NormIntakeInput,
 ): Promise<UploadOfficeShelfDocumentResult> {
   if (!isOfficeStandardsEnabled(session) || !canManageOfficeShelf(session)) return uploadOfficeShelfDocument(session, file, request, input)
   const from = input.folderId ?? null
@@ -112,7 +112,7 @@ export async function takeAsNorm(
   )
   await withholdText(session, documentId)
   if (inStandards) return entryId
-  const moved = await moveDocumentToFolder({ documentId, folderId: rootId, expectedFolderId: folderId }, session)
+  const moved = await moveDocumentToFolder({ documentId, folderId: rootId, expectedFolderId: folderId, onConflict: 'keep_both' }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
   return entryId
 }

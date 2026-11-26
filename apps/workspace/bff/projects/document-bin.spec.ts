@@ -67,7 +67,10 @@ describe('moveDocumentToBin', () => {
 
     await expect(moveDocumentToBin(session, 'd1')).rejects.toThrow('index did not confirm')
 
-    expect(moveDocumentToFolder).toHaveBeenLastCalledWith({ documentId: 'd1', folderId: 'f-plans', expectedFolderId: 'h1' }, session)
+    expect(moveDocumentToFolder).toHaveBeenLastCalledWith(
+      { documentId: 'd1', folderId: 'f-plans', expectedFolderId: 'h1', onConflict: 'keep_both' },
+      session
+    )
     expect(deleteEmptyCreatedFolder).toHaveBeenCalledWith('org-1', PROJECT, 'h1')
   })
 
@@ -117,14 +120,17 @@ describe('restoreDocumentFromBin', () => {
     vi.mocked(findFolderInOrg).mockResolvedValue(holder as never)
   })
 
-  it('restores the holder, files the document back and removes the holder', async () => {
+  it('restores the holder, files the document back beside any namesake that arrived meanwhile, and removes the holder', async () => {
     vi.mocked(findActiveBinEntry).mockResolvedValue({ payload: { documentId: 'd1' } } as never)
     vi.mocked(restoreFolderFromBin).mockResolvedValue({ restoredTo: 'original', folders: 1, documents: 1 })
 
     const result = await restoreDocumentFromBin(session, 'd1')
 
     expect(restoreFolderFromBin).toHaveBeenCalledWith(session, { shelf: PROJECT, folderId: 'h1' }, undefined)
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'd1', folderId: 'f-plans', expectedFolderId: 'h1' }, session)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith(
+      { documentId: 'd1', folderId: 'f-plans', expectedFolderId: 'h1', onConflict: 'keep_both' },
+      session
+    )
     expect(deleteEmptyCreatedFolder).toHaveBeenCalledWith('org-1', PROJECT, 'h1')
     expect(result).toEqual({ documentId: 'd1', folderId: 'f-plans', restoredTo: 'original' })
   })

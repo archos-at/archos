@@ -5,6 +5,7 @@ import { XhrUploadError } from '@/lib/http/xhr-upload'
 import { isQuarantinedReplaceBody } from '@/lib/upload-screening/quarantine'
 import type { NameMatch } from '@/lib/upload-screening/name-screen'
 import { nameStopMatchesOf } from '@/lib/upload-screening/name-stop'
+import { nameConflictOf, type NameConflict } from '@/lib/documents/name-conflict'
 
 const SCREENING_UNAVAILABLE_CODE = 'UPLOAD_SCREENING_UNAVAILABLE'
 
@@ -17,6 +18,7 @@ const CHANGED_MEANWHILE_REASONS: ReadonlySet<string> = new Set([
 export type UploadRefusal =
   | { kind: 'held-replace'; documentId: string | null; ownUpload: boolean }
   | { kind: 'name-taken' }
+  | { kind: 'name-conflict'; conflict: NameConflict }
   | { kind: 'name-stop'; matches: NameMatch[] }
   | { kind: 'project-closed' }
   | { kind: 'screening-unavailable' }
@@ -76,6 +78,8 @@ export function uploadRefusalOf(error: unknown): UploadRefusal | null {
   const body = parseBody(error.responseText)
   if (error.status === 409 && isQuarantinedReplaceBody(body)) return heldReplaceOf(body)
   if (isNameTakenBody(body)) return { kind: 'name-taken' }
+  const conflict = error.status === 409 ? nameConflictOf(body) : null
+  if (conflict) return { kind: 'name-conflict', conflict }
   const matches = nameStopMatchesOf(body)
   if (matches) return { kind: 'name-stop', matches }
   if (isProjectClosedBody(body)) return { kind: 'project-closed' }

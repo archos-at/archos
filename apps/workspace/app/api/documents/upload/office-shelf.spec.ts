@@ -54,6 +54,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       uploadBatchId: null,
       revisionOf: null,
       originConversationId: null,
+      onConflict: 'refuse',
       asNorm: false,
     })
   })
@@ -68,6 +69,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       uploadBatchId: null,
       revisionOf: null,
       originConversationId: null,
+      onConflict: 'refuse',
       asNorm: false,
     })
   })

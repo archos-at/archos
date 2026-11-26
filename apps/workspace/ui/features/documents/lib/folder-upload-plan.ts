@@ -1,19 +1,21 @@
 import type { FileItem, FolderItem } from '../components/project-file-workspace'
 import { folderMatchKey, pathSegments } from '@/lib/projects/folders'
-import { documentAliasKey, documentNameKey } from '@/lib/documents/name-match'
+import { documentNameKey, documentNameMatchKey } from '@/lib/documents/name-match'
 import { documentReadFamily } from '@/lib/documents/document-status'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import { findRevisionSeries, parseRevisionName } from '@/lib/documents/revision-series'
 import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
+import { nextFreeDocumentName } from '@/lib/documents/name-conflict'
+import type { ConflictChoice, SentConflictChoice } from './name-conflict'
 
-export type PlannedAction =
-  | 'new'
-  | 'update'
-  | 'unchanged'
-  | 'collision'
-  | 'duplicate'
-  | 'excluded'
+export type PlannedAction = 'new' | 'update' | 'unchanged' | 'collision' | 'excluded'
+
+export interface PlannedConflict {
+  within: 'folder' | 'drop'
+  choice: ConflictChoice
+  keepBothAs: string
+}
 
 export interface RevisionTarget {
   id: string
@@ -43,16 +45,12 @@ export interface PlannedFile {
   action: PlannedAction
   existingId?: string
   existingName?: string
-  refiledFromFolderId?: string | null
   existingArchived?: true
+  conflict?: PlannedConflict
+  onConflict?: SentConflictChoice
   screening?: NameMatch[]
   screeningReleased?: true
   revisionOf?: PlannedRevision
-}
-
-export interface PlannedMove {
-  documentId: string
-  targetPath: string
 }
 
 export interface PlannedFolder {
@@ -66,7 +64,6 @@ export interface FolderUploadPlan {
   folders: PlannedFolder[]
   files: PlannedFile[]
   hashCandidates: File[]
-  moves: PlannedMove[]
   counts: FolderUploadCounts
 }
 
@@ -75,13 +72,11 @@ export interface FolderUploadCounts {
   update: number
   unchanged: number
   collision: number
-  duplicate: number
   excluded: number
-  refiled: number
+  skipped: number
   foldersCreated: number
   foldersMatched: number
   uploading: number
-  moving: number
 }
 
 export type PlanDocument = Pick<
@@ -98,6 +93,7 @@ export interface FolderUploadPlanInput {
   screening?: PlanScreening
   revisionOffers?: ReadonlyMap<string, RevisionCandidateMatch>
   revisionChoices?: ReadonlyMap<File, RevisionChoice>
+  conflictChoices?: ReadonlyMap<File, ConflictChoice>
 }
 
 export interface PlanScreening {
@@ -190,23 +186,56 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
     .sort((a, b) => a.localeCompare(b))
     .map((path) => ({ path, existingId: existingByRelativePath.get(pathKey(path)) ?? null }))
 
-  const byName = new Map<string, PlanDocument>()
-  const byAlias = new Map<string, PlanDocument>()
-  for (const document of documents) {
-    if (document.authoredBy === 'agent') continue
-    const key = documentNameKey(document.filename)
-    if (!byName.has(key)) byName.set(key, document)
-    for (const alias of [document.filename, document.displayName]) {
-      if (!alias) continue
-      const aliasKey = documentAliasKey(alias)
-      if (!byAlias.has(aliasKey)) byAlias.set(aliasKey, document)
-    }
+  const folderKeyOf = (targetPath: string): string => {
+    if (!targetPath) return `id:${currentFolderId ?? ''}`
+    const existing = existingByRelativePath.get(pathKey(targetPath))
+    return existing ? `id:${existing}` : `new:${pathKey(targetPath)}`
   }
 
-  const dropNameCounts = new Map<string, number>()
+  const heldByFilename = new Map<string, Map<string, PlanDocument[]>>()
+  const heldByDisplayName = new Map<string, Map<string, PlanDocument[]>>()
+  const taken = new Map<string, Set<string>>()
+  const takenIn = (folderKey: string): Set<string> => {
+    const existing = taken.get(folderKey)
+    if (existing) return existing
+    const created = new Set<string>()
+    taken.set(folderKey, created)
+    return created
+  }
+  const hold = (index: Map<string, Map<string, PlanDocument[]>>, folderKey: string, name: string, document: PlanDocument) => {
+    const key = documentNameMatchKey(name)
+    const names = index.get(folderKey) ?? new Map<string, PlanDocument[]>()
+    names.set(key, [...(names.get(key) ?? []), document])
+    index.set(folderKey, names)
+    takenIn(folderKey).add(key)
+  }
+  for (const document of documents) {
+    if (document.authoredBy === 'agent') continue
+    const folderKey = `id:${document.folderId ?? ''}`
+    hold(heldByFilename, folderKey, document.filename, document)
+    if (document.displayName) hold(heldByDisplayName, folderKey, document.displayName, document)
+  }
+
+  const holderOf = (folderKey: string, name: string): PlanDocument | undefined => {
+    const key = documentNameMatchKey(name)
+    const byFilename = heldByFilename.get(folderKey)?.get(key) ?? []
+    const exact = byFilename.find((document) => documentNameKey(document.filename) === documentNameKey(name))
+    return exact ?? byFilename[0] ?? heldByDisplayName.get(folderKey)?.get(key)?.[0]
+  }
+
+  const dropGroups = new Map<string, File[]>()
   for (const entry of admitted) {
-    const key = documentNameKey(entry.file.name)
-    dropNameCounts.set(key, (dropNameCounts.get(key) ?? 0) + 1)
+    const folderKey = folderKeyOf(relativeDirectory(entry.path))
+    const key = `${folderKey}\u0000${documentNameMatchKey(entry.file.name)}`
+    dropGroups.set(key, [...(dropGroups.get(key) ?? []), entry.file])
+    takenIn(folderKey).add(documentNameMatchKey(entry.file.name))
+  }
+
+  const keepBothName = (folderKey: string, name: string): string => {
+    const names = takenIn(folderKey)
+    const suggested = nextFreeDocumentName(name, names)
+    names.add(documentNameMatchKey(suggested))
+    return suggested
   }
 
   const matchedName = (document: PlanDocument, droppedName: string): string | undefined => {
@@ -224,7 +253,6 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
   }
 
   const hashCandidates: File[] = []
-  const moves: PlannedMove[] = []
   const contested = contestedOffers(admitted.map((entry) => entry.file), input.revisionOffers)
   const plannedFiles: PlannedFile[] = entries.map(({ file, path }) => {
     const matches = screened.get(file)
@@ -238,32 +266,28 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
 
   function planAdmitted(file: File, path: string): PlannedFile {
     const targetPath = relativeDirectory(path)
-    const targetExists = targetPath ? existingByRelativePath.has(pathKey(targetPath)) : true
-    const targetFolderId = targetPath
-      ? (existingByRelativePath.get(pathKey(targetPath)) ?? null)
-      : (currentFolderId ?? null)
+    const folderKey = folderKeyOf(targetPath)
     const base: PlannedFile = { file, originPath: path, targetPath, landsInFolderId: landsIn(targetPath), action: 'new' }
-    const nameKey = documentNameKey(file.name)
+    const group = dropGroups.get(`${folderKey}\u0000${documentNameMatchKey(file.name)}`) ?? [file]
+    const existing = holderOf(folderKey, file.name)
+    const shownAs = existing ? matchedName(existing, file.name) : undefined
+    const held = existing
+      ? { existingId: existing.id, ...(shownAs ? { existingName: shownAs } : {}), ...archivedMark(existing) }
+      : {}
 
-    if ((dropNameCounts.get(nameKey) ?? 0) > 1) {
-      return { ...base, action: 'collision' }
-    }
-
-    const existing = byName.get(nameKey)
-    if (!existing) {
-      const alias = byAlias.get(documentAliasKey(file.name))
-      if (!alias) return base
+    if (group[0] !== file) {
+      const asked = input.conflictChoices?.get(file)
+      const choice: ConflictChoice = asked === 'skip' ? 'skip' : 'keep_both'
       return {
         ...base,
-        action: 'duplicate',
-        existingId: alias.id,
-        existingName: alias.displayName ?? alias.filename,
-        ...archivedMark(alias),
+        ...held,
+        action: 'collision',
+        conflict: { within: 'drop', choice, keepBothAs: keepBothName(folderKey, file.name) },
+        ...(choice === 'skip' ? {} : { onConflict: 'keep_both' }),
       }
     }
 
-    const refiled = !targetExists || (existing.folderId ?? null) !== targetFolderId
-    const shownAs = matchedName(existing, file.name)
+    if (!existing) return group.length > 1 ? { ...base, onConflict: 'keep_both' } : base
 
     const sameSize = existing.fileSize === file.size
     const storedDigest = existing.contentHash ?? null
@@ -276,25 +300,17 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
       if (digest === undefined) {
         hashCandidates.push(file)
       } else if (digest === storedDigest) {
-        if (refiled) moves.push({ documentId: existing.id, targetPath })
-        return {
-          ...base,
-          action: 'unchanged',
-          existingId: existing.id,
-          ...(shownAs ? { existingName: shownAs } : {}),
-          ...archivedMark(existing),
-          ...(refiled ? { refiledFromFolderId: existing.folderId ?? null } : {}),
-        }
+        return { ...base, ...held, action: 'unchanged' }
       }
     }
 
+    const choice = input.conflictChoices?.get(file) ?? 'replace'
     return {
       ...base,
+      ...held,
       action: 'update',
-      existingId: existing.id,
-      ...(shownAs ? { existingName: shownAs } : {}),
-      ...archivedMark(existing),
-      ...(refiled ? { refiledFromFolderId: existing.folderId ?? null } : {}),
+      conflict: { within: 'folder', choice, keepBothAs: keepBothName(folderKey, file.name) },
+      ...(choice === 'skip' ? {} : { onConflict: choice }),
     }
   }
 
@@ -304,8 +320,7 @@ export function buildFolderUploadPlan(input: FolderUploadPlanInput): FolderUploa
     folders: plannedFolders,
     files: plannedFiles,
     hashCandidates,
-    moves,
-    counts: countPlan(plannedFiles, plannedFolders, true),
+    counts: countPlan(plannedFiles, plannedFolders),
   }
 }
 
@@ -357,35 +372,27 @@ export function continuesASeries(name: string): boolean {
   return parseRevisionName(name) !== null
 }
 
-export function countPlan(
-  files: readonly PlannedFile[],
-  folders: readonly PlannedFolder[],
-  includeUpdates: boolean,
-): FolderUploadCounts {
+export function countPlan(files: readonly PlannedFile[], folders: readonly PlannedFolder[]): FolderUploadCounts {
   const counts: FolderUploadCounts = {
     new: 0,
     update: 0,
     unchanged: 0,
     collision: 0,
-    duplicate: 0,
     excluded: 0,
-    refiled: 0,
+    skipped: 0,
     foldersCreated: 0,
     foldersMatched: 0,
     uploading: 0,
-    moving: 0,
   }
   for (const file of files) {
     counts[file.action] += 1
-    if (file.refiledFromFolderId === undefined) continue
-    if (file.action === 'update') counts.refiled += 1
-    if (file.action === 'unchanged') counts.moving += 1
+    if (file.conflict?.choice === 'skip') counts.skipped += 1
   }
   for (const folder of folders) {
     if (folder.existingId === null) counts.foldersCreated += 1
     else counts.foldersMatched += 1
   }
-  counts.uploading = counts.new + (includeUpdates ? counts.update : 0)
+  counts.uploading = counts.new + counts.update + counts.collision - counts.skipped
   return counts
 }
 
@@ -393,24 +400,21 @@ export function needsUploadDecision(plan: Pick<FolderUploadPlan, 'files'>): bool
   return plan.files.some((file) => file.action !== 'new' || file.revisionOf !== undefined)
 }
 
-export function filesToUpload(
-  plan: FolderUploadPlan,
-  includeUpdates: boolean,
-): PlannedFile[] {
-  return plan.files.filter(
-    (file) => file.action === 'new' || (includeUpdates && file.action === 'update'),
-  )
+export function filesToUpload(plan: Pick<FolderUploadPlan, 'files'>): PlannedFile[] {
+  return plan.files.filter((file) => file.action === 'new' || (file.conflict !== undefined && file.conflict.choice !== 'skip'))
+}
+
+export function conflictedFiles(plan: Pick<FolderUploadPlan, 'files'>): PlannedFile[] {
+  return plan.files.filter((file) => file.conflict !== undefined)
 }
 
 export function samePlanOutcome(a: FolderUploadPlan, b: FolderUploadPlan): boolean {
   const fileKey = (planned: PlannedFile): string =>
-    `${planned.action}\u0000${planned.targetPath}\u0000${planned.revisionOf?.of.id ?? ''}\u0000${planned.revisionOf?.chosen ?? ''}`
+    [planned.action, planned.targetPath, planned.revisionOf?.of.id ?? '', planned.revisionOf?.chosen ?? '', planned.onConflict ?? ''].join('\u0000')
   return (
     a.files.length === b.files.length &&
     a.files.every((planned, index) => planned.file === b.files[index].file && fileKey(planned) === fileKey(b.files[index])) &&
     a.folders.length === b.folders.length &&
-    a.folders.every((folder, index) => folder.path === b.folders[index].path && folder.existingId === b.folders[index].existingId) &&
-    a.moves.length === b.moves.length &&
-    a.moves.every((move, index) => move.documentId === b.moves[index].documentId && move.targetPath === b.moves[index].targetPath)
+    a.folders.every((folder, index) => folder.path === b.folders[index].path && folder.existingId === b.folders[index].existingId)
   )
 }

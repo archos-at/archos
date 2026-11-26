@@ -117,11 +117,15 @@ E-Mail-Import/
         2025-03-12 14.05 – Statik Huber – S-101_C.pdf  ← each attachment, prefixed
 ```
 
-The subject is never in a name. A filename is unique per project,
-across all its collections (a folder with its own access list keeps its own),
-so a name is probed project-wide (`findProjectCollectionsHoldingFilename`) and
-one held anywhere but the mail's own folder is numbered (`… – Plan (2).pdf`).
-The import never supersedes a document it did not file into that folder.
+The subject is never in a name. A filename is unique within its folder
+(ADR-0199), so a name is probed in the mail's own folder only
+(`findLiveDocumentByFilename` with that folder): the same name in any other
+folder is another document, and the import never touches it. In the mail's
+folder, a document of the name whose screening has passed takes the attachment
+as its next Fassung; one still held is the import's own earlier filing when this
+person uploaded it, and is numbered otherwise (`… – Plan (2).pdf`). Two
+attachments of one run whose names differ only in case are numbered as well,
+because the folder holds a name once in any case.
 
 ### The mail's text: E-Mail-Verläufe
 

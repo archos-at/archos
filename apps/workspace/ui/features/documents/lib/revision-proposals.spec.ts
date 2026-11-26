@@ -126,18 +126,25 @@ describe('groupByFolder', () => {
 })
 
 describe('countNewRevisions', () => {
-  const update = (): PlannedFile => ({ file: new File(['x'], 'EG.pdf'), originPath: 'EG.pdf', targetPath: '', action: 'update' })
+  const update = (choice: 'replace' | 'keep_both' | 'skip'): PlannedFile => ({
+    file: new File(['x'], 'EG.pdf'),
+    originPath: 'EG.pdf',
+    targetPath: '',
+    action: 'update',
+    conflict: { within: 'folder', choice, keepBothAs: 'EG 2.pdf' },
+  })
 
-  it('counts the same-name updates that are sent and the ticked offers, nothing else', () => {
+  it('counts the held names the reader replaces and the ticked offers, nothing else', () => {
     const files = [
-      update(),
+      update('replace'),
+      update('keep_both'),
+      update('skip'),
       planned('a.pdf', '', { unambiguous: true, chosen: true }),
       planned('b.pdf', '', { unambiguous: true, chosen: false }),
       planned('c.pdf', '', null),
     ]
 
-    expect(countNewRevisions(files, true)).toBe(2)
-    expect(countNewRevisions(files, false)).toBe(1)
+    expect(countNewRevisions(files)).toBe(2)
   })
 })
 

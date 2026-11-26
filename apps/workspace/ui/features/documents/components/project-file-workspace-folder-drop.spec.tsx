@@ -188,16 +188,21 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     return screen.findByTestId('folder-upload-dialog')
   }
 
+  const wohnbau = [
+    { id: 'f-wohnbau', parentId: null, name: 'Wohnbau', path: 'Wohnbau' },
+    { id: 'f-plaene', parentId: 'f-wohnbau', name: 'Plaene', path: 'Wohnbau/Plaene' },
+  ]
+
   it('asks before it touches anything, and says what it is about to do', async () => {
-    renderWithCorpus()
-    await dropFolder([pathed('Wohnbau/Plaene/EG.pdf'), pathed('Wohnbau/Plaene/OG.pdf')])
+    renderWithCorpus([{ ...existing, folderId: 'f-plaene' }], wohnbau)
+    await dropFolder([pathed('Wohnbau/Plaene/EG.pdf'), pathed('Wohnbau/Plaene/OG.pdf'), pathed('Wohnbau/Statik/EG.pdf')])
 
     expect(mockUploadFiles).not.toHaveBeenCalled()
 
     const dialog = await screen.findByTestId('folder-upload-dialog')
-    expect(within(dialog).getByTestId('folder-upload-count-new')).toHaveTextContent('1')
+    expect(within(dialog).getByTestId('folder-upload-count-new')).toHaveTextContent('2')
     expect(within(dialog).getByTestId('folder-upload-count-update')).toHaveTextContent('1')
-    expect(within(dialog).getByTestId('folder-upload-count-folders')).toHaveTextContent('2')
+    expect(within(dialog).getByTestId('folder-upload-count-folders')).toHaveTextContent('1')
   })
 
   it('creates the tree and files each document into its own folder', async () => {
@@ -251,12 +256,26 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     ])
   })
 
-  it('leaves the existing documents alone when the reader unticks the update', async () => {
-    renderWithCorpus()
+  it('sends a held name as a new revision by default, with the answer the server needs', async () => {
+    renderWithCorpus([{ ...existing, folderId: 'f-wohnbau' }], wohnbau)
     await dropFolder([pathed('Wohnbau/EG.pdf'), pathed('Wohnbau/New.pdf')])
 
-    const toggle = await screen.findByTestId('folder-upload-include-updates')
-    await userEvent.click(within(toggle).getByRole('checkbox'))
+    await userEvent.click(await screen.findByTestId('folder-upload-confirm'))
+
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
+    const [sent, options] = mockUploadFiles.mock.calls[0] as [File[], { onConflict: (file: File) => string | null }]
+    expect(sent.map((file) => [file.name, options.onConflict(file)])).toEqual([
+      ['EG.pdf', 'replace'],
+      ['New.pdf', null],
+    ])
+  })
+
+  it('leaves the existing document alone when the reader skips its name', async () => {
+    renderWithCorpus([{ ...existing, folderId: 'f-wohnbau' }], wohnbau)
+    await dropFolder([pathed('Wohnbau/EG.pdf'), pathed('Wohnbau/New.pdf')])
+
+    const conflicts = await screen.findByTestId('folder-upload-conflicts')
+    await userEvent.click(within(conflicts).getByTestId('name-conflict-skip'))
     await userEvent.click(screen.getByTestId('folder-upload-confirm'))
 
     await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
@@ -264,13 +283,36 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     expect(sent.map((file) => file.name)).toEqual(['New.pdf'])
   })
 
-  it('sends neither of two files that share a name inside one drop', async () => {
+  it('sends both of two same-named files in different folders of one drop, each into its own folder', async () => {
     renderWithCorpus()
     await dropFolder([pathed('W/A/Deckblatt.pdf'), pathed('W/B/Deckblatt.pdf')])
 
     const dialog = await screen.findByTestId('folder-upload-dialog')
-    expect(within(dialog).getByTestId('folder-upload-collisions')).toBeInTheDocument()
-    expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
+    expect(within(dialog).queryByTestId('folder-upload-conflicts')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('folder-upload-confirm'))
+
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
+    const [sent, options] = mockUploadFiles.mock.calls[0] as [
+      File[],
+      { folderIdFor: (file: File) => string | null; onConflict: (file: File) => string | null },
+    ]
+    expect(sent.map((file) => [options.folderIdFor(file), options.onConflict(file)])).toEqual([
+      ['folder-for-W/A', null],
+      ['folder-for-W/B', null],
+    ])
+  })
+
+  it('keeps both of two files whose names clash in the same folder of one drop', async () => {
+    renderWithCorpus()
+    await dropFolder([pathed('W/A/Deckblatt.pdf'), pathed('W/A/DECKBLATT.pdf')])
+
+    const conflicts = await screen.findByTestId('folder-upload-conflicts')
+    expect(within(conflicts).getByTestId('name-conflict-outcome')).toHaveTextContent('Comes in as “DECKBLATT 2.pdf”.')
+    await userEvent.click(screen.getByTestId('folder-upload-confirm'))
+
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
+    const [sent, options] = mockUploadFiles.mock.calls[0] as [File[], { onConflict: (file: File) => string | null }]
+    expect(sent.map((file) => options.onConflict(file))).toEqual(['keep_both', 'keep_both'])
   })
 
   it('uploads nothing when the folders could not be created', async () => {
@@ -288,7 +330,7 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     expect(mockUploadFiles).not.toHaveBeenCalled()
   })
 
-  it('moves an unchanged document the tree files somewhere else, without uploading', async () => {
+  it('uploads a file whose name lives in another folder as a document of its own, and moves nothing', async () => {
     const digest = `sha256:${'a'.repeat(64)}`
     renderWithCorpus(
       [{ ...existing, contentHash: digest, folderId: null }],
@@ -305,8 +347,10 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     await waitFor(() => expect(confirm).toBeEnabled())
     await userEvent.click(confirm)
 
-    await waitFor(() => expect(moveRequests).toHaveLength(1))
-    expect(moveRequests[0]).toEqual({ documentId: 'doc-eg', folderId: 'folder-for-Plaene' })
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
+    const [sent] = mockUploadFiles.mock.calls[0] as [File[]]
+    expect(sent.map((file) => file.name)).toEqual(['EG.pdf'])
+    expect(moveRequests).toEqual([])
   })
 
   describe('settled before it is applied', () => {
@@ -351,7 +395,10 @@ describe('ProjectFileWorkspace — a dropped folder', () => {
     })
 
     it('waits for a release probe still in flight, and asks again when the file is a version', async () => {
-      renderWithCorpus([{ ...existing, id: 'doc-lohn', filename: 'Lohnzettel.pdf' }])
+      renderWithCorpus(
+        [{ ...existing, id: 'doc-lohn', filename: 'Lohnzettel.pdf', folderId: 'f-akt' }],
+        [{ id: 'f-akt', parentId: null, name: 'Akt', path: 'Akt' }],
+      )
       let answer: () => void = () => undefined
       const held = new Promise<void>((resolve) => {
         answer = resolve

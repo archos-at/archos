@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import type { FileItem } from '../file-types'
+import type { FileItem, FolderItem } from '../file-types'
 import { useDocumentMoves } from './use-document-moves'
+import type { AskNameConflicts, ConflictQuestion } from './use-name-conflict-prompt'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 import { toast } from 'sonner'
@@ -25,14 +26,177 @@ const file = (id: string, folderId: string | null): FileItem => ({
   capture: null,
 })
 
-function harness(initial: FileItem[]) {
+function harness(initial: FileItem[], ask?: AskNameConflicts, folders: FolderItem[] = []) {
   let rows = initial
   const setFiles = vi.fn((action: FileItem[] | ((prev: FileItem[]) => FileItem[])) => {
     rows = typeof action === 'function' ? action(rows) : action
   })
-  const hook = renderHook(() => useDocumentMoves(rows, setFiles, []))
+  const hook = renderHook(() => useDocumentMoves(rows, setFiles, folders, ask))
   return { hook, rows: () => rows }
 }
+
+const held = (name: string) =>
+  new Response(
+    JSON.stringify({
+      code: 'CONFLICT',
+      details: {
+        reason: 'name_conflict',
+        name,
+        folderId: 'site',
+        existingDocumentId: 'held',
+        existingName: name,
+        suggestedName: name.replace('.jpg', ' 2.jpg'),
+      },
+    }),
+    { status: 409 }
+  )
+
+const sentBody = (call: unknown[]) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>
+
+describe('useDocumentMoves — a name the target folder already holds', () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('asks about a dragged document, then moves it under the answer, keeping both', async () => {
+    fetchMock.mockResolvedValueOnce(held('a.jpg')).mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const ask = vi.fn(async (question: ConflictQuestion) => new Map(question.rows.map((row) => [row.key, 'keep_both' as const])))
+    const { hook, rows } = harness([file('a', 'old')], ask)
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(ask).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: 'move', rows: [expect.objectContaining({ key: 'a', keepBothAs: 'a 2.jpg' })] })
+    )
+    expect(fetchMock.mock.calls.map(sentBody)).toEqual([{ folderId: 'site' }, { folderId: 'site', onConflict: 'keep_both' }])
+    expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 2.jpg' })
+  })
+
+  it('names each document of one name by its folder, so two of them can be told apart and copied', async () => {
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) =>
+      JSON.parse(String(init.body)).onConflict ? new Response('{}', { status: 200 }) : held('a.jpg')
+    )
+    const ask = vi.fn<AskNameConflicts>(async () => null)
+    const folders: FolderItem[] = [
+      { id: 'f-plaene', parentId: null, name: 'Pläne', path: 'Pläne' },
+      { id: 'f-bestand', parentId: 'f-plaene', name: 'Bestand', path: 'Pläne/Bestand' },
+      { id: 'f-entwurf', parentId: 'f-plaene', name: 'Entwurf', path: 'Pläne/Entwurf' },
+    ]
+    const { hook } = harness([{ ...file('a', 'f-bestand') }, { ...file('b', 'f-entwurf'), filename: 'a.jpg' }], ask, folders)
+
+    await act(async () => {
+      await hook.result.current.moveMany(['a', 'b'], 'site', 'Baustelle')
+    })
+
+    expect(ask.mock.calls[0]?.[0].rows.map((row) => row.path).sort()).toEqual(['Pläne/Bestand/a.jpg', 'Pläne/Entwurf/a.jpg'])
+  })
+
+  it('shows a kept-both document under its new name, not a stale label', async () => {
+    fetchMock
+      .mockResolvedValueOnce(held('a.jpg'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ filename: 'a 3.jpg' }), { status: 200 }))
+    const ask = vi.fn<AskNameConflicts>(async () => new Map([['a', 'keep_both' as const]]))
+    const { hook, rows } = harness([{ ...file('a', 'old'), displayName: 'Ansicht.jpg' }], ask)
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 3.jpg', displayName: null })
+  })
+
+  it('asks again without „Replace" when the shelf cannot replace on a move, and sends the second answer', async () => {
+    const unavailable = new Response(
+      JSON.stringify({ code: 'CONFLICT', details: { reason: 'replace_unavailable', documentId: 'a', choices: ['keep_both', 'skip'] } }),
+      { status: 409 }
+    )
+    fetchMock
+      .mockResolvedValueOnce(held('a.jpg'))
+      .mockResolvedValueOnce(unavailable)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const ask = vi
+      .fn<AskNameConflicts>()
+      .mockResolvedValueOnce(new Map([['a', 'replace' as const]]))
+      .mockResolvedValueOnce(new Map([['a', 'keep_both' as const]]))
+    const { hook, rows } = harness([file('a', 'old')], ask)
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(ask.mock.calls[1]?.[0].rows[0]?.choices).toEqual(['keep_both', 'skip'])
+    expect(fetchMock.mock.calls.map(sentBody)).toEqual([
+      { folderId: 'site' },
+      { folderId: 'site', onConflict: 'replace' },
+      { folderId: 'site', onConflict: 'keep_both' },
+    ])
+    expect(rows()[0]).toMatchObject({ folderId: 'site', filename: 'a 2.jpg' })
+  })
+
+  it('asks a bulk move again for the documents the shelf cannot replace', async () => {
+    let round = 0
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { onConflict?: string }
+      if (!body.onConflict) return held('a.jpg')
+      round += 1
+      return body.onConflict === 'replace'
+        ? new Response(JSON.stringify({ details: { reason: 'replace_unavailable', documentId: 'a', choices: ['keep_both', 'skip'] } }), { status: 409 })
+        : new Response('{}', { status: 200 })
+    })
+    const ask = vi
+      .fn<AskNameConflicts>()
+      .mockResolvedValueOnce(new Map([['a', 'replace' as const]]))
+      .mockResolvedValueOnce(new Map([['a', 'keep_both' as const]]))
+    const { hook } = harness([file('a', null)], ask)
+
+    let moved = 0
+    await act(async () => {
+      moved = await hook.result.current.moveMany(['a'], 'site', 'Baustelle')
+    })
+
+    expect(round).toBe(2)
+    expect(ask).toHaveBeenCalledTimes(2)
+    expect(ask.mock.calls[1]?.[0].rows[0]?.choices).toEqual(['keep_both', 'skip'])
+    expect(moved).toBe(1)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('leaves the document where it was when the reader skips or closes the question', async () => {
+    fetchMock.mockResolvedValue(held('a.jpg'))
+    const { hook, rows } = harness([file('a', 'old')], vi.fn(async () => null))
+
+    await act(async () => hook.result.current.dropInFolder('a', 'site'))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(rows()[0].folderId).toBe('old')
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('asks once for every held name of a bulk move, and sends each answer, replacing removes the moved row', async () => {
+    fetchMock.mockImplementation(async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { onConflict?: string }
+      if (url.includes('/c/') || body.onConflict) return new Response('{}', { status: 200 })
+      return held(url.includes('/a/') ? 'a.jpg' : 'b.jpg')
+    })
+    const ask = vi.fn<AskNameConflicts>(async () => new Map([['a', 'replace' as const], ['b', 'skip' as const]]))
+    const { hook, rows } = harness([file('a', null), file('b', null), file('c', null)], ask)
+
+    let moved = 0
+    await act(async () => {
+      moved = await hook.result.current.moveMany(['a', 'b', 'c'], 'site', 'Baustelle')
+    })
+
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(ask.mock.calls[0]?.[0].rows.map((row) => row.key).sort()).toEqual(['a', 'b'])
+    expect(moved).toBe(2)
+    expect(rows().map((row) => [row.id, row.folderId])).toEqual([
+      ['b', null],
+      ['c', 'site'],
+    ])
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+})
 
 describe('useDocumentMoves.moveMany', () => {
   const fetchMock = vi.fn()
@@ -133,7 +297,7 @@ describe('useDocumentMoves.moveMany', () => {
 
 describe('useDocumentMoves.dropInFolder', () => {
   const fetchMock = vi.fn()
-  const answer = (status: number, body: unknown = {}) => ({ ok: status < 400, status, json: async () => body })
+  const answer = (status: number, body: unknown = {}) => new Response(JSON.stringify(body), { status })
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()

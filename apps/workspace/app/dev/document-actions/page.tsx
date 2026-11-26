@@ -171,7 +171,7 @@ function DocumentActionsPreview(): JSX.Element {
           onOpenChange={() => {}}
           document={DOCUMENT}
           scope="files"
-          onRename={() => Promise.resolve(false)}
+          onRename={() => Promise.resolve(variant === 'rename-taken' ? 'nameTaken' : 'failed')}
         />
       )}
     </div>

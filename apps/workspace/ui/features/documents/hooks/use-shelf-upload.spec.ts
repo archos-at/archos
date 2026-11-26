@@ -12,6 +12,12 @@ const decision = vi.hoisted(() => ({
   pending: false,
   propose: vi.fn(),
 }))
+const sealed = vi.hoisted(() => vi.fn(async () => undefined))
+vi.mock('../lib/upload-batch', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/upload-batch')>()),
+  sealHeldUploadBatch: sealed,
+}))
+
 vi.mock('./use-upload-decision', () => ({
   useUploadDecision: () => ({
     ...decision,
@@ -20,6 +26,7 @@ vi.mock('./use-upload-decision', () => ({
     setReleased: vi.fn(),
     settle: vi.fn(),
     changeRevision: vi.fn(),
+    changeConflict: vi.fn(),
     setOpen: vi.fn(),
     setPending: vi.fn(),
   }),
@@ -177,5 +184,75 @@ describe('useShelfUpload — what a drop could not hand over', () => {
     await flush()
     expect(toast.warning).toHaveBeenCalledTimes(1)
     expect(uploadFiles).not.toHaveBeenCalled()
+  })
+})
+
+describe('useShelfUpload — a name the server says the folder already holds', () => {
+  const conflict = (name: string) => ({
+    reason: 'name_conflict' as const,
+    name,
+    folderId: 'f2',
+    existingDocumentId: 'held',
+    existingName: name,
+    suggestedName: name.replace('.pdf', ' 2.pdf'),
+  })
+  const held = { id: 'batch-1', unchanged: 0, failed: 0, excluded: [] }
+
+  function clashing() {
+    const view = setup()
+    view.uploadFiles.mockImplementationOnce(async (files, options) => {
+      options?.onNameConflicts?.(
+        files.map((file) => ({ file, conflict: conflict(file.name) })),
+        held,
+        options
+      )
+      return 0
+    })
+    return view
+  }
+
+  it('asks once for every clash of the batch, keeping both by default, and re-sends the answers into the same batch', async () => {
+    const { result, uploadFiles } = clashing()
+    act(() => result.current.handleUpload([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')]))
+    await flush()
+
+    const question = result.current.conflictPrompt.question
+    expect(question?.rows.map((row) => [row.path, row.choice, row.keepBothAs])).toEqual([
+      ['a.pdf', 'keep_both', 'a 2.pdf'],
+      ['b.pdf', 'keep_both', 'b 2.pdf'],
+      ['c.pdf', 'keep_both', 'c 2.pdf'],
+    ])
+    act(() =>
+      result.current.conflictPrompt.resolve(
+        new Map([
+          ['0', 'replace'],
+          ['1', 'keep_both'],
+          ['2', 'skip'],
+        ])
+      )
+    )
+    await flush()
+
+    expect(uploadFiles).toHaveBeenCalledTimes(2)
+    const [resent, options] = uploadFiles.mock.calls[1]!
+    expect(resent.map((file) => [file.name, options?.onConflict?.(file), options?.folderIdFor?.(file)])).toEqual([
+      ['a.pdf', 'replace', 'f2'],
+      ['b.pdf', 'keep_both', 'f2'],
+    ])
+    expect(options?.continueBatch).toEqual({ ...held, unchanged: 1 })
+    expect(options?.excludedByScreening).toEqual([])
+    expect(sealed).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing more, and closes the batch, when the reader cancels the question', async () => {
+    const { result, uploadFiles } = clashing()
+    act(() => result.current.handleUpload([pdf('a.pdf')]))
+    await flush()
+
+    act(() => result.current.conflictPrompt.resolve(null))
+    await flush()
+
+    expect(uploadFiles).toHaveBeenCalledTimes(1)
+    expect(sealed).toHaveBeenCalledWith(held, 1)
   })
 })

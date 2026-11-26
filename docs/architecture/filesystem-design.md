@@ -166,9 +166,10 @@ unqualified write tool it can file, rename, retag or overwrite the estate, and
 the user reads nothing. The blast radius of injection is exactly the width of
 the write surface.
 
-**It has no undo.** `documents.filename` is the join key to the object *and*,
-as `(collection_name, filename)`, to every chunk in the index — which is why the
-schema already forbids renaming it and added `display_name` instead. An
+**It has no undo.** A document's object and every one of its chunks hang on
+its id (ADR-0199), and `documents.filename` is the label they carry: a rename
+writes `display_name`, and only a move that keeps both documents rewrites the
+file name, through the id. An
 in-place overwrite orphans chunks or, worse, leaves stale ones addressable under
 a name whose bytes have changed. The existing code comment for `storage_bucket`
 makes the same point from the other side: the identity of a stored object is not

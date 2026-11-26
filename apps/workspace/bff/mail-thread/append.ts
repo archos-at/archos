@@ -298,6 +298,7 @@ export async function uploadThreadVersion(upload: ThreadVersionUpload): Promise<
       {
         projectId: upload.projectId,
         folderId: upload.folderId,
+        onConflict: 'replace',
         file: new File([bytes], upload.filename, { type: 'text/markdown' }),
         screeningRelease: upload.screeningRelease,
         uploadBatchId: upload.uploadBatchId,

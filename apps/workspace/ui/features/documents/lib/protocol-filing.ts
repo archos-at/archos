@@ -52,6 +52,7 @@ export async function fileProtocol(
   form.append('file', new File([blob], filename, { type: blob.type || exported.headers.get('content-type') || '' }))
   form.append('projectId', target.projectId)
   if (target.folderId) form.append('folderId', target.folderId)
+  form.append('onConflict', 'replace')
   const uploaded = await fetch('/api/documents/upload', { method: 'POST', body: form })
   const body: unknown = await uploaded.json().catch(() => null)
   if (!uploaded.ok) throw new ProtocolFilingError(isNameTakenBody(body) ? 'name-taken' : 'upload')

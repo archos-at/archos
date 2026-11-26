@@ -131,10 +131,11 @@ confirm. It must be the target of every item (422, `proposal-new-folder-mismatch
 `basis` (`name` or `content`) marks the agent's filing suggestion and says what it
 was judged from. Folders are named by PATH. A document is named by its id
 (`document_id`, which the agent's inventory rows carry) beside its file name:
-the document is its id (ADR-0199), so the applier acts on the id and resolves
-a name alone only when one document of the project holds it, refusing it as
-ambiguous otherwise. The deciding person's session resolves them when the
-change is applied. Every item must carry the fields its verb
+a name is unique only within its folder (ADR-0199), so the applier acts on the
+id and resolves a name alone only when one document of the project holds it,
+refusing it as ambiguous otherwise. The deciding person's session resolves them
+when the change is applied, and a move or rename onto a name the target folder
+holds comes back as a conflict, never as a replacement. Every item must carry the fields its verb
 needs, or the proposal is refused when it is made (422,
 `proposal-item-incomplete`).
 

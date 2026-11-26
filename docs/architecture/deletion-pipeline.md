@@ -132,8 +132,8 @@ The purger is plain JavaScript with no build step and cannot import the declarat
 3. Delete `document_metadata` row (`jobs`) for (collection, filename)
 4. Delete `documents` row
 
-A re-upload under the same name is not a deletion and takes none of these
-steps. The ingestor retires the previous version's chunks, by the ids it
+A re-upload under the same name into the same folder (a new version of the
+same document) is not a deletion and takes none of these steps. The ingestor retires the previous version's chunks, by the ids it
 collected before reading the file, only after the new version has indexed, and
 keeps the `document_metadata` row with the Dokumentart, title and folder a
 person set on it. A re-upload that fails to index leaves the previous version in

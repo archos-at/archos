@@ -6,8 +6,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { MailImport, MailImportSkippedSample, MailImportSkipReason } from '@/lib/db/schema/mail-imports'
 import { resolveShelfFolderPath } from '@/lib/documents/folder-path'
 import { hasPassedScreening } from '@/lib/documents/document-reader'
-import { documentNameKey } from '@/lib/documents/name-match'
-import { findLiveDocumentByFilename, findProjectCollectionsHoldingFilename } from '@/lib/documents/repository'
+import { documentNameKey, documentNameMatchKey } from '@/lib/documents/name-match'
+import { findLiveDocumentByFilename } from '@/lib/documents/repository'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { admitFileBeforeReading } from '@/lib/documents/upload-admission'
 import { projectShelf } from '@/lib/documents/shelf'
@@ -307,7 +307,7 @@ async function fileBytes(
   origin: MailOriginIngestFacts,
 ): Promise<AttachmentOutcome> {
   const free = await freeFilename(context, folderId, desired, claimed)
-  claimed.add(free.filename)
+  claimed.add(documentNameMatchKey(free.filename))
   if (free.filedAs) return { filed: true, filename: free.filename, documentId: free.filedAs, folderId }
   const file = new File([bytes as Uint8Array<ArrayBuffer>], free.filename, { type: contentType })
   context.uploadBatch = await importBatchWithRoom(context.session, context.mailImport, context.uploadBatch)
@@ -317,6 +317,7 @@ async function fileBytes(
       {
         projectId: context.mailImport.projectId,
         folderId,
+        onConflict: 'replace',
         file,
         priority: 'bulk',
         uploadBatchId: context.uploadBatch.id,
@@ -348,7 +349,7 @@ async function freeFilename(
 ): Promise<FreeName> {
   for (let n = 1; n <= MAX_NAME_ATTEMPTS; n += 1) {
     const candidate = documentNameKey(numberedFilename(desired, n))
-    if (claimed.has(candidate)) continue
+    if (claimed.has(documentNameMatchKey(candidate))) continue
     const state = await nameStateFor(context, folderId, candidate)
     if (state.kind === 'free') return { filename: candidate, filedAs: null }
     if (state.kind === 'filed') return { filename: candidate, filedAs: state.documentId }
@@ -361,12 +362,7 @@ async function nameStateFor(
   folderId: string,
   filename: string,
 ): Promise<{ kind: 'free' | 'taken' } | { kind: 'filed'; documentId: string }> {
-  const { organizationId } = context.session
-  const holders = await findProjectCollectionsHoldingFilename(organizationId, context.mailImport.projectId, filename)
-  if (holders.length === 0) return { kind: 'free' }
-  if (holders.length > 1) return { kind: 'taken' }
-  const existing = await findLiveDocumentByFilename(organizationId, holders[0], filename)
-  if (!existing || existing.folderId !== folderId) return { kind: 'taken' }
-  if (hasPassedScreening(existing)) return { kind: 'free' }
+  const existing = await findLiveDocumentByFilename(context.session.organizationId, { folderId }, filename)
+  if (!existing || hasPassedScreening(existing)) return { kind: 'free' }
   return existing.createdBy === context.session.userId ? { kind: 'filed', documentId: existing.id } : { kind: 'taken' }
 }

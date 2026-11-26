@@ -150,12 +150,15 @@ the Zustellung.
 _Code_: the type token `correspondence`.
 
 **Fassung** (revision):
-One state of a document, whether it was uploaded again under the same name or
-filed under another name and linked: both are Fassungen in one timeline,
-numbered „Fassung 3 von 5“ (“Revision 3 of 5”). A later Fassung replaces an
+One state of a document, whether it was uploaded again under the same name into
+the same folder or filed under another name and linked: both are Fassungen in one
+timeline, numbered „Fassung 3 von 5“ (“Revision 3 of 5”). A later Fassung replaces an
 earlier one, and the earlier one stays readable on request. Offices mark it in
 the file name with an index or a date (*Stand*, always a date or an index:
 „Stand vom 14.08.2026“); ARCHOS reads that as a suggestion a person confirms.
+The same name in another folder is another document, never a Fassung: a folder
+holds each name once, in any case („Ersetzen“, „Beide behalten“ or „Überspringen“
+when a second one arrives).
 _Avoid_: Plan, Planstand, for any file. A name with an index says a file has
 Fassungen, not that it is a drawing; only its Dokumentart says what it is. Say
 Dokument, Datei, Fassung or Stand. Also avoid „Version“ and “version” where a

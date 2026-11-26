@@ -1,13 +1,17 @@
 import type { JSX } from 'react'
-import { AlertTriangle, Copy, FilePlus2, FolderPlus, MoveRight, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useMemo } from 'react'
+import { FilePlus2, FolderPlus, Files, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { StatCardIcon, type StatCardIconTone } from '@/components/ui/stat-card'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
-import type { FolderUploadCounts, FolderUploadPlan, PlannedFile } from '../../lib/folder-upload-plan'
+import type { FolderUploadCounts, FolderUploadPlan } from '../../lib/folder-upload-plan'
+import type { ConflictRow } from '../../lib/name-conflict'
 import type { RevisionChange } from '../../lib/revision-proposals'
+import type { ConflictChange } from '../../hooks/use-upload-decision'
+import { NameConflictList } from '../name-conflict/name-conflict-list'
+import { DecisionNote, DecisionSection } from '../upload-decision-atoms'
 import { PlanDetails } from './plan-details'
 import { RevisionSection } from './revision-section'
 import { ScreeningSection } from './screening-section'
@@ -16,22 +20,20 @@ export function BatchPlan({
   plan,
   counts,
   isFolder,
-  includeUpdates,
-  onIncludeUpdatesChange,
   pending,
   destination,
   onReleaseChange,
   onRevisionChange,
+  onConflictChange,
 }: {
   plan: FolderUploadPlan
   counts: FolderUploadCounts
   isFolder: boolean
-  includeUpdates: boolean
-  onIncludeUpdatesChange: (include: boolean) => void
   pending: boolean
   destination: string
   onReleaseChange?: (file: File, released: boolean) => void
   onRevisionChange?: (change: RevisionChange) => void
+  onConflictChange?: (change: ConflictChange) => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
@@ -69,69 +71,64 @@ export function BatchPlan({
       </div>
 
       {/* The decision comes right after the numbers: it is what the reader is here for. */}
-      <RevisionSection
-        plan={plan}
-        updates={counts.update}
-        includeUpdates={includeUpdates}
-        onIncludeUpdatesChange={onIncludeUpdatesChange}
-        pending={pending}
-        destination={destination}
-        onRevisionChange={onRevisionChange}
-      />
+      <ConflictSection plan={plan} pending={pending} onConflictChange={onConflictChange} />
 
-      {/* Where documents END UP, which is the part a reader does not see
-          coming: the document exists, it is simply filed somewhere else,
-          and this drop puts it where its tree says it belongs. */}
-      {(counts.refiled > 0 || counts.moving > 0) && (
-        <Alert data-testid="folder-upload-refiled">
-          <MoveRight aria-hidden />
-          <AlertDescription className="space-y-1">
-            {counts.refiled > 0 && <span className="block">{t('folderUpload.refiled', { count: counts.refiled })}</span>}
-            {/* The unchanged ones send no bytes, so nothing about the
-                upload would move them — they are moved on their own, and
-                that is a different sentence. */}
-            {counts.moving > 0 && <span className="block">{t('folderUpload.moving', { count: counts.moving })}</span>}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* ALREADY HERE UNDER ANOTHER NAME.
-          Not an update — the server replaces by filename and these do not
-          share one, so uploading would add a second copy of a document
-          the project already holds. Named with what it is called here,
-          because that is the only way the reader can go and look. */}
-      {counts.duplicate > 0 && (
-        <Alert variant="warning" data-testid="folder-upload-duplicates">
-          <Copy aria-hidden />
-          <AlertTitle>{t('folderUpload.duplicates', { count: counts.duplicate })}</AlertTitle>
-          <AlertDescription className="space-y-1">
-            <span className="block">{t('folderUpload.duplicatesExplain')}</span>
-            <FileNameList files={plan.files.filter((file) => file.action === 'duplicate')} />
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* THE ONE THING THAT IS NOT MERELY INFORMATION.
-          A project holds one document per filename, so two files of the
-          same name inside one drop cannot both land — and before this
-          they both uploaded, one overwriting the other, with nothing said.
-          Neither is sent; the reader is told which, so they can rename or
-          pick. */}
-      {counts.collision > 0 && (
-        <Alert variant="warning" data-testid="folder-upload-collisions">
-          <AlertTriangle aria-hidden />
-          <AlertTitle>{t('folderUpload.collisions', { count: counts.collision })}</AlertTitle>
-          <AlertDescription className="space-y-1">
-            <span className="block">{t('folderUpload.collisionsExplain')}</span>
-            <FileNameList files={plan.files.filter((file) => file.action === 'collision')} />
-          </AlertDescription>
-        </Alert>
-      )}
+      <RevisionSection plan={plan} pending={pending} destination={destination} onRevisionChange={onRevisionChange} />
 
       <ScreeningSection plan={plan} pending={pending} onReleaseChange={onReleaseChange} />
 
-      <PlanDetails plan={plan} includeUpdates={includeUpdates} />
+      <PlanDetails plan={plan} />
     </div>
+  )
+}
+
+function ConflictSection({
+  plan,
+  pending,
+  onConflictChange,
+}: {
+  plan: FolderUploadPlan
+  pending: boolean
+  onConflictChange?: (change: ConflictChange) => void
+}): JSX.Element | null {
+  const t = useTranslations(filesCopy)
+  const rows = useMemo<ConflictRow[]>(
+    () =>
+      plan.files.flatMap((file, index) =>
+        file.conflict
+          ? [
+              {
+                key: String(index),
+                path: file.originPath,
+                name: file.file.name,
+                existingName: file.existingName,
+                within: file.conflict.within,
+                choice: file.conflict.choice,
+                keepBothAs: file.conflict.keepBothAs,
+              },
+            ]
+          : []
+      ),
+    [plan.files]
+  )
+  if (rows.length === 0) return null
+  const held = rows.filter((row) => row.within === 'folder').length
+  const inDrop = rows.length - held
+  return (
+    <DecisionSection icon={Files} title={t('folderUpload.conflicts.title', { count: rows.length })} data-testid="folder-upload-conflicts">
+      {held > 0 && <DecisionNote>{t('folderUpload.conflicts.heldNote', { count: held })}</DecisionNote>}
+      {inDrop > 0 && <DecisionNote>{t('folderUpload.conflicts.dropNote', { count: inDrop })}</DecisionNote>}
+      <NameConflictList
+        rows={rows}
+        operation="upload"
+        disabled={pending}
+        onChoose={
+          onConflictChange
+            ? (keys, choice) => onConflictChange({ files: keys.map((key) => plan.files[Number(key)].file), choice })
+            : undefined
+        }
+      />
+    </DecisionSection>
   )
 }
 
@@ -159,23 +156,5 @@ function PlanCount({
         {secondary && <p className="text-[11px] leading-snug text-muted-foreground">{secondary}</p>}
       </div>
     </div>
-  )
-}
-
-function FileNameList({ files }: { files: readonly PlannedFile[] }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  return (
-    <ul className="mt-1 space-y-0.5 text-xs">
-      {files.slice(0, 6).map((file, index) => (
-        <li key={`${index}:${file.originPath}`} className="truncate opacity-90">
-          <span className="font-mono">{file.originPath}</span>
-          {file.existingName && (
-            <span className="opacity-80"> — {t('folderUpload.alreadyHereAs', { name: file.existingName })}</span>
-          )}
-          {file.existingArchived && <span className="opacity-80"> ({t('folderUpload.archivedMatch')})</span>}
-        </li>
-      ))}
-      {files.length > 6 && <li className="opacity-70">+{files.length - 6}</li>}
-    </ul>
   )
 }
