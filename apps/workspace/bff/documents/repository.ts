@@ -19,7 +19,7 @@ export {
 export { findStorageKeysByCollectionAndFilename, findReadableStorageKeyById, findPageTextTarget, findStorageKeyByIdAndCollection, documentExistsInCollection, listDocumentIdsInCollection } from './repository/storage'
 export type { StoredDocumentFile, CollectionDocumentId } from './repository/storage'
 export type { DispatchStart } from './repository/mutations'
-export { deleteProjectDocument, deleteShelfDocumentRow, setDocumentDisplayName, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
+export { deleteProjectDocument, deleteShelfDocumentRow, setDocumentDisplayNameInFolder, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
 export { findIngestAnnouncementFacts, listSettleableDocumentsForIngestJobs, listStalePendingDocuments, listStuckProcessingDocuments, markDocumentIngestFailed } from './repository/ingest-state'
 export type { IngestAnnouncementFacts, StuckProcessingDocument } from './repository/ingest-state'
 export { findFolderPathsInProject, findFolderPathInProject, findFolderPathInOfficeShelf, findFolderPathOnShelf, countDocumentsByProject, folderIsInBin } from './repository/folders'

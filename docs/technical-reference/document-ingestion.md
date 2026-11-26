@@ -81,8 +81,8 @@ Body: { projectId: string, file: File }
 3. **Store in SeaweedFS** — `PutObjectCommand` with key `org/{orgId}/project/{projId}/doc/{docId}/{filename}` (built by `buildStorageKey()` in `s3.ts`). The filename segment goes through `storageKeySegment`: separators are flattened, and a name the pipelines write beside the original (`_render.pdf`, `_thumb.jpg`, `_img`, `_bim`), a prefix the app stages under a project (`mail-imports`, the Outlook import's archive), each compared without case, or a dot-only name gets a `_` prefix, in every segment of the folder path as in the filename, so a user file named `_render.pdf` is stored as `__render.pdf` and cannot be mistaken for a derived object. The row keeps the user's filename
 4. **Insert DB row** — Drizzle `documents` table with `status: 'uploaded'`, storing `documentId`, `organizationId`, `projectId`, `createdBy`, `filename`, `storageKey`, `collectionName`, `fileSize`, `contentType`
 5. **Generate presigned GET URL** — `getSignedUrl(s3Client, GetObjectCommand, { expiresIn: INGEST_JOB_REF_TTL_SECONDS })`. 24 hours, not the 600 s `SEAWEED_PRESIGNED_URL_TTL_SECONDS` default the other signed reads use: the ingest job downloads the file when the bounded ingest pool reaches it, which can be well after dispatch (Step 3)
-6. **Trigger ingestion** — POST to `{BACKEND_URL}/v1/ingest` with `{ file_ref: presignedUrl, collection: collectionName, document_id: documentId, file_name: filename, folder_path }`. `file_name` is the row's own `documents.filename`, stated rather than derived from the presigned URL's last path segment, because it is the join key every chunk purge addresses
-   When the upload dialog filed the file as the new Fassung of another document (`revisionOf` form field, a document id), `uploadToShelf` checks it first (`resolveRevisionOf`: write access to the older document, same shelf and collection, active, past screening, person-uploaded; equal names are a version and ignore it) and the dispatch adds `revision_of: <older file name>`. It travels through the office-rendition job payload too; an IFC model's digest is not the file the row names, so it carries none. In `_ingest_job`, `fassungen.record_revisions(..., confirmed_older=…)` calls `confirm_revision` after the summary row is written: loop and existence checks (`document_revisions.would_loop`, shared with the PUT route), `superseded_by` on the older row, then `summarize_change` onto the new file. It replaces the suggestion for that file; when it cannot link it runs the ordinary path.
+6. **Trigger ingestion** — POST to `{BACKEND_URL}/v1/ingest` with `{ file_ref: presignedUrl, collection: collectionName, document_id: documentId, file_name: filename, folder_path }`. `file_name` is the row's own `documents.filename`, stated rather than derived from the presigned URL's last path segment, because it is the label every chunk carries; `document_id` is what every replacement and purge addresses, since a name is unique only within its folder (ADR-0199)
+   When the upload dialog filed the file as the new Fassung of another document (`revisionOf` form field, a document id), `uploadToShelf` checks it first (`resolveRevisionOf`: write access to the older document, same shelf and collection, active, past screening, person-uploaded; a name the older document holds in the same folder is a version and ignores it) and the dispatch adds `revision_of: <older file name>` and `revision_of_id: <older document id>`, which wins. It travels through the office-rendition job payload too; an IFC model's digest is not the file the row names, so it carries none. In `_ingest_job`, `fassungen.record_revisions(..., confirmed_older=…)` calls `confirm_revision` after the summary row is written: loop and existence checks (`document_revisions.would_loop`, shared with the PUT route), `superseded_by` on the older row, then `summarize_change` onto the new file. It replaces the suggestion for that file; when it cannot link it runs the ordinary path.
 7. **Record the job** — on success the row is updated to `status: 'pending'` with `metadata: { ingestJobId }` so status reads can later reconcile the row against the backend job (see Step 5)
 8. **Return response** — `{ documentId, jobId, status: 'pending' | 'uploaded' | 'processing' }`
 
@@ -432,15 +432,20 @@ the BFF and the backend.
 
 ### A re-upload replaces the previous version once it has indexed
 
-Chunks are keyed by file name within a collection, so a file uploaded under a
-name the collection already holds is a new version of that document, not a
-second document. The replacement runs in two steps inside `_run_ingestion`,
-per file, under a lock on (collection, normalized name):
+A user document's chunks are keyed by its `document_id`, so an ingest for a
+document that already has chunks is a new version of that document, and a
+document of the same name in another folder is another document whose chunks
+are never touched (ADR-0199). Which upload is a new version the BFF decides,
+per folder. The replacement runs in two steps inside `_run_ingestion`, per
+file, under a lock on (collection, document id), or (collection, normalized
+name) for a request without an id:
 
 1. Before the file is read, `_find_previous_versions` reads which chunk ids
-   answer to its name and what a person set on their metadata row:
+   belong to the document (its `document_id`, plus chunks of its name that
+   carry no id yet, from before chunks carried one) and what a person set on
+   its metadata row:
    `doc_class`, `display_title`, `folder_path`, and `tags` when a person chose
-   them (`tags_set_by = 'person'`). It deletes nothing. The read is
+   them (`tags_set_by = 'person'`). It deletes nothing. The name part of the read is
    a Qdrant scroll with `file_name` in the spellings a stored
    version can carry: the name, its percent-encoded forms, and the
    `tmp[8]_`-prefixed names the metadata rows know
@@ -450,10 +455,10 @@ per file, under a lock on (collection, normalized name):
    version with no metadata row is not found and stays beside its re-upload.
 2. After a file reaches `SUCCESS`, `_retire_previous_version` deletes exactly
    those collected ids from Qdrant, and bumps the collection version. The
-   metadata row under the new name is the new version's row and keeps the
-   fields people set; a row under another spelling of the name is dropped, and
-   its fields were carried onto the new row. Tags a person chose survive the
-   same way: the upsert keeps them on a row of the same name, and a row under
+   document's metadata row (by its id) is the new version's row and keeps the
+   fields people set; a row without an id under another spelling of the name is
+   dropped, and its fields were carried onto the new row. Tags a person chose survive the
+   same way: the upsert keeps them on the document's own row, and a row under
    another spelling has them carried over with `set_document_tags_by_person`.
    The classifier's tags are re-derived from the new bytes.
 
@@ -514,9 +519,9 @@ with the service token (`knowledge_layer/ingest/document_presence.py`,
 
 - discards what this attempt inserted, by the same `_discard_partial_version`
   a failure uses;
-- retires nothing. Under the same name the predecessor may already be a new
-  document's first version: a delete, then a new upload of the name that
-  indexed while this attempt waited for the lock;
+- retires nothing. The chunks it found may already be another document's: a
+  delete, then a new upload under the name that indexed while this attempt
+  waited for the lock;
 - writes no metadata row, and ends `FAILED` with
   `document_deleted: the document was deleted while it was being ingested`, so
   the end-of-job summary reconciliation, which backfills a row for every

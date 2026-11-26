@@ -54,13 +54,15 @@ export class ReplacedDocumentGoneError extends ConflictError {
   }
 }
 
+export const RACED_UPLOAD_ATTEMPTS = 5
+
 export async function retryRacedUpload<T>(attempt: () => Promise<T>): Promise<T> {
-  try {
-    return await attempt()
-  } catch (error) {
-    if (!(error instanceof LiveFilenameTakenError) && !(error instanceof ReplacedDocumentGoneError)) {
-      throw error
+  for (let tried = 1; ; tried += 1) {
+    try {
+      return await attempt()
+    } catch (error) {
+      const raced = error instanceof LiveFilenameTakenError || error instanceof ReplacedDocumentGoneError
+      if (!raced || tried >= RACED_UPLOAD_ATTEMPTS) throw error
     }
-    return attempt()
   }
 }

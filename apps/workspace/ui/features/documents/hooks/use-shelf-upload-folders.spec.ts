@@ -154,7 +154,13 @@ describe('a dropped feld72 tree, from the drop to the requests', () => {
     const { result } = renderHook(() => {
       const upload = useFileUpload({ collectionName: 'proj-collection', projectId: 'proj-1' })
       return useShelfUpload({
-        shelf: { probeNames: async () => [], probeRevisions: async () => [], handoverKey: null, endpoints: { folders: '/api/projects/proj-1/folders' }, projectId: 'proj-1' },
+        shelf: {
+          probeNames: async () => [],
+          probeRevisions: async () => [],
+          handoverKey: undefined,
+          endpoints: { folders: '/api/projects/proj-1/folders' },
+          projectId: 'proj-1',
+        },
         upload,
         folders,
         foldersReady: true,

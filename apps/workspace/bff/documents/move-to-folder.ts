@@ -18,7 +18,14 @@ import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findDocumentForSession } from './access'
 import { documentDisplayName } from './display-name'
-import { nameConflictWith, type NameConflict, type NameConflictResolution } from './name-conflict'
+import {
+  nameConflictWith,
+  ReplaceUnavailableError,
+  WITHOUT_REPLACE,
+  type NameConflict,
+  type NameConflictResolution,
+} from './name-conflict'
+import { refuseUnseenHolder } from './name-holder'
 import { reingestDocument } from './reingest'
 import {
   findFreeDocumentName,
@@ -147,11 +154,12 @@ export async function moveDocumentToFolder(
 
   const place = namePlaceIn(input.folderId, targetCollection)
   const name = documentDisplayName(document)
-  const conflictWith = async (holder: LiveDocumentNameHolder): Promise<MoveDocumentOutcomeResult> => ({
-    ok: false,
-    error: NAME_CONFLICT_MESSAGE,
-    conflict: nameConflictWith(holder, name, input.folderId, await findFreeDocumentName(session.organizationId, place, name)),
-  })
+  const conflictWith = async (holder: LiveDocumentNameHolder): Promise<MoveDocumentOutcomeResult> => {
+    await refuseUnseenHolder(session, holder, name)
+    const suggestedName = await findFreeDocumentName(session.organizationId, place, name)
+    const choices = shelf.kind === 'personal' ? WITHOUT_REPLACE : undefined
+    return { ok: false, error: NAME_CONFLICT_MESSAGE, conflict: nameConflictWith(holder, name, input.folderId, suggestedName, choices) }
+  }
   const holder = await holderOfName(session.organizationId, place, document)
   let renameTo: string | null = null
   if (holder) {
@@ -232,17 +240,14 @@ async function replaceWithMoved(
   holder: LiveDocumentNameHolder,
   request: Request | undefined,
 ): Promise<MoveDocumentOutcomeResult> {
+  if (shelf.kind === 'personal') throw new ReplaceUnavailableError(document.id)
   if (!request) return { ok: false, error: REPLACE_NEEDS_REQUEST }
+  const { assertMayBinDocument, moveDocumentToBin } = await import('@/lib/projects/document-bin')
+  await assertMayBinDocument(session, document.id)
   const { uploadToShelf } = await import('./shelf-upload')
   const file = await storedFileOf(document, holder.filename)
   await uploadToShelf(session, shelf, { file, folderId: holder.folderId, onConflict: 'replace' }, request)
-  if (shelf.kind === 'personal') {
-    const { deletePersonalShelfDocument } = await import('@/lib/personal-shelf/service')
-    await deletePersonalShelfDocument(session, document.id, request)
-  } else {
-    const { moveDocumentToBin } = await import('@/lib/projects/document-bin')
-    await moveDocumentToBin(session, document.id, request)
-  }
+  await moveDocumentToBin(session, document.id, request)
   return {
     ok: true,
     document: { id: holder.id, folderId: holder.folderId, filename: holder.filename },

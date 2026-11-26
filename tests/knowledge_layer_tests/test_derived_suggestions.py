@@ -200,3 +200,22 @@ def test_a_suggestion_for_a_document_with_an_id_is_keyed_by_that_id():
     rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c")]
 
     assert list(revisions.derive_suggestions(rows, _held())) == ["doc-c"]
+
+
+def test_a_derived_suggestion_names_the_older_document_by_id_beside_its_name():
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c")]
+
+    suggestion = revisions.derive_suggestions(rows, _held())["doc-c"]
+
+    assert (suggestion["of"], suggestion["of_id"]) == (B, "doc-b")
+
+
+def test_an_older_document_without_an_id_is_named_alone():
+    assert "of_id" not in revisions.derive_suggestions([_row(B), _row(C)], _held())[C]
+
+
+def test_a_refusal_by_id_keeps_the_older_namesake_out():
+    refused = {"of": B, "of_id": "doc-b", "dismissed": True, "confidence": 0.9, "reason": "", "basis": "name"}
+    rows = [_row(B, document_id="doc-b"), _row(C, document_id="doc-c", revision_suggestion=refused)]
+
+    assert revisions.derive_suggestions(rows, _held()) == {}

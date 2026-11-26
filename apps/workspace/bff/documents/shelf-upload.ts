@@ -8,12 +8,12 @@ import {
   buildStorageKey,
 } from '@/lib/s3'
 import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
-import { ConflictError, NotFoundError } from '@/lib/api/errors'
+import { NotFoundError } from '@/lib/api/errors'
 import { folderReadOnlyError, getProjectFolderAccess } from '@/lib/authz/folder-access'
 import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { acceptedUploadBatchId } from '@/lib/upload-batches/service'
 import { auditScreeningOverride, type NameGateResult } from '@/lib/upload-screening/service'
-import { assertMayReplaceHeld, maySeeHeld } from '@/lib/upload-screening/quarantine-reviewers'
+import { assertMayReplaceHeld } from '@/lib/upload-screening/quarantine-reviewers'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { admitOrDiscard, admitReplacementOrDiscard } from '@/lib/storage/admission'
 import { publishShelfChanged } from './shelf-live'
@@ -21,12 +21,11 @@ import { announceDocumentUploaded } from '@/lib/analytics/ingest-events'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { contentDigest } from './content-digest'
 import { documentReadFamily } from './document-status'
-import { hasPassedScreening } from './document-reader'
 import { nextVersionNumber, recordUploadedVersionOrDiscard } from './lifecycle'
 import { resolveRevisionOf, type RevisionOfIgnoredReason } from './revision-upload'
 import { documentNameKey } from './name-match'
-import { NAME_TAKEN_DETAILS, nameTakenMessage } from './name-taken'
 import { NameConflictError, nameConflictWith, type NameConflictResolution } from './name-conflict'
+import { refuseUnseenHolder } from './name-holder'
 import { normalizeOriginPath, sanitizeOriginPath } from './origin-path'
 import { resolveShelfFolderPath } from './folder-path'
 import {
@@ -60,7 +59,7 @@ export interface ShelfUploadInput {
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
   originConversationId?: string | null
-  onConflict?: UploadConflictPolicy
+  onConflict: UploadConflictPolicy
 }
 
 export type UploadConflictPolicy = NameConflictResolution | 'refuse'
@@ -174,11 +173,6 @@ type Destination = { kind: 'new'; filename: string } | { kind: 'replace'; holder
 
 function namePlace(collectionName: string, folderId: string | null): DocumentNamePlace {
   return folderId === null ? { folderId: null, collectionName } : { folderId, collectionName }
-}
-
-async function refuseUnseenHolder(session: AuthorizedSession, holder: LiveDocumentNameHolder, filename: string): Promise<void> {
-  if (hasPassedScreening(holder) || (await maySeeHeld(session, holder))) return
-  throw new ConflictError(nameTakenMessage(filename), NAME_TAKEN_DETAILS)
 }
 
 function sameBytesReadable(holder: LiveDocumentNameHolder, contentHash: string): boolean {
@@ -326,7 +320,7 @@ async function prepareUpload(
     revisionOf: revision.revisionOf,
     revisionOfId: revision.revisionOf ? (input.revisionOf ?? null) : null,
     revisionOfIgnored: revision.ignored,
-    onConflict: input.onConflict ?? 'replace',
+    onConflict: input.onConflict,
     screeningOverridden: nameGate.overridden,
   }
 }

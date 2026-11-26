@@ -38,7 +38,7 @@ Each of these is a write in the folder. In a folder whose access list gives you 
 
 Renaming or moving a folder rewrites the stored path of everything beneath it in the same transaction, so a deeply nested document is never left pointing at a path that no longer exists.
 
-**Moving a document between folders** is in the document's own `⋯` menu, under `Move to folder`. Until now a file was filed once, at upload, and stayed there: a document dropped in the wrong folder — or uploaded before the folder existed — could not be re-filed at all. Each destination is listed by its full path (`Brandschutz / Fluchtwege`), because two branches of a tree can both hold a *Fluchtwege*; the folder the document is in now carries a check and cannot be picked; and **All Files** is a real destination, so a document can be taken back out of every folder. The move also re-files the document on the assistant's side, so what ARCHOS says about where a document lives follows it immediately (see ADR-0049).
+**Moving a document between folders** is in the document's own `⋯` menu, under `Move to folder`. Until now a file was filed once, at upload, and stayed there: a document dropped in the wrong folder — or uploaded before the folder existed — could not be re-filed at all. Each destination is listed by its full path (`Brandschutz / Fluchtwege`), because two branches of a tree can both hold a *Fluchtwege*; the folder the document is in now carries a check and cannot be picked; and **All Files** is a real destination, so a document can be taken back out of every folder. A folder holds each name once (see [Names are unique within a folder](#names-are-unique-within-a-folder)), so a move into a folder that already holds the document's name asks first. The move also re-files the document on the assistant's side, so what ARCHOS says about where a document lives follows it immediately (see ADR-0049).
 
 **The assistant knows your folders.** When you file a document, the folder travels
 with it into the knowledge base, so the agent can answer "welche Unterlagen habe
@@ -227,7 +227,10 @@ without a drag.
 Every move says where it went, with **Rückgängig** to put it back. When a move
 cannot happen, ARCHOS says why: a folder you may only read (it turns red while
 you hold something over it), a folder of the same name already there, or a
-folder someone has just deleted.
+folder someone has just deleted. When the folder already holds a document of
+that name, ARCHOS asks what happens: „Ersetzen“ makes the moved file the next
+Fassung of the document already there, „Beide behalten“ moves it in under the
+next free name, „Überspringen“ leaves it where it is.
 
 Dragging a file inside ARCHOS never starts an upload: a drag carrying files from
 your desktop and a drag carrying a document already here are different things to
@@ -242,6 +245,35 @@ A folder you may only read takes nothing: a file in it cannot be dragged out,
 and the overlay says „Nur lesen“ in red instead of offering a drop that the
 server would refuse. A second drop while an upload is still running waits its
 turn, and ARCHOS says that it will follow, rather than dropping it.
+
+## Names are unique within a folder
+
+A folder holds each name once, the way the Finder and Explorer do: `Plan.pdf`
+and `plan.pdf` are the same name, and so are the two ways a Mac and Windows
+write `ä`. The same name in another folder is another document, with its own
+Fassungen, tags, answers and citations: `Bestand/Grundriss EG.pdf` and
+`Entwurf/Grundriss EG.pdf` are two documents, and ARCHOS keeps them apart.
+The top level of the Ablage counts as a folder of its own.
+
+When a file comes into a folder that already holds its name, by an upload or a
+move, ARCHOS asks, per file:
+
+- **„Ersetzen“**: the file becomes the next Fassung of the document already
+  there. The earlier Fassung stays readable, and the document keeps its name,
+  citations and assignments.
+- **„Beide behalten“**: the file comes in beside it under the next free name,
+  `Plan 2.pdf` (or `Plan 3.pdf` when `Plan 2.pdf` is taken).
+- **„Überspringen“**: nothing is uploaded or moved.
+
+For several files at once, **„Für alle anwenden“** takes one choice for all of
+them. The list shows every file with its whole path, wraps long names instead
+of cutting them, and **„Kopieren“** copies all the paths, one per line. A file
+restored from the Papierkorb into a folder that now holds its name comes back
+beside it under the next free name. Renaming a document to a name its folder
+already holds is refused in the rename field: „In diesem Ordner heißt schon ein
+Dokument „…“. Wählen Sie einen anderen Namen.“ ARCHOS meets the same rule: when
+it proposes a move or a rename onto a name the folder holds, it asks you rather
+than replacing anything.
 
 ## Sorting the root folder into folders
 
@@ -280,6 +312,16 @@ file and is never rewritten. The point of it is that you can go back and work on
 the ORIGINAL on the office server, instead of downloading a copy that diverges
 from the moment you save it.
 
+**Every file of the tree arrives.** A name that repeats in different folders of
+the upload is a document in each of them, so a project folder from the office
+server with hundreds of repeated names (`Bestand/…` and `Entwurf/…`) arrives
+whole. A file whose name its target folder already holds is asked about in one
+block, „3 Namen sind in ihren Ordnern schon vergeben“, with „Ersetzen“
+preselected and „Beide behalten“ and „Überspringen“ beside it; two files of the
+upload whose names meet in one folder (`Plan.pdf` and `plan.pdf`) come in under
+the next free name unless you skip one. A file identical to the document
+already there is skipped as unchanged.
+
 Very large drops are bounded (files, depth, and a time limit). When a bound is
 reached you are told the upload is incomplete rather than left with a silently
 partial one — a bulk upload that quietly took the first half is worse than one
@@ -301,11 +343,12 @@ stays readable; ARCHOS answers from the new one, notes what changed, and the
 document's preview shows the history. An unticked file still uploads, as a
 document of its own, and a link can be undone later („Verknüpfung lösen“).
 
-- **One block for every new Fassung.** A file of the same name and a file that
-  continues a document under another name are both a new Fassung, so the dialog
-  asks them in one block, „39 neue Fassungen“, each group saying why ARCHOS
-  thinks so: „Gleicher Name“ (one box for all of them; unticked, they are not
-  uploaded) and „Namensreihe“ (index or date in the name).
+- **One block for every new Fassung under another name.** A file that
+  continues a document under another name is asked in one block, „39 neue
+  Fassungen“, saying why ARCHOS thinks so: „Namensreihe“ (index or date in the
+  name). A file of the same name in the same folder is not in this block: it is
+  in the block of names the folder already holds, with „Ersetzen“ preselected
+  (see [Names are unique within a folder](#names-are-unique-within-a-folder)).
 - **One decision for a whole export.** An ArchiCAD publisher export of forty
   files is one list under one box that stays in sight while you scroll, with a
   count: „Alle 34 als neue Fassung“, „33 von 34 als neue Fassung“. The rows are
@@ -373,8 +416,10 @@ File names in ZIPs made by very old Windows versions, which did not mark their
 names as UTF-8, can show garbled umlauts; renaming the folder in ARCHOS fixes it.
 
 **Re-uploading a file that is already there makes it the next Fassung.** Dropping a corrected
-document under the same name into the same project, the Bürobibliothek, or the same chat
-points the existing document at the new bytes and re-indexes it: the document
+document under the same name into the folder that holds it, in a project, the Bürobibliothek or
+Meine Ablage, and choosing „Ersetzen“ (preselected when a folder upload asks), or into the same
+chat, where a name is replaced without asking (a chat has no folders), points the existing
+document at the new bytes and re-indexes it: the document
 keeps its identity, so citations, chat subjects and folder placement all
 survive, and the organization is charged for one copy rather than two. The
 previous Fassung's thumbnail and parsed model are discarded with it, so nothing
@@ -385,13 +430,10 @@ as failed and search keeps finding the previous Fassung until a working file
 replaces it, while the download already returns the new file. The preview says
 so under the failure reason, for a document with more than one Fassung. A file
 that fails partway through indexing leaves none of its passages behind, and two
-people re-uploading one name at once end with the Fassung indexed last. The database
-enforces one live document per name and collection, so two uploads racing each
-other cannot recreate the duplicate either. This is the behaviour the
-ingestion pipeline already had — it replaces a document's passages by filename —
-and the file list now agrees with it. Before, a re-upload left the first entry
-listed and downloadable but findable by nothing, because its passages had been
-replaced by the second one's.
+people re-uploading one name into one folder at once end with the Fassung indexed
+last. The database enforces one live document per name and folder, so two uploads
+racing each other cannot create the duplicate either. The same name in another
+folder is another document, and uploading it there changes nothing here.
 
 The browser-side duplicate warning above is a convenience and is per-browser: it
 is remembered locally, so it does not appear in a different browser or a private
@@ -562,8 +604,9 @@ release is yours to decide.
 Open it and there is **one list, newest first, numbered „Fassung 3“, „Fassung
 2“, „Fassung 1“**. It merges two kinds of history:
 
-- **Uploads under the same name.** Uploading a corrected file under the name
-  that already exists makes it the next Fassung; the earlier one stays readable.
+- **Uploads under the same name.** Uploading a corrected file into the folder
+  that holds its name, with „Ersetzen“, makes it the next Fassung; the earlier
+  one stays readable.
   Only Fassungen that were published can be opened as files; a draft opens as
   text.
 - **Older documents under other names.** Offices name every state with its index
@@ -589,7 +632,7 @@ differ. „Ja, neuere Fassung“ links them, „Nein“ is remembered. Anyone wh
 edit the folder can answer.
 
 People assigned to the older document, and whoever uploaded it, get a note in the
-inbox when a newer Fassung is linked or uploaded under the same name, if they
+inbox when a newer Fassung is linked or uploaded over it, if they
 may open the newer one (see „The inbox“ in the chat guide).
 
 ### ARCHOS notices a new Fassung

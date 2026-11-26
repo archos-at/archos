@@ -30,7 +30,7 @@ export interface UploadDocumentInput {
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
   originConversationId?: string | null
-  onConflict?: UploadConflictPolicy
+  onConflict: UploadConflictPolicy
 }
 
 export type { UploadDocumentResult }

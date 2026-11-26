@@ -120,8 +120,8 @@ by `REVISION_TIMEOUT_SECONDS` (45 s) and fail-open: it cannot fail an ingest.
 
 1. A `revision_of` choice from the upload dialog is written as a confirmed link
    (`confirm_revision`).
-2. A name that was already in the collection is a same-name version. Only a
-   change line is written (`record_change`).
+2. A document that already had chunks (the same id, uploaded again into its
+   folder) is a same-name version. Only a change line is written (`record_change`).
 3. A new name goes to `suggest_revision`. The title blocks settle it first
    (`settle_by_title_block`): the newest older state with the same number is
    stored with `basis: title_block` and confidence 0.95, and no model is called.
@@ -170,7 +170,7 @@ refuses the upload: the file is stored as a document of its own, the answer
 carries `revisionOfIgnored` with the reason, and the `document.uploaded` audit
 event records it. A document the person may not see and one they may not
 change are both `unavailable`, so the answer says nothing about which. The
-dispatch then sends `revision_of: <older file name>` to `POST /v1/ingest`. Once
+dispatch then sends `revision_of: <older file name>` and `revision_of_id: <older document id>`, which wins, to `POST /v1/ingest`. Once
 the new file has been read, `confirm_revision` writes what the PUT below writes,
 through the same store step. The link is the person's and waits for nothing: it
 is written when the summary model is off (then without a change line) and when no
@@ -189,8 +189,8 @@ is dropped, since the release can come days later.
 **After reading.** `PUT /api/documents/[id]/revision` takes `{ older, linked }`.
 `setRevisionLink` loads both documents with write access and refuses a held
 upload, a chat attachment, an archived document and two collections. It calls
-`PUT /v1/collections/{c}/revision` with `{ newer, older, linked }` by file name
-and the organization and user headers, so the change summary runs on the
+`PUT /v1/collections/{c}/revision` with `{ newer, older, linked }` and their ids
+(`newer_id`, `older_id`, which win over the names), and the organization and user headers, so the change summary runs on the
 organization's credential and data policy (BYOK, ZDR) and its spend is booked
 to it,
 audits `document.revision_changed`, and answers with the facts of both documents
@@ -228,7 +228,7 @@ The flag is one option of the one purge call, `purgeIngestedChunks(…, { perman
 reversible purge, and the specs of each caller above pin which one it sends.
 
 **Without `permanent`** the row goes, and what a person made on it is kept under
-`(collection, file name)` in `document_revision_retained`: the row's own
+its document id (else `(collection, file name)`) in `document_revision_retained`: the row's own
 `superseded_by`, its refusals (`dismissed_of`), and a change line whose
 `change_basis` is another file (one told against the document's own earlier
 upload describes bytes the re-read replaces, and an open suggestion is the agent's,

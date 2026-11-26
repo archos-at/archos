@@ -177,6 +177,29 @@ class TestSuggestRevision:
         )
         return calls
 
+    def test_the_verdict_names_the_older_document_by_id_when_its_name_is_unique(self, job_store, stored):
+        rows = [_row("B.pdf", summary="Grundriss EG.", document_id="doc-b")]
+        answer = '{"of": "B.pdf", "confidence": 0.9, "reason": "Gleicher Grundriss."}'
+
+        suggestion = revisions.suggest_revision(
+            "coll", "C.pdf", rows=rows, summary="Grundriss EG, neu.", doc_class=None, tags=None, llm=self._llm(answer)
+        )
+
+        assert (suggestion["of"], suggestion["of_id"]) == ("B.pdf", "doc-b")
+
+    def test_a_verdict_naming_two_namesakes_carries_no_id(self, job_store, stored):
+        rows = [
+            _row("B.pdf", summary="Grundriss EG.", document_id="doc-b1"),
+            _row("B.pdf", summary="Grundriss OG.", document_id="doc-b2"),
+        ]
+        answer = '{"of": "B.pdf", "confidence": 0.9, "reason": "Gleicher Grundriss."}'
+
+        suggestion = revisions.suggest_revision(
+            "coll", "C.pdf", rows=rows, summary="Grundriss EG, neu.", doc_class=None, tags=None, llm=self._llm(answer)
+        )
+
+        assert "of_id" not in suggestion
+
     def test_the_verdict_is_stored_as_a_suggestion_with_its_basis(self, job_store, stored):
         rows = [_row("B.pdf", summary="Grundriss EG.")]
         answer = '{"of": "B.pdf", "confidence": 0.9, "reason": "Gleicher Grundriss."}'

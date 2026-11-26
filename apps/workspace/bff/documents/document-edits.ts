@@ -16,11 +16,12 @@ import { collectionFileRef, collectionFileUrl, purgeIngestedChunks } from './col
 import {
   deleteShelfDocumentRow,
   findFreeDocumentName,
-  findLiveDocumentByFilename,
-  setDocumentDisplayName,
+  setDocumentDisplayNameInFolder,
   type DocumentNamePlace,
+  type LiveDocumentNameHolder,
 } from './repository'
 import { NameConflictError, nameConflictWith } from './name-conflict'
+import { refuseUnseenHolder } from './name-holder'
 import { documentDisplayName, validateDocumentName } from './display-name'
 import { findDocumentForSession, getAccessibleDocument } from './access'
 import { eraseDocumentObjectsOrKeepRow } from './object-cleanup'
@@ -94,9 +95,11 @@ export async function renameDocument(
     }
     displayName = validated.value === doc.filename ? null : validated.value
   }
-  await assertNameFreeInFolder(session.organizationId, doc, displayName ?? doc.filename)
-
-  await setDocumentDisplayName(documentId, session.organizationId, displayName)
+  const shownName = displayName ?? doc.filename
+  const place: DocumentNamePlace =
+    doc.folderId === null ? { folderId: null, collectionName: doc.collectionName } : { folderId: doc.folderId }
+  const holder = await setDocumentDisplayNameInFolder(session.organizationId, place, documentId, displayName, shownName)
+  if (holder) await refuseNameTaken(session, doc, place, holder, shownName)
   publishShelfChanged(session.organizationId, documentShelf(doc))
 
   const mirrorRef = collectionFileRef(doc)
@@ -148,12 +151,15 @@ export async function renameDocument(
   return { id: documentId, filename: doc.filename, displayName }
 }
 
-async function assertNameFreeInFolder(organizationId: string, doc: Document, name: string): Promise<void> {
-  const place: DocumentNamePlace =
-    doc.folderId === null ? { folderId: null, collectionName: doc.collectionName } : { folderId: doc.folderId }
-  const holder = await findLiveDocumentByFilename(organizationId, place, name, { excluding: doc.id })
-  if (!holder) return
-  const suggestedName = await findFreeDocumentName(organizationId, place, name)
+async function refuseNameTaken(
+  session: AuthorizedSession,
+  doc: Document,
+  place: DocumentNamePlace,
+  holder: LiveDocumentNameHolder,
+  name: string,
+): Promise<never> {
+  await refuseUnseenHolder(session, holder, name)
+  const suggestedName = await findFreeDocumentName(session.organizationId, place, name)
   throw new NameConflictError(nameConflictWith(holder, name, doc.folderId, suggestedName))
 }
 

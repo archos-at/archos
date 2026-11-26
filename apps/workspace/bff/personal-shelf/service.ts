@@ -84,7 +84,7 @@ export function uploadToPersonalShelf(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, ...input }: PersonalShelfUploadInput = {},
+  { folderId = null, ...input }: PersonalShelfUploadInput,
 ): Promise<UploadDocumentResult> {
   return uploadToShelf(session, ownShelf(session), { ...input, file, folderId }, request)
 }

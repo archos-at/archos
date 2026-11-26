@@ -36,7 +36,7 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
       originConversationId: text(formData.get('originConversationId')) ?? null,
-      onConflict: readNameConflictResolution(formData.get('onConflict')) ?? ('refuse' as const),
+      onConflict: readNameConflictResolution(formData.get('onConflict')) ?? 'refuse',
     }
     const { originConversationId } = input
     if (originConversationId) {

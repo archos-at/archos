@@ -1,10 +1,11 @@
 import 'server-only'
 import { and, desc, eq, isNull, ne, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
+import type { DbExecutor } from '@/lib/db/executor'
 import { withTenant } from '@/lib/db/tenant-context'
 import { splitDocumentName } from '../display-name'
 import { nextFreeDocumentName } from '../name-conflict'
-import { documentNameMatchKey, holdsDocumentName } from '../name-match'
+import { documentNameKey, documentNameMatchKey, holdsDocumentName } from '../name-match'
 import { documents, type Document, type DocumentAuthor } from '@/lib/db/schema/documents'
 import type { DocumentScreeningOutcome } from '@/lib/db/schema/documents'
 import { documentVisibleTo, internalRead } from '../visibility'
@@ -53,8 +54,18 @@ function inPlace(place: DocumentNamePlace): SQL[] {
 
 const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (character) => `\\${character}`)
 
-function asciiLikePattern(text: string): string {
-  return [...text].map((character) => (character.charCodeAt(0) < 0x80 ? escapeLike(character) : '_')).join('')
+function likeCharacter(character: string): string {
+  if (character.charCodeAt(0) >= 0x80) return '%'
+  if (character === 'i' || character === 'I') return '_'
+  return escapeLike(character.toLowerCase())
+}
+
+function nameLikePattern(text: string): string {
+  return [...text].map(likeCharacter).join('')
+}
+
+export function documentNamesLockKey(organizationId: string, place: DocumentNamePlace): string {
+  return `document_names:${organizationId}:${place.folderId ?? `root:${place.collectionName}`}`
 }
 
 function nameKeyLike(column: typeof documents.filename | typeof documents.displayName, pattern: string): SQL {
@@ -87,11 +98,10 @@ export async function findLiveDocumentByFilename(
   organizationId: string,
   place: DocumentNamePlace,
   name: string,
-  { excluding }: { excluding?: string } = {},
+  { excluding, executor = getDb() }: { excluding?: string; executor?: DbExecutor } = {},
 ): Promise<LiveDocumentNameHolder | null> {
-  const db = getDb()
   const rows = await withTenant({ organizationId }, () =>
-    db
+    executor
       .select({
         id: documents.id,
         filename: documents.filename,
@@ -114,7 +124,7 @@ export async function findLiveDocumentByFilename(
         and(
           eq(documents.organizationId, organizationId),
           ...inPlace(place),
-          mayHoldName(asciiLikePattern(documentNameMatchKey(name))),
+          mayHoldName(nameLikePattern(documentNameKey(name))),
           eq(documents.authoredBy, 'user'),
           ...(excluding ? [ne(documents.id, excluding)] : []),
           documentVisibleTo(internalRead('identity')),
@@ -131,8 +141,8 @@ export async function findTakenDocumentNameKeys(
   place: DocumentNamePlace,
   name: string,
 ): Promise<Set<string>> {
-  const { stem, extension } = splitDocumentName(documentNameMatchKey(name))
-  const family = `${asciiLikePattern(stem)} %${asciiLikePattern(extension)}`
+  const { stem, extension } = splitDocumentName(documentNameKey(name))
+  const family = `${nameLikePattern(stem)} %${nameLikePattern(extension)}`
   const db = getDb()
   const rows = await withTenant({ organizationId }, () =>
     db

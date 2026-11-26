@@ -136,3 +136,16 @@ async def test_the_name_route_still_edits_a_document_whose_name_is_its_own(app, 
     assert response.status_code == 200 and "document_id" not in response.json()
     (document,) = store.get_all(COLLECTION)
     assert document.tags == ["Grundriss"]
+
+
+async def test_a_row_written_before_rows_carried_their_id_keeps_its_name(app, store, monkeypatch):
+    legacy = "cccccccc-0000-4000-8000-00000000000c"
+    store.register(COLLECTION, "Schnitt.pdf", "Ein Schnitt ohne Id.")
+    monkeypatch.setattr(document_edits, "stored_file_name", lambda collection, document_id: "Schnitt.pdf")
+    monkeypatch.setattr("agent.knowledge.factory._rename_points", lambda *arguments: None)
+
+    response = await _patch(app, f"{BY_ID}/{legacy}/file-name", {"file_name": "Schnitt 2.pdf"})
+
+    assert response.status_code == 200
+    names = sorted(doc.file_name for doc in store.get_all(COLLECTION))
+    assert names == ["Plan.pdf", "Plan.pdf", "Schnitt.pdf"]

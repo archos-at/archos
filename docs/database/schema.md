@@ -297,9 +297,9 @@ export const documents = pgTable('documents', {
   projectId: uuid('project_id').notNull()
     .references(() => projects.id, { onDelete: 'cascade' }),
   createdBy: text('created_by').notNull(),
-  // The document's IDENTITY, written once at upload: the join key to the stored
-  // object and, as (collection_name, filename), to its chunks in the retrieval
-  // index. A rename never touches it — see `display_name` and migration 0048.
+  // The stored name, a label: the document's identity is `id` (ADR-0199), and
+  // a name is unique within its folder. A rename writes `display_name`
+  // (migration 0048); only a move that keeps both documents rewrites it.
   filename: text('filename').notNull(),
   displayName: text('display_name'),
   storageKey: text('storage_key').notNull(),

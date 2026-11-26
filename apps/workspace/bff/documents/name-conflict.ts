@@ -4,6 +4,7 @@ import { documentDisplayName, splitDocumentName } from './display-name'
 import { documentNameKey, documentNameMatchKey } from './name-match'
 
 export const NAME_CONFLICT_REASON = 'name_conflict'
+export const REPLACE_UNAVAILABLE_REASON = 'replace_unavailable'
 
 export const NAME_CONFLICT_RESOLUTIONS = ['replace', 'keep_both', 'skip'] as const
 export type NameConflictResolution = (typeof NAME_CONFLICT_RESOLUTIONS)[number]
@@ -16,7 +17,10 @@ export interface NameConflict {
   existingDocumentId: string
   existingName: string
   suggestedName: string
+  choices?: readonly NameConflictResolution[]
 }
+
+export const WITHOUT_REPLACE: readonly NameConflictResolution[] = ['keep_both', 'skip']
 
 export function nameConflictMessage(conflict: NameConflict): string {
   return `A document named "${conflict.existingName}" is already in this folder.`
@@ -31,11 +35,22 @@ export class NameConflictError extends ConflictError {
   }
 }
 
+export class ReplaceUnavailableError extends ConflictError {
+  constructor(readonly documentId: string) {
+    super('Meine Ablage has no bin, so replacing on a move would delete this document for good. Keep both, or skip.', {
+      reason: REPLACE_UNAVAILABLE_REASON,
+      documentId,
+      choices: WITHOUT_REPLACE,
+    })
+  }
+}
+
 export function nameConflictWith(
   holder: { id: string; filename: string; displayName?: string | null },
   name: string,
   folderId: string | null,
   suggestedName: string,
+  choices?: readonly NameConflictResolution[],
 ): NameConflict {
   return {
     reason: NAME_CONFLICT_REASON,
@@ -44,6 +59,7 @@ export function nameConflictWith(
     existingDocumentId: holder.id,
     existingName: documentDisplayName(holder),
     suggestedName,
+    ...(choices ? { choices } : {}),
   }
 }
 
@@ -77,6 +93,9 @@ export function nameConflictOf(body: unknown): NameConflict | null {
   const existingDocumentId = text(fields.existingDocumentId)
   const suggestedName = text(fields.suggestedName)
   if (fields.reason !== NAME_CONFLICT_REASON || !name || !existingDocumentId || !suggestedName) return null
+  const choices = Array.isArray(fields.choices)
+    ? NAME_CONFLICT_RESOLUTIONS.filter((choice) => (fields.choices as unknown[]).includes(choice))
+    : null
   return {
     reason: NAME_CONFLICT_REASON,
     name,
@@ -84,5 +103,6 @@ export function nameConflictOf(body: unknown): NameConflict | null {
     existingDocumentId,
     existingName: text(fields.existingName) ?? name,
     suggestedName,
+    ...(choices ? { choices } : {}),
   }
 }

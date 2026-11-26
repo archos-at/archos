@@ -256,8 +256,9 @@ async def update_document_file_name_by_id_route(
     if not new_name:
         raise HTTPException(status_code=400, detail="A file name cannot be blank")
     identity = str(document_id)
-    renamed = await asyncio.to_thread(set_document_file_name, collection_name, identity, new_name)
-    if not renamed and not await asyncio.to_thread(stored_file_name, collection_name, identity):
+    previous = await asyncio.to_thread(stored_file_name, collection_name, identity)
+    rename = partial(set_document_file_name, previous_file_name=previous or None)
+    if not await asyncio.to_thread(rename, collection_name, identity, new_name) and not previous:
         raise DocumentRef("", identity).not_found(collection_name)
     return {"collection_name": collection_name, "document_id": identity, "file_name": new_name}
 
