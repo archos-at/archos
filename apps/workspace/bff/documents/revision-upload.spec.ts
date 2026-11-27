@@ -78,6 +78,14 @@ describe('resolveRevisionOf', () => {
     )
   })
 
+  it('links any older document of the shelf’s collection in another folder, and never reports it unavailable', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValue(older({ folderId: 'folder-archive' }))
+
+    await expect(resolveRevisionOf(session, OLDER_ID, { ...target, folderId: 'folder-plans' })).resolves.toEqual(
+      linked('Grundriss_EG_Index_B.pdf'),
+    )
+  })
+
   it('compares names the way the shelf does: one Unicode form', async () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue(older({ filename: 'Küche_Index_B.pdf'.normalize('NFD') }))
 

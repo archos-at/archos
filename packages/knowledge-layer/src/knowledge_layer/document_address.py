@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Sequence
 
 _DOCUMENT_ID_PREFIX = "doc:id:"
+
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE | re.ASCII)
 
 
 def _key(text: str | None) -> str:
@@ -31,6 +34,13 @@ def _spellings(text: str) -> list[str]:
 
 def _document_id_of(text: str) -> str:
     return text[len(_DOCUMENT_ID_PREFIX) :].strip() if text.casefold().startswith(_DOCUMENT_ID_PREFIX) else text
+
+
+def document_id_named(text: str) -> str | None:
+    spelled = unicodedata.normalize("NFC", text or "").strip()
+    if spelled.casefold().startswith(_DOCUMENT_ID_PREFIX):
+        return _document_id_of(spelled) or None
+    return spelled if _UUID.fullmatch(spelled) else None
 
 
 def names_document_id(text: str, document_id: str | None) -> bool:
