@@ -2,6 +2,7 @@ import 'server-only'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
+import { conversations } from '@/lib/db/schema/conversations'
 import { documents, type DocumentAuthor } from '@/lib/db/schema/documents'
 import { collectionFileRef } from '@/lib/documents/collection-file-ref'
 import { documentNameMatchKey } from '@/lib/documents/name-match'
@@ -15,6 +16,7 @@ export interface VectorReconcileResult {
   collectionsScanned: number
   scopesWithoutDocuments: number
   orphansFound: number
+  sparedInLiveConversations: number
   orphansDeleted: number
   summariesForgotten: number
   failures: { collectionName: string; error: string }[]
@@ -122,6 +124,29 @@ async function liveDocumentsIn(collectionName: string): Promise<LiveDocuments> {
   return live
 }
 
+const CONVERSATION_SCOPE_PREFIX = 's_'
+
+async function conversationLives(scope: string): Promise<boolean> {
+  if (!scope.startsWith(CONVERSATION_SCOPE_PREFIX)) return false
+  const db = getDb()
+  const rows = await withPlatformAccess(
+    'vector reconciliation sweep: a conversation scope keeps the law texts its turns fetched while the conversation exists',
+    () => db.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, scope)),
+  )
+  return rows.length > 0
+}
+
+async function deletableOrphans(
+  collectionName: string,
+  orphans: readonly StoredFile[],
+  result: VectorReconcileResult,
+): Promise<StoredFile[]> {
+  if (!(await conversationLives(collectionName))) return [...orphans]
+  const identified = orphans.filter((file) => file.documentId !== null)
+  result.sparedInLiveConversations += orphans.length - identified.length
+  return identified
+}
+
 const holdsName = (live: LiveDocuments, fileName: string): boolean =>
   [fileName, safeDecode(fileName)].some((name) => live.nameKeys.has(documentNameMatchKey(name)))
 
@@ -158,9 +183,10 @@ async function purgeScopesWithoutDocuments(
       const orphans = await listStoredFiles(scope)
       if ((await liveDocumentsIn(scope)).rows > 0) continue
       result.scopesWithoutDocuments += 1
-      if (orphans.length === 0) continue
-      result.orphansFound += orphans.length
-      result.orphansDeleted += await deleteOrphans(scope, orphans)
+      const deletable = await deletableOrphans(scope, orphans, result)
+      if (deletable.length === 0) continue
+      result.orphansFound += deletable.length
+      result.orphansDeleted += await deleteOrphans(scope, deletable)
     } catch (error) {
       result.failures.push({ collectionName: scope, error: error instanceof Error ? error.message : 'unknown error' })
     }
@@ -284,6 +310,7 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
     scopesWithoutDocuments: 0,
     orphansFound: 0,
     orphansDeleted: 0,
+    sparedInLiveConversations: 0,
     summariesForgotten: 0,
     failures: [],
   }
@@ -294,7 +321,7 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
       const stored = await listStoredFiles(collectionName)
       const candidates = stored.filter(isOrphanOf(liveThen))
       if (candidates.length === 0) continue
-      const orphans = candidates.filter(isOrphanOf(await liveDocumentsIn(collectionName)))
+      const orphans = await deletableOrphans(collectionName, candidates.filter(isOrphanOf(await liveDocumentsIn(collectionName))), result)
       if (orphans.length === 0) continue
       result.orphansFound += orphans.length
       result.orphansDeleted += await deleteOrphans(collectionName, orphans)

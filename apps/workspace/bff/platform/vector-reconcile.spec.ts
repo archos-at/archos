@@ -21,6 +21,9 @@ vi.mock('@/lib/db/schema/documents', () => ({
   },
 }))
 
+const { conversationsTable } = vi.hoisted(() => ({ conversationsTable: { id: 'conversation_id' } }))
+vi.mock('@/lib/db/schema/conversations', () => ({ conversations: conversationsTable }))
+
 const syncAllProjectFacts = vi.fn()
 vi.mock('@/lib/cross-project/project-facts-mirror', () => ({
   syncAllProjectFacts: (...args: unknown[]) => syncAllProjectFacts(...args),
@@ -64,11 +67,13 @@ type Row = {
   publishedVersionId?: string | null
 }
 
-function stubRows(rows: Row[], now: Row[] = rows) {
-  const from = () =>
-    Object.assign(Promise.resolve(rows), {
-      where: (condition: { value: string }) => Promise.resolve(now.filter((row) => row.collectionName === condition.value)),
-    })
+function stubRows(rows: Row[], now: Row[] = rows, liveConversations: string[] = []) {
+  const from = (table: unknown) =>
+    table === conversationsTable
+      ? { where: (condition: { value: string }) => Promise.resolve(liveConversations.filter((id) => id === condition.value).map((id) => ({ id }))) }
+      : Object.assign(Promise.resolve(rows), {
+          where: (condition: { value: string }) => Promise.resolve(now.filter((row) => row.collectionName === condition.value)),
+        })
   vi.mocked(getDb).mockReturnValue(asDb({ select: () => ({ from }) }))
 }
 
@@ -213,6 +218,26 @@ describe('reconcileOrphanedVectors', () => {
     const deleteCall = fetchMock.mock.calls[1]
     expect(deleteCall[1].method).toBe('DELETE')
     expect(JSON.parse(deleteCall[1].body)).toEqual({ file_ids: ['ghost.pdf'] })
+  })
+
+  it('keeps a fetched law text beside an attachment in a live conversation, and still purges a deleted attachment by its id', async () => {
+    stubRows([{ id: 'doc-anhang', collectionName: 's_lebendig', filename: 'Anhang.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve([
+          { file_name: 'Anhang.pdf', document_id: 'doc-anhang' },
+          { file_name: 'RIS_Bauordnung_LBO.txt' },
+          { file_name: 'Alt.pdf', document_id: 'doc-weg' },
+        ]),
+    })
+    fetchMock.mockResolvedValueOnce(deleteResponse(2))
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(result.orphansFound).toBe(1)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['Alt.pdf'], documents: [{ id: 'doc-weg', file_name: 'Alt.pdf' }] })
   })
 
   describe('by document id', () => {
@@ -484,6 +509,42 @@ describe('reconcileOrphanedVectors: scopes the backend holds but no document row
     ])
     const listing = fetchMock.mock.calls.find((call) => call[0] === TENANT_SCOPES_URL)
     expect((listing?.[1] as RequestInit).headers).toMatchObject({ 'x-internal-token': 'real-secret' })
+  })
+
+  it('keeps the law texts a live conversation fetched, which no document row names, and purges only its id-stamped leftovers', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_lebendig'], {
+      proj_a: [{ file_name: 'a.pdf' }],
+      s_lebendig: [{ file_name: 'RIS_Bauordnung_LBO.txt' }, { file_name: 'Anhang.pdf', document_id: 'doc-geloescht' }],
+    })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(result.orphansFound).toBe(1)
+    expect(deletes().map((call) => [call[0], JSON.parse((call[1] as RequestInit).body as string)])).toEqual([
+      ['http://backend:8000/v1/collections/s_lebendig/documents', { file_ids: ['Anhang.pdf'], documents: [{ id: 'doc-geloescht', file_name: 'Anhang.pdf' }] }],
+    ])
+  })
+
+  it('deletes nothing of a live conversation that holds only fetched law texts', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_lebendig'], { proj_a: [{ file_name: 'a.pdf' }], s_lebendig: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(deletes()).toEqual([])
+  })
+
+  it('purges an erased conversation’s scope whole, though another conversation lives', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_geloescht'], { proj_a: [{ file_name: 'a.pdf' }], s_geloescht: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(0)
+    expect(deletes().map((call) => call[0])).toEqual(['http://backend:8000/v1/collections/s_geloescht/documents'])
   })
 
   it('spares a scope whose re-read just before the delete finds a document row', async () => {

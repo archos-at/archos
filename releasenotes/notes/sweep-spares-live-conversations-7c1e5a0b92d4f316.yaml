@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    A chat keeps the laws ARCHOS looked up in it after the weekly cleanup,
+    so it can still quote and reopen them later in that chat. Leftovers of a
+    deleted chat or a removed attachment are still cleaned up.
