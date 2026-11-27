@@ -55,6 +55,11 @@ class _RecordingIngestor:
         self._record("delete_files")
         return {"successful": list(file_ids), "failed": [], "total_deleted": len(file_ids)}
 
+    def delete_documents(self, documents, collection_name, *, permanent=False, by_id_only=False):
+        self._record(f"delete_documents(by_id_only={by_id_only})")
+        names = [name for _document_id, name in documents]
+        return {"successful": names, "failed": [], "total_deleted": len(names)}
+
     def get_job_status(self, job_id):
         self._record("get_job_status")
         if job_id == "unknown":
@@ -175,3 +180,19 @@ async def test_the_metadata_store_is_never_written_on_the_event_loop(client, sto
     assert subtree.json()["updated"] == 3
     assert len(store_threads) == 4
     assert _on_the_loop(store_threads) == [], "these metadata-store writes blocked the event loop"
+
+
+async def test_a_delete_by_id_only_reaches_the_ingestor_as_asked(client, ingestor):
+    documents = [{"id": "doc-weg", "file_name": "Anhang.pdf"}]
+    async with client as http:
+        await http.request(
+            "DELETE",
+            "/v1/collections/s_chat/documents",
+            json={"file_ids": ["Anhang.pdf"], "documents": documents, "by_id_only": True},
+        )
+        await http.request("DELETE", "/v1/collections/s_chat/documents", json={"file_ids": [], "documents": documents})
+
+    assert [name for name, _ in ingestor.calls if name.startswith("delete_documents")] == [
+        "delete_documents(by_id_only=True)",
+        "delete_documents(by_id_only=False)",
+    ]

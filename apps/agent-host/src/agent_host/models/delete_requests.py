@@ -16,6 +16,13 @@ class DeleteFilesRequest(BaseModel):
             "name, sent for a backend that does not read `documents` yet."
         ),
     )
+    by_id_only: bool = Field(
+        False,
+        description=(
+            "With `documents`: delete only the chunks, job records and summaries stamped with each document's id, "
+            "never an unstamped file that shares its name (the law texts a live conversation fetched)."
+        ),
+    )
     permanent: bool = Field(
         False,
         description=(

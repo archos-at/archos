@@ -374,7 +374,9 @@ class TestThePurge:
         res, delete_files = await self._delete(app, body)
 
         assert res.status_code == 200
-        ingestor.delete_documents.assert_called_once_with([("doc-1", OLDER)], COLLECTION, permanent=True)
+        ingestor.delete_documents.assert_called_once_with(
+            [("doc-1", OLDER)], COLLECTION, permanent=True, by_id_only=False
+        )
         delete_files.assert_not_called()
 
 
