@@ -172,7 +172,7 @@ vulnerabilities:
       >= 8.0.0).
 
   - id: CVE-2026-121707
-    expired_at: 2026-11-27
+    expired_at: 2026-12-04
     statement: |
       effect 3.21.0 (fixed in 3.22.1): a ReDoS in Schema.TemplateLiteral's
       compiled regex. Found in the langfuse web image only
@@ -190,6 +190,16 @@ vulnerabilities:
       Boxed seven days on the owner's decision (2026-11-20). Bump the Langfuse
       pin to a release that bundles effect >= 3.22.1 and delete this entry;
       do not extend it.
+
+      Extended seven days on the owner's decision (2026-11-27), when its expiry
+      turned the promotion of develop a96fc2b6 (#2081) red. That promotion
+      carries the vector sweep fix that keeps a live conversation's law texts
+      (#2079); holding it for a Langfuse bump would let prod's Sunday sweep run
+      the old code. The scan now also finds the copy under
+      `usr/local/lib/node_modules/prisma/node_modules/effect`, the Prisma CLI
+      that runs Langfuse's migrations before the server starts; no request
+      reaches it. The reasoning above holds for both copies. The exit is still
+      the bump: a Langfuse release whose web image bundles effect >= 3.22.1.
 
   # ── Base-image packages, the 2026-11-14 advisory wave ────────────────────
   #
