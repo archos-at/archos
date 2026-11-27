@@ -62,13 +62,35 @@ schema code, because a pod one release old upserts `ON CONFLICT (collection,
 filename)` until the rollout is over (the gotcha under „ON CONFLICT
 specification“ in [gotchas.md](../contributing/gotchas.md)).
 
-`unmatched` is counted: a row or a chunk of a name no live document holds
-(left by a document deleted earlier) or of a name two live documents hold. The
-first never fails. A chunk of the second is also counted as `unmatched_held`,
-and the stamp's `--check` fails while there is one: neither namesake can claim
-it, and the next replace of either would take it over. Before deploy 2 the
-second cannot occur within a collection; a row the BFF lists under no id stays
-name-keyed, as the base corpus does.
+**Unmatched rows and chunks.** A row or a chunk without an id takes the id of
+the live document that holds its name. Each backfill tries the stored name, then the name without an upload's
+`tmpXXXXXXXX_` prefix and percent-decoded, each NFC-normalised; only when none
+of these is held, the name's match key (NFC, trimmed, lower-cased, ADR-0200's
+`documentNameMatchKey`, `name_match_key` in `document_metadata_rekey.py`), and
+only when exactly one live document holds that key. An exact spelling claims a
+document before a drifted one does.
+
+Whatever stays without an id is counted as `unmatched`, and each run prints one
+line per scope and reason, after its `backfill.count` lines. It names the scope
+(the collection, `proj_…`, `s_…`, `archiv_…`) and never a file name:
+
+```json
+{"event":"backfill.unmatched","backfill":"qdrant-document-id-stamp","mode":"apply","scope":"proj_…","points":212,"reason":"no_documents_in_collection"}
+{"event":"backfill.unmatched","backfill":"document-metadata-document-id","mode":"apply","store":"document_metadata.document_id","scope":"proj_…","rows":1,"reason":"no_holder"}
+```
+
+| `reason` | What it means | What to do |
+|---|---|---|
+| `no_documents_in_collection` | The BFF lists no document of the scope at all: a project, conversation or shelf that was removed, whose chunks or rows the purge left behind. | Nothing for the gate. The weekly orphan sweep (`vector-reconcile`) purges the chunks of a scope with no document row; run it from Platform → Vector maintenance, and the next deploy's run no longer counts the chunks. The metadata rows stay until the contract removes the name-keyed shapes. |
+| `no_holder` | The scope has documents, and none holds the name by any spelling or by its match key: the leftover of a document deleted earlier. | Nothing. The sweep deletes such a chunk; the row is harmless. |
+| `near_name` | No document holds the name, but one holds it once case, punctuation, whitespace and compatibility forms are ignored (`Plan_EG.pdf` beside `Plan EG.pdf`). Never matched, because that is a guess. | Usually a leftover too. If the office misses search hits on the document, re-ingest it; the sweep deletes the old chunks. |
+| `ambiguous` | Two live documents hold the name, or its match key. A chunk of it is also counted as `unmatched_held`, and the stamp's `--check` fails: neither namesake can claim it, and the next replace of either would take it over. | Run the gate's guard query: a pair of names that differ only by the match key in one folder is the same pair 0271 refuses. Resolve it with the office as under „If 0271's guard fires“, then re-run the deploy. Never by SQL. |
+| `id_taken` | The name points at one document, but that document's id is already claimed: by a row or chunks of its exact name, or by another drifted spelling that points at it too. A stale copy. | Nothing. The document is served from the rows and chunks that carry its id. |
+
+`after` 0 and `unmatched_held` 0 are the gate; the other reasons never fail a
+run. Before deploy 2 no name can be held twice within a collection, so
+`ambiguous` comes only from two names that differ only by the match key; a row
+the BFF lists under no id stays name-keyed, as the base corpus does.
 
 **Rollback.** Roll the images back ([rollback.md](rollback.md)). The new columns,
 indexes and chunk fields are additive, and the build before ignores them, with

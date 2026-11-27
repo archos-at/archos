@@ -198,6 +198,40 @@ async def refresh_document_facts(collections: list[str]) -> dict[str, Any]:
     }
 
 
+async def list_tenant_scopes() -> dict[str, Any]:
+    try:
+        from knowledge_layer.vector_store import Physical
+        from knowledge_layer.vector_store import physical_for_scope
+    except ImportError as exc:  # the knowledge layer's store extra is not installed here
+        raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from exc
+    from agent.knowledge import factory as knowledge_factory
+
+    ingestor = knowledge_factory.get_active_ingestor()
+    if ingestor is None:
+        raise HTTPException(status_code=503, detail="No active ingestor; scopes cannot be listed")
+    try:
+        collections = await asyncio.to_thread(ingestor.list_collections)
+    except Exception as exc:
+        logger.warning("tenant-scopes: could not list vector-store collections: %s", exc)
+        raise HTTPException(status_code=503, detail="Vector store unavailable") from exc
+    scopes = sorted(
+        info.name for info in collections if info.chunk_count > 0 and physical_for_scope(info.name) is Physical.OFFICE
+    )
+    return {"status": "ok", "scopes": scopes}
+
+
+def add_tenant_scope_routes(router: APIRouter) -> None:
+
+    @router.get(
+        "/v1/maintenance/tenant-scopes",
+        tags=["maintenance"],
+        summary="List every office scope that holds chunks (internal)",
+    )
+    async def tenant_scopes_route(request: Request) -> dict:
+        _require_internal_token(request)
+        return await list_tenant_scopes()
+
+
 def add_maintenance_routes(router: APIRouter) -> None:
 
     @router.post(

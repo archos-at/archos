@@ -424,6 +424,57 @@ class TestTheRekey:
 
         assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)}["a.pdf"] is None
 
+    def test_a_row_whose_name_differs_from_one_live_document_only_by_case_or_whitespace_takes_its_id(self, store):
+        store.register(COLLECTION, " grundriss eg.PDF", "Grundriss.")
+        live = _live({COLLECTION: {"Grundriss EG.pdf": EG}})
+
+        counts = self._counts(rekey_document_ids(store, collections_to_rekey(store), live, apply=True))
+
+        assert counts["document_metadata.document_id"] == (1, 1, 0, 0)
+        assert [doc.document_id for doc in store.get_all(COLLECTION)] == [EG]
+
+    def test_the_exact_spelling_claims_the_id_and_two_drifted_rows_are_never_guessed_between(self, store):
+        for name in ("Plan.pdf", "plan.pdf "):
+            store.register(COLLECTION, name, f"Plan {name}.")
+        for name in ("SCHNITT.pdf", " schnitt.pdf"):
+            store.register(COLLECTION, name, f"Schnitt {name}.")
+        live = _live({COLLECTION: {"Plan.pdf": EG, "Schnitt.pdf": OG}})
+
+        [count] = [
+            c
+            for c in rekey_document_ids(store, [COLLECTION], live, apply=True)
+            if c.store == "document_metadata.document_id"
+        ]
+
+        assert (count.written, count.unmatched) == (1, 3)
+        assert [(u.scope, u.reason, u.count) for u in count.unmatched_scopes] == [(COLLECTION, "id_taken", 3)]
+        assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)} == {
+            "Plan.pdf": EG,
+            "plan.pdf ": None,
+            "SCHNITT.pdf": None,
+            " schnitt.pdf": None,
+        }
+
+    def test_each_unmatched_row_is_counted_under_its_collection_and_why(self, store):
+        erased = "proj_identity_erased"
+        for name in ("geloescht.pdf", "Grundriss_EG.pdf", "PLAN.pdf"):
+            store.register(COLLECTION, name, f"{name}.")
+        store.register(erased, "Notiz.pdf", "Notiz.")
+
+        def live(collection: str) -> LiveDocuments:
+            held = [(EG, "Grundriss EG.pdf"), (OG, "Plan.pdf"), (NEU, "plan.pdf")] if collection == COLLECTION else []
+            return LiveDocuments.of(collection, held)
+
+        counts = rekey_document_ids(store, sorted([COLLECTION, erased]), live, apply=False)
+        [count] = [c for c in counts if c.store == "document_metadata.document_id"]
+
+        assert sorted((u.scope, u.reason, u.count) for u in count.unmatched_scopes) == [
+            (COLLECTION, "ambiguous", 1),
+            (COLLECTION, "near_name", 1),
+            (COLLECTION, "no_holder", 1),
+            (erased, "no_documents_in_collection", 1),
+        ]
+
 
 class TestTheFacadeMirrorsById:
     @pytest.fixture

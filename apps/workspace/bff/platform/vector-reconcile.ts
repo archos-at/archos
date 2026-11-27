@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { documents, type DocumentAuthor } from '@/lib/db/schema/documents'
 import { collectionFileRef } from '@/lib/documents/collection-file-ref'
+import { documentNameMatchKey } from '@/lib/documents/name-match'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
 import { syncAllProjectFacts, type ProjectFactsSyncResult } from '@/lib/cross-project/project-facts-mirror'
@@ -12,6 +13,7 @@ const BACKEND_FETCH_TIMEOUT_MS = 15_000
 
 export interface VectorReconcileResult {
   collectionsScanned: number
+  scopesWithoutDocuments: number
   orphansFound: number
   orphansDeleted: number
   summariesForgotten: number
@@ -28,6 +30,7 @@ export interface DocumentFactsRefreshResult {
 
 export const SUMMARY_SWEEP_FAILURE_NAME = '*'
 export const PROJECT_FACTS_FAILURE_NAME = '*project-facts'
+export const TENANT_SCOPES_FAILURE_NAME = '*tenant-scopes'
 
 export const DOCUMENT_FACTS_BATCH = 25
 const DOCUMENT_FACTS_TIMEOUT_MS = 120_000
@@ -49,9 +52,12 @@ interface StoredFile {
 }
 
 interface LiveDocuments {
+  rows: number
   ids: Set<string>
-  names: Set<string>
+  nameKeys: Set<string>
 }
+
+const noLiveDocuments = (): LiveDocuments => ({ rows: 0, ids: new Set<string>(), nameKeys: new Set<string>() })
 
 function safeDecode(name: string): string {
   try {
@@ -80,9 +86,10 @@ const liveRowColumns = {
 }
 
 function addLive(live: LiveDocuments, row: LiveRow): void {
+  live.rows += 1
   if (!collectionFileRef(row)) return
   live.ids.add(row.id)
-  live.names.add(row.filename)
+  live.nameKeys.add(documentNameMatchKey(row.filename))
 }
 
 async function liveDocumentsByCollection(): Promise<Map<string, LiveDocuments>> {
@@ -96,7 +103,7 @@ async function liveDocumentsByCollection(): Promise<Map<string, LiveDocuments>> 
   for (const row of rows) {
     let live = byCollection.get(row.collectionName)
     if (!live) {
-      live = { ids: new Set<string>(), names: new Set<string>() }
+      live = noLiveDocuments()
       byCollection.set(row.collectionName, live)
     }
     addLive(live, row)
@@ -110,13 +117,55 @@ async function liveDocumentsIn(collectionName: string): Promise<LiveDocuments> {
     'vector reconciliation sweep: re-reading one collection before deleting its orphans',
     () => db.select(liveRowColumns).from(documents).where(eq(documents.collectionName, collectionName)),
   )) as LiveRow[]
-  const live: LiveDocuments = { ids: new Set<string>(), names: new Set<string>() }
+  const live = noLiveDocuments()
   for (const row of rows) addLive(live, row)
   return live
 }
 
+const holdsName = (live: LiveDocuments, fileName: string): boolean =>
+  [fileName, safeDecode(fileName)].some((name) => live.nameKeys.has(documentNameMatchKey(name)))
+
 const isOrphanOf = (live: LiveDocuments) => (file: StoredFile): boolean =>
-  file.documentId ? !live.ids.has(file.documentId) : !live.names.has(safeDecode(file.fileName))
+  file.documentId ? !live.ids.has(file.documentId) : !holdsName(live, file.fileName)
+
+async function listTenantScopes(): Promise<string[] | null> {
+  const res = await fetch(`${getBackendUrl()}/v1/maintenance/tenant-scopes`, {
+    headers: internalServiceHeaders(getBackendUrl()),
+    signal: AbortSignal.timeout(BACKEND_FETCH_TIMEOUT_MS),
+  })
+  if (res.status === 409) return null
+  if (!res.ok) throw new Error(`tenant-scopes returned ${res.status}`)
+  const body = (await res.json()) as { scopes?: unknown }
+  if (!Array.isArray(body.scopes)) throw new Error('tenant-scopes answered without a scopes list')
+  return body.scopes.filter((scope): scope is string => typeof scope === 'string' && scope.length > 0)
+}
+
+async function purgeScopesWithoutDocuments(
+  live: ReadonlyMap<string, LiveDocuments>,
+  result: VectorReconcileResult,
+): Promise<void> {
+  if (live.size === 0) return
+  let scopes: string[] | null
+  try {
+    scopes = await listTenantScopes()
+  } catch (error) {
+    result.failures.push({ collectionName: TENANT_SCOPES_FAILURE_NAME, error: error instanceof Error ? error.message : 'unknown error' })
+    return
+  }
+  for (const scope of scopes ?? []) {
+    if (live.has(scope)) continue
+    try {
+      if ((await liveDocumentsIn(scope)).rows > 0) continue
+      result.scopesWithoutDocuments += 1
+      const orphans = await listStoredFiles(scope)
+      if (orphans.length === 0) continue
+      result.orphansFound += orphans.length
+      result.orphansDeleted += await deleteOrphans(scope, orphans)
+    } catch (error) {
+      result.failures.push({ collectionName: scope, error: error instanceof Error ? error.message : 'unknown error' })
+    }
+  }
+}
 
 async function listStoredFiles(collectionName: string): Promise<StoredFile[]> {
   const res = await fetch(
@@ -232,6 +281,7 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
   const live = await liveDocumentsByCollection()
   const result: VectorReconcileResult = {
     collectionsScanned: 0,
+    scopesWithoutDocuments: 0,
     orphansFound: 0,
     orphansDeleted: 0,
     summariesForgotten: 0,
@@ -279,6 +329,8 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
   const documentFacts = await refreshDocumentFacts([...live.keys()])
   result.documentFacts = documentFacts.result
   result.failures.push(...documentFacts.failures)
+
+  await purgeScopesWithoutDocuments(live, result)
 
   return result
 }

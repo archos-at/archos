@@ -1,0 +1,9 @@
+---
+# area: documents
+operators:
+  - >
+    The document-id backfills print one backfill.unmatched line per scope and
+    reason, without file names, and match a name that differs from one live
+    document only by case or whitespace. The weekly vector reconcile also
+    purges scopes no document row names, and spares chunks whose name matches
+    a live document that way (documents-unique-per-folder-runbook.md).

@@ -12,6 +12,7 @@ from knowledge_layer.vector_store import Physical
 from knowledge_layer.vector_store import physical_for_scope
 
 from agent.common.bff_http import BffError
+from agent.knowledge.document_metadata_rekey import StoreCount
 from agent.knowledge.document_metadata_rekey import collections_to_rekey
 from agent.knowledge.document_metadata_rekey import live_documents
 from agent.knowledge.document_metadata_rekey import rekey_document_ids
@@ -45,32 +46,45 @@ def main(argv: list[str] | None = None) -> int:
     try:
         counts = rekey_document_ids(store, collections, live_documents, apply=args.apply)
     except BffError as exc:
-        print(
-            json.dumps({"event": "backfill.failed", "backfill": BACKFILL, "reason": str(exc)}, separators=(",", ":")),
-            flush=True,
-        )
+        _emit({"event": "backfill.failed", "backfill": BACKFILL, "reason": str(exc)})
         return 2
-    mode_name = "apply" if args.apply else "check" if args.check else "dry-run"
-    for count in counts:
-        print(
-            json.dumps(
-                {
-                    "event": "backfill.count",
-                    "backfill": BACKFILL,
-                    "mode": mode_name,
-                    "store": count.store,
-                    "collections": len(collections),
-                    "before": count.before,
-                    "written": count.written,
-                    "after": count.after,
-                    "unmatched": count.unmatched,
-                },
-                separators=(",", ":"),
-            ),
-            flush=True,
-        )
+    _report("apply" if args.apply else "check" if args.check else "dry-run", len(collections), counts)
     failing = sum(count.after for count in counts) if args.apply or args.check else 0
     return 1 if failing else 0
+
+
+def _emit(line: dict) -> None:
+    print(json.dumps(line, separators=(",", ":")), flush=True)
+
+
+def _report(mode: str, collections: int, counts: list[StoreCount]) -> None:
+    for count in counts:
+        _emit(
+            {
+                "event": "backfill.count",
+                "backfill": BACKFILL,
+                "mode": mode,
+                "store": count.store,
+                "collections": collections,
+                "before": count.before,
+                "written": count.written,
+                "after": count.after,
+                "unmatched": count.unmatched,
+            }
+        )
+    for count in counts:
+        for unmatched in count.unmatched_scopes:
+            _emit(
+                {
+                    "event": "backfill.unmatched",
+                    "backfill": BACKFILL,
+                    "mode": mode,
+                    "store": count.store,
+                    "scope": unmatched.scope,
+                    "rows": unmatched.count,
+                    "reason": unmatched.reason,
+                }
+            )
 
 
 if __name__ == "__main__":

@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Mapping
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
+from typing import Literal
 from urllib.parse import unquote
 
 from agent.common.bff_http import BffMalformedResponseError
@@ -26,8 +28,19 @@ _TABLES = (TABLE_NAME, RETAINED_TABLE_NAME)
 PRIMARY_KEY_STORE = "primary key (collection, filename)"
 
 
+UnmatchedReason = Literal["no_documents_in_collection", "no_holder", "near_name", "ambiguous", "id_taken"]
+
+
 def _name_key(name: str) -> str:
     return unicodedata.normalize("NFC", name)
+
+
+def name_match_key(name: str) -> str:
+    return unicodedata.normalize("NFC", name).strip().lower()
+
+
+def _near_key(name: str) -> str:
+    return "".join(char for char in unicodedata.normalize("NFKC", name).casefold() if char.isalnum())
 
 
 def _spellings(stored: str) -> list[str]:
@@ -35,34 +48,76 @@ def _spellings(stored: str) -> list[str]:
     return list(dict.fromkeys(_name_key(spelling) for spelling in (stored, plain)))
 
 
+def _split(held_by: Mapping[str, set[str]]) -> tuple[dict[str, str], frozenset[str]]:
+    return (
+        {name: next(iter(held)) for name, held in held_by.items() if len(held) == 1},
+        frozenset(name for name, held in held_by.items() if len(held) > 1),
+    )
+
+
+@dataclass(frozen=True)
+class NameMatch:
+    document_id: str | None
+    reason: UnmatchedReason | None = None
+    by_key: bool = False
+
+
+@dataclass(frozen=True)
+class Unmatched:
+    scope: str
+    reason: UnmatchedReason
+    count: int
+
+
 @dataclass(frozen=True)
 class LiveDocuments:
     collection: str
     ids_by_name: Mapping[str, str]
     ambiguous: frozenset[str] = frozenset()
+    ids_by_key: Mapping[str, str] = field(default_factory=dict)
+    ambiguous_keys: frozenset[str] = frozenset()
+    near_keys: frozenset[str] = frozenset()
 
     @classmethod
     def of(cls, collection: str, documents: Iterable[tuple[str, str]]) -> LiveDocuments:
-        ids: dict[str, set[str]] = {}
+        by_name: dict[str, set[str]] = {}
+        by_key: dict[str, set[str]] = {}
         for document_id, filename in documents:
-            ids.setdefault(_name_key(filename), set()).add(document_id)
-        return cls(
-            collection,
-            {name: next(iter(held)) for name, held in ids.items() if len(held) == 1},
-            frozenset(name for name, held in ids.items() if len(held) > 1),
-        )
+            by_name.setdefault(_name_key(filename), set()).add(document_id)
+            by_key.setdefault(name_match_key(filename), set()).add(document_id)
+        ids_by_name, ambiguous = _split(by_name)
+        ids_by_key, ambiguous_keys = _split(by_key)
+        near_keys = frozenset(filter(None, map(_near_key, by_name)))
+        return cls(collection, ids_by_name, ambiguous, ids_by_key, ambiguous_keys, near_keys)
+
+    def match(self, stored: str | None) -> NameMatch:
+        if not self.ids_by_name and not self.ambiguous:
+            return NameMatch(None, "no_documents_in_collection")
+        spellings = _spellings(stored or "")
+        for spelling in spellings:
+            if spelling in self.ids_by_name:
+                return NameMatch(self.ids_by_name[spelling])
+        if any(spelling in self.ambiguous for spelling in spellings):
+            return NameMatch(None, "ambiguous")
+        keys = list(dict.fromkeys(map(name_match_key, spellings)))
+        for key in keys:
+            if key in self.ids_by_key:
+                return NameMatch(self.ids_by_key[key], by_key=True)
+        if any(key in self.ambiguous_keys for key in keys):
+            return NameMatch(None, "ambiguous")
+        if any(_near_key(spelling) in self.near_keys for spelling in spellings if _near_key(spelling)):
+            return NameMatch(None, "near_name")
+        return NameMatch(None, "no_holder")
 
     def holds_exactly(self, stored: str) -> bool:
         return _name_key(stored) in self.ids_by_name
 
     def id_for(self, stored: str | None) -> str | None:
-        for spelling in _spellings(stored or ""):
-            if spelling in self.ids_by_name:
-                return self.ids_by_name[spelling]
-        return None
+        return self.match(stored).document_id
 
-    def holds(self, stored: str | None) -> bool:
-        return any(spelling in self.ids_by_name or spelling in self.ambiguous for spelling in _spellings(stored or ""))
+
+def unmatched_by_scope(reasons: Mapping[tuple[str, UnmatchedReason], int]) -> list[Unmatched]:
+    return [Unmatched(scope, reason, count) for (scope, reason), count in sorted(reasons.items()) if count]
 
 
 def live_documents(collection: str) -> LiveDocuments:
@@ -87,6 +142,7 @@ class StoreCount:
     written: int = 0
     after: int = 0
     unmatched: int = 0
+    unmatched_scopes: list[Unmatched] = field(default_factory=list)
 
 
 @dataclass
@@ -95,6 +151,14 @@ class _Plan:
     links: list[tuple[str, str | None, str]] = field(default_factory=list)
     suggestions: list[tuple[str, str | None, str]] = field(default_factory=list)
     unmatched: dict[str, int] = field(default_factory=lambda: {"document_id": 0, "superseded_by_id": 0})
+    reasons: dict[str, Counter[UnmatchedReason]] = field(default_factory=dict)
+
+    def leave(self, column: str, reason: UnmatchedReason | None) -> None:
+        self.unmatched[column] += 1
+        self.reasons.setdefault(column, Counter())[reason or "no_holder"] += 1
+
+    def unmatched_in(self, collection: str, column: str) -> list[Unmatched]:
+        return unmatched_by_scope({(collection, reason): n for reason, n in self.reasons.get(column, {}).items()})
 
 
 def _with_ids(raw: str | None, live: LiveDocuments) -> str | None:
@@ -130,27 +194,36 @@ def _plan(conn, table: str, live: LiveDocuments) -> _Plan:
         {"collection": live.collection},
     ).fetchall()
     held = {row[1] for row in rows if row[1]}
-    unkeyed = sorted((row[0] for row in rows if not row[1]), key=lambda name: (not live.holds_exactly(name), name))
-    for filename in unkeyed:
-        own_id = live.id_for(filename)
-        if own_id and own_id not in held:
-            held.add(own_id)
-            plan.keys.append((filename, own_id))
+    matches = {row[0]: live.match(row[0]) for row in rows if not row[1]}
+    key_claims = Counter(found.document_id for found in matches.values() if found.by_key)
+    for filename in sorted(matches, key=lambda name: (_rank(name, matches[name], live), name)):
+        found = matches[filename]
+        if found.document_id is None:
+            plan.leave("document_id", found.reason)
+        elif found.document_id in held or key_claims[found.document_id] > 1:
+            plan.leave("document_id", "id_taken")
         else:
-            plan.unmatched["document_id"] += 1
+            held.add(found.document_id)
+            plan.keys.append((filename, found.document_id))
     for row in rows:
         _plan_links(plan, row, live)
     return plan
 
 
+def _rank(name: str, found: NameMatch, live: LiveDocuments) -> int:
+    if live.holds_exactly(name):
+        return 0
+    return 2 if found.by_key else 1
+
+
 def _plan_links(plan: _Plan, row, live: LiveDocuments) -> None:
     filename, document_id, superseded_by, superseded_by_id, suggestion = row
     if superseded_by and not superseded_by_id:
-        newer_id = live.id_for(superseded_by)
-        if newer_id:
-            plan.links.append((filename, document_id, newer_id))
+        newer = live.match(superseded_by)
+        if newer.document_id:
+            plan.links.append((filename, document_id, newer.document_id))
         else:
-            plan.unmatched["superseded_by_id"] += 1
+            plan.leave("superseded_by_id", newer.reason)
     keyed = _with_ids(suggestion, live)
     if keyed is not None:
         plan.suggestions.append((filename, document_id, keyed))
@@ -230,6 +303,7 @@ def _rekey_table(conn, table: str, live: LiveDocuments, *, apply: bool) -> list[
             written=written[column],
             after=after[column],
             unmatched=plan.unmatched.get(column, 0),
+            unmatched_scopes=plan.unmatched_in(live.collection, column),
         )
         for column in before
     ]
@@ -271,4 +345,5 @@ def rekey_document_ids(
             total.written += count.written
             total.after += count.after
             total.unmatched += count.unmatched
+            total.unmatched_scopes.extend(count.unmatched_scopes)
     return list(totals.values())
