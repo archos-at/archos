@@ -98,10 +98,11 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
   move away from production's or CI's.
 * Good, because developers get the Qdrant command CI uses, with no Docker.
 * Bad, because the dev cluster now carries CI's load, and it has little to spare: up to
-  `maxRunners` pods of 4 GiB requested each. Three runners, the trial's number, turn a full run
-  of about 45 movable runner-minutes into at least 20 minutes of wall time; matching today's
-  wall time needs a worker group of its own (`ciRunnersNodeGroup`), about 24 vCPU for eight
-  runners.
+  `maxRunners` pods of 4 GiB requested each. At three, the trial's number, a full run of 58
+  runner-minutes took 29.5 minutes on 2026-11-25, and about half the jobs waited some 50 seconds
+  for a runner after the one before them ended, so `dev` runs six, what staging's nodes had room
+  for by request that day. Matching today's wall time needs a worker group of its own
+  (`ciRunnersNodeGroup`), about 24 vCPU for eight runners.
 * Bad, because an evicted runner's job fails, after GitHub's ten-minute timeout for a lost
   runner. Re-running it is the remedy; staging keeps its room.
 * Bad, because a runner can still reach the internet. A pull request can exfiltrate what it
