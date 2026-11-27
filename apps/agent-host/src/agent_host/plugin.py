@@ -69,6 +69,7 @@ from .routes.lesson_distill import add_lesson_distill_routes
 from .routes.mail import add_mail_routes
 from .routes.mail_archive import add_mail_archive_routes
 from .routes.maintenance import add_maintenance_routes
+from .routes.maintenance import add_tenant_scope_routes
 from .routes.norms import add_norm_routes
 from .routes.note_embeddings import add_note_embedding_routes
 from .routes.oib import add_oib_routes
@@ -238,6 +239,7 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
         add_norm_routes,
         add_ris_routes,
         add_maintenance_routes,
+        add_tenant_scope_routes,
         add_draft_routes,
         add_skill_routes,
         add_skill_review_routes,

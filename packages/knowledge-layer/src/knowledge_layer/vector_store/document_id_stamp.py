@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -11,6 +12,10 @@ from qdrant_client import QdrantClient
 from qdrant_client import models
 
 from agent.knowledge.document_metadata_rekey import LiveDocuments
+from agent.knowledge.document_metadata_rekey import NameMatch
+from agent.knowledge.document_metadata_rekey import Unmatched
+from agent.knowledge.document_metadata_rekey import UnmatchedReason
+from agent.knowledge.document_metadata_rekey import unmatched_by_scope
 
 from .legacy_names import LEGACY_DOCUMENT_ID_FIELD
 from .schema import DOCUMENT_ID_FIELD
@@ -41,6 +46,7 @@ class StampCount:
     unmatched: int
     scopes: int
     unmatched_held: int = 0
+    unmatched_scopes: tuple[Unmatched, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,7 @@ class _Match:
     ids: dict[tuple[str, str], str]
     unmatched: int
     held: int
+    reasons: tuple[Unmatched, ...]
 
 
 def _unstamped_files(client: QdrantClient, collection: str, *, page_size: int) -> dict[tuple[str, str], int]:
@@ -76,19 +83,49 @@ def _tenant_file(point: Any) -> tuple[str, str] | None:
     return None
 
 
-def _matched(files: dict[tuple[str, str], int], live: Callable[[str], LiveDocuments]) -> _Match:
+def _id_condition(document_id: str) -> models.Filter:
+    return models.Filter(
+        should=[
+            models.FieldCondition(key=key, match=models.MatchValue(value=document_id))
+            for key in (DOCUMENT_ID_FIELD, LEGACY_DOCUMENT_ID_FIELD)
+        ]
+    )
+
+
+def _has_points_of(client: QdrantClient, collection: str, scope: str, document_id: str) -> bool:
+    scoped = models.Filter(
+        must=[models.FieldCondition(key=SCOPE_FIELD, match=models.MatchValue(value=scope)), _id_condition(document_id)]
+    )
+    return client.count(collection, count_filter=scoped, exact=True).count > 0
+
+
+def _matched(
+    client: QdrantClient,
+    collection: str,
+    files: dict[tuple[str, str], int],
+    live: Callable[[str], LiveDocuments],
+) -> _Match:
+    found = {key: live(key[0]).match(key[1]) for key in files}
+    by_spelling = {(scope, match.document_id) for (scope, _), match in found.items() if not match.by_key}
+    by_key = Counter((scope, match.document_id) for (scope, _), match in found.items() if match.by_key)
+
+    def reason_left(scope: str, match: NameMatch) -> UnmatchedReason | None:
+        if not (match.document_id and match.by_key):
+            return match.reason
+        claimed = (scope, match.document_id) in by_spelling or by_key[(scope, match.document_id)] > 1
+        return "id_taken" if claimed or _has_points_of(client, collection, scope, match.document_id) else None
+
     ids: dict[tuple[str, str], str] = {}
-    unmatched = held = 0
-    for (scope, file_name), points in files.items():
-        documents = live(scope)
-        document_id = documents.id_for(file_name)
-        if document_id:
-            ids[(scope, file_name)] = document_id
-            continue
-        unmatched += points
-        if documents.holds(file_name):
-            held += points
-    return _Match(ids, unmatched, held)
+    reasons: Counter[tuple[str, UnmatchedReason]] = Counter()
+    held = 0
+    for (scope, file_name), match in found.items():
+        reason = reason_left(scope, match)
+        if match.document_id and reason is None:
+            ids[(scope, file_name)] = match.document_id
+        else:
+            reasons[(scope, reason or "no_holder")] += files[(scope, file_name)]
+            held += files[(scope, file_name)] if match.held else 0
+    return _Match(ids, sum(reasons.values()), held, tuple(unmatched_by_scope(reasons)))
 
 
 def _stamp_filter(scope: str, file_name: str) -> models.Filter:
@@ -117,11 +154,11 @@ def stamp_document_ids(
         return cache[scope]
 
     files = _unstamped_files(client, collection, page_size=page_size)
-    found = _matched(files, live)
+    found = _matched(client, collection, files, live)
     before = sum(files[key] for key in found.ids)
     scopes = len({scope for scope, _ in files})
     if not apply:
-        return StampCount(before, 0, before, found.unmatched, scopes, found.held)
+        return StampCount(before, 0, before, found.unmatched, scopes, found.held, found.reasons)
     operations = [
         models.SetPayloadOperation(
             set_payload=models.SetPayload(payload={DOCUMENT_ID_FIELD: document_id}, filter=_stamp_filter(*key))
@@ -132,6 +169,6 @@ def stamp_document_ids(
         client.batch_update_points(collection, update_operations=operations[start : start + STAMP_BATCH], wait=True)
         logger.info("%s: %d of %d files given %s", collection, start + STAMP_BATCH, len(operations), DOCUMENT_ID_FIELD)
     left = _unstamped_files(client, collection, page_size=page_size)
-    remaining = _matched(left, live)
+    remaining = _matched(client, collection, left, live)
     after = sum(left[key] for key in remaining.ids)
-    return StampCount(before, before - after, after, remaining.unmatched, scopes, remaining.held)
+    return StampCount(before, before - after, after, remaining.unmatched, scopes, remaining.held, remaining.reasons)
