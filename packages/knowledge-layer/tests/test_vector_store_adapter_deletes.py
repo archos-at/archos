@@ -254,3 +254,23 @@ def test_delete_documents_reports_by_file_name(env):
     assert outcome["not_found"] == ["ghost.pdf"]
     assert outcome["failed"] == []
     assert _ids() == set()
+
+
+def test_delete_document_by_id_only_keeps_a_namesake_that_carries_no_id(env):
+    _seed("RIS_Bauordnung.txt", document_id="doc_gone", keyed=True)
+    fetched = _seed("RIS_Bauordnung.txt", 2)
+
+    assert env["ingestor"].delete_document("doc_gone", "RIS_Bauordnung.txt", SCOPE, by_id_only=True) is True
+
+    assert _ids() == set(fetched), "an unstamped chunk under the same name is never taken by the id"
+    assert _keyed_summary_rows() == {("RIS_Bauordnung.txt", None)}
+
+
+def test_delete_documents_by_id_only_takes_nothing_a_name_alone_would_match(env):
+    fetched = _seed("plan.pdf", 2)
+
+    outcome = env["ingestor"].delete_documents([("doc_gone", "plan.pdf")], SCOPE, by_id_only=True)
+
+    assert outcome["not_found"] == ["plan.pdf"]
+    assert _ids() == set(fetched)
+    assert _summary_rows() == {"plan.pdf"}

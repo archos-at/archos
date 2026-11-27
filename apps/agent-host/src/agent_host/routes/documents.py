@@ -280,6 +280,7 @@ async def delete_files(
                 [(document.id, document.file_name) for document in request.documents],
                 collection_name,
                 permanent=request.permanent,
+                by_id_only=request.by_id_only,
             )
         else:
             result = await asyncio.to_thread(

@@ -11,6 +11,7 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('drizzle-orm', async (importOriginal) => ({
   ...(await importOriginal<typeof import('drizzle-orm')>()),
   eq: (column: unknown, value: unknown) => ({ column, value }),
+  inArray: (column: unknown, values: unknown[]) => ({ column, values }),
 }))
 vi.mock('@/lib/db/schema/documents', () => ({
   documents: {
@@ -70,7 +71,7 @@ type Row = {
 function stubRows(rows: Row[], now: Row[] = rows, liveConversations: string[] = []) {
   const from = (table: unknown) =>
     table === conversationsTable
-      ? { where: (condition: { value: string }) => Promise.resolve(liveConversations.filter((id) => id === condition.value).map((id) => ({ id }))) }
+      ? { where: (condition: { values: string[] }) => Promise.resolve(liveConversations.filter((id) => condition.values.includes(id)).map((id) => ({ id }))) }
       : Object.assign(Promise.resolve(rows), {
           where: (condition: { value: string }) => Promise.resolve(now.filter((row) => row.collectionName === condition.value)),
         })
@@ -237,7 +238,7 @@ describe('reconcileOrphanedVectors', () => {
 
     expect(result.sparedInLiveConversations).toBe(1)
     expect(result.orphansFound).toBe(1)
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['Alt.pdf'], documents: [{ id: 'doc-weg', file_name: 'Alt.pdf' }] })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['Alt.pdf'], documents: [{ id: 'doc-weg', file_name: 'Alt.pdf' }], by_id_only: true })
   })
 
   describe('by document id', () => {
@@ -523,8 +524,18 @@ describe('reconcileOrphanedVectors: scopes the backend holds but no document row
     expect(result.sparedInLiveConversations).toBe(1)
     expect(result.orphansFound).toBe(1)
     expect(deletes().map((call) => [call[0], JSON.parse((call[1] as RequestInit).body as string)])).toEqual([
-      ['http://backend:8000/v1/collections/s_lebendig/documents', { file_ids: ['Anhang.pdf'], documents: [{ id: 'doc-geloescht', file_name: 'Anhang.pdf' }] }],
+      ['http://backend:8000/v1/collections/s_lebendig/documents', { file_ids: ['Anhang.pdf'], documents: [{ id: 'doc-geloescht', file_name: 'Anhang.pdf' }], by_id_only: true }],
     ])
+  })
+
+  it('keeps the law texts of a conversation stored under a bare id, whose scope is that id with the prefix', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['abc'])
+    backend(['proj_a', 's_abc'], { proj_a: [{ file_name: 'a.pdf' }], s_abc: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(deletes()).toEqual([])
   })
 
   it('deletes nothing of a live conversation that holds only fetched law texts', async () => {

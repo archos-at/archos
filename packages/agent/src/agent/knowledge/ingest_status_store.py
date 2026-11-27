@@ -463,14 +463,18 @@ def collection_jobs(collection_name: str, within_seconds: int) -> list[Ingestion
     return sorted((status for status in seen if status is not None), key=lambda s: (_submitted(s), s.job_id))
 
 
-def _details_kept(status: IngestionJobStatus, file_name: str, document_id: str | None) -> list[FileProgress]:
+def _details_kept(
+    status: IngestionJobStatus, file_name: str, document_id: str | None, by_id_only: bool = False
+) -> list[FileProgress]:
     owner = job_document_id(status)
-    if document_id and owner:
+    if document_id and (owner or by_id_only):
         return [] if owner == document_id else status.file_details
     return [detail for detail in status.file_details if detail.file_name != file_name]
 
 
-def forget_file(collection_name: str, file_name: str, *, document_id: str | None = None) -> int:
+def forget_file(
+    collection_name: str, file_name: str, *, document_id: str | None = None, by_id_only: bool = False
+) -> int:
     url = _db_url()
     if not url:
         return 0
@@ -490,7 +494,7 @@ def forget_file(collection_name: str, file_name: str, *, document_id: str | None
             status = _as_read(conn, url, status_json, stale)
             if status is None or _is_live(status):
                 continue
-            kept = _details_kept(status, file_name, document_id)
+            kept = _details_kept(status, file_name, document_id, by_id_only)
             if len(kept) == len(status.file_details):
                 continue
             if kept:

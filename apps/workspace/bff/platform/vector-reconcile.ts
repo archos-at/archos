@@ -1,5 +1,5 @@
 import 'server-only'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { conversations } from '@/lib/db/schema/conversations'
@@ -126,25 +126,32 @@ async function liveDocumentsIn(collectionName: string): Promise<LiveDocuments> {
 
 const CONVERSATION_SCOPE_PREFIX = 's_'
 
+const conversationIdsOf = (scope: string): string[] => [scope, scope.slice(CONVERSATION_SCOPE_PREFIX.length)]
+
 async function conversationLives(scope: string): Promise<boolean> {
   if (!scope.startsWith(CONVERSATION_SCOPE_PREFIX)) return false
   const db = getDb()
   const rows = await withPlatformAccess(
     'vector reconciliation sweep: a conversation scope keeps the law texts its turns fetched while the conversation exists',
-    () => db.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, scope)),
+    () => db.select({ id: conversations.id }).from(conversations).where(inArray(conversations.id, conversationIdsOf(scope))),
   )
   return rows.length > 0
+}
+
+interface Deletable {
+  files: StoredFile[]
+  byIdOnly: boolean
 }
 
 async function deletableOrphans(
   collectionName: string,
   orphans: readonly StoredFile[],
   result: VectorReconcileResult,
-): Promise<StoredFile[]> {
-  if (!(await conversationLives(collectionName))) return [...orphans]
+): Promise<Deletable> {
+  if (!(await conversationLives(collectionName))) return { files: [...orphans], byIdOnly: false }
   const identified = orphans.filter((file) => file.documentId !== null)
   result.sparedInLiveConversations += orphans.length - identified.length
-  return identified
+  return { files: identified, byIdOnly: true }
 }
 
 const holdsName = (live: LiveDocuments, fileName: string): boolean =>
@@ -184,8 +191,8 @@ async function purgeScopesWithoutDocuments(
       if ((await liveDocumentsIn(scope)).rows > 0) continue
       result.scopesWithoutDocuments += 1
       const deletable = await deletableOrphans(scope, orphans, result)
-      if (deletable.length === 0) continue
-      result.orphansFound += deletable.length
+      if (deletable.files.length === 0) continue
+      result.orphansFound += deletable.files.length
       result.orphansDeleted += await deleteOrphans(scope, deletable)
     } catch (error) {
       result.failures.push({ collectionName: scope, error: error instanceof Error ? error.message : 'unknown error' })
@@ -223,14 +230,15 @@ async function deleteChunks(collectionName: string, body: object): Promise<numbe
   return typeof answer.total_deleted === 'number' ? answer.total_deleted : 0
 }
 
-async function deleteOrphans(collectionName: string, orphans: readonly StoredFile[]): Promise<number> {
-  const identified = orphans.filter((file) => file.documentId !== null)
-  const named = orphans.filter((file) => file.documentId === null)
+async function deleteOrphans(collectionName: string, { files, byIdOnly }: Deletable): Promise<number> {
+  const identified = files.filter((file) => file.documentId !== null)
+  const named = files.filter((file) => file.documentId === null)
   let deleted = 0
   if (identified.length > 0) {
     deleted += await deleteChunks(collectionName, {
       file_ids: identified.map((file) => file.fileName),
       documents: identified.map((file) => ({ id: file.documentId, file_name: file.fileName })),
+      ...(byIdOnly ? { by_id_only: true } : {}),
     })
   }
   if (named.length > 0) deleted += await deleteChunks(collectionName, { file_ids: named.map((file) => file.fileName) })
@@ -322,8 +330,8 @@ export async function reconcileOrphanedVectors(): Promise<VectorReconcileResult>
       const candidates = stored.filter(isOrphanOf(liveThen))
       if (candidates.length === 0) continue
       const orphans = await deletableOrphans(collectionName, candidates.filter(isOrphanOf(await liveDocumentsIn(collectionName))), result)
-      if (orphans.length === 0) continue
-      result.orphansFound += orphans.length
+      if (orphans.files.length === 0) continue
+      result.orphansFound += orphans.files.length
       result.orphansDeleted += await deleteOrphans(collectionName, orphans)
     } catch (error) {
       result.failures.push({
