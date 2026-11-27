@@ -304,6 +304,39 @@ class TestThroughTheTool:
         assert "NOT a no" in text and "No match" not in text
 
 
+def _bestand(document_id: str, page: int = 1) -> Chunk:
+    return Chunk(
+        chunk_id=f"{document_id}-{page}",
+        content="Der Bestand wird erhalten.",
+        score=1.0,
+        file_name="Bestand.md",
+        page_number=page,
+        display_citation="Bestand.md",
+        content_type=ContentType.TEXT,
+        metadata={"page_label": str(page), "collection": COLLECTION, "document_id": document_id, "chunk_ordinal": 0},
+    )
+
+
+class TestDocumentsOfOneNameInDifferentFolders:
+    def test_each_document_is_counted_on_its_own(self):
+        groups = group_matches([_bestand(f"doc-{n}") for n in range(1, 6)], phrase_pattern(["Bestand"]))
+
+        assert [(group.document_id, group.occurrences) for group in groups] == [(f"doc-{n}", 1) for n in range(1, 6)]
+
+    async def test_the_table_counts_and_labels_each_by_its_folder(self, search_with, monkeypatch):
+        monkeypatch.setattr(
+            "agent.knowledge.factory.get_document_folder_paths",
+            lambda _c, _f, document_ids=None: {f"doc-{n}": f"F{n}" for n in range(1, 6)},
+        )
+        search_with(_Store([_bestand(f"doc-{n}") for n in range(1, 6)]))
+
+        text = await _search(query="Bestand", match="exact")
+
+        assert "5 occurrence(s) in 5 file(s)" in text
+        for n in range(1, 6):
+            assert f"- F{n}/Bestand.md (Projektwissen): 1×, p. 1" in text
+
+
 def test_the_adapter_hands_the_search_each_chunks_place_in_its_file(monkeypatch):
     from knowledge_layer.search import LlamaIndexRetriever
     from knowledge_layer.vector_store import Hit

@@ -148,6 +148,22 @@
         },
         {
           "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A name now has to be unique only within its folder: the same name in another folder is a document of its own, with its own Fassungen, so a project folder from your office server arrives whole even when hundreds of files share a name across subfolders.",
+            "de": "Ein Name muss jetzt nur noch in seinem Ordner eindeutig sein: Derselbe Name in einem anderen Ordner ist ein eigenes Dokument mit eigenen Fassungen, sodass ein Projektordner von Ihrem Büroserver vollständig ankommt, auch wenn sich Hunderte Dateien in verschiedenen Unterordnern einen Namen teilen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "When a file comes into a folder that already holds its name, by upload or by moving it, you choose „Ersetzen“, „Beide behalten“ (it comes in as „Plan 2.pdf“) or „Überspringen“, per file or with „Für alle anwenden“; {productName} asks the same before any move it proposes, and never replaces a document on its own.",
+            "de": "Kommt eine Datei in einen Ordner, der ihren Namen schon enthält, ob beim Hochladen oder beim Verschieben, wählen Sie „Ersetzen“, „Beide behalten“ (sie kommt als „Plan 2.pdf“ hinein) oder „Überspringen“, je Datei oder mit „Für alle anwenden“; {productName} fragt vor jeder vorgeschlagenen Verschiebung genauso und ersetzt nie von sich aus ein Dokument."
+          }
+        },
+        {
+          "section": "features",
           "area": "general",
           "text": {
             "en": "On a phone, the „Chats“ list in the chat now starts with „Letzte Chats“, the last five chats of the side you are on, as the sidebar shows them on a computer.",
@@ -392,6 +408,22 @@
           "text": {
             "en": "The E-Mail-Eingang is calmer: each mail is two lines that say where it goes or what it still needs, threads stand under their own name, and a mail with nothing left to decide is filed with one press on „Ablegen“. A filing can be undone for a few seconds, and while you pick several mails, the right side shows where they will go.",
             "de": "Der E-Mail-Eingang ist übersichtlicher: Jede Mail besteht aus zwei Zeilen, die zeigen, wohin sie gehört oder was noch fehlt. Threads erscheinen unter ihrem eigenen Namen, und eine Mail, bei der nichts mehr zu entscheiden ist, legen Sie mit einem Klick auf „Ablegen“ ab. Das Ablegen lässt sich einige Sekunden lang rückgängig machen, und während Sie mehrere Mails auswählen, zeigt die rechte Seite, wohin sie abgelegt werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The list of names a folder upload asks about shows every file with its whole path, wraps long names instead of cutting them, and „Kopieren“ copies all the paths at once.",
+            "de": "Die Liste der Namen, nach denen ein Ordner-Upload fragt, zeigt jede Datei mit ihrem ganzen Pfad, bricht lange Namen um, statt sie abzuschneiden, und „Kopieren“ kopiert alle Pfade auf einmal."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Renaming a document to a name its folder already holds is refused right in the rename field, so two documents of one folder can no longer look alike.",
+            "de": "Ein Dokument auf einen Namen umzubenennen, den sein Ordner schon enthält, wird direkt im Feld abgelehnt, sodass zwei Dokumente eines Ordners nicht mehr gleich aussehen können."
           }
         },
         {
@@ -758,6 +790,30 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "When two documents in different folders share a name, {productName} now reads, searches and lists each one on its own: it opens the one you mean by its folder, asks which one when only the name is given, and counts search matches per document instead of adding them up under one name.",
+            "de": "Wenn zwei Dokumente in unterschiedlichen Ordnern denselben Namen haben, liest, durchsucht und listet {productName} sie jetzt separat: Es öffnet das Dokument, das Sie anhand des Ordners meinen, fragt nach, welches Sie meinen, wenn Sie nur den Namen angeben, und zählt Suchtreffer pro Dokument, statt sie unter einem Namen zusammenzufassen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A rename onto a name its folder already holds now says to choose another name, with a suggestion, instead of offering choices a rename does not have.",
+            "de": "Beim Umbenennen in einen Namen, der im Ordner bereits vergeben ist, werden Sie jetzt mit einem Vorschlag aufgefordert, einen anderen Namen zu wählen, statt Auswahlmöglichkeiten anzubieten, die beim Umbenennen nicht verfügbar sind."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "„Beide behalten“ for „Plan 2.pdf“ now suggests „Plan 3.pdf“ instead of „Plan 2 2.pdf“.",
+            "de": "„Beide behalten“ schlägt für „Plan 2.pdf“ jetzt „Plan 3.pdf“ statt „Plan 2 2.pdf“ vor."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
             "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
           }
@@ -912,6 +968,14 @@
           "text": {
             "en": "Folder cards have the rounded corners of a card again, not the small ones they briefly took.",
             "de": "Ordnerkarten haben wieder die abgerundeten Ecken einer Karte und nicht mehr die kleinen, die sie kurzzeitig hatten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A folder upload no longer holds back files that share a name with a file in another subfolder of the upload; each one arrives in its own folder.",
+            "de": "Ein Ordner-Upload hält keine Dateien mehr zurück, die denselben Namen tragen wie eine Datei in einem anderen Unterordner des Uploads; jede kommt in ihrem eigenen Ordner an."
           }
         },
         {
@@ -1240,6 +1304,14 @@
           "text": {
             "en": "On a phone, the search register opens as the stacked list straight away. It used to show the desktop table for a moment and then jump to the list.",
             "de": "Auf dem Smartphone öffnet sich das Suchregister jetzt sofort als Liste. Bisher wird kurz die Desktop-Tabelle angezeigt, bevor die Ansicht zur Liste wechselt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A chat keeps the laws ARCHOS looked up in it after the weekly cleanup, so it can still quote and reopen them later in that chat. Leftovers of a deleted chat or a removed attachment are still cleaned up.",
+            "de": "Ein Chat behält die Gesetze, die ARCHOS darin nachgeschlagen hat, auch nach der wöchentlichen Bereinigung, sodass ARCHOS sie in diesem Chat weiterhin zitieren und erneut öffnen kann. Überreste eines gelöschten Chats oder eines entfernten Anhangs werden weiterhin bereinigt."
           }
         },
         {

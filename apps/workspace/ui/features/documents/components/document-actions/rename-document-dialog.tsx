@@ -20,7 +20,7 @@ import {
   validateDocumentName,
   type DocumentNameError,
 } from '@/lib/documents/display-name'
-import type { ActionableDocument } from './use-document-actions'
+import type { ActionableDocument, RenameOutcome } from './use-document-actions'
 import { DOCUMENT_SCOPE_COPY, type DocumentScope } from './document-scope'
 
 export interface RenameDocumentDialogProps {
@@ -28,7 +28,7 @@ export interface RenameDocumentDialogProps {
   onOpenChange: (open: boolean) => void
   document: ActionableDocument
   scope: DocumentScope
-  onRename: (displayName: string | null) => Promise<boolean>
+  onRename: (displayName: string | null) => Promise<RenameOutcome>
   pending?: boolean
 }
 
@@ -44,7 +44,8 @@ export function RenameDocumentDialog({
   const currentName = documentDisplayName(document)
   const { stem, extension } = splitDocumentName(currentName)
   const [value, setValue] = useState(stem)
-  const [error, setError] = useState<DocumentNameError | null>(null)
+  const [error, setError] = useState<DocumentNameError | 'nameTaken' | null>(null)
+  const [takenName, setTakenName] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -69,12 +70,19 @@ export function RenameDocumentDialog({
       onOpenChange(false)
       return
     }
-    if (await onRename(validated.value)) onOpenChange(false)
+    settle(await onRename(validated.value), validated.value)
   }
 
   const handleRestore = async () => {
     if (pending) return
-    if (await onRename(null)) onOpenChange(false)
+    settle(await onRename(null), document.filename)
+  }
+
+  const settle = (outcome: RenameOutcome, asked: string) => {
+    if (outcome === 'renamed') onOpenChange(false)
+    if (outcome !== 'nameTaken') return
+    setTakenName(asked)
+    setError('nameTaken')
   }
 
   return (
@@ -123,13 +131,15 @@ export function RenameDocumentDialog({
               )}
             </div>
             {error ? (
-              <FieldError id="document-rename-error">{t(`rename.errors.${error}`)}</FieldError>
+              <FieldError id="document-rename-error" data-testid="rename-error">
+                {t(`rename.errors.${error}`, { name: takenName })}
+              </FieldError>
             ) : (
               <FieldDescription id="document-rename-hint">{t('rename.hint')}</FieldDescription>
             )}
           </Field>
 
-          <DialogFooter className="mt-5">
+          <DialogFooter className="mt-5 sm:flex-wrap">
             {/* Recovery sits with the other controls rather than in a menu one
                 level up: the person who wants the original name back is already
                 looking at the field that took it away. */}

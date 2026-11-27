@@ -20,7 +20,7 @@ async function runOne(entryId: string, action: () => Promise<unknown>): Promise<
 export async function moveEntry(session: AuthorizedSession, entryId: string, folderId: string): Promise<void> {
   const entry = await getBaseKnowledgeEntry(session, entryId)
   if (entry.folderId === folderId) return
-  const moved = await moveDocumentToFolder({ documentId: entry.documentId, folderId }, session)
+  const moved = await moveDocumentToFolder({ documentId: entry.documentId, folderId, onConflict: 'keep_both' }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
 }
 

@@ -1,0 +1,14 @@
+---
+# area: documents
+fixes:
+  - >
+    When two documents in different folders share a name, {productName} now reads,
+    searches and lists each one on its own: it opens the one you mean by its
+    folder, asks which one when only the name is given, and counts search matches
+    per document instead of adding them up under one name.
+  - >
+    A rename onto a name its folder already holds now says to choose another
+    name, with a suggestion, instead of offering choices a rename does not have.
+  - >
+    „Beide behalten“ for „Plan 2.pdf“ now suggests „Plan 3.pdf“ instead of
+    „Plan 2 2.pdf“.

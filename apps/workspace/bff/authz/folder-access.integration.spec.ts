@@ -178,9 +178,13 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
     expect(adminPage.rows).toHaveLength(5)
   })
 
-  it('knows a name is taken under another restriction, which the per-collection index cannot', async () => {
-    const holders = await documentsRepo.findProjectCollectionsHoldingFilename(ORG, projectId, 'Honorarnote.pdf')
-    expect(holders).toEqual([access.restrictedCollectionName(COLLECTION, folder.fees)])
+  it('finds a name in the restricted folder that holds it, and leaves it free in every other folder of the project', async () => {
+    const fees = access.restrictedCollectionName(COLLECTION, folder.fees)
+    expect(await documentsRepo.findLiveDocumentByFilename(ORG, { folderId: folder.fees, collectionName: fees }, 'honorarnote.PDF')).toMatchObject({
+      filename: 'Honorarnote.pdf',
+    })
+    expect(await documentsRepo.findLiveDocumentByFilename(ORG, { folderId: folder.contracts }, 'Honorarnote.pdf')).toBeNull()
+    expect(await documentsRepo.findLiveDocumentByFilename(ORG, { folderId: null, collectionName: COLLECTION }, 'Honorarnote.pdf')).toBeNull()
   })
 
   it('takes a custom folder with no grant row (0128 dropped the 1–20 trigger), and still refuses one nobody set', async () => {

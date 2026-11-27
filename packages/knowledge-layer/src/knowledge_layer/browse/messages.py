@@ -54,7 +54,7 @@ def match_table(
         lines.extend(_shelf_lines(groups, scopes))
     for group in groups:
         shelf = f" ({_SHELF_LABELS[group.shelf]})" if group.shelf in _SHELF_LABELS else ""
-        lines.append(f"- {group.file_name}{shelf}: {group.occurrences}×{_pages_label(group.pages)}")
+        lines.append(f"- {group.shown}{shelf}: {group.occurrences}×{_pages_label(group.pages)}")
     if regex_mode:
         lines.extend(_distinct_lines(groups))
     if truncated:
@@ -62,7 +62,7 @@ def match_table(
             f"The search stopped after {MAX_MATCH_CHUNKS} matching passages in a collection: the counts above are "
             "lower bounds and the list may miss files. Narrow it with `folder=` or `file_name=`."
         )
-        lines.extend(_candidate_lines(candidates, {group.file_name: group.occurrences for group in groups}))
+        lines.extend(_candidate_lines(candidates))
     if failed:
         lines.append(_failed_note(failed))
     lines.append(
@@ -120,7 +120,7 @@ def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *,
     chunks = [(group, chunk) for group in groups for chunk in group.chunks]
     for group, chunk in chunks:
         page = getattr(chunk, "page_number", None)
-        where = f"{group.file_name}, p.{page}" if page else group.file_name
+        where = f"{group.shown}, p.{page}" if page else group.shown
         own = group.own.get(chunk.chunk_id) or own_text(chunk)
         found, cut = _chunk_snippets(own, where, pattern, context, MAX_SNIPPET_LINES - len(out), timeout)
         out.extend(found)

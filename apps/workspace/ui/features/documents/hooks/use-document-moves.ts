@@ -7,11 +7,40 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import type { FileItem, FolderItem } from '../file-types'
 import { refusalOf, shelfRefusalOf, throwUnlessOk, type ShelfRefusal } from '../lib/move-refusal'
+import type { NameConflict } from '@/lib/documents/name-conflict-wire'
+import {
+  moveConflictRow,
+  movePatchBody,
+  nameConflictOfResponse,
+  replaceUnavailableOfResponse,
+  type SentConflictChoice,
+} from '../lib/name-conflict'
+import type { AskNameConflicts } from './use-name-conflict-prompt'
+import { documentPathIn } from '../lib/folder-path-label'
+
+const patchFolder = (documentId: string, folderId: string | null, onConflict?: SentConflictChoice): Promise<Response> =>
+  fetch(`/api/documents/${documentId}/folder`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: movePatchBody(folderId, onConflict),
+  })
+
+const storedFilename = async (response: Response, conflict: NameConflict): Promise<string> => {
+  const body: unknown = await response.json().catch(() => null)
+  const filename = body && typeof body === 'object' ? (body as { filename?: unknown }).filename : undefined
+  return typeof filename === 'string' && filename ? filename : conflict.suggestedName
+}
+
+interface HeldName {
+  file: FileItem
+  conflict: NameConflict
+}
 
 export function useDocumentMoves(
   files: readonly FileItem[],
   setFiles: Dispatch<SetStateAction<FileItem[]>>,
-  folders: readonly FolderItem[]
+  folders: readonly FolderItem[],
+  askConflicts?: AskNameConflicts
 ) {
   const t = useTranslations(filesCopy)
   const inFlight = useRef(0)
@@ -48,6 +77,39 @@ export function useDocumentMoves(
     [t]
   )
 
+  const settleResolved = useCallback(
+    (file: FileItem, folderId: string | null, choice: SentConflictChoice, filename: string) => {
+      seen.current.delete(file.id)
+      setFiles((prev) =>
+        choice === 'replace'
+          ? prev.filter((f) => f.id !== file.id)
+          : prev.map((f) => (f.id === file.id ? { ...f, folderId, filename, displayName: null } : f))
+      )
+    },
+    [setFiles]
+  )
+
+  const askAbout = useCallback(
+    async (held: readonly HeldName[], folderId: string | null): Promise<Map<string, SentConflictChoice>> => {
+      const chosen = new Map<string, SentConflictChoice>()
+      if (!askConflicts || held.length === 0) return chosen
+      const answer = await askConflicts({
+        operation: 'move',
+        folderName: folderLabel(folderId),
+        rows: held.map(({ file, conflict }) => {
+          const name = documentDisplayName(file)
+          return moveConflictRow({ id: file.id, name, path: documentPathIn(folders, file.folderId, name) }, conflict)
+        }),
+      })
+      for (const { file } of held) {
+        const choice = answer?.get(file.id)
+        if (choice && choice !== 'skip') chosen.set(file.id, choice)
+      }
+      return chosen
+    },
+    [askConflicts, folderLabel, folders]
+  )
+
   const undo = useRef<(documentId: string, folderId: string | null) => Promise<void>>(async () => {})
 
   const dropInFolder = useCallback(
@@ -61,13 +123,32 @@ export function useDocumentMoves(
       seen.current.set(documentId, { ...file, folderId })
       inFlight.current += 1
       try {
-        await throwUnlessOk(
-          await fetch(`/api/documents/${documentId}/folder`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folderId }),
-          })
-        )
+        const response = await patchFolder(documentId, folderId)
+        const conflict = askConflicts ? await nameConflictOfResponse(response) : null
+        if (conflict) {
+          moved(documentId, previousFolderId)
+          seen.current.set(documentId, file)
+          let asking = conflict
+          let choice = (await askAbout([{ file, conflict: asking }], folderId)).get(documentId)
+          let resolved = choice ? await patchFolder(documentId, folderId, choice) : null
+          for (let narrowed = resolved && (await replaceUnavailableOfResponse(resolved)); narrowed; ) {
+            asking = { ...asking, choices: narrowed }
+            choice = (await askAbout([{ file, conflict: asking }], folderId)).get(documentId)
+            resolved = choice ? await patchFolder(documentId, folderId, choice) : null
+            narrowed = resolved && (await replaceUnavailableOfResponse(resolved))
+          }
+          if (!choice || !resolved) return
+          await throwUnlessOk(resolved)
+          const filename = await storedFilename(resolved, conflict)
+          settleResolved(file, folderId, choice, filename)
+          toast.success(
+            choice === 'replace'
+              ? t('nameConflicts.movedAsRevision', { name, existing: conflict.existingName })
+              : t('actions.moved', { name: filename, folder: folderLabel(folderId) })
+          )
+          return
+        }
+        await throwUnlessOk(response)
         if (!undoable) {
           toast.success(t('folders.movedBack', { name, folder: folderLabel(folderId) }))
           return
@@ -86,7 +167,7 @@ export function useDocumentMoves(
         inFlight.current -= 1
       }
     },
-    [files, moved, folderLabel, refusalMessage, t]
+    [files, moved, folderLabel, refusalMessage, askConflicts, askAbout, settleResolved, t]
   )
   undo.current = (documentId, folderId) => dropInFolder(documentId, folderId, { undoable: false })
 
@@ -97,42 +178,61 @@ export function useDocumentMoves(
       const previous = new Map(targets.map((file) => [file.id, file.folderId ?? null]))
       for (const file of targets) moved(file.id, folderId)
 
-      const outcome = { moved: 0, refused: 0 }
-      const queue = [...targets]
-      const worker = async (): Promise<void> => {
-        for (let file = queue.shift(); file; file = queue.shift()) {
-          const restore = (): void => moved(file.id, previous.get(file.id) ?? null)
-          try {
-            const response = await fetch(`/api/documents/${file.id}/folder`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ folderId }),
-            })
-            if (response.ok) outcome.moved += 1
-            else {
-              if ((await shelfRefusalOf(response)) === 'ifcRestricted') outcome.refused += 1
+      const outcome = { moved: 0, refused: 0, skipped: 0 }
+      let held: HeldName[] = []
+      const narrowed: HeldName[] = []
+      const send = async (batch: readonly FileItem[], choices?: ReadonlyMap<string, SentConflictChoice>): Promise<void> => {
+        const queue = [...batch]
+        const worker = async (): Promise<void> => {
+          for (let file = queue.shift(); file; file = queue.shift()) {
+            const restore = (): void => moved(file.id, previous.get(file.id) ?? null)
+            const choice = choices?.get(file.id)
+            try {
+              const response = await patchFolder(file.id, folderId, choice)
+              if (response.ok) {
+                outcome.moved += 1
+                const resolved = choice ? held.find((entry) => entry.file.id === file.id) : undefined
+                if (choice && resolved) settleResolved(file, folderId, choice, await storedFilename(response, resolved.conflict))
+                continue
+              }
+              restore()
+              const asked = choice ? held.find((entry) => entry.file.id === file.id) : undefined
+              const offered = asked ? await replaceUnavailableOfResponse(response) : null
+              const conflict = askConflicts && !choice ? await nameConflictOfResponse(response) : null
+              if (asked && offered) narrowed.push({ file, conflict: { ...asked.conflict, choices: offered } })
+              else if (conflict) held.push({ file, conflict })
+              else if ((await shelfRefusalOf(response)) === 'ifcRestricted') outcome.refused += 1
+            } catch {
               restore()
             }
-          } catch {
-            restore()
           }
         }
+        await Promise.all(Array.from({ length: Math.min(MOVE_CONCURRENCY, batch.length) }, worker))
       }
       inFlight.current += 1
       try {
-        await Promise.all(Array.from({ length: Math.min(MOVE_CONCURRENCY, targets.length) }, worker))
+        await send(targets)
+        while (held.length > 0) {
+          const chosen = await askAbout(held, folderId)
+          outcome.skipped += held.length - chosen.size
+          const resend = held.map((entry) => entry.file).filter((file) => chosen.has(file.id))
+          for (const file of resend) moved(file.id, folderId)
+          narrowed.length = 0
+          await send(resend, chosen)
+          held = [...narrowed]
+        }
       } finally {
         inFlight.current -= 1
       }
 
       if (outcome.moved > 0) toast.success(t('selection.moved', { count: outcome.moved, folder: folderName }))
-      const failed = targets.length - outcome.moved
+      const failed = targets.length - outcome.moved - outcome.skipped
       if (failed > 0) {
         toast.error(outcome.refused === failed ? t('folders.access.ifcRefused') : t('selection.moveFailed', { count: failed }))
       }
       return outcome.moved
     },
-    [files, moved, t]
+    [files, moved, askConflicts, askAbout, settleResolved, t]
   )
 
   return { moved, dropInFolder, moveMany, isMoving }

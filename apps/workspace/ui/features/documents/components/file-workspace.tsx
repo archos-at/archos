@@ -41,6 +41,8 @@ import { FolderAccessDialog } from './folder-access-dialog'
 import { FolderDescriptionDialog } from './folder-description-dialog'
 import { FilingSuggestionsProvider } from './filing-suggestion'
 import { FolderUploadDialog } from './folder-upload-dialog'
+import { NameConflictDialog } from './name-conflict/name-conflict-dialog'
+import { NameConflictAskContext } from '../hooks/use-name-conflict-prompt'
 import { ProjectUppyUpload } from './project-uppy-upload'
 import { UploadTray } from './upload-tray'
 import { UPLOAD_TRAY_SHEET } from './upload-tray-sheet'
@@ -335,6 +337,7 @@ function ShelfListing({
       onSettled={onFilingSettled}
       folderPathOf={folderPathOf}
     >
+    <NameConflictAskContext.Provider value={changes.conflictPrompt.ask}>
     <div className="relative flex h-full flex-col" {...(canManage ? surfaceDragHandlers : {})} data-testid="workspace-dropzone">
       <FileDropOverlay
         show={canManage && isDragging}
@@ -515,7 +518,12 @@ function ShelfListing({
         kind={shelfUpload.decision.kind}
         onReleaseChange={shelfUpload.onReleaseChange}
         onRevisionChange={shelfUpload.onRevisionChange}
+        onConflictChange={shelfUpload.onConflictChange}
       />
+
+      {/* A name another document already holds in the target folder, met at the
+          server after the plan was shown (a race, a loose file, a move). */}
+      <NameConflictDialog prompt={shelfUpload.conflictPrompt} />
 
       {/* What belongs in a folder (migration 0145), on both shelves. */}
       <FolderDescriptionDialog
@@ -583,6 +591,7 @@ function ShelfListing({
 
       {compareElement}
     </div>
+    </NameConflictAskContext.Provider>
     </FilingSuggestionsProvider>
   )
 }

@@ -70,6 +70,7 @@ def test_a_point_without_an_id_whose_name_two_live_documents_hold_is_counted_as_
     count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
 
     assert (count.written, count.after, count.unmatched, count.unmatched_held) == (0, 0, 2, 1)
+    assert _reasons(count) == {(SCOPE, "ambiguous"): 1, (SCOPE, "no_holder"): 1}
     assert _keys("Plan.pdf") == [(None, None)], "neither namesake can claim it"
 
 
@@ -82,3 +83,86 @@ def test_the_base_corpus_is_never_asked_about(fresh_qdrant_store):
 
     assert (count.before, count.written, count.unmatched, asked) == (0, 0, 0, [])
     assert [(point.payload or {}).get(DOCUMENT_ID_FIELD) for point in get_store().scroll("base_corpus", None)] == [None]
+
+
+def _reasons(count) -> dict[tuple[str, str], int]:
+    return {(unmatched.scope, unmatched.reason): unmatched.count for unmatched in count.unmatched_scopes}
+
+
+def test_a_point_whose_name_differs_from_one_live_document_only_by_case_or_whitespace_takes_its_id(
+    fresh_qdrant_store,
+):
+    write(SCOPE, [record(f"Grundriss {index}", " grundriss eg.PDF") for index in range(2)])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    count = stamp_document_ids(
+        fresh_qdrant_store.client, collection, _live({"Grundriss EG.pdf": "doc_eg"}), apply=True, page_size=2
+    )
+
+    assert (count.before, count.written, count.after, count.unmatched) == (2, 2, 0, 0)
+    assert _keys(" grundriss eg.PDF") == [("doc_eg", None)] * 2
+
+
+def test_a_drifted_name_two_live_documents_hold_by_the_match_key_is_ambiguous_but_never_held(fresh_qdrant_store):
+    write(SCOPE, [record("vor den Ids", "PLAN.pdf")])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    def live(scope: str) -> LiveDocuments:
+        return LiveDocuments.of(scope, [("doc_eg", "Plan.pdf"), ("doc_og", "plan.pdf")])
+
+    count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
+
+    assert (count.written, count.unmatched, count.unmatched_held) == (0, 1, 0)
+    assert _reasons(count) == {(SCOPE, "ambiguous"): 1}
+    assert _keys("PLAN.pdf") == [(None, None)]
+
+
+def test_the_exact_spelling_claims_the_document_before_a_drifted_one(fresh_qdrant_store):
+    write(SCOPE, [record("aktuell", "Plan.pdf")])
+    write(SCOPE, [record("alt", "plan.pdf ")])
+    write(SCOPE, [record("Fassung mit Id", "PLAN.PDF")], {"document_id": "doc_schnitt"})
+    write(SCOPE, [record("alt", "schnitt.pdf")])
+    collection = fresh_qdrant_store.alias(SCOPE)
+    live = _live({"Plan.pdf": "doc_plan", "Schnitt.pdf": "doc_schnitt"})
+
+    count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
+
+    assert (count.written, count.after, count.unmatched, count.unmatched_held) == (1, 0, 2, 0)
+    assert _reasons(count) == {(SCOPE, "id_taken"): 2}
+    assert _keys("plan.pdf ") == [(None, None)]
+    assert _keys("schnitt.pdf") == [(None, None)], "the document already has points of its own"
+
+
+def test_each_unmatched_point_is_counted_under_its_scope_and_why(fresh_qdrant_store):
+    erased = "proj_stamp_erased"
+    write(SCOPE, [record("weg", "geloescht.pdf")])
+    write(SCOPE, [record("fast", "Grundriss_EG.pdf")])
+    write(erased, [record(f"Gespräch {index}", "Notiz.pdf") for index in range(3)])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    def live(scope: str) -> LiveDocuments:
+        return LiveDocuments.of(scope, [("doc_eg", "Grundriss EG.pdf")] if scope == SCOPE else [])
+
+    count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=False, page_size=2)
+
+    assert (count.unmatched, count.unmatched_held) == (5, 0)
+    assert _reasons(count) == {
+        (SCOPE, "near_name"): 1,
+        (SCOPE, "no_holder"): 1,
+        (erased, "no_documents_in_collection"): 3,
+    }
+
+
+def test_the_exact_spelling_is_stamped_though_two_drifted_spellings_point_at_its_document_too(fresh_qdrant_store):
+    write(SCOPE, [record("aktuell", "Plan.pdf")])
+    write(SCOPE, [record("alt", "plan.pdf ")])
+    write(SCOPE, [record("älter", "PLAN.pdf")])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    count = stamp_document_ids(
+        fresh_qdrant_store.client, collection, _live({"Plan.pdf": "doc_plan"}), apply=True, page_size=2
+    )
+
+    assert (count.written, count.unmatched, count.unmatched_held) == (1, 2, 0)
+    assert _reasons(count) == {(SCOPE, "id_taken"): 2}
+    assert _keys("Plan.pdf") == [("doc_plan", None)]

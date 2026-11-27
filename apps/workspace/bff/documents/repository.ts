@@ -8,11 +8,18 @@ export { findShelfDocumentListRow, summarizeShelfFolders, listShelfFailedDocumen
 export { findRevisionCounterparts, documentNameMatchColumns, probeDocumentNames, findDocumentsByNames, findProjectDocumentsByNames } from './repository/name-lookup'
 export type { RevisionCounterpartRow, DocumentNameMatchRow } from './repository/name-lookup'
 export { findDocumentTenancy, updateDocumentVisibilityInOrg, listDocumentIdsForProject, listUnreadableProjectDocuments, documentIdsExisting, findDocumentInOrg } from './repository/lookup'
-export { findDocumentAuthoredByRef, findLiveDocumentByFilename, findProjectCollectionsHoldingFilename } from './repository/lookup-by-ref'
+export {
+  findDocumentAuthoredByRef,
+  findFreeDocumentName,
+  findLiveDocumentByFilename,
+  findTakenDocumentNameKeys,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './repository/lookup-by-ref'
 export { findStorageKeysByCollectionAndFilename, findReadableStorageKeyById, findPageTextTarget, findStorageKeyByIdAndCollection, documentExistsInCollection, listDocumentIdsInCollection } from './repository/storage'
 export type { StoredDocumentFile, CollectionDocumentId } from './repository/storage'
 export type { DispatchStart } from './repository/mutations'
-export { deleteProjectDocument, deleteShelfDocumentRow, setDocumentDisplayName, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
+export { deleteProjectDocument, deleteShelfDocumentRow, setDocumentDisplayNameInFolder, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
 export { findIngestAnnouncementFacts, listSettleableDocumentsForIngestJobs, listStalePendingDocuments, listStuckProcessingDocuments, markDocumentIngestFailed } from './repository/ingest-state'
 export type { IngestAnnouncementFacts, StuckProcessingDocument } from './repository/ingest-state'
 export { findFolderPathsInProject, findFolderPathInProject, findFolderPathInOfficeShelf, findFolderPathOnShelf, countDocumentsByProject, folderIsInBin } from './repository/folders'

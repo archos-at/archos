@@ -1,6 +1,15 @@
 import type { NameMatch } from '@/lib/upload-screening/name-screen'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import type { TrackedFile } from '../types'
+import type { NameConflict } from '@/lib/documents/name-conflict-wire'
+import type { HeldUploadBatch } from '../lib/upload-batch'
+
+export type NameConflictHandler = (
+  conflicts: ReadonlyArray<{ file: File; conflict: NameConflict }>,
+  held: HeldUploadBatch | null,
+  sent: UploadFilesOptions
+) => void
+import type { SentConflictChoice } from '../lib/name-conflict'
 import type { ValidationContext } from '../validation'
 
 export interface UseFileUploadOptions {
@@ -21,6 +30,9 @@ export interface UploadFilesOptions {
   folderPathFor?: (file: File) => string | null | undefined
   screeningReleased?: (file: File) => boolean
   revisionOf?: (file: File) => string | null | undefined
+  onConflict?: (file: File) => SentConflictChoice | null | undefined
+  onNameConflicts?: NameConflictHandler
+  continueBatch?: HeldUploadBatch
   excludedByScreening?: ReadonlyArray<readonly NameMatch[]>
   screeningPolicy?: UploadScreeningPolicy
 }

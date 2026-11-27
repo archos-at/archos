@@ -6,6 +6,7 @@ import type {
 } from '@/adapters/api/documents-schemas'
 import type { FileItem } from './components/project-file-workspace'
 import type { QuarantineVerdict } from '@/lib/upload-screening/quarantine'
+import type { SentConflictChoice } from './lib/name-conflict'
 
 export type {
   DocumentFileStatus,
@@ -27,6 +28,7 @@ export interface UploadIntent {
   folderPath: string | null
   screeningReleased: boolean
   revisionOf?: string | null
+  onConflict?: SentConflictChoice | null
 }
 
 export type TrackedFileStatus = DocumentFileStatus | 'deleting' | 'canceled' | 'held' | 'stored'

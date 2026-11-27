@@ -7,7 +7,9 @@ and does: [`documents.md`](../user-guides/documents.md#fassungen-und-freigabe).
 Why the link is not a merge:
 [ADR-0099](../adr/0099-fassungen-across-file-names-are-a-confirmed-link-not-a-merge.md).
 Why a same-name re-upload is a version:
-[ADR-0054](../adr/0054-document-versions-and-the-publish-door.md).
+[ADR-0054](../adr/0054-document-versions-and-the-publish-door.md). Why only in
+the same folder:
+[ADR-0200](../adr/0200-a-document-is-its-id-and-its-name-is-unique-within-its-folder.md).
 
 A file name with an index says a file has Fassungen. It does not say what kind of
 file it is; only the Dokumentart says that.
@@ -24,11 +26,11 @@ A Fassung is stored in one of two ways, and the reader sees one of them.
 
 | | Same name | Another name |
 |---|---|---|
-| Gesture | Drop `EG_Grundriss.pdf` on a collection that holds `EG_Grundriss.pdf` | Drop `EG_Grundriss_Index_C.pdf` where `EG_Grundriss_Index_B.pdf` lies |
+| Gesture | Drop `EG_Grundriss.pdf` into the folder that holds `EG_Grundriss.pdf` and keep „Ersetzen“ | Drop `EG_Grundriss_Index_C.pdf` where `EG_Grundriss_Index_B.pdf` lies |
 | Stored as | A new row in `document_versions` of the same `documents` row (ADR-0054) | Two `documents` rows, and a link on the knowledge layer's `document_metadata` row |
 | The link | None. The item keeps its id | `superseded_by` on the OLDER row, set only by a person |
 | What else is stored there | State per version, who approved, who published | `revision_suggestion`, `change_summary`, `change_basis`, `revision_facts` (the title block) |
-| Who decides it is one | The name, so nobody has to | A person, after a suggestion |
+| Who decides it is one | The name in its folder, and the person's „Ersetzen“ when the upload asks (the folder-upload dialog preselects it) | A person, after a suggestion |
 | Undo | Not needed, the old bytes stay | Unlink. No citation, share, assignment or folder placement moves |
 | Owner | `apps/workspace/bff/documents/lifecycle*.ts`, `version-repository.ts` | `packages/agent/src/agent/knowledge/document_metadata_store.py` |
 
@@ -161,7 +163,7 @@ A row of the timeline can also **unlink** an older Fassung.
 **At upload.** The form field `revisionOf` carries the older document's id.
 `resolveRevisionOf` checks it before a byte is stored: write access to the older
 document, same shelf and collection, active, past screening, a person's upload.
-Equal names return nothing, since that is a version and never a Fassung. A
+A name the older document holds in the same folder returns nothing, since that is a version and never a Fassung; the same name in another folder is another document, and can be linked like any other. A
 choice that fails a check (the older document moved into a restricted folder
 after the dialog asked, was archived, is not this person's to change) never
 refuses the upload: the file is stored as a document of its own, the answer
@@ -329,7 +331,7 @@ The agent reads the same facts the UI does, through the knowledge layer.
 | Tool | What it does with Fassungen | Code |
 |---|---|---|
 | `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/knowledge_layer/browse/rows.py`, `confirmed_revision_marks`, `title_block_marks` |
-| `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively | `browse/revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
+| `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively. The index keeps only a document's current version, so a file uploaded again under its own name reads as one file whose change note compares it with that earlier upload, never as its only Fassung | `browse/revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
 | `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, quantities and dimension strings from the drawing analysis, and tables row by row. No model call; the stored change line rides along when its basis is exactly that older file. When `compare_to` names a file that is no Fassung of the chain, the two are compared the same way as two different documents, first → second, with no older or newer and no change line ([below](#two-different-documents)) | `browse/compare.py`, `resolve_compare`, `compare_files`; `packages/agent/src/agent/knowledge/revision_diff.py`, `table_diff.py` |
 | `knowledge_search` | Leaves confirmed older Fassungen out of the ranking on the user shelves, so an older state cannot outrank its replacement on similarity. Says „Ältere Fassungen ausgeblendet: …“. `file_name=…` bypasses the exclusion, and when the named file is an older Fassung the result carries the same line `read_passage` gives („Ältere Fassung: … ist durch … ersetzt“, the end of the chain). The base corpus is untouched | `packages/knowledge-layer/src/knowledge_layer/register.py`, `_superseded_files`, `_named_older_revision_notice`; `document_metadata_store.get_superseded_files` |
 | `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/knowledge_layer/read_passage/revisions.py`, `_current_revision`, `_older_revision_notice` |

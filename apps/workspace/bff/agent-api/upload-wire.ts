@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nameConflictResolutionSchema } from '@/lib/documents/name-conflict'
 
 export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 
@@ -53,6 +54,10 @@ export const documentUploadFields = {
     .guid()
     .optional()
     .describe('The batch uuid given to upload-batch-open, to file this upload under that batch.'),
+} satisfies Record<string, z.ZodType>
+
+export const uploadConflictField = {
+  onConflict: nameConflictResolutionSchema.optional(),
 } satisfies Record<string, z.ZodType>
 
 export const uploadBodySchema = z.object({

@@ -53,10 +53,14 @@ def _deploy_sequence(command: list[str]) -> list[int]:
     return codes
 
 
-def _count_lines(out: str, mode: str) -> list[dict]:
+def _lines(out: str, event: str, mode: str) -> list[dict]:
     raw = [line for line in out.splitlines() if line.startswith("{")]
-    assert all(line.startswith('{"event":"backfill.count",') for line in raw), raw
-    return [line for line in map(json.loads, raw) if line.get("mode") == mode]
+    assert all(line.startswith(('{"event":"backfill.count",', '{"event":"backfill.unmatched",')) for line in raw), raw
+    return [line for line in map(json.loads, raw) if line["event"] == event and line.get("mode") == mode]
+
+
+def _count_lines(out: str, mode: str) -> list[dict]:
+    return _lines(out, "backfill.count", mode)
 
 
 class _Bff(BaseHTTPRequestHandler):
@@ -153,3 +157,39 @@ def test_a_bff_without_the_route_stops_the_backfill(name, command, legacy_user_d
 
     assert _main(command)(command[2:]) == 2, name
     assert '"event":"backfill.failed"' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(("name", "command"), _registered())
+def test_each_scope_with_unmatched_items_says_why_without_naming_a_file(
+    name, command, legacy_user_document, bff, capsys
+):
+    erased = "proj_registered_backend_backfill_erased"
+    DocumentMetadataStore(legacy_user_document).register(SCOPE, "Geheimprojekt Villa.pdf", "Gelöscht.")
+    DocumentMetadataStore(legacy_user_document).register(erased, "Notiz.pdf", "Gespräch.")
+    write(SCOPE, [record("weg", "Geheimprojekt Villa.pdf")])
+    write(erased, [record(f"Gespräch {index}", "Notiz.pdf") for index in range(2)])
+
+    assert _main(command)(command[2:]) == 0
+    out = capsys.readouterr().out
+
+    unit = "rows" if name == "document-metadata-document-id" else "points"
+    found = {(line["scope"], line["reason"], line[unit]) for line in _lines(out, "backfill.unmatched", "dry-run")}
+    assert found == {(SCOPE, "no_holder", 1), (erased, "no_documents_in_collection", 1 if unit == "rows" else 2)}
+    assert all(line["backfill"] == name for line in _lines(out, "backfill.unmatched", "dry-run"))
+    assert "Geheimprojekt" not in out and "Notiz" not in out
+
+
+def test_the_stamp_check_passes_while_two_live_documents_hold_a_points_name_only_by_its_match_key(
+    legacy_user_document, bff, capsys
+):
+    bff.documents[SCOPE].append({"id": "5d0c1c2e-0000-4000-8000-000000000002", "filename": "ALT.pdf", "folderId": "f"})
+    write(SCOPE, [record("vor den Ids", "Alt.pdf")])
+    command = dict(_registered())["qdrant-document-id-stamp"]
+
+    assert _deploy_sequence(command) == [0, 0, 0], "dry run, apply, check"
+    out = capsys.readouterr().out
+    [checked] = _count_lines(out, "check")
+    assert (checked["after"], checked["unmatched"], checked["unmatched_held"]) == (0, 1, 0)
+    assert {(line["scope"], line["reason"], line["points"]) for line in _lines(out, "backfill.unmatched", "check")} == {
+        (SCOPE, "ambiguous", 1)
+    }

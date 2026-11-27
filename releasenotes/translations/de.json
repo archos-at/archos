@@ -132,6 +132,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat keeps the laws ARCHOS looked up in it after the weekly cleanup, so it can still quote and reopen them later in that chat. Leftovers of a deleted chat or a removed attachment are still cleaned up.",
+    "de": "Ein Chat behält die Gesetze, die ARCHOS darin nachgeschlagen hat, auch nach der wöchentlichen Bereinigung, sodass ARCHOS sie in diesem Chat weiterhin zitieren und erneut öffnen kann. Überreste eines gelöschten Chats oder eines entfernten Anhangs werden weiterhin bereinigt."
+  },
+  {
     "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
     "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
   },
@@ -552,6 +556,10 @@
     "de": "Ein Ordner-Upload in ein Projekt mit einem eingeschränkten Ordner lehnt die Unterordner eines gerade erst angelegten Ordners nicht mehr ab."
   },
   {
+    "en": "A folder upload no longer holds back files that share a name with a file in another subfolder of the upload; each one arrives in its own folder.",
+    "de": "Ein Ordner-Upload hält keine Dateien mehr zurück, die denselben Namen tragen wie eine Datei in einem anderen Unterordner des Uploads; jede kommt in ihrem eigenen Ordner an."
+  },
+  {
     "en": "A folder you may only read now says so when you drag files or documents over it, and its files can no longer be dragged out.",
     "de": "Ein Ordner, für den Sie jetzt nur Leserechte haben, zeigt dies an, wenn Sie Dateien oder Dokumente darüber ziehen; Dateien lassen sich nicht mehr aus ihm herausziehen."
   },
@@ -662,6 +670,10 @@
   {
     "en": "A missing chat permission now names Piloti, not an internal research step. The last step of the derivation (Herleitung) shows how far the reading got, not an assessment of the answer.",
     "de": "Eine fehlende Chat-Berechtigung nennt jetzt Piloti statt eines internen Rechercheschritts. Der letzte Schritt der Herleitung zeigt, wie weit das Lesen gekommen ist, nicht eine Bewertung der Antwort."
+  },
+  {
+    "en": "A name now has to be unique only within its folder: the same name in another folder is a document of its own, with its own Fassungen, so a project folder from your office server arrives whole even when hundreds of files share a name across subfolders.",
+    "de": "Ein Name muss jetzt nur noch in seinem Ordner eindeutig sein: Derselbe Name in einem anderen Ordner ist ein eigenes Dokument mit eigenen Fassungen, sodass ein Projektordner von Ihrem Büroserver vollständig ankommt, auch wenn sich Hunderte Dateien in verschiedenen Unterordnern einen Namen teilen."
   },
   {
     "en": "A new chat now appears in „Letzte Chats“ the moment you send its first message, titled by that message's first line in a lighter grey until ARCHOS names it in the same row. You see at once which chat you are in, even before the answer arrives.",
@@ -922,6 +934,10 @@
   {
     "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
     "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
+  },
+  {
+    "en": "A rename onto a name its folder already holds now says to choose another name, with a suggestion, instead of offering choices a rename does not have.",
+    "de": "Beim Umbenennen in einen Namen, der im Ordner bereits vergeben ist, werden Sie jetzt mit einem Vorschlag aufgefordert, einen anderen Namen zu wählen, statt Auswahlmöglichkeiten anzubieten, die beim Umbenennen nicht verfügbar sind."
   },
   {
     "en": "A reply that arrived before its first e-mail was filed is now offered the E-Mail-Verlauf that e-mail started, and is appended if you follow it.",
@@ -4008,6 +4024,10 @@
     "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
   },
   {
+    "en": "Renaming a document to a name its folder already holds is refused right in the rename field, so two documents of one folder can no longer look alike.",
+    "de": "Ein Dokument auf einen Namen umzubenennen, den sein Ordner schon enthält, wird direkt im Feld abgelehnt, sodass zwei Dokumente eines Ordners nicht mehr gleich aussehen können."
+  },
+  {
     "en": "Renaming a folder in the Dateiablage grid view works again: clicking into the name field places the cursor there instead of opening the folder.",
     "de": "Das Umbenennen eines Ordners in der Rasteransicht der Dateiablage funktioniert wieder: Wenn Sie in das Namensfeld klicken, wird der Cursor dort platziert, statt den Ordner zu öffnen."
   },
@@ -4964,6 +4984,10 @@
     "de": "Die Liste der anwendbaren OIB-Richtlinien richtet sich jetzt nach dem im Projektsetup eingetragenen Fluchtniveau, der Gebäudeklasse, den Nutzungen und den unterirdischen Geschossen, statt pauschal alle sechs aufzulisten."
   },
   {
+    "en": "The list of names a folder upload asks about shows every file with its whole path, wraps long names instead of cutting them, and „Kopieren“ copies all the paths at once.",
+    "de": "Die Liste der Namen, nach denen ein Ordner-Upload fragt, zeigt jede Datei mit ihrem ganzen Pfad, bricht lange Namen um, statt sie abzuschneiden, und „Kopieren“ kopiert alle Pfade auf einmal."
+  },
+  {
     "en": "The list of references now always sits beside the document and shows which passage you are reading, and the toolbar shows the page you are on.",
     "de": "Die Fundstellenliste steht jetzt immer neben dem Dokument und zeigt, welche Stelle Sie gerade lesen, und die Werkzeugleiste zeigt die aktuelle Seite."
   },
@@ -5760,6 +5784,10 @@
     "de": "Wenn Sie einen Entwurf zur Freigabe einreichen, können Sie jetzt festlegen, wer ihn prüfen soll. Wenn Sie nichts ändern, werden alle Personen angefragt, die im Projekt Dateien freigeben dürfen. So erreicht auch ein Entwurf, den niemand übernommen hat, jemanden."
   },
   {
+    "en": "When a file comes into a folder that already holds its name, by upload or by moving it, you choose „Ersetzen“, „Beide behalten“ (it comes in as „Plan 2.pdf“) or „Überspringen“, per file or with „Für alle anwenden“; {productName} asks the same before any move it proposes, and never replaces a document on its own.",
+    "de": "Kommt eine Datei in einen Ordner, der ihren Namen schon enthält, ob beim Hochladen oder beim Verschieben, wählen Sie „Ersetzen“, „Beide behalten“ (sie kommt als „Plan 2.pdf“ hinein) oder „Überspringen“, je Datei oder mit „Für alle anwenden“; {productName} fragt vor jeder vorgeschlagenen Verschiebung genauso und ersetzt nie von sich aus ein Dokument."
+  },
+  {
     "en": "When a file is not uploaded because its name contains a sensitive term, the message now offers to upload it anyway; its content is still checked.",
     "de": "Wenn eine Datei nicht hochgeladen wird, weil ihr Name einen sensiblen Begriff enthält, bietet die Meldung nun an, sie trotzdem hochzuladen; der Inhalt wird weiterhin geprüft."
   },
@@ -5950,6 +5978,10 @@
   {
     "en": "When the on-screen keyboard opens, the app now makes room for it instead of letting it cover the composer, so you can see what you are typing.",
     "de": "Wenn sich die Bildschirmtastatur öffnet, macht die App jetzt Platz für sie, statt das Eingabefeld zu verdecken – so sehen Sie, was Sie eingeben."
+  },
+  {
+    "en": "When two documents in different folders share a name, {productName} now reads, searches and lists each one on its own: it opens the one you mean by its folder, asks which one when only the name is given, and counts search matches per document instead of adding them up under one name.",
+    "de": "Wenn zwei Dokumente in unterschiedlichen Ordnern denselben Namen haben, liest, durchsucht und listet {productName} sie jetzt separat: Es öffnet das Dokument, das Sie anhand des Ordners meinen, fragt nach, welches Sie meinen, wenn Sie nur den Namen angeben, und zählt Suchtreffer pro Dokument, statt sie unter einem Namen zusammenzufassen."
   },
   {
     "en": "When two people open a draft of the same document at once, exactly one draft is created and the second person is told it already exists.",
@@ -6470,6 +6502,10 @@
   {
     "en": "„Ansehen“ on the line saying that documents could not be read seemed to do nothing once their list was open; the line now steps aside while that list is shown and returns when you go back to the folder.",
     "de": "„Ansehen“ in der Zeile mit dem Hinweis, dass Dokumente nicht gelesen werden konnten, schien nichts zu bewirken, sobald deren Liste geöffnet war; jetzt wird die Zeile ausgeblendet, solange die Liste angezeigt wird, und erscheint wieder, wenn Sie zum Ordner zurückkehren."
+  },
+  {
+    "en": "„Beide behalten“ for „Plan 2.pdf“ now suggests „Plan 3.pdf“ instead of „Plan 2 2.pdf“.",
+    "de": "„Beide behalten“ schlägt für „Plan 2.pdf“ jetzt „Plan 3.pdf“ statt „Plan 2 2.pdf“ vor."
   },
   {
     "en": "„Erstelle ein Dokument über …“ now starts a deep research whose finished report is filed in the project under Berichte. If you only want a thorough answer, you still get it in the chat.",

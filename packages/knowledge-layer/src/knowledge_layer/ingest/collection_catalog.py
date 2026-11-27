@@ -264,15 +264,29 @@ class CollectionCatalog:
         return self._purge(collection_name, chunks, forgotten, names=names, permanent=permanent)
 
     def delete_document(
-        self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
+        self,
+        document_id: str,
+        file_name: str,
+        collection_name: str,
+        *,
+        permanent: bool = False,
+        by_id_only: bool = False,
     ) -> bool:
-        forgotten = ingest_status_store.forget_file(collection_name, file_name, document_id=document_id)
-        spellings = self._spellings_in(collection_name, file_name, unclaimed=True)
+        forgotten = ingest_status_store.forget_file(
+            collection_name, file_name, document_id=document_id, by_id_only=by_id_only
+        )
+        spellings = [] if by_id_only else self._spellings_in(collection_name, file_name, unclaimed=True)
         found = self._chunks_of_document(collection_name, document_id, spellings)
         chunks = [(chunk_id, stored) for chunk_id, stored, _claimed in found]
         names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
         return self._purge(
-            collection_name, chunks, forgotten, names=names, document_id=document_id, permanent=permanent
+            collection_name,
+            chunks,
+            forgotten,
+            names=names,
+            document_id=document_id,
+            permanent=permanent,
+            unstamped_names=not by_id_only,
         )
 
     def _spellings_in(self, collection_name: str, file_name: str, *, unclaimed: bool = False) -> list[str]:
@@ -289,6 +303,7 @@ class CollectionCatalog:
         names: list[str],
         document_id: str | None = None,
         permanent: bool,
+        unstamped_names: bool = True,
     ) -> bool:
         from agent.knowledge import unregister_summary
 
@@ -301,8 +316,10 @@ class CollectionCatalog:
             logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
         else:
             logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
-        for name in names:
-            unregister_summary(collection_name, name, permanent=permanent, document_id=document_id)
+        if document_id:
+            unregister_summary(collection_name, file_name, permanent=permanent, document_id=document_id)
+        for name in names if unstamped_names else []:
+            unregister_summary(collection_name, name, permanent=permanent)
         return bool(chunks) or forgotten > 0
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:

@@ -95,7 +95,7 @@ def _wanted(phrases: Sequence[str], regex_mode: bool) -> str:
     return " | ".join(f'"{phrase}"' for phrase in phrases)
 
 
-def _candidate_lines(candidates: Mapping[str, int] | None, counted: Mapping[str, int], limit: int = 10) -> list[str]:
+def _candidate_lines(candidates: Mapping[str, int] | None, limit: int = 10) -> list[str]:
     if not candidates:
         return []
     ranked = sorted(candidates.items(), key=lambda item: (-item[1], fold(item[0])))

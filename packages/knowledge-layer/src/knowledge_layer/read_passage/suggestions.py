@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from typing import Any
 
@@ -23,27 +24,51 @@ _NOT_READABLE_IS_NOT_ABSENT = (
 def _suggestion_names(wanted: str, documents: list[Any], *, limit: int = _MAX_DID_YOU_MEAN) -> list[str]:
     import difflib
 
+    from knowledge_layer.document_address import citation_form
+
     folded = (wanted or "").strip().casefold()
     if not folded:
         return []
-    scored: list[tuple[float, str]] = []
+    with_folder = "/" in folded
+    scored: list[tuple[float, str, Any]] = []
     for document in documents or ():
+        folder = _folder_of(document)
         best_name = ""
         best_ratio = 0.0
         for name in _document_names(document):
             candidate = name.strip()
             if not candidate:
                 continue
-            ratio = difflib.SequenceMatcher(None, folded, candidate.casefold()).ratio()
+            spellings = [candidate, citation_form(folder, candidate)] if with_folder else [candidate]
+            ratio = max(difflib.SequenceMatcher(None, folded, spelled.casefold()).ratio() for spelled in spellings)
             if ratio > best_ratio:
                 best_name, best_ratio = candidate, ratio
         if best_name and best_ratio >= _DID_YOU_MEAN_CUTOFF:
-            scored.append((best_ratio, best_name))
-    scored.sort(key=lambda item: (-item[0], item[1]))
-    return [name for _ratio, name in scored[:limit]]
+            scored.append((best_ratio, best_name, document))
+    shared = Counter(name.casefold() for _ratio, name, _document in scored)
+    named = [
+        (ratio, _guess(document, name, with_folder or shared[name.casefold()] > 1)) for ratio, name, document in scored
+    ]
+    named.sort(key=lambda item: (-item[0], item[1]))
+    return list(dict.fromkeys(name for _ratio, name in named))[:limit]
+
+
+def _folder_of(document: Any) -> str:
+    return str(getattr(document, "folder_path", None) or "").strip().strip("/")
+
+
+def _guess(document: Any, name: str, in_citation_form: bool) -> str:
+    from knowledge_layer.document_address import citation_form
+
+    folder = _folder_of(document)
+    return citation_form(folder, name) if folder or in_citation_form else name
 
 
 def _unknown_document_message(document: str, known: int, suggestions: Sequence[str] | None = None) -> str:
+    from knowledge_layer.document_address import document_id_named
+
+    if document_id := document_id_named(document):
+        return _unknown_document_id_message(document_id)
     names = [name for name in (suggestions or []) if str(name).strip()]
     shown = names[:_MAX_DID_YOU_MEAN]
     remaining = len(names) - len(shown)
@@ -73,6 +98,14 @@ def _unknown_document_message(document: str, known: int, suggestions: Sequence[s
     if remaining > 0:
         message += f"\n(+{remaining} more candidate(s) not shown — refine the name to narrow it down.)"
     return message
+
+
+def _unknown_document_id_message(document_id: str) -> str:
+    return (
+        f"No document readable this turn has the Document-ID {document_id!r}: it may be in the bin, deleted, "
+        "unreadable or outside this turn's scope. Do not cite it, and do not look for it by name. "
+        + _NOT_READABLE_IS_NOT_ABSENT
+    )
 
 
 def _no_passage_message(

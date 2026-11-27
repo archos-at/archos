@@ -116,16 +116,17 @@ export async function uploadSessionDocument(
 
   const collectionName = sessionCollectionName(conversationId)
   const uploadBatchId = await acceptedUploadBatchId(session, input.uploadBatchId, { scope: 'session', projectId: null })
-  const filename = documentNameKey(file.name)
+  const droppedName = documentNameKey(file.name)
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 
   const bytes = Buffer.from(await file.arrayBuffer())
   const contentHash = contentDigest(bytes)
 
-  const { documentId, storageKey, replaced } = await retryRacedUpload(async () => {
-    const superseded = await findLiveDocumentByFilename(session.organizationId, collectionName, filename)
-    if (superseded) await assertMayReplaceHeld(session, superseded, filename)
+  const { documentId, filename, storageKey, replaced } = await retryRacedUpload(async () => {
+    const superseded = await findLiveDocumentByFilename(session.organizationId, { folderId: null, collectionName }, droppedName)
+    if (superseded) await assertMayReplaceHeld(session, superseded, droppedName)
     const documentId = superseded?.id ?? crypto.randomUUID()
+    const filename = superseded?.filename ?? droppedName
     const baseKey = buildSessionStorageKey(session.organizationId, conversationId, documentId, filename)
     const storageKey = superseded
       ? versionWriteKey(baseKey, await nextVersionNumber(documentId, session.organizationId), newVersionWriteId())
@@ -173,7 +174,7 @@ export async function uploadSessionDocument(
         status: 'uploaded',
       })
     }
-    return { documentId, storageKey, replaced: Boolean(superseded) }
+    return { documentId, filename, storageKey, replaced: Boolean(superseded) }
   })
 
   await recordUploadedVersionOrDiscard(session, documentId, request, {

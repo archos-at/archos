@@ -298,8 +298,16 @@ class BaseIngestor(ABC):
     def delete_file(self, file_id: str, collection_name: str, *, permanent: bool = False) -> bool: ...
 
     def delete_document(
-        self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
+        self,
+        document_id: str,
+        file_name: str,
+        collection_name: str,
+        *,
+        permanent: bool = False,
+        by_id_only: bool = False,
     ) -> bool:
+        if by_id_only:
+            return False
         return self.delete_file(file_name, collection_name, permanent=permanent)
 
     def delete_documents(
@@ -308,13 +316,21 @@ class BaseIngestor(ABC):
         collection_name: str,
         *,
         permanent: bool = False,
+        by_id_only: bool = False,
     ) -> dict[str, Any]:
         return _delete_each(
             [
                 (
                     name,
                     document_id,
-                    partial(self.delete_document, document_id, name, collection_name, permanent=permanent),
+                    partial(
+                        self.delete_document,
+                        document_id,
+                        name,
+                        collection_name,
+                        permanent=permanent,
+                        by_id_only=by_id_only,
+                    ),
                 )
                 for document_id, name in documents
             ]

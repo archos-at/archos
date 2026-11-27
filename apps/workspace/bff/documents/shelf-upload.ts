@@ -8,7 +8,7 @@ import {
   buildStorageKey,
 } from '@/lib/s3'
 import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
-import { ConflictError, NotFoundError } from '@/lib/api/errors'
+import { NotFoundError } from '@/lib/api/errors'
 import { folderReadOnlyError, getProjectFolderAccess } from '@/lib/authz/folder-access'
 import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { acceptedUploadBatchId } from '@/lib/upload-batches/service'
@@ -24,10 +24,17 @@ import { documentReadFamily } from './document-status'
 import { nextVersionNumber, recordUploadedVersionOrDiscard } from './lifecycle'
 import { resolveRevisionOf, type RevisionOfIgnoredReason } from './revision-upload'
 import { documentNameKey } from './name-match'
-import { NAME_TAKEN_DETAILS, nameTakenMessage } from './name-taken'
+import { NameConflictError, nameConflictWith } from './name-conflict'
+import type { NameConflictResolution } from './name-conflict-wire'
+import { refuseUnseenHolder } from './name-holder'
 import { normalizeOriginPath, sanitizeOriginPath } from './origin-path'
 import { resolveShelfFolderPath } from './folder-path'
-import { findLiveDocumentByFilename, findProjectCollectionsHoldingFilename } from './repository'
+import {
+  findFreeDocumentName,
+  findLiveDocumentByFilename,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './repository'
 import { retryRacedUpload } from './unique-conflicts'
 import { newVersionWriteId, versionWriteKey } from './version-content'
 import { shelfOwner, type DocumentShelf } from './shelf'
@@ -53,7 +60,10 @@ export interface ShelfUploadInput {
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
   originConversationId?: string | null
+  onConflict: UploadConflictPolicy
 }
+
+export type UploadConflictPolicy = NameConflictResolution | 'refuse'
 
 export interface UploadDocumentResult {
   documentId: string
@@ -61,6 +71,8 @@ export interface UploadDocumentResult {
   status: DispatchDocumentResult['status']
   filename: string
   unchanged?: true
+  skipped?: true
+  existingDocumentId?: string
   revisionOfIgnored?: RevisionOfIgnoredReason
 }
 
@@ -150,34 +162,60 @@ interface PlaceUploadInput {
   revisionOf: string | null
   revisionOfId: string | null
   revisionOfIgnored: RevisionOfIgnoredReason | null
-  mayWriteFolder: (folderId: string | null) => boolean
+  onConflict: UploadConflictPolicy
   screeningOverridden: NameGateResult['overridden']
 }
 
-type Placed =
-  | { unchanged: true; documentId: string }
-  | { unchanged: false; documentId: string; storageKey: string; replaced: boolean }
+type LeftAlone = { kind: 'unchanged' | 'skipped'; documentId: string; filename: string }
+
+type Placed = LeftAlone | { kind: 'stored'; documentId: string; filename: string; storageKey: string; replaced: boolean }
+
+type Destination = { kind: 'new'; filename: string } | { kind: 'replace'; holder: LiveDocumentNameHolder } | LeftAlone
+
+function namePlace(collectionName: string, folderId: string | null): DocumentNamePlace {
+  return folderId === null ? { folderId: null, collectionName } : { folderId, collectionName }
+}
+
+function sameBytesReadable(holder: LiveDocumentNameHolder, contentHash: string): boolean {
+  return holder.contentHash === contentHash && documentReadFamily(holder.status) === 'readable'
+}
+
+async function destinationFor(session: AuthorizedSession, input: PlaceUploadInput): Promise<Destination> {
+  const { filename, folderId } = input
+  const place = namePlace(input.collectionName, folderId)
+  const holder = await findLiveDocumentByFilename(session.organizationId, place, filename)
+  if (!holder) return { kind: 'new', filename }
+  const kept = { documentId: holder.id, filename: holder.filename }
+  const freeName = () => findFreeDocumentName(session.organizationId, place, filename)
+  switch (input.onConflict) {
+    case 'keep_both':
+      return { kind: 'new', filename: await freeName() }
+    case 'skip':
+      await refuseUnseenHolder(session, holder, filename)
+      return { kind: 'skipped', ...kept }
+    case 'refuse':
+      await refuseUnseenHolder(session, holder, filename)
+      if (sameBytesReadable(holder, input.contentHash)) return { kind: 'unchanged', ...kept }
+      throw new NameConflictError(nameConflictWith(holder, filename, folderId, await freeName()))
+    case 'replace':
+      await assertMayReplaceHeld(session, holder, filename)
+      if (sameBytesReadable(holder, input.contentHash)) return { kind: 'unchanged', ...kept }
+      return { kind: 'replace', holder }
+  }
+}
 
 function placeUpload(session: AuthorizedSession, input: PlaceUploadInput): Promise<Placed> {
-  const { shelf, collectionName, filename, folderId, file, contentHash, storageBucket } = input
+  const { shelf, file, storageBucket } = input
   return retryRacedUpload(async (): Promise<Placed> => {
-    const superseded = await findLiveDocumentByFilename(session.organizationId, collectionName, filename)
-    if (superseded && !input.mayWriteFolder(superseded.folderId ?? null)) throw folderReadOnlyError()
-    if (superseded) await assertMayReplaceHeld(session, superseded, filename)
-    const documentId = superseded?.id ?? crypto.randomUUID()
+    const destination = await destinationFor(session, input)
+    if (destination.kind !== 'new' && destination.kind !== 'replace') return destination
+    const superseded = destination.kind === 'replace'
+    const documentId = superseded ? destination.holder.id : crypto.randomUUID()
+    const filename = superseded ? destination.holder.filename : destination.filename
     const baseKey = uploadStorageKey(shelf, session.organizationId, documentId, filename, input.folderPath)
     const storageKey = superseded
       ? versionWriteKey(baseKey, await nextVersionNumber(documentId, session.organizationId), newVersionWriteId())
       : baseKey
-
-    if (
-      superseded &&
-      superseded.contentHash === contentHash &&
-      documentReadFamily(superseded.status) === 'readable' &&
-      (superseded.folderId ?? null) === (folderId ?? null)
-    ) {
-      return { unchanged: true, documentId }
-    }
 
     await s3Client.send(
       new PutObjectCommand({
@@ -188,15 +226,15 @@ function placeUpload(session: AuthorizedSession, input: PlaceUploadInput): Promi
       }),
     )
 
-    await admitRow(session, input, { superseded: Boolean(superseded), documentId, storageKey })
-    return { unchanged: false, documentId, storageKey, replaced: Boolean(superseded) }
+    await admitRow(session, input, { superseded, documentId, filename, storageKey })
+    return { kind: 'stored', documentId, filename, storageKey, replaced: superseded }
   })
 }
 
 async function admitRow(
   session: AuthorizedSession,
   input: PlaceUploadInput,
-  placed: { superseded: boolean; documentId: string; storageKey: string },
+  placed: { superseded: boolean; documentId: string; filename: string; storageKey: string },
 ): Promise<void> {
   const { file, storageBucket, contentHash, folderId } = input
   const { documentId, storageKey } = placed
@@ -219,7 +257,7 @@ async function admitRow(
     ...shelfOwner(input.shelf, session.organizationId),
     folderId: folderId ?? null,
     createdBy: session.userId,
-    filename: input.filename,
+    filename: placed.filename,
     storageKey,
     storageBucket,
     collectionName: input.collectionName,
@@ -263,10 +301,7 @@ async function prepareUpload(
   })
   const uploadBatchId = await acceptedUploadBatchId(session, input.uploadBatchId, shelfOwner(shelf, session.organizationId))
   const filename = documentNameKey(file.name)
-  if (shelf.kind === 'project') {
-    await assertNameFreeElsewhereInProject(session.organizationId, shelf.projectId, collectionName, filename)
-  }
-  const revision = await resolveRevisionOf(session, input.revisionOf, { shelf, collectionName, filename })
+  const revision = await resolveRevisionOf(session, input.revisionOf, { shelf, collectionName, folderId, filename })
 
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 
@@ -286,14 +321,13 @@ async function prepareUpload(
     revisionOf: revision.revisionOf,
     revisionOfId: revision.revisionOf ? (input.revisionOf ?? null) : null,
     revisionOfIgnored: revision.ignored,
-    mayWriteFolder: gate.mayWriteFolder,
+    onConflict: input.onConflict,
     screeningOverridden: nameGate.overridden,
   }
 }
 
 interface FolderGate {
   collectionName: string
-  mayWriteFolder: (folderId: string | null) => boolean
 }
 
 async function projectFolderGate(
@@ -303,25 +337,13 @@ async function projectFolderGate(
   fileName: string,
   shelfCollection: string,
 ): Promise<FolderGate> {
-  if (shelf.kind !== 'project') return { collectionName: shelfCollection, mayWriteFolder: () => true }
+  if (shelf.kind !== 'project') return { collectionName: shelfCollection }
   const access = await getProjectFolderAccess(session, shelf.projectId, shelfCollection)
   if (!access.isVisible(folderId)) throw new NotFoundError('Folder not found in project')
   if (access.levelOf(folderId) !== 'write') throw folderReadOnlyError()
   const collectionName = access.collectionFor(folderId)
   assertIfcMayBeFiledIn(fileName, collectionName, shelfCollection)
-  return { collectionName, mayWriteFolder: (id) => access.levelOf(id) === 'write' }
-}
-
-async function assertNameFreeElsewhereInProject(
-  organizationId: string,
-  projectId: string,
-  collectionName: string,
-  filename: string,
-): Promise<void> {
-  const holders = await findProjectCollectionsHoldingFilename(organizationId, projectId, filename)
-  if (holders.some((holder) => holder !== collectionName)) {
-    throw new ConflictError(nameTakenMessage(filename), NAME_TAKEN_DETAILS)
-  }
+  return { collectionName }
 }
 
 export async function uploadToShelf(
@@ -332,14 +354,17 @@ export async function uploadToShelf(
 ): Promise<UploadDocumentResult> {
   const { dispatchDocument } = await import('./document-dispatch')
   const upload = await prepareUpload(session, shelf, input)
-  const { file, filename, collectionName, folderPath, storageBucket, contentHash } = upload
+  const { file, collectionName, folderPath, storageBucket, contentHash } = upload
 
   const ignored = upload.revisionOfIgnored ? { revisionOfIgnored: upload.revisionOfIgnored } : {}
   const placed = await placeUpload(session, upload)
-  if (placed.unchanged) {
-    return { documentId: placed.documentId, jobId: null, status: 'uploaded', filename, unchanged: true, ...ignored }
+  if (placed.kind !== 'stored') {
+    const left = { documentId: placed.documentId, jobId: null, status: 'uploaded' as const, filename: placed.filename }
+    return placed.kind === 'unchanged'
+      ? { ...left, unchanged: true, ...ignored }
+      : { ...left, skipped: true, existingDocumentId: placed.documentId }
   }
-  const { documentId, storageKey } = placed
+  const { documentId, storageKey, filename } = placed
 
   await recordUploadedVersionOrDiscard(session, documentId, request, {
     storageKey,

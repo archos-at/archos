@@ -35,6 +35,7 @@ from .matches import _matched_strings  # noqa: F401
 from .matches import _occurrences  # noqa: F401
 from .matches import distinct_matches  # noqa: F401
 from .matches import group_matches  # noqa: F401
+from .matches import label_namesakes  # noqa: F401
 from .matches import pick_passages  # noqa: F401
 from .messages import MAX_CONTEXT_LINES  # noqa: F401
 from .messages import MAX_SNIPPET_LINES  # noqa: F401
@@ -277,7 +278,7 @@ async def _list_body(
     if refusal:
         return refusal
     if (revisions_of or "").strip():
-        return await _revisions_answer(search_config, outcome, shelf, revisions_of, compare_to)
+        return await _revisions_answer(search_config, outcome, shelf, revisions_of, compare_to, folder)
     sort = (sort or "folder").strip().lower()
     if sort not in ("folder", "name", "newest"):
         return "`sort` must be folder, name or newest."
@@ -318,19 +319,20 @@ async def _revisions_answer(
     shelf: str | None,
     revisions_of: str | None,
     compare_to: str | None,
+    folder: str | None,
 ) -> str:
     turn = restrict_rows_to_turn(await _turn_rows(search_config))
     if shelf and turn.allowed is not None and shelf not in turn.allowed:
         return shelf_restricted_message(shelf, turn.allowed)
     if compare_to is not None:
         pair, refusal = resolve_compare(
-            turn.rows, revisions_of or "", compare_to, shelf=shelf, default_shelves=turn.own_shelves
+            turn.rows, revisions_of or "", compare_to, shelf=shelf, default_shelves=turn.own_shelves, folder=folder
         )
         if pair is None:
             return refusal
         return await compare_files(pair)
     outcome.completed = True
-    return render_revisions(turn.rows, revisions_of or "", shelf=shelf, default_shelves=turn.own_shelves)
+    return render_revisions(turn.rows, revisions_of or "", shelf=shelf, default_shelves=turn.own_shelves, folder=folder)
 
 
 def _canonical_doc_class(doc_class: str | None) -> tuple[str | None, str | None]:

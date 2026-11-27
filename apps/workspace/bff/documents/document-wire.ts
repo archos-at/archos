@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_DOCUMENT_NAME_LENGTH } from './display-name'
+import { nameConflictResolutionSchema } from './name-conflict'
 import { documentSummaryFilterSchema } from './list-query'
 import { shelfSelectorFields } from './shelf-scope'
 import { MAX_TAGS, MAX_TOPICS, MAX_TOPIC_LENGTH } from './tag-vocabulary'
@@ -10,6 +11,7 @@ export const renameDocumentSchema = z.object({
 
 export const moveDocumentSchema = z.object({
   folderId: z.guid().nullable(),
+  onConflict: nameConflictResolutionSchema.optional(),
 })
 
 export const updateTagsSchema = z.object({

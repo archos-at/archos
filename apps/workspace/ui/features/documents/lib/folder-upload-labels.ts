@@ -27,7 +27,10 @@ export function describeHeader({
     return single.action === 'update'
       ? {
           title: t('folderUpload.single.newRevisionTitle', { name: single.file.name }),
-          description: t('folderUpload.single.updateExplain', { name: shownAs }),
+          description: t('folderUpload.single.updateExplain', {
+            name: shownAs,
+            keepBothAs: single.conflict?.keepBothAs ?? single.file.name,
+          }),
           HeaderIcon: History,
         }
       : {
@@ -85,7 +88,6 @@ export function confirmLabel({
 }): string {
   if (nothingToDo || !counts) return t('folderUpload.nothingToDo')
   if (single?.action === 'update') return t('folderUpload.single.confirmRevision')
-  if (counts.uploading === 0) return t('folderUpload.confirmMoveOnly', { count: counts.moving })
   return revisions > 0
     ? t('folderUpload.confirmWithRevisions', { count: counts.uploading, revisions })
     : t('folderUpload.confirm', { count: counts.uploading })

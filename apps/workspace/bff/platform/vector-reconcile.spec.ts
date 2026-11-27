@@ -11,6 +11,7 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('drizzle-orm', async (importOriginal) => ({
   ...(await importOriginal<typeof import('drizzle-orm')>()),
   eq: (column: unknown, value: unknown) => ({ column, value }),
+  inArray: (column: unknown, values: unknown[]) => ({ column, values }),
 }))
 vi.mock('@/lib/db/schema/documents', () => ({
   documents: {
@@ -21,6 +22,9 @@ vi.mock('@/lib/db/schema/documents', () => ({
   },
 }))
 
+const { conversationsTable } = vi.hoisted(() => ({ conversationsTable: { id: 'conversation_id' } }))
+vi.mock('@/lib/db/schema/conversations', () => ({ conversations: conversationsTable }))
+
 const syncAllProjectFacts = vi.fn()
 vi.mock('@/lib/cross-project/project-facts-mirror', () => ({
   syncAllProjectFacts: (...args: unknown[]) => syncAllProjectFacts(...args),
@@ -29,7 +33,7 @@ vi.mock('@/lib/cross-project/project-facts-mirror', () => ({
 import { getDb } from '@/lib/db'
 import { asDb } from '@/test-utils/db-fixtures'
 import { agentDocumentFilename } from '@/lib/documents/agent-namespace'
-import { DOCUMENT_FACTS_BATCH, PROJECT_FACTS_FAILURE_NAME, reconcileOrphanedVectors } from './vector-reconcile'
+import { DOCUMENT_FACTS_BATCH, PROJECT_FACTS_FAILURE_NAME, TENANT_SCOPES_FAILURE_NAME, reconcileOrphanedVectors } from './vector-reconcile'
 
 describe('reconcileOrphanedVectors: the project facts half', () => {
   const fetchFacts = vi.fn()
@@ -64,11 +68,13 @@ type Row = {
   publishedVersionId?: string | null
 }
 
-function stubRows(rows: Row[], now: Row[] = rows) {
-  const from = () =>
-    Object.assign(Promise.resolve(rows), {
-      where: (condition: { value: string }) => Promise.resolve(now.filter((row) => row.collectionName === condition.value)),
-    })
+function stubRows(rows: Row[], now: Row[] = rows, liveConversations: string[] = []) {
+  const from = (table: unknown) =>
+    table === conversationsTable
+      ? { where: (condition: { values: string[] }) => Promise.resolve(liveConversations.filter((id) => condition.values.includes(id)).map((id) => ({ id }))) }
+      : Object.assign(Promise.resolve(rows), {
+          where: (condition: { value: string }) => Promise.resolve(now.filter((row) => row.collectionName === condition.value)),
+        })
   vi.mocked(getDb).mockReturnValue(asDb({ select: () => ({ from }) }))
 }
 
@@ -96,9 +102,14 @@ function summaryResponse(forgotten: { collection: string; file_name: string }[],
 }
 
 const DOCUMENT_FACTS_URL = 'http://backend:8000/v1/maintenance/refresh-document-facts'
+const TENANT_SCOPES_URL = 'http://backend:8000/v1/maintenance/tenant-scopes'
+
+function scopesResponse(scopes: string[]) {
+  return { ok: true, status: 200, json: () => Promise.resolve({ status: 'ok', scopes }) }
+}
 
 function callsBeforeDocumentFacts() {
-  return fetchMock.mock.calls.filter((call) => call[0] !== DOCUMENT_FACTS_URL)
+  return fetchMock.mock.calls.filter((call) => call[0] !== DOCUMENT_FACTS_URL && call[0] !== TENANT_SCOPES_URL)
 }
 
 function summaryCall() {
@@ -112,7 +123,7 @@ describe('reconcileOrphanedVectors', () => {
     vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()
-    fetchMock.mockImplementation(() => Promise.resolve(summaryResponse([])))
+    fetchMock.mockImplementation((url: string) => Promise.resolve(url === TENANT_SCOPES_URL ? scopesResponse([]) : summaryResponse([])))
   })
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -208,6 +219,26 @@ describe('reconcileOrphanedVectors', () => {
     const deleteCall = fetchMock.mock.calls[1]
     expect(deleteCall[1].method).toBe('DELETE')
     expect(JSON.parse(deleteCall[1].body)).toEqual({ file_ids: ['ghost.pdf'] })
+  })
+
+  it('keeps a fetched law text beside an attachment in a live conversation, and still purges a deleted attachment by its id', async () => {
+    stubRows([{ id: 'doc-anhang', collectionName: 's_lebendig', filename: 'Anhang.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve([
+          { file_name: 'Anhang.pdf', document_id: 'doc-anhang' },
+          { file_name: 'RIS_Bauordnung_LBO.txt' },
+          { file_name: 'Alt.pdf', document_id: 'doc-weg' },
+        ]),
+    })
+    fetchMock.mockResolvedValueOnce(deleteResponse(2))
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(result.orphansFound).toBe(1)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['Alt.pdf'], documents: [{ id: 'doc-weg', file_name: 'Alt.pdf' }], by_id_only: true })
   })
 
   describe('by document id', () => {
@@ -418,6 +449,171 @@ describe('reconcileOrphanedVectors', () => {
   })
 })
 
+describe('reconcileOrphanedVectors: by the name match key', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    fetchMock.mockImplementation((url: string) => Promise.resolve(url === TENANT_SCOPES_URL ? scopesResponse([]) : summaryResponse([])))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('spares a chunk without an id whose name differs from a live document only by case or surrounding whitespace', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'Grundriss EG.pdf', authoredBy: 'user' }])
+    fetchMock.mockResolvedValueOnce(listResponse([' grundriss eg.PDF', 'Grundriss%20EG.PDF', 'ghost.pdf']))
+    fetchMock.mockResolvedValueOnce(deleteResponse(1))
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.orphansFound).toBe(1)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ file_ids: ['ghost.pdf'] })
+  })
+})
+
+describe('reconcileOrphanedVectors: scopes the backend holds but no document row names', () => {
+  const deletes = () => fetchMock.mock.calls.filter((call) => (call[1] as RequestInit | undefined)?.method === 'DELETE')
+
+  function backend(scopes: string[], stored: Record<string, Array<{ file_name: string; document_id?: string }>>) {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === TENANT_SCOPES_URL) return Promise.resolve(scopesResponse(scopes))
+      if (init?.method === 'DELETE') return Promise.resolve(deleteResponse(4))
+      const listed = Object.entries(stored).find(([scope]) => url.endsWith(`/v1/collections/${scope}/documents`))
+      if (listed) return Promise.resolve({ ok: true, json: () => Promise.resolve(listed[1]) })
+      return Promise.resolve(summaryResponse([]))
+    })
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('INTERNAL_API_TOKEN', 'real-secret')
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  it('purges every chunk of a scope that holds chunks and no document row, asking with the internal token', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }])
+    backend(['proj_a', 's_geloescht'], {
+      proj_a: [{ file_name: 'a.pdf' }],
+      s_geloescht: [{ file_name: 'Notiz.pdf' }, { file_name: 'Plan.pdf', document_id: 'doc-weg' }],
+    })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.scopesWithoutDocuments).toBe(1)
+    expect(result.orphansFound).toBe(2)
+    expect(result.failures).toEqual([])
+    expect(deletes().map((call) => [call[0], JSON.parse((call[1] as RequestInit).body as string)])).toEqual([
+      ['http://backend:8000/v1/collections/s_geloescht/documents', { file_ids: ['Plan.pdf'], documents: [{ id: 'doc-weg', file_name: 'Plan.pdf' }] }],
+      ['http://backend:8000/v1/collections/s_geloescht/documents', { file_ids: ['Notiz.pdf'] }],
+    ])
+    const listing = fetchMock.mock.calls.find((call) => call[0] === TENANT_SCOPES_URL)
+    expect((listing?.[1] as RequestInit).headers).toMatchObject({ 'x-internal-token': 'real-secret' })
+  })
+
+  it('keeps the law texts a live conversation fetched, which no document row names, and purges only its id-stamped leftovers', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_lebendig'], {
+      proj_a: [{ file_name: 'a.pdf' }],
+      s_lebendig: [{ file_name: 'RIS_Bauordnung_LBO.txt' }, { file_name: 'Anhang.pdf', document_id: 'doc-geloescht' }],
+    })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(result.orphansFound).toBe(1)
+    expect(deletes().map((call) => [call[0], JSON.parse((call[1] as RequestInit).body as string)])).toEqual([
+      ['http://backend:8000/v1/collections/s_lebendig/documents', { file_ids: ['Anhang.pdf'], documents: [{ id: 'doc-geloescht', file_name: 'Anhang.pdf' }], by_id_only: true }],
+    ])
+  })
+
+  it('keeps the law texts of a conversation stored under a bare id, whose scope is that id with the prefix', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['abc'])
+    backend(['proj_a', 's_abc'], { proj_a: [{ file_name: 'a.pdf' }], s_abc: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(deletes()).toEqual([])
+  })
+
+  it('deletes nothing of a live conversation that holds only fetched law texts', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_lebendig'], { proj_a: [{ file_name: 'a.pdf' }], s_lebendig: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(1)
+    expect(deletes()).toEqual([])
+  })
+
+  it('purges an erased conversation’s scope whole, though another conversation lives', async () => {
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }], undefined, ['s_lebendig'])
+    backend(['proj_a', 's_geloescht'], { proj_a: [{ file_name: 'a.pdf' }], s_geloescht: [{ file_name: 'RIS_Bauordnung_LBO.txt' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.sparedInLiveConversations).toBe(0)
+    expect(deletes().map((call) => call[0])).toEqual(['http://backend:8000/v1/collections/s_geloescht/documents'])
+  })
+
+  it('spares a scope whose re-read just before the delete finds a document row', async () => {
+    stubRows(
+      [{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }],
+      [
+        { collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' },
+        { collectionName: 'proj_neu', filename: 'Erstes.pdf', authoredBy: 'user' },
+      ],
+    )
+    backend(['proj_a', 'proj_neu'], { proj_a: [{ file_name: 'a.pdf' }], proj_neu: [{ file_name: 'Erstes.pdf' }, { file_name: 'anderes.pdf' }] })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.scopesWithoutDocuments).toBe(0)
+    expect(deletes()).toEqual([])
+  })
+
+  it('spares a scope whose first document row is committed between listing its chunks and the delete', async () => {
+    const upload = { collectionName: 'proj_neu', filename: 'Erstes.pdf', authoredBy: 'user' }
+    let listed = false
+    const from = () =>
+      Object.assign(Promise.resolve([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }]), {
+        where: (condition: { value: string }) => Promise.resolve(listed && condition.value === 'proj_neu' ? [upload] : []),
+      })
+    vi.mocked(getDb).mockReturnValue(asDb({ select: () => ({ from }) }))
+    backend(['proj_a', 'proj_neu'], { proj_a: [{ file_name: 'a.pdf' }], proj_neu: [{ file_name: 'Erstes.pdf' }] })
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/collections/proj_neu/documents') && init?.method !== 'DELETE') listed = true
+      return answer(url, init)
+    })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.scopesWithoutDocuments).toBe(0)
+    expect(deletes()).toEqual([])
+  })
+
+  it('visits no scope when the document catalog reads empty, and records a refused listing without failing the run', async () => {
+    stubRows([])
+    backend(['proj_a'], { proj_a: [{ file_name: 'a.pdf' }] })
+
+    const empty = await reconcileOrphanedVectors()
+
+    expect(empty.scopesWithoutDocuments).toBe(0)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    stubRows([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }])
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(url === TENANT_SCOPES_URL ? { ok: false, status: 503 } : url.endsWith('/documents') ? listResponse(['a.pdf']) : summaryResponse([])),
+    )
+    const refused = await reconcileOrphanedVectors()
+
+    expect(refused.failures).toEqual([{ collectionName: TENANT_SCOPES_FAILURE_NAME, error: 'tenant-scopes returned 503' }])
+  })
+})
+
 describe('reconcileOrphanedVectors: the document facts half', () => {
   const documentFactsCalls = () => fetchMock.mock.calls.filter((call) => call[0] === DOCUMENT_FACTS_URL)
   const refreshed = (collections: number, files: number, failures: { collection: string; error: string }[] = []) => ({
@@ -443,6 +639,7 @@ describe('reconcileOrphanedVectors: the document facts half', () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === DOCUMENT_FACTS_URL) return Promise.resolve(refreshed(0, 0))
       if (url.endsWith('/documents')) return Promise.resolve(listResponse(['a.pdf']))
+      if (url === TENANT_SCOPES_URL) return Promise.resolve(scopesResponse([]))
       return Promise.resolve(summaryResponse([]))
     })
 
@@ -460,6 +657,7 @@ describe('reconcileOrphanedVectors: the document facts half', () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === DOCUMENT_FACTS_URL) return Promise.resolve(refreshed(2, 7, [{ collection: 'proj_1', error: 'timed out' }]))
       if (url.endsWith('/documents')) return Promise.resolve(listResponse(['a.pdf']))
+      if (url === TENANT_SCOPES_URL) return Promise.resolve(scopesResponse([]))
       return Promise.resolve(summaryResponse([]))
     })
 
@@ -475,6 +673,7 @@ describe('reconcileOrphanedVectors: the document facts half', () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === DOCUMENT_FACTS_URL) return Promise.resolve(answers.shift())
       if (url.endsWith('/documents')) return Promise.resolve(listResponse(['a.pdf']))
+      if (url === TENANT_SCOPES_URL) return Promise.resolve(scopesResponse([]))
       return Promise.resolve(summaryResponse([]))
     })
 
@@ -488,6 +687,7 @@ describe('reconcileOrphanedVectors: the document facts half', () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === DOCUMENT_FACTS_URL) return Promise.resolve({ ok: false, status: 409 })
       if (url.endsWith('/documents')) return Promise.resolve(listResponse(['a.pdf']))
+      if (url === TENANT_SCOPES_URL) return Promise.resolve(scopesResponse([]))
       return Promise.resolve(summaryResponse([]))
     })
     const without = await reconcileOrphanedVectors()

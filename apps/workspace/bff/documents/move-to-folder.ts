@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { ApiError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
-import { documents } from '@/lib/db/schema/documents'
+import { isUniqueViolation } from '@/lib/db/errors'
+import { documents, type Document } from '@/lib/db/schema/documents'
 import { getProjectFolderAccess, requireFolderWrite } from '@/lib/authz/folder-access'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -16,7 +17,19 @@ import { PURGE_TIMEOUT_MS, placeProjectDocuments } from '@/lib/projects/collecti
 import { assertIfcMayBeFiledIn } from '@/lib/projects/ifc-folder-guard'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findDocumentForSession } from './access'
+import { documentDisplayName } from './display-name'
+import { nameConflictWith, ReplaceUnavailableError } from './name-conflict'
+import { WITHOUT_REPLACE, type NameConflict, type NameConflictResolution } from './name-conflict-wire'
+import { refuseUnseenHolder } from './name-holder'
 import { reingestDocument } from './reingest'
+import {
+  findFreeDocumentName,
+  findLiveDocumentByFilename,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './repository'
+import { storedFileOf } from './stored-copy'
+import { LIVE_NAME_INDEX } from './unique-conflicts'
 import { documentShelf, type DocumentShelf } from './shelf'
 import { requireShelfWrite } from './shelf-authz'
 import { findShelfFolder } from './shelf-folders'
@@ -34,11 +47,13 @@ export interface MoveDocumentInput {
   documentId: string
   folderId: string | null
   expectedFolderId?: string | null
+  onConflict?: NameConflictResolution
 }
 
 export interface MoveDocumentResult {
   id: string
   folderId: string | null
+  filename?: string
 }
 
 interface PlacementDue {
@@ -53,11 +68,14 @@ export type MoveDocumentOutcomeResult =
       pending?: boolean
       changed?: boolean
       placementDue?: PlacementDue | null
+      skipped?: true
+      replacedInto?: string
     }
-  | { ok: false; error: string }
+  | { ok: false; error: string; conflict?: NameConflict }
 
 export interface MoveDocumentOptions {
   deferPlacement?: boolean
+  request?: Request
 }
 
 export const MOVED_SINCE_MESSAGE = 'The document was moved since; it was left where it is.'
@@ -65,14 +83,28 @@ export const MOVED_SINCE_MESSAGE = 'The document was moved since; it was left wh
 const IN_FLIGHT_MESSAGE =
   'This document is still being processed. Move it across a restriction once processing has finished.'
 const PURGE_FAILED_MESSAGE = 'The document could not be removed from its current collection, so it was not moved. Try again.'
+const NAME_CONFLICT_MESSAGE = 'A document of this name is already in the destination folder.'
+const REPLACE_NEEDS_REQUEST = 'Replacing a document on a move needs the request that asked for it.'
+
+function namePlaceIn(folderId: string | null, collectionName: string): DocumentNamePlace {
+  return folderId === null ? { folderId: null, collectionName } : { folderId }
+}
+
+async function holderOfName(organizationId: string, place: DocumentNamePlace, document: Document): Promise<LiveDocumentNameHolder | null> {
+  const names = [...new Set([documentDisplayName(document), document.filename])]
+  for (const name of names) {
+    const holder = await findLiveDocumentByFilename(organizationId, place, name, { excluding: document.id })
+    if (holder) return holder
+  }
+  return null
+}
+
 
 export async function moveDocumentToFolder(
   input: MoveDocumentInput,
   session: AuthorizedSession,
-  { deferPlacement = false }: MoveDocumentOptions = {},
+  { deferPlacement = false, request }: MoveDocumentOptions = {},
 ): Promise<MoveDocumentOutcomeResult> {
-  const db = getDb()
-
   const document = await findDocumentForSession(session, input.documentId)
 
   if (!document) return { ok: false, error: 'Document not found.' }
@@ -115,6 +147,29 @@ export async function moveDocumentToFolder(
     }
   }
 
+  const place = namePlaceIn(input.folderId, targetCollection)
+  const name = documentDisplayName(document)
+  const conflictWith = async (holder: LiveDocumentNameHolder): Promise<MoveDocumentOutcomeResult> => {
+    await refuseUnseenHolder(session, holder, name)
+    const suggestedName = await findFreeDocumentName(session.organizationId, place, name)
+    const choices = shelf.kind === 'personal' ? WITHOUT_REPLACE : undefined
+    return { ok: false, error: NAME_CONFLICT_MESSAGE, conflict: nameConflictWith(holder, name, input.folderId, suggestedName, choices) }
+  }
+  const holder = await holderOfName(session.organizationId, place, document)
+  let renameTo: string | null = null
+  if (holder) {
+    switch (input.onConflict) {
+      case undefined:
+        return conflictWith(holder)
+      case 'skip':
+        return { ok: true, document: { id: document.id, folderId: document.folderId }, pending: false, placementDue: null, changed: false, skipped: true }
+      case 'replace':
+        return replaceWithMoved(session, shelf, document, holder, request)
+      case 'keep_both':
+        renameTo = await findFreeDocumentName(session.organizationId, place, name)
+    }
+  }
+
   const crossing = shelf.kind === 'project' && targetCollection !== document.collectionName
   if (crossing) {
     if (IN_FLIGHT_DOCUMENT_STATUSES.has(document.status.toLowerCase())) return { ok: false, error: IN_FLIGHT_MESSAGE }
@@ -126,17 +181,15 @@ export async function moveDocumentToFolder(
 
   let updated: MoveDocumentResult
   try {
-    ;[updated] = await db
-      .update(documents)
-      .set({ folderId: input.folderId, updatedAt: new Date() })
-      .where(eq(documents.id, document.id))
-      .returning({ id: documents.id, folderId: documents.folderId })
+    updated = await refileRow(document.id, input.folderId, renameTo)
   } catch (error) {
     if (crossing) await restoreAfterFailedMove(session, document.id)
-    throw error
+    const winner = isUniqueViolation(error, LIVE_NAME_INDEX) ? await holderOfName(session.organizationId, place, document) : null
+    if (!winner) throw error
+    return conflictWith(winner)
   }
   publishShelfChanged(session.organizationId, shelf)
-  const moved: MoveDocumentResult = { id: updated.id, folderId: updated.folderId }
+  const moved: MoveDocumentResult = renameTo === null ? { id: updated.id, folderId: updated.folderId } : updated
 
   if (crossing) {
     const placementDue = { projectId: shelf.projectId, collectionName: targetCollection }
@@ -156,9 +209,48 @@ export async function moveDocumentToFolder(
   })
   if (backendRef) {
     await mirrorDocumentFolderPath(backendRef, destinationPath)
+    if (renameTo !== null) await mirrorDocumentFileName(backendRef, renameTo, Boolean(document.displayName))
   }
 
   return { ok: true, document: moved, pending: false, placementDue: null, changed: true }
+}
+
+async function refileRow(documentId: string, folderId: string | null, renameTo: string | null): Promise<MoveDocumentResult> {
+  const [updated] = await getDb()
+    .update(documents)
+    .set({
+      folderId,
+      ...(renameTo === null ? {} : { filename: renameTo, displayName: null }),
+      updatedAt: new Date(),
+    })
+    .where(eq(documents.id, documentId))
+    .returning({ id: documents.id, folderId: documents.folderId, filename: documents.filename })
+  return updated
+}
+
+async function replaceWithMoved(
+  session: AuthorizedSession,
+  shelf: DocumentShelf,
+  document: Document,
+  holder: LiveDocumentNameHolder,
+  request: Request | undefined,
+): Promise<MoveDocumentOutcomeResult> {
+  if (shelf.kind === 'personal') throw new ReplaceUnavailableError(document.id)
+  if (!request) return { ok: false, error: REPLACE_NEEDS_REQUEST }
+  const { assertMayBinDocument, moveDocumentToBin } = await import('@/lib/projects/document-bin')
+  await assertMayBinDocument(session, document.id)
+  const { uploadToShelf } = await import('./shelf-upload')
+  const file = await storedFileOf(document, holder.filename)
+  await uploadToShelf(session, shelf, { file, folderId: holder.folderId, onConflict: 'replace' }, request)
+  await moveDocumentToBin(session, document.id, request)
+  return {
+    ok: true,
+    document: { id: holder.id, folderId: holder.folderId, filename: holder.filename },
+    pending: false,
+    placementDue: null,
+    changed: true,
+    replacedInto: holder.id,
+  }
 }
 
 async function placeProjects(organizationId: string, projectIds: Iterable<string>): Promise<void> {
@@ -182,6 +274,7 @@ export interface DocumentMoveOutcome {
   error: string | null
   pending?: boolean
   changed?: boolean
+  conflict?: NameConflict
 }
 
 export interface MoveDocumentsOptions {
@@ -226,7 +319,10 @@ async function moveOne(
 ): Promise<{ outcome: DocumentMoveOutcome; placementDue?: PlacementDue }> {
   try {
     const result = await moveDocumentToFolder(move, session, { deferPlacement: true })
-    if (!result.ok) return { outcome: { documentId: move.documentId, ok: false, error: result.error, pending: false } }
+    if (!result.ok) {
+      const conflict = result.conflict ? { conflict: result.conflict } : {}
+      return { outcome: { documentId: move.documentId, ok: false, error: result.error, pending: false, ...conflict } }
+    }
     return {
       outcome: {
         documentId: move.documentId,
@@ -256,6 +352,18 @@ async function restoreAfterFailedMove(session: AuthorizedSession, documentId: st
   } catch (error) {
     console.error(`[documents] ${documentId} lost its chunks to a move that failed, and could not be re-read`, error)
   }
+}
+
+async function mirrorDocumentFileName(ref: CollectionFileRef, fileName: string, clearsDisplayTitle: boolean): Promise<void> {
+  const patch = (suffix: string, body: Record<string, unknown>) =>
+    fetch(collectionFileUrl(getBackendUrl(), ref, suffix), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(BACKEND_MIRROR_TIMEOUT_MS),
+    }).catch(() => undefined)
+  await patch('/file-name', { file_name: fileName })
+  if (clearsDisplayTitle) await patch('/display-title', { display_title: null })
 }
 
 async function mirrorDocumentFolderPath(ref: CollectionFileRef, folderPath: string | null): Promise<void> {

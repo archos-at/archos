@@ -9,6 +9,7 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
   const inserted: unknown[] = []
   const updated: unknown[] = []
   const whereArgs: string[] = []
+  const updateWhere: string[] = []
 
   const tx = {
     execute: vi.fn(async (query: SQL) => {
@@ -39,8 +40,9 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
     })),
     update: vi.fn(() => ({
       set: vi.fn((values: unknown) => ({
-        where: vi.fn(() => ({
+        where: vi.fn((condition: SQL) => ({
           returning: vi.fn(async () => {
+            updateWhere.push(new PgDialect().sqlToQuery(condition).sql)
             statements.push('UPDATE')
             if (!rowExists) return []
             updated.push(values)
@@ -56,6 +58,7 @@ function fakeDb(usedBytes: number, versionBytes = 0, rowExists = true) {
     inserted,
     updated,
     whereArgs,
+    updateWhere,
     tx,
     db: { transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)) },
   }
@@ -260,6 +263,18 @@ describe('replaceDocumentWithinQuota', () => {
 
     await expect(outcome).rejects.toBeInstanceOf(ReplacedDocumentGoneError)
     await expect(outcome).rejects.toMatchObject({ status: 409, documentId: 'doc-1' })
+  })
+
+  it('never moves the row it replaces: the folder is what it expects to find, not what it writes', async () => {
+    const fake = fakeDb(0)
+    getDb.mockReturnValue(fake.db)
+
+    await replaceDocumentWithinQuota('org-1', 'doc-1', { ...next(1), folderId: 'folder-plans' }, 10)
+    await replaceDocumentWithinQuota('org-1', 'doc-1', next(1), 10)
+
+    expect(fake.updated[0]).not.toHaveProperty('folderId')
+    expect(fake.updateWhere[0]).toMatch(/"documents"\."folder_id" = \$\d+/)
+    expect(fake.updateWhere[1]).toMatch(/"documents"\."folder_id" is null/)
   })
 
   it('updates inside the transaction, not outside it', async () => {

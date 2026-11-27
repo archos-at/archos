@@ -259,7 +259,7 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     const LEVEL_ROWS: Array<{ name: string; display: string | null; size: number | null; at: string; status: string }> = [
       { name: 'b.pdf', display: null, size: 300, at: '2026-04-01 10:00:00.000500+00', status: 'completed' },
       { name: 'A.pdf', display: null, size: 300, at: '2026-04-01 10:00:00.000500+00', status: 'completed' },
-      { name: 'a.pdf', display: null, size: null, at: '2026-04-01 10:00:00.000100+00', status: 'failed' },
+      { name: 'a-failed.pdf', display: 'level-a.pdf', size: null, at: '2026-04-01 10:00:00.000100+00', status: 'failed' },
       { name: 'z.pdf', display: 'Aa Umbenannt.pdf', size: 10, at: '2026-03-01 09:00:00+00', status: 'pending' },
       { name: 'c.pdf', display: null, size: 5000, at: '2026-02-01 08:00:00.123456+00', status: 'completed' },
       { name: 'held.pdf', display: null, size: 1, at: '2026-01-15 08:00:00+00', status: 'quarantined' },

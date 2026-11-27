@@ -97,6 +97,26 @@ describe('fileDraftToPersonalShelf', () => {
     expect(uploadToPersonalShelf).not.toHaveBeenCalled()
   })
 
+  it('files under its own name beside a file of that name in another folder: it is another document', async () => {
+    vi.mocked(probePersonalShelfDocumentNames).mockResolvedValue([
+      { id: 'elsewhere', filename: 'aktenvermerk.md', folderId: 'folder-archiv' } as DocumentNameMatchRow,
+    ])
+
+    await fileDraftToPersonalShelf(context(), { path: PATH, title: 'Aktenvermerk' }, 'ref-1', filingName)
+
+    expect(uploadedFile().name).toBe('Aktenvermerk.md')
+  })
+
+  it('numbers past a name the folder holds in another case', async () => {
+    vi.mocked(probePersonalShelfDocumentNames).mockResolvedValue([
+      { id: 'mine', filename: 'AKTENVERMERK.md' } as DocumentNameMatchRow,
+    ])
+
+    await fileDraftToPersonalShelf(context(), { path: PATH, title: 'Aktenvermerk', force: true }, 'ref-1', filingName)
+
+    expect(uploadedFile().name).toBe('Aktenvermerk (2).md')
+  })
+
   it('saves under the next free name when the person files anyway', async () => {
     vi.mocked(probePersonalShelfDocumentNames).mockResolvedValue([
       { id: 'mine', filename: 'Aktenvermerk.md' } as DocumentNameMatchRow,

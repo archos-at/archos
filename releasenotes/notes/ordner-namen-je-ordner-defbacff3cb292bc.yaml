@@ -1,0 +1,26 @@
+---
+# area: documents
+features:
+  - >
+    A name now has to be unique only within its folder: the same name in another
+    folder is a document of its own, with its own Fassungen, so a project folder
+    from your office server arrives whole even when hundreds of files share a
+    name across subfolders.
+  - >
+    When a file comes into a folder that already holds its name, by upload or by
+    moving it, you choose „Ersetzen“, „Beide behalten“ (it comes in as „Plan
+    2.pdf“) or „Überspringen“, per file or with „Für alle anwenden“; {productName}
+    asks the same before any move it proposes, and never replaces a document on
+    its own.
+improvements:
+  - >
+    The list of names a folder upload asks about shows every file with its whole
+    path, wraps long names instead of cutting them, and „Kopieren“ copies all the
+    paths at once.
+  - >
+    Renaming a document to a name its folder already holds is refused right in
+    the rename field, so two documents of one folder can no longer look alike.
+fixes:
+  - >
+    A folder upload no longer holds back files that share a name with a file in
+    another subfolder of the upload; each one arrives in its own folder.

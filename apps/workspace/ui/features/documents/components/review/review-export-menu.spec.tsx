@@ -130,6 +130,7 @@ describe('filing the Protokoll in the project', () => {
     expect((form.get('file') as File).name).toBe('Minutes – Grundriss EG – 2026-10-18.pdf')
     expect(form.get('projectId')).toBe('proj_1')
     expect(form.get('folderId')).toBe('folder_plans')
+    expect(form.get('onConflict')).toBe('replace')
     expect(downloads).toEqual([])
 
     await vi.waitFor(() => expect(toast.success).toHaveBeenCalled())

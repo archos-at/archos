@@ -57,6 +57,7 @@ vi.mock('@/lib/conversations/personal-draft-filing', () => ({
 
 vi.mock('@/lib/projects/folder-service', () => ({
   findProjectFolder: vi.fn(),
+  findRootProjectFolderByName: vi.fn(async () => ({ id: 'folder-berichte', name: 'Berichte' })),
 }))
 
 import { findConversationInOrg } from '@/lib/conversations/repository'
@@ -207,7 +208,7 @@ describe('POST /api/conversations/[id]/draft/file', () => {
 
   it('vetoes a same-name document the reference does not own, carrying that row', async () => {
     vi.mocked(listProjectDocuments).mockResolvedValue([
-      { id: 'doc-9', filename: 'x.md', displayName: 'Aktenvermerk' } as DocumentListRow,
+      { id: 'doc-9', filename: 'x.md', displayName: 'Aktenvermerk', folderId: 'folder-berichte' } as DocumentListRow,
     ])
 
     const res = await post({ path: PATH, title: TITLE })

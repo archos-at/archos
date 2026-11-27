@@ -55,19 +55,26 @@ def _seed(
     stored_as: str | None = None,
     scope: str = SCOPE,
     document_id: str | None = None,
+    keyed: bool = False,
 ) -> list[str]:
     from agent.knowledge import register_summary
 
     stored = stored_as or file_name
     records = [record(f"{file_name} Abschnitt {index}", stored, page_label=str(index + 1)) for index in range(count)]
     write(scope, records, {"document_id": document_id} if document_id else None)
-    register_summary(scope, stored, f"Zusammenfassung {file_name}")
+    register_summary(scope, stored, f"Zusammenfassung {file_name}", document_id=document_id if keyed else None)
     return [chunk.chunk_id for chunk in records]
 
 
 def _ids(file_name: str | None = None, scope: str = SCOPE) -> set[str]:
     filters = {"file_name": file_name} if file_name else None
     return {str(point.payload["chunk_id"]) for point in store_module.get_store().scroll(scope, filters)}
+
+
+def _keyed_summary_rows(scope: str = SCOPE) -> set[tuple[str, str | None]]:
+    from agent.knowledge import get_available_documents
+
+    return {(document.file_name, document.document_id) for document in get_available_documents(scope)}
 
 
 def _summary_rows(scope: str = SCOPE) -> set[str]:
@@ -218,6 +225,16 @@ def test_delete_document_takes_its_chunks_by_id_under_any_name(env):
     assert env["bumped"] == [SCOPE]
 
 
+def test_delete_document_keeps_the_summary_row_of_a_namesake_in_another_folder(env):
+    _seed("plan.pdf", document_id="doc_1", keyed=True)
+    namesake = _seed("plan.pdf", 2, document_id="doc_2", keyed=True)
+
+    assert env["ingestor"].delete_document("doc_1", "plan.pdf", SCOPE) is True
+
+    assert _ids() == set(namesake)
+    assert _keyed_summary_rows() == {("plan.pdf", "doc_2")}
+
+
 def test_delete_document_takes_the_name_only_on_chunks_that_carry_no_id(env):
     unclaimed = _seed("plan.pdf", 2, stored_as="tmpab12cd34_plan.pdf")
     claimed_by_another = _seed("plan.pdf", document_id="doc_other")
@@ -237,3 +254,23 @@ def test_delete_documents_reports_by_file_name(env):
     assert outcome["not_found"] == ["ghost.pdf"]
     assert outcome["failed"] == []
     assert _ids() == set()
+
+
+def test_delete_document_by_id_only_keeps_a_namesake_that_carries_no_id(env):
+    _seed("RIS_Bauordnung.txt", document_id="doc_gone", keyed=True)
+    fetched = _seed("RIS_Bauordnung.txt", 2)
+
+    assert env["ingestor"].delete_document("doc_gone", "RIS_Bauordnung.txt", SCOPE, by_id_only=True) is True
+
+    assert _ids() == set(fetched), "an unstamped chunk under the same name is never taken by the id"
+    assert _keyed_summary_rows() == {("RIS_Bauordnung.txt", None)}
+
+
+def test_delete_documents_by_id_only_takes_nothing_a_name_alone_would_match(env):
+    fetched = _seed("plan.pdf", 2)
+
+    outcome = env["ingestor"].delete_documents([("doc_gone", "plan.pdf")], SCOPE, by_id_only=True)
+
+    assert outcome["not_found"] == ["plan.pdf"]
+    assert _ids() == set(fetched)
+    assert _summary_rows() == {"plan.pdf"}

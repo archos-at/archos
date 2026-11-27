@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe('an upload to the Bürobibliothek', () => {
   it('takes a norm out of the Ordner before its text is read: it lands under the standards root and its proposal names the folder it was meant for', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_8110-3_2020-03-15_de.pdf'), request, { folderId: 'folder-plans', uploadBatchId: 'batch-1' })
+    await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_8110-3_2020-03-15_de.pdf'), request, { onConflict: 'refuse', folderId: 'folder-plans', uploadBatchId: 'batch-1' })
 
     expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(
       MANAGER,
@@ -81,7 +81,7 @@ describe('an upload to the Bürobibliothek', () => {
   })
 
   it('remembers the top level as where a norm uploaded there came from', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('MA37_Weisung_Dachgeschoss_2024-09.pdf'), request)
+    await uploadToOfficeShelf(MANAGER, pdf('MA37_Weisung_Dachgeschoss_2024-09.pdf'), request, { onConflict: 'refuse' })
 
     expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0][3]).toMatchObject({ folderId: 'folder-root' })
     expect(vi.mocked(recordProposal).mock.calls[0][5]).toEqual({ filedFrom: { folderId: null, upload: true } })
@@ -90,7 +90,7 @@ describe('an upload to the Bürobibliothek', () => {
   it('records a norm whose work the office holds as a new edition of that work', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600])
 
-    await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_1600_2023-02-01_de.pdf'), request)
+    await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_1600_2023-02-01_de.pdf'), request, { onConflict: 'refuse' })
 
     expect(vi.mocked(recordProposal).mock.calls[0][4]).toBe(B1600)
   })
@@ -98,7 +98,7 @@ describe('an upload to the Bürobibliothek', () => {
   it('takes designation, edition and title from the cover page, and finds the held work under a file name spelled otherwise', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600])
 
-    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.onorm, 'OENORM_B1600_neu.pdf'), request)
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.onorm, 'OENORM_B1600_neu.pdf'), request, { onConflict: 'refuse' })
 
     const [, body, , , editionOf, provenance] = vi.mocked(recordProposal).mock.calls[0]
     expect(body).toEqual({
@@ -115,7 +115,7 @@ describe('an upload to the Bürobibliothek', () => {
   it('records the edition of the cover over a wrong one in the file name, and that they disagreed', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600])
 
-    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.disagrees), request, { folderId: 'folder-plans' })
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.disagrees), request, { onConflict: 'refuse', folderId: 'folder-plans' })
 
     const [, body, , , editionOf, provenance] = vi.mocked(recordProposal).mock.calls[0]
     expect(body).toMatchObject({ editionLabel: '2023-02-01', issuedOn: '2023-02-01' })
@@ -130,7 +130,7 @@ describe('an upload to the Bürobibliothek', () => {
   })
 
   it('reads a scan without text from its file name alone', async () => {
-    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.scan), request, { folderId: 'folder-plans' })
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.scan), request, { onConflict: 'refuse', folderId: 'folder-plans' })
 
     expect(recordProposal).toHaveBeenCalledWith(
       MANAGER,
@@ -143,11 +143,11 @@ describe('an upload to the Bürobibliothek', () => {
   })
 
   it.each([
-    ['an ordinary file', MANAGER, pdf('Haus_A_2024_Einreichung.pdf'), { folderId: 'folder-plans' }],
-    ['the platform’s own guideline', MANAGER, pdf('OIB-Richtlinie_2_2023.pdf'), { folderId: 'folder-plans' }],
-    ['a norm while the office keeps no standards of its own', { ...MANAGER, featureFlags: [] } as AuthorizedSession, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'folder-plans' }],
-    ['a norm uploaded into the standards tree itself', MANAGER, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'topic-fire' }],
-    ['a new Fassung of a norm under the standards tree', MANAGER, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'topic-fire', revisionOf: 'doc-old' }],
+    ['an ordinary file', MANAGER, pdf('Haus_A_2024_Einreichung.pdf'), { folderId: 'folder-plans', onConflict: 'refuse' as const }],
+    ['the platform’s own guideline', MANAGER, pdf('OIB-Richtlinie_2_2023.pdf'), { folderId: 'folder-plans', onConflict: 'refuse' as const }],
+    ['a norm while the office keeps no standards of its own', { ...MANAGER, featureFlags: [] } as AuthorizedSession, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'folder-plans', onConflict: 'refuse' as const }],
+    ['a norm uploaded into the standards tree itself', MANAGER, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'topic-fire', onConflict: 'refuse' as const }],
+    ['a new Fassung of a norm under the standards tree', MANAGER, pdf('DIN_4109-1_2018-01.pdf'), { folderId: 'topic-fire', revisionOf: 'doc-old', onConflict: 'refuse' as const }],
   ])('leaves %s where it was uploaded, unrecorded', async (_case, session, file, input) => {
     await uploadToOfficeShelf(session, file, request, input)
 
@@ -157,7 +157,7 @@ describe('an upload to the Bürobibliothek', () => {
   })
 
   it('keeps a new Fassung of an Ordner file where it was uploaded, and remembers it as an ordinary file before its text is read', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('DIN_4109-1_2018-01.pdf'), request, { folderId: 'folder-plans', revisionOf: 'doc-old' })
+    await uploadToOfficeShelf(MANAGER, pdf('DIN_4109-1_2018-01.pdf'), request, { onConflict: 'refuse', folderId: 'folder-plans', revisionOf: 'doc-old' })
 
     expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0][3]).toMatchObject({ folderId: 'folder-plans', revisionOf: 'doc-old' })
     expect(recordProposal).not.toHaveBeenCalled()
@@ -167,7 +167,7 @@ describe('an upload to the Bürobibliothek', () => {
 
 describe('an upload on the Normen tab', () => {
   it('is a norm candidate whatever its name: it is recorded, held and waits under the standards root, and “Keine Norm” takes it to the Ordner top level', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('Haus_A_Brandschutzkonzept.pdf'), request, { asNorm: true })
+    await uploadToOfficeShelf(MANAGER, pdf('Haus_A_Brandschutzkonzept.pdf'), request, { onConflict: 'refuse', asNorm: true })
 
     expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0][3]).toMatchObject({ folderId: 'folder-root' })
     expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0][3]).not.toHaveProperty('asNorm')
@@ -177,16 +177,16 @@ describe('an upload on the Normen tab', () => {
   })
 
   it('stays in the topic it was uploaded into', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('Leitfaden_Fluchtwege.pdf'), request, { folderId: 'topic-fire', asNorm: true })
+    await uploadToOfficeShelf(MANAGER, pdf('Leitfaden_Fluchtwege.pdf'), request, { onConflict: 'refuse', folderId: 'topic-fire', asNorm: true })
 
     expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0][3]).toMatchObject({ folderId: 'topic-fire' })
     expect(recordProposal).toHaveBeenCalled()
   })
 
   it('leaves a guideline the platform holds an ordinary file', async () => {
-    await uploadToOfficeShelf(MANAGER, pdf('OIB-Richtlinie_2_2023.pdf'), request, { asNorm: true })
+    await uploadToOfficeShelf(MANAGER, pdf('OIB-Richtlinie_2_2023.pdf'), request, { onConflict: 'refuse', asNorm: true })
 
-    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, expect.any(File), request, {})
+    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, expect.any(File), request, { onConflict: 'refuse' })
     expect(recordProposal).not.toHaveBeenCalled()
   })
 })
@@ -206,7 +206,7 @@ describe('proposing an Ordner file as a norm (“Aus Ordnern übernehmen”, bas
       { filedFrom: { folderId: 'folder-plans' } },
     )
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-plans' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-plans', onConflict: 'keep_both' }, MANAGER)
   })
 
   it('links a held work as a new edition', async () => {
@@ -241,7 +241,7 @@ describe('taking an Ordner file as a norm', () => {
       { filedFrom: { folderId: 'folder-normen' } },
     )
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-normen' }, MANAGER)
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root', expectedFolderId: 'folder-normen', onConflict: 'keep_both' }, MANAGER)
     expect(vi.mocked(recordProposal).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(moveDocumentToFolder).mock.invocationCallOrder[0])
   })
 

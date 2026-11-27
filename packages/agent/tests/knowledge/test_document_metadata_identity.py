@@ -111,6 +111,33 @@ class TestTwoDocumentsOfOneName:
         assert store.get_display_title(COLLECTION, "Plan.pdf", document_id=OG) == "Grundriss OG"
         assert len(store.get_all(COLLECTION)) == 2
 
+    def test_a_write_by_name_alone_never_reaches_a_document_with_an_id(self, store):
+        _two_plans(store)
+
+        assert store.set_display_title(COLLECTION, "Plan.pdf", "Geraten") is False
+        store.register(COLLECTION, "Plan.pdf", "Ohne Kennung.")
+        store.unregister(COLLECTION, "Plan.pdf")
+
+        assert {doc.document_id: doc.summary for doc in store.get_all(COLLECTION)} == {
+            EG: "Erdgeschoss.",
+            OG: "Obergeschoss.",
+        }
+
+    def test_a_batch_read_by_name_never_returns_a_namesake_with_an_id(self, store):
+        _two_plans(store)
+        store.register(COLLECTION, "Plan.pdf", "Ohne Kennung.")
+        for document_id, title in ((EG, "Grundriss EG"), (OG, "Grundriss OG"), (None, "Alt")):
+            store.set_display_title(COLLECTION, "Plan.pdf", title, document_id=document_id)
+
+        assert store.get_display_titles_batch(COLLECTION, ["Plan.pdf"]) == {"Plan.pdf": "Alt"}
+        assert store.get_display_titles_batch(COLLECTION, ["Plan.pdf"], document_ids=[EG]) == {
+            EG: "Grundriss EG",
+            "Plan.pdf": "Alt",
+        }
+        assert [(doc.document_id, doc.summary) for doc in store.get_many(COLLECTION, ["Plan.pdf"])] == [
+            (None, "Ohne Kennung.")
+        ]
+
     def test_a_re_register_updates_only_its_own_row(self, store):
         _two_plans(store)
         store.register(COLLECTION, "Plan.pdf", "Erdgeschoss, neu gelesen.", document_id=EG)
@@ -221,33 +248,33 @@ class TestRowsWithoutAnId:
         assert (document.document_id, document.display_title) == (None, "OIB-Richtlinie 2")
         assert store.get_display_titles_batch(COLLECTION, ["OIB-RL 2.pdf"]) == {"OIB-RL 2.pdf": "OIB-Richtlinie 2"}
 
-    def test_a_write_by_id_reaches_a_row_not_yet_keyed_and_keys_it(self, store):
+    def test_a_write_by_id_never_reaches_a_row_without_one(self, store):
         store.register(COLLECTION, "a.pdf", "A.")
 
-        assert store.set_display_title(COLLECTION, "a.pdf", "A", document_id=EG)
+        assert store.set_display_title(COLLECTION, "a.pdf", "A", document_id=EG) is False
 
-        assert [(doc.document_id, doc.display_title) for doc in store.get_all(COLLECTION)] == [(EG, "A")]
+        assert [(doc.document_id, doc.display_title) for doc in store.get_all(COLLECTION)] == [(None, None)]
 
-    def test_register_by_id_adopts_the_row_of_its_name(self, store):
-        store.register(COLLECTION, "a.pdf", "A.", ["Statik"])
+    def test_a_second_writer_of_the_name_never_adopts_a_legacy_row(self, store):
+        store.register(COLLECTION, "a.pdf", "Alt.", ["Statik"])
         store.set_tags_by_person(COLLECTION, "a.pdf", ["Person"])
 
-        store.register(COLLECTION, "a.pdf", "A, neu gelesen.", ["Neu"], document_id=EG)
+        store.register(COLLECTION, "a.pdf", "Erdgeschoss.", ["Grundriss"], document_id=EG)
+        store.register(COLLECTION, "a.pdf", "Obergeschoss.", ["Schnitt"], document_id=OG)
 
-        [document] = store.get_all(COLLECTION)
-        assert (document.document_id, document.summary, document.tags) == (EG, "A, neu gelesen.", ["Person"])
+        rows = {doc.document_id: (doc.summary, doc.tags) for doc in store.get_all(COLLECTION)}
+        assert rows == {
+            None: ("Alt.", ["Person"]),
+            EG: ("Erdgeschoss.", ["Grundriss"]),
+            OG: ("Obergeschoss.", ["Schnitt"]),
+        }
 
-    def test_a_rename_by_id_reaches_a_row_not_yet_keyed_through_its_previous_name(self, store):
+    def test_a_rename_by_id_never_reaches_a_row_without_one(self, store):
         store.register(COLLECTION, "Plan.pdf", "EG.")
-        store.register(COLLECTION, "alt.pdf", "Alt.")
-        store.set_superseded_by(COLLECTION, "alt.pdf", "Plan.pdf")
 
-        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf") is False
-        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf", previous_file_name="Plan.pdf")
+        assert store.set_file_name(COLLECTION, EG, "Plan 2.pdf", previous_file_name="Plan.pdf") is False
 
-        documents = {doc.file_name: doc for doc in store.get_all(COLLECTION)}
-        assert (documents["Plan 2.pdf"].document_id, sorted(documents)) == (EG, ["Plan 2.pdf", "alt.pdf"])
-        assert (documents["alt.pdf"].superseded_by, documents["alt.pdf"].superseded_by_id) == ("Plan 2.pdf", EG)
+        assert [(doc.file_name, doc.document_id) for doc in store.get_all(COLLECTION)] == [("Plan.pdf", None)]
 
     def test_a_link_written_by_name_still_reads(self, store):
         store.register(COLLECTION, "alt.pdf", "Alt.")
@@ -396,6 +423,76 @@ class TestTheRekey:
         rekey_document_ids(store, [COLLECTION], lambda _: twice, apply=True)
 
         assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)}["a.pdf"] is None
+
+    def test_a_row_whose_name_differs_from_one_live_document_only_by_case_or_whitespace_takes_its_id(self, store):
+        store.register(COLLECTION, " grundriss eg.PDF", "Grundriss.")
+        live = _live({COLLECTION: {"Grundriss EG.pdf": EG}})
+
+        counts = self._counts(rekey_document_ids(store, collections_to_rekey(store), live, apply=True))
+
+        assert counts["document_metadata.document_id"] == (1, 1, 0, 0)
+        assert [doc.document_id for doc in store.get_all(COLLECTION)] == [EG]
+
+    def test_the_exact_spelling_claims_the_id_and_two_drifted_rows_are_never_guessed_between(self, store):
+        for name in ("Plan.pdf", "plan.pdf "):
+            store.register(COLLECTION, name, f"Plan {name}.")
+        for name in ("SCHNITT.pdf", " schnitt.pdf"):
+            store.register(COLLECTION, name, f"Schnitt {name}.")
+        live = _live({COLLECTION: {"Plan.pdf": EG, "Schnitt.pdf": OG}})
+
+        [count] = [
+            c
+            for c in rekey_document_ids(store, [COLLECTION], live, apply=True)
+            if c.store == "document_metadata.document_id"
+        ]
+
+        assert (count.written, count.unmatched) == (1, 3)
+        assert [(u.scope, u.reason, u.count) for u in count.unmatched_scopes] == [(COLLECTION, "id_taken", 3)]
+        assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)} == {
+            "Plan.pdf": EG,
+            "plan.pdf ": None,
+            "SCHNITT.pdf": None,
+            " schnitt.pdf": None,
+        }
+
+    def test_the_exact_spelling_claims_the_id_though_two_drifted_rows_point_at_it_too(self, store):
+        for name in ("Plan.pdf", "plan.pdf ", "PLAN.pdf"):
+            store.register(COLLECTION, name, f"Plan {name}.")
+        live = _live({COLLECTION: {"Plan.pdf": EG}})
+
+        [count] = [
+            c
+            for c in rekey_document_ids(store, [COLLECTION], live, apply=True)
+            if c.store == "document_metadata.document_id"
+        ]
+
+        assert (count.written, count.unmatched) == (1, 2)
+        assert [(u.scope, u.reason, u.count) for u in count.unmatched_scopes] == [(COLLECTION, "id_taken", 2)]
+        assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)} == {
+            "Plan.pdf": EG,
+            "plan.pdf ": None,
+            "PLAN.pdf": None,
+        }
+
+    def test_each_unmatched_row_is_counted_under_its_collection_and_why(self, store):
+        erased = "proj_identity_erased"
+        for name in ("geloescht.pdf", "Grundriss_EG.pdf", "PLAN.pdf"):
+            store.register(COLLECTION, name, f"{name}.")
+        store.register(erased, "Notiz.pdf", "Notiz.")
+
+        def live(collection: str) -> LiveDocuments:
+            held = [(EG, "Grundriss EG.pdf"), (OG, "Plan.pdf"), (NEU, "plan.pdf")] if collection == COLLECTION else []
+            return LiveDocuments.of(collection, held)
+
+        counts = rekey_document_ids(store, sorted([COLLECTION, erased]), live, apply=False)
+        [count] = [c for c in counts if c.store == "document_metadata.document_id"]
+
+        assert sorted((u.scope, u.reason, u.count) for u in count.unmatched_scopes) == [
+            (COLLECTION, "ambiguous", 1),
+            (COLLECTION, "near_name", 1),
+            (COLLECTION, "no_holder", 1),
+            (erased, "no_documents_in_collection", 1),
+        ]
 
 
 class TestTheFacadeMirrorsById:

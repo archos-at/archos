@@ -23,6 +23,7 @@ const OLDER_ID = '0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11'
 const target: RevisionUploadTarget = {
   shelf: { kind: 'project', projectId: 'proj-1' },
   collectionName: 'proj_abc',
+  folderId: null,
   filename: 'Grundriss_EG_Index_C.pdf',
 }
 
@@ -59,10 +60,30 @@ describe('resolveRevisionOf', () => {
     expect(getAccessibleDocument).not.toHaveBeenCalled()
   })
 
-  it('ignores the choice when the names are equal: that is a new version (ADR-0054), never a Fassung', async () => {
+  it('ignores the choice when the folder holds the name: that is a new version (ADR-0054), never a Fassung', async () => {
     vi.mocked(getAccessibleDocument).mockResolvedValue(older({ filename: 'Grundriss_EG_Index_C.pdf' }))
-
     await expect(resolveRevisionOf(session, OLDER_ID, target)).resolves.toEqual(nothing)
+
+    vi.mocked(getAccessibleDocument).mockResolvedValue(older({ filename: 'grundriss_eg_index_c.PDF' }))
+    await expect(resolveRevisionOf(session, OLDER_ID, target)).resolves.toEqual(nothing)
+  })
+
+  it('links a document of the same name in ANOTHER folder: that is a different document, so a Fassung', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValue(
+      older({ filename: 'Grundriss_EG_Index_C.pdf', folderId: 'folder-archive' }),
+    )
+
+    await expect(resolveRevisionOf(session, OLDER_ID, { ...target, folderId: 'folder-plans' })).resolves.toEqual(
+      linked('Grundriss_EG_Index_C.pdf'),
+    )
+  })
+
+  it('links any older document of the shelf’s collection in another folder, and never reports it unavailable', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValue(older({ folderId: 'folder-archive' }))
+
+    await expect(resolveRevisionOf(session, OLDER_ID, { ...target, folderId: 'folder-plans' })).resolves.toEqual(
+      linked('Grundriss_EG_Index_B.pdf'),
+    )
   })
 
   it('compares names the way the shelf does: one Unicode form', async () => {

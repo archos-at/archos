@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 
 from agent.common.brand import PRODUCT_NAME
@@ -42,11 +43,13 @@ def _change_bit(row: FileRow) -> str:
     return f"changed (previous Fassung): {text}" if _compared_with_own_upload(row) else f"changed: {text}"
 
 
-def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str:
+def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None, namesake: bool = False) -> str:
     bits: list[str] = []
     if row.display_title and fold(row.display_title) != fold(row.file_name):
         bits.append(f'"{row.display_title}"')
     bits.append(f"Folder: {row.folder}" if row.folder else "Folder: (top level)")
+    if namesake and row.document_id:
+        bits.append(f"Document-ID: {row.document_id}")
     if row.doc_class:
         bits.append(f"Dokumentart: {row.doc_class}")
     if row.document_type and row.document_type != "other":
@@ -168,8 +171,15 @@ def render_listing(listing: Listing, *, in_flight: Sequence[str] = ()) -> str:
         lines.append("")
         lines.append("Files:")
         show_shelf = len(listing.shelves) > 1
+        names = Counter(fold(row.file_name) for row in listing.rows)
         lines.extend(
-            _row_line(row, show_shelf=show_shelf, mark=listing.revision_marks.get(row.key)) for row in listing.rows
+            _row_line(
+                row,
+                show_shelf=show_shelf,
+                mark=listing.revision_marks.get(row.key),
+                namesake=names[fold(row.file_name)] > 1,
+            )
+            for row in listing.rows
         )
         remaining = listing.total - (listing.offset + len(listing.rows))
         if remaining > 0:

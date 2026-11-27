@@ -8,6 +8,7 @@ import logging
 import sys
 
 from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import StampCount
 from knowledge_layer.vector_store import current_collection
 from knowledge_layer.vector_store import make_client
 from knowledge_layer.vector_store import stamp_document_ids
@@ -44,30 +45,42 @@ def main(argv: list[str] | None = None) -> int:
     try:
         count = stamp_document_ids(client, collection, live_documents, apply=args.apply, page_size=args.page_size)
     except BffError as exc:
-        print(
-            json.dumps({"event": "backfill.failed", "backfill": BACKFILL, "reason": str(exc)}, separators=(",", ":")),
-            flush=True,
-        )
+        _emit({"event": "backfill.failed", "backfill": BACKFILL, "reason": str(exc)})
         return 2
-    print(
-        json.dumps(
-            {
-                "event": "backfill.count",
-                "backfill": BACKFILL,
-                "mode": "apply" if args.apply else "check" if args.check else "dry-run",
-                "store": f"{Physical.OFFICE.value} ({collection})",
-                "scopes": count.scopes,
-                "before": count.before,
-                "written": count.written,
-                "after": count.after,
-                "unmatched": count.unmatched,
-                "unmatched_held": count.unmatched_held,
-            },
-            separators=(",", ":"),
-        ),
-        flush=True,
-    )
+    _report("apply" if args.apply else "check" if args.check else "dry-run", collection, count)
     return 1 if (count.after or count.unmatched_held) and (args.apply or args.check) else 0
+
+
+def _emit(line: dict) -> None:
+    print(json.dumps(line, separators=(",", ":")), flush=True)
+
+
+def _report(mode: str, collection: str, count: StampCount) -> None:
+    _emit(
+        {
+            "event": "backfill.count",
+            "backfill": BACKFILL,
+            "mode": mode,
+            "store": f"{Physical.OFFICE.value} ({collection})",
+            "scopes": count.scopes,
+            "before": count.before,
+            "written": count.written,
+            "after": count.after,
+            "unmatched": count.unmatched,
+            "unmatched_held": count.unmatched_held,
+        }
+    )
+    for unmatched in count.unmatched_scopes:
+        _emit(
+            {
+                "event": "backfill.unmatched",
+                "backfill": BACKFILL,
+                "mode": mode,
+                "scope": unmatched.scope,
+                "points": unmatched.count,
+                "reason": unmatched.reason,
+            }
+        )
 
 
 if __name__ == "__main__":

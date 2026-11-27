@@ -61,8 +61,8 @@ building height, storeys) are added to the dossier's own (`lifted_drawing_facts`
 ```
 
 A dossier of a new Fassung also carries `changes` and `changed_against` when the
-Fassung it replaces (a re-upload under the same name, or the one a person linked at
-upload) had a dossier: per fact key, `{key, before, after, page}`, where a key only
+Fassung it replaces (a re-upload under the same name into its folder, or the one a person
+linked at upload) had a dossier: per fact key, `{key, before, after, page}`, where a key only
 one of them states has `before` or `after` null. At most 12, compared folded (case,
 spaces, decimal comma), no model (`dossier.fact_changes`). The search projects them
 (`document_search_facets.changed_facts`, the filters `factsChanged` and

@@ -3,8 +3,15 @@ import { useMemo, useState } from 'react'
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { FolderUploadDialog } from './folder-upload-dialog'
-import { buildFolderUploadPlan, type RevisionChoice, type FolderUploadPlan } from '../lib/folder-upload-plan'
+import {
+  buildFolderUploadPlan,
+  type FolderUploadPlan,
+  type FolderUploadPlanInput,
+  type RevisionChoice,
+} from '../lib/folder-upload-plan'
 import type { RevisionChange } from '../lib/revision-proposals'
+import type { ConflictChoice } from '../lib/name-conflict'
+import type { ConflictChange } from '../hooks/use-upload-decision'
 import type { FileItem } from './project-file-workspace'
 import { SUGGESTED_SCREENING_POLICY } from '@/lib/upload-screening/policy'
 
@@ -42,13 +49,29 @@ function doc(filename: string, overrides: Partial<FileItem> = {}): FileItem {
   }
 }
 
-function mixedPlan(): FolderUploadPlan {
-  return buildFolderUploadPlan({
+const W = [{ id: 'f-w', parentId: null, name: 'W', path: 'W' }]
+
+function mixedInput(): FolderUploadPlanInput {
+  return {
     files: [pathed('W/New.pdf'), pathed('W/EG.pdf')],
-    documents: [doc('EG.pdf')],
-    folders: [],
+    documents: [doc('EG.pdf', { folderId: 'f-w' })],
+    folders: W,
     currentFolderId: null,
-  })
+  }
+}
+
+function mixedPlan(): FolderUploadPlan {
+  return buildFolderUploadPlan(mixedInput())
+}
+
+function Choosing({ input, onConfirm = vi.fn() }: { input: FolderUploadPlanInput; onConfirm?: () => void }) {
+  const [choices, setChoices] = useState<Map<File, ConflictChoice>>(new Map())
+  const plan = useMemo(() => buildFolderUploadPlan({ ...input, conflictChoices: choices }), [input, choices])
+  const change = ({ files, choice }: ConflictChange) =>
+    setChoices((previous) => new Map([...previous, ...files.map((file) => [file, choice] as const)]))
+  return (
+    <FolderUploadDialog open onOpenChange={vi.fn()} plan={plan} currentFolderName={null} onConfirm={onConfirm} onConflictChange={change} />
+  )
 }
 
 function renderDialog(plan: FolderUploadPlan | null, onConfirm = vi.fn()) {
@@ -71,32 +94,78 @@ describe('FolderUploadDialog', () => {
     expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
   })
 
-  it('offers the update, ticked, and carries the answer to the caller', async () => {
-    const { onConfirm } = renderDialog(mixedPlan())
+  it('asks about a name its folder holds with Replace chosen, and sends what the reader picks', async () => {
+    const onConfirm = vi.fn()
+    render(<Choosing input={mixedInput()} onConfirm={onConfirm} />)
 
-    const toggle = screen.getByTestId('folder-upload-include-updates')
-    expect(within(toggle).getByRole('checkbox')).toBeChecked()
+    const conflicts = screen.getByTestId('folder-upload-conflicts')
+    expect(within(conflicts).getByTestId('name-conflict-replace')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('Upload 2 files, 1 as a new revision')
 
-    await userEvent.click(within(toggle).getByRole('checkbox'))
+    await userEvent.click(within(conflicts).getByTestId('name-conflict-skip'))
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 1 file$/)
+    expect(within(conflicts).getByTestId('name-conflict-outcome')).toHaveTextContent('Is not uploaded.')
+
+    await userEvent.click(within(conflicts).getByTestId('name-conflict-keep_both'))
+    expect(within(conflicts).getByTestId('name-conflict-outcome')).toHaveTextContent('Comes in as “EG 2.pdf”.')
+    expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 2 files$/)
 
     await userEvent.click(screen.getByTestId('folder-upload-confirm'))
-    expect(onConfirm).toHaveBeenCalledWith(false)
+    expect(onConfirm).toHaveBeenCalledWith()
   })
 
-  it('relabels the rows the reader has just switched off', async () => {
-    renderDialog(mixedPlan())
+  it('relabels the rows the reader has just switched', async () => {
+    render(<Choosing input={mixedInput()} />)
     await userEvent.click(screen.getByText(/Show all/i))
     const details = screen.getByTestId('folder-upload-details')
     expect(within(details).getByText('New revision')).toBeInTheDocument()
 
-    await userEvent.click(
-      within(screen.getByTestId('folder-upload-include-updates')).getByRole('checkbox'),
-    )
-
+    await userEvent.click(within(screen.getByTestId('folder-upload-conflicts')).getByTestId('name-conflict-skip'))
     expect(within(details).queryByText('New revision')).not.toBeInTheDocument()
     expect(within(details).getByText('Skipped')).toBeInTheDocument()
+
+    await userEvent.click(within(screen.getByTestId('folder-upload-conflicts')).getByTestId('name-conflict-keep_both'))
+    expect(within(details).getByText('Keep both')).toBeInTheDocument()
+  })
+
+  it('answers every row at once when the reader applies one answer to all', async () => {
+    const files = Array.from({ length: 3 }, (_, i) => pathed(`W/Plan_${i}.pdf`))
+    render(
+      <Choosing
+        input={{ files, documents: files.map((file) => doc(file.name, { folderId: 'f-w' })), folders: W, currentFolderId: null }}
+      />,
+    )
+
+    await userEvent.click(screen.getByTestId('name-conflict-apply-all'))
+    await userEvent.click(screen.getAllByTestId('name-conflict-keep_both')[1])
+
+    expect(screen.getAllByTestId('name-conflict-keep_both').map((item) => item.getAttribute('aria-checked'))).toEqual([
+      'true',
+      'true',
+      'true',
+    ])
+    expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 3 files$/)
+  })
+
+  it('lists every conflict whole, with no count of the rest, and copies every path one per line', async () => {
+    const files = Array.from({ length: 40 }, (_, i) => [
+      pathed(`Projekt/Pläne/Einreichung/Grundriss_${i}.pdf`),
+      pathed(`Projekt/Pläne/Einreichung/grundriss_${i}.PDF`),
+    ]).flat()
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderDialog(buildFolderUploadPlan({ files, documents: [], folders: [], currentFolderId: null }))
+
+    const conflicts = screen.getByTestId('folder-upload-conflicts')
+    expect(within(conflicts).getAllByTestId('name-conflict-row')).toHaveLength(40)
+    expect(conflicts).not.toHaveTextContent(/\+\d/)
+    expect(conflicts.querySelector('.truncate, [class*="line-clamp"]')).toBeNull()
+    expect(within(conflicts).getAllByTestId('name-conflict-outcome')[0]).toHaveTextContent('Comes in as “grundriss_0 2.PDF”.')
+
+    await userEvent.click(within(conflicts).getByTestId('name-conflict-copy'))
+    expect(writeText).toHaveBeenCalledWith(
+      Array.from({ length: 40 }, (_, i) => `Projekt/Pläne/Einreichung/grundriss_${i}.PDF`).join('\n'),
+    )
   })
 
   it('asks nothing when nothing already exists', () => {
@@ -140,8 +209,8 @@ describe('FolderUploadDialog', () => {
     renderDialog(
       buildFolderUploadPlan({
         files: [pathed('W/EG.pdf')],
-        documents: [doc('EG.pdf', { displayName: 'Erdgeschoss — Freigabe' })],
-        folders: [],
+        documents: [doc('EG.pdf', { displayName: 'Erdgeschoss — Freigabe', folderId: 'f-w' })],
+        folders: W,
         currentFolderId: null,
       }),
     )
@@ -150,22 +219,22 @@ describe('FolderUploadDialog', () => {
     expect(within(details).getByText(/Erdgeschoss — Freigabe/)).toBeInTheDocument()
   })
 
-  it('warns about a file the project already holds under another name, and sends nothing', () => {
+  it('asks about a file whose name differs only in case as about the same name', () => {
     renderDialog(
       buildFolderUploadPlan({
         files: [pathed('W/DECKBLATT.pdf')],
-        documents: [doc('Deckblatt.pdf')],
-        folders: [],
+        documents: [doc('Deckblatt.pdf', { folderId: 'f-w' })],
+        folders: W,
         currentFolderId: null,
       }),
     )
 
-    const warning = screen.getByTestId('folder-upload-duplicates')
-    expect(within(warning).getByText(/Deckblatt\.pdf/)).toBeInTheDocument()
-    expect(screen.getByTestId('folder-upload-confirm')).toBeDisabled()
+    const conflicts = screen.getByTestId('folder-upload-conflicts')
+    expect(within(conflicts).getByText('W/DECKBLATT.pdf')).toBeInTheDocument()
+    expect(within(conflicts).getByTestId('name-conflict-outcome')).toHaveTextContent('new revision of “Deckblatt.pdf”')
   })
 
-  it('says that unchanged documents filed elsewhere are moved', () => {
+  it('uploads a file whose name lives in another folder as a document of its own, and asks nothing', () => {
     const file = pathed('Statik/EG.pdf')
     const digest = `sha256:${'a'.repeat(64)}`
     renderDialog(
@@ -178,8 +247,9 @@ describe('FolderUploadDialog', () => {
       }),
     )
 
-    expect(screen.getByTestId('folder-upload-refiled')).toBeInTheDocument()
-    expect(screen.getByTestId('folder-upload-confirm')).toBeEnabled()
+    expect(screen.getByTestId('folder-upload-count-new')).toHaveTextContent('1')
+    expect(screen.queryByTestId('folder-upload-conflicts')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 1 file$/)
   })
 })
 
@@ -206,6 +276,28 @@ describe('FolderUploadDialog — loose files', () => {
     return { onConfirm, onOpenChange }
   }
 
+  function KeepingBoth({ file, onConfirm }: { file: File; onConfirm: () => void }) {
+    const [choice, setChoice] = useState<ConflictChoice | null>(null)
+    const plan = buildFolderUploadPlan({
+      files: [file],
+      documents: [doc('EG.pdf', { displayName: 'Erdgeschoss' })],
+      folders: [],
+      currentFolderId: null,
+      ...(choice ? { conflictChoices: new Map([[file, choice]]) } : {}),
+    })
+    return (
+      <FolderUploadDialog
+        open
+        onOpenChange={vi.fn()}
+        plan={plan}
+        currentFolderName={null}
+        onConfirm={onConfirm}
+        onConflictChange={(change) => setChoice(change.choice)}
+        kind="files"
+      />
+    )
+  }
+
   it('asks one file its own question and answers yes to the update', async () => {
     const { onConfirm } = renderFiles(
       buildFolderUploadPlan({
@@ -217,13 +309,22 @@ describe('FolderUploadDialog — loose files', () => {
     )
 
     expect(screen.getByText('New revision of “EG.pdf”?')).toBeInTheDocument()
-    expect(screen.getByText(/“Erdgeschoss” is already here under this name/)).toHaveTextContent('Revisions and approval')
+    expect(screen.getByText(/“Erdgeschoss” is already in this folder under this name/)).toHaveTextContent('Revisions and approval')
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('File as a new revision')
-    expect(screen.queryByTestId('folder-upload-include-updates')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folder-upload-keep-both')).toBeDisabled()
     expect(screen.queryByTestId('folder-upload-count-new')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByTestId('folder-upload-confirm'))
-    expect(onConfirm).toHaveBeenCalledWith(true)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps both under the next free name, and confirms only once the plan carries that answer', async () => {
+    const onConfirm = vi.fn()
+    render(<KeepingBoth file={loose('EG.pdf', 5)} onConfirm={onConfirm} />)
+
+    expect(screen.getByText(/“Keep both” adds it beside it as “EG 2\.pdf”/)).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('folder-upload-keep-both'))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
   it('states an identical file and offers only a way out', async () => {
@@ -246,27 +347,6 @@ describe('FolderUploadDialog — loose files', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
-  it('offers the move when an identical document is filed elsewhere', () => {
-    const file = loose('EG.pdf')
-    const digest = `sha256:${'c'.repeat(64)}`
-    renderFiles(
-      buildFolderUploadPlan({
-        files: [file],
-        documents: [doc('EG.pdf', { contentHash: digest, folderId: 'f-a' })],
-        folders: [
-          { id: 'f-a', parentId: null, name: 'A', path: 'A' },
-          { id: 'f-b', parentId: null, name: 'B', path: 'B' },
-        ],
-        currentFolderId: 'f-b',
-        digests: new Map([[file, digest]]),
-      }),
-      'B',
-    )
-
-    expect(screen.getByTestId('folder-upload-refiled')).toHaveTextContent('“B”')
-    expect(screen.getByTestId('folder-upload-confirm')).toBeEnabled()
-  })
-
   it('shows several files as a batch, without a folder count', () => {
     renderFiles(
       buildFolderUploadPlan({
@@ -280,7 +360,7 @@ describe('FolderUploadDialog — loose files', () => {
     expect(screen.getByText('Upload 2 files?')).toBeInTheDocument()
     expect(screen.getByTestId('folder-upload-count-update')).toHaveTextContent('1')
     expect(screen.queryByTestId('folder-upload-count-folders')).not.toBeInTheDocument()
-    expect(screen.getByTestId('folder-upload-include-updates')).toBeInTheDocument()
+    expect(screen.getByTestId('folder-upload-conflicts')).toBeInTheDocument()
   })
 })
 
@@ -306,6 +386,27 @@ describe('FolderUploadDialog — upload screening', () => {
     expect(within(section).getByText('Akt/Verträge/Architektenvertrag.pdf')).toBeInTheDocument()
     expect(within(section).getByText(/Vertrag/)).toBeInTheDocument()
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('1')
+  })
+
+  it('lists every excluded file whole, past twenty, and copies them all one per line', async () => {
+    const files = Array.from({ length: 30 }, (_, i) => pathed(`Akt/Rechnungen/Lieferant_${i}/Rechnung_${i}.pdf`))
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderDialog(
+      buildFolderUploadPlan({
+        files,
+        documents: [],
+        folders: [],
+        currentFolderId: null,
+        screening: { policy: SUGGESTED_SCREENING_POLICY, basePath: null },
+      }),
+    )
+
+    const excluded = screen.getByTestId('folder-upload-excluded')
+    expect(within(excluded).getAllByText(/^Akt\/Rechnungen\//)).toHaveLength(30)
+    expect(excluded).not.toHaveTextContent(/\+\d+$/)
+    await userEvent.click(within(excluded).getByTestId('folder-upload-excluded-copy'))
+    expect(writeText).toHaveBeenCalledWith(files.map((file) => file.webkitRelativePath).join('\n'))
   })
 
   it('releases one file when the reader ticks it', async () => {
@@ -441,23 +542,21 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent(/^Upload 2 files$/)
   })
 
-  it('asks the same-name files and the name series in ONE block, in the same words', () => {
+  it('asks a held name in the conflicts and the name series in its own block, and counts both as revisions', () => {
     const series = pathed('W/Blatt_Index_C.pdf')
     const plan = buildFolderUploadPlan({
       files: [pathed('W/EG.pdf'), series],
-      documents: [doc('EG.pdf')],
-      folders: [],
+      documents: [doc('EG.pdf', { folderId: 'f-w' })],
+      folders: W,
       currentFolderId: null,
       revisionOffers: new Map([[series.name, offered(series.name, ['b'])]]),
     })
     renderPlan(plan)
 
     const block = screen.getByTestId('folder-upload-revisions')
-    expect(within(block).getByText('2 new revisions')).toBeInTheDocument()
-    const sameName = within(block).getByTestId('folder-upload-include-updates')
-    expect(sameName).toHaveTextContent('1 file of the same name as a new revision')
-    expect(sameName).toHaveTextContent('Same name as a document here')
+    expect(within(block).getByText('1 new revision')).toBeInTheDocument()
     expect(within(block).getByTestId('folder-upload-revisions-detected')).toHaveTextContent('Name series')
+    expect(within(screen.getByTestId('folder-upload-conflicts')).getByText('W/EG.pdf')).toBeInTheDocument()
     expect(screen.getByTestId('folder-upload-confirm')).toHaveTextContent('Upload 2 files, 2 as new revisions')
   })
 
@@ -532,8 +631,8 @@ describe('FolderUploadDialog — new Fassungen, by the same name and across name
     const reexport = pathed('Export/EG_Grundriss_Index_C.pdf', 100)
     const plan = buildFolderUploadPlan({
       files: [reexport],
-      documents: [doc('EG_Grundriss_Index_C.pdf', { fileSize: 100, contentHash: 'sha' })],
-      folders: [],
+      documents: [doc('EG_Grundriss_Index_C.pdf', { fileSize: 100, contentHash: 'sha', folderId: 'f-export' })],
+      folders: [{ id: 'f-export', parentId: null, name: 'Export', path: 'Export' }],
       currentFolderId: null,
       digests: new Map([[reexport, 'sha']]),
       revisionOffers: new Map([[reexport.name, offered(reexport.name, ['b'])]]),

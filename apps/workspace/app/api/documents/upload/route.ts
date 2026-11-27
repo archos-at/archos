@@ -2,6 +2,8 @@ import { apiRoute, parseFormData } from '@/lib/api/handler'
 import { DOCUMENT_UPLOAD_LIMIT } from '@/lib/limits'
 import { BadRequestError } from '@/lib/api/errors'
 import { readRevisionOf } from '@/lib/documents/revision-upload'
+import { readNameConflictResolution } from '@/lib/documents/name-conflict'
+import type { UploadConflictPolicy } from '@/lib/documents/shelf-upload'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { SHELF_SCOPES, shelfOf } from '@/lib/documents/shelf-scope'
 import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
@@ -28,6 +30,7 @@ export const POST = apiRoute(
       throw new BadRequestError(`scope must be one of ${SHELF_SCOPES.join(', ')}`)
     }
     const shelf = shelfOf({ scope: scope as (typeof SHELF_SCOPES)[number] | undefined, projectId: text(formData.get('projectId')) }, request, session)
+    const onConflict: UploadConflictPolicy = readNameConflictResolution(formData.get('onConflict')) ?? 'refuse'
     const input = {
       folderId: text(formData.get('folderId')) ?? null,
       originPath: text(formData.get('originPath')) ?? null,
@@ -35,6 +38,7 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
       originConversationId: text(formData.get('originConversationId')) ?? null,
+      onConflict,
     }
     const { originConversationId } = input
     if (originConversationId) {

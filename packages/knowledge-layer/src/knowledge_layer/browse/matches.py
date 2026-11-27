@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections import Counter
 from collections.abc import Iterable
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -52,6 +53,12 @@ class FileMatches:
     strings: dict[str, list[Any]] = field(default_factory=dict)
     strings_cut: bool = False
     own: dict[str, OwnText] = field(default_factory=dict)
+    document_id: str | None = None
+    label: str = ""
+
+    @property
+    def shown(self) -> str:
+        return self.label or self.file_name
 
     def note_strings(self, found: Sequence[str], page: int | None) -> None:
         for text in found:
@@ -70,16 +77,37 @@ class FileMatches:
         return sorted({chunk.page_number for chunk in self.chunks if getattr(chunk, "page_number", None)})
 
 
+def label_namesakes(groups: Sequence[FileMatches]) -> None:
+    from knowledge_layer.document_address import citation_form
+    from knowledge_layer.search import hit_folder_path
+    from knowledge_layer.search import resolve_folder_paths
+
+    shared = Counter((group.collection, fold(group.file_name)) for group in groups)
+    namesakes = [group for group in groups if shared[(group.collection, fold(group.file_name))] > 1]
+    if not namesakes:
+        return
+    folders = resolve_folder_paths([group.chunks[0] for group in namesakes])
+    for group in namesakes:
+        folder = hit_folder_path(group.chunks[0], folders)
+        group.label = (
+            citation_form(folder, group.file_name)
+            if folder is not None
+            else f"{group.file_name} (Document-ID: {group.document_id})"
+        )
+
+
 def _add_match(groups: dict[tuple[str, str], FileMatches], chunk: Any, own: str, count: int, found: list[str]) -> None:
     metadata = getattr(chunk, "metadata", None) or {}
     collection = str(metadata.get("collection") or "")
-    key = (collection, chunk.file_name)
+    document_id = str(metadata.get("document_id") or "") or None
+    key = (collection, f"id:{document_id}" if document_id else chunk.file_name)
     group = groups.get(key)
     if group is None:
         group = groups[key] = FileMatches(
             chunk.file_name,
             canonical_shelf_value(str(metadata["shelf"])) if metadata.get("shelf") else None,
             collection,
+            document_id=document_id,
         )
     group.chunks.append(chunk)
     group.own[chunk.chunk_id] = own
@@ -140,7 +168,7 @@ def distinct_matches(groups: Sequence[FileMatches]) -> tuple[list[tuple[str, int
         for key, (text, count, pages) in group.strings.items():
             entry = merged.setdefault(key, [text, 0, [], set()])
             entry[1] += count
-            entry[2].append(group.file_name)
+            entry[2].append(group.shown)
             entry[3].update(pages)
     ranked = sorted(merged.values(), key=lambda entry: (-entry[1], fold(entry[0])))
     return [(text, count, files, sorted(pages)) for text, count, files, pages in ranked], cut

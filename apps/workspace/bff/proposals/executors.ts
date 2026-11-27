@@ -6,6 +6,8 @@ import { ensureOfficeShelfFolderPaths, listOfficeShelfFolders, updateOfficeShelf
 import { assertMoveKeepsOutOfStandards, resolveOfficeShelfDocumentsByName } from '@/lib/office-shelf/service'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { renameDocument } from '@/lib/documents/document-edits'
+import { NameConflictError } from '@/lib/documents/name-conflict'
+import { nameConflictMessage } from '@/lib/documents/name-conflict-wire'
 import { resolveProjectDocumentsByName, type ListedDocument } from '@/lib/documents/document-listing'
 import { resolveShelfDocumentsById } from '@/lib/documents/resolve-by-id'
 import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/shelf'
@@ -183,7 +185,7 @@ const EXECUTORS: Record<FileOperationPayload['operation'], Executor> = {
     const [documentId, folderId] = await Promise.all([documentIdFor(item, context), targetFolderId(item, context)])
     if (shelfOf(item) === 'office') await assertMoveKeepsOutOfStandards(context.session, documentId, folderId)
     const result = await moveDocumentToFolder({ documentId, folderId }, context.session)
-    if (!result.ok) throw new Error(result.error)
+    if (!result.ok) throw result.conflict ? new NameConflictError(result.conflict) : new Error(result.error)
   },
 
   rename: async (item, context) => {
@@ -267,7 +269,11 @@ export async function applyFileOperations(
       await execute(item, context)
       results.push({ label, ok: true })
     } catch (error) {
-      results.push({ label, ok: false, reason: error instanceof Error ? error.message : String(error) })
+      results.push(
+        error instanceof NameConflictError
+          ? { label, ok: false, reason: nameConflictMessage(error.conflict), conflict: error.conflict }
+          : { label, ok: false, reason: error instanceof Error ? error.message : String(error) }
+      )
     }
   }
   return results

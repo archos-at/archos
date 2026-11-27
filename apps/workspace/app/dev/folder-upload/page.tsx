@@ -8,8 +8,11 @@ import {
   buildFolderUploadPlan,
   type RevisionChoice,
   type FolderUploadPlan,
+  type FolderUploadPlanInput,
 } from '@/features/documents/lib/folder-upload-plan'
 import type { RevisionChange } from '@/features/documents/lib/revision-proposals'
+import type { ConflictChoice } from '@/features/documents/lib/name-conflict'
+import type { ConflictChange } from '@/features/documents/hooks/use-upload-decision'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
 
@@ -79,7 +82,7 @@ function resyncPlan(): FolderUploadPlan {
       doc('OG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-plaene' }),
       doc('Bewehrung.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-statik' }),
       doc('Schnitt_A.pdf', { fileSize: 2_400, contentHash: IDENTICAL, folderId: 'f-plaene' }),
-      doc('Nachweis.pdf', { fileSize: 2_400, contentHash: IDENTICAL, folderId: null }),
+      doc('Nachweis.pdf', { fileSize: 2_400, contentHash: IDENTICAL, folderId: 'f-statik' }),
     ],
     digests: new Map([
       ...unchanged.map((file) => [file, IDENTICAL] as const),
@@ -101,30 +104,31 @@ function firstPlan(): FolderUploadPlan {
   })
 }
 
-function collisionPlan(): FolderUploadPlan {
-  return buildFolderUploadPlan({
+function collisionInput(): FolderUploadPlanInput {
+  return {
     files: [
       pathed('Wohnbau Nord/Pläne/Deckblatt.pdf', 1_000),
+      pathed('Wohnbau Nord/Pläne/DECKBLATT.pdf', 1_100),
       pathed('Wohnbau Nord/Statik/Deckblatt.pdf', 1_200),
       pathed('Wohnbau Nord/Pläne/EG.pdf', 1_000),
     ],
     documents: [],
     folders: FOLDERS,
     currentFolderId: null,
-  })
+  }
 }
 
-function knownPlan(): FolderUploadPlan {
+function knownInput(): FolderUploadPlanInput {
   const unchanged = pathed('Wohnbau Nord/Pläne/EG.pdf', 1_000)
   const renamed = pathed('Wohnbau Nord/Statik/Nachweis.pdf', 2_400)
   const otherCase = pathed('Wohnbau Nord/Pläne/DECKBLATT.pdf', 900)
 
-  return buildFolderUploadPlan({
+  return {
     files: [unchanged, renamed, otherCase],
     folders: FOLDERS,
     currentFolderId: null,
     documents: [
-      doc('EG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: null }),
+      doc('EG.pdf', { fileSize: 1_000, contentHash: IDENTICAL, folderId: 'f-plaene' }),
       doc('Nachweis.pdf', {
         fileSize: 2_400,
         contentHash: IDENTICAL,
@@ -137,7 +141,95 @@ function knownPlan(): FolderUploadPlan {
       [unchanged, IDENTICAL],
       [renamed, `sha256:${'b'.repeat(64)}`],
     ]),
-  })
+  }
+}
+
+const LONG_FOLDER =
+  'Wohnbau Nord/03_Einreichung_Baubehörde_Magistratsabteilung_37/Planunterlagen_Revision_2026-11/Grundrisse_und_Schnitte_Bauteil_Ost'
+
+function conflictsInput(): FolderUploadPlanInput {
+  const folders: FolderItem[] = [
+    ...FOLDERS,
+    { id: 'f-long', parentId: 'f-root', name: LONG_FOLDER.split('/').pop()!, path: LONG_FOLDER },
+  ]
+  const held = Array.from({ length: 48 }, (_, i) => `EG-${String(100 + i)}_Grundriss_Erdgeschoss_Bauteil_Ost_Index_C_2026-11-02.pdf`)
+  const files = [
+    ...held.map((name, i) => pathed(`${LONG_FOLDER}/${name}`, 2_000 + i)),
+    ...Array.from({ length: 12 }, (_, i) => pathed(`Wohnbau Nord/Pläne/Detail_${i + 1}.pdf`, 800)),
+    ...Array.from({ length: 12 }, (_, i) => pathed(`Wohnbau Nord/Pläne/DETAIL_${i + 1}.PDF`, 900)),
+    ...Array.from({ length: 12 }, (_, i) => pathed(`Wohnbau Nord/Statik/Detail_${i + 1}.pdf`, 700)),
+  ]
+  return {
+    files,
+    folders,
+    currentFolderId: null,
+    documents: held.map((name, i) =>
+      doc(name, {
+        id: `doc-held-${i}`,
+        folderId: 'f-long',
+        ...(i % 5 === 0 ? { displayName: `Grundriss EG ${100 + i}, Bauteil Ost (freigegeben)` } : {}),
+      })
+    ),
+  }
+}
+
+function feld72Input(): FolderUploadPlanInput {
+  const repeated = Array.from({ length: 248 }, (_, i) => `Detail_${String(i + 1).padStart(3, '0')}.pdf`).flatMap((name, i) => [
+    pathed(`feld72/0${i % 7}_Planung/Bestand/${name}`, 1_000),
+    pathed(`feld72/0${i % 7}_Planung/Entwurf/${name}`, 1_100),
+  ])
+  const unique = Array.from({ length: 1_881 - repeated.length }, (_, i) =>
+    pathed(`feld72/${String(i % 23).padStart(2, '0')}_Ordner/Unterordner_${i % 5}/Datei_${i + 1}.pdf`, 500)
+  )
+  return { files: [...repeated, ...unique], folders: [], currentFolderId: null, documents: [] }
+}
+
+function ChoosingPreview({ input, kind = 'folder' }: { input: () => FolderUploadPlanInput; kind?: 'folder' | 'files' }): JSX.Element {
+  const [built] = useState(input)
+  const [choices, setChoices] = useState<Map<File, ConflictChoice>>(new Map())
+  const [confirmed, setConfirmed] = useState<string | null>(null)
+  const plan = useMemo(() => buildFolderUploadPlan({ ...built, conflictChoices: choices }), [built, choices])
+  const change = ({ files, choice }: ConflictChange) =>
+    setChoices((previous) => new Map([...previous, ...files.map((file) => [file, choice] as const)]))
+  const confirm = () =>
+    setConfirmed(
+      plan.files
+        .filter((file) => file.action !== 'unchanged')
+        .map((file) => `${file.originPath} → ${file.conflict ? file.conflict.choice : 'new'}`)
+        .join('\n')
+    )
+  return (
+    <>
+      <FolderUploadDialog
+        open={confirmed === null}
+        onOpenChange={() => {}}
+        plan={plan}
+        currentFolderName={null}
+        onConfirm={confirm}
+        onConflictChange={change}
+        kind={kind}
+      />
+      {confirmed && (
+        <pre className="mx-auto max-w-lg whitespace-pre-wrap font-mono text-xs" data-testid="folder-upload-preview-confirmed">
+          {confirmed}
+        </pre>
+      )}
+    </>
+  )
+}
+
+function singleConflictInput(): FolderUploadPlanInput {
+  const file = new File(['x'], 'Statischer_Nachweis_Decke_über_EG.pdf', { type: 'application/pdf' })
+  Object.defineProperty(file, 'size', { value: 2_400, configurable: true })
+  return {
+    files: [file],
+    folders: FOLDERS,
+    currentFolderId: 'f-statik',
+    documents: [
+      doc('Statischer_Nachweis_Decke_über_EG.pdf', { folderId: 'f-statik' }),
+      doc('Statischer_Nachweis_Decke_über_EG 2.pdf', { folderId: 'f-statik' }),
+    ],
+  }
 }
 
 function exportOffers(files: readonly File[]): Map<string, RevisionCandidateMatch> {
@@ -308,16 +400,19 @@ export default function FolderUploadPreviewPage(): JSX.Element {
     notFound()
   }
   const variant = useSearchParams()?.get('variant') ?? 'resync'
-  const plan =
-    variant === 'planning'
-      ? null
-      : variant === 'first'
-        ? firstPlan()
-        : variant === 'collisions'
-          ? collisionPlan()
-          : variant === 'known'
-            ? knownPlan()
-            : resyncPlan()
+  const choosing =
+    variant === 'collisions'
+      ? collisionInput
+      : variant === 'known'
+        ? knownInput
+        : variant === 'conflicts'
+          ? conflictsInput
+          : variant === 'feld72'
+            ? feld72Input
+            : variant === 'single-conflict'
+              ? singleConflictInput
+              : null
+  const plan = variant === 'planning' ? null : variant === 'first' ? firstPlan() : resyncPlan()
 
   return (
     <main className="min-h-dvh bg-background px-4 py-10" data-testid="folder-upload-preview">
@@ -330,6 +425,8 @@ export default function FolderUploadPreviewPage(): JSX.Element {
         <OfferedPreview drop={fortyDrop} kind="folder" />
       ) : variant === 'single-revision' || variant === 'single-unclear' || variant === 'single-older' ? (
         <OfferedPreview key={variant} drop={() => soleDrop(variant)} kind="files" />
+      ) : choosing ? (
+        <ChoosingPreview key={variant} input={choosing} kind={variant === 'single-conflict' ? 'files' : 'folder'} />
       ) : (
         <FolderUploadDialog
           open

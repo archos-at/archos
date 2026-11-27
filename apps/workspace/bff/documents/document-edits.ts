@@ -13,7 +13,15 @@ import type { Document } from '@/lib/db/schema/documents'
 import { documentShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 import { collectionFileRef, collectionFileUrl, purgeIngestedChunks } from './collection-file-ref'
-import { deleteShelfDocumentRow, setDocumentDisplayName } from './repository'
+import {
+  deleteShelfDocumentRow,
+  findFreeDocumentName,
+  setDocumentDisplayNameInFolder,
+  type DocumentNamePlace,
+  type LiveDocumentNameHolder,
+} from './repository'
+import { RenameConflictError, nameConflictWith } from './name-conflict'
+import { refuseUnseenHolder } from './name-holder'
 import { documentDisplayName, validateDocumentName } from './display-name'
 import { findDocumentForSession, getAccessibleDocument } from './access'
 import { eraseDocumentObjectsOrKeepRow } from './object-cleanup'
@@ -87,8 +95,11 @@ export async function renameDocument(
     }
     displayName = validated.value === doc.filename ? null : validated.value
   }
-
-  await setDocumentDisplayName(documentId, session.organizationId, displayName)
+  const shownName = displayName ?? doc.filename
+  const place: DocumentNamePlace =
+    doc.folderId === null ? { folderId: null, collectionName: doc.collectionName } : { folderId: doc.folderId }
+  const holder = await setDocumentDisplayNameInFolder(session.organizationId, place, documentId, displayName, shownName)
+  if (holder) await refuseNameTaken(session, doc, place, holder, shownName)
   publishShelfChanged(session.organizationId, documentShelf(doc))
 
   const mirrorRef = collectionFileRef(doc)
@@ -138,6 +149,18 @@ export async function renameDocument(
   })
 
   return { id: documentId, filename: doc.filename, displayName }
+}
+
+async function refuseNameTaken(
+  session: AuthorizedSession,
+  doc: Document,
+  place: DocumentNamePlace,
+  holder: LiveDocumentNameHolder,
+  name: string,
+): Promise<never> {
+  await refuseUnseenHolder(session, holder, name)
+  const suggestedName = await findFreeDocumentName(session.organizationId, place, name)
+  throw new RenameConflictError(nameConflictWith(holder, name, doc.folderId, suggestedName))
 }
 
 export async function eraseShelfDocument(doc: Document, organizationId: string): Promise<boolean | null> {

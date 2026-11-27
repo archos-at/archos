@@ -94,14 +94,14 @@ vi.mock('./repository', () => ({
   findFolderPathInOfficeShelf: vi.fn().mockResolvedValue(null),
   findDocumentInOrg: vi.fn(),
   findLiveDocumentByFilename: vi.fn().mockResolvedValue(null),
-  findProjectCollectionsHoldingFilename: vi.fn().mockResolvedValue([]),
+  findFreeDocumentName: vi.fn(),
   listProjectDocuments: vi.fn(),
   listProjectDocumentPage: vi.fn().mockResolvedValue({ rows: [], nextCursor: null }),
   listDocumentLevelPage: vi.fn().mockResolvedValue({ rows: [], nextCursor: null }),
   findProjectDocumentsByFilenames: vi.fn().mockResolvedValue([]),
   findProjectDocumentsByNames: vi.fn().mockResolvedValue([]),
   deleteShelfDocumentRow: vi.fn().mockResolvedValue(undefined),
-  setDocumentDisplayName: vi.fn().mockResolvedValue(undefined),
+  setDocumentDisplayNameInFolder: vi.fn().mockResolvedValue(null),
   setDocumentReconciledStatus: vi.fn().mockResolvedValue(true),
   listFailedDocumentPageInOrg: vi.fn().mockResolvedValue({ ids: [], nextCursor: null }),
   folderIsInBin: vi.fn(async () => false),
@@ -154,9 +154,9 @@ import {
   listDocumentLevelPage,
   findProjectDocumentsByFilenames,
   findProjectDocumentsByNames,
-  findProjectCollectionsHoldingFilename,
+  findFreeDocumentName,
   deleteShelfDocumentRow,
-  setDocumentDisplayName,
+  setDocumentDisplayNameInFolder,
   setDocumentReconciledStatus,
   listFailedDocumentPageInOrg,
 } from './repository'
@@ -170,6 +170,7 @@ import {
 import { getDocumentTextPreview, getDocumentThumbnail, getDocumentDownload, getDocumentPreview, streamDocumentFile, streamDocumentImage } from './document-delivery'
 import { getDocumentStatus, getDocumentVisualDetails } from './document-details'
 import { uploadDocument, dispatchDocument, AgentAuthoredDocumentNotIndexableError } from './document-dispatch'
+import type { UploadConflictPolicy } from './shelf-upload'
 import { deleteDocument, renameDocument, updateDocumentTags } from './document-edits'
 import { listDocumentsPage, probeProjectDocumentNames, resolveProjectDocumentsByName } from './document-listing'
 import { INGEST_DISPATCH_FAILED_MESSAGE } from './ingest-dispatch'
@@ -190,7 +191,7 @@ import {
   listDocumentVersionSummaries,
   nextVersionNumber,
 } from './version-repository'
-import { LiveFilenameTakenError, ReplacedDocumentGoneError } from './unique-conflicts'
+import { LiveFilenameTakenError, RACED_UPLOAD_ATTEMPTS, ReplacedDocumentGoneError } from './unique-conflicts'
 import { isVlmConfigured } from '@/lib/documents/vlm-capability'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 import { makeDocument, makeLiveDocumentMatch, makeProject } from '@/test-utils/db-fixtures'
@@ -235,6 +236,7 @@ const sliceState = (overrides: Partial<ReindexProjectPayload> = {}): ReindexProj
 const makeInput = (overrides: { name?: string; type?: string } = {}) => ({
   projectId: 'proj-1',
   folderId: null,
+  onConflict: 'replace' as const,
   file: {
     name: overrides.name ?? 'plan.pdf',
     type: overrides.type ?? 'application/pdf',
@@ -1730,7 +1732,7 @@ describe('renameDocument', () => {
     const result = await renameDocument(session, 'doc-1', '  Einreichplan.pdf  ', request())
 
     expect(result).toEqual({ id: 'doc-1', filename: 'plan.pdf', displayName: 'Einreichplan.pdf' })
-    expect(setDocumentDisplayName).toHaveBeenCalledWith('doc-1', 'org-1', 'Einreichplan.pdf')
+    expect(setDocumentDisplayNameInFolder).toHaveBeenCalledWith('org-1', expect.anything(), 'doc-1', 'Einreichplan.pdf', expect.any(String))
 
     const [url, init] = mockFetch.mock.calls.at(-1) ?? []
     expect(String(url)).toBe(
@@ -1747,7 +1749,7 @@ describe('renameDocument', () => {
 
     await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request())
 
-    expect(setDocumentDisplayName).toHaveBeenCalledTimes(1)
+    expect(setDocumentDisplayNameInFolder).toHaveBeenCalledTimes(1)
     expect(deleteShelfDocumentRow).not.toHaveBeenCalled()
   })
 
@@ -1760,7 +1762,7 @@ describe('renameDocument', () => {
     const result = await renameDocument(session, 'doc-1', 'plan.pdf', request())
 
     expect(result.displayName).toBeNull()
-    expect(setDocumentDisplayName).toHaveBeenCalledWith('doc-1', 'org-1', null)
+    expect(setDocumentDisplayNameInFolder).toHaveBeenCalledWith('org-1', expect.anything(), 'doc-1', null, expect.any(String))
   })
 
   it('clears the rename on null', async () => {
@@ -1771,10 +1773,62 @@ describe('renameDocument', () => {
 
     await renameDocument(session, 'doc-1', null, request())
 
-    expect(setDocumentDisplayName).toHaveBeenCalledWith('doc-1', 'org-1', null)
+    expect(setDocumentDisplayNameInFolder).toHaveBeenCalledWith('org-1', expect.anything(), 'doc-1', null, expect.any(String))
     expect(JSON.parse(String((mockFetch.mock.calls.at(-1) ?? [])[1]?.body))).toEqual({
       display_title: null,
     })
+  })
+
+  it('refuses a name another document in the same folder holds (409 name_conflict), and tells the backend nothing', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue({ ...projectDoc, folderId: 'folder-plans' })
+    vi.mocked(setDocumentDisplayNameInFolder).mockResolvedValueOnce(
+      makeLiveDocumentMatch({ id: 'doc-other', filename: 'Einreichplan.pdf', folderId: 'folder-plans' }),
+    )
+    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('Einreichplan 2.pdf')
+
+    await expect(renameDocument(session, 'doc-1', 'einreichplan.PDF', request())).rejects.toMatchObject({
+      status: 409,
+      details: {
+        reason: 'name_conflict',
+        name: 'einreichplan.PDF',
+        folderId: 'folder-plans',
+        existingDocumentId: 'doc-other',
+        existingName: 'Einreichplan.pdf',
+        suggestedName: 'Einreichplan 2.pdf',
+      },
+    })
+    expect(vi.mocked(setDocumentDisplayNameInFolder).mock.calls.at(-1)).toEqual([
+      'org-1',
+      { folderId: 'folder-plans' },
+      'doc-1',
+      'einreichplan.PDF',
+      'einreichplan.PDF',
+    ])
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+  })
+
+  it('tells nothing about a held document of somebody else that has the name: it is taken, and that is all', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue({ ...projectDoc, folderId: 'folder-plans' })
+    vi.mocked(setDocumentDisplayNameInFolder).mockResolvedValueOnce(
+      makeLiveDocumentMatch({ id: 'doc-held', filename: 'Einreichplan.pdf', folderId: 'folder-plans', status: 'quarantined', createdBy: 'user-other' }),
+    )
+    vi.mocked(requireProjectAccess).mockImplementation(async (_s, _projectId, permission) => {
+      if (permission === 'project:manage') throw new NotFoundError('Project not found')
+      return { role: 'project-viewer', closed: false, readsBecauseClosed: false }
+    })
+
+    const details = await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request()).catch((error: ConflictError) => error.details)
+
+    expect(details).toStrictEqual({ reason: NAME_TAKEN_REASON })
+  })
+
+  it('asks only the document’s own folder, so a name another folder holds is free', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue(projectDoc)
+
+    await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request())
+
+    expect(vi.mocked(setDocumentDisplayNameInFolder).mock.calls.at(-1)?.[1]).toEqual({ folderId: null, collectionName: 'proj_abc' })
   })
 
   it('refuses an unusable name (400) before writing anything', async () => {
@@ -1783,7 +1837,7 @@ describe('renameDocument', () => {
     await expect(
       renameDocument(session, 'doc-1', 'plans/EG.pdf', request())
     ).rejects.toBeInstanceOf(BadRequestError)
-    expect(setDocumentDisplayName).not.toHaveBeenCalled()
+    expect(setDocumentDisplayNameInFolder).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
@@ -1793,7 +1847,7 @@ describe('renameDocument', () => {
     await expect(renameDocument(session, 'missing', 'x.pdf', request())).rejects.toBeInstanceOf(
       NotFoundError
     )
-    expect(setDocumentDisplayName).not.toHaveBeenCalled()
+    expect(setDocumentDisplayNameInFolder).not.toHaveBeenCalled()
   })
 
   it('rejects a caller without write access (403) before any side effect', async () => {
@@ -1803,7 +1857,7 @@ describe('renameDocument', () => {
     await expect(renameDocument(session, 'doc-1', 'x.pdf', request())).rejects.toBeInstanceOf(
       ForbiddenError
     )
-    expect(setDocumentDisplayName).not.toHaveBeenCalled()
+    expect(setDocumentDisplayNameInFolder).not.toHaveBeenCalled()
   })
 
   it('keeps the rename when the backend mirror fails — the row is the durable one', async () => {
@@ -1813,7 +1867,7 @@ describe('renameDocument', () => {
     const result = await renameDocument(session, 'doc-1', 'Einreichplan.pdf', request())
 
     expect(result.displayName).toBe('Einreichplan.pdf')
-    expect(setDocumentDisplayName).toHaveBeenCalledWith('doc-1', 'org-1', 'Einreichplan.pdf')
+    expect(setDocumentDisplayNameInFolder).toHaveBeenCalledWith('org-1', expect.anything(), 'doc-1', 'Einreichplan.pdf', expect.any(String))
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'document.renamed' })
     )
@@ -2180,9 +2234,11 @@ describe('the authorship gate on the (collection, filename) join', () => {
 
       await renameDocument(session, 'doc-agent', 'Projektbericht.pdf', new Request('http://x'))
 
-      expect(setDocumentDisplayName).toHaveBeenCalledWith(
-        'doc-agent',
+      expect(setDocumentDisplayNameInFolder).toHaveBeenCalledWith(
         'org-1',
+        expect.anything(),
+        'doc-agent',
+        'Projektbericht.pdf',
         'Projektbericht.pdf'
       )
       expect(documentCalls()).toHaveLength(0)
@@ -2850,17 +2906,6 @@ describe('re-uploading a filename this collection already holds', () => {
       expect(admitReplacementOrDiscard).toHaveBeenCalled()
     })
 
-    it('still runs when the upload re-files it, because the move is the point', async () => {
-      vi.mocked(findLiveDocumentByFilename).mockResolvedValue(makeLiveDocumentMatch({
-        ...existing,
-        contentHash: digestOfInput,
-        folderId: 'folder-elsewhere',
-      }))
-
-      await uploadDocument(session, makeInput({ name: 'plan.pdf' }), new Request('http://x'))
-
-      expect(admitReplacementOrDiscard).toHaveBeenCalled()
-    })
   })
 
   it('probes and stores the name in one Unicode form', async () => {
@@ -2951,6 +2996,156 @@ describe('a re-upload whose document is deleted underneath it', () => {
     expect(inserted?.[2].id).not.toBe('doc-deleted')
     expect(result.documentId).toBe(inserted?.[2].id)
     expect(vi.mocked(recordAuditEvent).mock.calls.at(-1)?.[0]?.metadata).not.toHaveProperty('replaced')
+  })
+})
+
+describe('an upload into a folder that holds the name: the Finder’s three answers', () => {
+  const PLANS = 'folder-plans'
+  const digestOfInput = 'sha256:' + createHash('sha256').update(Buffer.from(new ArrayBuffer(8))).digest('hex')
+  const holder = makeLiveDocumentMatch({
+    id: 'doc-plan',
+    filename: 'Plan.pdf',
+    storageKey: 'org/org-1/project/proj-1/doc/doc-plan/Plan.pdf',
+    storageBucket: 'test-bucket',
+    folderId: PLANS,
+    status: 'ready',
+  })
+  const into = (onConflict: UploadConflictPolicy | undefined, folderId: string = PLANS) =>
+    uploadDocument(
+      session,
+      { ...makeInput({ name: 'plan.pdf' }), folderId, ...(onConflict ? { onConflict } : {}) },
+      new Request('http://x'),
+    )
+  const putKeys = () =>
+    vi
+      .mocked(s3Client.send)
+      .mock.calls.map(([command]) => command as unknown as { constructor: { name: string }; input: { Key?: string } })
+      .filter((command) => command.constructor.name === 'PutObjectCommand')
+      .map((command) => command.input.Key)
+  const holding = (held: typeof holder) =>
+    vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place) => (place.folderId === PLANS ? held : null))
+
+  beforeEach(() => {
+    vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-admin', closed: false, readsBecauseClosed: false })
+    vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: 'proj-1', collectionName: 'proj_abc' }))
+    vi.mocked(findFolderPathInProject).mockResolvedValue('Pläne')
+    holding(holder)
+    vi.mocked(findFreeDocumentName).mockReset().mockResolvedValue('plan 2.pdf')
+  })
+
+  afterEach(() => {
+    vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValue(null)
+  })
+
+  it('asks first: 409 name_conflict naming what is there and the next free name in the spelling it came in, and stores nothing', async () => {
+    const refusal = into('refuse')
+
+    await expect(refusal).rejects.toMatchObject({
+      status: 409,
+      details: {
+        reason: 'name_conflict',
+        name: 'plan.pdf',
+        folderId: PLANS,
+        existingDocumentId: 'doc-plan',
+        existingName: 'Plan.pdf',
+        suggestedName: 'plan 2.pdf',
+      },
+    })
+    expect(vi.mocked(findLiveDocumentByFilename).mock.calls[0]?.slice(1)).toEqual([
+      { folderId: PLANS, collectionName: 'proj_abc' },
+      'plan.pdf',
+    ])
+    expect(findFreeDocumentName).toHaveBeenCalledWith('org-1', { folderId: PLANS, collectionName: 'proj_abc' }, 'plan.pdf')
+    expect(putKeys()).toEqual([])
+    expect(admitOrDiscard).not.toHaveBeenCalled()
+    expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+  })
+
+  it('does not ask about the very bytes that are already there: nothing to decide', async () => {
+    holding({ ...holder, contentHash: digestOfInput })
+
+    const result = await into('refuse')
+
+    expect(result).toMatchObject({ documentId: 'doc-plan', unchanged: true, filename: 'Plan.pdf' })
+    expect(putKeys()).toEqual([])
+  })
+
+  it('„Beide behalten“ stores the file as a document of its own beside it, under the next free name', async () => {
+    const result = await into('keep_both')
+
+    expect(result.documentId).not.toBe('doc-plan')
+    expect(result.filename).toBe('plan 2.pdf')
+    expect(vi.mocked(admitOrDiscard).mock.calls[0]?.[2]).toMatchObject({ filename: 'plan 2.pdf', folderId: PLANS })
+    expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+  })
+
+  it('„Beide behalten“ takes the next name again when a racing upload took the free one', async () => {
+    vi.mocked(findFreeDocumentName).mockResolvedValueOnce('plan 2.pdf').mockResolvedValueOnce('plan 3.pdf')
+    vi.mocked(admitOrDiscard).mockRejectedValueOnce(new LiveFilenameTakenError('plan 2.pdf'))
+
+    const result = await into('keep_both')
+
+    expect(admitOrDiscard).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(admitOrDiscard).mock.calls[1]?.[2]).toMatchObject({ filename: 'plan 3.pdf' })
+    expect(result.filename).toBe('plan 3.pdf')
+  })
+
+  it('„Beide behalten“ keeps picking the next free name while racing uploads take it, a few times and no more', async () => {
+    vi.mocked(findFreeDocumentName)
+      .mockResolvedValueOnce('plan 2.pdf')
+      .mockResolvedValueOnce('plan 3.pdf')
+      .mockResolvedValueOnce('plan 4.pdf')
+    vi.mocked(admitOrDiscard)
+      .mockRejectedValueOnce(new LiveFilenameTakenError('plan 2.pdf'))
+      .mockRejectedValueOnce(new LiveFilenameTakenError('plan 3.pdf'))
+
+    expect((await into('keep_both')).filename).toBe('plan 4.pdf')
+
+    vi.mocked(admitOrDiscard).mockReset().mockRejectedValue(new LiveFilenameTakenError('plan 9.pdf'))
+    await expect(into('keep_both')).rejects.toMatchObject({ status: 409, details: { reason: 'live_name_taken' } })
+    expect(admitOrDiscard).toHaveBeenCalledTimes(RACED_UPLOAD_ATTEMPTS)
+    vi.mocked(admitOrDiscard).mockReset().mockResolvedValue(undefined)
+  })
+
+  it('„Überspringen“ leaves the folder as it was and names the document that is there', async () => {
+    const result = await into('skip')
+
+    expect(result).toMatchObject({ skipped: true, existingDocumentId: 'doc-plan', jobId: null })
+    expect(putKeys()).toEqual([])
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes('/v1/ingest'))).toBe(false)
+  })
+
+  it('„Ersetzen“ makes the file the next Fassung of the document there, under the name it holds', async () => {
+    const result = await into('replace')
+
+    expect(result).toMatchObject({ documentId: 'doc-plan', filename: 'Plan.pdf' })
+    expect(admitOrDiscard).not.toHaveBeenCalled()
+    expect(vi.mocked(admitReplacementOrDiscard).mock.calls.at(-1)?.slice(3)).toEqual([
+      'doc-plan',
+      expect.objectContaining({ folderId: PLANS }),
+    ])
+  })
+
+  it('tells nothing about a held file of somebody else: the name is taken, and that is all', async () => {
+    holding({ ...holder, status: 'quarantined', createdBy: 'user-other' })
+    vi.mocked(requireProjectAccess).mockImplementation(async (_s, _projectId, permission) => {
+      if (permission === 'project:manage') throw new NotFoundError('Project not found')
+      return { role: 'project-viewer', closed: false, readsBecauseClosed: false }
+    })
+
+    for (const onConflict of ['refuse', 'skip'] as const) {
+      const details = await into(onConflict).catch((error: ConflictError) => error.details)
+      expect(details).toStrictEqual({ reason: NAME_TAKEN_REASON })
+    }
+    expect(putKeys()).toEqual([])
+  })
+
+  it('files the same name into ANOTHER folder as a document of its own: never a Fassung, and the other never moves', async () => {
+    const result = await into(undefined, 'folder-other')
+
+    expect(result.documentId).not.toBe('doc-plan')
+    expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+    expect(vi.mocked(admitOrDiscard).mock.calls[0]?.[2]).toMatchObject({ folderId: 'folder-other', filename: 'plan.pdf' })
   })
 })
 
@@ -3234,18 +3429,20 @@ describe('restricted folders (ADR-0087)', () => {
     expect(admitOrDiscard).not.toHaveBeenCalled()
   })
 
-  it('refuses a re-upload that would replace a document filed where the uploader may only read', async () => {
+  it('files a name a folder the uploader may only read holds as a document of its own, beside it', async () => {
     vi.mocked(getProjectFolderAccess).mockResolvedValue({
       ...restricted,
       levelOf: (folderId) => (folderId === 'folder-read' ? 'read' : 'write'),
     })
-    vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(makeDocument({ folderId: 'folder-read' }))
+    const readOnly = makeLiveDocumentMatch({ id: 'doc-read', folderId: 'folder-read' })
+    vi.mocked(findLiveDocumentByFilename).mockImplementation(async (_org, place) => (place.folderId === 'folder-read' ? readOnly : null))
 
-    await expect(uploadDocument(session, makeInput(), new Request('http://x'))).rejects.toMatchObject({
-      status: 403,
-      details: { reason: 'folder-read-only' },
-    })
+    const result = await uploadDocument(session, makeInput(), new Request('http://x'))
+
+    expect(result.documentId).not.toBe('doc-read')
     expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+    expect(vi.mocked(admitOrDiscard).mock.calls[0][2]).toMatchObject({ folderId: null, filename: 'plan.pdf' })
+    vi.mocked(findLiveDocumentByFilename).mockReset().mockResolvedValue(null)
   })
 
   it('refuses an upload into a folder the uploader may not see, as not found', async () => {
@@ -3257,15 +3454,16 @@ describe('restricted folders (ADR-0087)', () => {
     expect(admitOrDiscard).not.toHaveBeenCalled()
   })
 
-  it('refuses a name the project already holds under another restriction, naming no folder', async () => {
-    vi.mocked(findProjectCollectionsHoldingFilename).mockResolvedValueOnce([RESTRICTED_COLLECTION])
+  it('probes the restricted folder’s own collection, so a name the project holds under another restriction is free', async () => {
+    vi.mocked(findFolderPathInProject).mockResolvedValue('Verwaltung/Verträge')
 
-    const refusal = uploadDocument(session, makeInput(), new Request('http://x'))
+    await uploadDocument(session, { ...makeInput(), folderId: 'folder-cleared' }, new Request('http://x'))
 
-    await expect(refusal).rejects.toBeInstanceOf(ConflictError)
-    await expect(refusal).rejects.not.toThrow(/Honorare|Verwaltung/)
-    await expect(refusal).rejects.toMatchObject({ details: { reason: NAME_TAKEN_REASON } })
-    expect(admitOrDiscard).not.toHaveBeenCalled()
+    expect(vi.mocked(findLiveDocumentByFilename).mock.calls.at(-1)?.slice(1)).toEqual([
+      { folderId: 'folder-cleared', collectionName: RESTRICTED_COLLECTION },
+      'plan.pdf',
+    ])
+    expect(admitOrDiscard).toHaveBeenCalled()
   })
 })
 

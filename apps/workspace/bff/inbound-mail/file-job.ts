@@ -290,6 +290,7 @@ async function fileAttachment(
       {
         projectId: run.projectId,
         folderId: folder.folderId,
+        onConflict: 'replace',
         file: new File(
           [new Uint8Array(bytes)],
           decision.fileName ?? part.filename ?? `attachment-${part.position}`,
