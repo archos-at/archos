@@ -114,6 +114,8 @@ from .targets import _document_names  # noqa: F401
 from .targets import _documents_in  # noqa: F401
 from .targets import _matches  # noqa: F401
 from .targets import _resolve_targets  # noqa: F401
+from .targets import namesakes_refusal
+from .targets import reading_label
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +125,11 @@ _READ_PASSAGE_DESCRIPTION = (
     "Gliederung of its top-level Punkte, and `document=` with `clause=` or `page=` returns exactly that passage. "
     "A lookup, not a search: no ranking, and it cannot find a document from a topic (`knowledge_search` does).\n"
     "Inputs: `document`, the exact name or display title as the inventory or a hit printed it "
-    "(e.g. 'OIB-Richtlinie 2, Ausgabe Mai 2023' or 'oib-rl_2_ausgabe_mai_2023.pdf'). `clause`, the number alone "
-    "('3.5.2', no 'Pkt.') or a table's caption ('Tabelle 3'), or for a project document what a hit's `Punkt:` "
-    "line printed ('§ 4', 'Zeilen 2-41'); with `clause=`, `page=` is ignored. `page`, one page number. "
+    "(e.g. 'OIB-Richtlinie 2, Ausgabe Mai 2023' or 'oib-rl_2_ausgabe_mai_2023.pdf'); when two documents share "
+    "a name, its folder path as a `Citation:` line prints it ('Bestand/Plan.pdf') or its `Document-ID:`. "
+    "`clause`, the number alone ('3.5.2', no 'Pkt.') or a table's caption ('Tabelle 3'), or for a project "
+    "document what a hit's `Punkt:` line printed ('§ 4', 'Zeilen 2-41'); with `clause=`, `page=` is ignored. "
+    "`page`, one page number. "
     "`pages`, a range ('4-6', at most 30 pages) in reading order without the overlap between neighbouring "
     "chunks, up to about 6k tokens; a read that stopped early ends with a `cursor` to pass back with the same "
     "`document=`.\n"
@@ -171,9 +175,11 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
     async def _resolve_or_refuse(document: str) -> tuple[list[PassageTarget], str]:
         targets = await _resolve_targets(_entries(), document)
-        if targets:
-            return targets, ""
-        return [], await _unknown(document)
+        if not targets:
+            return [], await _unknown(document)
+        if refusal := namesakes_refusal(document, targets):
+            return [], refusal
+        return targets, ""
 
     async def _miss(document: str, targets: list[PassageTarget], message: str, outcome: ActionOutcome) -> str:
         if _nameable(targets) is not None:
@@ -225,6 +231,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         if refusal:
             return refusal
 
+        document = reading_label(document, targets)
         _note_target(outcome, targets)
         query = _fetch_query(document, clause, page)
         top_k = _MAX_PASSAGE_CHUNKS if page is None else _MAX_OUTLINE_CHUNKS
@@ -260,6 +267,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         targets, refusal_text = await _resolve_or_refuse(document)
         if refusal_text:
             return refusal_text
+        document = reading_label(document, targets)
 
         _note_target(outcome, targets)
         cursor = decode_cursor(cursor_token) if (cursor_token or "").strip() else None
@@ -317,6 +325,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         if refusal:
             return refusal
 
+        document = reading_label(document, targets)
         query = _fetch_query(document, None, None)
         _note_target(outcome, targets)
         outline = await outline_for(targets, query)

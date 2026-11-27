@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from knowledge_layer.browse import confirmed_revision_marks
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import render_listing
@@ -78,3 +79,40 @@ def test_the_revisions_of_one_namesake_never_include_the_other():
 
     assert "Ausführung" not in text
     assert "2 files" in text
+
+
+def test_the_listing_gives_each_namesake_its_document_id():
+    text = render_listing(select_files(_namesakes(), shelf="project"))
+
+    assert "Folder: Einreichung · Document-ID: doc-eg" in text
+    assert "Folder: Ausführung · Document-ID: doc-og" in text
+    assert "Document-ID: doc-eg-b" not in text
+
+
+def test_the_revisions_of_a_shared_name_are_refused_with_each_in_a_form_that_reaches_it():
+    text = render_revisions(_namesakes(), PLAN)
+
+    assert "matches 2 different documents" in text
+    assert "Einreichung/Plan.pdf (Document-ID: doc-eg)" in text
+    assert "Ausführung/Plan.pdf (Document-ID: doc-og)" in text
+
+
+@pytest.mark.parametrize(
+    ("wanted", "folder"),
+    [("Einreichung/Plan.pdf", None), ("doc-eg", None), ("doc:id:doc-eg", None), (PLAN, "Einreichung")],
+)
+def test_the_revisions_of_one_namesake_are_reached_by_folder_or_id(wanted, folder):
+    rows = _namesakes(superseded_by="Plan Index B.pdf", superseded_by_id="doc-eg-b")
+
+    text = render_revisions(rows, wanted, folder=folder)
+
+    assert "2 files" in text
+    assert "Plan Index B.pdf" in text
+    assert "matches" not in text
+
+
+def test_a_folder_that_holds_neither_namesake_is_said_so():
+    text = render_revisions(_namesakes(), PLAN, folder="Bestand")
+
+    assert text.startswith('No file in folder "Bestand" is named or contains "Plan.pdf"')
+    assert "Einreichung/Plan.pdf (Document-ID: doc-eg)" in text

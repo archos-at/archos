@@ -30,6 +30,7 @@ class PassageTarget:
     current: str | None = None
     mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
     document_id: str | None = None
+    folder_path: str = field(default="", compare=False)
 
     @property
     def selector(self) -> dict[str, Any]:

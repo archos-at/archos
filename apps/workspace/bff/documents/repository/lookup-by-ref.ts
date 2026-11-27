@@ -3,8 +3,7 @@ import { and, desc, eq, isNull, ne, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { withTenant } from '@/lib/db/tenant-context'
-import { splitDocumentName } from '../display-name'
-import { nextFreeDocumentName } from '../next-free-name'
+import { documentNameFamily, nextFreeDocumentName } from '../next-free-name'
 import { documentNameKey, documentNameMatchKey, holdsDocumentName } from '../name-match'
 import { documents, type Document, type DocumentAuthor } from '@/lib/db/schema/documents'
 import type { DocumentScreeningOutcome } from '@/lib/db/schema/documents'
@@ -141,7 +140,7 @@ export async function findTakenDocumentNameKeys(
   place: DocumentNamePlace,
   name: string,
 ): Promise<Set<string>> {
-  const { stem, extension } = splitDocumentName(documentNameKey(name))
+  const { stem, extension } = documentNameFamily(name)
   const family = `${nameLikePattern(stem)} %${nameLikePattern(extension)}`
   const db = getDb()
   const rows = await withTenant({ organizationId }, () =>
