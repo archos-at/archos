@@ -14,6 +14,7 @@ from agent.common.action_outcome import ActionOutcome
 
 from .matches import MAX_MATCH_CHUNKS
 from .matches import group_matches
+from .matches import label_namesakes
 from .matches import pick_passages
 from .messages import _context_lines
 from .messages import match_snippets
@@ -402,6 +403,7 @@ async def _matched(
     from knowledge_layer.search import format_results
 
     note_collections_read(group.collection for group in groups)
+    await asyncio.to_thread(label_namesakes, groups)
     passages = pick_passages(groups)
     query = " | ".join(phrases)
     candidates = await _candidate_counts(retriever, read.capped, pattern, filters_by_collection, regex_mode=regex_mode)

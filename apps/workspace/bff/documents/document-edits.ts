@@ -20,7 +20,7 @@ import {
   type DocumentNamePlace,
   type LiveDocumentNameHolder,
 } from './repository'
-import { NameConflictError, nameConflictWith } from './name-conflict'
+import { RenameConflictError, nameConflictWith } from './name-conflict'
 import { refuseUnseenHolder } from './name-holder'
 import { documentDisplayName, validateDocumentName } from './display-name'
 import { findDocumentForSession, getAccessibleDocument } from './access'
@@ -160,7 +160,7 @@ async function refuseNameTaken(
 ): Promise<never> {
   await refuseUnseenHolder(session, holder, name)
   const suggestedName = await findFreeDocumentName(session.organizationId, place, name)
-  throw new NameConflictError(nameConflictWith(holder, name, doc.folderId, suggestedName))
+  throw new RenameConflictError(nameConflictWith(holder, name, doc.folderId, suggestedName))
 }
 
 export async function eraseShelfDocument(doc: Document, organizationId: string): Promise<boolean | null> {

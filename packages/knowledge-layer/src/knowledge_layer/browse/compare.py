@@ -9,6 +9,8 @@ from typing import Any
 from .revisions import MAX_CHAIN_CANDIDATES
 from .revisions import _chain_candidates
 from .revisions import _resolve_chain
+from .revisions import addresses
+from .revisions import named_rows
 from .rows import _SHELF_LABELS
 from .rows import USER_SHELVES
 from .rows import FileRow
@@ -48,11 +50,11 @@ def _other_document(
             f"{chain_names}. Find the exact name of the other file with `list_files(name_contains=…)`."
         )
     if len(candidates) > 1:
-        names = ", ".join(row.file_name for row in candidates[:MAX_CHAIN_CANDIDATES])
+        names = "; ".join(addresses(candidates)[:MAX_CHAIN_CANDIDATES])
         rest = len(candidates) - MAX_CHAIN_CANDIDATES
         return None, (
             f'"{target}" matches several files on {where}: {names}{f" and {rest} more" if rest > 0 else ""}. '
-            "Name one exactly in `compare_to`."
+            "Name one in `compare_to` as written here."
         )
     return candidates[0], ""
 
@@ -64,11 +66,12 @@ def resolve_compare(
     *,
     shelf: str | None = None,
     default_shelves: Sequence[str] = USER_SHELVES,
+    folder: str | None = None,
 ) -> tuple[ComparePair | None, str]:
-    members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves)
+    members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves, folder=folder)
     if refusal:
         return None, refusal
-    exact = [row for row in members if fold(wanted.strip()) in (fold(row.file_name), fold(row.display_title or ""))]
+    exact = named_rows(members, wanted)
     anchor = exact[0] if len(exact) == 1 else members[0]
     position = members.index(anchor)
     target = (compare_to or "").strip()
@@ -84,8 +87,8 @@ def resolve_compare(
     else:
         candidates = _chain_candidates(members, target)
         if len(candidates) > 1:
-            names = ", ".join(row.file_name for row in members[:MAX_CHAIN_CANDIDATES])
-            return None, f'"{target}" matches several Fassungen; name one exactly: {names}.'
+            names = "; ".join(addresses(members)[:MAX_CHAIN_CANDIDATES])
+            return None, f'"{target}" matches several Fassungen; name one as written here: {names}.'
         if not candidates:
             outside, refusal = _other_document(rows, members, target, shelf=shelf, default_shelves=default_shelves)
             return (ComparePair(first=anchor, second=outside, related=False) if outside else None), refusal

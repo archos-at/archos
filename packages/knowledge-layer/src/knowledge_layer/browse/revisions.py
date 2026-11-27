@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import replace
 
@@ -19,6 +20,8 @@ from .rows import _SHELF_LABELS
 from .rows import USER_SHELVES
 from .rows import FileRow
 from .rows import RowIndex
+from .rows import _folder_matches
+from .rows import _in_folder
 from .rows import confirmed_revision_marks
 from .text import _words
 from .text import fold
@@ -144,13 +147,48 @@ def _chain_line(position: int, row: FileRow, *, current: bool, mark: str | None,
     return f"{position}. {row.file_name} · {' · '.join(bits)}"
 
 
-def _chain_candidates(rows: Sequence[FileRow], wanted: str) -> list[FileRow]:
+def named_rows(rows: Sequence[FileRow], wanted: str) -> list[FileRow]:
+    from knowledge_layer.document_address import addressed
+
+    named = addressed(
+        rows,
+        wanted,
+        names=lambda row: (row.file_name, row.display_title or ""),
+        folder=lambda row: row.folder,
+        document_id=lambda row: row.document_id,
+    )
+    if named:
+        return named
     folded = fold(wanted.strip())
-    exact = [row for row in rows if folded in (fold(row.file_name), fold(row.display_title or ""))]
+    return [row for row in rows if folded in (fold(row.file_name), fold(row.display_title or ""))]
+
+
+def _chain_candidates(rows: Sequence[FileRow], wanted: str) -> list[FileRow]:
+    exact = named_rows(rows, wanted)
     if exact:
         return exact
     words = set(_words(wanted))
     return [row for row in rows if words and words <= set(row.searchable.split())]
+
+
+def addresses(rows: Sequence[FileRow]) -> list[str]:
+    from knowledge_layer.document_address import citation_form
+
+    shared = Counter(fold(row.file_name) for row in rows)
+    return [
+        f"{citation_form(row.folder, row.file_name)} (Document-ID: {row.document_id})"
+        if shared[fold(row.file_name)] > 1 and row.document_id
+        else row.file_name
+        for row in rows
+    ]
+
+
+def _chains(scoped: Sequence[FileRow], matches: Sequence[FileRow]) -> dict[frozenset[tuple[str, str]], list[FileRow]]:
+    chains: dict[frozenset[tuple[str, str]], list[FileRow]] = {}
+    for row in matches:
+        members = _chain_members(scoped, row)
+        chains.setdefault(frozenset(member.key for member in members), members)
+    return chains
 
 
 def _resolve_chain(
@@ -159,6 +197,7 @@ def _resolve_chain(
     *,
     shelf: str | None,
     default_shelves: Sequence[str],
+    folder: str | None = None,
 ) -> tuple[list[FileRow], str]:
     shelves = (shelf,) if shelf else tuple(default_shelves)
     scoped = [row for row in rows if row.shelf in shelves or (not shelf and row.shelf is None)]
@@ -169,17 +208,24 @@ def _resolve_chain(
             f'No file on {where} is named or contains "{wanted.strip()}". Find the exact name with '
             "`list_files(name_contains=…)`."
         )
-    chains: dict[frozenset[tuple[str, str]], list[FileRow]] = {}
-    for row in matches:
-        members = _chain_members(scoped, row)
-        chains.setdefault(frozenset(member.key for member in members), members)
+    chains = _chains(scoped, matches)
+    folder = (folder or "").strip().strip("/")
+    if len(chains) > 1 and folder:
+        held = _folder_matches(scoped, folder)
+        inside = [row for row in matches if held is not None and _in_folder(row, held)]
+        if not inside:
+            return [], (
+                f'No file in folder "{folder}" is named or contains "{wanted.strip()}". Its documents: '
+                f"{'; '.join(addresses(matches)[:MAX_CHAIN_CANDIDATES])}."
+            )
+        matches, chains = inside, _chains(scoped, inside)
     if len(chains) > 1:
-        names = [row.file_name for row in matches[:MAX_CHAIN_CANDIDATES]]
+        names = addresses(matches)[:MAX_CHAIN_CANDIDATES]
         rest = len(matches) - len(names)
         return [], (
-            f'"{wanted.strip()}" matches {len(chains)} different documents: {", ".join(names)}'
-            f"{f' and {rest} more' if rest > 0 else ''}. Call `list_files(revisions_of=…)` with the exact "
-            "file name of one of them."
+            f'"{wanted.strip()}" matches {len(chains)} different documents: {"; ".join(names)}'
+            f"{f' and {rest} more' if rest > 0 else ''}. Call `list_files(revisions_of=…)` with one of them as "
+            "written here."
         )
     return _chain_order(_with_supersedes(next(iter(chains.values())))), ""
 
@@ -190,8 +236,9 @@ def render_revisions(
     *,
     shelf: str | None = None,
     default_shelves: Sequence[str] = USER_SHELVES,
+    folder: str | None = None,
 ) -> str:
-    members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves)
+    members, refusal = _resolve_chain(rows, wanted, shelf=shelf, default_shelves=default_shelves, folder=folder)
     if refusal:
         return refusal
     confirmed = confirmed_revision_marks(members)

@@ -14,11 +14,17 @@ import {
 export const nameConflictResolutionSchema = z.enum(NAME_CONFLICT_RESOLUTIONS)
 
 export class NameConflictError extends ConflictError {
-  constructor(readonly conflict: NameConflict) {
-    super(
-      `${nameConflictMessage(conflict)} Ask the person, then send onConflict: replace, keep_both (stored as suggestedName) or skip.`,
-      conflict,
-    )
+  constructor(
+    readonly conflict: NameConflict,
+    message = `${nameConflictMessage(conflict)} Ask the person, then send onConflict: replace, keep_both (stored as suggestedName) or skip.`,
+  ) {
+    super(message, conflict)
+  }
+}
+
+export class RenameConflictError extends NameConflictError {
+  constructor(conflict: NameConflict) {
+    super(conflict, `${nameConflictMessage(conflict)} Choose another name, such as "${conflict.suggestedName}".`)
   }
 }
 

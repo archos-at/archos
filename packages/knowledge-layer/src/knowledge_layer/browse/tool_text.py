@@ -12,7 +12,8 @@ _LIST_FILES_DESCRIPTION = (
     "platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n"
     + TREE_PARAGRAPH
     + "`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with "
-    "Index/Datum, upload date and what changed against the one before; other filters are ignored. Add "
+    "Index/Datum, upload date and what changed against the one before; other filters but `folder=` are "
+    "ignored. Add "
     '`compare_to=` another Fassung\'s file name or "previous" („was hat sich zwischen Index B und C geändert“), '
     "or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → "
     "second: page by page in the printed text and the drawing reading, tables and lists row by row.\n"

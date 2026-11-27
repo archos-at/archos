@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from typing import Any
 
@@ -23,10 +24,12 @@ _NOT_READABLE_IS_NOT_ABSENT = (
 def _suggestion_names(wanted: str, documents: list[Any], *, limit: int = _MAX_DID_YOU_MEAN) -> list[str]:
     import difflib
 
+    from knowledge_layer.document_address import citation_form
+
     folded = (wanted or "").strip().casefold()
     if not folded:
         return []
-    scored: list[tuple[float, str]] = []
+    scored: list[tuple[float, str, Any]] = []
     for document in documents or ():
         best_name = ""
         best_ratio = 0.0
@@ -38,9 +41,17 @@ def _suggestion_names(wanted: str, documents: list[Any], *, limit: int = _MAX_DI
             if ratio > best_ratio:
                 best_name, best_ratio = candidate, ratio
         if best_name and best_ratio >= _DID_YOU_MEAN_CUTOFF:
-            scored.append((best_ratio, best_name))
-    scored.sort(key=lambda item: (-item[0], item[1]))
-    return [name for _ratio, name in scored[:limit]]
+            scored.append((best_ratio, best_name, document))
+    shared = Counter(name.casefold() for _ratio, name, _document in scored)
+    named = [
+        (
+            ratio,
+            citation_form(getattr(document, "folder_path", None), name) if shared[name.casefold()] > 1 else name,
+        )
+        for ratio, name, document in scored
+    ]
+    named.sort(key=lambda item: (-item[0], item[1]))
+    return list(dict.fromkeys(name for _ratio, name in named))[:limit]
 
 
 def _unknown_document_message(document: str, known: int, suggestions: Sequence[str] | None = None) -> str:
