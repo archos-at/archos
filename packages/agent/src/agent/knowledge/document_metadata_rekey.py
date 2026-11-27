@@ -60,6 +60,7 @@ class NameMatch:
     document_id: str | None
     reason: UnmatchedReason | None = None
     by_key: bool = False
+    held: bool = False
 
 
 @dataclass(frozen=True)
@@ -98,7 +99,7 @@ class LiveDocuments:
             if spelling in self.ids_by_name:
                 return NameMatch(self.ids_by_name[spelling])
         if any(spelling in self.ambiguous for spelling in spellings):
-            return NameMatch(None, "ambiguous")
+            return NameMatch(None, "ambiguous", held=True)
         keys = list(dict.fromkeys(map(name_match_key, spellings)))
         for key in keys:
             if key in self.ids_by_key:

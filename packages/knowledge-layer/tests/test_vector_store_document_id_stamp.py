@@ -70,6 +70,7 @@ def test_a_point_without_an_id_whose_name_two_live_documents_hold_is_counted_as_
     count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
 
     assert (count.written, count.after, count.unmatched, count.unmatched_held) == (0, 0, 2, 1)
+    assert _reasons(count) == {(SCOPE, "ambiguous"): 1, (SCOPE, "no_holder"): 1}
     assert _keys("Plan.pdf") == [(None, None)], "neither namesake can claim it"
 
 
@@ -102,7 +103,7 @@ def test_a_point_whose_name_differs_from_one_live_document_only_by_case_or_white
     assert _keys(" grundriss eg.PDF") == [("doc_eg", None)] * 2
 
 
-def test_a_drifted_name_two_live_documents_hold_by_the_match_key_is_held_and_never_guessed(fresh_qdrant_store):
+def test_a_drifted_name_two_live_documents_hold_by_the_match_key_is_ambiguous_but_never_held(fresh_qdrant_store):
     write(SCOPE, [record("vor den Ids", "PLAN.pdf")])
     collection = fresh_qdrant_store.alias(SCOPE)
 
@@ -111,7 +112,7 @@ def test_a_drifted_name_two_live_documents_hold_by_the_match_key_is_held_and_nev
 
     count = stamp_document_ids(fresh_qdrant_store.client, collection, live, apply=True, page_size=2)
 
-    assert (count.written, count.unmatched, count.unmatched_held) == (0, 1, 1)
+    assert (count.written, count.unmatched, count.unmatched_held) == (0, 1, 0)
     assert _reasons(count) == {(SCOPE, "ambiguous"): 1}
     assert _keys("PLAN.pdf") == [(None, None)]
 

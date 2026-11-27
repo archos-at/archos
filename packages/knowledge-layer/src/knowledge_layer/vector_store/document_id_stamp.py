@@ -117,13 +117,14 @@ def _matched(
 
     ids: dict[tuple[str, str], str] = {}
     reasons: Counter[tuple[str, UnmatchedReason]] = Counter()
+    held = 0
     for (scope, file_name), match in found.items():
         reason = reason_left(scope, match)
         if match.document_id and reason is None:
             ids[(scope, file_name)] = match.document_id
         else:
             reasons[(scope, reason or "no_holder")] += files[(scope, file_name)]
-    held = sum(count for (_, reason), count in reasons.items() if reason == "ambiguous")
+            held += files[(scope, file_name)] if match.held else 0
     return _Match(ids, sum(reasons.values()), held, tuple(unmatched_by_scope(reasons)))
 
 
