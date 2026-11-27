@@ -21,7 +21,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 import type { FolderClearance } from './folder-access-rule'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_folders_${Date.now()}`

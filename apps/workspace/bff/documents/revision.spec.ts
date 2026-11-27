@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('./lifecycle', () => ({ forkDraftVersion: vi.fn() }))
 vi.mock('./version-repository', () => ({ findOpenVersion: vi.fn(), listDocumentVersions: vi.fn() }))

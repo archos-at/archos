@@ -15,7 +15,6 @@ import type { BimElement } from './types'
 const contextForPage = vi.fn<(organizationId: string, projectId: string) => Promise<KnowledgeContext>>()
 const loadBimElementsForSchedule = vi.fn<() => Promise<{ elements: BimElement[]; truncated: boolean }>>()
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage }))
 vi.mock('./repository', () => ({
   loadBimRuleInputs: vi.fn(async () => null),

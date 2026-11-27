@@ -9,7 +9,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 
-vi.mock('server-only', () => ({}))
 
 const send = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/s3', async (importOriginal) => ({

@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const getOrganization = vi.fn()
 const listOrganizationMemberships = vi.fn()
 const store = new Map<string, unknown>()
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: () => ({ organizations: { getOrganization }, userManagement: { listOrganizationMemberships } }) }))
 vi.mock('./repository', () => ({ findOrganization: vi.fn(async () => null), upsertOrganization: vi.fn() }))
 vi.mock('@/lib/cache', () => ({

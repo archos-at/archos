@@ -8,7 +8,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const { FRESHNESS_SCORE_NAME, SOURCE_MONITOR_TRACE_NAME, sourceMonitorBatch } = await import('./source-monitor-trace')
 

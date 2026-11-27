@@ -10,7 +10,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const repository = vi.hoisted(() => {
   const empty = () => vi.fn(async () => [])

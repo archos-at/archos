@@ -29,7 +29,6 @@ import { doorScript, platformOperator, platformSession } from '@/lib/agent-api/t
 const fixed = vi.hoisted(() => ({ platformOrg: 'org_platform_release_transfer' }))
 const corpora = vi.hoisted(() => ({ source: new Map<string, string>(), target: new Map<string, string>(), current: 'source' as 'source' | 'target' }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()

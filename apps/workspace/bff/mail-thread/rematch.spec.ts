@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({
   findWaitingMailsNearThread: vi.fn(async () => []),
   recordThreadMatch: vi.fn(async () => true),

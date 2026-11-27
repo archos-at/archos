@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 const captureException = vi.fn()
 
 let tenant: unknown
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({ getTenantContext: () => tenant }))
 vi.mock('posthog-node', () => ({
   PostHog: class {

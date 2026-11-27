@@ -5,9 +5,8 @@
  * the server, so the filing guard (restricted folders, Meine Ablage) runs on
  * apply as it does for a person's own filing.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { withConversationOrigin } from './operation-origin'
 

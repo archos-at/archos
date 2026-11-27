@@ -7,7 +7,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const signed = vi.hoisted(() => [] as Array<{ collectionScope?: unknown[]; organizationId?: string }>)
 

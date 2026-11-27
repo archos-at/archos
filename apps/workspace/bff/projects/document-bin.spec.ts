@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const policy = vi.hoisted(() => ({ assertMayBinDocument: vi.fn(), createHolder: vi.fn() }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/access', () => ({ findDocumentForSession: vi.fn() }))
 vi.mock('@/lib/compliance/holds', () => ({ assertNoActiveHold: vi.fn() }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))

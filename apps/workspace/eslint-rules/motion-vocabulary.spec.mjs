@@ -6,7 +6,7 @@
  * author disables the rule.
  */
 
-import { RuleTester } from 'oxlint/plugins-dev'
+import { RuleTester } from './rule-tester.mjs'
 import rule from './motion-vocabulary.mjs'
 
 const ruleTester = new RuleTester({

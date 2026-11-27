@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn() }))
 vi.mock('@/lib/limits', () => ({ consumeLimit: vi.fn() }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ insertJobIfAbsent: vi.fn() }))

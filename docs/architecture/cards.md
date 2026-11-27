@@ -949,7 +949,7 @@ Three guards, on both sides of the stack:
 1. **`tsc` fails on an unclassified card type.** `CARD_INTERACTIVITY`
    (`card-decision.ts`) is `Record<AnswerCard['type'], …>`, so the moment
    `npm run generate:cards` adds a type, the build breaks until you classify it.
-2. **A vitest guard fails on a classified-but-unwired card.**
+2. **A spec guard fails on a classified-but-unwired card.**
    `card-interactivity.spec.tsx` renders every `'interactive'` type through
    `AnswerCards`, clicks it, and asserts the decision reached the store.
 3. **A pytest parity guard fails on cross-stack drift.**

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./store/repository', () => ({ copyForDocument: vi.fn(), documentsWithEntries: vi.fn() }))
 const licenceStep = vi.hoisted(() => ({ ask: true }))
 vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({

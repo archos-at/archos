@@ -2,9 +2,8 @@
  * @vitest-environment node
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const { PLAN_ROW_BUDGET, shouldWalkOrdered } = await import('./repository')
 

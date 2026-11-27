@@ -23,7 +23,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { approveSeededRequest } from '../platform/testing/lifecycle'
 import type { RulesetValuesInput } from '../wire/ruleset'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_rs_${Date.now()}`

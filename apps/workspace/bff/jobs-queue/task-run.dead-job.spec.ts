@@ -9,7 +9,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   runWithTenantSlot: <T,>(fn: () => Promise<T>) => fn(),
   withPlatformAccess: <T,>(_why: string, fn: () => Promise<T>) => fn(),

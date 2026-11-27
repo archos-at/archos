@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 const { hasWrittenInOrganization, getUserPreferences } = vi.hoisted(() => ({
   hasWrittenInOrganization: vi.fn(),
   getUserPreferences: vi.fn(),

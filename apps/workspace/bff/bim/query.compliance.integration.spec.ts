@@ -11,7 +11,6 @@ import { loadBimRuleInputs, saveBimRuleInputs } from './repository'
 import { platform, seedDocument, seedQueryFixture, type QueryFixture } from './query.fixtures'
 import { buildStoredRuleInputs } from './rule-inputs'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', async () => {
   const { settledContext } = await import('./rule-basis.fixtures')
   return { contextForPage: vi.fn(async () => settledContext()) }

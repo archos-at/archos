@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 
 let held = new Set<string>()
 vi.mock('@/lib/authz/decide', () => ({

@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/tasks/run-moves', () => ({ claimRunsToInterrupt: vi.fn() }))
 vi.mock('@/lib/tasks/service', () => ({ recordRunOutcome: vi.fn() }))
 vi.mock('@/lib/jobs/backend-client', () => ({ killActiveBackendJobs: vi.fn() }))

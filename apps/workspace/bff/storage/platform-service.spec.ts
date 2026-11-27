@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({ aggregateStorageUsageByOrganization: vi.fn() }))
 vi.mock('@/lib/organizations/repository', () => ({ findOrganizations: vi.fn(), ORGANIZATION_PAGE_MAX: 500 }))
 vi.mock('@/lib/organizations/display-names', () => ({ getOrganizationDisplayNames: vi.fn() }))

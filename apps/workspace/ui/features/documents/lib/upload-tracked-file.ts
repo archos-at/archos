@@ -54,7 +54,8 @@ export interface UploadTrackedFileContext
   outcome: UploadOutcome
 }
 
-export const isAbort = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError'
+export const isAbort = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError'
 
 export async function uploadTrackedFile(
   { file, tracked }: UploadEntry,

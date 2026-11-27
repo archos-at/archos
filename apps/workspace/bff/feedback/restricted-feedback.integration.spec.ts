@@ -36,7 +36,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { executeRows } from '@/lib/db/execute-rows'
 import { NO_RATINGS_FILTERS, type FeedbackQuery } from './filters'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_organizationId: string, text: string) => ({ text })),
 }))

@@ -23,7 +23,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { emptySkillSnapshot } from '@/lib/jobs/types'
 import { internalRead } from '@/lib/documents/document-reader'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/jobs-queue/handlers', async () => ({ JOB_HANDLERS: (await import('@/test-utils/scripted-job-handlers')).SCRIPTED_HANDLERS }))
 
 const url = process.env.TEST_DATABASE_URL

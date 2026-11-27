@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('../store/repository', () => ({ readOfficeEntries: vi.fn() }))
 vi.mock('./bulk', () => ({ moveEntry: vi.fn(), removeEntry: vi.fn() }))
 vi.mock('./folders', () => ({

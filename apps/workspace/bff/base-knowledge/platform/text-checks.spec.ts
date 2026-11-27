@@ -16,7 +16,6 @@ const corpus = vi.hoisted(() => ({ files: [] as { fileName: string; state: strin
 const SHA = 'a'.repeat(64)
 const OTHER = 'b'.repeat(64)
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseStatus: async () => {
     if (!corpus.answers) throw new Error('Knowledge backend unreachable')

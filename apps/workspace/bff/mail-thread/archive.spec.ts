@@ -8,7 +8,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./write-repository', () => ({
   acquireRenderLease: vi.fn(async () => true),
   releaseRenderLease: vi.fn(async () => {}),

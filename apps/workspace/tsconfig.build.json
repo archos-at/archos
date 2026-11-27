@@ -18,7 +18,6 @@
     "tests/**",
     "tests/test-utils/**",
     "tests/mocks/**",
-    "config/vitest/**",
-    "vitest.config.ts"
+    "config/test-runner/**"
   ]
 }

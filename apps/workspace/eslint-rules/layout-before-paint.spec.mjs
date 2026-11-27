@@ -1,4 +1,4 @@
-import { RuleTester } from 'oxlint/plugins-dev'
+import { RuleTester } from './rule-tester.mjs'
 import rule from './layout-before-paint.mjs'
 
 const ruleTester = new RuleTester({

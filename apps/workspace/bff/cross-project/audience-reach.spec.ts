@@ -7,7 +7,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import type { Project } from '@/lib/db/schema/projects'
 
-vi.mock('server-only', () => ({}))
 
 const OWNER = 'user_owner'
 const INA = 'user_ina'

@@ -12,7 +12,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/pg-proxy'
 
-vi.mock('server-only', () => ({}))
 
 const captured: Array<{ sql: string; params: unknown[] }> = []
 let answer: unknown[][] = []

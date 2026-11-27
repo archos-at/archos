@@ -5,9 +5,8 @@
  * fixtures that proved it, and nothing for a source no lookup reads or one too large to carry.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const { lookupConfig } = await import('./sources')
 const { MAX_SOURCE_CONFIG_CHARS } = await import('./wire')

@@ -9,7 +9,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 const state = vi.hoisted(() => ({
   order: [] as { id: string; role: string }[],
   reads: [] as { messageId: string; readFolders: string[]; readProjects: string[] }[],

@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./resolve', () => ({ resolveConversationContext: vi.fn() }))
 const tenancy = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: tenancy }))

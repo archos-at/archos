@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/person', () => ({ resolvePerson: vi.fn(async () => null) }))
 vi.mock('@/lib/budgets/service', () => ({ getBudgetStatus: vi.fn(async () => { throw new Error('no budget') }) }))
 vi.mock('@/lib/model-config/service', () => ({ getEffectiveModelOverrides: vi.fn(async () => null) }))

@@ -8,7 +8,6 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { InboxItem } from '@/lib/db/schema/inbox'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/conversations/shelf-titles', () => ({
   shelfChatsHiddenFromAgent: vi.fn(async (_org: string, _user: string, ids: string[]) => new Set(ids.filter((id) => id.startsWith('s_shelf')))),
 }))

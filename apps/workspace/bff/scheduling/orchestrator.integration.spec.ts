@@ -24,7 +24,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { HatchetClient, Worker } from '@hatchet-dev/typescript-sdk/v1'
 import type { TaskDefinition } from '@/lib/db/schema/task-model'
 
-vi.mock('server-only', () => ({}))
 
 const setScheduledRunId = vi.fn(async (_id: string, _org: string, _run: string | null) => undefined)
 const advanceDueDefinition = vi.fn()

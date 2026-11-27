@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./due-repository', () => ({ listDueMarksPage: vi.fn(), listOrganizationsWithDueMarks: vi.fn() }))
 vi.mock('@/lib/inbox/repository', () => ({ readGroupPayloads: vi.fn() }))
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn().mockResolvedValue(1) }))

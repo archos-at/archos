@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({
   addUploadBatchExclusions: vi.fn().mockResolvedValue(true),
   countBatchDocumentsByStatus: vi.fn(),

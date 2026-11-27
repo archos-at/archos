@@ -7,9 +7,8 @@
  * says the authority is unknown rather than reading the authority record's own
  * territory list, the guess the rulesets replaced.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import { directiveVerdict } from './platform'

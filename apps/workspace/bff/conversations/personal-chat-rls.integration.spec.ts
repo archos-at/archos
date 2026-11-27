@@ -14,7 +14,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/session-documents/cleanup', () => ({
   purgeSessionDocuments: vi.fn(async () => ({ ok: true, retained: 0, failures: [] })),
   deleteSessionCollection: vi.fn(async () => ({ ok: true })),

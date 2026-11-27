@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./service', () => ({ heldWorksOf: vi.fn() }))
 vi.mock('./repository', () => ({ listOrganizationsWithOfficeEditions: vi.fn() }))
 vi.mock('../context/service', () => ({ knowledgeContextForTurn: vi.fn() }))

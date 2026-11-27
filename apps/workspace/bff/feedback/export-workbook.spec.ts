@@ -3,7 +3,7 @@
  */
 
 import { Workbook, type CellHyperlinkValue, type Worksheet } from 'exceljs'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { feedbackExportCopy } from '@/i18n/namespaces/feedback-export'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
@@ -18,7 +18,6 @@ import { FEEDBACK_EXPORT_COLUMNS, FEEDBACK_WEEKLY_COLUMNS } from './export-colum
 import type { FeedbackExport } from './export-service'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-vi.mock('server-only', () => ({}))
 
 const { renderFeedbackWorkbook, XLSX_MAX_CELL_CHARS } = await import('./export-workbook')
 

@@ -7,7 +7,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/conversations/restricted-egress', () => ({
   AGENT_REFUSAL_LOCALE: 'de',
   requireNoPersonalShelfEgress: vi.fn(async () => undefined),

@@ -116,9 +116,9 @@ sync by its pre-commit hook).
 
 **A spec sets the environment through `vi.stubEnv`**, never by assigning to
 `process.env`: `vi.stubEnv(name, value)`, and `vi.stubEnv(name, undefined)` to
-unset. Under the `vmForks` pool every spec file of a worker shares one
-`process.env`, so a direct assignment leaked into whichever file ran next (the
-red `internal-auth.spec.ts` of #1763). The vitest setup calls
+unset. Every spec file a test worker runs shares its one `process.env`, so a
+direct assignment leaked into whichever file ran next (the red
+`internal-auth.spec.ts` of #1763). `config/test-runner/setup.ts` calls
 `vi.unstubAllEnvs()` after each file. The `spec-env-writes` hook
 (`scripts/check_spec_env_writes.py`) fails a spec or test helper that assigns,
 deletes or `Object.assign`s `process.env`.

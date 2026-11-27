@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./wake-repository', () => ({ listAnsweringWakes: vi.fn() }))
 
 import { wakeOfReply, wakeSpansFor, type WakeSpan } from './wake-attribution'

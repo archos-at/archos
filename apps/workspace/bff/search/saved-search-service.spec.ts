@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./saved-search-repository', () => ({
   countOwnedSavedSearches: vi.fn(),
   deleteOwnSavedSearch: vi.fn(),

@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/folder-access', async () => ({
   ...(await vi.importActual<typeof import('@/lib/authz/folder-access-rule')>('@/lib/authz/folder-access-rule')),
   loadCustomFolderTree: vi.fn(),

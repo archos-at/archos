@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createZip } from './zip'
 
-vi.mock('server-only', () => ({}))
 
 interface StoredObject {
   key: string

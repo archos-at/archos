@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RestrictedProjectsPage } from '@/lib/authz/folder-access-repository'
 import type { PlacementResult } from './collection-placement'
 
-vi.mock('server-only', () => ({}))
 
 const listProjects = vi.fn<(page: RestrictedProjectsPage) => Promise<Array<{ organizationId: string; projectId: string }>>>()
 const place = vi.fn<(organizationId: string, projectId: string) => Promise<PlacementResult>>()

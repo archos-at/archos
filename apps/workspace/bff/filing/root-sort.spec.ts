@@ -8,7 +8,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./service', () => ({}))
 vi.mock('./judge', () => ({}))
 vi.mock('./repository', () => ({}))

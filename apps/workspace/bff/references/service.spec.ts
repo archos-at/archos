@@ -8,7 +8,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Project } from '@/lib/db/schema/projects'
 import { makeMemoryItem, makeProject } from '@/test-utils/db-fixtures'
 
-vi.mock('server-only', () => ({}))
 
 const ORG = 'org_1'
 const session = { userId: 'user_me', organizationId: ORG, role: 'member', permissions: [] } as unknown as AuthorizedSession

@@ -9,7 +9,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { RevisionLinkNames } from './revision-links'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/authz/folder-access', () => ({ getProjectFolderAccess: vi.fn() }))
 vi.mock('./shelf-collection', () => ({ shelfCollectionName: vi.fn().mockResolvedValue('proj_abc') }))

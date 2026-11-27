@@ -11,7 +11,6 @@ import { BadRequestError, ForbiddenError, NotFoundError } from '@/lib/api/errors
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { makeDocument } from '@/test-utils/db-fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
 
 import { getAccessibleDocument } from './access'

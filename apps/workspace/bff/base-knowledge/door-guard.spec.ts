@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const reader = vi.hoisted(() => ({ agent: true }))
 vi.mock('@/lib/agent-api/acting-session', () => ({ actingReaderIsAgent: () => reader.agent }))
 const licence = vi.hoisted(() => ({ value: null as unknown }))

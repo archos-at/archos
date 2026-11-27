@@ -9,7 +9,6 @@ import { describe, it, vi } from 'vitest'
 import { expectGenerated } from '@/test-utils/generated-file'
 import type { Project } from '@/lib/db/schema/projects'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/projects/repository', () => ({ listProjectsInOrg: vi.fn(), findProjectInOrg: vi.fn() }))
 
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'

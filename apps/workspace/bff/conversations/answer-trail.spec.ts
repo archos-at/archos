@@ -7,7 +7,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 const rows = vi.hoisted(() => ({ value: [] as unknown[] }))
 vi.mock('@/lib/db', () => ({
   getDb: () => ({

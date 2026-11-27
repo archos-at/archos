@@ -1,8 +1,7 @@
 import postgres from 'postgres'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PLATFORM_ROLE } from './tenant-context'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL ?? ''
 const STAMP = Date.now()

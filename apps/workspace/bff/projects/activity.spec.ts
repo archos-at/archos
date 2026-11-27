@@ -4,7 +4,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 
 const requireProjectAccess = vi.fn(async () => ({ role: 'project-viewer' }))
 vi.mock('@/lib/authz/projects', () => ({

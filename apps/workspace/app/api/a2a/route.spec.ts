@@ -5,7 +5,6 @@
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/agent-api/principal', async (original) => ({
   ...(await original<typeof import('@/lib/agent-api/principal')>()),
   resolvePrincipal: vi.fn(),

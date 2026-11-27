@@ -13,7 +13,6 @@ import {
   polaritySignature,
 } from '@/lib/knowledge/consolidation'
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/knowledge/embeddings')>()

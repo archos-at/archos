@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bestEffort, bestEffortInBackground } from './best-effort'
 import { requireTenantContext, withTenant } from './db/tenant-context'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/analytics/posthog-server', () => ({
   getPosthogServer: () => null,
   serverEventIdentity: () => ({ distinctId: 'system', properties: {} }),

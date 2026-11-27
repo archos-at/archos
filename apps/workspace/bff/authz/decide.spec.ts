@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const requireProjectAccess = vi.fn()
 vi.mock('./projects', () => ({

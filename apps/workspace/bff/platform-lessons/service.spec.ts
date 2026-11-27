@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: vi.fn(async (_reason: string, fn: () => Promise<unknown>) => fn()),
 }))

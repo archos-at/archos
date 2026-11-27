@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RootSortRun } from '@/lib/db/schema/root-sort-runs'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
   getTenantContext: vi.fn(() => undefined),
   withTenant: vi.fn(async (_scope: unknown, fn: () => unknown) => await fn()),

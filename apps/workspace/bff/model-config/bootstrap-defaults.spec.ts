@@ -12,7 +12,6 @@ import {
 } from './bootstrap-defaults'
 import type { LlmBaseUrls } from './backend-defaults'
 
-vi.mock('server-only', () => ({}))
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 

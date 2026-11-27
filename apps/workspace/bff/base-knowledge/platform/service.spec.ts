@@ -15,7 +15,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const held = { permissions: new Set<string>() }
 vi.mock('@/lib/authz/platform', () => ({

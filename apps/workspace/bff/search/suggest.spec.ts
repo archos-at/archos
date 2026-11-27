@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { DocumentFilters } from './search-wire'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./document-search', () => ({ narrowedTo: vi.fn(), structuredQuery: vi.fn() }))
 vi.mock('./reach', () => ({ reachFor: vi.fn(), resolveScope: vi.fn() }))
 vi.mock('./suggest-repository', () => ({ suggestValues: vi.fn() }))

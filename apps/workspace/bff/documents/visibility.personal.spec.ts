@@ -1,7 +1,6 @@
 import { PgDialect } from 'drizzle-orm/pg-core'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { type SQL } from 'drizzle-orm'
 import { REVIEWER_READER, SCREENED_ONLY, internalRead, memberReader } from './document-reader'

@@ -30,7 +30,6 @@ const fixed = vi.hoisted(() => ({ platformOrg: 'org_platform_carry' }))
 const corpus = vi.hoisted(() => new Map<string, CorpusFile>())
 const served = vi.hoisted(() => new Map<string, Buffer>())
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/platform')>()),

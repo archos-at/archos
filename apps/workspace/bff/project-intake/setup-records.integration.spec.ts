@@ -31,7 +31,6 @@ import { computeNeeds } from './needs'
 import { GERMAN_RECORDS, SWISS_RECORDS, placedProfile } from './setup-countries.fixtures'
 import { hasSetupRecords, setupScopeOf, subdivisionTerritories } from './setup-scope'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/knowledge/service', () => ({
   reingestKnowledgeBaseDocuments: async () => ({ status: 'pending', queued: [], unknown: [], message: '' }),

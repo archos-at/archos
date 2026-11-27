@@ -1,6 +1,6 @@
 import net from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NETWORK_REFUSED_HEADER } from '../config/vitest/network-guard'
+import { NETWORK_REFUSED_HEADER } from '../config/test-runner/network-guard'
 
 describe('the network guard', () => {
   afterEach(() => vi.restoreAllMocks())

@@ -220,7 +220,7 @@ COMMIT;
 The unit-level guard needs no database:
 
 ```bash
-cd apps/workspace && npx vitest run src/lib/db/rls-coverage.spec.ts
+cd apps/workspace && bun run test:specs ./bff/db/rls-coverage.spec.ts
 ```
 
 The isolation suite needs a real Postgres, because the claim is that the
@@ -250,7 +250,7 @@ or against your own database:
 ```bash
 export PGPASSWORD=...   # the password you gave app_rw
 export TEST_DATABASE_URL="postgres://app_rw:$PGPASSWORD@localhost:5432/app"
-npx vitest run src/lib/db/tenant-isolation.integration.spec.ts
+bun run test:specs ./bff/db/tenant-isolation.integration.spec.ts
 ```
 
 ---

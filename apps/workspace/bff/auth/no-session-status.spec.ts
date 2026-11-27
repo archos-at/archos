@@ -14,7 +14,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const withAuth = vi.hoisted(() => vi.fn())
 vi.mock('@workos-inc/authkit-nextjs', () => ({

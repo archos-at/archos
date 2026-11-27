@@ -3,7 +3,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./folder-access-repository', () => ({
   projectHasCustomFolders: vi.fn(async () => true),
   projectHasCustomOrBinnedFolders: vi.fn(),

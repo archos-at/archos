@@ -7,7 +7,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const pruneExpiredInboxItems = vi.fn<() => Promise<{ deleted: number; cutoff: string }>>()
 const sweepOrphanedCollaborationRows = vi.fn<() => Promise<{ grants: number; requests: number; inboxItems: number }>>()
 vi.mock('@/lib/collaboration/retention', () => ({ pruneExpiredInboxItems: () => pruneExpiredInboxItems() }))

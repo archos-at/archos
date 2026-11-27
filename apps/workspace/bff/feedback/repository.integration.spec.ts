@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NO_RATINGS_FILTERS, type FeedbackQuery, type RatingsFilters } from './filters'
 import { presetRange } from '@/lib/quality/scope'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 

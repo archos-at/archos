@@ -7,7 +7,6 @@ import { closeDb } from '@/lib/db'
 import { BimModelNotReadyError, buildBimPredicate, runBimQuery } from './query'
 import { seedQueryFixture, type QueryFixture } from './query.fixtures'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', async () => {
   const { settledContext } = await import('./rule-basis.fixtures')
   return { contextForPage: vi.fn(async () => settledContext()) }

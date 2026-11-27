@@ -7,7 +7,6 @@ import type { DeleteObjectCommand } from '@aws-sdk/client-s3'
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
-vi.mock('server-only', () => ({}))
 
 const send = vi.fn()
 vi.mock('@/lib/s3', async () => {

@@ -8,7 +8,6 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
 
 import { placementOf } from './organization-countries'

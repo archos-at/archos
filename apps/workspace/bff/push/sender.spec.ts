@@ -5,7 +5,6 @@ import { createRequire } from 'node:module'
 import webpush, { generateVAPIDKeys } from 'web-push'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { createWebPushSender, isSendableEndpoint, outcomeForStatus } from './sender'
 

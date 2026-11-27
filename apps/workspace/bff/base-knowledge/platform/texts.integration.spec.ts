@@ -49,7 +49,6 @@ const corpus = vi.hoisted(() => ({
   answers: true,
 }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: async () => undefined }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {

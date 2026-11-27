@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const seedProjectProfile = vi.fn()
 vi.mock('@/lib/project-profile/profile-service', () => ({

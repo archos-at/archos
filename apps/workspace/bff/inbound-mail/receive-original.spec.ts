@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./receive-repository', () => ({ findAddressToken: vi.fn(async () => 'aaaaaaaaaaaa') }))
 vi.mock('./receive-original-repository', () => ({ recordOriginalFields: vi.fn(async () => undefined) }))
 

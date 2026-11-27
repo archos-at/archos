@@ -7,7 +7,7 @@
  *   node scripts/declare-disk-inputs.mjs src/a.spec.ts   # just these
  *
  * The line is what `ci/pr_selection.py` selects on, and
- * `config/vitest/disk-inputs.ts` fails a spec that reads outside it. Run this
+ * `config/test-runner/disk-inputs.ts` fails a spec that reads outside it. Run this
  * when that check names a path, then read the new line before committing it:
  * a walker that reads a whole directory is declared as `dir/**`, which is
  * correct and also the widest it can be.
@@ -65,7 +65,7 @@ export function withDeclaration(source, globs) {
 function main(argv) {
   const specs = argv.length ? argv : specsReadingDisk()
   rmSync(OUT, { recursive: true, force: true })
-  execFileSync('bunx', ['vitest', 'run', ...specs], {
+  execFileSync('bun', ['run', 'test:specs', ...specs.map((spec) => `./${spec}`)], {
     cwd: UI,
     stdio: 'inherit',
     env: { ...process.env, DISK_INPUTS: 'record' },

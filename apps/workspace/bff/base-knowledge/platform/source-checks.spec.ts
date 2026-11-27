@@ -16,7 +16,6 @@ const stub = vi.hoisted(() => ({
   problems: [] as { fixture: string | null; detail: string }[],
 }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('./store', () => ({ platformTransaction: async <T>(run: (tx: unknown) => Promise<T>) => run({}) }))
 vi.mock('./captures', () => ({
   isPdf: (contentType: string | null) => (contentType ?? '').split(';')[0].trim().toLowerCase() === 'application/pdf',

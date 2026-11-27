@@ -34,7 +34,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { projectMemory } from '@/lib/db/schema/project-memory'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/knowledge/embeddings')>()

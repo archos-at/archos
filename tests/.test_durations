@@ -18562,7 +18562,7 @@
 "tests/test_pr_selection.py::test_what_changes_how_every_python_test_runs_forces_the_full_suite[uv.lock]": 0.001,
 "tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[.github/actions/setup-bun/action.yml]": 0.001,
 "tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/bun.lock]": 0.001,
-"tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/config/vitest/vitest.setup.ts]": 0.001,
+"tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/config/test-runner/setup.ts]": 0.001,
 "tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/package.json]": 0.001,
 "tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/tests/mocks/handlers.ts]": 0.001,
 "tests/test_pr_selection.py::test_what_every_spec_loads_forces_the_full_ui_suite[apps/workspace/tsconfig.json]": 0.001,

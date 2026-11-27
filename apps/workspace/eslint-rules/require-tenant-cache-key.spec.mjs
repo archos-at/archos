@@ -12,8 +12,9 @@
  * invalid ones are the shapes a leak arrives in.
  */
 
-import { RuleTester } from 'oxlint/plugins-dev'
-import { describe, expect, it } from 'vitest'
+import { RuleTester } from './rule-tester.mjs'
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
 import rule from './require-tenant-cache-key.mjs'
 import { GLOBAL_CACHE_KEYS } from './global-cache-keys.mjs'
 
@@ -99,14 +100,14 @@ ruleTester.run('require-tenant-cache-key', rule, {
 describe('the global-key allowlist', () => {
   it('gives every entry a reason', () => {
     for (const [key, reason] of Object.entries(GLOBAL_CACHE_KEYS)) {
-      expect(reason, `${key} has no reason`).toBeTruthy()
-      expect(reason.length, `${key}'s reason is too short to be one`).toBeGreaterThan(40)
+      assert.ok(reason, `${key} has no reason`)
+      assert.ok(reason.length > 40, `${key}'s reason is too short to be one`)
     }
   })
 
   it('holds only constant keys — a key with a segment in it is not global', () => {
     for (const key of Object.keys(GLOBAL_CACHE_KEYS)) {
-      expect(key, `${key} looks interpolated`).not.toMatch(/\$\{|\*/)
+      assert.doesNotMatch(key, /\$\{|\*/, `${key} looks interpolated`)
     }
   })
 })

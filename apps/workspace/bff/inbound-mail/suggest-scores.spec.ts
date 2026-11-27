@@ -7,7 +7,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/langfuse/decision-score', () => ({ recordDecisionScore: vi.fn(async () => {}) }))
 vi.mock('@/lib/langfuse/mail-thread-match-score', () => ({ recordMailThreadMatchScore: vi.fn(async () => {}) }))
 vi.mock('./repository', () => ({}))

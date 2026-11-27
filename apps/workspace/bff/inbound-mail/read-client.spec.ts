@@ -7,7 +7,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-url', () => ({ getBackendUrl: () => 'http://aiq-api' }))
 
 import { INTERNAL_TOKEN_HEADER, InternalServiceUnavailableError } from '@/lib/internal-auth'

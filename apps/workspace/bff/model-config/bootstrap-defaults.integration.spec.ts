@@ -5,7 +5,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AGENT_GROUPS } from './agent-groups'
 
-vi.mock('server-only', () => ({}))
 
 const url = process.env.TEST_DATABASE_URL
 

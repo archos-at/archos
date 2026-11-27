@@ -14,10 +14,9 @@
  * these tests need no binary fixture and no zip dependency of their own.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createZip } from './zip'
 
-vi.mock('server-only', () => ({}))
 
 import { IfcArchiveError, isZipArchive, readArchiveModelEntries, unwrapIfcArchive } from './ifc-archive'
 

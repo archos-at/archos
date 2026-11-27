@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 
-vi.mock('server-only', () => ({}))
 
 const state = vi.hoisted(() => ({
   reachable: [] as Project[],

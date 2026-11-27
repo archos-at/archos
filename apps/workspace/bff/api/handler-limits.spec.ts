@@ -8,7 +8,6 @@ const requireAuthorizedSession = vi.fn()
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: () => requireAuthorizedSession(),
 }))
-vi.mock('server-only', () => ({}))
 
 import { DEFAULT_MUTATION_LIMIT, createInProcessStore, setLimitStore } from '@/lib/limits'
 import { apiRoute } from './handler'

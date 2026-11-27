@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '@/test-utils/db-fixtures'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('./repository', () => ({ setDocumentReconciledStatus: vi.fn() }))
 vi.mock('./reconcile-status', () => ({

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { BadRequestError, UnprocessableError } from '@/lib/api/errors'
 import { setCacheStore } from '@/lib/cache'

@@ -9,7 +9,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 const { contextForPage, knowledgeContextForTurn, readOrganizationCountries, insertChangeRequest, requireProjectAccess, requirePersonDecision, inserted } =
   vi.hoisted(() => ({
     contextForPage: vi.fn(),

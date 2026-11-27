@@ -38,7 +38,7 @@ takes every path that differs from the merge base with `origin/develop`
 for a pull request, from the same two definitions:
 
 - a tier runs when [`.github/filters.yml`](../../.github/filters.yml) names a changed path;
-- the UI tier runs the specs `ci/pr_selection.py` selects (`vitest related`),
+- the UI tier runs the specs `ci/pr_selection.py` selects (`scripts/related-specs.mjs`),
   or the whole suite when the change reaches what every spec loads;
 - the backend tier runs whole, without coverage (`be:verify:fast`), until you
   record this checkout's testmon databases once with `task be:test:testmon`.
@@ -103,25 +103,31 @@ workers agent_host went from 67 s to 44 s and the core suite from about 3m20s to
 2m27s. A test that passes only after another one ran fails under it; fix the
 test, do not drop the flag.
 
-**The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
-process runs many spec files, each in a fresh vm context, instead of one
-process per file (`pool: 'vmForks'` in `apps/workspace/vitest.config.ts`; the
-whole suite went from 800s to 351s on four cores, 2026-11-10). A context is a
-realm of its own, so specs still do not share globals, modules or mocks. Three
-things follow from the realm:
+**The UI suite runs on `bun test` (`apps/workspace/bunfig.toml`), in eight
+timed shards, locally as in CI.** `--parallel` gives each spec file a fresh
+global object and module registry, so specs do not share globals, modules or
+mocks, but a worker process runs many files. Three things follow:
 
-- An object from Node itself (a `Buffer` off a socket, a `URL`, a
-  `DOMException` raised by a built-in) is not an `instanceof` the context's own
-  class. Test by shape, or list the spec in `PROCESS_PER_FILE` in the config
-  with the reason; those specs keep a process each (the `process` project).
+- An object the runtime itself made (a `Buffer` off a socket, a `URL`, a
+  `DOMException` raised by a built-in) is not an `instanceof` the file's own
+  class. Test by shape (`isAbort` in `upload-tracked-file.ts`).
 - `process.env` is shared by every spec a worker runs.
-  `config/vitest/polyfills.ts` puts it back to the worker's starting
+  `config/test-runner/polyfills.ts` puts it back to the worker's starting
   environment before each spec file, so a spec may set a variable without
   restoring it. Anything else a spec changes on `process` (`chdir`, a listener)
   it must undo itself.
-- A worker's heap grows with every context; `vmMemoryLimit` replaces a worker
-  past 1.2 GB. Without it the first full run lost eleven workers to the heap
-  limit.
+- A worker's memory grows with every file it runs, and Bun has no setting that
+  replaces a worker past a limit (Vitest's `vmMemoryLimit`). The whole suite on
+  three workers lost four of them to a 15 GB machine's memory (2026-11-26); a
+  shard of ~310 files peaks at about 5 GB on three. So `bun run test` runs the
+  eight shards one after another, each on every core, and a run of the whole
+  suite in one `bun test --parallel` is not one to make.
+
+`bun test` runs on a pinned canary (`test:specs` in `package.json`) until a
+release carries the test environment and the `vi` API the specs use;
+`tests/test_bun_version_pin.py` fails once the toolchain pin passes it. The
+rule specs in `eslint-rules/` run on `node --test` (`bun run test:rules`),
+because oxlint's `RuleTester` refuses Bun.
 
 **`next build` does not typecheck the specs; `task workspace:types` does.** The build
 reads `apps/workspace/tsconfig.build.json` (`typescript.tsconfigPath` in
@@ -232,7 +238,7 @@ The mechanics behind those tasks, each a reason a flag is there:
 - **The packages run with `--dist loadfile`**, so a file's Qdrant collections and module fixtures stay on one worker. The database suites run serially: every test drops and recreates the same tables in one scratch database.
 - **Coverage instrumentation** costs the core suite 30 s (168 s against 138 s, 2026-11-10) for a 65 % gate it clears at 93 %, so the fast paths leave it off.
 - **`be:test:harness`** runs on workers: 16 s serial against 9 s on four (2026-11-10).
-- **The UI shards** each write a blob report to an explicit `--outputFile` named for the shard (`.vitest-reports/blob-1-8.json` for the first of eight), so the shards of one local run sit side by side in one directory, where a fixed name would overwrite the rest. The default reporter and, on Actions, the `github-actions` reporter are named beside it, because Vitest adds the latter only when no reporter is named. CI runs each shard with `COVERAGE=false` and uploads and merges nothing, since nothing gates on UI coverage. Locally, coverage is collected per shard (a shard loads only its slice of the app) and `workspace:test:merge` stitches the blobs together with `--merge-reports=.vitest-reports`.
+- **The UI shards** split by `tests/test-timings.json` (`bun test --timings`). Spec files missing from it pile onto one shard (785 of 2,490 in the first of eight with a quarter missing, 2026-11-26): re-record with `task workspace:test:durations`. Nothing gates on UI coverage, so CI collects none; `task workspace:test:coverage` writes text and lcov locally.
 - **`ifc-spatial-py` runs with `--dist loadfile`** too: its modules build their IFC models in module-scoped fixtures.
 
 What decides which jobs run (a pull request against its base, a push against the

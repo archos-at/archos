@@ -18,7 +18,6 @@ import {
 } from './query.fixtures'
 import { buildSearchKeys } from './rule-inputs'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/context/service', async () => {
   const { settledContext } = await import('./rule-basis.fixtures')
   return { contextForPage: vi.fn(async () => settledContext()) }

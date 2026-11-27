@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/jobs/run-context', async (original) => ({
   ...(await original<typeof import('@/lib/jobs/run-context')>()),
   resolveRunContext: vi.fn(),

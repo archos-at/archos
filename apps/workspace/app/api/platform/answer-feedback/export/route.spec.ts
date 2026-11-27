@@ -10,7 +10,6 @@ import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 const isOwner = { value: false }
 const locale = { value: 'de' as 'de' | 'en' }
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({

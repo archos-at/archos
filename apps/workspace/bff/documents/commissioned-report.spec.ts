@@ -12,7 +12,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./research-report', () => ({
   findFiledResearchReport: vi.fn(),
   findReportFilingRefusal: vi.fn(),

@@ -47,7 +47,6 @@ const {
 }))
 
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/s3', () => ({
   s3Client: { send: s3Send },
   bucketAdminS3Client: {},

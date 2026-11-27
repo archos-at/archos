@@ -114,7 +114,7 @@ if (spec) {
   const own = asInput(spec)
   afterAll(() => {
     const reads = [...state.reads].filter(
-      (read) => read !== own && !read.startsWith('config/vitest/') && !/(^|\/)__snapshots__(\/|$)/.test(read),
+      (read) => read !== own && !read.startsWith('config/test-runner/') && !/(^|\/)__snapshots__(\/|$)/.test(read),
     )
     if (process.env.DISK_INPUTS === 'record') {
       const out = path.join(UI_ROOT, '.disk-inputs')
@@ -125,7 +125,7 @@ if (spec) {
     if (!declared) return
     if (SPAWNS.test(source)) {
       throw new Error(
-        `${own} starts a process, whose reads config/vitest/disk-inputs.ts cannot see, so it cannot ` +
+        `${own} starts a process, whose reads config/test-runner/disk-inputs.ts cannot see, so it cannot ` +
           `declare @disk-inputs: delete the line, and it runs on every selection`,
       )
     }
@@ -134,7 +134,7 @@ if (spec) {
     if (missing.length) {
       throw new Error(
         `${own} read ${missing.length} path(s) its @disk-inputs line does not declare, so a pull request ` +
-          `changing them would not run it (config/vitest/disk-inputs.ts):\n  ${missing.join('\n  ')}`,
+          `changing them would not run it (config/test-runner/disk-inputs.ts):\n  ${missing.join('\n  ')}`,
       )
     }
   })

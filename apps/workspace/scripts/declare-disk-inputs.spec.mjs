@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { globMatcher, uncovered } from '../config/vitest/disk-inputs'
+import { globMatcher, uncovered } from '../config/test-runner/disk-inputs'
 import { globsFor, withDeclaration } from './declare-disk-inputs.mjs'
 
 describe('declare-disk-inputs', () => {

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const deps = vi.hoisted(() => ({ upsert: vi.fn(), traceId: vi.fn(), config: vi.fn() }))
 vi.mock('./feedback-score', () => ({ upsertScore: deps.upsert }))

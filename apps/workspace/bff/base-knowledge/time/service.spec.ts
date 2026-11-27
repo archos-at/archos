@@ -8,7 +8,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({ readWorkInTime: vi.fn(), readTerritoryChain: vi.fn(), readTerritoryZones: vi.fn() }))
 vi.mock('../store/rulesets', () => ({ readRulesetsInForce: vi.fn() }))
 vi.mock('@/lib/project-profile/profile-service', () => ({ getProjectProfile: vi.fn() }))

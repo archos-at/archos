@@ -10,7 +10,6 @@ vi.mock('@/lib/authz/feature-flags', async (original) => ({
   ...(await original<typeof import('@/lib/authz/feature-flags')>()),
   isFeatureEnabled: featureHeld,
 }))
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
 vi.mock('@/lib/sharing/directory', () => ({

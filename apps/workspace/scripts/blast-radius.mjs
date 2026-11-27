@@ -52,7 +52,7 @@ function specFiles() {
 }
 
 /** esbuild's view of the import graph: each input with the inputs it imports. */
-async function importGraph(entryPoints) {
+export async function importGraph(entryPoints) {
   const result = await build({
     absWorkingDir: UI,
     entryPoints,

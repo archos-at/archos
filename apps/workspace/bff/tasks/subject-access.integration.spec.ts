@@ -35,7 +35,6 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { FolderClearance } from '@/lib/authz/folder-access'
 import { NO_RATINGS_FILTERS, type FeedbackQuery } from '@/lib/feedback/filters'
 
-vi.mock('server-only', () => ({}))
 
 const STAMP = Date.now()
 const ORG = `org_subj_${STAMP}`

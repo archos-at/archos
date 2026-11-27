@@ -50,11 +50,11 @@ tasks:
     cmds:
       - bun run test
 
-  workspace:test:ci:
-    desc: UI tests with the json and json-summary coverage reporters
+  workspace:test:coverage:
+    desc: UI tests with line coverage (text and lcov, under apps/workspace/coverage)
     dir: '{{.UI}}'
     cmds:
-      - bun run test:ci -- --coverage.reporter=json-summary --coverage.reporter=json
+      - bun run test:coverage
 
   db:test:rls:
     desc: >-
@@ -81,34 +81,45 @@ tasks:
       - bash scripts/rls-test-db.sh --only bff/site-resolution/register-spike.integration.spec.ts
 
   workspace:test:shard:
-    desc: 'One shard of the UI suite, as a blob report (CI: SHARD=1/8 task workspace:test:shard)'
+    desc: 'One shard of the UI suite, split by recorded time (CI: SHARD=1/8 task workspace:test:shard)'
     dir: '{{.UI}}'
+    requires:
+      vars: [SHARD]
+    vars:
+      WORKERS:
+        sh: echo "${PYTEST_XDIST_AUTO_NUM_WORKERS:-$(nproc)}"
     cmds:
-      - bun run test:shard -- --shard={{.SHARD}} --reporter=default{{if .GITHUB_ACTIONS}} --reporter=github-actions{{end}} --outputFile=.vitest-reports/blob-{{.SHARD | replace "/" "-"}}.json{{if eq .COVERAGE "false"}} --coverage.enabled=false{{end}}
+      - bun run test:specs --parallel={{.WORKERS}} --shard={{.SHARD}} --timings=tests/test-timings.json
+      - cmd: bun run test:rules
+        if: '[ "{{index (splitList "/" .SHARD) 0}}" = 1 ]'
 
   workspace:test:durations:
-    desc: Re-record the per-file times the UI shards split by (tests/vitest-durations.json)
+    desc: Re-record the per-file times the UI shards split by (tests/test-timings.json)
     dir: '{{.UI}}'
     cmds:
-      - TZ=UTC bunx vitest run --reporter=json --outputFile=.vitest-reports/durations.json
-      - node scripts/record-vitest-durations.mjs .vitest-reports/durations.json
+      - rm -rf .timings && mkdir .timings
+      - for: ['1', '2', '3', '4', '5', '6', '7', '8']
+        cmd: >-
+          echo '{"version":1,"files":{}}' > .timings/{{.ITEM}}.json &&
+          bun run test:specs --parallel --shard={{.ITEM}}/8
+          --timings=.timings/{{.ITEM}}.json --timings=tests/test-timings.json --update-timings
+      - node scripts/merge-test-timings.mjs .timings tests/test-timings.json
+      - rm -rf .timings
 
   workspace:test:related:
     desc: 'One shard of the UI specs that reach the given files (CI on a pull request: SHARD=1/8 FILES="...")'
     dir: '{{.UI}}'
     requires:
       vars: [SHARD, FILES]
+    vars:
+      WORKERS:
+        sh: echo "${PYTEST_XDIST_AUTO_NUM_WORKERS:-$(nproc)}"
     cmds:
-      - TZ=UTC bunx vitest related --run {{range splitList " " .FILES}}{{shellQuote .}} {{end}}--shard={{.SHARD}} --passWithNoTests --reporter=default{{if .GITHUB_ACTIONS}} --reporter=github-actions{{end}}
-
-  workspace:test:merge:
-    desc: Merge the local shards' blob reports into one result and one coverage report
-    dir: '{{.UI}}'
-    cmds:
-      - >-
-        bun run test:merge --
-        --coverage.reporter=json-summary --coverage.reporter=json
-        --coverage.reporter=text-summary
+      - |
+        specs=$(node scripts/related-specs.mjs {{range splitList " " .FILES}}{{shellQuote .}} {{end}})
+        [ -z "$specs" ] || bun run test:specs --parallel={{.WORKERS}} --shard={{.SHARD}} --timings=tests/test-timings.json $(printf './%s ' $specs)
+      - cmd: bun run test:rules
+        if: '[ "{{index (splitList "/" .SHARD) 0}}" = 1 ] && printf "%s\n" {{range splitList " " .FILES}}{{shellQuote .}} {{end}} | grep -q "^eslint-rules/"'
 
   workspace:build:
     desc: Production build of the UI

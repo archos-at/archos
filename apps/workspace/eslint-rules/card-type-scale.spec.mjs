@@ -5,8 +5,9 @@
  * flag `text-muted-foreground` and the next author disables the rule.
  */
 
-import { RuleTester } from 'oxlint/plugins-dev'
-import { describe, expect, it } from 'vitest'
+import { RuleTester } from './rule-tester.mjs'
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
 import rule from './card-type-scale.mjs'
 
 const ruleTester = new RuleTester({
@@ -63,7 +64,7 @@ describe('grid/card-type-scale', () => {
       visitor.Literal({ type: 'Literal', value })
     }
 
-    expect(collected.map((d) => d.step)).toEqual([
+    assert.deepEqual(collected.map((d) => d.step), [
       'card-body (16px) — or `card-title` for the title, `card-figure-16` for a figure in a list',
       'card-body (16px) — or `card-title` for the title, `card-figure-16` for a figure in a list',
       'card-figure-24 (24px)',

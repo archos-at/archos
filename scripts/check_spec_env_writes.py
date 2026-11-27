@@ -33,7 +33,7 @@ def check(root: Path) -> list[str]:
             problems.append(
                 f"{path}:{','.join(map(str, lines))}: writes process.env directly, which leaks into every later "
                 "spec file of the worker. Use vi.stubEnv(name, value), or vi.stubEnv(name, undefined) to unset; "
-                "vi.unstubAllEnvs() in the vitest setup restores it after each file."
+                "vi.unstubAllEnvs() in config/test-runner/setup.ts restores it after each file."
             )
     return problems
 

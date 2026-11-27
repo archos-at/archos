@@ -57,7 +57,14 @@ def fixture_steps() -> list[Step]:
     update = {"UPDATE_FIXTURES": "1", "TZ": "UTC"}
     steps = []
     if specs:
-        steps.append(Step(f"{len(specs)} UI specs", ["bunx", "vitest", "run", *specs], cwd=WORKSPACE, env=update))
+        steps.append(
+            Step(
+                f"{len(specs)} UI specs",
+                ["bun", "run", "test:specs", *(f"./{spec}" for spec in specs)],
+                cwd=WORKSPACE,
+                env=update,
+            )
+        )
     if tests:
         argv = [PYTHON, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests]
         steps.append(Step(f"{len(tests)} Python tests", argv, env=update))

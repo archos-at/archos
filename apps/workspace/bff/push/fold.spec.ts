@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/inbox/repository', () => ({ listTouchedOfType: vi.fn() }))
 
 import { burstOf, FOLD_MAX_ROWS } from './fold'

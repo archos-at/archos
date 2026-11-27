@@ -5,7 +5,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 
-vi.mock('server-only', () => ({}))
 
 const GATE = vi.hoisted(() => ({ asked: [] as string[], handlerReached: [] as string[] }))
 

@@ -118,7 +118,7 @@ const recorded = (name: string): RecordedRequest => {
 async function captured(response: Response): Promise<RecordedResponse> {
   return {
     status: response.status,
-    contentType: response.headers.get('content-type') ?? '',
+    contentType: (response.headers.get('content-type') ?? '').split(';')[0]!,
     body: await response.text(),
   }
 }

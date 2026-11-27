@@ -24,7 +24,6 @@ import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { approvedRequest } from './testing/lifecycle'
 
-vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 

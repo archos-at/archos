@@ -12,7 +12,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./folder-bin', () => ({
   moveFolderToBin: vi.fn(async () => ({
     documentsBinned: 2,

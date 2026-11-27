@@ -10,7 +10,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./read-client', async (importOriginal) => ({ ...(await importOriginal<typeof import('./read-client')>()), readMail: vi.fn() }))
 vi.mock('./staging', () => ({ putStagedObject: vi.fn(async () => undefined), stagedObjectUrlForBackend: vi.fn(async () => 'http://store.test/raw') }))
 vi.mock('./sweep-repository', () => ({ recordReread: vi.fn(async () => true) }))

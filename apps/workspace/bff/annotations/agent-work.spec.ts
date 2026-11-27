@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/realtime/document-channel', () => ({ publishToDocumentRoom: vi.fn(async () => true) }))
 vi.mock('./wake-repository', () => ({ listLatestWakes: vi.fn(async () => []) }))
 

@@ -3,7 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/audit/service', () => ({
   auditLogsEnabled: vi.fn(() => true),
   recordAuditEventOrThrow: vi.fn().mockResolvedValue(undefined),

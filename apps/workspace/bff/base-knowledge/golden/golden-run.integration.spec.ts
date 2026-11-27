@@ -37,7 +37,6 @@ const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_golden_${Date.now()
 const askSwitch = vi.hoisted(() => ({ on: true }))
 const asks = vi.hoisted(() => ({ byId: new Map<string, Record<string, unknown>>(), refuse: null as string | null }))
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()), isAgentAskEnabled: () => askSwitch.on }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: async () => undefined }))

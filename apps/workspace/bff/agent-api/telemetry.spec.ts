@@ -1,6 +1,5 @@
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import type { AgentPrincipal } from './principal'
 import { sessionSourceOf } from './telemetry'

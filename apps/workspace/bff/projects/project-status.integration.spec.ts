@@ -22,7 +22,6 @@ import { PROJECT_CLOSED_SQLSTATE } from './project-status'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 import { PROJECT_PERMISSION_SPECS } from '@/lib/authz/catalog'
 
-vi.mock('server-only', () => ({}))
 
 const ROLES: Record<string, string[]> = {
   user_member: ['member'],

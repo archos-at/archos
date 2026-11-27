@@ -4,7 +4,6 @@
 import { generateVAPIDKeys } from 'web-push'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { webPushConfig, webPushConfigProblem } from './config'
 

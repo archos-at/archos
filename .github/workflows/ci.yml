@@ -561,7 +561,7 @@ jobs:
       - run: task workspace:install
       - name: All specs, shard ${{ matrix.shard }}/8
         if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
-        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
+        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8
       - name: The specs this change reaches, shard ${{ matrix.shard }}/8
         if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
         env:
@@ -823,7 +823,7 @@ jobs:
           for spec in bff/*/orchestrator.integration.spec.ts; do
             area="${spec#bff/}"; area="${area%%/*}"
             bash ../../scripts/rls-test-db.sh --only "$spec" \
-              --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/hatchet-bff-$area.xml"
+              --reporter=junit --reporter-outfile="$RUNNER_TEMP/hatchet-bff-$area.xml"
           done
       - name: Every suite ran, none skipped
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}

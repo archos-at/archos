@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getEffectiveModelOverrides } from './service'
 
-vi.mock('server-only', () => ({}))
 
 const getPlatformModelDefaults = vi.fn()
 vi.mock('./platform-defaults', () => ({

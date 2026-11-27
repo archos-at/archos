@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/base-knowledge/text-guard', () => ({ heldAmong: vi.fn() }))
 vi.mock('./facets-repository', () => ({ upsertSearchFacets: vi.fn(async (_org: string, rows: readonly unknown[]) => rows.length) }))
 

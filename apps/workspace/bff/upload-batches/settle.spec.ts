@@ -1,7 +1,6 @@
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 vi.mock('./repository', () => ({
   batchIdsOfDocuments: vi.fn(),
   completeSettledBatches: vi.fn(),

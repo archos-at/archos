@@ -38,7 +38,6 @@ import { createHash } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 const store = vi.hoisted(() => ({
   objects: new Map<string, Uint8Array>(),

@@ -1,9 +1,8 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('server-only', () => ({}))
 
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
 import type { InboxItemView } from '@/lib/inbox/types'

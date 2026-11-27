@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { ApiError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 
-vi.mock('server-only', () => ({}))
 
 const PDF_SHA = 'a'.repeat(64)
 const TEXT = 'Guideline RL 1 Mechanical resistance and stability, edition April 2019 issued by the institute'

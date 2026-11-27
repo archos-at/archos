@@ -9,7 +9,7 @@
  * engine that runs the rule in `bun run lint`, oxlint.
  */
 
-import { RuleTester } from 'oxlint/plugins-dev'
+import { RuleTester } from './rule-tester.mjs'
 import rule from './require-tenant-scope.mjs'
 
 const ruleTester = new RuleTester({

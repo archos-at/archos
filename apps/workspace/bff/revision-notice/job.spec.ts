@@ -6,7 +6,6 @@ import { NotFoundError, UnprocessableError, UpstreamError } from '@/lib/api/erro
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/annotations/agent', () => ({ runAgentAnnotationRequest: vi.fn() }))
 vi.mock('@/lib/annotations/document-thread', () => ({ ensureDocumentThread: vi.fn() }))
