@@ -55,6 +55,10 @@ def _suggestion_names(wanted: str, documents: list[Any], *, limit: int = _MAX_DI
 
 
 def _unknown_document_message(document: str, known: int, suggestions: Sequence[str] | None = None) -> str:
+    from knowledge_layer.document_address import document_id_named
+
+    if document_id := document_id_named(document):
+        return _unknown_document_id_message(document_id)
     names = [name for name in (suggestions or []) if str(name).strip()]
     shown = names[:_MAX_DID_YOU_MEAN]
     remaining = len(names) - len(shown)
@@ -84,6 +88,14 @@ def _unknown_document_message(document: str, known: int, suggestions: Sequence[s
     if remaining > 0:
         message += f"\n(+{remaining} more candidate(s) not shown — refine the name to narrow it down.)"
     return message
+
+
+def _unknown_document_id_message(document_id: str) -> str:
+    return (
+        f"No document readable this turn has the Document-ID {document_id!r}: it may be in the bin, deleted, "
+        "unreadable or outside this turn's scope. Do not cite it, and do not look for it by name. "
+        + _NOT_READABLE_IS_NOT_ABSENT
+    )
 
 
 def _no_passage_message(

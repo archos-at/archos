@@ -127,3 +127,24 @@ class TestReadingOneOfTwoDocumentsOfOneName:
         text = await _read(document=PLAN, page=1)
 
         assert "Inhalt von A" in text
+
+
+BINNED_ID = "0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11"
+
+
+class TestADocumentIdThatReadsNothing:
+    @pytest.mark.parametrize("document", [BINNED_ID, f"doc:id:{BINNED_ID}", BINNED_ID.upper(), f"DOC:ID: {BINNED_ID}"])
+    async def test_it_says_no_readable_document_has_that_id_and_never_calls_it_a_name(self, two_plans, document):
+        for outline in (True, False):
+            text = await _read(document=document) if outline else await _read(document=document, page=1)
+
+            assert text.startswith("No document readable this turn has the Document-ID")
+            assert "in the bin" in text
+            assert "is named" not in text
+            assert "document(s) are readable" not in text
+            assert "Plan.md" not in text
+
+    async def test_a_name_shaped_like_nothing_but_an_id_still_reads_as_a_missing_name(self, two_plans):
+        text = await _read(document="doc-c", page=1)
+
+        assert "No document in scope is named 'doc-c'" in text

@@ -268,6 +268,19 @@ class TestAskingForTheName:
         line = _numbered(render_revisions(rows, "Statik.pdf"))[0]
         assert "previous upload (same file name): Lift neu" in line
 
+    def test_a_file_replaced_in_place_reads_as_one_file_with_an_earlier_upload(self):
+        rows = file_rows([_doc("Statik.pdf", change_summary="- Lift neu", change_basis="Statik.pdf")])
+
+        text = render_revisions(rows, "Statik.pdf")
+
+        assert "only this one Fassung" not in text
+        assert text.splitlines()[0].endswith(
+            ": one file, uploaded again under the same name; the row is its current Fassung, the earlier upload is "
+            "not listed."
+        )
+        assert "compares it with its previous upload under the same name" in text
+        assert _names(text) == ["Statik.pdf"]
+
 
 class TestOnlyWhatTheTurnMayList:
     def _rows(self):

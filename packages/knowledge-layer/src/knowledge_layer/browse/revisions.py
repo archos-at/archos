@@ -245,15 +245,26 @@ def render_revisions(
     where = " and ".join(dict.fromkeys(_SHELF_LABELS.get(row.shelf or "", row.shelf or "") for row in members))
     basis = "by Plankopf" if _by_title_block(members) else "by file name"
     asked = wanted.strip()
-    lines = [
-        f'Fassungen of "{asked}" on {where}: {len(members)} files, newest first.'
-        if len(members) > 1
-        else f'"{asked}" on {where}: only this one Fassung.'
-    ]
+    replaced_in_place = len(members) == 1 and _compared_with_own_upload(members[0])
+    if len(members) > 1:
+        lines = [f'Fassungen of "{asked}" on {where}: {len(members)} files, newest first.']
+    elif replaced_in_place:
+        lines = [
+            f'"{asked}" on {where}: one file, uploaded again under the same name; the row is its current Fassung, '
+            "the earlier upload is not listed."
+        ]
+    else:
+        lines = [f'"{asked}" on {where}: only this one Fassung.']
     for number, row in enumerate(members[:MAX_CHAIN_LINES], start=1):
         lines.append(_chain_line(number, row, current=number == 1, mark=confirmed.get(row.key), basis=basis))
     if len(members) > MAX_CHAIN_LINES:
         lines.append(f"… and {len(members) - MAX_CHAIN_LINES} more, older Fassungen.")
+    if replaced_in_place:
+        lines.append(
+            "No other file name on this shelf belongs to it by name (Index, date), and no person has confirmed a "
+            "replacement. Its change note compares it with its previous upload under the same name."
+        )
+        return "\n".join(lines)
     if len(members) == 1:
         lines.append(
             "No other file name on this shelf belongs to it by name (Index, date), and no person has confirmed a "
