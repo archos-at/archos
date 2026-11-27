@@ -1308,6 +1308,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A chat keeps the laws ARCHOS looked up in it after the weekly cleanup, so it can still quote and reopen them later in that chat. Leftovers of a deleted chat or a removed attachment are still cleaned up.",
+            "de": "Ein Chat behält die Gesetze, die ARCHOS darin nachgeschlagen hat, auch nach der wöchentlichen Bereinigung, sodass ARCHOS sie in diesem Chat weiterhin zitieren und erneut öffnen kann. Überreste eines gelöschten Chats oder eines entfernten Anhangs werden weiterhin bereinigt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "A table in an answer keeps its columns while its rows arrive, so the rows you are reading no longer jump as later ones come in.",

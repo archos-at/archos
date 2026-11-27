@@ -132,6 +132,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat keeps the laws ARCHOS looked up in it after the weekly cleanup, so it can still quote and reopen them later in that chat. Leftovers of a deleted chat or a removed attachment are still cleaned up.",
+    "de": "Ein Chat behält die Gesetze, die ARCHOS darin nachgeschlagen hat, auch nach der wöchentlichen Bereinigung, sodass ARCHOS sie in diesem Chat weiterhin zitieren und erneut öffnen kann. Überreste eines gelöschten Chats oder eines entfernten Anhangs werden weiterhin bereinigt."
+  },
+  {
     "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
     "de": "Ein Chat berücksichtigt jetzt nur noch das Projekt, dem er zugeordnet ist. Ein Chat ohne Projekt durchsucht ein geöffnetes Projekt nicht mehr, wenn Sie ihn dort fortsetzen."
   },
