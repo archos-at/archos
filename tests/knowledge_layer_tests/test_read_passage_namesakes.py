@@ -129,6 +129,43 @@ class TestReadingOneOfTwoDocumentsOfOneName:
         assert "Inhalt von A" in text
 
 
+class TestGuessingADocumentWhoseNamesakeElsewhereIsLive:
+    async def test_a_binned_document_in_a_subfolder_is_guessed_as_the_live_one_by_its_folder(self, two_plans):
+        two_plans[:] = [_document("doc-a", "A")]
+
+        text = await _read(document="A/Sub/Plan.md", page=1)
+
+        assert "No document in scope is named 'A/Sub/Plan.md'" in text
+        assert "- A/Plan.md" in text
+        assert "- Plan.md" not in text
+
+    async def test_a_misspelt_name_guesses_a_document_in_a_folder_by_its_folder(self, two_plans):
+        two_plans[:] = [_document("doc-a", "A")]
+
+        text = await _read(document="Plann.md", page=1)
+
+        assert "- A/Plan.md" in text
+        assert "- Plan.md" not in text
+
+    async def test_a_folder_path_to_a_document_at_the_top_level_guesses_it_with_a_leading_slash(self, two_plans):
+        two_plans[:] = [_document("doc-root", "")]
+
+        text = await _read(document="A/Sub/Plan.md", page=1)
+
+        assert "- /Plan.md" in text
+        assert "- Plan.md" not in text
+
+    async def test_every_guess_reads_the_document_it_names(self, two_plans):
+        two_plans[:] = [_document("doc-a", "A"), _document("doc-b", "B")]
+
+        text = await _read(document="A/Sub/Plan.md", page=1)
+        guesses = [line[2:] for line in text.split("Did you mean", 1)[1].splitlines() if line.startswith("- ")]
+
+        assert guesses
+        for guess, content in zip(guesses, ["Inhalt von A", "Inhalt von B"], strict=True):
+            assert content in await _read(document=guess, page=1)
+
+
 BINNED_ID = "0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11"
 
 

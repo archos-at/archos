@@ -116,3 +116,23 @@ def test_a_folder_that_holds_neither_namesake_is_said_so():
 
     assert text.startswith('No file in folder "Bestand" is named or contains "Plan.pdf"')
     assert "Einreichung/Plan.pdf (Document-ID: doc-eg)" in text
+
+
+def test_a_folder_that_holds_both_namesakes_through_a_subfolder_says_how_to_tell_them_apart():
+    rows = file_rows([_doc(PLAN, "doc-a", "A"), _doc(PLAN, "doc-sub", "A/Sub")])
+
+    text = render_revisions(rows, PLAN, folder="A")
+
+    assert "matches 2 different documents" in text
+    assert "A/Plan.pdf (Document-ID: doc-a)" in text
+    assert "A/Sub/Plan.pdf (Document-ID: doc-sub)" in text
+    assert '`folder="A"` includes its subfolders' in text
+
+
+def test_the_listed_form_of_a_namesake_in_a_subfolder_reaches_it():
+    rows = file_rows([_doc(PLAN, "doc-a", "A"), _doc(PLAN, "doc-sub", "A/Sub")])
+
+    text = render_revisions(rows, "A/Sub/Plan.pdf", folder="A")
+
+    assert "only this one Fassung" in text
+    assert "matches" not in text

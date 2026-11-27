@@ -224,8 +224,9 @@ def _resolve_chain(
         rest = len(matches) - len(names)
         return [], (
             f'"{wanted.strip()}" matches {len(chains)} different documents: {"; ".join(names)}'
-            f"{f' and {rest} more' if rest > 0 else ''}. Call `list_files(revisions_of=…)` with one of them as "
-            "written here."
+            f"{f' and {rest} more' if rest > 0 else ''}. "
+            + (f'`folder="{folder}"` includes its subfolders, so it cannot tell these apart. ' if folder else "")
+            + "Call `list_files(revisions_of=…)` with one of them as written here."
         )
     return _chain_order(_with_supersedes(next(iter(chains.values())))), ""
 
