@@ -29,29 +29,39 @@ def _suggestion_names(wanted: str, documents: list[Any], *, limit: int = _MAX_DI
     folded = (wanted or "").strip().casefold()
     if not folded:
         return []
+    with_folder = "/" in folded
     scored: list[tuple[float, str, Any]] = []
     for document in documents or ():
+        folder = _folder_of(document)
         best_name = ""
         best_ratio = 0.0
         for name in _document_names(document):
             candidate = name.strip()
             if not candidate:
                 continue
-            ratio = difflib.SequenceMatcher(None, folded, candidate.casefold()).ratio()
+            spellings = [candidate, citation_form(folder, candidate)] if with_folder else [candidate]
+            ratio = max(difflib.SequenceMatcher(None, folded, spelled.casefold()).ratio() for spelled in spellings)
             if ratio > best_ratio:
                 best_name, best_ratio = candidate, ratio
         if best_name and best_ratio >= _DID_YOU_MEAN_CUTOFF:
             scored.append((best_ratio, best_name, document))
     shared = Counter(name.casefold() for _ratio, name, _document in scored)
     named = [
-        (
-            ratio,
-            citation_form(getattr(document, "folder_path", None), name) if shared[name.casefold()] > 1 else name,
-        )
-        for ratio, name, document in scored
+        (ratio, _guess(document, name, with_folder or shared[name.casefold()] > 1)) for ratio, name, document in scored
     ]
     named.sort(key=lambda item: (-item[0], item[1]))
     return list(dict.fromkeys(name for _ratio, name in named))[:limit]
+
+
+def _folder_of(document: Any) -> str:
+    return str(getattr(document, "folder_path", None) or "").strip().strip("/")
+
+
+def _guess(document: Any, name: str, in_citation_form: bool) -> str:
+    from knowledge_layer.document_address import citation_form
+
+    folder = _folder_of(document)
+    return citation_form(folder, name) if folder or in_citation_form else name
 
 
 def _unknown_document_message(document: str, known: int, suggestions: Sequence[str] | None = None) -> str:
