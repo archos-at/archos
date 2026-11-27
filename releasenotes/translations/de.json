@@ -932,6 +932,10 @@
     "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
   },
   {
+    "en": "A rename onto a name its folder already holds now says to choose another name, with a suggestion, instead of offering choices a rename does not have.",
+    "de": "Beim Umbenennen in einen Namen, der im Ordner bereits vergeben ist, werden Sie jetzt mit einem Vorschlag aufgefordert, einen anderen Namen zu wählen, statt Auswahlmöglichkeiten anzubieten, die beim Umbenennen nicht verfügbar sind."
+  },
+  {
     "en": "A reply that arrived before its first e-mail was filed is now offered the E-Mail-Verlauf that e-mail started, and is appended if you follow it.",
     "de": "Eine Antwort, die eingegangen ist, bevor ihre ursprüngliche E-Mail abgelegt wurde, wird nun im E-Mail-Verlauf angezeigt, den diese E-Mail begonnen hat, und dort angehängt, wenn Sie dem Verlauf folgen."
   },
@@ -5972,6 +5976,10 @@
     "de": "Wenn sich die Bildschirmtastatur öffnet, macht die App jetzt Platz für sie, statt das Eingabefeld zu verdecken – so sehen Sie, was Sie eingeben."
   },
   {
+    "en": "When two documents in different folders share a name, {productName} now reads, searches and lists each one on its own: it opens the one you mean by its folder, asks which one when only the name is given, and counts search matches per document instead of adding them up under one name.",
+    "de": "Wenn zwei Dokumente in unterschiedlichen Ordnern denselben Namen haben, liest, durchsucht und listet {productName} sie jetzt separat: Es öffnet das Dokument, das Sie anhand des Ordners meinen, fragt nach, welches Sie meinen, wenn Sie nur den Namen angeben, und zählt Suchtreffer pro Dokument, statt sie unter einem Namen zusammenzufassen."
+  },
+  {
     "en": "When two people open a draft of the same document at once, exactly one draft is created and the second person is told it already exists.",
     "de": "Öffnen zwei Personen gleichzeitig einen Entwurf desselben Dokuments, entsteht genau ein Entwurf, und die zweite Person erfährt, dass er bereits existiert."
   },
@@ -6490,6 +6498,10 @@
   {
     "en": "„Ansehen“ on the line saying that documents could not be read seemed to do nothing once their list was open; the line now steps aside while that list is shown and returns when you go back to the folder.",
     "de": "„Ansehen“ in der Zeile mit dem Hinweis, dass Dokumente nicht gelesen werden konnten, schien nichts zu bewirken, sobald deren Liste geöffnet war; jetzt wird die Zeile ausgeblendet, solange die Liste angezeigt wird, und erscheint wieder, wenn Sie zum Ordner zurückkehren."
+  },
+  {
+    "en": "„Beide behalten“ for „Plan 2.pdf“ now suggests „Plan 3.pdf“ instead of „Plan 2 2.pdf“.",
+    "de": "„Beide behalten“ schlägt für „Plan 2.pdf“ jetzt „Plan 3.pdf“ statt „Plan 2 2.pdf“ vor."
   },
   {
     "en": "„Erstelle ein Dokument über …“ now starts a deep research whose finished report is filed in the project under Berichte. If you only want a thorough answer, you still get it in the chat.",

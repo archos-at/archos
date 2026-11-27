@@ -790,6 +790,30 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "When two documents in different folders share a name, {productName} now reads, searches and lists each one on its own: it opens the one you mean by its folder, asks which one when only the name is given, and counts search matches per document instead of adding them up under one name.",
+            "de": "Wenn zwei Dokumente in unterschiedlichen Ordnern denselben Namen haben, liest, durchsucht und listet {productName} sie jetzt separat: Es öffnet das Dokument, das Sie anhand des Ordners meinen, fragt nach, welches Sie meinen, wenn Sie nur den Namen angeben, und zählt Suchtreffer pro Dokument, statt sie unter einem Namen zusammenzufassen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A rename onto a name its folder already holds now says to choose another name, with a suggestion, instead of offering choices a rename does not have.",
+            "de": "Beim Umbenennen in einen Namen, der im Ordner bereits vergeben ist, werden Sie jetzt mit einem Vorschlag aufgefordert, einen anderen Namen zu wählen, statt Auswahlmöglichkeiten anzubieten, die beim Umbenennen nicht verfügbar sind."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "„Beide behalten“ for „Plan 2.pdf“ now suggests „Plan 3.pdf“ instead of „Plan 2 2.pdf“.",
+            "de": "„Beide behalten“ schlägt für „Plan 2.pdf“ jetzt „Plan 3.pdf“ statt „Plan 2 2.pdf“ vor."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
             "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
           }
