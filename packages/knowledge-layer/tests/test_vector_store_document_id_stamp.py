@@ -151,3 +151,18 @@ def test_each_unmatched_point_is_counted_under_its_scope_and_why(fresh_qdrant_st
         (SCOPE, "no_holder"): 1,
         (erased, "no_documents_in_collection"): 3,
     }
+
+
+def test_the_exact_spelling_is_stamped_though_two_drifted_spellings_point_at_its_document_too(fresh_qdrant_store):
+    write(SCOPE, [record("aktuell", "Plan.pdf")])
+    write(SCOPE, [record("alt", "plan.pdf ")])
+    write(SCOPE, [record("älter", "PLAN.pdf")])
+    collection = fresh_qdrant_store.alias(SCOPE)
+
+    count = stamp_document_ids(
+        fresh_qdrant_store.client, collection, _live({"Plan.pdf": "doc_plan"}), apply=True, page_size=2
+    )
+
+    assert (count.written, count.unmatched, count.unmatched_held) == (1, 2, 0)
+    assert _reasons(count) == {(SCOPE, "id_taken"): 2}
+    assert _keys("Plan.pdf") == [("doc_plan", None)]

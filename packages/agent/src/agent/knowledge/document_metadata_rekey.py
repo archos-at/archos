@@ -201,7 +201,7 @@ def _plan(conn, table: str, live: LiveDocuments) -> _Plan:
         found = matches[filename]
         if found.document_id is None:
             plan.leave("document_id", found.reason)
-        elif found.document_id in held or key_claims[found.document_id] > 1:
+        elif found.document_id in held or (found.by_key and key_claims[found.document_id] > 1):
             plan.leave("document_id", "id_taken")
         else:
             held.add(found.document_id)

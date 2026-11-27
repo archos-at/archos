@@ -155,9 +155,9 @@ async function purgeScopesWithoutDocuments(
   for (const scope of scopes ?? []) {
     if (live.has(scope)) continue
     try {
+      const orphans = await listStoredFiles(scope)
       if ((await liveDocumentsIn(scope)).rows > 0) continue
       result.scopesWithoutDocuments += 1
-      const orphans = await listStoredFiles(scope)
       if (orphans.length === 0) continue
       result.orphansFound += orphans.length
       result.orphansDeleted += await deleteOrphans(scope, orphans)

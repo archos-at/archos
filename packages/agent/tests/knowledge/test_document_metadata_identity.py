@@ -455,6 +455,25 @@ class TestTheRekey:
             " schnitt.pdf": None,
         }
 
+    def test_the_exact_spelling_claims_the_id_though_two_drifted_rows_point_at_it_too(self, store):
+        for name in ("Plan.pdf", "plan.pdf ", "PLAN.pdf"):
+            store.register(COLLECTION, name, f"Plan {name}.")
+        live = _live({COLLECTION: {"Plan.pdf": EG}})
+
+        [count] = [
+            c
+            for c in rekey_document_ids(store, [COLLECTION], live, apply=True)
+            if c.store == "document_metadata.document_id"
+        ]
+
+        assert (count.written, count.unmatched) == (1, 2)
+        assert [(u.scope, u.reason, u.count) for u in count.unmatched_scopes] == [(COLLECTION, "id_taken", 2)]
+        assert {doc.file_name: doc.document_id for doc in store.get_all(COLLECTION)} == {
+            "Plan.pdf": EG,
+            "plan.pdf ": None,
+            "PLAN.pdf": None,
+        }
+
     def test_each_unmatched_row_is_counted_under_its_collection_and_why(self, store):
         erased = "proj_identity_erased"
         for name in ("geloescht.pdf", "Grundriss_EG.pdf", "PLAN.pdf"):

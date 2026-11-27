@@ -502,6 +502,27 @@ describe('reconcileOrphanedVectors: scopes the backend holds but no document row
     expect(deletes()).toEqual([])
   })
 
+  it('spares a scope whose first document row is committed between listing its chunks and the delete', async () => {
+    const upload = { collectionName: 'proj_neu', filename: 'Erstes.pdf', authoredBy: 'user' }
+    let listed = false
+    const from = () =>
+      Object.assign(Promise.resolve([{ collectionName: 'proj_a', filename: 'a.pdf', authoredBy: 'user' }]), {
+        where: (condition: { value: string }) => Promise.resolve(listed && condition.value === 'proj_neu' ? [upload] : []),
+      })
+    vi.mocked(getDb).mockReturnValue(asDb({ select: () => ({ from }) }))
+    backend(['proj_a', 'proj_neu'], { proj_a: [{ file_name: 'a.pdf' }], proj_neu: [{ file_name: 'Erstes.pdf' }] })
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/collections/proj_neu/documents') && init?.method !== 'DELETE') listed = true
+      return answer(url, init)
+    })
+
+    const result = await reconcileOrphanedVectors()
+
+    expect(result.scopesWithoutDocuments).toBe(0)
+    expect(deletes()).toEqual([])
+  })
+
   it('visits no scope when the document catalog reads empty, and records a refused listing without failing the run', async () => {
     stubRows([])
     backend(['proj_a'], { proj_a: [{ file_name: 'a.pdf' }] })
