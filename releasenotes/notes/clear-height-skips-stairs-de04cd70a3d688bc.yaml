@@ -1,0 +1,5 @@
+---
+# area: bim
+fixes:
+  - >
+    The clear height of a room with a stair, a ramp or a railing in it is now measured to the ceiling, and a floor build-up the room starts inside no longer counts as a ceiling. A living room with a stair was reported as 1.53 m high instead of 2.50 m.

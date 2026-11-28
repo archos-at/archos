@@ -205,8 +205,14 @@ casts the same rays. `test/metric.spec.ts` asserts 2.2 m and carries the reason.
 
 Two caveats on the new operator, both stated in its own `caveat`: it samples a
 grid (a narrow downstand between two sample points can be missed — refine
-`samples` for a Nachweis), and it excludes `IfcFurnishingElement` by type,
-because a piano is not a Raumhöhe.
+`samples` for a Nachweis), and it excludes furniture, `IfcStair`,
+`IfcStairFlight`, `IfcRamp`, `IfcRampFlight` and `IfcRailing` by type, with the
+parts aggregated into them (a landing `IfcSlab`, a stringer `IfcMember`), and any
+body the ray starts inside (a floor build-up under the room is underfoot, not
+overhead), because neither a piano nor a spiral stair is a Raumhöhe. The
+underfoot test is `tree.select(origin)`, which needs a closed solid: a build-up
+exported as an ArchiCAD `Brep` shell is not recognised and is still hit at its
+top. Each ray keeps its nearest hit, since `select_ray` promises no order.
 
 ---
 

@@ -7,11 +7,11 @@ import numpy as np
 from shapely.geometry import Point as ShapelyPoint
 
 from ifc_spatial.operators_constants import AZIMUTH_TOLERANCE_DEGREES
+from ifc_spatial.operators_constants import CLEAR_HEIGHT_TRANSPARENT
 from ifc_spatial.operators_constants import COMPASS
 from ifc_spatial.operators_constants import COORDINATE_TOLERANCE
 from ifc_spatial.operators_constants import DIMENSION_TOLERANCE
 from ifc_spatial.operators_constants import FENESTRATION
-from ifc_spatial.operators_constants import FURNISHING
 from ifc_spatial.operators_constants import MIN_INTRUSION
 from ifc_spatial.operators_guards import _geometry_or_answer
 from ifc_spatial.operators_guards import _require
@@ -279,6 +279,12 @@ def distance(model: SpatialModel, a: str, b: str, mode: str = "min") -> Answer[f
     )
 
 
+_SAMPLING_CAVEAT = (
+    "Ein Raster kann eine schmale Unterzugslage zwischen zwei Punkten verfehlen — "
+    "für einen Nachweis das Raster verfeinern."
+)
+
+
 def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) -> Answer[float]:
     method = f"clearHeight({space_global_id}, samples={samples})"
     subject = _require(model, space_global_id, method)
@@ -313,18 +319,12 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             elif space_global_id not in [e.GlobalId for e in tree.select((x, y, floor_z + 0.05))]:
                 continue
             tested += 1
-            for hit in tree.select_ray((x, y, floor_z), (0.0, 0.0, 1.0), length=modelled + 5.0):
-                element = model.file.by_id(hit.instance.id())
-                if element.is_a() in AIR_TYPES or any(element.is_a(name) for name in FURNISHING):
-                    continue
-                if element.GlobalId == space_global_id:
-                    continue
-                run = float(hit.distance) + (floor_z - float(low[2]))
-                if run <= 0.01:
-                    continue
-                shortest = min(shortest, run)
-                hit_by.setdefault(element.GlobalId, run)
-                break
+            nearest = _nearest_clear_height_hit(model, space_global_id, (x, y, floor_z), float(low[2]), modelled + 5.0)
+            if nearest is None:
+                continue
+            run, global_id = nearest
+            shortest = min(shortest, run)
+            hit_by[global_id] = min(hit_by.get(global_id, run), run)
 
     if tested == 0:
         return undecidable(
@@ -352,8 +352,8 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             if lowering
             else "Kein Bauteil ragt in den Raum — lichte Höhe und Raumkörper stimmen überein. "
         )
-        + "Möblierung (IfcFurnishingElement) ist ausgenommen. Ein Raster kann eine schmale Unterzugslage "
-        "zwischen zwei Punkten verfehlen — für einen Nachweis das Raster verfeinern."
+        + "Möblierung, Treppen, Rampen, Geländer und Bodenaufbauten sind ausgenommen. "
+        + _SAMPLING_CAVEAT
     )
 
     return computed(
@@ -364,6 +364,33 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
         method=method,
         caveat=caveat,
     )
+
+
+def _nearest_clear_height_hit(
+    model: SpatialModel, space_global_id: str, origin: tuple[float, float, float], base_z: float, length: float
+) -> tuple[float, str] | None:
+    underfoot = {element.GlobalId for element in model.tree.select(origin)}
+    nearest: tuple[float, str] | None = None
+    for hit in model.tree.select_ray(origin, (0.0, 0.0, 1.0), length=length):
+        element = model.file.by_id(hit.instance.id())
+        if element.is_a() in AIR_TYPES or element.GlobalId in underfoot or _lets_a_clear_height_ray_through(element):
+            continue
+        if element.GlobalId == space_global_id:
+            continue
+        run = float(hit.distance) + (origin[2] - base_z)
+        if run > 0.01 and (nearest is None or run < nearest[0]):
+            nearest = (run, element.GlobalId)
+    return nearest
+
+
+def _lets_a_clear_height_ray_through(element: Any) -> bool:
+    seen: set[int] = set()
+    while element is not None and element.id() not in seen:
+        seen.add(element.id())
+        if any(element.is_a(name) for name in CLEAR_HEIGHT_TRANSPARENT):
+            return True
+        element = next((rel.RelatingObject for rel in getattr(element, "Decomposes", None) or ()), None)
+    return False
 
 
 def _storey_datum_drift(model: SpatialModel) -> float:
